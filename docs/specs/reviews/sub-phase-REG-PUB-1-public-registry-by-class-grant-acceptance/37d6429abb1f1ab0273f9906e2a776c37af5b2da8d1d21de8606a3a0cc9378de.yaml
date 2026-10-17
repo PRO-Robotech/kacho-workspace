@@ -1,0 +1,161 @@
+schema_version: 1
+kind: acceptance_review
+review_type: delta_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-REG-PUB-1-public-registry-by-class-grant-acceptance.md
+  sha256: 37d6429abb1f1ab0273f9906e2a776c37af5b2da8d1d21de8606a3a0cc9378de
+  revision: 7
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка документа намеренно не правлена (change-graph.md §2). Действующий вердикт об этом
+    отпечатке — эта запись вместе с внешним событием, которое публикует курьер. Документ на
+    момент ревью не закоммичен (рабочее дерево ветки 3274-reg-pub-acceptance поверх 9a030d585),
+    поэтому content_commit пуст.
+  base_commit: 9a030d5856f60bbf1961ffd02081328576f08670
+  content_commit: none
+  worktree: kacho-workspace/tmp/3274-reg-pub-acceptance, ветка 3274-reg-pub-acceptance
+  task: https://github.com/PRO-Robotech/kacho/issues/3274
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-REG-PUB-1-public-registry-by-class-grant-acceptance.md
+  lines: 993
+verdict: CHANGES_REQUESTED
+round: 'delta-1 (единственный круг по дельте редакции 7 к одобренной 649e13bc…)'
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-17T20:46:03Z'
+basis:
+  approved_record: docs/specs/reviews/sub-phase-REG-PUB-1-public-registry-by-class-grant-acceptance/649e13bcfe570104b65b897dca81ebe1824e54686eab200f315c783fea82c14a.yaml
+  approved_sha256: 649e13bcfe570104b65b897dca81ebe1824e54686eab200f315c783fea82c14a
+  predicate: 'git show HEAD:<путь> | sha256sum → 649e13bcfe57…; git diff --stat → 126 вставок, 28 удалений'
+  scope_of_review: >-
+    Только дельта ред. 5 → ред. 7 и её следствия вне диффа (ban19-review-subject-only):
+    Р1 п. 1–3, сценарий 13, DoD S1, таблица производителей, перепись, опора; плюс места,
+    которые дельта сделала ложными, не правив их (П0, П2, Р1 «Порядок выкатки», сценарии 01, 03).
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — ВОЗВРАТ. Событие публикует курьер (git-operator) и тем же заходом приводит этот
+    блок к факту. Отказ полномочия не выдаёт и ничего не открывает. Одобрение 649e13bc… остаётся
+    вердиктом о редакции 5 и на редакцию 7 не переносится.
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    note: >-
+      Записи b15e1967….yaml (круг 1), 6c7f6f9a….yaml (круг 2) и 649e13bc….yaml (проверка
+      исполнения) не правлены.
+
+measured_at:
+  kacho: {epic_head: e9ce4ffbdc, trunk: a95248464}
+  kaname: {trunk: 067e4ca3e, branch_874_head: 5f6f29902}
+  pr_879: 'gh pr view 879 -R PRO-Robotech/kaname → state OPEN, baseRefName main, mergeCommit null; репозиторий — только merge commit (allow_squash/rebase false)'
+
+neighbours_fa_b7:
+  - {path: 'kaname docs/engineering/acceptance/anonymous-and-authenticated-are-subject-classes.md @origin/874', sha256: bd6325e384a1e03e2acceee8841ac2ee23b589ad5fbdff6a8df0674e79b67fd6, matches_header: true, record_verdict: APPROVED, event: performed}
+  - {path: 'kaname docs/engineering/acceptance/nested-rule-reaches-descendants-of-a-named-container.md @origin/874', sha256: f12395ae242f85e1120346123286318b3027d87e53f6973f4b8a21ac1bd6d9f6, matches_header: true, record_verdict: APPROVED, event: performed}
+
+confirmed_in_delta:
+  - 'форма роли Р1 п. 1 равна фикстуре @origin/874 (yq .roles[] | select(.id=="registry.public.read")) и схеме манифеста: Rule{module,resources,classes,…,children []ChildRule} (internal/manifest/roles.go:278–301), ChildRule без module и children (rolechildren.go:47–53)'
+  - 'yaml:"children" в internal/manifest: origin/main — rc 1 (нет), origin/874 — roles.go:1'
+  - 'kaname#872 (5b46992db) — предок origin/874: merge-base --is-ancestor rc 0'
+  - 'kaname#874 в proto: новых rpc 0, строк аннотаций прав 0; Rule.children = 7, RuleState.children = 6, children на входе Create/Update отвергается INVALID_ARGUMENT'
+  - 'производитель kaname#874 дописан в строки 01, 10–14, 20–24 таблицы и в счёт «вне kacho — три»'
+  - 'DoD S1, манифест: три предиката исполнены на собранном кандидате — diff пуст, .roles|length → 1, children[0].resources → [repositories], seed равен стволу; контроль: прежняя форма роли → diff rc 1, children → null'
+  - 'DoD S1, пин: R879 из трекера сейчас пуст (PR не влит) — предикат «непусто» красный, как и должно; PIN текущего go.mod b20866a67bb5 — предок 5b46992db: rc 1 (красный), на origin/main: rc 0'
+  - 'make -C gateway permission-catalog-check rest-route-table-check catalog-splice-check на пине 5f6f29902 — rc 0 (осмотрено доменов kaname 1, kacho 7, находок 0)'
+
+seeding:
+  isolation: >-
+    git worktree --detach kacho @e9ce4ffbd в kacho-workspace/tmp/3274-rv7-seed; манифест
+    registry — ствол с resources и ровно ролью registry.public.read из фикстуры @origin/874;
+    Р1 п. 4 (system_class в subjectUsersets); теги 5 профилей под пин. Снят
+    (git worktree remove — rc 0, worktree prune).
+  runs:
+    - given: REG-PUB-1-01 в форме ред. 7, пин kaname@5f6f29902 (v0.4.1-0.20261017200022-5f6f299026b6), тег 874-5f6f2990
+      command: >-
+        GOWORK=off go test ./internal/repohygiene/ -run 'TestModelCanonAgreesWithPlatformManifests|TestModuleManifestFormIsJudgedByTheOneExecutor|TestManifestFormCensusFollowsTheTree|TestModuleManifestsOfThePlatformAreReadable|TestManifestIsNotASecondDeclarationOfARight|TestManifestNamedPredicateIsRunnableInThisTree|TestConsumerOwnedStructuralRelationsHaveProducers' -count=1 -v
+      outcome: 'ok, PASS 7 из 7; «блоков сверено 27 из 27 · байт сверено 80556»; судья формы — «манифестов прочитано 5 · находок 0»'
+    - given: тот же
+      command: GOWORK=off go test ./deploy/ -run 'TestOutsourcedImagePinAgreesWithItsModulePin$' -count=1
+      outcome: ok
+    - given: контроль способности упасть — children[0].resources = [projects]
+      command: TestModuleManifestFormIsJudgedByTheOneExecutor
+      outcome: 'FAIL — «role rule nesting is malformed: … тип "registry.projects" не лежит под "registry.registries" ни по одному объявленному указателю parents»'
+    - given: REG-PUB-1-01 «Дано» буквально — пин kaname@067e4ca3e (ствол, kaname#872 влит, kaname#874 нет), тег main-067e4ca3
+      command: -run 'TestModelCanonAgreesWithPlatformManifests|TestModuleManifestFormIsJudgedByTheOneExecutor|TestModuleManifestsOfThePlatformAreReadable'
+      outcome: 'FAIL — «line 201: field children not found in type manifest.Rule; документ назвался манифестом и манифестом не стал»'
+  summary: >-
+    Посеяно 2 «Дано» дельты (REG-PUB-1-01 на пине с kaname#874 — зелёный; 01 на пине «с #872»
+    без #874 — красный). Конструируемость 13 с ролью [get, list] без children показана
+    названной производящей координатой (RoleService.Create принимает правило без children;
+    children на входе запрещён — role.proto Rule.children), не посевом. Не выполнилось:
+    стенд П2/П3 — задание стенда не называло.
+
+blocking:
+  - kind: CONSTRUCTIBILITY
+    id: B1
+    where: 'П0 (строки 287–293); «Посев «Дано»: прогон» (340–353); REG-PUB-1-01 «Дано» (358); П2 (303–304); Р1 «Порядок выкатки» (185)'
+    claim: >-
+      Дельта перевела манифест Р1 п. 1 во вложенное правило, но «Дано», которые его
+      используют, остались на kaname без kaname#874. П0 — «манифест Р1 п. 1; пин
+      kaname@422d1bc6f»; «Дано» 01 — «пин, в который влита kaname#872»; П2 и Р1 — «kaname с
+      #856 на стенде». На любом из них новый манифест отвергается строгим разбором (это
+      утверждает и сам Р1 п. 2), и сценарий 01 (а на стенде — 02 и всё, что ждёт роль) падает
+      на верном продукте. Таблица посева мерена на прежней форме и к ред. 7 не относится.
+      Нужно: П0 и «Дано» 01 — пин не ниже ревизии вливания kaname#879 (до вливания — голова
+      874); П2 и Р1 «Порядок выкатки» — образ kaname с kaname#874; таблица посева —
+      перемерить (числа этой записи, seeding.runs[0..1], годятся).
+    predicate: seeding.runs[3] (красный при «Дано» 01 буквально) против seeding.runs[0] (зелёный на 5f6f29902)
+  - kind: TWIN
+    id: B2
+    where: 'REG-PUB-1-13 «Близнец»; П2 — роль rol-reg-get (строка 318)'
+    claim: >-
+      Отрицание 13 и близнец 11 различаются двумя фактами (list над registries и вложенное
+      правило), и текст это признаёт, ссылаясь на то, что list на visibility не действует.
+      Это утверждение о реализации, а не проверка её: форму вопроса о видимости выбирает
+      замысел (строка 300). Вывод видимости, спрашивающий у kaname v_list класса anonymous на
+      реестре, проходит и 11 (list есть), и 13 (list нет) — и показывает PUBLIC для роли
+      [get, list] без children, при которой репозитории без входа не читаются (ложь Р2).
+      Нужно: rol-reg-get → [get, list] над registry.registries (без имён и меток; RoleService.Create
+      её принимает, children на входе и так запрещён) — тогда 11 и 13 различаются ровно
+      вложенным правилом. Выдача классу такой роли разрешена воротами только-чтения (SC-21).
+    predicate: 'sed -n 318p и 429–440p документа; kaname role.proto @origin/874 — комментарий Rule.children'
+  - kind: FORMAT
+    id: B3
+    where: 'REG-PUB-1-03 «Тогда» (строки 390–391); Р1 п. 3 («поле children роли край отдаёт через REST»)'
+    claim: >-
+      «Тогда» 03 — «глаголы роли ровно get и list над registry.registries и
+      registry.repositories, других правил нет» — написано под прежнюю форму. Проба, взятая
+      буквально (rules[0].resources == [registries, repositories]), краснеет на верном
+      продукте, а прежняя форма (ND-07 (б)) это «Тогда» проходит. Это единственный сценарий,
+      читающий роль через край, и только он может держать утверждение Р1 п. 3. Нужно
+      конкретное тело: rules длины 1; rules[0] — module "registry", resources ["registries"],
+      verbs ["get","list"], children длины 1 с resources ["repositories"], verbs ["get","list"]
+      и без resourceNames/matchLabels. Отрицание: роль без children (прежняя форма) — красный.
+    predicate: 'sed -n 385–396p документа; role.proto @origin/874: Rule{resources=2, verbs=3, resource_names=4, match_labels=5, module=6, children=7}'
+
+non_blocking:
+  - 'DoD S1: «образ с этим тегом опубликован» — без команды; назвать (docker manifest inspect docker.io/prorobotech/kaname:main-<sha8> либо перечень тегов реестра образов)'
+  - 'DoD S1: yq .roles[0].rules[0].children[0].resources → [repositories] зависит от стиля YAML; устойчивее -o=json -I=0 → ["repositories"]'
+  - 'вне дельты, к сведению: «И» сценария 01 ждёт в выводе -v строку «правила ролей: … находок 0» у registry; на пине 5f6f29902 в -v выводе её нет, есть «манифестов прочитано 5 · находок 0»'
+
+route_signs:
+  proto: да (registry.proto Registry.visibility, из ред. 5; дельта proto kacho не меняет)
+  schema: нет
+  public_rpc: да (поле в ответе Get/List, из ред. 5)
+  ui: да (П3, из ред. 5)
+  new_domain: нет
+  security_surface: да (выдача классу anonymous; дельта — форма роли)

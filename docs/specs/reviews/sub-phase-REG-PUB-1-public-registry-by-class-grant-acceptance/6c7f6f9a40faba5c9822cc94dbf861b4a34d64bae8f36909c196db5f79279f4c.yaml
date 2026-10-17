@@ -1,0 +1,144 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-REG-PUB-1-public-registry-by-class-grant-acceptance.md
+  sha256: 6c7f6f9a40faba5c9822cc94dbf861b4a34d64bae8f36909c196db5f79279f4c
+  revision: 5
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка документа намеренно не правлена (change-graph.md §2): слово DRAFT вписал автор.
+    Действующий вердикт о редакции 5 — эта запись вместе с внешним событием, которое
+    публикует курьер. Документ на момент ревью не закоммичен (рабочее дерево воркспейса
+    поверх bebd262f), поэтому content_commit пуст.
+  base_commit: bebd262fdd37574bf2f534cea18a7484c1bd0b02
+  content_commit: none
+  pull_request: none
+  task: https://github.com/PRO-Robotech/kacho/issues/3274
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-REG-PUB-1-public-registry-by-class-grant-acceptance.md
+  lines: 895
+verdict: APPROVED
+round: 2
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-17T12:40:00Z'
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac bebd262f
+    в PRO-Robotech/kacho-workspace вернул 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: bebd262fdd37574bf2f534cea18a7484c1bd0b02
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: approval
+  status: not_performed
+  published: false
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Событие одобрения публикует курьер (git-operator) ритуалом после того, как документ и эта
+    запись закоммичены и отправлены; тем же заходом он приводит этот блок к факту (status
+    performed, адрес события). Пока блок не приведён, роль в записи — координата, а не
+    полномочие.
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    note: >-
+      Запись круга 1 (b15e1967….yaml, CHANGES_REQUESTED, редакция 3) не правлена и остаётся
+      вердиктом о редакции 3. Эта запись — соседняя, о редакции 5.
+
+round_numbering:
+  convention: круг 2 — последний (fa-b8-acceptance-two-rounds)
+  editions_by_fingerprint:
+    - {edition: 3, sha256_prefix: b15e196748961e98, verdict: CHANGES_REQUESTED (круг 1)}
+    - {edition: 4, sha256_prefix: unknown, verdict: нет — промежуточная, ревью не подавалась}
+    - {edition: 5, sha256_prefix: 6c7f6f9a40faba5c, verdict: APPROVED (эта запись)}
+scope_of_round: >-
+  По заданию судится дельта к редакции 3 и закрытие замечаний круга 1. Решения Д1–Д9 не
+  пересматривались.
+
+# ─────────────────────────────────────────────────────────────────────────────
+closure_of_round_1:
+  B1_CONSTRUCTIBILITY: >-
+    ЗАКРЫТО. Производитель гейта формы назван: kaname#872 (OPEN, «iam: судья манифеста отвергает
+    роль над ресурсом без своей службы»; gh issue view 872 -R PRO-Robotech/kaname). «Дано»
+    сценария 01 требует пин kaname с этой правкой, а порядок Р9 ставит S1 после неё. Второй
+    гейт, найденный посевом (TestConsumerOwnedStructuralRelationsHaveProducers), получил
+    производителя Р1 п. 4. Основание Д9 сверено: catalog_resource_spelling.go:93-94 @422d1bc6f
+    объявляет registry.repositories ресурсом без своей службы; tables_gen.go — у
+    registry_repository глаголы v_delete, v_get, v_list, v_update.
+  B2_DoD: >-
+    ЗАКРЫТО. Сравнение сужено до resources и roles через yq, seed сравнивается со стволом,
+    строка переписи исправлена. Предикат исполнен: с ключом на месте фикстуры diff пуст (0
+    строк), seed — 0 строк. Предикат чувствителен к порядку ключей (см. non_blocking).
+  B3_PRODUCER: >-
+    ЗАКРЫТО. Р9 п. 2 — вложенный чарт kaname (configmap.yaml:105, путь
+    kaname.config.apiServer.registryToken.*) и отказ рендера при разных значениях; Р1 п. 3 —
+    тег образа вместе с пином (5 файлов: git grep -c "tag: 746-b20866a6" e9ce4ffbd -- deploy
+    → 5); Р9 п. 3 — второй подъём до kaname с #495; DoD S1, S3, S6.
+  B4_CONSTRUCTIBILITY: >-
+    ЗАКРЫТО. Анонимная половина вынесена в сценарий 29 (стендовая часть S3); 17 в S2 без
+    анонимного шага; утверждение о независимости S2 теперь верно.
+  B5_DoD: >-
+    ЗАКРЫТО. Оба предиката исправлены, их числа совпали с замером круга 1: 12 строк в 7 файлах
+    и 8 строк в 6 файлах. Перечень правок включает repository.mdx:101,
+    resource-registry.tsx:5194, console-ops-match-contract.test.ts:28,
+    clienttruth_registry_apisurface.go:17, registry.proto:54-57 и :102-108.
+  non_blocking_round_1: >-
+    закрыты все восемь (таблица «Редакция 4: что закрыто»): отпечатки соседей, X/app в П3,
+    принципалы П2 (prodseed_matrix.py — jwtAccountAdminA, jwtProjectEditorA,
+    jwtStranger=tok_nogrant), метки П1, сценарий 45, одно «Дано» у 21, производитель 404 —
+    сценарий 29.
+
+seeding:
+  isolation: >-
+    git worktree --detach kacho @e9ce4ffbd в scratchpad сессии; снят после прогона
+    (git worktree remove — rc 0). Стенд не поднимался: задание его не называло.
+  runs:
+    - given: 'П0 — манифест Р1, пин kaname@422d1bc6f, тег main-422d1bc6 в 5 профилях, system_class в subjectUsersets'
+      command: 'GOWORK=off go test ./internal/repohygiene/ -run ''<7 тестов сценария 01>'' -count=1 -v'
+      outcome: >-
+        PASS 5 — canon, Readable, NotASecondDeclaration, NamedPredicate,
+        ConsumerOwnedStructuralRelationsHaveProducers. FAIL 2 —
+        TestModuleManifestFormIsJudgedByTheOneExecutor и TestManifestFormCensusFollowsTheTree,
+        корень снимает kaname#872 (Д9). Совпало с переписью автора.
+    - given: тот же П0
+      command: 'GOWORK=off go test ./deploy/ -run ''TestOutsourcedImagePinAgreesWithItsModulePin$'' -count=1'
+      outcome: ok (в круге 1 без тега — 7 находок)
+    - given: 'близнец Р1 п. 4 — subjectUsersets без system_class'
+      command: 'TestConsumerOwnedStructuralRelationsHaveProducers'
+      outcome: 'FAIL — «fga_model.fga:1315 — `registry_registry#public_reader` объявлено, но НИ ОДНА точка эмиссии его не пишет»'
+    - given: DoD S1 п. 1, предикат yq
+      command: 'diff <(yq ''{"resources": .resources, "roles": .roles}'' <манифест>) <(yq … фикстура)'
+      outcome: '0 строк при ключе на месте фикстуры (после producer); 4 строки при ключе после objectType'
+  gate_change_scope: >-
+    hasSubjectUserset пропускает отношение, если в его составе ЕСТЬ хотя бы одна вершина
+    субъекта. В каноне @422d1bc6f system_class есть в 5 определениях
+    (grep "define .*\[[^]]*system_class" → строки 269, 1315, 1333, 1334, 1357); у четырёх из
+    них в составе уже есть user. Новым пропуском правка делает ровно одно отношение —
+    registry_registry#public_reader.
+  summary: >-
+    Посеяно «Дано» S1 (сценарий 01 и его близнец, близнец Р1 п. 4, предикат DoD S1); исходы
+    совпали с документом. Числа «deploy 488/0, repohygiene 2636/2, dataplane 115/0» — от автора:
+    я прогонял подмножества. Не выполнилось: стенд П2/П3 и integration-окружение registry П1.
+
+non_blocking:
+  - Д9 — «заводит git-operator», а kaname#872 уже заведена (OPEN); известно диспетчеру
+  - 'предикат DoD S1 чувствителен к порядку ключей: ключ ставить после producer, как в фикстуре, либо сравнивать с sort_keys(..)'
+  - 'порядок набора на стенде: 29 требует X удалённым при живой выдаче, а 20 пушит X/late — «опустошить X» должно снимать все его репозитории; 26 отзывает выдачу, поэтому 29 идёт до 26 либо на своём реестре'
+
+counts:
+  scenarios: 32
+  twins: 32 из 32
+  producer_named: 32 из 32
+  producer_external: 'kaname#495 (стендовая часть S3, S6), kaname#872 (S1, сценарий 01 «И»)'
+  open_questions: 0
+  blocking: 0

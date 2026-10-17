@@ -1,0 +1,199 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-REG-PUB-1-public-registry-by-class-grant-acceptance.md
+  sha256: b15e196748961e988ec91545d1e07e7be30c01f8ca92d0dd76026a8cc12b0236
+  revision: 3
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка документа намеренно не правлена (change-graph.md §2): слово DRAFT — то, что туда вписал
+    автор. Действующий вердикт о редакции 3 — эта запись. Документ на момент ревью не закоммичен
+    (рабочее дерево воркспейса поверх bebd262f), поэтому content_commit пуст.
+  base_commit: bebd262fdd37574bf2f534cea18a7484c1bd0b02
+  content_commit: none
+  pull_request: none
+  task: https://github.com/PRO-Robotech/kacho/issues/3274
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-REG-PUB-1-public-registry-by-class-grant-acceptance.md
+  lines: 723
+verdict: CHANGES_REQUESTED
+round: 1
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-17T11:26:09Z'
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac bebd262f
+    в PRO-Robotech/kacho-workspace вернул 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: bebd262fdd37574bf2f534cea18a7484c1bd0b02
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — ВОЗВРАТ. Событие публикует курьер (git-operator) после коммита документа и этой
+    записи, тем же заходом приводя этот блок к факту. Отказ полномочия не выдаёт и ничего не
+    открывает, поэтому от события не зависит.
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    note: >-
+      Записей ревью этого документа до этой нет: каталог
+      docs/specs/reviews/sub-phase-REG-PUB-1-public-registry-by-class-grant-acceptance/ создан
+      этой записью. Шапка документа: «Вердиктов на редакциях 1 и 2 не было».
+
+measured_at:
+  kacho: {epic_head: e9ce4ffbdc, trunk: a952484649}
+  kaname: {trunk: 422d1bc6f, pr_871_head: b1b4543c4}
+  predicate: git -C project/<repo> fetch && rev-parse --short origin/<ref> — все четыре совпали с шапкой
+
+neighbours_fa_b7:
+  - {path: 'kaname docs/engineering/acceptance/anonymous-and-authenticated-are-subject-classes.md @422d1bc6f', sha256: 198db838d0a75b7f5b5bdbd5564bacec23a79cc00550a26e8830f3c6be61aac9, matches_header: true}
+  - {path: docs/specs/sub-phase-REG-1-registry-repository-acceptance.md, sha256: 6847687bbd99ee62a158bb09cafcbd0ac911b344b49cdedb8fc218d8c8c8dc11, in_document: false, status_line: APPROVED 2026-07-20, worktree_modified: false}
+  - {path: docs/specs/sub-phase-RG-1-registry-repository-overlay-acceptance.md, sha256: 429461ed56738dc22d71829fce7a99279dbfd04cdc3b6ca03a6a43a87a49423a, in_document: false, status_line: APPROVED r2, worktree_modified: false}
+
+# ─────────────────────────────────────────────────────────────────────────────
+seeding:
+  isolation: >-
+    git worktree --detach kacho @e9ce4ffbd в scratchpad сессии; снят после прогона
+    (git worktree remove — rc 0). Стенд не поднимался: задание стенда и пространства имён не
+    называло.
+  runs:
+    - given: базовая линия @e9ce4ffbd, пин b20866a6
+      command: GOWORK=off go test ./internal/repohygiene/ -run TestModelCanonAgreesWithPlatformManifests -count=1 -v
+      outcome: PASS — «блоков сверено 27 из 27 · байт сверено 80429»
+    - given: REG-PUB-1-01 — манифест Р1 (ключ на registries + раздел roles из фикстуры П6, раздел seed сохранён), пин kaname@422d1bc6f (go get → v0.4.1-0.20261017105825-422d1bc6ff22)
+      command: тот же
+      outcome: PASS — «блоков сверено 27 из 27 · байт сверено 80556»
+    - given: тот же
+      command: GOWORK=off go test ./internal/repohygiene/ -run 'TestModuleManifestFormIsJudgedByTheOneExecutor|TestModuleManifestsOfThePlatformAreReadable|TestManifestIsNotASecondDeclarationOfARight|TestManifestNamedPredicateIsRunnableInThisTree' -count=1 -v
+      outcome: >-
+        FAIL — TestModuleManifestFormIsJudgedByTheOneExecutor: «НАХОДКА: services/registry/manifest.yaml:
+        роль "registry.public.read": правило называет ресурс "repositories" модуля "registry", а
+        каталог прав не приписывает этому ресурсу ни одного действия. Право по нему пусто при любом
+        классе». Прочие три — PASS.
+    - given: атрибуция — исходный манифест + новый пин; затем только ключ без roles + новый пин
+      command: TestModuleManifestFormIsJudgedByTheOneExecutor (и canon)
+      outcome: PASS в обоих — красное даёт ровно раздел roles
+    - given: близнец REG-PUB-1-01 — ключ на repositories
+      command: TestModelCanonAgreesWithPlatformManifests
+      outcome: 'FAIL; вывод содержит дословно «resources[1].publicReadToChildren: на тип registry_repository не указывает ни один ресурс модуля registry — объявление без следствия»'
+    - given: пин kaname@422d1bc6f, umbrella values не тронуты
+      command: GOWORK=off go test ./deploy/ -run 'TestOutsourcedImagePinAgreesWithItsModulePin$' -count=1
+      outcome: 'FAIL — 7 находок «kaname.image: стенд "<профиль>" исполняет docker.io/prorobotech/kaname:746-b20866a6, а дерево пинит модуль … 422d1bc6…»'
+    - given: П1 плоскость данных (dataplane.New, поддельный проверяющий, WithAnonymousSubject)
+      command: GOWORK=off go test ./services/registry/internal/dataplane/ -run 'TestSystemClass_SC39|Anon' -count=1 -v
+      outcome: PASS 7 из 7 (в т.ч. TestSystemClass_SC39_RegistryAsksAsTheAnonymousClass)
+  summary: >-
+    Посеяно 3 «Дано» из 29 (REG-PUB-1-01, его близнец, REG-PUB-1-28); одно опровергнуто посевом
+    (REG-PUB-1-01 «И»). Не выполнилось 26: стенд П2/П3 и integration registry П1 не поднимались.
+
+# ─────────────────────────────────────────────────────────────────────────────
+blocking:
+  - kind: CONSTRUCTIBILITY
+    id: B1
+    where: REG-PUB-1-01 «И»; DoD S1; Р1
+    claim: >-
+      Манифест Р1 с пином kaname ≥ 422d1bc6f не проходит гейт формы манифеста дерева kacho:
+      роль registry.public.read называет ресурс repositories, которому каталог прав kacho не
+      приписывает ни одного действия (ресурс producer: authored, действия get/list/update/delete
+      помечены «каталог такого действия не знает»). Производителя, делающего гейт зелёным,
+      документ не называет — нужен названный производитель в S1 (запись каталога у ресурса
+      repositories либо иное решение) с проверкой «И» сценария 01.
+    predicate: см. seeding.runs[2] и атрибуцию seeding.runs[3]
+  - kind: DoD
+    id: B2
+    where: DoD S1 п.1; перепись производителей, строка 3
+    claim: >-
+      Предикат «diff тела манифеста против фикстуры registry.public-read-fixture.yaml (без строк
+      комментариев) пуст» невыполним без снятия раздела seed (учётка модуля kacho-registry и
+      вступление в module-relation-writers, #914): в фикстурах kaname раздела seed нет. Строка
+      переписи «тело ствола отличается от прежней фикстуры одной пустой строкой» ложна — разница
+      9 строк seed. Буквальное исполнение DoD снимает учётку модуля.
+    predicate: >-
+      diff <(strip trunk.yaml) <(strip registry.prior-edition-fixture.yaml), strip = без
+      комментариев и пустых строк → «42,50d41 < seed: …»
+  - kind: PRODUCER
+    id: B3
+    where: Р9 (3); DoD S6; таблица «сценарий → производитель», строки 20–24/26/27 и 50/51; REG-PUB-1-17
+    claim: >-
+      Стенд kacho ставит kaname своим сабчартом deploy/helm/umbrella/charts/kaname; его
+      configmap.yaml рендерит registry-token только с issuer и service. Значение в umbrella
+      values до процесса не доходит (путь сабчарта — kaname.config.apiServer.registryToken.*, а не
+      apiServer.registryToken.anonymousClientId чарта kaname). Не названы: (а) правка шаблона и
+      values сабчарта kacho; (б) подъём тега образа kaname в umbrella values вместе с пином
+      go.mod — гейт TestOutsourcedImagePinAgreesWithItsModulePin требует согласия, в S1
+      названы только go.mod/go.sum; (в) второй подъём обоих пинов до ревизии kaname с #495.
+    predicate: >-
+      git grep -c "anonymous-client-id\|anonymousClientId" e9ce4ffbd -- deploy services/registry/deploy → rc 1;
+      configmap.yaml:105 «registry-token:»; seeding.runs[5] — 7 находок
+  - kind: CONSTRUCTIBILITY
+    id: B4
+    where: REG-PUB-1-17 (S2); Р9 последний абзац; Д5 последний абзац; DoD S2 «newman 10–15, 17»
+    claim: >-
+      Сценарий 17 стоит в S2, но предъявляет анонимный токен плоскости данных, то есть зависит
+      от kaname#495 на стенде и значений S6. Документ утверждает, что S2 от них не зависит.
+      Анонимная половина 17 в стадии S2 неисполнима. Перенести её в стендовую часть S3, Д5 не
+      пересматривая.
+  - kind: DoD
+    id: B5
+    where: DoD S2 (пункты о держателях F1 и о сайте документации)
+    claim: >-
+      Предикат переписи `git grep -n "top-level .visibility" e9ce4ffbd -- services/registry ui-future/registry`
+      даёт 0 строк: между пробелом и visibility он требует ещё один символ, а текст —
+      «top-level visibility». «До и после» — оба ноль. Проверка слепая. По всему дереву по
+      написанию — 12 строк в 7 непорождённых файлах, включая proto/…/registry.proto:55, который
+      лежит вне пути предиката. Не названы и утверждения, которые изменение делает ложными, о
+      том, ЧТО делает образ публичным: «Единственный рычаг публичности образа»
+      (services/registry/docs/content/api/repository.mdx:101 — публичная страница),
+      ui-future/shared/src/lib/resource-registry.tsx:5194,
+      ui-future/shared/src/test/console-ops-match-contract.test.ts:28,
+      internal/repohygiene/clienttruth_registry_apisurface.go:17, registry.proto:54-57
+      («Единственный registry-level рычаг», «D-6: любой путь к PUBLIC — admin-gated»). Это
+      вводящий в заблуждение текст о безопасности (ban19-block-criterion).
+    predicate: >-
+      git grep -n "top-level visibility\|top-level \`visibility" e9ce4ffbd; git grep -n -i
+      "ЕДИНСТВЕННЫЙ рычаг\|Единственный registry-level\|любой путь к PUBLIC\|Единственный рычаг публичности" e9ce4ffbd
+
+non_blocking:
+  - fa-b7 — у REG-1 и RG-1 в таблице опоры нет отпечатков; измеренные — в neighbours_fa_b7
+  - П3 не сеет репозиторий X/app, а REG-PUB-1-44 его требует; назвать CreateRepository, как в registry-tags.spec.ts
+  - П2 — не назван отправитель RoleService.Create в acc-A (у sva-own только admin на prj-A); sva-edit посеян и не используется
+  - П1 — id реестров use-case Create не выбирает (ids.NewID); reg0000…1 — метки, а не значения
+  - конкурентное включение двумя сессиями — второй получает ALREADY_EXISTS (access_bindings_active_grant_uniq kaname); поведение консоли не задано
+  - REG-PUB-1-21 «Дано … (или после REG-PUB-1-12)» — выбрать одно
+  - порядок S3↔S6 — S3 (чарт) → S6 (значения и пины) → S3 (newman 20–27) → S6 (docker); назвать явно
+  - REG-PUB-1-17 — 404 на удалённом реестре даёт servePullOnly лишь при снятых Delete кортежах репозиториев; иначе ответ zot — назвать производителя
+
+dispatcher_checks:
+  d2_revision_of_F1:
+    recorded_lawfully: >-
+      ДА — пересмотр записан в этом документе (Д2), REG-1 не правлен: git status по файлу пуст,
+      sha256 6847687b…
+    probe_holders_listed: >-
+      2 из 2 — f5_default_visibility_test.go:40 и REG-RD-F1-FIELD-ABSENCE
+      (registry-redesign.py:289, коллекция :628 перегенерируется); по дереву других проб «поля
+      нет» о Registry.visibility не найдено
+    text_holders_listed: НЕТ — см. B5
+  stage_order_kaname_495:
+    unexecutable: REG-PUB-1-17 в S2 (B4); 20–24, 26, 27 и 50–51 неисполнимы и после влития kaname#495 без производителей B3
+
+counts:
+  scenarios: 29
+  twins: 29 из 29
+  producer_named: 29 из 29
+  producer_holds_on_measurement: >-
+    18 из 29. Опровергнуты: 01 (B1); 17, 20–24, 26, 27, 50, 51 (B3); 25 держится без ручек
+  open_questions: 0

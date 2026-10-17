@@ -1,0 +1,102 @@
+schema_version: 1
+kind: acceptance_review
+review_type: execution_check
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-REG-PUB-1-public-registry-by-class-grant-acceptance.md
+  sha256: 0482a061c4f2497d00b1193769cf0671636b6124a172a3875d268a16f48dbccb
+  revision: 9
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка документа намеренно не правлена (change-graph.md §2). Действующий вердикт об этом
+    отпечатке — эта запись вместе с внешним событием, которое публикует курьер. Документ не
+    закоммичен (рабочее дерево ветки 3274-reg-pub-acceptance поверх 9a030d585).
+  base_commit: 9a030d5856f60bbf1961ffd02081328576f08670
+  content_commit: none
+  worktree: kacho-workspace/tmp/3274-reg-pub-acceptance, ветка 3274-reg-pub-acceptance
+  task: https://github.com/PRO-Robotech/kacho/issues/3274
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-REG-PUB-1-public-registry-by-class-grant-acceptance.md
+  lines: 1055
+verdict: APPROVED
+round: 'проверка исполнения ⛔ 4646c236… (B4); дельта ред. 8 → ред. 9'
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-17T21:02:45Z'
+basis:
+  returned_record: docs/specs/reviews/sub-phase-REG-PUB-1-public-registry-by-class-grant-acceptance/4646c2364105a338773bb29e7a4a7dc9c1dddc81ae1212529cc84621d4a0d4d8.yaml
+  returned_sha256: 4646c2364105a338773bb29e7a4a7dc9c1dddc81ae1212529cc84621d4a0d4d8
+  chain: >-
+    B1, B2 закрыты на ред. 8 (запись 4646c236…); B3 исполнен на ред. 8 за вычетом B4; B4
+    закрыт этой проверкой. Содержательная часть ред. 6–7 судилась записью 37d6429a…, ред. 5 —
+    записями 6c7f6f9a… и 649e13bc….
+  delta_census: >-
+    Копии ред. 8 рецензент не сохранял, побайтовый diff 4646c236…→0482a061… не выполнен.
+    Дельта сверена по трём названным местам, шапке и таблице «Редакция 8: что изменено» плюс
+    арифметикой строк: 1045 → 1055 = +10 = история шапки +6, «Тогда» 03 +3, строка таблицы
+    B4 +1; сценариев 32 (grep -c '^**ID:**'), как и прежде.
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: issue_comment
+  target: PRO-Robotech/kacho#3274
+  status: performed
+  published: true
+  database_id: 6241126974
+  node_id: "IC_kwDOTZqgWM8AAAABdAAKPg"
+  url: "https://github.com/PRO-Robotech/kacho/issues/3274#issuecomment-6241126974"
+  api_url: "https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/6241126974"
+  actor: "pointpu"
+  role: "acceptance-reviewer"
+  author_association: "MEMBER"
+  created_at: "2026-10-17T21:09:08Z"
+  body_sha256: "3c192aaf2289caa1bcf53d65b96717acd6023543221ee817213ca323ef977293"
+  subject_sha256: "0482a061c4f2497d00b1193769cf0671636b6124a172a3875d268a16f48dbccb"
+  subject_revision_commit: "1c24f40a027e1164f0a3cd26d04f70f0c7068a66"
+  verdict: "APPROVED"
+  publication_mode: scripts/rituals/approval-event.sh
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    note: >-
+      Записи b15e1967…, 6c7f6f9a…, 649e13bc…, 37d6429a… (sha256 файла 95017ae3…) и 4646c236…
+      (sha256 файла d616ab5a…) не правлены.
+
+execution:
+  B4_FORMAT: >-
+    ЗАКРЫТ. «Тогда» 03 (строки 423–428): rules длины 1; rules[0].module/resources/verbs;
+    rules[0].children длины 1; children[0].resources = ["repositories"], children[0].verbs =
+    ["get","list"]; прочие ключи children[0] (module, children, resourceNames, matchLabels)
+    пусты; утверждения поштучно, не равенством объекту, с основанием EmitUnpopulated=true
+    публичного края. Верный край это проходит; прежняя форма (без children) — красная по
+    близнецу формы.
+  given_01_note: >-
+    Исполнено: «Дано» 01 (строка 392) — «пока PR kaname#879 не влит — голова ветки 874».
+    Исполнимость на голове 874 показана посевом записи 4646c236… (7 PASS, 27 из 27).
+  dod_s1_note: 'Исполнено: строка 818 — «на редакциях 6–9 — 5f6f29902, на ней мерен посев редакции 8».'
+  new_defects: 0
+
+seeding:
+  summary: >-
+    Новых «Дано» дельта не вводит; посев не повторялся. Действует посев записи 4646c236… на
+    kaname 5f6f29902. Стенд П2/П3 не поднимался — не выполнилось.
+
+blocking: []
+
+non_blocking: []
+
+route_signs:
+  proto: да (Registry.visibility, из ред. 5)
+  schema: нет
+  public_rpc: да
+  ui: да
+  new_domain: нет
+  security_surface: да
