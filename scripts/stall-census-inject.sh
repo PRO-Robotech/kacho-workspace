@@ -205,6 +205,31 @@ probe 0 "близнец: та же оболочка 30 мин — молчит" 
 { ps_ok; echo "202 1 7200 bash /bin/bash -c source /h/.claude/shell-snapshots/s.sh && eval 'x'"; } > "$T/ps-orphan"
 probe 0 "близнец: оболочка 120 мин, но родитель не claude — не судится" - --session "$s" --ps "$T/ps-orphan"
 
+echo "== возраст оболочки, который не может быть настоящим, не судится (ws#1149)"
+# Живая форма 2026-10-17, procps-ng 4.0.4: у новорождённого процесса `etimes` =
+# 4123168608 (≈ 68719476 мин; настоящий возраст 0–0,12 с у 2169 из 2169 перечитанных).
+SN="/bin/bash -c source /h/.claude/shell-snapshots/s.sh && eval 'make e2e'"
+WRAP=4123168608
+mkdir -p "$T/proc-up"; echo "90000.00 1.00" > "$T/proc-up/uptime"  # pid-каталогов нет: процессы исчезли
+printf '%s\n' "100 1 90000 claude claude --x" "201 100 $WRAP bash $SN" > "$T/ps-wrap"
+printf '%s\n' "100 1 90000 claude claude --x" "201 100 -5 bash $SN" > "$T/ps-neg"
+printf '%s\n' "100 1 90000 claude claude --x" "201 100 x7 bash $SN" > "$T/ps-nan"
+printf '%s\n' "100 1 90000 claude claude --x" "201 100  bash $SN" > "$T/ps-noage"
+printf '%s\n' "100 1 $WRAP claude claude --x" "201 100 $WRAP bash $SN" > "$T/ps-bothnew"
+printf '%s\n' "100 1 90000 claude claude --x" "201 100 90000 bash $SN" > "$T/ps-eqparent"
+# age_cases <прибор> — пробы возраста; их же гонят мутанты ниже.
+age_cases() {
+    local C="$1"
+    CLAUDE_PID=100 absent="STALL-PROC pid" probe 0 "инъекция: etimes ps у новорождённого (4123168608) — больше возраста claude, не судится" "возраст не прочитан 1" --session "$s" --ps "$T/ps-wrap"
+    CLAUDE_PID=100 absent="STALL-PROC pid" probe 0 "инъекция: отрицательный etimes — не судится" "возраст не прочитан 1" --session "$s" --ps "$T/ps-neg"
+    CLAUDE_PID=100 absent="STALL-PROC pid" probe 0 "инъекция: нечисловой etimes — не судится" "возраст не прочитан 1" --session "$s" --ps "$T/ps-nan"
+    CLAUDE_PID=100 absent="STALL-PROC pid" probe 0 "инъекция: пустой etimes (поле выпало) — не судится" "возраст не прочитан 1" --session "$s" --ps "$T/ps-noage"
+    CLAUDE_PID=100 STALL_PROC_ROOT="$T/proc-up" absent="STALL-PROC pid" probe 0 "инъекция: claude и оболочка новорождённые, процессы исчезли из /proc — больше аптайма, не судится" "возраст не прочитан 1" --session "$s" --ps "$T/ps-bothnew"
+    CLAUDE_PID=100 STALL_PROC_ROOT="$T/proc-up" probe 1 "близнец: оболочка 120 мин при аптайме и claude 1500 мин — STALL-PROC" "STALL-PROC pid 201 (claude 100) — живёт 120 мин" --session "$s" --ps "$T/ps-old"
+    CLAUDE_PID=100 STALL_PROC_ROOT="$T/proc-up" probe 1 "граница: оболочка ровесница claude (1500 мин) — возраст настоящий, STALL-PROC" "STALL-PROC pid 201 (claude 100) — живёт 1500 мин" --session "$s" --ps "$T/ps-eqparent"
+}
+age_cases "$C"
+
 echo "== процессы: судится только своя сессия (ws#1131)"
 # Живая форма 2026-10-17: claude 61051 «--resume 3f44acf5-…» из другого окна с
 # сериями newman держал ход диспетчера сессии 9131a334 строкой STALL-PROC.
@@ -335,6 +360,10 @@ mutant "побеждает первый существующий каталог"
 echo "== мутант отбора своей сессии (ws#1131) — обязан покраснеть на пробах П1–П9"
 mutant "старый отбор: любая оболочка под claude — своя" '    who = whose(pid, ppid)' "    who = 'own'" proc_cases
 mutant "неустановленная сессия при своём claude — чужая" $'    return \'\'\n\n\nshells' $'    return \'foreign\' if own_pid else \'\'\n\n\nshells' proc_cases
+echo "== мутанты возраста оболочки (ws#1149) — обязаны покраснеть на пробах age_cases"
+mutant "граница возраста родителя снята" ' or (parent[1] is not None and et > parent[1] + 5)' '' age_cases
+mutant "граница аптайма снята" ' or (uptime is not None and et > uptime + 5)' '' age_cases
+mutant "нечисловой возраст — ноль, как до ws#1149" "int(p[2]) if p[2].isdigit() else None" "int(p[2]) if p[2].isdigit() else 0" age_cases
 
 echo "== журнал своей сессии без transcript_path (ws#1134)"
 # Один каталог проекта, два окна: у каждого свой застрявший агент, сессия N свежее;

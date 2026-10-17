@@ -81,8 +81,14 @@
 #   --self <pid>          процесс, от которого ищется предок-claude в снимке;
 #                         без довода — родитель разбора (сам прибор), и только
 #                         на живом снимке: в подложенном `--ps` его pid чужой.
-#   STALL_PROC_ROOT       каталог вида /proc для окружения оболочек (инъекция);
-#                         без него — /proc лишь на живом снимке.
+#   STALL_PROC_ROOT       каталог вида /proc для окружения оболочек и `uptime`
+#                         (инъекция); без него — /proc лишь на живом снимке.
+#
+# Возраст оболочки (`etimes`) не судится и не печатается, когда он не может быть
+# настоящим: не целое неотрицательное, больше возраста родителя-claude, больше
+# аптайма. Такие — «возраст не прочитан N» в CENSUS, код не меняют (ws#1149):
+# procps-ng 4.0.4 даёт новорождённому процессу etimes 4123168608 (≈ 68719476
+# мин); замер 2026-10-17 — 2169 таких pid, настоящий возраст 0–0,12 с у всех.
 #
 # # Коды
 #
@@ -453,7 +459,7 @@ try:
         p = line.split(None, 4)
         if len(p) < 4 or not p[0].isdigit():
             continue
-        procs[p[0]] = (p[1], int(p[2]) if p[2].isdigit() else 0, p[3], p[4].strip() if len(p) > 4 else '')
+        procs[p[0]] = (p[1], int(p[2]) if p[2].isdigit() else None, p[3], p[4].strip() if len(p) > 4 else '')
 except OSError as e:
     void('снимок процессов не читается: %s' % e)
 if not procs:
@@ -500,13 +506,22 @@ def whose(pid, ppid):
     return ''
 
 
-shells = mine = foreign = 0
+shells = mine = foreign = badage = 0
 unjudged = []
+uptime = None
+try:
+    uptime = float(open(os.path.join(proc_root, 'uptime')).read().split()[0]) if proc_root else None
+except (OSError, ValueError, IndexError):
+    uptime = None
 for pid, (ppid, et, comm, args) in procs.items():
     parent = procs.get(ppid)
     if not parent or parent[2] != 'claude' or 'shell-snapshots/' not in args:
         continue
     shells += 1
+    # Возраст, который не может быть настоящим (шапка, ws#1149): 5 с — округление снимка.
+    if et is None or (parent[1] is not None and et > parent[1] + 5) or (uptime is not None and et > uptime + 5):
+        badage += 1
+        continue
     who = whose(pid, ppid)
     if who == 'foreign':
         foreign += 1
@@ -525,8 +540,8 @@ if not own_sid and not own_pid:
 elif unjudged:
     proc_notes.append('STALL-PROC: сессия оболочки не определена — не судится: %s' % ', '.join(unjudged[:5]))
 
-print('CENSUS stall-census: сессия %s%s; workflow живых %d, завершённых в окне %d; агентов осмотрено %d, из них без единой разобранной записи %d; завершённых (не судятся) %d; своя сессия %s (claude %s); фоновых оболочек агентов %d из процессов %d: своих %d, чужих %d, не судимо %d; пороги агент %d мин, опрос %d мин, завершённый %d мин, процесс %d мин, реакция %d мин, окно %d мин'
-      % (os.path.basename(session), sess_note, wf_live, wf_done, agents_seen, len(unread), done_seen, own_sid or 'не определена', own_pid or '?', shells, len(procs), mine, foreign, len(unjudged), AGENT_MIN, POLL_MIN, DONE_MIN, PROC_MIN, REACT_MIN, HORIZON_MIN))
+print('CENSUS stall-census: сессия %s%s; workflow живых %d, завершённых в окне %d; агентов осмотрено %d, из них без единой разобранной записи %d; завершённых (не судятся) %d; своя сессия %s (claude %s); фоновых оболочек агентов %d из процессов %d: своих %d, чужих %d, не судимо %d, возраст не прочитан %d; пороги агент %d мин, опрос %d мин, завершённый %d мин, процесс %d мин, реакция %d мин, окно %d мин'
+      % (os.path.basename(session), sess_note, wf_live, wf_done, agents_seen, len(unread), done_seen, own_sid or 'не определена', own_pid or '?', shells, len(procs), mine, foreign, len(unjudged), badage, AGENT_MIN, POLL_MIN, DONE_MIN, PROC_MIN, REACT_MIN, HORIZON_MIN))
 for f in findings:
     print(f)
 for n in proc_notes:
