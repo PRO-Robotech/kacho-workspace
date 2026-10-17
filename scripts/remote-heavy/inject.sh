@@ -61,9 +61,14 @@
 #   C5 гонка при --keep                    → 75, ns всё равно снято
 #   V2 --available при занятом кластере    → 75; близнец V2b → 0
 #   M1 KACHO_REMOTE_HEAVY_MAX=0            → 64
+#   M2 предел по умолчанию 4 — страховка над размещением: 4 идущих → 75;
+#      близнец M2b 3 идущих → 0 (C1–C5, V2 судят предел явным 2)
 #   Q1 стенд (pod ns kacho) на всех узлах, место есть → --available 0 и прогон 0
-#      (стенд узел не запирает); Q1d два go-race рядом со стендом замера
-#      2026-10-09 на ОДНОМ узле — второй тоже встаёт → 0
+#      (стенд узел не запирает); Q1d второй go-race на ОДНОМ узле со стендом
+#      оставил бы меньше 20 % CPU → 75, запас назван (ws#1143)
+#   QH допуск по запросам профиля и запасу 20 %: узлы и фон замера 2026-10-17 —
+#      помещаются 4 лёгких, 1 тяжёлый и 2 лёгких, 2 тяжёлых; следующий — 75 с
+#      названным запасом (ws#1143); порча «запас 0 %» — mutants.py headroom-0
 #   Q3 единственный узел не готов / закрыт / taint NoSchedule → 69; прогон 69 без ns
 #   Q2 места под go-race нет ни на одном узле → 75 и прогон 75 без ns; близнец Q2b
 #      тот же кластер, профиль lint → 0 и прогон 0; Q2c профиля нет → 64
@@ -1402,7 +1407,7 @@ no_job() { if [ -e "$BOX/state/job.json" ]; then bad "$1" "Job создан"; el
 
 # C1 — идущих 2 при пределе 2 → 75 до создания ns
 fresh; seed_ns t7-heavy-a '+1 hour'; seed_ns t8-heavy-b '+1 hour'
-go_run c1 env FAKE_EXIT=0 "${B[@]}" --short c1 -- true
+go_run c1 env FAKE_EXIT=0 KACHO_REMOTE_HEAVY_MAX=2 "${B[@]}" --short c1 -- true
 expect_rc C1 75
 if grep -qE '(^| )create -f ' "$BOX/state/calls"; then bad C1 "create звался при занятом кластере"; else ok; fi
 # C2 — близнец C1: те же ns, их Job завершены → не идущие → 0
@@ -1415,26 +1420,35 @@ go_run c3 env FAKE_EXIT=0 "${B[@]}" --short c3 -- true
 expect_rc C3 0
 # C4 — гонка: первая перепись видит 1 из 2, второй запуск создал ns мгновением раньше → 75, своё ns снято, Job нет
 fresh; seed_ns t7-heavy-a '+1 hour'
-go_run c4 env FAKE_EXIT=0 FAKE_RACE=t9-heavy-racer "${B[@]}" --short c4 -- true
+go_run c4 env FAKE_EXIT=0 KACHO_REMOTE_HEAVY_MAX=2 FAKE_RACE=t9-heavy-racer "${B[@]}" --short c4 -- true
 expect_rc C4 75
 own_gone C4 t1-heavy-c4
 no_job C4
 # C4b — близнец C4 без гонки → 0
 fresh; seed_ns t7-heavy-a '+1 hour'
-go_run c4b env FAKE_EXIT=0 "${B[@]}" --short c4b -- true
+go_run c4b env FAKE_EXIT=0 KACHO_REMOTE_HEAVY_MAX=2 "${B[@]}" --short c4b -- true
 expect_rc C4b 0
 # C5 — --keep не спасает ns запуска, вышедшего сверх предела
 fresh; seed_ns t7-heavy-a '+1 hour'
-go_run c5 env FAKE_EXIT=0 FAKE_RACE=t9-heavy-racer "${B[@]}" --short c5 --keep 2 -- true
+go_run c5 env FAKE_EXIT=0 KACHO_REMOTE_HEAVY_MAX=2 FAKE_RACE=t9-heavy-racer "${B[@]}" --short c5 --keep 2 -- true
 expect_rc C5 75
 own_gone C5 t1-heavy-c5
 # V2 — --available при занятом кластере → 75; близнец с одним идущим → 0
 fresh; seed_ns t7-heavy-a '+1 hour'; seed_ns t8-heavy-b '+1 hour'
-go_run v2 bash "$RUN" --available
+go_run v2 env KACHO_REMOTE_HEAVY_MAX=2 bash "$RUN" --available
 expect_rc V2 75
 fresh; seed_ns t7-heavy-a '+1 hour'
-go_run v2b bash "$RUN" --available
+go_run v2b env KACHO_REMOTE_HEAVY_MAX=2 bash "$RUN" --available
 expect_rc V2b 0
+# M2 — предел по умолчанию — 4, страховка над размещением (ws#1143): 4 идущих → 75 с
+# пределом в причине; близнец — 3 идущих → 0
+fresh; for x in a b c d; do seed_ns "t7-heavy-$x" '+1 hour'; done
+go_run m2 bash "$RUN" --available
+expect_rc M2 75
+if grep -q 'идущих тяжёлых прогонов 4 при пределе 4' "$OUT"; then ok; else bad M2 "предел по умолчанию не 4 либо не назван"; fi
+fresh; for x in a b c; do seed_ns "t7-heavy-$x" '+1 hour'; done
+go_run m2b bash "$RUN" --available
+expect_rc M2b 0
 # M1 — предел вне 1..8 → 64
 fresh
 go_run m1 env KACHO_REMOTE_HEAVY_MAX=0 "${B[@]}" -- true
@@ -1469,8 +1483,8 @@ go_run q1r env FAKE_EXIT=0 FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$STAND_ALL" 
 expect_rc Q1r 0
 if [ "$(created)" = да ]; then ok; else bad Q1r "ns не создавалось при стенде на всех узлах и месте под профиль"; fi
 expect_ns_gone Q1r t1-heavy-q1r
-# Q1d — ПРЕДЕЛ 2: единственный узел со стендом и одним идущим go-race — второй
-# go-race тоже встаёт (запросы профиля подобраны под это) → 0
+# Q1d — запас 20 % (ws#1143): единственный узел со стендом и одним идущим go-race —
+# второй go-race на нём оставил бы узлу меньше 20 % по CPU → 75, запас назван
 IFS='|' read -r _ gcpu _ gmib _ <<< "$(sed -n "s/^PROFILES='\\(go-race|.*\\)/\\1/p" "$RUN")"
 IFS='|' read -r dind_cpu _ dind_gi _ <<< "$(sed -n "s/^DIND_RES='\\(.*\\)'$/\\1/p" "$RUN")"
 dind_gi="${dind_gi%Gi}"
@@ -1478,8 +1492,44 @@ if [ -n "$gcpu" ] && [ -n "$dind_cpu" ] && [ -n "$dind_gi" ]; then
     one_run="$(pod_j t9-heavy-a n1 Running "$(( gcpu + dind_cpu ))" "$(( ${gmib%Gi} + dind_gi ))Gi")"
     fresh
     go_run q1d env FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$( { pod_j kacho n1 Running 450m 2756Mi; echo "$one_run"; } | items)" bash "$RUN" --available --profile go-race
-    expect_rc Q1d 0
+    expect_rc Q1d 75
+    if grep -q 'с запасом 20 % узла' "$OUT"; then ok; else bad Q1d "причина без запаса"; fi
 else bad Q1d "запрос go-race и dind не прочитаны из run.sh"; fi
+# QH — допуск по запросам профиля и запасу 20 % (ws#1143). Узлы и фон — замер
+# 2026-10-17 (get nodes и get pods -A): два узла по 15 500m и 30 189 МиБ, фон
+# 2 265m/8 436 МиБ и 2 335m/9 460 МиБ. Тяжёлый (go-race, ci-local) — 7 CPU и 12 ГиБ,
+# лёгкий (integration, lint) — 4 CPU и 6 ГиБ (запросы PROFILES с dind). Уже идущие
+# прогоны — pod на узлах; число идущих ns ноль: решает размещение, а не счёт штуками.
+# Помещаются 4 лёгких, или 1 тяжёлый и 2 лёгких, или 2 тяжёлых; следующий — 75.
+BG="$(pod_j sys n1 Running 2265m 8436Mi) $(pod_j sys n2 Running 2335m 9460Mi)"
+qh() {  # qh <случай> <профиль> <код> <узлы идущих: h1 l2 …>
+    local id="$1" prof="$2" want="$3" pods="$BG" r; shift 3
+    for r in "$@"; do
+        case "$r" in
+            h*) pods="$pods $(pod_j t9-heavy-h n"${r#h}" Running 7 12Gi)" ;;
+            l*) pods="$pods $(pod_j t9-heavy-l n"${r#l}" Running 4 6Gi)" ;;
+        esac
+    done
+    fresh
+    go_run "qh-$id" env FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$(printf '%s\n' "$pods" | items)" bash "$RUN" --available --profile "$prof"
+    expect_rc "QH-$id" "$want"
+    if [ "$want" = 75 ]; then
+        if grep -q 'с запасом 20 % узла по CPU и памяти нет' "$OUT"; then ok; else bad "QH-$id" "причина 75 не называет запас"; fi
+    fi
+}
+qh light-0 lint 0
+qh light-1 integration 0 l1
+qh light-2 lint 0 l1 l2
+qh light-3 integration 0 l1 l1 l2
+qh light-4 lint 75 l1 l1 l2 l2
+qh mix-0 go-race 0
+qh mix-1 lint 0 h1
+qh mix-2 integration 0 h1 l2
+qh mix-3 lint 75 h1 l2 l2
+qh mix-3h go-race 75 h1 l2 l2
+qh heavy-1 ci-local 0 h1
+qh heavy-2 go-race 75 h1 h2
+qh heavy-2c ci-local 75 h2 h1
 # Q3 — единственный узел не готов / закрыт / с taint NoSchedule → 69; прогон 69 без ns
 for q in "0 0 :не-готов" "1 1 :закрыт" "1 0 NoSchedule:taint"; do
     read -r rdy cord rest <<< "$q"; eff="${rest%%:*}"; nm="${rest#*:}"
@@ -1492,8 +1542,9 @@ fresh
 go_run q3r env FAKE_EXIT=0 FAKE_NODES="$(node_j n1 1 1 "" | items)" "${B[@]}" --short q3r -- true
 expect_rc Q3r 69
 if [ "$(created)" = нет ]; then ok; else bad Q3r "ns создавалось без открытого узла"; fi
-# Q2 — оба узла заняты: 20 ГиБ запрошено чужими pod → go-race не встаёт → 75 до ns
-BUSY="$( { pod_j kacho n1 Running 450m 2756Mi; pod_j other n1 Running 2 20Gi; pod_j other n2 Running 2 20Gi; } | items)"
+# Q2 — оба узла заняты: 16 ГиБ запрошено чужими pod → go-race (12 ГиБ) с запасом
+# 20 % не встаёт → 75 до ns
+BUSY="$( { pod_j kacho n1 Running 450m 2756Mi; pod_j other n1 Running 2 16Gi; pod_j other n2 Running 2 16Gi; } | items)"
 fresh
 go_run q2 env FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$BUSY" bash "$RUN" --available --profile go-race
 expect_rc Q2 75

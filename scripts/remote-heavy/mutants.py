@@ -251,6 +251,13 @@ MUTANTS = [
     ("k8s-dollar", "KX1", "команда уходит в Job без экранирования $ — kubelet её искажает",
      r'''  | .spec.template.spec |= ((.initContainers, .containers) |= map(kesc_c))''',
      r''''''),
+    # ws#1143 (предел по профилю): допуск — запросы профиля и запас узла, счёт штуками — страховка.
+    ("headroom-0", "QH-light-4", "запас узла 0 %: прогон садится до 100 % узла",
+     r'''HEADROOM_PCT=20 ''',
+     r'''HEADROOM_PCT=0 '''),
+    ("max-par-2", "M2", "страховка счётом штуками прежняя (2): лёгкие ждут при месте под них",
+     r'''MAX_PAR="${KACHO_REMOTE_HEAVY_MAX:-4}"''',
+     r'''MAX_PAR="${KACHO_REMOTE_HEAVY_MAX:-2}"'''),
 ]
 
 

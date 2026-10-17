@@ -96,9 +96,10 @@
 # «уборка прежних запусков: …».
 #
 # ПРЕДЕЛ. Квота стоит на одно ns, а общего предела в кластере нет (ревью ws#984,
-# F3): число одновременных тяжёлых прогонов ограничено KACHO_REMOTE_HEAVY_MAX
-# (по умолчанию 2 — запросы профилей подобраны так, что два go-race умещаются на
-# один узел рядом со стендом, см. PROFILES). Идущим считается ns
+# F3). Допуск прогона решают запросы профиля и ЗАПАС узла (РАЗМЕЩЕНИЕ); число
+# одновременных тяжёлых прогонов KACHO_REMOTE_HEAVY_MAX (по умолчанию 4) — лишь
+# верхняя страховка над ним: прежний счёт штуками (2) держал лёгкие в очереди при
+# месте под них, а размещение сажало прогон до 100 % узла. Идущим считается ns
 # kacho.io/kind=heavy, не снимаемое, со сроком в будущем и без завершённого Job.
 # Перепись — до создания ns (предел достигнут — 75, ns не создаётся) и после него:
 # две гонки, прошедшие первую проверку разом, разрешаются по времени создания —
@@ -121,11 +122,13 @@
 # создания ns, в --available и при ожидании планирования run.sh сам переписывает
 # узлы: годный — Ready, не закрыт для планирования, без taint NoSchedule/NoExecute
 # (допусков у pod нет) и с местом: allocatable минус запросы незавершённых pod узла
-# (запрос pod — сумма контейнеров и боковых, но не меньше наибольшего init) не
-# меньше запроса профиля (run и dind). Открытого узла нет — 69 (heavy-slot идёт
-# локально с причиной); открытые есть, места нет — 75; pod ждёт, а годного не
+# (запрос pod — сумма контейнеров и боковых, но не меньше наибольшего init) минус
+# запрос профиля (run и dind) оставляет на узле не меньше HEADROOM_PCT (20 %)
+# allocatable — и по CPU, и по памяти (ws#1143, предел по профилю: прежде прогон
+# садился до 100 % узла). Открытого узла нет — 69 (heavy-slot идёт локально с
+# причиной); открытые есть, места с запасом нет — 75; pod ждёт, а годного не
 # осталось — выход сразу тем же кодом. --available без --profile судит лишь
-# открытый узел.
+# открытый узел (запроса нет — и запас не судится).
 #
 # ВЫВОД (ws#991). Строки run.sh после выбора ns несут его имя: два прогона в одном
 # потоке различимы. Если stderr или stdout прогона — обычный файл, в который пишет
@@ -302,15 +305,18 @@ WAIT_START_S=900     # образ, планирование и доставка 
 DEFAULT_TIMEOUT_S=5400
 MAX_TIMEOUT_S=14400
 MAX_KEEP_H=12
-MAX_PAR="${KACHO_REMOTE_HEAVY_MAX:-2}"
+MAX_PAR="${KACHO_REMOTE_HEAVY_MAX:-4}"  # страховка над РАЗМЕЩЕНИЕМ: 4 лёгких — его предел на кластере замера
+HEADROOM_PCT=20      # РАЗМЕЩЕНИЕ: запас узла после посадки прогона, % allocatable (CPU и память)
 GUARD_TTL_S=30       # СТРАЖ: через сколько секунд узлы переписываются заново
 
-# профиль|cpu req|cpu lim|mem req|mem lim|ephemeral|dind|основание. Замер
-# 2026-10-09 (kubectl describe nodes, только чтение): узел — allocatable 15,5 CPU и
-# 30 189 МиБ; стенд занимает запросами 410m/450m CPU и 2 372/2 756 МиБ — свободно
-# не меньше 15 050m и 27 433 МиБ на каждом. Запрос go-race с dind — 7 CPU и 12 ГиБ:
-# два прогона (ПРЕДЕЛ) — 14 CPU и 24 576 МиБ — умещаются даже на одном узле рядом
-# со стендом, и место для обоих есть, где бы стенд ни стоял.
+# профиль|cpu req|cpu lim|mem req|mem lim|ephemeral|dind|основание. Запрос pod с
+# dind: go-race и ci-local — 7 CPU и 12 ГиБ («тяжёлый»), integration и lint — 4 CPU и
+# 6 ГиБ («лёгкий»). Замер 2026-10-17 (get nodes и get pods -A, только чтение): два
+# узла по 15 500m и 30 189 МиБ allocatable, фон без тяжёлых прогонов — 2 265m и
+# 8 436 МиБ на одном, 2 335m и 9 460 МиБ на другом. С запасом 20 % (РАЗМЕЩЕНИЕ) на
+# узел встаёт один тяжёлый либо два лёгких: на кластере — 2 тяжёлых, 1 тяжёлый и 2
+# лёгких либо 4 лёгких; третий тяжёлый — 75. Замер 2026-10-09 (стенд 410m, два
+# go-race на одном узле) снят: фон узлов с тех пор вырос в 3,5–5,5 раза.
 PROFILES='go-race|6|12|11Gi|16Gi|40Gi|1|go test -race по монорепо локально — 13,6 ГиБ (heavy-slot.sh, класс go-race); предел 16 ГиБ — запрос 11 ГиБ держит место двух прогонов на узле
 integration|3|6|5Gi|10Gi|40Gi|1|make test-integration SVC=vpc локально — 1,4 ГиБ; контейнеры testcontainers — в dind, у него свой предел
 lint|4|8|6Gi|12Gi|20Gi|0|golangci-lint run ./... по монорепо, холодный кэш — 4,5 ГиБ (heavy-slot.sh, класс lint)
@@ -581,13 +587,14 @@ busy_heavy() {
 # открытого для планирования, нет; 75 — такой есть, но места под запрос нет; 1 —
 # перепись не прочитана. Причина — в PLACE_WHY, перепись — в PLACE_CENSUS.
 placement() {
-    local nj pj r
+    local nj pj r hr=0
+    { [ "$1" -gt 0 ] || [ "$2" -gt 0 ]; } && hr="$HEADROOM_PCT"
     PLACE_WHY=""; PLACE_CENSUS=""
     nj="$(kc get nodes -o json 2>/dev/null)" || { PLACE_WHY="узлы не прочитаны"; return 1; }
     pj="$(kc get pods -A -o json 2>/dev/null)" || { PLACE_WHY="pod кластера не прочитаны"; return 1; }
     # Перепись pod кластера — сотни КиБ, а строка аргумента ограничена ядром
     # (128 КиБ): вход — файлами, а не --argjson (опыт 2026-10-09 на кластере).
-    r="$(jq -nr --slurpfile N <(printf '%s' "$nj") --slurpfile P <(printf '%s' "$pj") --argjson cpu "$1" --argjson mem "$2" '
+    r="$(jq -nr --slurpfile N <(printf '%s' "$nj") --slurpfile P <(printf '%s' "$pj") --argjson cpu "$1" --argjson mem "$2" --argjson hr "$hr" '
       $N[0] as $n | $P[0] as $p |
       def mcpu: tostring | if endswith("m") then (.[:-1] | tonumber) else (tonumber * 1000) end;
       def mib: tostring | capture("^(?<v>[0-9.]+)(?<u>[A-Za-z]*)$") as $c
@@ -603,21 +610,22 @@ placement() {
          | {open: ((any(.status.conditions[]?; .type == "Ready" and .status == "True"))
                    and ((.spec.unschedulable // false) | not)
                    and ((.spec.taints // []) | all(.effect != "NoSchedule" and .effect != "NoExecute"))),
+            acpu: (.status.allocatable.cpu // "0" | mcpu), amem: (.status.allocatable.memory // "0" | mib),
             fcpu: ((.status.allocatable.cpu // "0" | mcpu) - ([$live[] | select(.spec.nodeName == $nm) | eff("cpu")] | add // 0)),
             fmem: ((.status.allocatable.memory // "0" | mib) - ([$live[] | select(.spec.nodeName == $nm) | eff("memory")] | add // 0))}] as $ns
       | [($ns | length), ($ns | map(select(.open | not)) | length),
          ($ns | map(select(.open)) | length),
-         ($ns | map(select(.open and .fcpu >= $cpu and .fmem >= $mem)) | length)] | map(tostring) | join(" ")' 2>/dev/null)" \
+         ($ns | map(select(.open and .fcpu - $cpu >= .acpu * $hr / 100 and .fmem - $mem >= .amem * $hr / 100)) | length)] | map(tostring) | join(" ")' 2>/dev/null)" \
         || { PLACE_WHY="перепись узлов не разобрана"; return 1; }
     local all closed open fit
     read -r all closed open fit <<< "$r"
-    PLACE_CENSUS="узлов $all: закрыты для планирования $closed, открыты $open, из них с местом $fit"
+    PLACE_CENSUS="узлов $all: закрыты для планирования $closed, открыты $open, из них с местом$([ "$hr" -gt 0 ] && echo " и запасом $hr %") $fit"
     [ "${all:-0}" -gt 0 ] || { PLACE_WHY="узлов в кластере ноль — переписывать нечего"; return 1; }
     [ "$fit" -gt 0 ] && return 0
     if [ "$open" -eq 0 ]; then
         PLACE_WHY="открытого для планирования узла нет ($PLACE_CENSUS) — pod не встанет"; return 69
     fi
-    PLACE_WHY="места под запрос (cpu $(( $1 / 1000 )), память $(( $2 / 1024 )) ГиБ) нет ни на одном открытом узле ($PLACE_CENSUS)"; return 75
+    PLACE_WHY="места под запрос (cpu $(( $1 / 1000 )), память $(( $2 / 1024 )) ГиБ) с запасом $hr % узла по CPU и памяти нет ни на одном открытом узле ($PLACE_CENSUS)"; return 75
 }
 
 # need_of <профиль> — «mCPU МиБ» запроса pod профиля: run и боковой dind.
