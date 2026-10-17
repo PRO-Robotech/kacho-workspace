@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) PRO-Robotech
 # SPDX-License-Identifier: BUSL-1.1
-"""ci-stated — демон состояния открытых запросов kacho и kaname (ws#1113).
+"""ci-stated — демон состояния открытых запросов kacho, kaname и воркспейса (ws#1113, ws#1151).
 
 ЗАЧЕМ. Заказ владельца 2026-10-16: «Переделай ci флоу так что бы время потрачено на
 проверку состояния было минимально, очереди быстро рассасывались». Агенты ci-watcher
@@ -32,6 +32,10 @@ state свода или конец счёта (незавершённых 0) —
 /graphql с текстом, РАВНЫМ одному из литералов LITERALS, без слова mutation; прочее —
 отказ (код 3). Токен — из keyring (gh auth status: tokenSource == keyring), иначе
 отказ старта (код 4): токен из файла настроек или переменной окружения демон не берёт.
+keyring НЕДОСТУПЕН (gh auth status или auth token не ответили) — код 6, а не 4: при
+Linger=yes менеджер пользователя стартует службу при загрузке раньше, чем вход открывает
+keyring (замер 2026-10-17: default.target 00:55:21, gnome-keyring-daemon 00:56:34), и
+служба повторяет старт (Restart=on-failure); токен не из keyring — 4, повтор запрещён.
 Токен живёт только в памяти и в заголовке Authorization к api.github.com.
 
 ИСПОЛЬЗОВАНИЕ
@@ -40,8 +44,8 @@ state свода или конец счёта (незавершённых 0) —
   ci-stated.py --probe-request <метод> <путь> [файл] — пройти страж и сеть одним запросом
 
 ИСХОДЫ: 0 — опрос прошёл (--once) либо служба остановлена сигналом; 2 — довод не тот;
-3 — отказ стража; 4 — отказ старта (keyring, каталог состояния, адрес площадки);
-5 — сеть не ответила (--probe-request).
+3 — отказ стража; 4 — отказ старта (токен не из keyring, каталог состояния, адрес
+площадки); 5 — сеть не ответила (--probe-request); 6 — keyring недоступен (повторимо).
 
 ВХОД ПОДМЕНЯЕМ — ради доказательства (scripts/ci-state/inject.sh):
   CI_STATE_DIR      — каталог состояния вместо ~/.cache/kacho-ci-state;
@@ -67,7 +71,8 @@ import urllib.request
 
 MAX_REFRESH_EVERY = 120   # с: перечитывание по смене одного лишь счёта
 CORE_RESERVE = 1000       # остаток REST, ниже которого демон не перечитывает
-DEFAULT_REPOS = "PRO-Robotech/kacho,PRO-Robotech/kaname"
+# Перечень — тот же, что в --repos юнита ci-stated.service; расхождение — отказ install.sh (код 2).
+DEFAULT_REPOS = "PRO-Robotech/kacho,PRO-Robotech/kaname,PRO-Robotech/kacho-workspace"
 
 # Литералы — единственные тексты, которые демон отправляет в /graphql.
 LITERALS = {
@@ -93,7 +98,13 @@ class Refused(Exception):
 
 
 class StartRefused(Exception):
-    """Отказ старта."""
+    """Отказ старта: код 4 — запрет, повтор бесполезен; KeyringDown — код 6, повторимо."""
+    code = 4
+
+
+class KeyringDown(StartRefused):
+    """keyring не ответил: повторимо (служба перезапускается)."""
+    code = 6
 
 
 def log(msg):
@@ -146,22 +157,22 @@ def keyring_token():
         st = subprocess.run([gh, "auth", "status", "--json", "hosts"], capture_output=True, text=True,
                             timeout=30, env=env)
     except (OSError, subprocess.TimeoutExpired) as e:
-        raise StartRefused(f"keyring недоступен: gh auth status не исполнился ({e.__class__.__name__})")
+        raise KeyringDown(f"keyring недоступен: gh auth status не исполнился ({e.__class__.__name__})")
     if st.returncode != 0:
-        raise StartRefused(f"keyring недоступен: gh auth status код {st.returncode}")
+        raise KeyringDown(f"keyring недоступен: gh auth status код {st.returncode}")
     try:
         accts = json.loads(st.stdout)["hosts"]["github.com"]
         act = next(a for a in accts if a.get("active"))
         src = act.get("tokenSource")
     except (ValueError, KeyError, TypeError, StopIteration):
-        raise StartRefused("keyring недоступен: ответ gh auth status не разбирается")
+        raise KeyringDown("keyring недоступен: ответ gh auth status не разбирается")
     if src != "keyring":
         raise StartRefused(f"токен не из keyring (источник «{src}»): демон его не берёт")
     tok = subprocess.run([gh, "auth", "token", "-h", "github.com"], capture_output=True, text=True,
                          timeout=30, env=env)
     token = tok.stdout.strip()
     if tok.returncode != 0 or not token:
-        raise StartRefused("keyring недоступен: gh auth token не отдал токен")
+        raise KeyringDown("keyring недоступен: gh auth token не отдал токен")
     return token
 
 
@@ -371,7 +382,7 @@ def main(argv):
             return 3
         except StartRefused as e:
             log(f"ОТКАЗ: {e}")
-            return 4
+            return e.code
         except (urllib.error.URLError, OSError) as e:
             log(f"страж пройден; сеть не ответила: {e.__class__.__name__}")
             return 5
@@ -390,7 +401,7 @@ def main(argv):
         d = state_dir()
     except StartRefused as e:
         log(f"ОТКАЗ СТАРТА: {e}")
-        return 4
+        return e.code
     os.umask(0o077)
     stop = []
     signal.signal(signal.SIGTERM, lambda *_: stop.append(1))
