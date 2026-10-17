@@ -40,6 +40,13 @@
 #                  копия с неотслеживаемым файлом остаётся с веткой; prune-ahead: местная
 #                  голова впереди влитой — ни ветка, ни копия не сняты; prune-remote:
 #                  ветку на origin хостинг не снял — демон снимает её сам;
+#   empty-code   — landing-precheck 1 с причиной БЕЗ кода (REASON<TAB><TAB>текст) — red и без
+#                  --allow, и с непустым --allow;
+#   lp-head      — landing-precheck судил другую голову (его CENSUS) → head-moved; строки
+#                  судимой головы нет → void;
+#   prune-origin-ahead — ветка на origin ушла вперёд после вливания → не снимается;
+#   prune-not-in-base  — хостинг сказал merged, а влитой головы в базе нет → ничего не снято;
+#   status       — коды status для каждого исхода (4, 5, 6 — тоже) и для слова вне перечня;
 #   guard        — no-wait-guard пропускает команды start и status, а цикл ожидания
 #                  агентом (until … sleep) — отказ;
 #   static       — исполняемый текст демона без форсирующих флагов, обхода хуков, догона
@@ -49,7 +56,9 @@
 # --match-head-commit, с --admin, без --delete-branch, допуск всех причин, без сверки
 # головы перед вливанием, stale-base как ожидание, red как ожидание, без предела VOID,
 # ci-read без --head, без сверки местной головы при снятии, закрытый как открытый, без
-# сверки --subject, без FIFO, лимит площадки как VOID. Правка, не легшая в текст, — VOID.
+# сверки --subject, без FIFO, лимит площадки как VOID, пустой код допущен, голова
+# landing-precheck не сверяется, строка его головы не требуется, origin-ветка снимается
+# ушедшей вперёд, снятие без проверки «влитая — предок базы», status 4/5/6 как 0. Правка, не легшая в текст, — VOID.
 #
 # ИСХОДЫ: 0 — все сцены зелёные, все мутанты убиты; 1 — сцена разошлась либо мутант
 # выжил; 2 — судить нечем (нет jq, python3, git, setsid, flock, стража).
@@ -124,6 +133,10 @@ n="$(basename "$0")"; FX="$AL_FX"
 printf '%s %s\n' "$n" "$*" >> "$FX/calls"
 [ "$n" != branch-audit.sh ] || exit 0
 i=$(( $(cat "$FX/$n.n" 2>/dev/null || echo 0) + 1 )); echo "$i" > "$FX/$n.n"
+if [ "$n" = landing-precheck.sh ] && [ ! -f "$FX/lp.nohead" ]; then   # форма landing-precheck.sh: CENSUS судимой головы
+  h="$(cat "$FX/lp.head" 2>/dev/null || jq -r .head.sha "$FX/pull.json")"
+  printf 'CENSUS\t%s#%s голова %s (4000-probe → main)\n' "$1" "$2" "${h:0:12}"
+fi
 code="$(sed -n "${i}p" "$FX/$n.seq")"; [ -n "$code" ] || code="$(tail -n1 "$FX/$n.seq")"
 if [ -f "$FX/$n.$code.out" ]; then cat "$FX/$n.$code.out"; else printf 'VERDICT\tдвойник\tкод %s\n' "$code"; fi
 [ ! -f "$FX/$n.hook" ] || bash "$FX/$n.hook"
@@ -374,7 +387,13 @@ mk_git() {  # песочница: origin, клон с веткой задачи,
       echo 'git -C "$m" fetch -q origin; git -C "$m" checkout -q main; git -C "$m" reset -q --hard origin/main'
       echo 'git -C "$m" merge -q --no-ff origin/4000-probe -m "#4000 merge #4242: проба"'
       echo 'git -C "$m" push -q origin main'
-      [ "${1:-}" = keep-remote ] || echo 'git -C "$m" push -q origin --delete 4000-probe'; } > "$FX/merged.hook"
+      case "${1:-}" in
+        keep-remote) ;;
+        origin-ahead) echo 'git -C "$m" checkout -q -b ahead origin/4000-probe; echo ahead > "$m/ahead"; git -C "$m" add ahead'
+                      echo 'git -C "$m" commit -qm "#4000 после вливания"; git -C "$m" push -q origin HEAD:4000-probe' ;;
+        *) echo 'git -C "$m" push -q origin --delete 4000-probe' ;;
+      esac; } > "$FX/merged.hook"
+    [ "${1:-}" != not-in-base ] || : > "$FX/merged.hook"   # хостинг сказал merged, в базе коммита нет
     pull "$HEAD_P" open false; RUN_HEAD="$HEAD_P"; CLONES="$G/clone"
 }
 has_branch() { git -C "$G/clone" rev-parse -q --verify refs/heads/4000-probe >/dev/null; }
@@ -399,6 +418,16 @@ s_prune_ahead() {
     ok prune-ahead "merged, местная голова впереди — оставлено" eval 'st_is merged && st_has "не равна и не предок"'
     ok prune-ahead "ветка и копия на месте" eval 'has_branch && [ -d "$G/wt" ]'
 }
+s_prune_origin_ahead() {
+    new_fx prune-origin-ahead; mk_git origin-ahead; run_al
+    ok prune-origin-ahead "merged, origin-ветка ушла вперёд — оставлена с причиной" eval 'st_is merged && st_has "сдвинулась после вливания"'
+    ok prune-origin-ahead "ветка на origin на месте" eval '! remote_empty'
+}
+s_prune_not_in_base() {
+    new_fx prune-not-in-base; mk_git not-in-base; run_al
+    ok prune-not-in-base "merged по хостингу, коммита в базе нет — ничего не снято" eval 'st_is merged && st_has "снято 0" && st_has "не предок origin/main"'
+    ok prune-not-in-base "ветка, копия и origin-ветка на месте" eval 'has_branch && [ -d "$G/wt" ] && ! remote_empty'
+}
 s_prune_remote() {
     new_fx prune-remote; mk_git keep-remote; run_al
     ok prune-remote "ветку на origin демон снял сам" eval 'st_is merged && remote_empty && st_has "origin/4000-probe"'
@@ -407,6 +436,34 @@ guard_rc() {  # <команда> — код стража
     python3 -c 'import json,sys; print(json.dumps({"tool_name":"Bash","tool_input":{"command":sys.argv[1]},"agent_type":"git-operator"}))' "$1" \
         | python3 "$GUARD" >/dev/null 2>&1
     echo $?
+}
+s_status() {
+    local f="$T/status.$RANDOM" w c
+    new_fx status
+    for w in "stale-base 4" "head-moved 5" "timeout 6" "merged 0" "red 1" "void 2"; do
+        printf '%s подробность\n' "${w% *}" > "$f.state"
+        bash "$AL" status "$f.state" > /dev/null; c=$?
+        ST="${w% *}"; RC=$c
+        ok status "status «${w% *}» — код ${w#* }" eval '[ "$c" -eq "${w#* }" ]'
+    done
+    printf 'новое-слово x\n' > "$f.state"; bash "$AL" status "$f.state" > /dev/null; c=$?; ST="новое-слово"; RC=$c
+    ok status "исход не из перечня — код 2" eval '[ "$c" -eq 2 ]'
+}
+s_empty_code() {
+    new_fx empty-code; echo 1 > "$FX/landing-precheck.sh.seq"
+    printf 'REASON\t\tпричина без кода\n' > "$FX/landing-precheck.sh.1.out"
+    run_al
+    ok empty-code "пустой код без --allow — red, вливания нет" eval '[ "$RC" -eq 1 ] && st_is red && st_has "причина без кода" && not_merge_called'
+    new_fx empty-code-allow; echo 1 > "$FX/landing-precheck.sh.seq"
+    printf 'REASON\t\tпричина без кода\n' > "$FX/landing-precheck.sh.1.out"
+    run_al --allow STAND-REPORT
+    ok empty-code "пустой код при непустом --allow — red, вливания нет" eval '[ "$RC" -eq 1 ] && st_is red && not_merge_called'
+}
+s_lp_head() {
+    new_fx lp-head; printf '%s\n' "$HEAD_B" > "$FX/lp.head"; run_al
+    ok lp-head "landing-precheck судил другую голову — head-moved, вливания нет" eval '[ "$RC" -eq 5 ] && st_is head-moved && st_has "судил landing-precheck" && not_merge_called'
+    new_fx lp-nohead; : > "$FX/lp.nohead"; run_al --void-limit 2 --timeout 6
+    ok lp-head "landing-precheck без строки судимой головы — void, вливания нет" eval '[ "$RC" -eq 2 ] && st_is void && st_has "не напечатал судимую голову" && not_merge_called'
 }
 s_guard() {
     local c1 c2 c3
@@ -429,7 +486,8 @@ s_static() {
 
 ALL=(s_green s_red s_moved_start s_moved_gates s_moved_merge s_allow_ok s_allow_bad s_stale s_mr_red s_timeout
      s_void s_void_twin s_ratelimit s_pr_unread s_draft s_closed s_already s_fifo s_args s_detach s_recipe
-     s_prune s_prune_dirty s_prune_ahead s_prune_remote s_guard s_static)
+     s_prune s_prune_dirty s_prune_ahead s_prune_remote s_prune_origin_ahead s_prune_not_in_base
+     s_status s_empty_code s_lp_head s_guard s_static)
 
 AL="$AL_REAL"
 echo "== контроль: сцен ${#ALL[@]}"
@@ -473,6 +531,14 @@ mutant prune-ahead-predicate-dropped s_prune_ahead 'if ! { [ "$lh" = "$HEAD" ] |
 mutant closed-as-open s_closed '[ "$PR_STATE" = open ] ||' 'true ||'
 mutant subject-unchecked s_args '[[ "$SUBJECT" =~ ^#[0-9]+\ merge\ #${PR}:\ [^[:space:]] ]]' 'true'
 mutant fifo-dropped s_fifo 'if [ -d "$CI_STATE/wait" ]' 'if false'
+mutant empty-code-allowed s_empty_code '$2 == "" || index(allow' 'index(allow'
+mutant lp-head-unchecked s_lp_head 'elif [ "$lph" != "${HEAD:0:12}" ]; then' 'elif false; then'
+mutant lp-nohead-ignored s_lp_head 'if [ -z "$lph" ]; then' 'if false; then'
+mutant prune-origin-ahead-dropped s_prune_origin_ahead 'if [ "$rh" = "$HEAD" ] || git -C "$c" merge-base --is-ancestor "$rh" "$HEAD" 2>/dev/null; then' 'if true; then'
+mutant prune-base-ancestor-dropped s_prune_not_in_base 'if ! git -C "$c" merge-base --is-ancestor "$HEAD" "origin/$base" 2>/dev/null; then' 'if false; then'
+mutant status-stale-as-merged s_status 'stale-base) exit 4 ;;' 'stale-base) exit 0 ;;'
+mutant status-moved-as-merged s_status 'head-moved) exit 5 ;;' 'head-moved) exit 0 ;;'
+mutant status-timeout-as-merged s_status 'timeout) exit 6 ;;' 'timeout) exit 0 ;;'
 mutant ratelimit-as-void s_ratelimit "if grep -qP '^REASON\\tRATE-LIMIT\\t'" 'if false'
 
 echo "== итог: сцен ${#ALL[@]}, провалов контроля $control_fails; мутантов $mutants, выжило $survived, не легло $voidm"

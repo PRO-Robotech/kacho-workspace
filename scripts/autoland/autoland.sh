@@ -46,8 +46,14 @@
 #      дольше --poll: смена кода будит сразу, без опроса;
 #   3. `merge-readiness.sh <репо> <N>`: 0 — дальше; 1 — red; 2 — повтор;
 #   4. `landing-precheck.sh <репо> <N> [--reviews] [--stand-report --stand-expect]`:
-#      0 — дальше; 1 — причины вне --allow дают red, только допущенные — дальше;
-#      2 — повтор;
+#      судимая им голова (строка CENSUS «<репо>#<N> голова <12 hex>») ≠ --head —
+#      head-moved, строки нет — «не выполнилось»; 0 — дальше; 1 — причины вне --allow
+#      дают red, причина с пустым кодом не допускается никогда, только допущенные —
+#      дальше; 2 — повтор;
+#   ГОЛОВА. --head принимает лишь ci-read; landing-precheck сверяется по своей строке
+#      CENSUS (первые 12 знаков), merge-readiness голову на основном пути не печатает —
+#      его голова сверяется только чтением запроса до ci-read и после landing-precheck;
+#      последняя граница — --match-head-commit хостинга;
 #   5. запрос снова: голова та же — вливание ОДНОЙ командой
 #      `gh pr merge <N> -R <репо> --merge --match-head-commit <sha> --subject <…>
 #      --body "" --delete-branch` (способ — с сервера, сквош и rebase там выключены);
@@ -431,11 +437,21 @@ while :; do
     esac
 
     gate landing-precheck.sh "$REPO" "$PR" "${LP_ARGS[@]}"
+    if [ "$GATE_RC" -eq 0 ] || [ "$GATE_RC" -eq 1 ]; then
+        # Голова, которую судил landing-precheck, — из его строки CENSUS «<репо>#<N> голова <12 hex>».
+        lph="$(grep -m1 -oP "^CENSUS\t\Q$REPO#$PR\E голова \K[0-9a-f]{12}(?= )" "$W/landing-precheck.sh.out")"
+        if [ -z "$lph" ]; then
+            printf 'VOID\tlanding-precheck не напечатал судимую голову (CENSUS «%s#%s голова …»)\n' "$REPO" "$PR" >> "$W/landing-precheck.sh.out"
+            GATE_RC=2
+        elif [ "$lph" != "${HEAD:0:12}" ]; then
+            finish head-moved "$HEAD $lph (судил landing-precheck)"
+        fi
+    fi
     case "$GATE_RC" in
         0) VOIDS[landing-precheck.sh]=0 ;;
         1) VOIDS[landing-precheck.sh]=0
            bad="$(grep -P '^REASON\t' "$W/landing-precheck.sh.out" \
-               | awk -F'\t' -v allow=",$ALLOW," 'index(allow, "," $2 ",") == 0' | join)"
+               | awk -F'\t' -v allow=",$ALLOW," '$2 == "" || index(allow, "," $2 ",") == 0' | join)"
            all="$(reasons landing-precheck.sh)"
            [ -n "$all" ] || finish red "landing-precheck код 1 без строк REASON: $(quote landing-precheck.sh)"
            [ -z "$bad" ] || finish red "landing-precheck код 1: $bad"
