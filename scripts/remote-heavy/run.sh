@@ -1471,9 +1471,9 @@ jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg goimg "$GO_IMAGE" --arg dimg "
 # сворачивает $$ в $ (ws#1142: составной Job потерял переменные и коды осей). Каждый
 # $ удваивается: kubelet свернёт его обратно, и байты дойдут до контейнера как есть.
 def kesc: gsub("\\$"; "$$");
-def kesc_c: (if .command then .command |= map(kesc) else . end)
-  | (if .args then .args |= map(kesc) else . end)
-  | (if .env then .env |= map(if has("value") then .value |= kesc else . end) else . end);
+def kesc_c: (if .command then .command |= map(kesc) else (.) end)
+  | (if .args then .args |= map(kesc) else (.) end)
+  | (if .env then .env |= map(if has("value") then .value |= kesc else (.) end) else (.) end);
 {
   apiVersion: "batch/v1", kind: "Job",
   metadata: {name: "run", namespace: $ns, labels: {"kacho.io/task": $task, "kacho.io/kind": "heavy"}},
