@@ -18,6 +18,8 @@
 #   K2 команда кодом 42                    → код 42; ns снято
 #   K3 TERM посреди идущей команды         → код 143; ns снято; выход ≤ 20 с
 #   K4 контейнер OOMKilled                 → код 76; ns снято
+#   K4b признак «remote-heavy-oom:» шага   → 76 (команду убил предел, контейнер
+#      вышел её кодом); близнец K4c 137 без признака → 137
 #   K6 подготовка pod не удалась            → 69; ns снято; близнец K6b — код 125 команды
 #   K5 --keep 2                            → код команды; ns НЕ снято; срок ≈ +2 ч
 #   R1 NS=kacho                            → 64; к кластеру ни одного обращения
@@ -128,6 +130,31 @@
 #   H1 ревизия только на боковой ветке origin и метка → в bundle и ссылками в
 #      дереве pod (FETCH из Job исполняется), ствол и ревизия на месте, временной
 #      ссылки run.sh там нет — история как у checkout fetch-depth: 0 (ws#996)
+#   RG0 Job несёт шаг красных групп после подготовки, команда — через heavy_cmd;
+#      зелёный прогон каталога копий не заводит и о копиях молчит (ws#1136)
+#   RG1 шаг ИСПОЛНЕНИЕМ над синтетическим прогоном (настоящий go test, один пакет
+#      с упавшим тестом; группы в форме вывода ci-local): дайджест называет пакет,
+#      тест и строку отказа; копий ровно две красные (ПРОПУСК и ok — нет); код —
+#      код команды; близнец RG1-green — копий нет, 0
+#   RG2 тот поток через run.sh → каталог «<журнал>.red-<ns>» рядом с журналом, копии
+#      равны журналам pod, адрес pod в копии под маской, дайджест в журнале на
+#      машине, строк потока копий там нет, итог называет каталог и файлы
+#   RG3 поток повторён (стык переподключения) → копии целы
+#   RG4 строка копии выпала → копия не сохранена, причина названа, вторая цела,
+#      дайджест на месте; RG4b содержимое подменено при тех же числе строк и байтах
+#      → ловит сумма
+#   RG5 итога в потоке нет → разбор полного лога контейнера, вывод не повторён
+#   RG7 признак OOM шага ИСПОЛНЕНИЕМ: oom_kill вырос → «remote-heavy-oom:» в
+#      termination-log, код команды сохранён; близнец RG7b — без роста признака нет
+#   RG8 фоновый процесс команды держит её stdout дольше неё → шаг не ждёт его
+#      (≤ 10 с), код — код команды, вывод в копии
+#   RG9 два упавших пакета дальше 10 строк → дайджест называет оба
+#   RG10 паника в горутине без «--- FAIL», стек > 10 строк → сообщение и кадр
+#   RG11 журнал больше HEAVY_RED_BYTES → копия = последние байты, обрезка названа
+#   RG12 IPv6, IPv4 и имя сервера в журнале → в файлах копий только маска
+#   RG13 обрыв внутри копии (нет end и total) → копии из полного лога контейнера
+#   RG6 красный код, красных групп ноль → строка с числом групп, каталога нет;
+#      RG6b итога нет нигде → «НЕ получены»
 #   L0 двойник сам печатает адрес и IPv4   → да (контроль пробы утечки)
 #   L0b двойник печатает адреса pod в stdout лога → да (контроль F4)
 #   L1 вывод всех случаев без адреса сервера, IPv4/IPv6 узлов и pod, токена,
@@ -335,12 +362,15 @@ case "$1 ${2:-}" in
     "exec -i") cat > "$S/bundle"; touch "$S/delivered" ;;
     "logs -f")
         echo "строка лога команды: pod $FAKE_POD_IP, dind $FAKE_POD_IP6"
+        # FAKE_LOG_FILE — поток лога шага красных групп (RG*); без него — итог шага
+        # без красных, как его печатает всякий pod после команды.
+        if [ -n "${FAKE_LOG_FILE:-}" ]; then cat "$FAKE_LOG_FILE"; else echo "remote-heavy-redlog: total 0 0"; fi
         touch "$S/logging"
         # Висит, пока жив вызвавший run.sh: срок — предикат, а не время.
         if [ "${FAKE_HANG:-0}" = 1 ]; then
             for _ in $(seq 1 600); do kill -0 "$PPID" 2>/dev/null || exit 0; sleep 0.1; done
         fi ;;
-    "logs run-x") : ;;
+    "logs run-x") [ -z "${FAKE_FULL_LOG:-}" ] || cat "$FAKE_FULL_LOG" ;;
     "get events") echo '{"items":[]}' ;;
     "delete ns") rm -f "$S/ns/$3"; echo "$3" >> "$S/deleted" ;;
     "get job")
@@ -671,8 +701,8 @@ jq -r '.spec.template.spec.containers[] | select(.name == "run") | .command[2]' 
 if grep -q 'get.helm.sh/helm-$HEAVY_HELM-linux-' "$BOX/e1.cmd" && grep -q 'sha256sum -c' "$BOX/e1.cmd" \
    && grep -q 'nodejs.org/dist/' "$BOX/e1.cmd" && grep -q 'SHASUMS256.txt' "$BOX/e1.cmd"; then ok
 else OUT="$BOX/e1.cmd"; bad E1 "установки helm и node с проверкой суммы в подготовке run нет"; fi
-if awk '/^# tools-check$/ { c = NR } /^exec "\$@"$/ { e = NR } END { exit !(c && e && c < e) }' "$BOX/e1.cmd"; then ok
-else OUT="$BOX/e1.cmd"; bad E1 "сверки среды перед командой нет либо exec команды не своей строкой (за маркером — комментарий)"; fi
+if awk '/^# tools-check$/ { c = NR } /^heavy_cmd "\$@"$/ { e = NR } END { exit !(c && e && c < e) }' "$BOX/e1.cmd"; then ok
+else OUT="$BOX/e1.cmd"; bad E1 "сверки среды перед командой нет либо команда не своей строкой (за маркером — комментарий)"; fi
 if grep -q 'Job создан: .*helm v4.2.4, node 26' "$BOX/e1.out"; then ok; else OUT="$BOX/e1.out"; bad E1 "строка «Job создан» не называет helm и node"; fi
 # E2 сверка среды ИСПОЛНЕНИЕМ: текст из Job, PATH поддельный
 sed -n '/^# tools-check$/,/^# tools-end$/p' "$BOX/e1.cmd" | sed "s#/dev/termination-log#$BOX/etl#g" > "$BOX/tools.sh"
@@ -716,7 +746,7 @@ buf_tools_case E2-buf-legit 1.72.0 0
 #    kaname из GOMODCACHE, а сборка этот модуль не тянет: без шага загрузки кэш
 #    Job его не содержит (32 отказа «stat /cache/mod/…: no such file»). Конвейер
 #    делает `go mod download` до тестов; Job обязан тоже — каждого профиля.
-modstep_in() { awk '/^# moddl-begin$/ { b = NR } /^# moddl-end$/ { m = NR } /^exec "\$@"$/ { e = NR } END { exit !(b && m && e && b < m && m < e) }' "$1"; }
+modstep_in() { awk '/^# moddl-begin$/ { b = NR } /^# moddl-end$/ { m = NR } /^heavy_cmd "\$@"$/ { e = NR } END { exit !(b && m && e && b < m && m < e) }' "$1"; }
 if modstep_in "$BOX/e1.cmd"; then ok; else OUT="$BOX/e1.cmd"; bad D1 "шага загрузки модулей перед командой в Job профиля integration нет"; fi
 for prof in go-race ci-local lint; do
     fresh
@@ -767,7 +797,7 @@ moddl_case D1c "$DM/nomod" "file://$DM/px" 0 'качать нечего'
 #     формы — 64 до кластера
 ZS=0000000000000000000000000000000000000000
 PUSH_LINE="refs/heads/x $(git -C "$SRC" rev-parse HEAD) refs/heads/x $ZS"
-npm_in() { awk '/^# tools-end$/ { t = NR } /^# npmci-begin$/ { b = NR } /^# npmci-end$/ { m = NR } /^exec "\$@"$/ { e = NR } END { exit !(t && b && m && e && t < b && b < m && m < e) }' "$1"; }
+npm_in() { awk '/^# tools-end$/ { t = NR } /^# npmci-begin$/ { b = NR } /^# npmci-end$/ { m = NR } /^heavy_cmd "\$@"$/ { e = NR } END { exit !(t && b && m && e && t < b && b < m && m < e) }' "$1"; }
 fresh
 go_run nc1 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kacho --ref HEAD --src "$SRC" --profile ci-local --short nc1 --push-input "$PUSH_LINE" -- true
 expect_rc NC1 0
@@ -915,7 +945,7 @@ else ok; fi
 #     до команды; адрес в вывод run.sh не попал
 GI_NAME="Probe Signer"; GI_EMAIL="probe-signer@example.invalid"
 printf '[user]\n\tname = %s\n\temail = %s\n' "$GI_NAME" "$GI_EMAIL" > "$BOX/gi.cfg"; : > "$BOX/gi-empty.cfg"
-gi_in() { awk '/^# gitid-begin$/ { b = NR } /^# gitid-end$/ { m = NR } /^exec "\$@"$/ { e = NR } END { exit !(b && m && e && b < m && m < e) }' "$1"; }
+gi_in() { awk '/^# gitid-begin$/ { b = NR } /^# gitid-end$/ { m = NR } /^heavy_cmd "\$@"$/ { e = NR } END { exit !(b && m && e && b < m && m < e) }' "$1"; }
 fresh
 go_run gi1 env FAKE_EXIT=0 GIT_CONFIG_GLOBAL="$BOX/gi.cfg" bash "$RUN" --task 1 --repo kaname --ref HEAD --src "$SRC" --profile ci-local --short gi1 --push-input "$PUSH_LINE" -- true
 expect_rc GI1 0
@@ -1191,6 +1221,16 @@ fresh
 go_run k4 env FAKE_EXIT=137 FAKE_OOM=1 "${B[@]}" --short k4 -- true
 expect_rc K4 76
 expect_ns_gone K4 t1-heavy-k4
+# K4b — команду убил предел памяти, контейнер вышел кодом команды (между ними bash
+#      шага красных групп): признак «remote-heavy-oom:» в termination-log → 76;
+#      близнец K4c — 137 без признака → 137 (красное, а не «не выполнилось»)
+fresh
+go_run k4b env FAKE_EXIT=137 FAKE_MSG="remote-heavy-oom: процесс команды убит пределом памяти (oom_kill 0 → 1, код 137)" "${B[@]}" --short k4b -- true
+expect_rc K4b 76
+if grep -q 'оборвана пределом памяти .*oom_kill 0 → 1' "$OUT"; then ok; else bad K4b "причина не названа"; fi
+fresh
+go_run k4c env FAKE_EXIT=137 "${B[@]}" --short k4c -- true
+expect_rc K4c 137
 
 # K6 — подготовка pod не удалась (termination-log): 69, не код 125 команды
 fresh
@@ -1575,6 +1615,215 @@ go_run w10 env FAKE_EXIT=0 FAKE_NODES="$N_INFRA" "${B[@]}" --short w10 -- true
 expect_rc W10 69
 if [ -e "$BOX/state/deleted" ] || [ "$(writes)" -ne 0 ]; then bad W10 "уборка писала в кластер с узлами infra"; else ok; fi
 rm -rf "$BOX/remote-heavy.deadw"
+
+# ── красные группы (ws#1136) ─────────────────────────────────────────────────
+# RG0 — шаг красных групп в Job: после подготовки, команда — через heavy_cmd; зелёный
+#      прогон (итог шага без красных) каталога копий не заводит и о копиях молчит
+rg_in() { awk '/^# redlog-begin$/ { b = NR } /^# redlog-end$/ { m = NR } /^heavy_cmd "\$@"$/ { e = NR } END { exit !(b && m && e && b < m && m < e) }' "$1"; }
+red_dirs() { find "$BOX" -maxdepth 1 -name "$1.out.red-*" | wc -l; }
+fresh
+go_run rg0 env FAKE_EXIT=0 "${B[@]}" --short rg0 -- true
+expect_rc RG0 0
+jq -r '.spec.template.spec.containers[] | select(.name == "run") | .command[2]' "$BOX/state/job.json" > "$BOX/rg0.cmd" 2>/dev/null
+if rg_in "$BOX/rg0.cmd"; then ok; else OUT="$BOX/rg0.cmd"; bad RG0 "шага красных групп перед командой в Job нет либо команда идёт не через heavy_cmd"; fi
+if [ "$(red_dirs rg0)" -eq 0 ] && ! grep -q 'журналы красных групп' "$OUT"; then ok; else bad RG0 "зелёный прогон завёл каталог копий либо заговорил о них"; fi
+# RG1 — шаг ИСПОЛНЕНИЕМ (текст из Job) над синтетическим прогоном: настоящий go test,
+#      один пакет с заведомо упавшим тестом, второй зелёный; группы в форме вывода
+#      ci-local — красная go test, красная линтера (без строк FAIL, с адресом pod),
+#      ПРОПУСК с «целиком:» и ok. Дайджест называет пакет, тест и строку отказа;
+#      копий — ровно две красные; код — код команды (близнец зелёный → 0)
+RW="$BOX/rw"; RM="$RW/m"; mkdir -p "$RW/w" "$RM/good" "$RM/bad" "$RW/ci/run-1"
+# Хвост команды Job — от шага до строки запуска включительно: переопределение после
+# шага исполнилось бы и в pod, поэтому исполняется и здесь.
+sed -n '/^# redlog-begin$/,$p' "$BOX/rg0.cmd" | sed "s#/work/#$RW/w/#g" > "$BOX/redlog.sh"
+printf 'module example.com/redprobe\n\ngo 1.21\n' > "$RM/go.mod"
+printf 'package good\n\nimport "testing"\n\nfunc TestGreen(t *testing.T) {}\n' > "$RM/good/good_test.go"
+printf 'package bad\n\nimport "testing"\n\nfunc TestRedProbeFails(t *testing.T) {\n\tt.Errorf("строка отказа: ждали %%d, получили %%d", 2, 3)\n}\n' > "$RM/bad/bad_test.go"
+cat > "$RW/cmd.sh" <<EOF
+d="$RW/ci/run-1"
+( cd "$RM" && go test -short "\${1:-./...}" ) > "\$d/log-26-go-test-short.txt" 2>&1; t=\$?
+printf 'level=error msg="pod $FAKE_POD_IP: x.go:1: unused"\n' > "\$d/log-27-golangci-lint.txt"
+printf 'gosec: не поставлен\n' > "\$d/log-28-gosec.txt"
+echo "== go vet"; echo "   ok"
+echo "== go test -short"
+if [ "\$t" -ne 0 ]; then echo "   ОТКАЗ (код \$t)"; tail -3 "\$d/log-26-go-test-short.txt" | sed 's/^/   | /'; echo "   | целиком: \$d/log-26-go-test-short.txt"; else echo "   ok"; fi
+echo "== gosec"; echo "   ПРОПУСК: инструмента нет — НЕ выполнено"; echo "   | целиком: \$d/log-28-gosec.txt"
+echo "== golangci-lint"
+if [ "\$t" -ne 0 ]; then echo "   ОТКАЗ (код 1)"; echo "   | целиком: \$d/log-27-golangci-lint.txt"; exit 1; fi
+echo "   ok"
+EOF
+rg_step() { ( cd "$RW" && env GOTOOLCHAIN=local GOFLAGS=-mod=mod GOWORK=off bash "$BOX/redlog.sh" bash "$RW/cmd.sh" "$@" ) > "$OUT" 2>&1; RC=$?; }
+digest_names() { grep -q '^   ! .*example\.com/redprobe/bad' "$1" && grep -q '^   ! .*TestRedProbeFails' "$1" \
+                 && grep -q '^   ! .*bad_test\.go:6: строка отказа: ждали 2, получили 3' "$1"; }
+if ! command -v go >/dev/null 2>&1; then OUT=""; bad RG1 "go нет в PATH — синтетического прогона с упавшим тестом не построить (не выполнилось)"
+else
+    OUT="$BOX/rg1.stream"; rg_step
+    expect_rc RG1 1
+    if digest_names "$OUT"; then ok; else bad RG1 "дайджест не называет пакет, тест и строку отказа"; fi
+    if grep -qx 'remote-heavy-redlog: total 2 4' "$OUT" && [ "$(grep -c '^remote-heavy-redlog: begin ' "$OUT")" -eq 2 ] \
+       && grep -q '^remote-heavy-redlog: begin 1 log-26-go-test-short.txt ' "$OUT" && grep -q '^remote-heavy-redlog: begin 2 log-27-golangci-lint.txt ' "$OUT"; then ok
+    else bad RG1 "копий не ровно две красные группы (ПРОПУСК и ok не копируются) либо итог не «total 2 4»"; fi
+    if grep -q '^remote-heavy-red: «golangci-lint» — строк --- FAIL' "$OUT"; then ok; else bad RG1 "красная группа без строк FAIL не названа"; fi
+    cp "$OUT" "$BOX/rg1.stream.keep"; cp "$RW/ci/run-1/log-26-go-test-short.txt" "$BOX/rg1.gotest.keep"
+    OUT="$BOX/rg1g.stream"; rg_step ./good
+    expect_rc RG1-green 0
+    if grep -qx 'remote-heavy-redlog: total 0 4' "$OUT" && ! grep -q '^remote-heavy-redlog: begin ' "$OUT"; then ok; else bad RG1-green "итога «total 0 4» нет либо зелёный прогон копирует журналы"; fi
+fi
+# RG7 — признак OOM шага ИСПОЛНЕНИЕМ: oom_kill cgroup вырос за время команды →
+#      «remote-heavy-oom:» в termination-log, код команды сохранён; близнец RG7b —
+#      137 без роста → termination-log пуст
+if ! grep -q '^# redlog-end$' "$BOX/redlog.sh"; then OUT="$BOX/rg0.cmd"; bad RG7 "шага красных групп в Job нет — признак OOM исполнять нечего"
+else
+    sed "s#/dev/termination-log#$RW/tl#g" "$BOX/redlog.sh" > "$BOX/redlog-oom.sh"
+    printf 'low 0\noom 0\noom_kill 0\n' > "$RW/mev"
+    rm -f "$RW/tl"
+    ( cd "$RW" && HEAVY_MEM_EVENTS="$RW/mev" bash "$BOX/redlog-oom.sh" bash -c 'printf "oom 1\noom_kill 1\n" > "$1"; exit 137' x "$RW/mev" ) > "$BOX/rg7.out" 2>&1; RC=$?; OUT="$BOX/rg7.out"
+    expect_rc RG7 137
+    if grep -q '^remote-heavy-oom: .*oom_kill 0 → 1, код 137' "$RW/tl" 2>/dev/null; then ok; else bad RG7 "рост oom_kill не записан в termination-log"; fi
+    printf 'oom_kill 3\n' > "$RW/mev"; rm -f "$RW/tl"
+    ( cd "$RW" && HEAVY_MEM_EVENTS="$RW/mev" bash "$BOX/redlog-oom.sh" bash -c 'exit 137' ) > "$BOX/rg7b.out" 2>&1; RC=$?; OUT="$BOX/rg7b.out"
+    expect_rc RG7b 137
+    if [ -e "$RW/tl" ]; then bad RG7b "признак OOM без роста oom_kill"; else ok; fi
+fi
+# RG8 — фоновый процесс команды унёс её stdout и живёт дольше неё → шаг не ждёт
+#      его (≤ 10 с), код — код команды, вывод в копии; на трубе шаг висел бы до срока Job
+if grep -q '^# redlog-end$' "$BOX/redlog.sh"; then
+    t0="$(date +%s)"
+    # shellcheck disable=SC2016  # строка дочерней оболочки, $BASHPID и $1 раскрывает она
+    ( cd "$RW" && timeout 25 bash "$BOX/redlog.sh" bash -c '(echo "$BASHPID" > "$1"; exec sleep 40) & echo "строка до выхода"; exit 3' rg8 "$RW/bg.pid" ) > "$BOX/rg8.out" 2>&1; RC=$?; OUT="$BOX/rg8.out"
+    dt=$(( $(date +%s) - t0 ))
+    [ -s "$RW/bg.pid" ] && kill "$(cat "$RW/bg.pid")" 2>/dev/null
+    expect_rc RG8 3
+    if [ "$dt" -le 10 ] && grep -qx 'строка до выхода' "$RW/w/heavy-cmd.out" 2>/dev/null; then ok
+    else bad RG8 "шаг ждал фонового писателя $dt с либо вывода команды в копии нет"; fi
+else OUT="$BOX/rg0.cmd"; bad RG8 "шага красных групп в Job нет"; fi
+# RG9–RG13 (приёмка ws#1136, круг 2): шаг над одной красной группой с заданным
+# журналом; поток — в $BOX/<имя>.stream, код шага — в RC.
+rg_one() {
+    local name="$1" src="$2"; shift 2
+    # shellcheck disable=SC2016  # строка дочерней оболочки, $1… раскрывает она
+    ( cd "$RW" && env "$@" bash "$BOX/redlog.sh" bash -c 'mkdir -p "$1" && cp "$2" "$1/log-30-go-test-short.txt"
+echo "== go test -short"; echo "   ОТКАЗ (код 1)"; echo "   | целиком: $1/log-30-go-test-short.txt"; exit 1' rg "$RW/ci/$name" "$src" ) > "$BOX/$name.stream" 2>&1
+    RC=$?; OUT="$BOX/$name.stream"
+}
+okfill() { local i; for ((i = 1; i <= $1; i++)); do printf 'ok  \texample.com/redprobe/p%02d\t0.00%ds\n' "$i" "$((i % 10))"; done; }
+# RG9 — два упавших пакета дальше 10 строк друг от друга → дайджест называет ОБА
+{ printf -- '--- FAIL: TestAlpha (0.00s)\n    a_test.go:7: альфа сломана\nFAIL\nFAIL\texample.com/redprobe/alpha\t0.003s\n'
+  okfill 15
+  printf -- '--- FAIL: TestOmega (0.00s)\n    o_test.go:9: омега сломана\nFAIL\nFAIL\texample.com/redprobe/omega\t0.004s\nFAIL\n'; } > "$BOX/rg9.log"
+rg_one rg9 "$BOX/rg9.log"
+expect_rc RG9 1
+if grep -q '^   ! .*TestAlpha' "$OUT" && grep -q '^   ! .*альфа сломана' "$OUT" && grep -q '^   ! .*example\.com/redprobe/alpha' "$OUT" \
+   && grep -q '^   ! .*TestOmega' "$OUT" && grep -q '^   ! .*омега сломана' "$OUT" && grep -q '^   ! .*example\.com/redprobe/omega' "$OUT"; then ok
+else bad RG9 "дайджест не называет оба упавших пакета, их тесты и строки отказа"; fi
+# RG10 — паника в горутине без «--- FAIL», стек длиннее 10 строк → в дайджесте
+#      сообщение паники и первый кадр, а не только «FAIL<таб>пакет»
+{ printf 'panic: горутина упала: ждали 2, получили 3\n\ngoroutine 18 [running]:\n'
+  printf 'example.com/redprobe/gor.worker(0x3)\n\t/src/gor/gor.go:12 +0x1d\n'
+  for i in 1 2 3 4 5 6; do printf 'example.com/redprobe/gor.step%d(...)\n\t/src/gor/gor.go:%d +0x2%d\n' "$i" "$((20 + i))" "$i"; done
+  printf 'created by example.com/redprobe/gor.TestGoroutine in goroutine 17\n\t/src/gor/gor_test.go:8 +0x25\nFAIL\texample.com/redprobe/gor\t0.005s\nFAIL\n'; } > "$BOX/rg10.log"
+rg_one rg10 "$BOX/rg10.log"
+expect_rc RG10 1
+if [ "$(grep -c -- '--- FAIL' "$BOX/rg10.log")" -eq 0 ] && grep -q '^   ! .*panic: горутина упала: ждали 2, получили 3' "$OUT" \
+   && grep -q '^   ! .*gor\.go:12' "$OUT" && grep -q '^   ! .*example\.com/redprobe/gor' "$OUT"; then ok
+else bad RG10 "дайджест паники в горутине без сообщения паники, кадра или пакета"; fi
+# RG11 — журнал группы больше HEAVY_RED_BYTES → на машине ровно последние байты,
+#      обрезка названа; сумма — от отправленного хвоста, а не от файла
+for i in $(seq 1 120); do printf 'line %03d of an oversized red group log\n' "$i"; done > "$BOX/rg11.log"
+rg_one rg11 "$BOX/rg11.log" HEAVY_RED_BYTES=1000
+tail -c 1000 "$BOX/rg11.log" > "$BOX/rg11.tail"
+fresh
+go_run rg11r env FAKE_EXIT=1 FAKE_LOG_FILE="$BOX/rg11.stream" "${B[@]}" --short rg11r -- true
+expect_rc RG11 1
+if cmp -s "$BOX/rg11r.out.red-t1-heavy-rg11r/log-30-go-test-short.txt" "$BOX/rg11.tail" \
+   && grep -q "1000 байт, последние из $(wc -c < "$BOX/rg11.log") — журнал обрезан пределом" "$OUT"; then ok
+else bad RG11 "обрезанная копия не сохранена, не равна хвосту в 1000 байт либо обрезка не названа"; fi
+# RG12 — IPv6 pod, IPv4 pod и имя сервера в журнале группы → в ФАЙЛАХ каталога копий
+#      ни одного, на их месте маска
+printf 'dial tcp [%s]:5432: connect: refused\nGet "https://%s:6443/api": pod %s\n' "$FAKE_POD_IP6" "$SERVER_HOST" "$FAKE_POD_IP" > "$BOX/rg12.log"
+rg_one rg12 "$BOX/rg12.log"
+fresh
+go_run rg12r env FAKE_EXIT=1 FAKE_LOG_FILE="$BOX/rg12.stream" "${B[@]}" --short rg12r -- true
+expect_rc RG12 1
+RD12="$BOX/rg12r.out.red-t1-heavy-rg12r"
+if [ -f "$RD12/log-30-go-test-short.txt" ] && grep -q '<адрес>' "$RD12/log-30-go-test-short.txt" && grep -q '<кластер>' "$RD12/log-30-go-test-short.txt" \
+   && ! grep -rqF -e "$FAKE_POD_IP6" -e "$SERVER_HOST" -e "$FAKE_POD_IP" "$RD12"; then ok
+else bad RG12 "в файлах каталога копий адрес IPv6, IPv4 или имя сервера без маски либо копии нет"; fi
+# RG13 — поток оборван внутри копии (begin и часть data, нет end и total), полный
+#      лог есть → копии из полного лога
+awk '{ print } /^remote-heavy-redlog: data 1 1 / { exit }' "$BOX/rg1.stream.keep" > "$BOX/rg13.stream"
+fresh
+go_run rg13 env FAKE_EXIT=1 FAKE_LOG_FILE="$BOX/rg13.stream" FAKE_FULL_LOG="$BOX/rg1.stream.keep" "${B[@]}" --short rg13 -- true
+expect_rc RG13 1
+if grep -q '^remote-heavy-redlog: begin 1 ' "$BOX/rg13.stream" && ! grep -q '^remote-heavy-redlog: \(end\|total\) ' "$BOX/rg13.stream" \
+   && cmp -s "$BOX/rg13.out.red-t1-heavy-rg13/log-26-go-test-short.txt" "$BOX/rg1.gotest.keep" && grep -q 'скопировано 2 из 2' "$OUT"; then ok
+else bad RG13 "обрыв внутри копии не добран из полного лога контейнера"; fi
+# RG2 — тот поток через run.sh: на машине каталог копий рядом с журналом, копии равны
+#      журналам pod (адрес — под маской), дайджест в журнале, строк потока копий нет
+fresh
+go_run rg2 env FAKE_EXIT=1 FAKE_LOG_FILE="$BOX/rg1.stream.keep" "${B[@]}" --short rg2 -- true
+expect_rc RG2 1
+RD="$BOX/rg2.out.red-t1-heavy-rg2"
+if [ -d "$RD" ] && cmp -s "$RD/log-26-go-test-short.txt" "$BOX/rg1.gotest.keep"; then ok
+else bad RG2 "копии журнала go test в $RD нет либо она не равна журналу группы"; fi
+if [ "$(find "$RD" -type f 2>/dev/null | wc -l)" -eq 2 ] && grep -qF 'pod <адрес>: x.go:1: unused' "$RD/log-27-golangci-lint.txt" 2>/dev/null \
+   && ! grep -rqF "$FAKE_POD_IP" "$RD"; then ok
+else bad RG2 "в каталоге копий не ровно две красные либо адрес pod не замаскирован"; fi
+if digest_names "$OUT"; then ok; else bad RG2 "в журнале на машине нет пакета, теста и строки отказа"; fi
+if grep -q 'remote-heavy-redlog:' "$OUT"; then bad RG2 "строки потока копий дошли до журнала"; else ok; fi
+if grep -qF "скопировано 2 из 2 в $RD" "$OUT" && grep -qF "«go test -short» → $RD/log-26-go-test-short.txt" "$OUT"; then ok; else bad RG2 "итог не называет каталог и файлы"; fi
+# RG3 — повтор строк на стыке переподключения (поток дважды) → копии целы
+cat "$BOX/rg1.stream.keep" "$BOX/rg1.stream.keep" > "$BOX/rg3.stream"
+fresh
+go_run rg3 env FAKE_EXIT=1 FAKE_LOG_FILE="$BOX/rg3.stream" "${B[@]}" --short rg3 -- true
+expect_rc RG3 1
+if cmp -s "$BOX/rg3.out.red-t1-heavy-rg3/log-26-go-test-short.txt" "$BOX/rg1.gotest.keep" && grep -q 'скопировано 2 из 2' "$OUT"; then ok
+else bad RG3 "повтор строк потока испортил копию"; fi
+# RG4 — строка копии выпала → копия НЕ сохранена, причина названа, вторая цела,
+#      дайджест на месте; RG4b — строка подменена при том же числе → сумма ловит
+grep -v '^remote-heavy-redlog: data 1 2 ' "$BOX/rg1.stream.keep" > "$BOX/rg4.stream"
+fresh
+go_run rg4 env FAKE_EXIT=1 FAKE_LOG_FILE="$BOX/rg4.stream" "${B[@]}" --short rg4 -- true
+expect_rc RG4 1
+if [ ! -e "$BOX/rg4.out.red-t1-heavy-rg4/log-26-go-test-short.txt" ] && [ -f "$BOX/rg4.out.red-t1-heavy-rg4/log-27-golangci-lint.txt" ] \
+   && grep -q '«go test -short» — копия НЕ цела: строк копии' "$OUT" && grep -q 'скопировано 1 из 2.*не скопировано 1' "$OUT" && digest_names "$OUT"; then ok
+else bad RG4 "неполная копия сохранена либо причина не названа"; fi
+# Подмена — другое содержимое той же длины, сжатое и с верным числом строк: число
+# строк и байты сходятся, держит только сумма.
+sed '1s/TestRedProbeFails/TestRedProbeFailz/' "$BOX/rg1.gotest.keep" > "$BOX/rg4b.alt"
+if [ "$(wc -c < "$BOX/rg4b.alt")" != "$(wc -c < "$BOX/rg1.gotest.keep")" ] || cmp -s "$BOX/rg4b.alt" "$BOX/rg1.gotest.keep"; then
+    OUT=""; bad RG4b "подмена не той же длины либо не изменила содержимое — случай пуст"
+fi
+{ grep -v -e '^remote-heavy-redlog: data 1 ' -e '^remote-heavy-redlog: end 1 ' -e '^remote-heavy-redlog: total ' "$BOX/rg1.stream.keep"
+  i=0
+  while IFS= read -r c; do i=$((i + 1)); echo "remote-heavy-redlog: data 1 $i $c"; done < <(gzip -c < "$BOX/rg4b.alt" | base64 -w 76)
+  echo "remote-heavy-redlog: end 1 $i"
+  grep '^remote-heavy-redlog: total ' "$BOX/rg1.stream.keep"; } > "$BOX/rg4b.stream"
+fresh
+go_run rg4b env FAKE_EXIT=1 FAKE_LOG_FILE="$BOX/rg4b.stream" "${B[@]}" --short rg4b -- true
+if [ ! -e "$BOX/rg4b.out.red-t1-heavy-rg4b/log-26-go-test-short.txt" ] && grep -q '«go test -short» — копия НЕ цела: байты или сумма' "$OUT"; then ok
+else bad RG4b "подменённая копия сохранена либо причина не названа"; fi
+# RG5 — итога в потоке нет (поток оборвался) → разбор полного лога контейнера:
+#      копии есть, вывод команды повторно не печатается
+printf 'строка до обрыва\n' > "$BOX/rg5.stream"
+fresh
+go_run rg5 env FAKE_EXIT=1 FAKE_LOG_FILE="$BOX/rg5.stream" FAKE_FULL_LOG="$BOX/rg1.stream.keep" "${B[@]}" --short rg5 -- true
+expect_rc RG5 1
+if [ -f "$BOX/rg5.out.red-t1-heavy-rg5/log-26-go-test-short.txt" ] && grep -q 'разбираю полный лог контейнера' "$OUT" \
+   && ! grep -q '^== go vet' "$OUT" && digest_names "$OUT"; then ok
+else bad RG5 "полный лог контейнера не разобран либо вывод команды напечатан повторно"; fi
+# RG6 — красный код, красных групп нет → строка с числом прочитанных групп, каталога нет;
+#      RG6b итога нет нигде → «НЕ получены»
+printf 'remote-heavy-redlog: total 0 4\n' > "$BOX/rg6.stream"
+fresh
+go_run rg6 env FAKE_EXIT=1 FAKE_LOG_FILE="$BOX/rg6.stream" "${B[@]}" --short rg6 -- true
+expect_rc RG6 1
+if [ "$(red_dirs rg6)" -eq 0 ] && grep -q 'красных групп ci-local в выводе команды нет (групп «== » прочитано 4)' "$OUT"; then ok
+else bad RG6 "ноль красных при красном коде не назван числом либо каталог заведён"; fi
+fresh
+go_run rg6b env FAKE_EXIT=1 FAKE_LOG_FILE="$BOX/rg5.stream" "${B[@]}" --short rg6b -- true
+expect_rc RG6b 1
+if [ "$(red_dirs rg6b)" -eq 0 ] && grep -q 'журналы красных групп НЕ получены' "$OUT"; then ok; else bad RG6b "отсутствие итога не названо"; fi
 
 # V1 — кластер не отвечает
 fresh
