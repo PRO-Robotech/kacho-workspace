@@ -76,7 +76,10 @@ cat > "$W/gh" <<'GH'
 [ "$1" = api ] || { echo "fake gh: только api" >&2; exit 64; }
 [ ! -f "$CASE/gh-fail" ] || { echo "fake gh: площадка недоступна" >&2; exit 1; }
 case "$2" in
-    repos/PRO-Robotech/kacho-workspace/issues/1110) printf '{"number":1110,"state":"%s"}\n' "$(cat "$CASE/state" 2>/dev/null || echo open)" ;;
+    # Послабление NO-PR-IMAGES — до kacho#3260; ws#1110, прежняя его задача, закрыта — как на площадке.
+    repos/PRO-Robotech/kacho/issues/3260) printf '{"number":3260,"state":"%s"}\n' "$(cat "$CASE/state" 2>/dev/null || echo open)" ;;
+    repos/PRO-Robotech/kacho-workspace/issues/1110) printf '{"number":1110,"state":"closed"}\n' ;;
+    repos/*/compare/*) [ ! -f "$CASE/cmp-fail" ] || { echo "fake gh: compare недоступен" >&2; exit 1; }; cat "$CASE/compare.json" ;;
     *) echo "fake gh: путь $2 не известен" >&2; exit 64 ;;
 esac
 GH
@@ -163,8 +166,9 @@ kase "близнец: контекст локальный при proof слот�
 kase "остаток после прогона 1" '.residue = 1'; want 1 STAND-REPORT-RESIDUE
 kase "residue не число" 'del(.residue)'; want 1 STAND-REPORT-RESIDUE
 kase "not-run без причины ведомости" '.suites[4] |= (.outcome = "not-run" | .reason = "занято")'; want 1 STAND-REPORT-NOT-RUN
-kase "близнец: not-run NO-PR-IMAGES при открытой ws#1110" '.suites[4] |= (.outcome = "not-run" | .reason = "NO-PR-IMAGES")'; want 0 -
-kase "not-run NO-PR-IMAGES при закрытой ws#1110 — истекло" '.suites[4] |= (.outcome = "not-run" | .reason = "NO-PR-IMAGES")'; echo closed > "$C/state"; want 1 STAND-RELAX-EXPIRED
+kase "близнец: not-run NO-PR-IMAGES при открытой kacho#3260" '.suites[4] |= (.outcome = "not-run" | .reason = "NO-PR-IMAGES")'; want 0 -
+kase "not-run NO-PR-IMAGES при закрытой kacho#3260 — истекло" '.suites[4] |= (.outcome = "not-run" | .reason = "NO-PR-IMAGES")'; echo closed > "$C/state"; want 1 STAND-RELAX-EXPIRED
+kase "послабление NO-PR-IMAGES спрашивает kacho#3260: закрытая ws#1110 его не гасит" '.suites[2] |= (.outcome = "not-run" | .reason = "NO-PR-IMAGES")'; want 0 -
 kase "площадка о послаблении не ответила — VOID" '.suites[4] |= (.outcome = "not-run" | .reason = "NO-PR-IMAGES")'; : > "$C/gh-fail"; want 2 -
 kase "все not-run — исполнено 0" '.suites |= map(.outcome = "not-run" | .reason = "NO-PR-IMAGES")'; want 1 STAND-REPORT-NOTHING-RUN
 kase "исход вне словаря" '.suites[1].outcome = "skipped"'; want 1 STAND-REPORT-MISSING
@@ -216,6 +220,62 @@ ecase "expect kacho-workspace: заданий на кластере нет — �
 ecase "expect: репозиторий вне ведомости — VOID" PRO-Robotech/elsewhere; ecommit; want 2 -
 ecase "expect: копия не на голове — VOID" PRO-Robotech/kacho-workspace; ecommit; echo "$H" > "$C/head"; want 2 -
 
+# ПЕРЕНОС (ws#1148). Вход — живой случай kacho#3265: полный отчёт @825364b5 (A), голова
+# 4283bcfb (B) правит лишь пробу ban6; вывод inputs — ДОСЛОВНО из прогона
+# tmp/w9/m3258-full-4283bcfb/inputs-825364b5-vs-4283bcfb.txt. Контроль: ban6 и unit
+# прогнаны на B, остальное перенесено с A, образы стенда — A. Случай меняет один факт.
+HA="$(printf 'c%.0s' $(seq 40))"; BAN6=deploy/scripts/assert-ban6-external-isolation.py
+INP0="  не вход $BAN6 — не доезжает ни до одного образа
+stand-ns inputs: Dockerfile 23, контекстов 9, образов go 7; изменённых путей 1, из них входов сборки 0"
+csuites() {  # наборы стенда живой формы; $1 — head отчёта
+    jq -n --arg h "$1" '{head: $h, mode: "full", context: "a8f60d-client", ns: "t3258-w9", residue: 0, planned: 7, suites: [
+        {name: "unit:all-shards", job: "ci.yaml:unit-shard", outcome: "green", executed: 295, total: 295},
+        {name: "integration:vpc", job: "ci.yaml:integration", outcome: "green", executed: 10, total: 10},
+        {name: "newman:vpc", job: "e2e-newman.yml:shard", outcome: "green", executed: 3851, total: 3851},
+        {name: "newman:ban6-external-isolation", job: "e2e-newman.yml:shard", outcome: "green", executed: 1, total: 1},
+        {name: "playwright:probes", job: "console-e2e.yml:probes", outcome: "green", executed: 319, total: 319},
+        {name: "posture:dev-prod", job: "production-posture.yml:stand", outcome: "green", executed: 4, total: 4},
+        {name: "posture:own", job: "production-posture.yml:stand", outcome: "green", executed: 2, total: 2}]}'
+}
+# ckase <имя> <jq-правка отчёта B | -> [jq-правка отчёта A] — compare.json: A предок B, путь ban6
+ckase() {
+    NC=$((NC + 1)); C="$W/c$NC"; mkdir -p "$C"; printf '%s' "$1" > "$C/name"
+    local rb="${2:--}" ra="${3:--}"; [ "$rb" != - ] || rb=.; [ "$ra" != - ] || ra=.
+    csuites "$H" | jq --arg a "$HA" --arg inp "$INP0" --arg p "$BAN6" '.images_rev = $a
+        | .suites |= map((if (.name | test("^(unit|newman:ban6)")) then {} else {carried_from: $a} end) + .)
+        | .carry_basis = {($a): {changed: [$p], inputs: $inp, inputs_rc: 0, report: "src.json"}}' | jq --arg a "$HA" --arg h "$H" "$rb" > "$C/r.json"
+    csuites "$HA" | jq "$ra" > "$C/src.json"
+    jq -n --arg p "$BAN6" '{status: "ahead", ahead_by: 1, behind_by: 0, files: [{filename: $p}]}' > "$C/compare.json"
+    expected > "$C/exp.json"; printf -- '--expect\n%s\n--pr-repo\nPRO-Robotech/kacho\n' "$C/exp.json" > "$C/args"
+}
+ckase "перенос: входов 0, область не задета — check 0" -; want 0 -
+ckase "перенос: ban6 перенесён, хотя его файл изменился" '.suites[3].carried_from = $a'; want 1 STAND-CARRY-AREA
+ckase "перенос: ban6 не прогнан после правки — not-run" '.suites[3] |= (.outcome = "not-run" | .reason = "CARRY-AREA" | .executed = 0)'; want 1 STAND-REPORT-NOT-RUN
+ckase "перенос: unit перенесён — читает всё дерево" '.suites[0].carried_from = $a'; want 1 STAND-CARRY-AREA
+X=services/vpc/internal/app/x.go
+ckase "перенос: вход сборки изменён — запрещён" ".carry_basis[\$a] |= (.changed += [\"$X\"] | .inputs_rc = 1 | .inputs = \"  ВХОД    $X — образ vpc\n  не вход $BAN6 — нет\nstand-ns inputs: Dockerfile 23, контекстов 9, образов go 7; изменённых путей 2, из них входов сборки 1\")"
+jq --arg x "$X" '.files += [{filename: $x}]' "$C/compare.json" > "$C/c" && mv "$C/c" "$C/compare.json"; want 1 STAND-CARRY-INPUTS
+D=docs/x.md
+ckase "перенос: inputs_rc false вместо 0 — не код 0" '.carry_basis[$a].inputs_rc = false'; want 1 STAND-CARRY-INPUTS
+ckase "перенос: набор unit-shard под именем go-race — читает всё дерево" '.suites[0] |= (.name = "go-race" | .carried_from = $a)' '.suites[0].name = "go-race"'; want 1 'STAND-CARRY-AREA(?=\tgo-race \(ci\.yaml:unit-shard\): набор читает всё дерево)'
+ckase "перенос: ban6 под другим именем — имени нет в реестре jobs" '.suites[3] |= (.name = "newman:edge-isolation" | .carried_from = $a)' '.suites[3].name = "newman:edge-isolation"'; want 1 'STAND-CARRY-AREA(?=\tnewman:edge-isolation [^\t]*нет в реестре jobs)'
+ckase "перенос: путь вне ведомости областей — закрыто" ".carry_basis[\$a] |= (.changed += [\"$D\"] | .inputs = \"  не вход $D — нет\n  не вход $BAN6 — нет\nstand-ns inputs: Dockerfile 23, контекстов 9, образов go 7; изменённых путей 2, из них входов сборки 0\")"
+jq --arg x "$D" '.files += [{filename: $x}]' "$C/compare.json" > "$C/c" && mv "$C/c" "$C/compare.json"; want 1 STAND-CARRY-AREA
+ckase "перенос: перечень путей отчёта короче площадки" -; jq --arg x "$D" '.files += [{filename: $x}]' "$C/compare.json" > "$C/c" && mv "$C/c" "$C/compare.json"; want 1 STAND-CARRY-BASIS
+ckase "перенос: вывод inputs не называет путь разности" ".carry_basis[\$a].inputs = \"stand-ns inputs: Dockerfile 23, контекстов 9, образов go 7; изменённых путей 1, из них входов сборки 0\""; want 1 STAND-CARRY-BASIS
+ckase "перенос: обоснования для ревизии нет" '.carry_basis = {}'; want 1 STAND-CARRY-BASIS
+ckase "перенос: A не предок головы" -; jq '.status = "diverged" | .behind_by = 2' "$C/compare.json" > "$C/c" && mv "$C/c" "$C/compare.json"; want 1 STAND-CARRY-BASIS
+ckase "перенос: перечень площадки обрезан на 300" -; jq '.files = [range(300) | {filename: "f\(.)"}]' "$C/compare.json" > "$C/c" && mv "$C/c" "$C/compare.json"; want 1 STAND-CARRY-BASIS
+ckase "перенос: в источнике набор красный" - '.suites[2] |= (.outcome = "red" | .quote = "q")'; want 1 STAND-CARRY-SOURCE
+ckase "перенос: число исполненного разошлось с источником" - '.suites[2].executed = 3850 | .suites[2].total = 3850'; want 1 STAND-CARRY-SOURCE
+ckase "перенос: источник о другой ревизии" - ".head = \"$H2\""; want 1 STAND-CARRY-SOURCE
+ckase "перенос: источник не на внешнем стенде" - '.context = "kind-kacho"'; want 1 STAND-CARRY-SOURCE
+ckase "перенос: образы источника — третья ревизия без обоснования" - ".images_rev = \"$H2\""; want 1 STAND-CARRY-BASIS
+ckase "образы стенда ≠ голова без обоснования, переноса нет" 'del(.suites[] | .carried_from) | .carry_basis = {}'; want 1 STAND-CARRY-BASIS
+ckase "близнец: образы стенда = голова, переноса нет" 'del(.suites[] | .carried_from) | del(.carry_basis) | .images_rev = $h'; want 0 -
+ckase "перенос: репозиторий без ведомости областей — закрыто" -; printf -- '--expect\n%s\n--pr-repo\nPRO-Robotech/kaname\n' "$C/exp.json" > "$C/args"; want 1 STAND-CARRY-AREA
+ckase "перенос: площадка о разности не ответила — VOID" -; : > "$C/cmp-fail"; want 2 -
+
 echo "== случаи"
 for c in "$W"/c*; do
     if judge "$TOOL" "$c"; then pass=$((pass + 1)); echo "  [OK]   $(cat "$c/name")"
@@ -260,6 +320,7 @@ quote-not-required	s/if not q:/if False:/
 local-ok	s/if not ctx.endswith('-client') and not re.match/if False and not re.match/
 residue-ignored	s/if num(d.get('residue')) != 0:/if False:/
 notrun-any-reason	s/if why not in RELAX:/if False and why not in RELAX:/
+relax-bound-to-closed-1110	s/    'NO-PR-IMAGES': ('PRO-Robotech\/kacho', '3260',/    'NO-PR-IMAGES': ('PRO-Robotech\/kacho-workspace', '1110',/
 relax-never-expires	s/alive\[why\] = json.loads(p.stdout).get('state') == 'open'/alive[why] = True/
 nothing-run-ok	s/if (suites or expected) and green == 0:/if False:/
 red-dropped-ok	s/if s.get('outcome') == 'red' and str(s.get('name')) not in mine:/if False:/
@@ -269,6 +330,24 @@ ledger-out-ignored	s/        if out:/        if False:/
 ledger-source-ignored	s/        if e.get('source') != src or e.get('ledger') != ledger:/        if False:/
 ledger-repo-ignored	s/    if erepo not in STAND:/    if erepo not in STAND and False:/
 expect-repo-ignored	s/    if prr and erepo != prr:/    if False:/
+carry-area-read-ok	s/        if hit:/        if False:/
+carry-unknown-path-ok	s/        if unknown:/        if False:/
+carry-whole-tree-ok	s/        if known(s, area\['whole_tree'\]):/        if False:/
+carry-whole-tree-by-name-only	s/        if known(s, area\['whole_tree'\]):/        if any(fnmatch.fnmatchcase(name, w) for w in area['whole_tree']):/
+carry-jobs-registry-ignored	s/        if not any(fnmatch.fnmatchcase(name, w) for w in area\['jobs'\]/        if False and not any(fnmatch.fnmatchcase(name, w) for w in area['jobs']/
+carry-inputs-rc-falsy-ok	s/        if not (type(b.get('inputs_rc')) is int and b.get('inputs_rc') == 0) or not tot/        if b.get('inputs_rc') != 0 or not tot/
+carry-no-area-ok	s/        if not area:/        if False:/
+carry-inputs-trusted	s/        if not (type(b.get('inputs_rc')) is int and b.get('inputs_rc') == 0) or not tot or tot.group(2) != '0' or 'ВХОД' in rows.values():/        if not tot:/
+carry-paths-trusted	s/        if rec != plat:/        if False:/
+carry-inputs-partial-ok	s/        if set(rows) != plat or int(tot.group(1)) != len(plat):/        if False:/
+carry-ancestor-ignored	s/        if behind != 0 or st not in ('ahead', 'identical'):/        if False:/
+carry-truncated-ok	s/        if len(c\['files'\]) >= 300:/        if False:/
+carry-basis-missing-ok	s/        if not (isinstance(b, dict) and isinstance(b.get('changed'), list) and isinstance(b.get('inputs'), str)):/        if False:/
+carry-source-unchecked	s/            reason('STAND-CARRY-SOURCE'/            continue; reason('STAND-CARRY-SOURCE'/
+carry-source-head-ignored	s/        if (src is None or src\['head'\] != r or/        if (src is None or/
+carry-source-local-ok	s/                or not (str(src.get('context') or '').endswith('-client')/                or False and not (str(src.get('context') or '').endswith('-client')/
+carry-src-images-ignored	s/        if xi != head and base(xi,/        if False and base(xi,/
+images-rev-unjudged	s/    if img not in (None, head):/    if False:/
 MUT
 echo "stand-report-inject: мутантов $((killed + survived + void)), убито $killed, выжило $survived, не легло $void"
 [ "$fail" -eq 0 ] && [ "$pass" -gt 0 ] && [ "$survived" -eq 0 ] && [ "$void" -eq 0 ] && [ "$killed" -gt 0 ]
