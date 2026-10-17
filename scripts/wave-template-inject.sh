@@ -495,37 +495,71 @@ ok(r.res.ok === false && r.res.state === 'not-run' && /сброс в 14:05/.test
 
 console.log('== демон вливания: кэш возобновления, запреты заданий (приёмка check-verifier ws#1152)')
 {
-  const own = c => c.prompt.split('\n\n').slice(1).join(' ')
-  // E1. Workflow отдаёт шаг из кэша по тексту задания: за проходы rerun 0 и 1 — ровно ОДНО
-  // различное задание start (старт из кэша, второго нет) и ДВА — status (исход вживую).
+  // Своё задание шага — текст после общей преамбулы C (её префикс один у всех шагов), в какой бы
+  // форме шаг ни был к ней приклеен.
+  const PRE = (await run({ args, plan: [P('r0.json')] })).calls[0].prompt.split('\n\n')[0]
+  const own = c => c.prompt.startsWith(PRE) ? c.prompt.slice(PRE.length) : c.prompt
+  // Узнаватель от КЛАССА, а не от перечня строк (testing.md#recognizer-built-from-class-not-form-list):
+  // указание — вхождение глагола класса в предложении задания, не снятое отрицанием. Отрицание —
+  // «не»/«ни» перед глаголом (через ≤ 1 слово) либо, у неопределённой формы, «нельзя»/«запрещено»/
+  // «не нужно» в том же предложении: запрет — не указание. Предложения — по [.;!?] и по «, а|но|затем».
+  const LET = '[а-яёa-z0-9_]'
+  const word = alts => new RegExp('(?<!' + LET + ')(?:' + alts + ')(?!' + LET + ')', 'gi')
+  const NEG_INF = /нельзя|запрещ|не нужно|не надо|незачем|не следует|недопуст/i
+  const clausesOf = t => t.split(/[.;!?](?=\s|$)|,\s+(?=(?:а|но|затем|потом)\s)/)
+  const live = (cl, re) => {
+    const g = new RegExp(re.source, re.flags.includes('g') ? re.flags : re.flags + 'g'); let m
+    while ((m = g.exec(cl))) {
+      if (/(^|[\s(«"`])(не|ни)\s+(\S+\s+)?[`«"(]*$/i.test(cl.slice(0, m.index))) continue
+      if (/(ть|ться|чь)$/i.test(m[0]) && NEG_INF.test(cl)) continue
+      return true
+    }
+    return false
+  }
+  // directs — в тексте есть живое указание глагола класса (и, если задан, его предмета в том же предложении).
+  const directs = (t, verbs, obj) => clausesOf(t).some(cl => (!obj || obj.test(cl)) && live(cl, verbs))
+  const START_CMD = /autoland(?:\.sh)?\s+start(?![a-z])/i
+  const START_VERB = word('запусти|запустите|запустить|перезапусти|перезапустить|стартуй|подними|поднять|вызови|вызвать|выполни|выполнить|повтори|повторить')
+  const isStart = c => directs(own(c), START_CMD) || directs(own(c), START_VERB, /демон|autoland|старт|start/i)
+  const WAIT = word('жди|ждите|дождись|дождитесь|дожидайся|дожидаться|дождаться|ждать|подожди|подождать|ожидай|ожидать|выжди|выждать|sleep\\s+\\d|--watch|gh run watch|gh pr checks|пока\\s+(?:\\S+\\s+){0,4}?не|до\\s+(?:кода|исхода|завершени\\S*|зелён\\S*|конца)')
+  const READ = word('читай|прочти|прочитай|перечитай|читать|прочесть|прочитать|зови|вызови|позови|вызвать|звать|запусти|запустить|выполни|выполнить|гони|прогони|прогнать|повтори|повторить|проверь|проверить|посмотри|сверь|опроси|опрашивай')
+  const CI_OBJ = /ci-read|(?<![A-Za-z-])CI(?![A-Za-z-])|конвейер|check-runs|вердикт/
+  const CLOSE = word('закрой|закройте|закрывай|закрывайте|закрыть|закрывать|gh issue close')
+  const TASK_OBJ = /задач|issue|(?<![A-Za-z0-9])#\d|волн/i
+  const BODY = word('напиши|напишите|пиши|писать|написать|составь|составить|сочини|дополни|дополнить|допиши|дописать|поправь|поправить|исправь|исправить|отредактируй|редактируй|правь|впиши|вписать|собери|собрать|сформируй|оформи|сделай')
+  const BODY_OBJ = /(?<![а-яё])тел(о|а|у|ом|е)(?![а-яё])/i
+  const REPEAT = word('повтори|повторяй|повторить|повторять|ещё раз|еще раз|снова|опять|кажды[ейм]|каждую|через\\s+(?:\\d+\\s*)?(?:минут\\S*|мин|секунд\\S*|сек|с|час\\S*)')
+  // E1. Workflow отдаёт шаг из кэша по тексту задания. Start — ЛЮБОЕ задание, велящее исполнить
+  // старт демона, какая бы ни была метка: за проходы rerun 0 и 1 — ровно одно различное задание
+  // start и по одному на проход; status — новое на каждый проход.
   const p0 = await run({ args, plan: [P('r0.json')], al: [{ code: 3, out: 'running ci-read' }] })
   const p1 = await run({ args: { ...args, rerun: 1 }, plan: [P('r0.json')] })
   const both = [...p0.calls, ...p1.calls]
-  const dist = l => new Set(both.filter(c => c.label === l).map(c => c.prompt)).size
-  const per = (q, l) => by(q.calls, c => c.label === l)
-  ok(dist('mech:autoland') === 1 && dist('mech:autoland:status') === 2 && per(p0, 'mech:autoland') === 1 && per(p1, 'mech:autoland') === 1 && per(p0, 'mech:autoland:status') === 1 && per(p1, 'mech:autoland:status') === 1, 'E1 возобновление: start — одно задание на оба прохода и по одному вызову (из кэша), status — новое на каждый проход', JSON.stringify({ start: dist('mech:autoland'), status: dist('mech:autoland:status'), startCalls: [per(p0, 'mech:autoland'), per(p1, 'mech:autoland')] }))
-  // E3. До каскада задачи не закрывает ни одно задание: закрытие — шагом после merged.
+  const sts = both.filter(isStart), stDist = new Set(sts.map(c => c.prompt)).size
+  const stat = l => new Set(both.filter(c => c.label === l).map(c => c.prompt)).size
+  ok(stDist === 1 && p0.calls.filter(isStart).length === 1 && p1.calls.filter(isStart).length === 1 && stat('mech:autoland:status') === 2 && by(p1.calls, c => c.label === 'mech:autoland:status') === 1, 'E1 возобновление: задание старта демона (по команде, не по метке) — одно на оба прохода и одно на проход, status — новое на каждый проход', JSON.stringify({ start: stDist, labels: sts.map(c => c.label), status: stat('mech:autoland:status') }))
+  // E3. До каскада ни одно задание не велит закрыть задачи; велит лишь каскад.
   const q = await run({ args, plan: [P('r0.json')] })
-  const CLOSE = /gh issue close|закро(й|йте|ешь)\s+(все\s+)?задач|закрыть\s+задач/i
   const iC = idx(q.calls, 'mech:cascade')
-  const early = q.calls.filter((c, i) => i < iC && CLOSE.test(own(c))).map(c => c.label)
-  ok(iC > 0 && early.length === 0 && CLOSE.test(own(q.calls[iC])), 'E3 до каскада ни одно задание не закрывает задачи; закрывает лишь каскад', early.join(','))
-  // E4. Сбой генератора тела — остановка, а не тело руками (сборка и старт).
-  const asmO = own(q.calls.find(c => c.label === 'mech:assemble:1') || { prompt: '' }), alO = own(q.calls.find(c => c.label === 'mech:autoland') || { prompt: '' })
-  const HAND_BODY = /напиш[иу]?\s+тело|пиши\s+тело|составь\s+тело|тело\s+(сам|руками)(?!\s+не)/i
-  ok(/\(код не 0 — (?=[^)]*status failed)(?=[^)]*PR не трогать)[^)]*\)/.test(asmO) && !HAND_BODY.test(asmO), 'E4 сборка: генератор тела дал не 0 — status failed, PR не трогать; тела руками нет', asmO.slice(-700))
-  ok(/\(код не 0 — (?=[^)]*code 2)(?=[^)]*демон не запускать)[^)]*\)/.test(alO) && !HAND_BODY.test(alO), 'E4 старт: генератор тела дал не 0 — code 2, демон не запускать; тела руками нет', alO.slice(0, 700))
-  // E5. После ready CI ждёт и судит демон: ни одно задание от ready до каскада, кроме
-  // переписи гейтов, не читает и не ждёт CI (запрет в правиле вливания — не указание).
+  const early = q.calls.filter((c, i) => i < iC && directs(own(c), CLOSE, TASK_OBJ)).map(c => c.label)
+  ok(iC > 0 && early.length === 0 && directs(own(q.calls[iC]), CLOSE, TASK_OBJ), 'E3 до каскада ни одно задание не велит закрыть задачи; велит лишь каскад', early.join(','))
+  // E4. Сбой генератора тела — остановка (сборка и старт); ни одно задание не велит писать тело самому.
+  const asmO = own(q.calls.find(c => c.label === 'mech:assemble:1') || { prompt: '' }), alO = own(q.calls.find(isStart) || { prompt: '' })
+  const hand = q.calls.filter(c => directs(own(c), BODY, BODY_OBJ)).map(c => c.label)
+  ok(/\(код не 0 — (?=[^)]*status failed)(?=[^)]*PR не трогать)[^)]*\)/.test(asmO) && /\(код не 0 — (?=[^)]*code 2)(?=[^)]*демон не запускать)[^)]*\)/.test(alO) && hand.length === 0, 'E4 сбой генератора тела — остановка (сборка: status failed; старт: code 2); тело руками не велит ни одно задание', hand.join(',') || alO.slice(0, 300))
+  // E5. После ready ни одно задание не ждёт CI и не читает его повторно. Законно ровно одно —
+  // однократное чтение ci-read.sh в переписи гейтов без ожидания: изымается этот факт, а не шаг.
   const qr = await run({ args, plan: [P('r0.json')], ci: [{ code: 5 }] })
   const iR = idx(qr.calls, 'mech:ready'), iRC = idx(qr.calls, 'mech:cascade')
-  const WAITCI = /ci-read\.sh|дожд|sleep\s+\d|--watch|gh pr checks|gh run watch|до кода 0/i
-  const bad = qr.calls.filter((c, i) => i >= iR && i < iRC && c.label !== 'mech:gates' && WAITCI.test(own(c).replace(/ПРАВИЛО ВЛИВАНИЯ диспетчера:[^\n]*?ради вливания — нельзя/, ''))).map(c => c.label)
-  ok(iR > 0 && iRC > iR && bad.length === 0, 'E5 после ready ни одно задание, кроме переписи гейтов, не читает и не ждёт CI', bad.join(','))
-  // E6, E8. status — первая строка .state ДОСЛОВНО, без повтора и ожидания.
+  const ALLOWED = /ci-read\.sh \([^)]*без ожидания[^)]*\)/
+  const gt = own(qr.calls.find(c => c.label === 'mech:gates') || { prompt: '' })
+  const allowedOnce = (gt.match(/ci-read/g) || []).length === 1 && ALLOWED.test(gt) && !directs((gt.match(ALLOWED) || [''])[0], WAIT)
+  const bad = qr.calls.filter((c, i) => i >= iR && i < iRC).filter(c => { const t = c.label === 'mech:gates' ? own(c).replace(ALLOWED, '') : own(c); return directs(t, WAIT) || directs(t, READ, CI_OBJ) }).map(c => c.label)
+  ok(iR > 0 && iRC > iR && allowedOnce && bad.length === 0, 'E5 после ready ни одно задание не ждёт CI и не читает его повторно; законно лишь однократное чтение ci-read.sh в переписи без ожидания', JSON.stringify({ bad, allowedOnce }))
+  // E6, E8. status — первая строка .state ДОСЛОВНО; ни повтора, ни ожидания.
   const st = own(q.calls.find(c => c.label === 'mech:autoland:status') || { prompt: '' })
   ok(/out \(первая строка \.state[^)]*ДОСЛОВНО/.test(st), 'E6 status требует первую строку .state ДОСЛОВНО', st.slice(0, 400))
-  ok(st !== '' && !/кажд(ые|ый|ую|ое)|повторя|sleep|until\s|while\s|--watch|дожд/i.test(st), 'E8 в задании status нет ни повтора, ни ожидания', st.slice(0, 400))
+  ok(st !== '' && !directs(st, WAIT) && !directs(st, REPEAT), 'E8 задание status не велит ни повторять, ни ждать', st.slice(0, 400))
 }
 
 console.log('== номер PR — целое ≥ 1, иначе остановка с причиной (ws#935)')
@@ -1212,6 +1246,24 @@ twin "TA5 номер попытки иначе назван" "'). Попытка
 twin "TA6 остановка сборки — иной порядок слов" "(код не 0 — status failed, PR не трогать)" "(код не 0 — PR не трогать, status failed)"
 twin "TA7 остановка старта — иной порядок слов" "(код не 0 — code 2, демон не запускать)" "(код не 0 — демон не запускать, code 2)"
 twin "TA8 ДОСЛОВНО через запятую" "out (первая строка .state ДОСЛОВНО)" "out (первая строка .state, ДОСЛОВНО)"
+# Приёмка check-verifier ws#1152 r2: узнаватели от класса — мутанты N1, N2, N4, N5, N6, N8 приёмщика,
+# свои того же класса M1–M3 и законные запреты TW2–TW6 (отрицание — не указание).
+mutant 'N6 второй старт при rerun под меткой mech:autoland:restart' '// ОДИН шаг status; попытка' 'if (A.rerun) await agent(C + '"'"'\n\nРежим autoland restart: повтори старт ОДНОЙ командой `bash '"'"' + AUTOLAND + '"'"' start --repo '"'"' + (A.repo || '"'"'?'"'"') + '"'"' --pr '"'"' + asm.pr + '"'"' --head '"'"' + asm.head + '"'"'`.'"'"', { ...MECH, label: '"'"'mech:autoland:restart'"'"', phase: '"'"'Посадка'"'"', schema: S_MECH })
+// ОДИН шаг status; попытка'
+mutant 'N1 правило вливания велит дождаться ci-read.sh' 'гонит merge-readiness.sh и landing-precheck.sh и вливает коммитом слияния; ждать CI' 'гонит merge-readiness.sh и landing-precheck.sh и вливает коммитом слияния, а ты перед стартом сам дождись ci-read.sh код 0; ждать CI'
+mutant 'N8 перепись: ci-read.sh — жди до кода 0' ''"'"'ci-read.sh (рецепт «ЗАПУСК», без ожидания)'"'"'' ''"'"'ci-read.sh (рецепт «ЗАПУСК», жди до кода 0)'"'"''
+mutant 'N2 старт: «Закрывай задачи…»' ''"'"' + landRule + '"'"'. 1) Тело PR' ''"'"' + landRule + '"'"'. Закрывай задачи полос '"'"' + order.join('"'"', '"'"') + '"'"' сразу. 1) Тело PR'
+mutant 'N4 старт: тело дополни вручную' '1) Тело PR — заново генератором (ws#1146), руками не пишется:' '1) Тело PR — заново генератором (ws#1146), затем тело дополни вручную:'
+mutant 'N5 status: через минуту вызови status ещё раз' 'Исход не толкуй, не жди, демон не перезапускай.' 'Исход не толкуй; через минуту вызови status ещё раз.'
+mutant 'M1 E1: status при коде 2 перезапускает демон' 'Исход не толкуй, не жди, демон не перезапускай.' 'Исход не толкуй, не жди; при коде 2 перезапусти демон вливания той же командой.'
+mutant 'M2 E5: ready — прочти вердикт CI ещё раз' '— событие ready_for_review заводит полный прогон.' '— событие ready_for_review заводит полный прогон; после перевода прочти вердикт CI ещё раз.'
+mutant 'M3 E5: перепись — повторяй ci-read, пока не станет 0' 'Перепись — не основание вливать: вливает только демон.' 'Перепись — не основание вливать: вливает только демон. Чтение CI повторяй, пока код не станет 0.'
+twin 'TW2 «Закрыть задачи до merged нельзя»' ''"'"' + landRule + '"'"'. 1) Тело PR' ''"'"' + landRule + '"'"'. Закрыть задачи до merged нельзя. 1) Тело PR'
+# shellcheck disable=SC2016  # обратные кавычки — текст JS-шаблона, а не подстановка
+twin 'TW3 «ci-read.sh больше не зови»' '— событие ready_for_review заводит полный прогон.' '— событие ready_for_review заводит полный прогон; `ci-read.sh` больше не зови.'
+twin 'TW4 «не повторяй status»' 'Исход не толкуй, не жди, демон не перезапускай.' 'Исход не толкуй, не жди, не повторяй status, демон не перезапускай.'
+twin 'TW5 «не пиши тело руками»' '1) Тело PR — заново генератором (ws#1146), руками не пишется:' '1) Тело PR — заново генератором (ws#1146), не пиши тело руками:'
+twin 'TW6 демон уже запущен — упоминание, не старт' 'Режим autoland status: PR #'"'"' + asm.pr + '"'"' ('"'"' + (A.repo || '"'"'?'"'"') + '"'"'), демон вливания запущен.' 'Режим autoland status: PR #'"'"' + asm.pr + '"'"' ('"'"' + (A.repo || '"'"'?'"'"') + '"'"'), демон вливания уже запущен шагом start, повторно его не запускай.'
 mutant "старт демона не судится" "if (!alStart || ![0, 3].includes(alStart.code)) return" "if (false) return"
 mutant "тело сборки руками (ws#1146)" "тело — ТОЛЬКО вывод генератора (ws#1146), руками не пишется: \`RITUAL_REPO_DIR=" "тело — ровно состав git log база..голова: \`true RITUAL_REPO_DIR="
 mutant "демон без отчёта стенда" "' --stand-report ' + STAND + ' --stand-expect ' + STAND_EXP + '\` — он сразу" "'\` — он сразу"
