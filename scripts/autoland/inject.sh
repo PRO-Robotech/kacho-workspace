@@ -82,8 +82,9 @@ cleanup() { local p; for p in "${PIDS[@]}"; do kill "$p" 2>/dev/null; done; rm -
 trap cleanup EXIT
 # Подпись песочниц git — только из своего HOME с корневой подписью вызывающего
 # (scripts/lib/sandbox-git-home.sh; tooling-gate check-16).
-# shellcheck source-path=SCRIPTDIR source=../lib/sandbox-git-home.sh
-. "$(cd "$HERE/.." && pwd)/lib/sandbox-git-home.sh"
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/sandbox-git-home.sh
+. "$HERE/../lib/sandbox-git-home.sh"
 sandbox_git_home "$T/sghome" || { echo "VOID: подписи песочницы нет" >&2; exit 2; }
 
 REPO=PRO-Robotech/kacho-workspace; PR=4242

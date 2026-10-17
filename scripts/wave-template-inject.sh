@@ -471,17 +471,15 @@ console.log('== посадка — демоном вливания (ws#1147, ws#
 r = await run({ args, plan: [P('r0.json')] })
 const alSt = prm(r.calls, 'mech:autoland:status')
 ok(r.res.ok === true && by(r.calls, c => c.label === 'mech:autoland') === 1 && by(r.calls, c => c.label === 'mech:autoland:status') === 1 && idx(r.calls, 'mech:autoland:status') > idx(r.calls, 'mech:autoland') && idx(r.calls, 'mech:cascade') > idx(r.calls, 'mech:autoland:status') && r.res.merge === 'e'.repeat(40), 'влито демоном: start, ОДИН status, затем каскад; коммит слияния — из строки merged', JSON.stringify(r.res).slice(0, 200))
-ok(/`bash \/ws\/scripts\/autoland\/autoland\.sh status \/ws\/tmp\/autoland\/PRO-Robotech__kacho-workspace__7__f{12}\.state`/.test(alSt) && /Попытка 0\./.test(alSt), 'status — одной командой по .state этой головы, с номером попытки', alSt.slice(-400))
+ok(/`bash \/ws\/scripts\/autoland\/autoland\.sh status \/ws\/tmp\/autoland\/PRO-Robotech__kacho-workspace__7__f{12}\.state`/.test(alSt), 'status — одной командой по .state этой головы', alSt.slice(-400))
 ok(!r.calls.some(c => /^mech:(landing|ci-land|delta|merge|pr-edit)/.test(c.label)), 'гейтов ради вливания, чтения CI на голове посадки и правки тела агентом нет')
 const BODY_RED = 'red landing-precheck код 1: REASON\tBODY-MISSING-COMMIT\tкоммит ab12 не назван в теле'
 r = await run({ args, plan: [P('r0.json')], al: [{ code: 1, out: BODY_RED, reasons: ['BODY-MISSING-COMMIT'] }] })
 ok(r.res.ok === false && r.res.state === 'failed' && (r.res.stage || '').includes(BODY_RED) && by(r.calls, c => c.label === 'mech:cascade') === 0 && by(r.calls, c => c.label === 'mech:autoland') === 1 && r.res.redRound === undefined, 'красный исход демона — диспетчеру дословно; ни правки тела, ни повторного старта, ни каскада', JSON.stringify(r.res).slice(0, 300))
 r = await run({ args, plan: [P('r0.json')], al: [{ code: 1, out: 'red merge-readiness код 1: REASON\tMERGE-READINESS\tконтекст красный', reasons: ['MERGE-READINESS'] }] })
-ok(r.res.ok === false && r.res.state === 'failed' && /^autoland красное: red merge-readiness/.test(r.res.stage || '') && by(r.calls, c => c.label === 'mech:cascade') === 0, 'merge-readiness не 0 (демон: red) — вливания нет', JSON.stringify(r.res).slice(0, 200))
+ok(r.res.ok === false && r.res.state === 'failed' && /^autoland[^:]*: red merge-readiness код 1: REASON\tMERGE-READINESS/.test(r.res.stage || '') && by(r.calls, c => c.label === 'mech:cascade') === 0, 'merge-readiness не 0 (демон: red) — вливания нет', JSON.stringify(r.res).slice(0, 200))
 r = await run({ args, plan: [P('r0.json')], al: [{ code: 3, out: 'running ci-read' }] })
 ok(r.res.ok === false && r.res.state === 'running' && r.res.autoland === '/ws/tmp/autoland/PRO-Robotech__kacho-workspace__7__' + 'f'.repeat(12) + '.state' && by(r.calls, c => c.label === 'mech:cascade') === 0 && by(r.calls, c => c.label === 'mech:autoland:status') === 1, 'демон идёт (status 3) — state running с путём .state, второго status и каскада нет', JSON.stringify(r.res).slice(0, 300))
-r = await run({ args: { ...args, rerun: 1 }, plan: [P('r0.json')] })
-ok(/Попытка 1\./.test(prm(r.calls, 'mech:autoland:status')) && !/Попытка/.test(prm(r.calls, 'mech:autoland').split('\n\n').slice(1).join(' ')), 'возобновление (args.rerun 1): status — новым заданием (вживую), start — прежним (из кэша)')
 r = await run({ args, plan: [P('r0.json')], alstart: [{ code: 2, out: 'autoland: ОТКАЗ — --head не sha40' }] })
 ok(r.res.ok === false && r.res.state === 'failed' && /^autoland start: демон не запущен \(код 2\): autoland: ОТКАЗ/.test(r.res.stage || '') && by(r.calls, c => c.label === 'mech:autoland:status') === 0, 'start не 0 и не 3 — статуса и вливания нет, отказ дословно', JSON.stringify(r.res).slice(0, 200))
 r = await run({ args, plan: [P('r0.json')], alstart: [{ code: 3, out: 'autoland: ОТКАЗ — PR уже ведёт другой демон' }] })
@@ -491,9 +489,44 @@ ok(r.res.ok === false && by(r.calls, c => c.label === 'mech:cascade') === 0 && /
 r = await run({ args, plan: [P('r0.json')], al: [{ code: 4, out: 'stale-base REASON\tBASE-STALE\tбаза ушла', reasons: ['BASE-STALE'] }] })
 ok(r.res.ok === false && r.res.state === 'failed' && /база устарела/.test(r.res.stage || '') && r.res.redRound === undefined, 'stale-base (status 4) — база устарела, не красное', JSON.stringify(r.res).slice(0, 200))
 r = await run({ args, plan: [P('r0.json')], al: [{ code: 5, out: 'head-moved ' + 'f'.repeat(40) + ' ' + 'd'.repeat(40) }] })
-ok(r.res.ok === false && r.res.state === 'failed' && /голова сдвинулась: head-moved/.test(r.res.stage || '') && by(r.calls, c => c.label === 'mech:cascade') === 0, 'head-moved (status 5) — вливания нет, обе головы дословно', JSON.stringify(r.res).slice(0, 200))
+ok(r.res.ok === false && r.res.state === 'failed' && /^autoland[^:]*: head-moved f{40} d{40}$/.test(r.res.stage || '') && by(r.calls, c => c.label === 'mech:cascade') === 0, 'head-moved (status 5) — вливания нет, обе головы дословно', JSON.stringify(r.res).slice(0, 200))
 r = await run({ args, plan: [P('r0.json')], al: [{ code: 2, out: 'void ci-read код 2 3 раз подряд: REASON\tRATE-LIMIT\tсброс в 14:05', reasons: ['RATE-LIMIT'] }] })
 ok(r.res.ok === false && r.res.state === 'not-run' && /сброс в 14:05/.test(r.res.stage || ''), 'void (status 2) — not-run, не красное; причина дословно', JSON.stringify(r.res).slice(0, 200))
+
+console.log('== демон вливания: кэш возобновления, запреты заданий (приёмка check-verifier ws#1152)')
+{
+  const own = c => c.prompt.split('\n\n').slice(1).join(' ')
+  // E1. Workflow отдаёт шаг из кэша по тексту задания: за проходы rerun 0 и 1 — ровно ОДНО
+  // различное задание start (старт из кэша, второго нет) и ДВА — status (исход вживую).
+  const p0 = await run({ args, plan: [P('r0.json')], al: [{ code: 3, out: 'running ci-read' }] })
+  const p1 = await run({ args: { ...args, rerun: 1 }, plan: [P('r0.json')] })
+  const both = [...p0.calls, ...p1.calls]
+  const dist = l => new Set(both.filter(c => c.label === l).map(c => c.prompt)).size
+  const per = (q, l) => by(q.calls, c => c.label === l)
+  ok(dist('mech:autoland') === 1 && dist('mech:autoland:status') === 2 && per(p0, 'mech:autoland') === 1 && per(p1, 'mech:autoland') === 1 && per(p0, 'mech:autoland:status') === 1 && per(p1, 'mech:autoland:status') === 1, 'E1 возобновление: start — одно задание на оба прохода и по одному вызову (из кэша), status — новое на каждый проход', JSON.stringify({ start: dist('mech:autoland'), status: dist('mech:autoland:status'), startCalls: [per(p0, 'mech:autoland'), per(p1, 'mech:autoland')] }))
+  // E3. До каскада задачи не закрывает ни одно задание: закрытие — шагом после merged.
+  const q = await run({ args, plan: [P('r0.json')] })
+  const CLOSE = /gh issue close|закро(й|йте|ешь)\s+(все\s+)?задач|закрыть\s+задач/i
+  const iC = idx(q.calls, 'mech:cascade')
+  const early = q.calls.filter((c, i) => i < iC && CLOSE.test(own(c))).map(c => c.label)
+  ok(iC > 0 && early.length === 0 && CLOSE.test(own(q.calls[iC])), 'E3 до каскада ни одно задание не закрывает задачи; закрывает лишь каскад', early.join(','))
+  // E4. Сбой генератора тела — остановка, а не тело руками (сборка и старт).
+  const asmO = own(q.calls.find(c => c.label === 'mech:assemble:1') || { prompt: '' }), alO = own(q.calls.find(c => c.label === 'mech:autoland') || { prompt: '' })
+  const HAND_BODY = /напиш[иу]?\s+тело|пиши\s+тело|составь\s+тело|тело\s+(сам|руками)(?!\s+не)/i
+  ok(/\(код не 0 — (?=[^)]*status failed)(?=[^)]*PR не трогать)[^)]*\)/.test(asmO) && !HAND_BODY.test(asmO), 'E4 сборка: генератор тела дал не 0 — status failed, PR не трогать; тела руками нет', asmO.slice(-700))
+  ok(/\(код не 0 — (?=[^)]*code 2)(?=[^)]*демон не запускать)[^)]*\)/.test(alO) && !HAND_BODY.test(alO), 'E4 старт: генератор тела дал не 0 — code 2, демон не запускать; тела руками нет', alO.slice(0, 700))
+  // E5. После ready CI ждёт и судит демон: ни одно задание от ready до каскада, кроме
+  // переписи гейтов, не читает и не ждёт CI (запрет в правиле вливания — не указание).
+  const qr = await run({ args, plan: [P('r0.json')], ci: [{ code: 5 }] })
+  const iR = idx(qr.calls, 'mech:ready'), iRC = idx(qr.calls, 'mech:cascade')
+  const WAITCI = /ci-read\.sh|дожд|sleep\s+\d|--watch|gh pr checks|gh run watch|до кода 0/i
+  const bad = qr.calls.filter((c, i) => i >= iR && i < iRC && c.label !== 'mech:gates' && WAITCI.test(own(c).replace(/ПРАВИЛО ВЛИВАНИЯ диспетчера:[^\n]*?ради вливания — нельзя/, ''))).map(c => c.label)
+  ok(iR > 0 && iRC > iR && bad.length === 0, 'E5 после ready ни одно задание, кроме переписи гейтов, не читает и не ждёт CI', bad.join(','))
+  // E6, E8. status — первая строка .state ДОСЛОВНО, без повтора и ожидания.
+  const st = own(q.calls.find(c => c.label === 'mech:autoland:status') || { prompt: '' })
+  ok(/out \(первая строка \.state[^)]*ДОСЛОВНО/.test(st), 'E6 status требует первую строку .state ДОСЛОВНО', st.slice(0, 400))
+  ok(st !== '' && !/кажд(ые|ый|ую|ое)|повторя|sleep|until\s|while\s|--watch|дожд/i.test(st), 'E8 в задании status нет ни повтора, ни ожидания', st.slice(0, 400))
+}
 
 console.log('== номер PR — целое ≥ 1, иначе остановка с причиной (ws#935)')
 for (const [name, v] of [['нет поля', { pr: undefined }], ['0', { pr: 0 }], ['строка «—»', { pr: '—' }], ['адрес', { pr: 'https://github.com/o/r/pull/7' }]]) {
@@ -541,7 +574,7 @@ ok(r.res.ok === true && by(r.calls, c => c.agentType === 'landing-reviewer') ===
 r = await run({ args: { ...argsM, lanes: [{ ...argsM.lanes[0], publicText: true }] }, plan: [P('r2.json')] })
 ok(r.res.ok === true && by(r.calls, c => c.agentType === 'landing-reviewer') === 1, 'публичный текст полосы — факта нет, landing-reviewer зван')
 r = await run({ args: argsM, plan: [P('r2.json')], al: [{ code: 5, out: 'head-moved ' + 'f'.repeat(40) + ' ' + 'd'.repeat(40) }] })
-ok(r.res.ok === false && by(r.calls, c => c.agentType === 'landing-reviewer') === 0 && /голова сдвинулась/.test(r.res.stage || ''), 'голова сдвинута после вердиктов — судит демон (head-moved), не landing-reviewer; вливания нет', JSON.stringify(r.res).slice(0, 200))
+ok(r.res.ok === false && by(r.calls, c => c.agentType === 'landing-reviewer') === 0 && /: head-moved /.test(r.res.stage || ''), 'голова сдвинута после вердиктов — судит демон (head-moved), не landing-reviewer; вливания нет', JSON.stringify(r.res).slice(0, 200))
 
 console.log('== приёмка check-verifier ws#1000 r1: CV-M2…CV-M9, CV-EMPTY')
 {
@@ -667,7 +700,7 @@ ok(r.res.ok === false && r.res.state === 'failed' && by(r.calls, c => c.label.st
 r = await run({ args, plan: [P('r0.json')], ci: [{ code: 0, state: 'green', head: 'a'.repeat(40) }] })
 ok(r.res.ok === false && r.res.state === 'failed' && by(r.calls, c => c.label === 'mech:autoland') === 0, 'код 0 на другой голове — не вердикт сборки')
 r = await run({ args, plan: [P('r0.json')], al: [{ code: 6, out: 'timeout предел 10800 с; последнее: ci-read код 3' }] })
-ok(r.res.ok === false && r.res.state === 'failed' && /предел ожидания исчерпан: timeout/.test(r.res.stage || '') && by(r.calls, c => c.label === 'mech:cascade') === 0, 'timeout демона (status 6) — failed с последним вердиктом, вливания нет', JSON.stringify(r.res).slice(0, 200))
+ok(r.res.ok === false && r.res.state === 'failed' && /^autoland[^:]*: timeout предел 10800 с; последнее: ci-read код 3$/.test(r.res.stage || '') && by(r.calls, c => c.label === 'mech:cascade') === 0, 'timeout демона (status 6) — failed с последним вердиктом, вливания нет', JSON.stringify(r.res).slice(0, 200))
 
 console.log('== пустые ходы (ws#1004): разбор плана, чужие файлы, hookLog — путь')
 const CENSUS = 'CENSUS\tплан /ws/tmp/wave-9/plan-1.json: полос 2, слоёв 1\nCENSUS\tcorelib: полос kacho и kaname нет — не судился\nVERDICT\tplan-ok\tпричин 0\n'
@@ -827,7 +860,7 @@ console.log('== перепись гейтов посадки разом; отв�
   const iG = idx(q.calls, 'mech:gates'), gp = prm(q.calls, 'mech:gates')
   ok(by(q.calls, c => c.label === 'mech:gates') === 1 && iG > idx(q.calls, 'review-wave') && iG < idx(q.calls, 'mech:autoland') && ['landing-precheck.sh', 'merge-readiness.sh', 'ci-read.sh', 'applicability.py обоих пакетов', 'cascade-census.sh --proof', 'branch-audit.sh'].every(f => gp.includes(f)) && gp.includes('ДО первой починки прогони КАЖДЫЙ гейт по разу, ничего не чини') && gp.includes('/ws/tmp/wave-9/reports/gates-census.md') && q.res.gates && q.res.gates.file === '/ws/tmp/wave-9/reports/gates-census.md', 'перепись гейтов — один шаг до старта демона вливания: шесть гейтов, ничего не чинит, таблица в reports, итог несёт её', gp.slice(-400))
   q = await run({ args, plan: [P('r0.json')], al: [{ code: 1, out: 'red landing-precheck код 1: REASON\tREVIEW-STALE\tвердикт о другой голове', reasons: ['REVIEW-STALE'] }] })
-  ok(q.res.ok === false && /^autoland красное: red landing-precheck/.test(q.res.stage || '') && q.res.gates && Array.isArray(q.res.gates.reasons) && by(q.calls, c => c.label === 'mech:gates') === 1, 'красная посадка — итог несёт таблицу гейтов, перепись не повторяется по одному', JSON.stringify(q.res).slice(0, 300))
+  ok(q.res.ok === false && /^autoland[^:]*: red landing-precheck код 1: REASON\tREVIEW-STALE/.test(q.res.stage || '') && q.res.gates && Array.isArray(q.res.gates.reasons) && by(q.calls, c => c.label === 'mech:gates') === 1, 'красная посадка — итог несёт таблицу гейтов, перепись не повторяется по одному', JSON.stringify(q.res).slice(0, 300))
   const laneM = [{ key: 'M', repo: 'kacho-workspace', agent: 'migration-writer', branch: '9-m', text: 't' }]
   const WAIT = 'жду монитора, вернусь по .rc'
   q = await run({ args: { ...args, lanes: laneM }, plan: [P('r2.json')], 'text:acc': [WAIT] })
@@ -892,7 +925,7 @@ console.log('== уроки посадки 2026-10-14 (ws#1078): кэш дочи�
   // L5 внутри массивов (CV9): длинная причина посадки в reasons — тоже срезана.
   q = await run({ args, plan: [P('r0.json')], al: [{ code: 1, out: 'red landing-precheck код 1: x', reasons: [LONG] }] })
   const jr = JSON.stringify(q.res.reasons || [])
-  ok(/^autoland красное/.test(q.res.stage || '') && !jr.includes(LONG.slice(0, 1000)) && jr.includes('[полностью — в'), 'L5: строка внутри массива итога — срезана с путём отчётов', jr.slice(0, 120))
+  ok(/^autoland[^:]*: red landing-precheck код 1: x$/.test(q.res.stage || '') && !jr.includes(LONG.slice(0, 1000)) && jr.includes('[полностью — в'), 'L5: строка внутри массива итога — срезана с путём отчётов', jr.slice(0, 120))
 }
 
 console.log('== объединение вызовов всех сценариев: модель, усилие, место отчётов (ws#1016)')
@@ -943,10 +976,12 @@ open(dst, 'w', encoding='utf-8').write(s.replace(a, b, 1))
 PY
     # Красный засчитывается, только если упало утверждение пробы ([FAIL]), а не
     # разбор шаблона: мутант, сломавший синтаксис, свойства не проверяет.
-    if node "$W/probe.mjs" "$f" "$W" > "$W/mut.out" 2>&1; then
+    local rc=0
+    node "$W/probe.mjs" "$f" "$W" > "$W/mut.out" 2>&1 || rc=$?
+    if [ "$rc" -eq 0 ]; then
         echo "  [FAIL] мутант «$1» выжил" >&2; fail=$((fail + 1))
     elif grep -q '^  \[FAIL\]' "$W/mut.out" && grep -q '^RESULT' "$W/mut.out"; then
-        echo "  [OK]   мутант «$1» красный: $(grep -m1 '^  \[FAIL\]' "$W/mut.out" | sed 's/^  \[FAIL\] //' | cut -c1-90)"; pass=$((pass + 1))
+        echo "  [OK]   мутант «$1» красный (rc $rc): $(grep -m1 '^  \[FAIL\]' "$W/mut.out" | sed 's/^  \[FAIL\] //' | cut -c1-90)"; pass=$((pass + 1))
     else
         echo "  [FAIL] мутант «$1» упал не утверждением: $(head -c 200 "$W/mut.out")" >&2; fail=$((fail + 1))
     fi
@@ -1157,6 +1192,26 @@ mutant "неизвестный код — зелёный" "CI_STATE[r.code]) || 
 mutant "голова CI не судится" " || (readied && ciState(ci) === 'targeted-green')) || ciHead !== asm.head)" " || (readied && ciState(ci) === 'targeted-green')))"
 mutant "код 0 без строки merged — влито" "sha40((alOut.match(/^merged ([0-9a-f]{40})/) || [])[1])" "'e'.repeat(40)"
 mutant "status без попытки — из кэша при возобновлении" "' + asm.head + '). Попытка ' + (A.rerun || 0) + '.', { ...MECH, label: 'mech:autoland:status'" "' + asm.head + ').', { ...MECH, label: 'mech:autoland:status'"
+# Приёмка check-verifier ws#1152 r1: одно-фактные мутанты, выжившие на 7ade3f8f9, и законные близнецы.
+mutant "E1a старт с номером захода (из кэша не берётся)" "Режим autoland start: PR #'" "Режим autoland start, заход ' + (A.rerun || 0) + ': PR #'"
+mutant "E1c второй старт при возобновлении" "// ОДИН шаг status; попытка" "if (A.rerun) await agent(C + 'Режим autoland start повторно: PR #' + asm.pr, { ...MECH, label: 'mech:autoland', phase: 'Посадка', schema: S_MECH })
+// ОДИН шаг status; попытка"
+mutant "E3b старт закрывает задачи" "' + landRule + '. 1) Тело PR" "' + landRule + '. Закрой задачи полос ' + order.join(', ') + ' (\`gh issue close\`). 1) Тело PR"
+mutant "E3c перепись закрывает задачи" "Перепись — не основание вливать: вливает только демон." "Перепись — не основание вливать: вливает только демон. Затем закрой задачи полос ' + order.join(', ') + '."
+mutant "E4a сборка: сбой генератора — тело сам" "(код не 0 — status failed, PR не трогать)" "(код не 0 — напиши тело сам по git log и продолжай)"
+mutant "E4b старт: сбой генератора — тело руками" "(код не 0 — code 2, демон не запускать)" "(код не 0 — напиши тело руками и запускай демон)"
+mutant "E5c ready читает CI до кода 0" "— событие ready_for_review заводит полный прогон." "— событие ready_for_review заводит полный прогон; затем читай CI \`ci-read.sh\` до кода 0."
+mutant "E5d старт ждёт CI" "2) ОДНОЙ командой \`bash ' + AUTOLAND + ' start" "2) Дождись ci-read.sh код 0 на голове, затем ОДНОЙ командой \`bash ' + AUTOLAND + ' start"
+mutant "E6c исход своими словами" "out (первая строка .state ДОСЛОВНО)" "out (первая строка .state своими словами)"
+mutant "E8b status повторяется каждые 60 с" "Исход не толкуй, не жди, демон не перезапускай." "Код 3 — повторяй status каждые 60 с. Исход не толкуй, демон не перезапускай."
+twin "TA1 «красное» → «красный исход» в стадии" "1: 'красное', 2: 'не выполнилось'" "1: 'красный исход', 2: 'не выполнилось'"
+twin "TA2 запрет ожидания иначе сказан" "Исход не толкуй, не жди, демон не перезапускай." "Исход не толкуй и не жди; демон не перезапускай."
+twin "TA3 перепись: задачи не закрываются" "Перепись — не основание вливать: вливает только демон." "Перепись — не основание вливать: вливает только демон, задачи не закрываются."
+twin "TA4 ready: CI не читай — его ждёт демон" "— событие ready_for_review заводит полный прогон." "— событие ready_for_review заводит полный прогон; CI не читай — его ждёт демон вливания."
+twin "TA5 номер попытки иначе назван" "'). Попытка ' + (A.rerun || 0) + '.'" "'). Заход ' + (A.rerun || 0) + '.'"
+twin "TA6 остановка сборки — иной порядок слов" "(код не 0 — status failed, PR не трогать)" "(код не 0 — PR не трогать, status failed)"
+twin "TA7 остановка старта — иной порядок слов" "(код не 0 — code 2, демон не запускать)" "(код не 0 — демон не запускать, code 2)"
+twin "TA8 ДОСЛОВНО через запятую" "out (первая строка .state ДОСЛОВНО)" "out (первая строка .state, ДОСЛОВНО)"
 mutant "старт демона не судится" "if (!alStart || ![0, 3].includes(alStart.code)) return" "if (false) return"
 mutant "тело сборки руками (ws#1146)" "тело — ТОЛЬКО вывод генератора (ws#1146), руками не пишется: \`RITUAL_REPO_DIR=" "тело — ровно состав git log база..голова: \`true RITUAL_REPO_DIR="
 mutant "демон без отчёта стенда" "' --stand-report ' + STAND + ' --stand-expect ' + STAND_EXP + '\` — он сразу" "'\` — он сразу"
