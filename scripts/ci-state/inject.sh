@@ -20,8 +20,9 @@
 #       --base; (д) другой черновик --draft (живое тогда — VOID: запрос не таков);
 #   (3) демон получает текст с mutation | не-литерал | не-GET → отказ, код 3;
 #       близнец: литерал демона проходит страж (дальше — отказ сети, код 5);
-#   (4) keyring недоступен (токен из файла настроек | gh auth status не отвечает)
-#       → отказ старта, код 4, снимка нет;
+#   (4) токен из файла настроек | из переменной → отказ старта, код 4 (повтор
+#       запрещён юнитом); keyring не отвечает → код 6 (повторимо: служба
+#       перезапускается, ws#1151); снимка нет ни в одном случае;
 #   (5) законный близнец: свежий снимок, ключ совпал целиком → ответ из снимка,
 #       вызовов gh 0;
 #   (6) ключ прежний, свод другой — снимок годен только при неизменном своде (ключ,
@@ -37,7 +38,10 @@
 #       процесса, и --once до него не доходит; ответ об остатке REST подменяется в
 #       процессе так же, как ответ GraphQL — файлом;
 #   (7) последняя строка снимка — не VERDICT его кода (вывод пуст | «код 1» при коде
-#       0) → STATE-STALE и живое 1, а не код снимка.
+#       0) → STATE-STALE и живое 1, а не код снимка;
+#   (8) ожидающий держит FIFO запроса (ws#1151): упала проверка — строка
+#       «<репо> <PR> <голова> код 1» в FIFO и снимок с кодом 1 (из снимка, вызовов gh 0);
+#       близнец — перечитан при том же коде и ключе: строки нет.
 # Сверяется код И напечатанное (строка причины), а не только «покраснел».
 #
 # МУТАНТЫ — копия ci-read.sh или ci-stated.py с одним дефектом обязана уронить
@@ -49,7 +53,10 @@
 # (подтверждение по одному ключу), counts-dropped и base-dropped (счёт и голова базы
 # не в отпечатке), notdue-confirms, reserve-confirms, norefresh-fail-confirms
 # (подтверждает ветка «рано», «резерв», «чтение не удалось»), lastline-dropped
-# (последняя строка снимка не сверяется с кодом). Правка, не легшая в текст, — VOID.
+# (последняя строка снимка не сверяется с кодом); по службе (ws#1151) — signal-dropped
+# (строка в FIFO не пишется), signal-always (пишется без смены кода и ключа),
+# keyring-down-final (недоступный keyring — код 4, повтор запрещён). Правка, не легшая
+# в текст, — VOID.
 #
 # ИСХОДЫ: 0 — контроль зелёный по всем сценам, все мутанты убиты; 1 — сцена
 # разошлась либо мутант выжил; 2 — судить нечем (нет jq, python3, фикстуры).
@@ -266,6 +273,22 @@ scenes() {  # scenes <ci-read> <демон> <каталог> → печать; $
     rd "$cr" "$w" --from-state
     chk "(б) снимок «код 1» при коде 0: STATE-STALE, живое 1" '[ "$code" -eq 1 ] && grep -qP "^REASON\tSTATE-STALE\t.*не VERDICT" <<<"$out" && [ "$calls" -gt 0 ]'
 
+    echo "== (8) смена свода — строка в FIFO ожидающего и снимок обновлён"
+    local fifo="$w/state/wait/PRO-Robotech__kacho__3140.fifo" fd line lrc
+    fresh "$cr" "$d" "$w"; fail_fx "$w/fx"
+    [ -p "$fifo" ] || mkfifo -m 600 "$fifo"; exec {fd}<>"$fifo"   # ожидающий открыл FIFO до прохода
+    poll "$HEAD_SHA" false FAILURE "$C_FAIL" > "$w/poll.json"; once "$cr" "$d" "$w"
+    line="$(timeout 2 head -n1 <&"$fd")"; lrc=$?; exec {fd}>&-
+    rd "$cr" "$w" --from-state
+    chk "упала проверка: строка «$REPO $PR <голова> код 1» в FIFO, из снимка 1, вызовов gh 0" '[ "$lrc" -eq 0 ] && [ "$line" = "$REPO $PR $HEAD_SHA код 1" ] && [ "$code" -eq 1 ] && [ "$calls" -eq 0 ]'
+    rm -rf "$w"; mkdir -p "$w/fx"; cp "$FX"/*.json "$w/fx/"; running_fx "$w/fx" 2
+    poll "$HEAD_SHA" false PENDING "$C_RUN2" > "$w/poll.json"; once "$cr" "$d" "$w"
+    cp "$FX/check-runs.json" "$w/fx/"; running_fx "$w/fx" 1
+    [ -p "$fifo" ] || mkfifo -m 600 "$fifo"; exec {fd}<>"$fifo"
+    poll "$HEAD_SHA" false PENDING "$C_RUN1" > "$w/poll.json"; GHLOG="$w/dlog" once "$cr" "$d" "$w"
+    line="$(timeout 1 head -n1 <&"$fd")"; lrc=$?; exec {fd}>&-
+    chk "близнец: перечитан при том же коде 3 и ключе — строки в FIFO нет" '[ -s "$w/dlog" ] && [ "$lrc" -eq 124 ] && [ -z "$line" ]'
+
     echo "== (3) страж записи демона"
     local q="$root/q"
     printf 'mutation { addComment(input: {subjectId: "x", body: "y"}) { clientMutationId } }' > "$q.mut"
@@ -287,11 +310,13 @@ scenes() {  # scenes <ci-read> <демон> <каталог> → печать; $
 
     echo "== (4) keyring недоступен — отказ старта"
     local s
-    for s in oauth_token GH_TOKEN down; do
+    local s want
+    for s in oauth_token:4 GH_TOKEN:4 down:6; do
+        want="${s#*:}"; s="${s%:*}"
         rm -rf "$w"; mkdir -p "$w/fx"; cp "$FX"/*.json "$w/fx/"; poll "$HEAD_SHA" false SUCCESS > "$w/poll.json"
         AUTH_SRC="$s" CI_READ_FX="$w/fx" CI_STATE_DIR="$w/state" CI_STATED_CI_READ="$cr" \
             python3 "$d" --once --repos "$REPO" --poll-file "$w/poll.json" > "$w/d.out" 2>&1; code=$?; out="$(cat "$w/d.out")"; calls=-
-        chk "источник токена $s: отказ старта, код 4, снимка нет" '[ "$code" -eq 4 ] && grep -q "keyring" <<<"$out" && [ ! -e "$w/state/$SNAP_REL" ]'
+        chk "источник токена $s: отказ старта, код $want, снимка нет" '[ "$code" -eq "$want" ] && grep -q "keyring" <<<"$out" && [ ! -e "$w/state/$SNAP_REL" ]'
     done
 }
 
@@ -334,6 +359,9 @@ notdue-confirms	ci-stated	/if not (changed_key or due):/,/continue/s/snap\["seen
 reserve-confirms	ci-stated	/< CORE_RESERVE:$/,/continue/s/snap\["seen"\] = key$/snap["seen"] = key; snap["checked_at"] = now/
 norefresh-fail-confirms	ci-stated	/не вынесло вердикта/,/continue/s/snap\["seen"\] = key$/snap["seen"] = key; snap["checked_at"] = now/
 lastline-dropped	ci-read	s/^    \[\[ "\$last" =~ .* \]\] \\$/    true \\/
+signal-dropped	ci-stated	s/os.write(fd, (line + "\\n").encode())/pass/
+signal-always	ci-stated	s/if not snap or snap.get("code") != code or snap.get("key") != got:/if True:/
+keyring-down-final	ci-stated	/^class KeyringDown/,/code = 6/s/code = 6/code = 4/
 MUT
 xargs -0 -n 3 -P "${CI_STATE_INJECT_JOBS:-$(nproc 2>/dev/null || echo 4)}" bash "$HERE/inject.sh" --scene < "$T/list"
 xs=$?
