@@ -60,6 +60,10 @@
 # серверу; `ssh localhost`; `docker exec` в живой контейнер; `at`. Перенос уводит и
 # из-под потолка сессии (scripts/session-memcap.sh): предела ядра у них нет, их видят
 # лишь вход и сторож слотов по памяти машины да systemd-oomd.
+# Стенд во внешнем ns без слота (ws#1143, stand_ns_light): рецепт, закоммиченный в
+# клон kacho (deploy/Makefile, stand-ns.sh и то, что они зовут), и PATH, подменяющий
+# kubectl, helm или go рецепта, слот не видит — судится дерево клона, а не дело его
+# коммита.
 #
 # ИСПОЛНЕНИЕ
 #   · systemd-run --user --scope -p MemoryMax=<бюджет> -p MemorySwapMax=0 — предел
@@ -105,8 +109,9 @@
 # в scripts/remote-heavy/run.sh и слота машины не занимают; код — код команды там.
 # Локальный подъём стенда и неопознанная нагрузка при отвечающем кластере — 77;
 # кластер занят — 74/75, локально не идёт. Стенд во внешнем ns (make stand-ns-up,
-# -down, -census; stand-ns.sh up, down, census, forward, unforward) слота не
-# занимает: на машине лишь kubectl и helm (ws#1143, stand_ns_light ниже).
+# -down, -census; stand-ns.sh up, down, census, forward, unforward) из deploy/
+# неправленого клона kacho слота не занимает: на машине лишь kubectl и helm
+# (ws#1143; условия и ГРАНИЦА — у stand_ns_light ниже).
 # Локально — с причиной в журнале
 # (local … why=…, при недоступном — и proof=… вывода проверки), либо флагом --local
 # с причиной (bypass-local, «локально по флагу» в --status); условия — у блока
@@ -924,36 +929,71 @@ push_remote() {
     exit "$rc"
 }
 # stand_ns_light — команда класса stand лишь работает с ns внешнего кластера (ws#1143):
-# `make` (ключи -s, --silent, --quiet, -k, --no-print-directory, -C <каталог>,
-# присваивания ИМЯ=…), все цели которого — stand-ns-up, stand-ns-down, stand-ns-census,
-# либо stand-ns.sh up|down|census|forward|unforward. На машине тогда идут лишь kubectl
-# и helm: журнал слотов до правки — 139 таких запусков, пик памяти ≤ 118 МиБ, а ожидание
-# слота — до 1343 с. Слот такой команде не нужен. Прочее — слот, как было: stand-ns-run
-# и stand-ns.sh run (CMD идёт на машине, пик 798 МиБ), строка оболочки (её слов разбор
-# не судит), make -f и ключ вне списка (иной файл правил, иная цель), SHELL= и MAKEFLAGS=.
+# на машине тогда идут лишь kubectl и helm — журнал слотов до правки: 139 таких
+# запусков, пик памяти ≤ 118 МиБ, ожидание слота до 1343 с; слот ей не нужен. Лёгкой
+# признаётся команда, чьи правила и скрипт — ОТСЛЕЖИВАЕМЫЕ и НЕПРАВЛЕНЫЕ файлы клона
+# kacho (приёмка ws#1143: подменённый рецепт, чужой -C, чужой stand-ns.sh,
+# присваивание `NS='$(shell …)'` и MAKEFILES исполняли тяжёлое без слота):
+#   · `make` первым словом argv (обёрток нет): ключи -s, --silent, --quiet,
+#     --no-print-directory, -C <каталог>; каталог make (рабочий и -C по порядку) по
+#     настоящему пути — deploy/ клона; цели — только stand-ns-up, stand-ns-down,
+#     stand-ns-census; присваивания — только NS, STACK, REF, EXPIRED, значение без $ и `;
+#   · `bash <путь>` (без ключей bash) либо `<путь>` — по настоящему пути
+#     deploy/scripts/stand-ns.sh клона; подкоманда up, down, census, forward, unforward;
+#     аргументы без $ и `;
+#   · клон — origin PRO-Robotech/kacho; deploy/Makefile и deploy/scripts/stand-ns.sh
+#     отслеживаются; в deploy/ ни правок, ни неотслеживаемых файлов; GNUmakefile и
+#     makefile (make взял бы их раньше Makefile) нет;
+#   · окружение без MAKEFILES, MAKEFLAGS, MFLAGS, GNUMAKEFLAGS, BASH_ENV, ENV.
+# Прочее — под слотом, как было: stand-ns-run (CMD идёт на машине, пик 798 МиБ),
+# строка оболочки, обёртки, -f и иные ключи, иные цели и присваивания (MAKEFILES=,
+# MAKEFILE= в их числе), чужой каталог и чужой скрипт.
+# ГРАНИЦА (не ловится, heavy-slot-inject.sh печатает [BOUND]): рецепт, ЗАКОММИЧЕННЫЙ в
+# клон (deploy/Makefile, stand-ns.sh и то, что они зовут), и PATH, подменяющий
+# kubectl, helm или go рецепта: судится дерево клона по его коммиту, а не то, что
+# этот коммит делает.
+stand_ns_clone_deploy() {  # <каталог> — 0, если это deploy/ чистого клона kacho
+    local d top url
+    d="$(cd "$1" 2>/dev/null && pwd -P)" || return 1
+    top="$(git -C "$d" rev-parse --show-toplevel 2>/dev/null)" && top="$(cd "$top" && pwd -P)" || return 1
+    [ "$d" = "$top/deploy" ] || return 1
+    url="$(git -C "$top" remote get-url origin 2>/dev/null)"
+    case "$url" in *PRO-Robotech/kacho|*PRO-Robotech/kacho.git) ;; *) return 1 ;; esac
+    git -C "$top" ls-files --error-unmatch deploy/Makefile deploy/scripts/stand-ns.sh >/dev/null 2>&1 || return 1
+    [ -z "$(git -C "$top" status --porcelain --untracked-files=all -- deploy 2>/dev/null)" ] || return 1
+    [ ! -e "$d/GNUmakefile" ] && [ ! -e "$d/makefile" ]
+}
 stand_ns_light() {
-    local i n=${#CMD_R[@]} w t=0
+    local i n=${#CMD_R[@]} w d s t=0 v
+    for v in MAKEFILES MAKEFLAGS MFLAGS GNUMAKEFLAGS BASH_ENV ENV; do [ -z "${!v:-}" ] || return 1; done
     payload
     [ -z "$PAY_SH" ] && [ -n "$PAY_I" ] || return 1
+    case "$PAY_I:$(basename -- "${CMD_R[0]}")" in 0:make|0:stand-ns.sh|1:bash) ;; *) return 1 ;; esac
     i=$(( PAY_I + 1 ))
     case "$PAY" in
         make)
+            d="$PWD"
             while [ "$i" -lt "$n" ]; do
                 w="${CMD_R[$i]}"
                 case "$w" in
-                    -s|--silent|--quiet|-k|--keep-going|--no-print-directory) i=$(( i + 1 )) ;;
-                    -C) i=$(( i + 2 )) ;;
-                    -C?*|--directory=*) i=$(( i + 1 )) ;;
+                    -s|--silent|--quiet|--no-print-directory) i=$(( i + 1 )) ;;
+                    -C) d="$(cd "$d" 2>/dev/null && cd -- "${CMD_R[$(( i + 1 ))]:-}" 2>/dev/null && pwd -P)" || return 1
+                        i=$(( i + 2 )) ;;
                     stand-ns-up|stand-ns-down|stand-ns-census) t=$(( t + 1 )); i=$(( i + 1 )) ;;
-                    SHELL=*|MAKEFLAGS=*|MFLAGS=*|.SHELLFLAGS=*) return 1 ;;
-                    [A-Za-z_]*=*) i=$(( i + 1 )) ;;
+                    NS=*|STACK=*|REF=*|EXPIRED=*)
+                        v="${w#*=}"; [[ "$v" != *'$'* && "$v" != *'`'* ]] || return 1; i=$(( i + 1 )) ;;
                     *) return 1 ;;
                 esac
             done
-            [ "$t" -gt 0 ] ;;
+            [ "$t" -gt 0 ] && stand_ns_clone_deploy "$d" ;;
         stand-ns.sh)
-            case "${CMD_R[$i]:-}" in up|down|census|forward|unforward) return 0 ;; esac
-            return 1 ;;
+            s="$(readlink -f -- "${CMD_R[$PAY_I]}" 2>/dev/null)" || return 1
+            [ "${CMD_R[$PAY_I]}" != "${CMD_R[$PAY_I]#*/}" ] || return 1  # путь, а не поиск по PATH
+            stand_ns_clone_deploy "$(dirname -- "$(dirname -- "$s")")" || return 1
+            [ "$s" = "$(cd "$(dirname -- "$(dirname -- "$s")")" && pwd -P)/scripts/stand-ns.sh" ] || return 1
+            case "${CMD_R[$i]:-}" in up|down|census|forward|unforward) ;; *) return 1 ;; esac
+            for w in "${CMD_R[@]:$(( i + 1 ))}"; do [[ "$w" != *'$'* && "$w" != *'`'* ]] || return 1; done
+            return 0 ;;
         *) return 1 ;;
     esac
 }
