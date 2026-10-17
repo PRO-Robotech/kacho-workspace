@@ -29,6 +29,11 @@
 #   closed       — запрос закрыт без вливания → red PR-NOT-OPEN, гейтов нет;
 #   already      — запрос уже влит этой головой → merged, повторного вливания нет;
 #   fifo         — пауза 20 с, строка демона состояния в FIFO будит раньше: исход < 10 с;
+#   fifo-nowriter — демона состояния нет, FIFO без писателя: каждое ожидание кончается
+#                  паузой (timeout), исход merged с кодом 0; пауза БЫЛА — прошло не меньше
+#                  2·--poll − 1 с и меньше предела 20 с, время печатается и на зелёном;
+#                  мутант без timeout виснет на открытии FIFO и ловится кодом 124 предела,
+#                  мутант без ожидания вовсе — временем;
 #   args         — неформенный --subject, --head не sha40, --stand-report без
 #                  --stand-expect → код 2, .state нет;
 #   detach       — start возвращается < 6 с, печатает pid, журнал, state; демон в
@@ -47,6 +52,9 @@
 #   prune-origin-ahead — ветка на origin ушла вперёд после вливания → не снимается;
 #   prune-not-in-base  — хостинг сказал merged, а влитой головы в базе нет → ничего не снято;
 #   status       — коды status для каждого исхода (4, 5, 6 — тоже) и для слова вне перечня;
+#   census       — перепись процессов судит СВОЁ по метке AUTOLAND_PROBE_ID: свой процесс
+#                  с иным порядком доводов виден, чужой с «--pr N --head» — нет; reap снимает
+#                  свой и не трогает чужой, даже когда чужой pid лежит в .pid под $T;
 #   guard        — no-wait-guard пропускает команды start и status, а цикл ожидания
 #                  агентом (until … sleep) — отказ;
 #   static       — исполняемый текст демона без форсирующих флагов, обхода хуков, догона
@@ -58,7 +66,16 @@
 # ci-read без --head, без сверки местной головы при снятии, закрытый как открытый, без
 # сверки --subject, без FIFO, лимит площадки как VOID, пустой код допущен, голова
 # landing-precheck не сверяется, строка его головы не требуется, origin-ветка снимается
-# ушедшей вперёд, снятие без проверки «влитая — предок базы», status 4/5/6 как 0. Правка, не легшая в текст, — VOID.
+# ушедшей вперёд, снятие без проверки «влитая — предок базы», status 4/5/6 как 0,
+# ожидание FIFO без timeout, без ожидания вовсе, кэш — настоящий (CI_STATE_DIR не читается).
+#
+# СЛЕДОВ НЕТ (testing.md#no-residue). Песочница — на всю пробу: кэш (XDG_CACHE_HOME,
+# CI_STATE_DIR), gh, гейты, клоны, замок — экспортом до первой сцены, поэтому и демон,
+# отсоединённый под мутантом, машины не касается. Каждый демон пробы снимается по pid
+# ловушкой EXIT (и на падении) — только свои: pid, записанные при запуске, и pid из .pid
+# под $T с меткой пробы. Перепись до и после: файлы *__<PR пробы>.* в настоящем кэше
+# демона состояния и живые процессы с меткой ЭТОЙ пробы; рост — код 1, кэш прочитан не
+# весь — код 2 (не ноль). Правка, не легшая в текст, — VOID.
 #
 # ИСХОДЫ: 0 — все сцены зелёные, все мутанты убиты; 1 — сцена разошлась либо мутант
 # выжил; 2 — судить нечем (нет jq, python3, git, setsid, flock, стража).
@@ -77,8 +94,38 @@ LP_REAL="$(cd "$HERE/.." && pwd)/landing-precheck.sh"
 [ -r "$LP_REAL" ] || { echo "VOID: нет $LP_REAL (метки рецепта «ЗАПУСК»)" >&2; exit 2; }
 
 T="$(mktemp -d "${TMPDIR:-/tmp}/autoland-inject.XXXXXX")" || exit 2
-PIDS=()
-cleanup() { local p; for p in "${PIDS[@]}"; do kill "$p" 2>/dev/null; done; rm -rf "$T"; }
+PIDS=(); FOREIGN=()
+# СВОЁ — по метке AUTOLAND_PROBE_ID=$T в окружении процесса (её экспортирует проба
+# ниже, наследует всё, что проба порождает), а не по написанию доводов: образец
+# «--pr N --head» видит демонов соседней пробы и не видит своего с иным порядком.
+# Окружение читается встроенным mapfile — без дочернего процесса, который сам нёс бы метку.
+own_pid() {
+    local e; local -a env=()
+    { mapfile -d '' -t env < "/proc/$1/environ"; } 2>/dev/null || return 1
+    for e in "${env[@]}"; do [ "$e" = "AUTOLAND_PROBE_ID=$T" ] && return 0; done
+    return 1
+}
+probe_procs() {  # число живых процессов ЭТОЙ пробы, кроме самой оболочки пробы
+    local d p n=0
+    for d in /proc/[0-9]*; do
+        p="${d#/proc/}"
+        [ "$p" != "$$" ] && [ "$p" != "${BASHPID:-}" ] && own_pid "$p" && n=$((n + 1))
+    done
+    echo "$n"
+}
+# Снимаются на любом исходе, и на падении, ТОЛЬКО свои: pid, записанные пробой при
+# запуске (PIDS), и pid из .pid демонов под $T — если процесс несёт метку этой пробы.
+reap() {
+    local p f
+    for p in "${PIDS[@]}"; do kill "$p" 2>/dev/null; done
+    for f in "$T"/*/run/*.pid "$T"/run-default/*.pid; do
+        [ -f "$f" ] || continue
+        p="$(cat "$f" 2>/dev/null)"
+        [[ "$p" =~ ^[0-9]+$ ]] && own_pid "$p" && kill "$p" 2>/dev/null
+    done
+    return 0
+}
+cleanup() { local p; reap; for p in "${FOREIGN[@]}"; do kill "$p" 2>/dev/null; done; rm -rf "$T"; }
 trap cleanup EXIT
 # Подпись песочниц git — только из своего HOME с корневой подписью вызывающего
 # (scripts/lib/sandbox-git-home.sh; tooling-gate check-16).
@@ -88,6 +135,19 @@ trap cleanup EXIT
 sandbox_git_home "$T/sghome" || { echo "VOID: подписи песочницы нет" >&2; exit 2; }
 
 REPO=PRO-Robotech/kacho-workspace; PR=4242
+# Перепись машины ДО: файлы пробы (номер её PR) в настоящем кэше демона состояния.
+REAL_CS="${CI_STATE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/kacho-ci-state}"
+real_cs_files() {  # число файлов пробы; «?» — каталог есть, а прочитан не весь (не ноль)
+    local n
+    [ -e "$REAL_CS" ] || { echo 0; return 0; }
+    n="$(find "$REAL_CS" -name "*__${PR}.*" 2> "$T/cs-find.err" | wc -l)"
+    if [ -s "$T/cs-find.err" ]; then echo "?"; else echo "$n"; fi
+}
+CS_BEFORE="$(real_cs_files)"
+# Песочница — на ВСЮ пробу, а не на сцену: демон, запущенный любым вызовом (и под
+# мутантом, пропустившим проверку доводов), не видит ни настоящего gh, ни кэша машины.
+export AUTOLAND_PROBE_ID="$T" XDG_CACHE_HOME="$T/xdg" CI_STATE_DIR="$T/cs-none" AUTOLAND_GH="$T/gh" AUTOLAND_GATES="$T/gates" \
+    AUTOLAND_WS="$T/ws0" AUTOLAND_CLONES="" AUTOLAND_INTERIM_LOCK="$T/interim.lock" AUTOLAND_DIR="$T/run-default"
 SUBJ="#4000 merge #4242: проба демона"
 HEAD_A=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 HEAD_B=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
@@ -163,7 +223,7 @@ RC=0; ST=""
 run_al() {  # доводы сверх обязательных
     AL_FX="$FX" AUTOLAND_GH="$T/gh" AUTOLAND_GATES="${GATES-$T/gates}" AUTOLAND_DIR="$FX/run" \
         AUTOLAND_WS="${WS0:-$T/ws0}" AUTOLAND_CLONES="$CLONES" CI_STATE_DIR="$FX/cs" AUTOLAND_INTERIM_LOCK="$T/interim.lock" \
-        timeout 120 bash "$AL" run --repo "$REPO" --pr "$PR" --head "$RUN_HEAD" --subject "$SUBJ" --poll 1 "$@" \
+        timeout "${RUN_LIMIT:-120}" bash "$AL" run --repo "$REPO" --pr "$PR" --head "$RUN_HEAD" --subject "$SUBJ" --poll 1 "$@" \
         > "$FX/out" 2>&1
     RC=$?
     ST="$(cat "$FX"/run/*.state 2>/dev/null | head -n1)"
@@ -305,6 +365,18 @@ s_fifo() {
     t0=$(date +%s); run_al --poll 20; dt=$(( $(date +%s) - t0 ))
     ok fifo "строка демона состояния будит раньше паузы 20 с (прошло $dt с)" eval '[ "$RC" -eq 0 ] && st_is merged && [ "$dt" -lt 10 ]'
 }
+s_fifo_nowriter() {
+    new_fx fifo-nowriter; printf '3\n3\n0\n' > "$FX/ci-read.sh.seq"
+    mkdir -p "$FX/cs/wait"; chmod 700 "$FX/cs" "$FX/cs/wait"
+    local t0 dt poll=2 waits=2 tol=1 limit=20
+    t0=$(date +%s); RUN_LIMIT=$limit run_al --poll "$poll"; dt=$(( $(date +%s) - t0 ))
+    # Пауза была: два ожидания по --poll — не меньше waits·poll − tol, но и не до предела.
+    echo "  [время] fifo-nowriter: прошло $dt с при --poll $poll и $waits ожиданиях (норма ≥ $((waits * poll - tol)) и < $limit)"
+    ok fifo-nowriter "демона состояния нет, FIFO без писателя — исход merged, код 0" eval '[ "$RC" -eq 0 ] && st_is merged'
+    ok fifo-nowriter "демон продолжил после паузы: прошло $dt с, норма ≥ $((waits * poll - tol)) и < $limit" \
+        eval '[ "$dt" -ge $((waits * poll - tol)) ] && [ "$dt" -lt "$limit" ]'
+    ok fifo-nowriter "FIFO заведён демоном вливания (форма ожидания — FIFO, не sleep)" eval '[ -p "$FX/cs/wait/PRO-Robotech__kacho-workspace__$PR.fifo" ]'
+}
 s_args() {
     local rc
     new_fx args
@@ -319,6 +391,8 @@ s_args() {
         --subject "$SUBJ" --stand-report "$FX/rep.json" > "$FX/a3" 2>&1; rc=$?
     ok args "--stand-report без --stand-expect — код 2" eval '[ "$rc" -eq 2 ]'
     ok args ".state не заведён" eval '! ls "$FX"/run/*.state >/dev/null 2>&1'
+    ok args "ни один демон не отсоединён" eval '! ls "$FX"/run/*.pid >/dev/null 2>&1'
+    reap
 }
 s_detach() {
     local t0 dt out pid st rc sid_me sid_d
@@ -466,6 +540,26 @@ s_lp_head() {
     new_fx lp-nohead; : > "$FX/lp.nohead"; run_al --void-limit 2 --timeout 6
     ok lp-head "landing-precheck без строки судимой головы — void, вливания нет" eval '[ "$RC" -eq 2 ] && st_is void && st_has "не напечатал судимую голову" && not_merge_called'
 }
+s_census() {  # перепись и снятие судят СВОЁ: иной порядок доводов виден, чужое — нет
+    local own foreign c0 c1
+    ST="перепись процессов"; RC=-
+    mkdir -p "$T/census/run"
+    c0="$(probe_procs)"
+    ( exec -a "autoland.sh run --head $HEAD_A --repo $REPO --pr $PR" sleep 60 ) & own=$!; PIDS+=("$own")
+    env -u AUTOLAND_PROBE_ID bash -c "exec -a 'autoland.sh run --repo $REPO --pr $PR --head $HEAD_A' sleep 60" & foreign=$!
+    FOREIGN+=("$foreign")
+    for _ in 1 2 3 4 5 6 7 8 9 10; do grep -qF -- "--pr $PR" "/proc/$own/cmdline" 2>/dev/null \
+        && grep -qF -- "--pr $PR" "/proc/$foreign/cmdline" 2>/dev/null && break; sleep 0.1; done
+    c1="$(probe_procs)"
+    ok census "свой процесс с иным порядком доводов виден переписи ($c0 → $c1)" eval '[ "$c1" -eq $((c0 + 1)) ]'
+    echo "$foreign" > "$T/census/run/stale.pid"   # чужой pid в .pid под $T — как после переиспользования
+    reap
+    sleep 0.3
+    ok census "reap снял свой процесс" eval '! kill -0 "$own" 2>/dev/null'
+    ok census "reap не тронул чужой процесс с «--pr $PR --head» в доводах" kill -0 "$foreign"
+    ok census "чужой процесс переписью пробы не считается" eval '[ "$(probe_procs)" -eq "$c0" ]'
+    kill "$foreign" 2>/dev/null; rm -f "$T/census/run/stale.pid"
+}
 s_guard() {
     local c1 c2 c3
     c1="$(guard_rc "bash scripts/autoland/autoland.sh start --repo $REPO --pr $PR --head $HEAD_A --subject '$SUBJ'")"
@@ -486,9 +580,9 @@ s_static() {
 }
 
 ALL=(s_green s_red s_moved_start s_moved_gates s_moved_merge s_allow_ok s_allow_bad s_stale s_mr_red s_timeout
-     s_void s_void_twin s_ratelimit s_pr_unread s_draft s_closed s_already s_fifo s_args s_detach s_recipe
+     s_void s_void_twin s_ratelimit s_pr_unread s_draft s_closed s_already s_fifo s_fifo_nowriter s_args s_detach s_recipe
      s_prune s_prune_dirty s_prune_ahead s_prune_remote s_prune_origin_ahead s_prune_not_in_base
-     s_status s_empty_code s_lp_head s_guard s_static)
+     s_status s_empty_code s_lp_head s_census s_guard s_static)
 
 AL="$AL_REAL"
 echo "== контроль: сцен ${#ALL[@]}"
@@ -512,9 +606,10 @@ PY
     local saved=$fails
     AL="$m"
     IFS=, read -ra list <<< "$scenes"
-    for s in "${list[@]}"; do "$s" > /dev/null; done
+    : > "$T/mut.out"
+    for s in "${list[@]}"; do "$s" >> "$T/mut.out"; done
     AL="$AL_REAL"
-    if [ "$fails" -gt "$saved" ]; then echo "  [убит] $name"
+    if [ "$fails" -gt "$saved" ]; then echo "  [убит] $name — $(grep -m1 -F '[FAIL]' "$T/mut.out" | sed 's/^ *\[FAIL\] //' | cut -c1-200)"
     else echo "  [ВЫЖИЛ] $name — сцены ${scenes} зелёные на дефекте"; survived=$((survived + 1)); fi
     fails=$saved
 }
@@ -540,9 +635,23 @@ mutant prune-base-ancestor-dropped s_prune_not_in_base 'if ! git -C "$c" merge-b
 mutant status-stale-as-merged s_status 'stale-base) exit 4 ;;' 'stale-base) exit 0 ;;'
 mutant status-moved-as-merged s_status 'head-moved) exit 5 ;;' 'head-moved) exit 0 ;;'
 mutant status-timeout-as-merged s_status 'timeout) exit 6 ;;' 'timeout) exit 0 ;;'
+mutant fifo-wait-without-timeout s_fifo_nowriter 'timeout "$t" head -n1 "$fifo"' 'head -n1 "$fifo"'
+mutant fifo-wait-dropped s_fifo_nowriter 'timeout "$t" head -n1 "$fifo" > "$W/fifo.line" 2>/dev/null & BG=$!; wait "$BG"; BG=""' 'true'
+mutant cache-is-real s_fifo 'CI_STATE="${CI_STATE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/kacho-ci-state}"' 'CI_STATE="${XDG_CACHE_HOME:-$HOME/.cache}/kacho-ci-state"'
 mutant ratelimit-as-void s_ratelimit "if grep -qP '^REASON\\tRATE-LIMIT\\t'" 'if false'
 
-echo "== итог: сцен ${#ALL[@]}, провалов контроля $control_fails; мутантов $mutants, выжило $survived, не легло $voidm"
+reap
+for _ in 1 2 3 4 5 6 7 8 9 10; do [ "$(probe_procs)" -eq 0 ] && break; sleep 0.3; done
+cs_after="$(real_cs_files)"; procs_after="$(probe_procs)"
+echo "CENSUS	кэш машины $REAL_CS: файлов пробы (*__${PR}.*) до $CS_BEFORE, после $cs_after; процессов пробы после $procs_after"
+residue=0
+if ! [[ "$CS_BEFORE$cs_after" =~ ^[0-9]+$ ]]; then
+    echo "VOID	кэш машины $REAL_CS прочитан не весь: $(head -c 200 "$T/cs-find.err" | tr '\n' ' ') — «следов 0» не установлено"
+    exit 2
+fi
+[ "$cs_after" -le "$CS_BEFORE" ] || { echo "  [FAIL] след: проба завела файлы в кэше машины $REAL_CS"; residue=1; }
+[ "$procs_after" -eq 0 ] || { echo "  [FAIL] след: живых демонов пробы $procs_after"; residue=1; }
+echo "== итог: сцен ${#ALL[@]}, провалов контроля $control_fails; мутантов $mutants, выжило $survived, не легло $voidm; следов $residue"
 [ "$voidm" -eq 0 ] || exit 2
-[ "$control_fails" -eq 0 ] && [ "$survived" -eq 0 ] || exit 1
+[ "$control_fails" -eq 0 ] && [ "$survived" -eq 0 ] && [ "$residue" -eq 0 ] || exit 1
 exit 0
