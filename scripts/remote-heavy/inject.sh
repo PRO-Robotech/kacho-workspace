@@ -69,6 +69,8 @@
 #   QH допуск по запросам профиля и запасу 20 %: узлы и фон замера 2026-10-17 —
 #      помещаются 4 лёгких, 1 тяжёлый и 2 лёгких, 2 тяжёлых; следующий — 75 с
 #      названным запасом (ws#1143); порча «запас 0 %» — mutants.py headroom-0
+#   QB запас на самой границе: остаток CPU 3 100m → 0, 3 099m → 75; фон памяти
+#      18 007 МиБ → 0, 18 008 МиБ → 75; порча порога hr-0.1 с прежним текстом — по коду
 #   Q3 единственный узел не готов / закрыт / taint NoSchedule → 69; прогон 69 без ns
 #   Q2 места под go-race нет ни на одном узле → 75 и прогон 75 без ns; близнец Q2b
 #      тот же кластер, профиль lint → 0 и прогон 0; Q2c профиля нет → 64
@@ -1468,7 +1470,7 @@ expect_rc V2b 0
 fresh; for x in a b c d; do seed_ns "t7-heavy-$x" '+1 hour'; done
 go_run m2 bash "$RUN" --available
 expect_rc M2 75
-if grep -q 'идущих тяжёлых прогонов 4 при пределе 4' "$OUT"; then ok; else bad M2 "предел по умолчанию не 4 либо не назван"; fi
+if grep -q 'идущих тяжёлых прогонов 4 при пределе 4' "$OUT"; then ok; else bad M2-why "предел по умолчанию не 4 либо не назван"; fi
 fresh; for x in a b c; do seed_ns "t7-heavy-$x" '+1 hour'; done
 go_run m2b bash "$RUN" --available
 expect_rc M2b 0
@@ -1516,7 +1518,7 @@ if [ -n "$gcpu" ] && [ -n "$dind_cpu" ] && [ -n "$dind_gi" ]; then
     fresh
     go_run q1d env FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$( { pod_j kacho n1 Running 450m 2756Mi; echo "$one_run"; } | items)" bash "$RUN" --available --profile go-race
     expect_rc Q1d 75
-    if grep -q 'с запасом 20 % узла' "$OUT"; then ok; else bad Q1d "причина без запаса"; fi
+    if grep -q 'с запасом 20 % узла' "$OUT"; then ok; else bad Q1d-why "причина без запаса"; fi
 else bad Q1d "запрос go-race и dind не прочитаны из run.sh"; fi
 # QH — допуск по запросам профиля и запасу 20 % (ws#1143). Узлы и фон — замер
 # 2026-10-17 (get nodes и get pods -A): два узла по 15 500m и 30 189 МиБ, фон
@@ -1537,7 +1539,7 @@ qh() {  # qh <случай> <профиль> <код> <узлы идущих: h1
     go_run "qh-$id" env FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$(printf '%s\n' "$pods" | items)" bash "$RUN" --available --profile "$prof"
     expect_rc "QH-$id" "$want"
     if [ "$want" = 75 ]; then
-        if grep -q 'с запасом 20 % узла по CPU и памяти нет' "$OUT"; then ok; else bad "QH-$id" "причина 75 не называет запас"; fi
+        if grep -q 'с запасом 20 % узла по CPU и памяти нет' "$OUT"; then ok; else bad "QH-$id-why" "причина 75 не называет запас"; fi
     fi
 }
 qh light-0 lint 0
@@ -1553,6 +1555,22 @@ qh mix-3h go-race 75 h1 l2 l2
 qh heavy-1 ci-local 0 h1
 qh heavy-2 go-race 75 h1 h2
 qh heavy-2c ci-local 75 h2 h1
+# QB — запас на самой границе (приёмка ws#1143): один узел 15 500m и 30 913 596 КиБ,
+# профиль lint (4 000m и 6 ГиБ), фон — один pod. Запас 20 % — 3 100m и 6 037,8 МиБ:
+# фон 8 400m оставляет после посадки ровно 3 100m (0), 8 401m — 3 099m (75); фон
+# 18 007 МиБ оставляет 6 038,06 МиБ (0), 18 008 МиБ — 6 037,06 МиБ (75). Судится КОДОМ:
+# id случая стоит лишь у expect_rc, порча порога с прежним текстом причины краснеет им.
+qb() {  # qb <случай> <фон cpu> <фон память> <код>
+    fresh
+    go_run "qb-$1" env FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$(pod_j sys n1 Running "$2" "$3" | items)" bash "$RUN" --available --profile lint
+    expect_rc "QB-$1" "$4"
+}
+qb cpu-in 8400m 1000Mi 0
+qb cpu-out 8401m 1000Mi 75
+qb mem-in 100m 18007Mi 0
+qb mem-out 100m 18008Mi 75
+qb both-in 8400m 18007Mi 0
+qb both-out 8401m 18008Mi 75
 # Q3 — единственный узел не готов / закрыт / с taint NoSchedule → 69; прогон 69 без ns
 for q in "0 0 :не-готов" "1 1 :закрыт" "1 0 NoSchedule:taint"; do
     read -r rdy cord rest <<< "$q"; eff="${rest%%:*}"; nm="${rest#*:}"
