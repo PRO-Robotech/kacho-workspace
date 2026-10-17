@@ -29,9 +29,6 @@
 #   closed       — запрос закрыт без вливания → red PR-NOT-OPEN, гейтов нет;
 #   already      — запрос уже влит этой головой → merged, повторного вливания нет;
 #   fifo         — пауза 20 с, строка демона состояния в FIFO будит раньше: исход < 10 с;
-#   fifo-nowriter — демона состояния нет, FIFO без писателя: каждое ожидание кончается
-#                  паузой (timeout), исход merged с кодом 0 в пределе 20 с; мутант без
-#                  timeout виснет на открытии FIFO и ловится кодом 124 предела;
 #   args         — неформенный --subject, --head не sha40, --stand-report без
 #                  --stand-expect → код 2, .state нет;
 #   detach       — start возвращается < 6 с, печатает pid, журнал, state; демон в
@@ -62,7 +59,13 @@
 # сверки --subject, без FIFO, лимит площадки как VOID, пустой код допущен, голова
 # landing-precheck не сверяется, строка его головы не требуется, origin-ветка снимается
 # ушедшей вперёд, снятие без проверки «влитая — предок базы», status 4/5/6 как 0,
-# ожидание FIFO без timeout. Правка, не легшая в текст, — VOID.
+# кэш — настоящий (CI_STATE_DIR не читается).
+#
+# СЛЕДОВ НЕТ (testing.md#no-residue). Песочница — на всю пробу: кэш (XDG_CACHE_HOME,
+# CI_STATE_DIR), gh, гейты, клоны, замок — экспортом до первой сцены, поэтому и демон,
+# отсоединённый под мутантом, машины не касается. Каждый демон пробы снимается по pid
+# ловушкой EXIT (и на падении). Перепись до и после: файлы *__<PR пробы>.* в настоящем
+# кэше демона состояния и живые демоны пробы; рост — код 1. Правка, не легшая в текст, — VOID.
 #
 # ИСХОДЫ: 0 — все сцены зелёные, все мутанты убиты; 1 — сцена разошлась либо мутант
 # выжил; 2 — судить нечем (нет jq, python3, git, setsid, flock, стража).
@@ -82,15 +85,37 @@ LP_REAL="$(cd "$HERE/.." && pwd)/landing-precheck.sh"
 
 T="$(mktemp -d "${TMPDIR:-/tmp}/autoland-inject.XXXXXX")" || exit 2
 PIDS=()
-cleanup() { local p; for p in "${PIDS[@]}"; do kill "$p" 2>/dev/null; done; rm -rf "$T"; }
+# Демоны пробы снимаются по pid на любом исходе, и на падении: pid из start и из
+# .pid каждого каталога состояния под $T, если процесс всё ещё демон ЭТОЙ пробы.
+reap() {
+    local p f
+    for p in "${PIDS[@]}"; do kill "$p" 2>/dev/null; done
+    for f in "$T"/*/run/*.pid "$T"/run-default/*.pid; do
+        [ -f "$f" ] || continue
+        p="$(cat "$f" 2>/dev/null)"
+        [[ "$p" =~ ^[0-9]+$ ]] && grep -qF -- "--pr" "/proc/$p/cmdline" 2>/dev/null && kill "$p" 2>/dev/null
+    done
+    return 0
+}
+cleanup() { reap; rm -rf "$T"; }
 trap cleanup EXIT
 # Подпись песочниц git — только из своего HOME с корневой подписью вызывающего
 # (scripts/lib/sandbox-git-home.sh; tooling-gate check-16).
-# shellcheck source-path=SCRIPTDIR source=../lib/sandbox-git-home.sh
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/sandbox-git-home.sh
 . "$HERE/../lib/sandbox-git-home.sh"
 sandbox_git_home "$T/sghome" || { echo "VOID: подписи песочницы нет" >&2; exit 2; }
 
 REPO=PRO-Robotech/kacho-workspace; PR=4242
+# Перепись машины ДО: файлы пробы (номер её PR) в настоящем кэше демона состояния.
+REAL_CS="${CI_STATE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/kacho-ci-state}"
+real_cs_files() { find "$REAL_CS" -name "*__${PR}.*" 2>/dev/null | wc -l; }
+probe_procs() { pgrep -fc -- "--pr $PR --head" 2>/dev/null || true; }
+CS_BEFORE="$(real_cs_files)"
+# Песочница — на ВСЮ пробу, а не на сцену: демон, запущенный любым вызовом (и под
+# мутантом, пропустившим проверку доводов), не видит ни настоящего gh, ни кэша машины.
+export XDG_CACHE_HOME="$T/xdg" CI_STATE_DIR="$T/cs-none" AUTOLAND_GH="$T/gh" AUTOLAND_GATES="$T/gates" \
+    AUTOLAND_WS="$T/ws0" AUTOLAND_CLONES="" AUTOLAND_INTERIM_LOCK="$T/interim.lock" AUTOLAND_DIR="$T/run-default"
 SUBJ="#4000 merge #4242: проба демона"
 HEAD_A=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 HEAD_B=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
@@ -166,7 +191,7 @@ RC=0; ST=""
 run_al() {  # доводы сверх обязательных
     AL_FX="$FX" AUTOLAND_GH="$T/gh" AUTOLAND_GATES="${GATES-$T/gates}" AUTOLAND_DIR="$FX/run" \
         AUTOLAND_WS="${WS0:-$T/ws0}" AUTOLAND_CLONES="$CLONES" CI_STATE_DIR="$FX/cs" AUTOLAND_INTERIM_LOCK="$T/interim.lock" \
-        timeout "${RUN_LIMIT:-120}" bash "$AL" run --repo "$REPO" --pr "$PR" --head "$RUN_HEAD" --subject "$SUBJ" --poll 1 "$@" \
+        timeout 120 bash "$AL" run --repo "$REPO" --pr "$PR" --head "$RUN_HEAD" --subject "$SUBJ" --poll 1 "$@" \
         > "$FX/out" 2>&1
     RC=$?
     ST="$(cat "$FX"/run/*.state 2>/dev/null | head -n1)"
@@ -308,14 +333,6 @@ s_fifo() {
     t0=$(date +%s); run_al --poll 20; dt=$(( $(date +%s) - t0 ))
     ok fifo "строка демона состояния будит раньше паузы 20 с (прошло $dt с)" eval '[ "$RC" -eq 0 ] && st_is merged && [ "$dt" -lt 10 ]'
 }
-s_fifo_nowriter() {
-    new_fx fifo-nowriter; printf '3\n3\n0\n' > "$FX/ci-read.sh.seq"
-    mkdir -p "$FX/cs/wait"; chmod 700 "$FX/cs" "$FX/cs/wait"
-    local t0 dt
-    t0=$(date +%s); RUN_LIMIT=20 run_al --poll 1; dt=$(( $(date +%s) - t0 ))
-    ok fifo-nowriter "демона состояния нет, FIFO без писателя — ожидание кончается паузой, merged, код 0 (прошло $dt с)" eval '[ "$RC" -eq 0 ] && st_is merged'
-    ok fifo-nowriter "FIFO заведён демоном вливания (форма ожидания — FIFO, не sleep)" eval '[ -p "$FX/cs/wait/PRO-Robotech__kacho-workspace__$PR.fifo" ]'
-}
 s_args() {
     local rc
     new_fx args
@@ -330,6 +347,8 @@ s_args() {
         --subject "$SUBJ" --stand-report "$FX/rep.json" > "$FX/a3" 2>&1; rc=$?
     ok args "--stand-report без --stand-expect — код 2" eval '[ "$rc" -eq 2 ]'
     ok args ".state не заведён" eval '! ls "$FX"/run/*.state >/dev/null 2>&1'
+    ok args "ни один демон не отсоединён" eval '! ls "$FX"/run/*.pid >/dev/null 2>&1'
+    reap
 }
 s_detach() {
     local t0 dt out pid st rc sid_me sid_d
@@ -497,7 +516,7 @@ s_static() {
 }
 
 ALL=(s_green s_red s_moved_start s_moved_gates s_moved_merge s_allow_ok s_allow_bad s_stale s_mr_red s_timeout
-     s_void s_void_twin s_ratelimit s_pr_unread s_draft s_closed s_already s_fifo s_fifo_nowriter s_args s_detach s_recipe
+     s_void s_void_twin s_ratelimit s_pr_unread s_draft s_closed s_already s_fifo s_args s_detach s_recipe
      s_prune s_prune_dirty s_prune_ahead s_prune_remote s_prune_origin_ahead s_prune_not_in_base
      s_status s_empty_code s_lp_head s_guard s_static)
 
@@ -551,10 +570,17 @@ mutant prune-base-ancestor-dropped s_prune_not_in_base 'if ! git -C "$c" merge-b
 mutant status-stale-as-merged s_status 'stale-base) exit 4 ;;' 'stale-base) exit 0 ;;'
 mutant status-moved-as-merged s_status 'head-moved) exit 5 ;;' 'head-moved) exit 0 ;;'
 mutant status-timeout-as-merged s_status 'timeout) exit 6 ;;' 'timeout) exit 0 ;;'
-mutant fifo-wait-without-timeout s_fifo_nowriter 'timeout "$t" head -n1 "$fifo"' 'head -n1 "$fifo"'
+mutant cache-is-real s_fifo 'CI_STATE="${CI_STATE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/kacho-ci-state}"' 'CI_STATE="${XDG_CACHE_HOME:-$HOME/.cache}/kacho-ci-state"'
 mutant ratelimit-as-void s_ratelimit "if grep -qP '^REASON\\tRATE-LIMIT\\t'" 'if false'
 
-echo "== итог: сцен ${#ALL[@]}, провалов контроля $control_fails; мутантов $mutants, выжило $survived, не легло $voidm"
+reap
+for _ in 1 2 3 4 5 6 7 8 9 10; do [ "$(probe_procs)" -eq 0 ] && break; sleep 0.3; done
+cs_after="$(real_cs_files)"; procs_after="$(probe_procs)"
+echo "CENSUS	кэш машины $REAL_CS: файлов пробы (*__${PR}.*) до $CS_BEFORE, после $cs_after; процессов пробы после $procs_after"
+residue=0
+[ "$cs_after" -le "$CS_BEFORE" ] || { echo "  [FAIL] след: проба завела файлы в кэше машины $REAL_CS"; residue=1; }
+[ "$procs_after" -eq 0 ] || { echo "  [FAIL] след: живых демонов пробы $procs_after"; residue=1; }
+echo "== итог: сцен ${#ALL[@]}, провалов контроля $control_fails; мутантов $mutants, выжило $survived, не легло $voidm; следов $residue"
 [ "$voidm" -eq 0 ] || exit 2
-[ "$control_fails" -eq 0 ] && [ "$survived" -eq 0 ] || exit 1
+[ "$control_fails" -eq 0 ] && [ "$survived" -eq 0 ] && [ "$residue" -eq 0 ] || exit 1
 exit 0
