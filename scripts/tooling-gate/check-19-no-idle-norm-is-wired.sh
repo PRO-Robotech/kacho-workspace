@@ -28,7 +28,11 @@
 #      команде провязкой не считается (`…/no-wait-guard/no-wait-guard.sh`,
 #      `…/no-wait-guard.sh.off`: хук выходит 127, страж выключен); разбор хука есть; база
 #      диспетчера несёт правило полосы о чужих файлах («`blocked` — лишь за файлом
-#      соседа»). Отказы стража доказывает `.claude/hooks/no-wait-guard/prove.sh`.
+#      соседа»). Отказы стража доказывает `.claude/hooks/no-wait-guard/prove.sh`;
+#   E'. (ws#1159) провязанный страж несёт и отказ снятию по шаблону: разбор стража
+#      ИСПОЛНЯЕТСЯ (`guard.py --judge`) — `pkill -f x` и `killall node` дают класс
+#      `pattern-kill`, близнецы `kill 4242` и `kill -- -4242` — молчат; страж, у
+#      которого класс снят или который краснеет на снятии по pid, — находка.
 # Свойства самого прибора и хука доказывает `scripts/stall-census-inject.sh`, срок
 # шага и чтение CI шаблоном — `scripts/wave-template-inject.sh`; здесь — провязка.
 #
@@ -146,15 +150,31 @@ for m, cmd in nwg:
         wired = True
 if not wired:
     finds.append('.claude/settings.json: no-wait-guard.sh не провязан в PreToolUse под Bash каноническим путём')
+G = os.path.join(root, '.claude/hooks/no-wait-guard/guard.py')
+kill_seen = 0
+if os.path.isfile(G):
+    import subprocess
+    for cmd, want in (('pkill -f x', True), ('killall node', True), ('kill 4242', False), ('kill -- -4242', False)):
+        try:
+            r = subprocess.run([sys.executable, G, '--judge', cmd], capture_output=True, text=True, timeout=30)
+            out = r.stdout.strip()
+        except Exception as e:  # noqa: BLE001 — поломка разбора — находка, а не пропуск
+            out, r = 'исключение %s' % e, None
+        kill_seen += 1
+        if r is None or r.returncode != 0:
+            finds.append('.claude/hooks/no-wait-guard/guard.py --judge «%s» не исполнился: %s' % (cmd, out[:200]))
+        elif ('pattern-kill' in out.split(',')) != want:
+            finds.append('.claude/hooks/no-wait-guard/guard.py: «%s» — %s (ждали %s)'
+                         % (cmd, out or '-', 'pattern-kill' if want else 'пропуск: снятие по pid законно'))
 for p in ('.claude/hooks/stall-signal.sh', 'scripts/stall-census.sh', '.claude/hooks/no-wait-guard.sh', '.claude/hooks/no-wait-guard/guard.py'):
     if not os.path.isfile(os.path.join(root, p)):
         finds.append('%s: файла нет' % p)
-print('[CENSUS] %s: агентов-исполнителей осмотрено %d, протокол, база, настройки, хук и прибор — по одному; находок %d' % (name, seen, len(finds)))
+print('[CENSUS] %s: агентов-исполнителей осмотрено %d, протокол, база, настройки, хук и прибор — по одному; форм снятия исполнено стражем %d; находок %d' % (name, seen, kill_seen, len(finds)))
 if seen == 0:
     void('исполнителей ноль: ось A беспредметна')
 for f in finds:
     print('[FAIL] %s — %s' % (name, f), file=sys.stderr)
 if finds:
     sys.exit(1)
-print('[PASS] %s — норма «Не жди» у %d исполнителей, в протоколе и базе; застой провязан в Stop и UserPromptSubmit, отказ ожиданию — в PreToolUse Bash; параллель во время CI — в базе и правиле' % (name, seen))
+print('[PASS] %s — норма «Не жди» у %d исполнителей, в протоколе и базе; застой провязан в Stop и UserPromptSubmit, отказ ожиданию и снятию по шаблону — в PreToolUse Bash; параллель во время CI — в базе и правиле' % (name, seen))
 PY

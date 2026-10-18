@@ -57,8 +57,35 @@
 #                procps-ng 4.0.4 отдаёт рождённому во время снимка etimes=
 #                4123168608): нечисловой, больше возраста родителя-claude либо
 #                больше аптайма (`<proc>/uptime`, живой снимок или STALL_PROC_ROOT).
+#   STALL-PROC (отсоединённый, ws#1154) — корень отсоединённого поддерева СВОЕЙ сессии,
+#                чей claude не жив, старше STALL_PROC_MIN и вне объявленного срока.
+#                Отбор — по МЕТКЕ ОКРУЖЕНИЯ, а не по строке запуска: потомок оболочки
+#                агента наследует CLAUDE_CODE_SESSION_ID и CLAUDE_PID (`/proc/<pid>/environ`,
+#                живой снимок или STALL_PROC_ROOT); отсоединённый — меченый процесс без
+#                предка `claude` в снимке (`setsid`, переподчинён после выхода оболочки);
+#                корень — меченый, чей родитель не несёт той же метки. Сессия — метка
+#                CLAUDE_CODE_SESSION_ID (иначе CLAUDE_PID, равный своему claude); чужая — молчит.
+#                Владелец жив — CLAUDE_PID метки есть в снимке, он `claude` и не моложе
+#                процесса (pid не переиспользован): молчит. Законный срок — метка
+#                KACHO_DETACHED_UNTIL=<epoch> (демон autoland — до своего --timeout и шага
+#                проверки, билет heavy-slot --enqueue — до предела ожидания слота): в сроке
+#                молчит. Гранулярность владельца — процесс claude, а не агент: харнесс не
+#                кладёт в окружение оболочки id агента (замер 2026-10-18: CLAUDE_CODE_SESSION_ID,
+#                CLAUDE_PID, без id агента); завершённый агент при живом claude не судится
+#                здесь — его видят STALL-AGENT и STALL-POLL. СЛЕПАЯ ЗОНА: процесс с чистым
+#                окружением (`env -i`, контейнер, `systemd-run`) метки не несёт и не
+#                отбирается — ни строкой, ни счётом. Окружение не прочитано ни у
+#                одного процесса живого снимка — код 2 (не «чисто»).
 #   UNREACTED-WF workflow завершён дольше STALL_REACT_MIN (10) мин назад, а у
 #                главного потока после этого нет ни одной записи assistant.
+#   Остановленный харнессом (ws#1033) — последнее событие агента в ГЛАВНОМ журнале есть
+#                терминальное `<task-notification>` (status completed | failed | killed |
+#                stopped): оно не старше последней записи агента более чем на 3 с, а
+#                возобновления (`SendMessage` отвечает `resumedAgentId`) после него нет.
+#                Убитый `TaskStop` или прерванный посреди хода агент не исполняется, а его
+#                журнал кончается записью user («ответ модели на сообщение») — по хвосту
+#                журнала он неотличим от стоящего. Не судится ни STALL-AGENT, ни STALL-POLL;
+#                счёт — «остановленных харнессом». Главный журнал читается только при находке.
 #
 # Окно — STALL_HORIZON_MIN (360) мин: брошенный журнал убитой сессии старше окна
 # не судится, иначе строка печаталась бы вечно и перестала бы читаться.
@@ -340,9 +367,66 @@ def last_message(path):
     return t, 'result', 'ответ модели на сообщение'
 
 
+TS_RE = re.compile(rb'"timestamp":\s*"(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)')
+
+
+def harness_stopped(aid, t):
+    """Харнесс агента НЕ исполняет: последним событием жизни агента в главном журнале
+    стоит терминальное уведомление `<task-notification>` (status completed | failed |
+    killed | stopped), а не возобновление. Журнал самого агента этого не знает: убитый
+    посреди хода (TaskStop, прерывание) он кончается записью user, и по хвосту такой
+    агент неотличим от стоящего (ws#1033).
+
+    Остановлен, когда уведомление N есть, N не старше последней записи агента t более
+    чем на 3 с (иначе агент дописывал журнал после него — возобновлён способом, которого
+    главный журнал не видит) и после N нет возобновления R (`SendMessage` отвечает
+    `resumedAgentId`). Метки — секунды, как у `ts`; равенство N и R — не остановлен.
+    Окно чтения растёт (4 МиБ → ×4 → весь файл), пока не накроет t - 5 с: главный журнал
+    у сессии — сотни МБ, читать его весь на каждый ход хука нельзя. Строки отбираются по
+    id до разбора. Читается только при находке — исправный прогон главный журнал не трогает.
+    """
+    if not aid or t is None:
+        return False
+    ab = aid.encode()
+    note = re.compile(rb'<task-id>' + re.escape(ab) + rb'</task-id>(?:(?!</task-notification>).)*?<status>([a-z_]+)</status>', re.S)
+    resumed = re.compile(rb'resumedAgentId\\*"\s*:\s*\\*"' + re.escape(ab))
+    n_last = r_last = None
+    size, total = 4 << 20, os.path.getsize(main)
+    while True:
+        lines = tail_lines(main, size)
+        covered = None
+        for l in lines:
+            m = TS_RE.search(l)
+            if m:
+                covered = ts(m.group(1).decode())
+                break
+        n_last = r_last = None
+        for l in lines:
+            if ab not in l:
+                continue
+            try:
+                r = json.loads(l)
+            except Exception:
+                continue
+            if not isinstance(r, dict) or (r.get('type') == 'queue-operation' and r.get('operation') != 'enqueue'):
+                continue
+            at = ts(str(r.get('timestamp', '')))
+            if at is None:
+                continue
+            if note.search(l):
+                n_last = at if n_last is None else max(n_last, at)
+            if resumed.search(l):
+                r_last = at if r_last is None else max(r_last, at)
+        if size >= total or (covered is not None and covered <= t - 5):
+            break
+        size = min(size * 4, total)
+    return n_last is not None and n_last >= t - 3 and (r_last is None or r_last < n_last)
+
+
 # ── Агенты: workflow живые и агенты верхнего уровня ─────────────────────
 agents_seen = 0
 done_seen = 0  # завершённые (вид 'final'): не судятся
+stopped_seen = 0  # остановленные харнессом (harness_stopped): не судятся
 unread = []  # журналы агентов старше порога без единой разобранной записи
 wf_live = 0
 state_dir = os.path.join(session, 'workflows')
@@ -410,7 +494,12 @@ try:
             continue
         agents_seen += 1
         n, span, last = poll_run(apath)
+        aid = os.path.basename(apath)[len('agent-'):-len('.jsonl')]
+        tt = t if t is not None else int(os.path.getmtime(apath))
         if n >= 2 and span >= POLL_MIN:
+            if harness_stopped(aid, tt):
+                stopped_seen += 1
+                continue
             findings.append('STALL-POLL %s — ожидание вместо работы: %d вызовов подряд за %d мин; последний: %s' % (os.path.basename(apath)[:-6], n, span, last))
             continue
         if age_file < AGENT_MIN * 60:
@@ -422,6 +511,9 @@ try:
             continue
         idle = (now - t) / 60
         if idle >= AGENT_MIN:
+            if harness_stopped(aid, t):
+                stopped_seen += 1
+                continue
             findings.append('STALL-AGENT %s — без нового вызова %d мин; последний: %s' % (os.path.basename(apath)[:-6], idle, what))
 except OSError as e:
     void('журналы агентов не читаются: %s' % e)
@@ -543,7 +635,89 @@ for pid, (ppid, et, comm, args) in procs.items():
     if et >= PROC_MIN * 60:
         cmd = args.split("eval '", 1)[-1] if "eval '" in args else args
         findings.append('STALL-PROC pid %s (claude %s) — живёт %d мин: %s' % (pid, ppid, et / 60, ' '.join(cmd.split())[:160]))
+# ── Отсоединённые процессы агентов (ws#1154): по метке окружения ─────────
+MARKS = (b'CLAUDE_CODE_SESSION_ID=', b'CLAUDE_PID=', b'KACHO_DETACHED_UNTIL=')
+
+
+def env_marks(pid):
+    """Метки окружения процесса: {имя: значение}; None — окружение не прочитано."""
+    if not proc_root:
+        return None
+    try:
+        raw = open(os.path.join(proc_root, pid, 'environ'), 'rb').read()
+    except OSError:
+        return None
+    got = {}
+    for kv in raw.split(b'\0'):
+        for m in MARKS:
+            if kv.startswith(m):
+                got[m[:-1].decode()] = kv[len(m):].decode('utf-8', 'replace')
+    return got
+
+
+def under_claude(pid):
+    cur, hops = procs[pid][0], 0
+    while cur in procs and hops < 64:
+        if procs[cur][2] == 'claude':
+            return True
+        cur, hops = procs[cur][0], hops + 1
+    return False
+
+
+env_read = 0
+marked = {}
+for pid in procs:
+    e = env_marks(pid)
+    if e is None:
+        continue
+    env_read += 1
+    if e.get('CLAUDE_CODE_SESSION_ID') or e.get('CLAUDE_PID'):
+        marked[pid] = e
+det_roots = det_mine = det_live = det_term = det_foreign = det_implausible = 0
+for pid, e in marked.items():
+    ppid, et, comm, args = procs[pid]
+    if comm == 'claude' or under_claude(pid):
+        continue  # оболочка агента и её дети — класс выше (прямой потомок claude)
+    pe = marked.get(ppid)
+    if pe is not None and pe.get('CLAUDE_CODE_SESSION_ID') == e.get('CLAUDE_CODE_SESSION_ID') \
+            and pe.get('CLAUDE_PID') == e.get('CLAUDE_PID'):
+        continue  # не корень: судится корень поддерева
+    det_roots += 1
+    if et is None or (uptime is not None and et > uptime):
+        det_implausible += 1
+        implausible.append('pid %s (отсоединён): %s' % (pid, et if et is not None else 'не число'))
+        continue
+    sid, cpid = e.get('CLAUDE_CODE_SESSION_ID', ''), e.get('CLAUDE_PID', '')
+    if own_sid and sid:
+        who = 'own' if sid == own_sid else 'foreign'
+    elif own_pid and cpid == own_pid:
+        who = 'own'
+    else:
+        who = ''
+    if who == 'foreign':
+        det_foreign += 1
+        continue
+    owner = procs.get(cpid)
+    alive = owner is not None and owner[2] == 'claude' and owner[1] is not None and owner[1] >= et
+    if who != 'own':
+        if not alive and et >= PROC_MIN * 60:
+            unjudged.append('pid %s (отсоединён, claude %s)' % (pid, cpid or '?'))
+        continue
+    det_mine += 1
+    if alive:
+        det_live += 1
+        continue
+    term = e.get('KACHO_DETACHED_UNTIL', '')
+    if term.isdigit() and now < int(term):
+        det_term += 1
+        continue
+    if et >= PROC_MIN * 60:
+        findings.append('STALL-PROC pid %s (отсоединён, claude %s не жив%s) — живёт %d мин, исход никто не дочитает: %s'
+                        % (pid, cpid or '?', '; срок KACHO_DETACHED_UNTIL истёк' if term else '', et / 60, ' '.join(args.split())[:160]))
+env_void = bool(live) and env_read == 0
 proc_notes = []  # принадлежность не решена: не застой (код 1), а «не судимо»
+if env_void:
+    proc_notes.append('STALL-PROC: окружение не прочитано ни у одного из %d процессов живого снимка — отсоединённые не судимы' % len(procs))
 if not own_sid and not own_pid:
     proc_notes.append('STALL-PROC: сессия не определена — нет session_id хука, CLAUDE_CODE_SESSION_ID, CLAUDE_PID и предка-claude; оболочек старше порога не судимо %d' % len(unjudged))
 elif unjudged:
@@ -552,8 +726,8 @@ if verbose:
     for x in implausible:
         proc_notes.append('STALL-PROC: возраст неправдоподобен — не судится: %s' % x)
 
-print('CENSUS stall-census: сессия %s%s; workflow живых %d, завершённых в окне %d; агентов осмотрено %d, из них без единой разобранной записи %d; завершённых (не судятся) %d; своя сессия %s (claude %s); фоновых оболочек агентов %d из процессов %d: своих %d, чужих %d, не судимо %d, неправдоподобного возраста %d; пороги агент %d мин, опрос %d мин, завершённый %d мин, процесс %d мин, реакция %d мин, окно %d мин'
-      % (os.path.basename(session), sess_note, wf_live, wf_done, agents_seen, len(unread), done_seen, own_sid or 'не определена', own_pid or '?', shells, len(procs), mine, foreign, len(unjudged), len(implausible), AGENT_MIN, POLL_MIN, DONE_MIN, PROC_MIN, REACT_MIN, HORIZON_MIN))
+print('CENSUS stall-census: сессия %s%s; workflow живых %d, завершённых в окне %d; агентов осмотрено %d, из них без единой разобранной записи %d; завершённых (не судятся) %d, остановленных харнессом (не судятся) %d; своя сессия %s (claude %s); фоновых оболочек агентов %d из процессов %d: своих %d, чужих %d, не судимо %d, неправдоподобного возраста %d; отсоединённых (окружение прочитано у %d процессов, меченых %d): корней %d — своих %d (claude жив %d, в объявленном сроке %d), чужих %d, неправдоподобного возраста %d; пороги агент %d мин, опрос %d мин, завершённый %d мин, процесс %d мин, реакция %d мин, окно %d мин'
+      % (os.path.basename(session), sess_note, wf_live, wf_done, agents_seen, len(unread), done_seen, stopped_seen, own_sid or 'не определена', own_pid or '?', shells, len(procs), mine, foreign, len(unjudged), len(implausible) - det_implausible, env_read, len(marked), det_roots, det_mine, det_live, det_term, det_foreign, det_implausible, AGENT_MIN, POLL_MIN, DONE_MIN, PROC_MIN, REACT_MIN, HORIZON_MIN))
 for f in findings:
     print(f)
 for n in proc_notes:
@@ -562,12 +736,14 @@ for u in unread:
     print('UNREAD %s — журнал агента без единой разобранной записи: застой по нему не судим' % u)
 if findings:
     sys.exit(1)
-if unread or unjudged:
+if unread or unjudged or env_void:
     # Ноль прочитанного — не «застоя нет».
     if unread:
         print('stall-census: VOID — журналов агентов не прочитано %d из %d: %s' % (len(unread), agents_seen, ', '.join(unread[:5])), file=sys.stderr)
     if unjudged:
         print('stall-census: VOID — STALL-PROC: сессия не определена, оболочек старше порога не судимо %d: %s' % (len(unjudged), ', '.join(unjudged[:5])), file=sys.stderr)
+    if env_void:
+        print('stall-census: VOID — окружение процессов не прочитано: отсоединённые не осмотрены', file=sys.stderr)
     sys.exit(2)
 sys.exit(0)
 PY

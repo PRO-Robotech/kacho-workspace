@@ -15,6 +15,13 @@
 # 152 МБ): `time bash scripts/stall-census.sh --session <каталог>` — 0,13 с
 # (2026-10-11); предел из задания ws#1001 — 5 с.
 #
+# Отсоединённые процессы (ws#1154) — пробы Д1–Д9 и их мутанты: отбор по метке окружения,
+# живой близнец, законный срок, чужая сессия, переиспользованный pid, «не судимо».
+#
+# Остановленный харнессом агент (ws#1033) — пробы `stop_cases` и их мутанты: уведомление
+# `<task-notification>` главного журнала после последней записи агента, возобновление после
+# него, снятие уведомления из очереди, чужой id в тексте, уведомление глубже хвоста 4 МиБ.
+#
 # Коды: 0 — все пробы сошлись; 1 — нет; 2 — нет python3: вердикта нет.
 set -uo pipefail
 
@@ -155,8 +162,8 @@ finish_cases() {
     probe 1 "инъекция: два опроса без итога, вызов не закрыт — STALL-POLL" "STALL-POLL agent-t1" --session "$s" --ps "$T/ps"
 }
 finish_cases
-# fmutant <имя> <было> <стало>: копия прибора с одной правкой; пробы
-# finish_cases обязаны разойтись хоть в одной.
+# fmutant <имя> <было> <стало> [пробы]: копия прибора с одной правкой; пробы
+# (по умолчанию finish_cases) обязаны разойтись хоть в одной.
 fmutant() {
     local MD="$T/fmut/scripts" p0="$pass" f0="$fail" mp mf C0="$C"
     rm -rf "$T/fmut"; mkdir -p "$MD/lib"; cp "$HERE/lib/ws-home.sh" "$MD/lib/"
@@ -170,7 +177,7 @@ open(dst, 'w').write(s.replace(was, now))
 MUTPY
     then echo "  [FAIL] мутант «$1»: образец не найден в приборе — не лёг" >&2; fail=$((fail + 1)); return; fi
     failed=""; quiet=1; C="$MD/stall-census.sh"
-    finish_cases
+    "${4:-finish_cases}"
     C="$C0"; quiet=""; mp=$((pass - p0)); mf=$((fail - f0)); pass="$p0"; fail="$f0"
     if [ "$mf" -gt 0 ]; then
         echo "  [OK]   мутант «$1» красный: разошлось $mf из $((mp + mf)): ${failed#; }"; pass=$((pass + 1))
@@ -186,6 +193,71 @@ fmutant "tool_use — завершение" "FINAL_STOP = ('end_turn', 'stop_seq
 fmutant "завершение — любой непустой stop_reason" "sr in FINAL_STOP or" "sr or"
 fmutant "завершённый в workflow не пропускается" $'                if age_file < DONE_MIN * 60:\n                    agents_seen += 1\n                continue' $'                if age_file < DONE_MIN * 60:\n                    agents_seen += 1'
 fmutant "давность не различается" $'\n            if age_file < DONE_MIN * 60:\n                agents_seen += 1\n            continue' $'\n            agents_seen += 1\n            continue'
+
+echo "== агент, остановленный харнессом не судится (ws#1033: убитый TaskStop числился застоем, журнал кончался записью user)"
+# note <главный журнал> <минут назад> <id> <статус> [операция [текст]> — терминальное
+# уведомление харнесса; resume — ответ SendMessage о возобновлении (формы живого журнала).
+note() { printf '{"type":"queue-operation","operation":"%s","timestamp":"%s","sessionId":"x","content":"<task-notification>\\n<task-id>%s</task-id>\\n<status>%s</status>\\n<summary>Agent stopped</summary>\\n<result>%s</result>\\n</task-notification>"}\n' "${5:-enqueue}" "$(iso "$2")" "$3" "$4" "${6:-итог}" >> "$1"; }
+resume() { printf '{"type":"user","timestamp":"%s","message":{"role":"user","content":[{"type":"tool_result","content":"{\\"success\\":true,\\"message\\":\\"Resuming agent %s\\",\\"resumedAgentId\\":\\"%s\\"}"}]}}\n' "$(iso "$2")" "$3" "$3" >> "$1"; }
+# stop_cases — пробы остановки; их же гонят мутанты ниже.
+stop_cases() {
+    local s a st
+    rm -rf "$T"/stop-*  # прогон мутанта начинает с чистых журналов: rec и note дописывают
+    for st in killed completed failed stopped; do
+        s="$(session stop-$st)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+        rec "$a" 60 tool; rec "$a" 40 ask
+        note "$s.jsonl" 40 t1 "$st"
+        absent="STALL-AGENT" probe 0 "близнец: харнесс остановил агента ($st), журнал кончается записью user — не застой" "остановленных харнессом (не судятся) 1" --session "$s" --ps "$T/ps"
+    done
+    s="$(session stop-result)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    rec "$a" 60 tool; rec "$a" 40 result
+    note "$s.jsonl" 40 t1 killed
+    absent="STALL-AGENT" probe 0 "близнец: остановлен, журнал кончается результатом инструмента — не застой" "остановленных харнессом (не судятся) 1" --session "$s" --ps "$T/ps"
+    s="$(session stop-live)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    rec "$a" 60 tool; rec "$a" 40 ask
+    probe 1 "инъекция: тот же журнал без уведомления харнесса — агент жив и стоит, STALL-AGENT" "STALL-AGENT agent-t1" --session "$s" --ps "$T/ps"
+    s="$(session stop-resumed-worked)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    rec "$a" 70 tool; rec "$a" 60 ask; rec "$a" 50 ask; rec "$a" 40 tool "go test ./..."
+    note "$s.jsonl" 60 t1 killed; resume "$s.jsonl" 50 t1
+    probe 1 "инъекция: остановлен, возобновлён, работал и снова стоит 40 мин — STALL-AGENT" "STALL-AGENT agent-t1" --session "$s" --ps "$T/ps"
+    s="$(session stop-resumed-unseen)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    rec "$a" 70 tool; rec "$a" 60 ask; rec "$a" 50 ask; rec "$a" 40 tool "go test ./..."
+    note "$s.jsonl" 60 t1 killed
+    probe 1 "инъекция: после остановки агент дописал журнал, возобновления в главном журнале нет — жив, STALL-AGENT" "STALL-AGENT agent-t1" --session "$s" --ps "$T/ps"
+    s="$(session stop-resumed-silent)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    rec "$a" 60 tool; rec "$a" 40 ask
+    note "$s.jsonl" 40 t1 killed; resume "$s.jsonl" 39 t1
+    probe 1 "инъекция: возобновление после остановки, журнал молчит — харнесс исполняет, STALL-AGENT" "STALL-AGENT agent-t1" --session "$s" --ps "$T/ps"
+    s="$(session stop-dequeue)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    rec "$a" 60 tool; rec "$a" 40 ask
+    note "$s.jsonl" 40 t1 killed; resume "$s.jsonl" 39 t1; note "$s.jsonl" 38 t1 killed remove
+    probe 1 "инъекция: снятие уведомления из очереди позже возобновления — не новая остановка, STALL-AGENT" "STALL-AGENT agent-t1" --session "$s" --ps "$T/ps"
+    s="$(session stop-other)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    rec "$a" 60 tool; rec "$a" 40 ask
+    note "$s.jsonl" 40 t2 killed enqueue "итог ждёт t1"
+    probe 1 "инъекция: остановлен другой агент, t1 назван лишь в тексте — STALL-AGENT" "STALL-AGENT agent-t1" --session "$s" --ps "$T/ps"
+    s="$(session stop-big)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    rec "$a" 60 tool; rec "$a" 40 ask
+    note "$s.jsonl" 40 t1 killed
+    local pad; pad="$(head -c 1000000 /dev/zero | tr '\0' 'x')"
+    for _ in 1 2 3 4 5; do printf '{"type":"attachment","timestamp":"%s","pad":"%s"}\n' "$(iso 30)" "$pad" >> "$s.jsonl"; done
+    absent="STALL-AGENT" probe 0 "близнец: уведомление глубже хвоста 4 МиБ главного журнала — окно растёт, не застой" "остановленных харнессом (не судятся) 1" --session "$s" --ps "$T/ps"
+    s="$(session stop-poll)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    rec "$a" 45 tool "until grep -q rc= run.log; do sleep 60; done"; rec "$a" 44 tool "timeout 30 gh pr checks 1119"; rec "$a" 40 ask
+    probe 1 "инъекция: два опроса и тишина, уведомления нет — STALL-POLL" "STALL-POLL agent-t1" --session "$s" --ps "$T/ps"
+    note "$s.jsonl" 40 t1 killed
+    absent="STALL-POLL" probe 0 "близнец: те же опросы, агент остановлен харнессом — не STALL-POLL" "остановленных харнессом (не судятся) 1" --session "$s" --ps "$T/ps"
+}
+stop_cases
+fmutant "остановка харнессом не читается" "    return n_last is not None and n_last >= t - 3 and (r_last is None or r_last < n_last)" "    return False" stop_cases
+fmutant "возобновление после остановки не учитывается" "(r_last is None or r_last < n_last)" "True" stop_cases
+fmutant "возобновление не разбирается" "            if resumed.search(l):" "            if False:" stop_cases
+fmutant "уведомление старше записей агента принимается" " and n_last >= t - 3" "" stop_cases
+fmutant "снятие из очереди — уведомление" "(r.get('type') == 'queue-operation' and r.get('operation') != 'enqueue')" "False" stop_cases
+fmutant "любой id в уведомлении" "rb'<task-id>' + re.escape(ab) + rb'</task-id>(?:" "rb'<task-id>[0-9a-z]+</task-id>(?:" stop_cases
+fmutant "окно чтения не растёт" "        size = min(size * 4, total)" "        break" stop_cases
+fmutant "STALL-POLL без проверки остановки" "            if harness_stopped(aid, tt):" "            if False:" stop_cases
+fmutant "STALL-AGENT без проверки остановки" "            if harness_stopped(aid, t):" "            if False:" stop_cases
 
 echo "== workflow без реакции"
 s="$(session unreacted)"
@@ -272,6 +344,50 @@ proc_cases() {
     CLAUDE_PID=999 CLAUDE_CODE_SESSION_ID=$OWN probe 0 "П9 CLAUDE_PID не claude в снимке — не берётся, чужая молчит" "чужих 1" --session "$s" --ps "$T/ps-foreign"
 }
 proc_cases "$C"
+
+echo "== процессы: отсоединённые своей сессии — по метке окружения (ws#1154)"
+# Живая форма: прогон полосы `setsid env … sh -c '…' &` после выхода оболочки
+# переподчинён (родитель — не claude) и прежней выборкой «прямой потомок claude»
+# не осматривался вовсе. Отбор — метка окружения CLAUDE_CODE_SESSION_ID/CLAUDE_PID,
+# не строка запуска: строки запуска ниже одинаковы у находки и у близнецов.
+DS="$(session detached)"
+DCMD="sh -c go test ./...; echo 0 > /t/r.rc"
+dps() {  # dps <файл> <возраст claude 100, с> <возраст корня, с>
+    { echo "100 1 $2 claude claude --x"; echo "400 1 $3 sh $DCMD"; echo "401 400 $3 go go test ./..."
+      echo "300 1 99999 sshd sshd"; } > "$1"
+}
+denv() {  # denv <каталог proc> <сессия> <CLAUDE_PID> [KACHO_DETACHED_UNTIL]
+    local d
+    for d in 400 401; do
+        mkdir -p "$1/$d"
+        printf 'PATH=/x\0CLAUDE_CODE_SESSION_ID=%s\0CLAUDE_PID=%s\0%s' "$2" "$3" "${4:+KACHO_DETACHED_UNTIL=$4}" > "$1/$d/environ"
+    done
+    mkdir -p "$1/300"; printf 'PATH=/x\0' > "$1/300/environ"
+}
+dps "$T/ps-det" 90000 7200
+dps "$T/ps-det-young" 90000 1800
+dps "$T/ps-det-reuse" 600 7200
+denv "$T/proc-det-dead" "$OWN" 777
+denv "$T/proc-det-live" "$OWN" 100
+denv "$T/proc-det-term" "$OWN" 777 "$((NOW + 3600))"
+denv "$T/proc-det-expired" "$OWN" 777 "$((NOW - 60))"
+denv "$T/proc-det-foreign" "$FOR" 777
+mkdir -p "$T/proc-empty"
+# detached_cases <прибор> — пробы отсоединённых; их же гонят мутанты ниже.
+detached_cases() {
+    local C="$1"
+    CLAUDE_CODE_SESSION_ID=$OWN STALL_PROC_ROOT="$T/proc-det-dead" absent="pid 401" probe 1 "Д1 инъекция: отсоединённый своей сессии 120 мин, claude 777 не жив — STALL-PROC корня, потомок не назван" "STALL-PROC pid 400 (отсоединён, claude 777 не жив)" --session "$DS" --ps "$T/ps-det"
+    CLAUDE_CODE_SESSION_ID=$OWN STALL_PROC_ROOT="$T/proc-det-dead" probe 1 "  …перепись называет осмотренных отсоединённых" "корней 1 — своих 1 (claude жив 0, в объявленном сроке 0)" --session "$DS" --ps "$T/ps-det"
+    CLAUDE_CODE_SESSION_ID=$OWN STALL_PROC_ROOT="$T/proc-det-live" probe 0 "Д2 живой близнец: тот же процесс, claude 100 жив — молчит" "claude жив 1" --session "$DS" --ps "$T/ps-det"
+    CLAUDE_CODE_SESSION_ID=$OWN STALL_PROC_ROOT="$T/proc-det-term" probe 0 "Д3 законный близнец: демон в объявленном сроке (KACHO_DETACHED_UNTIL через 60 мин) — молчит" "в объявленном сроке 1" --session "$DS" --ps "$T/ps-det"
+    CLAUDE_CODE_SESSION_ID=$OWN STALL_PROC_ROOT="$T/proc-det-expired" probe 1 "Д4 инъекция: срок демона истёк минуту назад — STALL-PROC, причина названа" "срок KACHO_DETACHED_UNTIL истёк" --session "$DS" --ps "$T/ps-det"
+    CLAUDE_CODE_SESSION_ID=$OWN STALL_PROC_ROOT="$T/proc-det-foreign" probe 0 "Д5 чужая сессия (как П1, П7) — молчит" "корней 1 — своих 0 (claude жив 0, в объявленном сроке 0), чужих 1" --session "$DS" --ps "$T/ps-det"
+    CLAUDE_CODE_SESSION_ID=$OWN STALL_PROC_ROOT="$T/proc-det-dead" probe 0 "Д6 близнец: сирота 30 мин (порог 60) — молчит" "своих 1" --session "$DS" --ps "$T/ps-det-young"
+    CLAUDE_CODE_SESSION_ID=$OWN STALL_PROC_ROOT="$T/proc-det-live" probe 1 "Д7 инъекция: pid 100 переиспользован — claude моложе процесса, владелец не жив — STALL-PROC" "STALL-PROC pid 400 (отсоединён, claude 100 не жив)" --session "$DS" --ps "$T/ps-det-reuse"
+    STALL_PROC_ROOT="$T/proc-det-dead" probe 2 "Д8 своя сессия не определена, сирота старше порога — не судимо, код 2, а не «чисто»" "не судимо 1" --session "$DS" --ps "$T/ps-det"
+    CLAUDE_CODE_SESSION_ID=$OWN STALL_PROC_ROOT="$T/proc-empty" probe 2 "Д9 живой снимок, окружение не прочитано ни у одного — код 2, а не «чисто»" "окружение не прочитано ни у одного" --session "$DS" --self 1
+}
+detached_cases "$C"
 
 echo "== нечитаемое — не «чисто»"
 probe 2 "каталога сессии нет — код 2" "VOID" --session "$T/nope" --ps "$T/ps"
@@ -370,6 +486,17 @@ mutant "равный аптайму — неправдоподобен" 'and et 
 mutant "нечисловой возраст — ноль (до ws#1149)" 'p[2].isdigit() else None, p[3]' 'p[2].isdigit() else 0, p[3]' etimes_cases
 mutant "--verbose не печатает" $'\nif verbose:' $'\nif False:' etimes_cases
 mutant "поимённо и без --verbose" $'\nif verbose:' $'\nif True:' etimes_cases
+echo "== мутанты отсоединённых (ws#1154) — обязаны покраснеть на пробах Д1–Д9"
+mutant "выборка только прямых потомков claude" "    if e.get('CLAUDE_CODE_SESSION_ID') or e.get('CLAUDE_PID'):" "    if False:" detached_cases
+mutant "живой claude не проверяется" "    alive = owner is not None and owner[2] == 'claude'" "    alive = False and owner[2] == 'claude'" detached_cases
+mutant "любой claude — живой владелец" "    alive = owner is not None and owner[2] == 'claude'" "    alive = True or owner[2] == 'claude'" detached_cases
+mutant "pid владельца не сверен по возрасту" " and owner[1] is not None and owner[1] >= et" "" detached_cases
+mutant "объявленный срок не читается" "    if term.isdigit() and now < int(term):" "    if False:" detached_cases
+mutant "срок без сверки со временем" "    if term.isdigit() and now < int(term):" "    if term.isdigit():" detached_cases
+mutant "судится каждый меченый, а не корень" "        continue  # не корень: судится корень поддерева" "        pass" detached_cases
+mutant "чужая сессия — своя" "        who = 'own' if sid == own_sid else 'foreign'" "        who = 'own'" detached_cases
+mutant "непонятная принадлежность молчит" "            unjudged.append('pid %s (отсоединён, claude %s)' % (pid, cpid or '?'))" "            pass" detached_cases
+mutant "ноль прочитанного окружения — «чисто»" "env_void = bool(live) and env_read == 0" "env_void = False" detached_cases
 
 echo "== журнал своей сессии без transcript_path (ws#1134)"
 # Один каталог проекта, два окна: у каждого свой застрявший агент, сессия N свежее;

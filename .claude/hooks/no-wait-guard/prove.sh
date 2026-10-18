@@ -18,7 +18,10 @@
 #     пример — [FAIL]: шапка устарела;
 #   · мутанты guard.py (по одной правке) обязаны покраснеть: проба, не способная
 #     отличить сломанный страж, ничего не доказывает;
-#   · поломка стража — пропуск со словом «СЛОМАН», а не отказ всему.
+#   · поломка стража — пропуск со словом «СЛОМАН», а не отказ всему;
+#   · (ws#1159) снятие процессов по шаблону — отказ кодом 2 с подсказкой «снимай по
+#     pid — по записанному pid-файлу», без текста «Не жди» (предмет другой); снятие по
+#     pid, группе и pid-файлу — пропуск; метка ci-watcher снятие не снимает.
 # Коды: 0 — все утверждения сошлись; 1 — нет; 2 — нет python3 (вердикта нет).
 set -uo pipefail
 
@@ -29,7 +32,7 @@ command -v python3 > /dev/null 2>&1 || { echo "[VOID] no-wait-guard: нет pyth
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
-pass=0; fail=0; denied=0; passed=0; bound=0; muts=0
+pass=0; fail=0; denied=0; passed=0; bound=0; muts=0; kdenied=0
 AGENT=""
 assert() {
     if [ "$1" = "$2" ]; then echo "  [OK]   $3"; pass=$((pass + 1))
@@ -197,6 +200,110 @@ rc="$(run 'timeout 500 gh run watch 1 # no-wait-exempt go-implementer 9m')"
 assert "2 да" "$rc $(grep -qF 'только у ci-watcher' "$WORK/out" && echo да || echo нет)" "метка другого агента — отказ"
 denied=$((denied + 5))
 
+echo "== снятие по шаблону (ws#1159) — отказ с подсказкой «снимай по pid»"
+# kills <команда> — отказ 2; класс назван; подсказка «снимай по pid — по записанному
+# pid-файлу»; текста ожидания нет: предмет отказа — снятие, а не ожидание.
+kills() {
+    local rc named hint other
+    rc="$(run "$1")"
+    named="нет"; grep -qF 'отказ — снятие процессов по шаблону' "$WORK/out" && grep -qF 'снятие процессов не по pid' "$WORK/out" && named="да"
+    hint="нет"; grep -qF 'подсказка: снимай по pid — по записанному pid-файлу: `kill $(cat <pid-файл>)`' "$WORK/out" && hint="да"
+    other="нет"; grep -qF 'Правило «Не жди»' "$WORK/out" && other="да"
+    assert "2 да да нет" "$rc $named $hint $other" "отказ (снятие): $(printf '%s' "$1" | tr '\n' ' ')"
+    kdenied=$((kdenied + 1))
+}
+kills 'pkill -f x'
+kills 'pkill newman'
+kills 'killall node'
+kills 'pkill -9 -f "heavy-slot"'
+kills 'pkill -u dk'
+kills 'pkill -P 1'
+kills 'pkill -P 4242 -f x'
+kills 'killall5 -9'
+kills 'sudo killall -9 node'
+kills 'fuser -k 8080/tcp'
+kills 'kill -9 -1'
+kills 'kill -- -1'
+kills 'kill node'
+kills 'kill $(pgrep -f newman)'
+kills 'kill -TERM `pidof node`'
+kills 'kill $(lsof -t -i :8080)'
+kills 'pgrep -f x | xargs kill'
+kills 'pgrep -f x | xargs -r -n1 kill -9'
+kills "ps aux | grep newman | awk '{print \$2}' | xargs kill"
+kills 'pgrep x | while read p; do kill "$p"; done'
+kills 'for p in $(pidof node); do kill -9 $p; done'
+kills 'bash -c "pkill -f heavy"'
+kills 'setsid -f pkill x'
+kills 'pkill -f x > /dev/null 2>&1 &'
+kills 'timeout 5 pkill -f x'
+kills 'cd /tmp && pkill -f x || true'
+# приёмка ws#1159, круг 1: класс «вход xargs/read/цикла — выборщик», число по значению,
+# подстановка в id-значении, флаги обёрток без значения
+kills 'xargs kill < <(pgrep x)'
+kills 'while read p; do kill $p; done < <(pgrep x)'
+kills 'xargs kill <<< "$(pgrep x)"'
+kills 'xargs kill <<< $(pgrep x)'
+kills 'kill -9 -01'
+kills 'kill -s KILL -01'
+kills 'pkill -P 01'
+kills 'pkill -P $(pgrep x)'
+kills 'pkill -g $(pgrep -f x)'
+kills 'time -p pkill -f x'
+kills 'command -p pkill -f x'
+rc="$(run 'timeout 500 pkill -f x # no-wait-exempt ci-watcher 9m')"
+assert "2 да" "$rc $(grep -qF 'отказ — снятие процессов по шаблону' "$WORK/out" && echo да || echo нет)" "снятие — метка ci-watcher его не снимает"
+AGENT=ci-watcher
+rc="$(run 'timeout 500 killall node # no-wait-exempt ci-watcher 9m')"
+assert 2 "$rc" "снятие — и у самого ci-watcher метка его не снимает"
+AGENT=""
+rc="$(run 'pkill -f x; sleep 900')"
+assert "2 да да" "$rc $(grep -qF 'снятие процессов по шаблону' "$WORK/out" && echo да || echo нет) $(grep -qF 'Правило «Не жди»' "$WORK/out" && echo да || echo нет)" "снятие и ожидание в одной строке — оба предмета названы"
+kdenied=$((kdenied + 3))
+
+echo "== снятие по pid, группе, pid-файлу — законные близнецы, пропуск без слова"
+passes 'kill 4242'
+passes 'kill -- -4242'
+passes 'kill -TERM -- -4242'
+passes 'kill -9 4242 4243'
+passes 'kill -s TERM 4242'
+passes 'kill -1 4242'
+passes 'kill $(cat /tmp/run.pid)'
+passes 'kill -TERM -- -"$(cat /tmp/run.pgid)"'
+passes 'kill "$pid"'
+passes 'kill -- -"$pg"'
+passes 'kill %1'
+passes 'kill -0 $(pgrep -f x)'
+passes 'kill -TERM -- -$(ps -o pgid= -p "$pid" | tr -d " ")'
+passes 'cat /tmp/run.pid | xargs kill'
+passes 'pkill -F /tmp/run.pid'
+passes 'pkill -TERM -P $$'
+passes 'pkill -USR1 -P 4242'
+passes 'pkill -g 0'
+passes 'pkill -0 newman'
+passes 'pgrep -fa newman'
+passes 'pidof node'
+passes 'ps -o pid,args -p 4242'
+passes 'fuser 8080/tcp'
+passes 'echo "pkill -f x"; grep -n killall f'
+passes 'git commit -m "pkill -f x и killall node — запрещены"'
+# законные близнецы форм приёмки — та же запись, источник или значение по id
+passes 'kill 12345'
+passes 'kill -0 $pid'
+passes 'pkill -F run.pid'
+passes 'pgrep -F f | xargs kill'
+passes 'xargs kill < run.pid'
+passes 'while read p; do kill $p; done < run.pid'
+passes 'xargs kill <<< "$(cat run.pid)"'
+passes 'xargs kill <<< $(cat run.pid)'
+passes 'kill -9 -0101'
+passes 'kill -s KILL -0101'
+passes 'pkill -P 0101'
+passes 'pkill -P $(cat run.pid)'
+passes 'pkill -g $(cat run.pgid)'
+passes 'time -p kill 12345'
+passes 'command -p kill 12345'
+
 echo "== граница (BOUNDARY шапки guard.py) — известно, не ловится"
 boundary "ожидание внутри скрипта"     'bash ./wait-for-ci.sh'
 boundary "wait без фонового запуска"   'wait 4242'
@@ -206,6 +313,21 @@ boundary "иной интерпретатор"         'python3 -c "import time;
 boundary "источник — дескриптор"      'exec 3< /dev/zero; read -t 9 -u 3'
 boundary "свой редирект на дескриптор"  'read -t 9 -u 3 3< /dev/zero'
 boundary "поток через фильтр"         'yes | grep y | read x'
+boundary "снятие: адресат через переменную другой команды" 'p=$(pgrep x); kill $p'
+boundary "снятие: адресат через файл"  'pgrep x > f; kill $(cat f)'
+boundary "снятие: иной интерпретатор"  'python3 -c "import os; os.kill(1, 9)"'
+boundary "снятие: eval"                'eval "pkill -f x"'
+boundary "снятие: переменная-команда"  'K=pkill; $K -f x'
+boundary "снятие: su -c"               "su -c 'pkill -f x' dk"
+boundary "снятие: doas"                'doas pkill -f x'
+boundary "снятие: runuser"             'runuser -u dk -- pkill -f x'
+boundary "снятие: nsenter"             'nsenter -t 1 -m pkill -f x'
+boundary "снятие: unshare"             'unshare -r pkill -f x'
+boundary "снятие: systemd-run"         'systemd-run --user pkill -f x'
+boundary "снятие: script -qc"          "script -qc 'pkill -f x' /dev/null"
+boundary "снятие: strace"              'strace -f pkill -f x'
+boundary "снятие: find -exec"          'find /proc -maxdepth 1 -name 1 -exec kill {} \;'
+boundary "снятие: env -S"              "env -S 'pkill -f x'"
 
 echo "== поломка стража — пропуск со словом «СЛОМАН», а не отказ"
 mkdir -p "$WORK/broken/no-wait-guard"
@@ -266,7 +388,7 @@ mutant "gh run watch пропущен"      'if sub[:2] == ["run", "watch"] or' 
 mutant "bash -c не разбирается"     '                self.text(cmd, dict(ctx, bg=bg, tmo=bound))' '                pass' 'bash -c "until x; do sleep 1; done"'
 mutant "heredoc в конвейер не судится" 'for seg in line.split("|"):' 'for seg in line.split("|")[:1]:' $'cat <<EOF | bash\nwhile :; do sleep 1; done\nEOF'
 mutant "подстановка не судится"     '            self.text(s, dict(ctx, bg=ctx["bg"]))' '            pass' 'x=$(sleep 900)'
-mutant "метка без timeout"          'left = [f for f in j.found if f.bound is None or f.bound > limit]' 'left = []' 'gh run watch 1 # no-wait-exempt ci-watcher 9m'
+mutant "метка без timeout"          'left = [f for f in waits if f.bound is None or f.bound > limit]' 'left = []' 'gh run watch 1 # no-wait-exempt ci-watcher 9m'
 mutant "метка любого агента"        '    if agent_type and agent_type != "ci-watcher":' '    if False:' 'timeout 500 gh run watch 1 # no-wait-exempt ci-watcher 9m' go-implementer
 mutant "метка сверх 9 мин"          'if mins > EXEMPT_MAX_MIN or mins < 1:' 'if mins < 1:' 'timeout 500 gh run watch 1 # no-wait-exempt ci-watcher 10m'
 mutant "sudo не снимается"          '        if base == "sudo":' '        if False:' 'sudo sleep 900'
@@ -276,9 +398,41 @@ mutant "yes | не судится"           '    return base == "yes" or' '    
 mutant "редирект цикла не виден"    '        src = stdin_source(n.redir) if n.redir else None' '        src = None' 'while read -t 1 l; do :; done < /dev/zero'
 mutant "свой < не перекрывает"      '            if (own in BUSY_DEV) if own is not None else ctx.get("busy"):' '            if own in BUSY_DEV or ctx.get("busy"):' 'while read -r x < f; do :; done < /dev/zero'
 mutant "busy-read под timeout снят" '                self.add("busy-read", shown, None)' '                self.add("busy-read", shown, bound)' 'timeout 500 read -t 5 < /dev/zero # no-wait-exempt ci-watcher 9m'
+mutant "страж пропускает killall"   '        if base in KILL_BY_MATCH:' '        if False:' 'killall node'
+mutant "pkill -f снят из отказа"     '        if base == "pkill":' '        if False:' 'pkill -f x'
+mutant "образец при id-выборе пропущен" '    return (pattern or attr or parent_all or not ids), zero' '    return (attr or parent_all or not ids), zero' 'pkill -P 4242 -f x'
+mutant "pkill: id-выбор — тоже отказ" '    return (pattern or attr or parent_all or not ids), zero' '    return True, zero' 'pkill -F /tmp/run.pid'
+mutant "pkill -P 1 законен"          '    parent_all = any(n in ("-P", "--parent") and any(num_is(x, 1) for x in v.split(",")) for n, v in ids)' '    parent_all = False' 'pkill -P 1'
+mutant "kill \$(pgrep) не судится"   '                       or ("__SUBST__" in t and from_sel)                 # kill $(pgrep …)' '' 'kill $(pgrep -f newman)'
+mutant "kill -1 законен"             '                bad = (num_is(t, -1)                                     # все процессы uid (-01 = -1)' '                bad = (False' 'kill -9 -1'
+mutant "xargs не передаёт адресаты"  '            if not targets and ctx.get("xargs") and ctx.get("sel"):   # pgrep … | xargs kill' '            if False:' 'pgrep -f x | xargs kill'
+mutant "конвейер не несёт выборщик"  '        if feed_selects(n) or own_in or head_in' '        if own_in or head_in' 'pgrep x | while read p; do kill "$p"; done'
+mutant "ps без id — не выборщик"     '    if base == "ps":
+        return ps_by_pattern(args)' '    if base == "ps":
+        return False' "ps aux | grep newman | awk '{print \$2}' | xargs kill"
+mutant "ps с -p — выборщик"          '            if got[0] in PS_ID_OPTS:
+                return False' '            if False:
+                return False' 'kill -TERM -- -$(ps -o pgid= -p "$pid" | tr -d " ")'
+mutant "сигнал 0 доставляет"         '            if zero:
+                return True
+            from_sel' '            from_sel' 'kill -0 $(pgrep -f x)'
+mutant "fuser -k пропущен"           '        if base == "fuser":' '        if False:' 'fuser -k 8080/tcp'
+mutant "метка снимает снятие"        '    kills = [f for f in j.found if f.cls in KILL_CLASSES]' '    kills = []' 'timeout 500 pkill -f x # no-wait-exempt ci-watcher 9m'
+mutant "фон снимает снятие"          '        if self.kill_form(base, args, substs, ctx, shown):' '        if not bg and self.kill_form(base, args, substs, ctx, shown):' 'pkill -f x > /dev/null 2>&1 &'
+mutant "вход < <(…) не судится"     '        own_in = stdin_selects(n.redir, n.redir_substs) if n.kind == "group" else stdin_selects(n.text, n.substs)' '        own_in = False' 'xargs kill < <(pgrep x)'
+mutant "хвост цикла < <(…) потерян"   '            while self.peek()[0] == "subst" and self.past_substs() == ("kw", closer):' '            while False:' 'while read p; do kill $p; done < <(pgrep x)'
+mutant "here-string не источник"     '0?(<<<|<>|<)(?!<)' '0?(<>|<)(?!<)' 'xargs kill <<< "$(pgrep x)"'
+mutant "here-string без кавычек не источник" $'\']?([^' $'\']([^' 'xargs kill <<< $(pgrep x)'
+mutant "kill: -01 по написанию"     '                bad = (num_is(t, -1)' '                bad = (t == "-1"' 'kill -9 -01'
+mutant "kill -s: -01 по написанию"  '                bad = (num_is(t, -1)' '                bad = (t == "-1"' 'kill -s KILL -01'
+mutant "pkill -P 01 по написанию"   'and any(num_is(x, 1) for x in v.split(","))' 'and "1" in v.split(",")' 'pkill -P 01'
+mutant "-P \$(pgrep) — id"           '                if ("__SUBST__" in val and sub_sel) or' '                if False or' 'pkill -P $(pgrep x)'
+mutant "-g \$(pgrep) — id"           '                if ("__SUBST__" in val and sub_sel) or' '                if False or' 'pkill -g $(pgrep -f x)'
+mutant "time -p съедает команду"    '"time": ("-o", "--output", "-f", "--format")' '"time": ("-o", "--output", "-f", "--format", "-p")' 'time -p pkill -f x'
+mutant "command -p съедает команду" '"command": ()' '"command": ("-p",)' 'command -p pkill -f x'
 mutant "nohup отсоединяет"          '        if base in ("nohup", "nice",' '        if base == "nohup":
             detached = True
         if base in ("nohup", "nice",' 'nohup timeout 3600 go test ./... > l 2>&1'
 
-echo "[CENSUS] no-wait-guard: утверждений $((pass + fail)), сошлось $pass, разошлось $fail; отказов проверено $denied, пропусков $passed, мутантов $muts; граница (не ловится, заявлено в шапке) $bound"
+echo "[CENSUS] no-wait-guard: утверждений $((pass + fail)), сошлось $pass, разошлось $fail; отказов проверено $denied, пропусков $passed, мутантов $muts; граница (не ловится, заявлено в шапке) $bound; снятий по шаблону проверено $kdenied"
 [ "$fail" -eq 0 ]
