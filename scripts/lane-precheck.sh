@@ -24,6 +24,9 @@
 #                                                 отказа, полоса ушла без N), задача есть и не PR;
 #   pr <владелец/репо>#<N> <MERGED|OPEN|CLOSED>   состояние PR (GET pulls/<N>);
 #   branch <владелец/репо> <ветка>                ветка на origin (GET branches/<ветка>);
+#   head <владелец/репо> <ветка> <sha40>          голова ветки на origin равна sha целиком (GET branches/
+#                                                 <ветка> .commit.sha; ws#1191: полоса стенда ушла
+#                                                 раньше, чем голова ветки доехала до origin);
 #   proof <владелец/репо>#<N>                     у задачи есть `DoD-proof @<sha>`;
 #   verdict <файл записи роли> <accept|return>    `verdict.value` записи: ✅ / ⛔.
 # Ложное — `REASON PREMISE-FALSE …`, код 1. Не судимо (трекер не ответил, строка вне
@@ -157,10 +160,18 @@ if [ -n "$premise" ]; then
                 elif [ "$rc" != 0 ]; then voids+=("GH-UNREADABLE $line")
                 elif [ "$got" != "$b" ]; then reasons+=("PREMISE-FALSE $line: состояние $got"); fi ;;
             branch)
-                if [ -z "$a" ] || [ -z "$b" ]; then voids+=("PREMISE-FORM $line"); continue; fi
+                if [ -z "$a" ] || ! [[ "$b" =~ ^[A-Za-z0-9._/-]+$ ]]; then voids+=("PREMISE-FORM $line"); continue; fi
                 ghget "repos/$a/branches/$b" .name > /dev/null; rc=$?
                 if [ "$rc" = 3 ]; then reasons+=("PREMISE-FALSE $line: ветки на origin нет")
                 elif [ "$rc" != 0 ]; then voids+=("GH-UNREADABLE $line"); fi ;;
+            head)
+                read -r _ _ _ want _ <<< "$line"
+                # Ветка — знаки пути GET (`#`, `?`, пробел обрезали бы путь до чужой ветки).
+                if [ -z "$a" ] || ! [[ "$b" =~ ^[A-Za-z0-9._/-]+$ ]] || ! [[ "${want:-}" =~ ^[0-9a-f]{40}$ ]]; then voids+=("PREMISE-FORM $line"); continue; fi
+                got="$(ghget "repos/$a/branches/$b" .commit.sha)"; rc=$?
+                if [ "$rc" = 3 ]; then reasons+=("PREMISE-FALSE $line: ветки $b на origin нет — ожидалась голова $want")
+                elif [ "$rc" != 0 ]; then voids+=("GH-UNREADABLE $line")
+                elif [ "$got" != "$want" ]; then reasons+=("PREMISE-FALSE $line: голова $b на origin ${got:-пуста}, ожидалась $want"); fi ;;
             proof)
                 r="${a%%#*}" num="${a##*#}"
                 if ! [[ "$num" =~ ^[0-9]+$ ]] || [ "$r" = "$a" ]; then voids+=("PREMISE-FORM $line"); continue; fi

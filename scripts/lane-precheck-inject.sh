@@ -23,7 +23,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 P="$HERE/lane-precheck.sh"
 W="$(mktemp -d)"
 W="$(cd "$W" && pwd -P)"
-trap 'rm -rf "$W"' EXIT
+# shellcheck disable=SC2154
+trap '_rc=$?; rm -rf "$W" 2>/dev/null || rm -rf "$W" || echo "ПРЕДУПРЕЖДЕНИЕ: временный каталог $W не снят; код проверки $_rc сохранён" >&2; exit $_rc' EXIT
 pass=0 fail=0
 command -v jq > /dev/null || { echo "  [VOID] jq нет — обёртку трекера не построить" >&2; exit 2; }
 
@@ -297,6 +298,27 @@ prem 'pr o/r#9 OPEN'
 assert "1 да" "$(runp) $(has 'PREMISE-FALSE pr o/r#9 OPEN: PR нет')" "PR нет (404) → PREMISE-FALSE"
 prem 'branch o/r 2-gone'
 assert "1 да" "$(runp) $(has 'ветки на origin нет')" "ветки на origin нет → PREMISE-FALSE"
+# Голова ветки на origin (ws#1191): полоса стенда и образов — на sha, которая уже на origin.
+HA=1111111111111111111111111111111111111111 HB=2222222222222222222222222222222222222222
+printf '%s' "{\"name\":\"3-stand\",\"commit\":{\"sha\":\"$HA\"}}" > "$W/c/repos_o_r_branches_3-stand.json"
+printf '%s' '{"name":' > "$W/c/repos_o_r_branches_4-flaky.json"
+prem "head o/r 3-stand $HA"
+assert "0 да" "$(runp) $(has 'предусловий 1; ложных 0, не судимо 0')" "близнец: голова 3-stand на origin равна sha → 0"
+prem "head o/r 3-stand $HB"
+assert "1 да да" "$(runp) $(has "голова 3-stand на origin $HA, ожидалась $HB") $(has 'REASON PREMISE-FALSE head')" "голова на origin иная → PREMISE-FALSE, обе sha названы"
+# Близнец, совпадающий с головой во всех знаках, кроме последнего: сравнение — целиком,
+# не по префиксу и не по первому знаку (приёмка r1).
+HN=111111111111111111111111111111111111111f
+prem "head o/r 3-stand $HN"
+assert "1 да" "$(runp) $(has "голова 3-stand на origin $HA, ожидалась $HN")" "голова отличается лишь последним знаком → PREMISE-FALSE"
+prem "head o/r 3-st#and $HA" "branch o/r 1-la#ne"
+assert "2 да да" "$(runp) $(has 'VOID PREMISE-FORM head o/r 3-st#and') $(has 'VOID PREMISE-FORM branch o/r 1-la#ne')" "«#» в имени ветки обрезал бы путь GET → строка вне формы, код 2"
+prem "head o/r 2-gone $HA"
+assert "1 да" "$(runp) $(has "ветки 2-gone на origin нет — ожидалась голова $HA")" "ветки на origin нет → PREMISE-FALSE с веткой и sha"
+prem "head o/r 4-flaky $HA"
+assert "2 да" "$(runp) $(has 'VOID GH-UNREADABLE head o/r 4-flaky')" "origin не ответил → не судимо (VOID), не зелёное"
+prem "head o/r 3-stand ${HA:0:12}"
+assert "2 да" "$(runp) $(has 'VOID PREMISE-FORM head')" "sha не 40 знаков → строка вне формы, код 2"
 prem 'proof o/r#8'
 comments 8 "без доказательства"
 assert "1 да" "$(runp) $(has 'комментария «DoD-proof @<sha>» нет')" "DoD-proof нет → PREMISE-FALSE"

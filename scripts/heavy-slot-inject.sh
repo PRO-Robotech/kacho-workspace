@@ -45,7 +45,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SLOT="$HERE/heavy-slot.sh"
 IMAGE="${HEAVY_SLOT_PROBE_IMAGE:-python:3.13-slim}"
 W="$(mktemp -d)"
-trap 'rm -rf "$W"' EXIT
+# shellcheck disable=SC2154
+trap '_rc=$?; rm -rf "$W" 2>/dev/null || rm -rf "$W" || echo "ПРЕДУПРЕЖДЕНИЕ: временный каталог $W не снят; код проверки $_rc сохранён" >&2; exit $_rc' EXIT
 
 pass=0; fail=0; void=0; bound=0
 assert() {

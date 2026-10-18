@@ -193,7 +193,8 @@ jq -e '(.workflow_runs | length > 0) and all(.workflow_runs[]; (.workflow_id | t
 jq -e '.draft == false' "$FX/pull.json" >/dev/null || { echo "VOID: в $FX/pull.json нет draft: false" >&2; exit 2; }
 
 T="$(mktemp -d "${TMPDIR:-/tmp}/ci-read-inject.XXXXXX")" || exit 2
-trap 'rm -rf "$T"' EXIT
+# shellcheck disable=SC2154
+trap '_rc=$?; rm -rf "$T" 2>/dev/null || rm -rf "$T" || echo "ПРЕДУПРЕЖДЕНИЕ: временный каталог $T не снят; код проверки $_rc сохранён" >&2; exit $_rc' EXIT
 
 # Двойник gh — общий с пробой демона состояния: scripts/ci-read-fixtures/gh-twin.sh
 # (там же форма ответа, страницы, живая форма аннотаций и условное чтение -i/If-None-Match).
