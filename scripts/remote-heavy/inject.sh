@@ -83,7 +83,11 @@
 #      близнец AL1b (3 ns) → 0; AL2 прогон → 0, Job создан; AL3 службы ns kacho
 #      длиннее слова → проба закрытости svc-a, как P1; AL4 команда, склеенная длиннее
 #      слова, доходит до Job целиком (близнец K1); AL5 перепись прочитана, разбор
-#      отказал → 70 «дефект обёртки», не 69 (близнец V1)
+#      отказал → 70 «дефект обёртки», не 69 (близнец V1) — по ветке на каждое место
+#      кода 2: AL5n перепись узлов стража, AL5p перепись узлов и pod размещения
+#      (близнец Q1), AL5w страж фазы записи после смены файла (близнец W9b);
+#      AL6 политики ns kacho длиннее слова → проба закрытости svc-a, близнец AL6b
+#      малая перепись → та же проба; AL7 политики ns kacho не JSON → 70, Job нет
 #   M2 предел по умолчанию 6 — страховка над размещением: 6 идущих → 75;
 #      близнец M2b 5 идущих → 0 (C1–C5, V2 судят предел явным 2)
 #   Q1 стенд (pod ns kacho) на всех узлах, место есть → --available 0 и прогон 0
@@ -347,16 +351,23 @@ case "$1 ${2:-}" in
             # FAKE_SWAP_FILE — файл кубконфига подменён сразу после создания ns (опыт
             # 2026-10-10); FAKE_NODES_AFTER_NS — узлы, которые с этого мига видны.
             if [ -n "${FAKE_SWAP_FILE:-}" ]; then echo ' ' >> "$FAKE_SWAP_FILE"; touch "$S/swapped"; fi
-            jq --arg t "$(now)" '.metadata.creationTimestamp = $t | .status.phase = "Active"' "$3" > "$S/ns/$name"
-            # гонка: другой запуск создал своё ns мгновением раньше
+            # Часы читаются ОДИН раз: время чужого ns гонки выводится из времени своего,
+            # а не вторым чтением — иначе на границе секунды оба получали одно время, и
+            # C4/C5 под нагрузкой краснели по жребию (приёмка ws#1210, круг 1).
+            t0="$(date -u +%s)"
+            jq --arg t "$(date -u -d "@$t0" +%Y-%m-%dT%H:%M:%SZ)" '.metadata.creationTimestamp = $t | .status.phase = "Active"' "$3" > "$S/ns/$name"
+            # гонка: другой запуск создал своё ns секундой раньше
             if [ -n "${FAKE_RACE:-}" ]; then
-                jq -n --arg n "$FAKE_RACE" --arg t "$(date -u -d '-1 second' +%Y-%m-%dT%H:%M:%SZ)" --arg e "$(date -u -d '+1 hour' +%Y-%m-%dT%H:%M:%SZ)" \
+                jq -n --arg n "$FAKE_RACE" --arg t "$(date -u -d "@$(( t0 - 1 ))" +%Y-%m-%dT%H:%M:%SZ)" --arg e "$(date -u -d '+1 hour' +%Y-%m-%dT%H:%M:%SZ)" \
                     '{kind: "Namespace", metadata: {name: $n, creationTimestamp: $t, labels: {"kacho.io/kind": "heavy"}, annotations: {"kacho.io/expires": $e}}, status: {phase: "Active"}}' > "$S/ns/$FAKE_RACE"
             fi
         elif [ "$kind" = NetworkPolicy ]; then
             cp "$3" "$S/netpol.json"
         else
             cp "$3" "$S/job.json"
+            # FAKE_SWAP_AFTER_JOB — файл кубконфига сменился после создания Job: следующая
+            # фаза записи переписывает узлы заново (AL5w).
+            if [ -n "${FAKE_SWAP_AFTER_JOB:-}" ]; then echo ' ' >> "$FAKE_SWAP_AFTER_JOB"; fi
         fi ;;
     "apply -f") cp "$3" "$S/applied.json" ;;
     "get ns")
@@ -378,10 +389,14 @@ case "$1 ${2:-}" in
             echo '{"items":[{"metadata":{"name":"edge"},"spec":{"type":"ClusterIP","clusterIP":"10.96.0.20","selector":{"app":"edge"},"ports":[{"port":8080}]}},
                             {"metadata":{"name":"svc-a"},"spec":{"type":"ClusterIP","clusterIP":"10.96.0.21","selector":{"app":"svc-a"},"ports":[{"port":9090}]}}]}'
         fi ;;
-    "get netpol") echo '{"items":[{"spec":{"podSelector":{"matchLabels":{"app":"edge"}}}}]}' ;;
+    "get netpol")
+        # FAKE_KACHO_NP_FILE — перепись политик ns kacho из файла (AL6, AL6b, AL7).
+        if [ -n "${FAKE_KACHO_NP_FILE:-}" ]; then cat "$FAKE_KACHO_NP_FILE"
+        else echo '{"items":[{"spec":{"podSelector":{"matchLabels":{"app":"edge"}}}}]}'; fi ;;
     "get nodes")
         # FAKE_NODES — список узлов случая размещения; иначе один готовый узел.
         if [ -e "$S/swapped" ] && [ -n "${FAKE_NODES_AFTER_NS:-}" ]; then printf '%s\n' "$FAKE_NODES_AFTER_NS"; exit 0; fi
+        if [ -e "$S/job.json" ] && [ -n "${FAKE_NODES_AFTER_JOB:-}" ]; then printf '%s\n' "$FAKE_NODES_AFTER_JOB"; exit 0; fi
         if [ -n "${FAKE_NODES:-}" ]; then printf '%s\n' "$FAKE_NODES"; exit 0; fi
         jq -n --arg e "$FAKE_NODE_IP" --arg v6 "$FAKE_NODE_IP6" --arg n "${FAKE_NODE_PFX}n1" '{items: [{metadata: {name: $n},
           status: {addresses: [{type: "ExternalIP", address: $e}, {type: "InternalIP", address: "10.0.0.5"}, {type: "InternalIP", address: $v6}, {type: "Hostname", address: $n}],
@@ -1875,6 +1890,33 @@ fresh
 go_run al5 env FAKE_NS_GARBAGE=1 bash "$RUN" --available
 expect_rc AL5 70
 if grep -q 'дефект обёртки run.sh: перепись идущих тяжёлых ns прочитана' "$OUT"; then ok; else bad AL5-why "дефект обёртки не назван"; fi
+# AL5n — страж: перепись узлов прочитана (код 0), а не JSON → 70, не 69
+fresh
+go_run al5n env FAKE_NODES='not json {' bash "$RUN" --available
+expect_rc AL5n 70
+if grep -q 'дефект обёртки run.sh: перепись узлов прочитана, а разбор её отказал' "$OUT"; then ok; else bad AL5n-why "дефект обёртки стража не назван"; fi
+# AL6 — перепись политик ns kacho длиннее слова → проба закрытости выбрана (svc-a);
+# близнец AL6b — малая перепись, та же проба исполняется
+{ printf '{"items":['
+  for i in $(seq 1 3000); do printf '{"spec":{"podSelector":{"matchLabels":{"app":"pad-%05d"}}}},' "$i"; done
+  printf '{"spec":{"podSelector":{"matchLabels":{"app":"edge"}}}}]}\n'; } > "$BOX/al6-np.json"
+if [ "$(wc -c < "$BOX/al6-np.json")" -gt "$ARGW" ]; then ok; else bad AL6-premise "перепись политик не длиннее слова argv — AL6 пуста"; fi
+printf '%s\n' '{"items":[{"spec":{"podSelector":{"matchLabels":{"app":"pad"}}}},{"spec":{"podSelector":{"matchLabels":{"app":"edge"}}}}]}' > "$BOX/al6b-np.json"
+deny_of() { jq -r '.spec.template.spec.containers[0].env[] | select(.name == "HEAVY_DENY_PROBE") | .value' "$BOX/state/job.json" 2>/dev/null; }
+for al6 in AL6:al6-np AL6b:al6b-np; do
+    fresh
+    go_run "${al6#*:}" env FAKE_EXIT=0 FAKE_KACHO_NP_FILE="$BOX/${al6#*:}.json" "${B[@]}" --short "${al6#*:}" -- true
+    expect_rc "${al6%%:*}" 0
+    if [ "$(deny_of)" = "svc-a.kacho.svc:9090" ]; then ok; else bad "${al6%%:*}" "проба закрытости не svc-a.kacho.svc:9090, а «$(deny_of)»"; fi
+done
+# AL7 — перепись политик ns kacho прочитана (код 0), а не JSON → 70, причина названа,
+# Job нет: проба закрытости не исполнилась бы молча
+printf 'not json {\n' > "$BOX/al7-np.json"
+fresh
+go_run al7 env FAKE_EXIT=0 FAKE_KACHO_NP_FILE="$BOX/al7-np.json" "${B[@]}" --short al7 -- true
+expect_rc AL7 70
+if grep -q 'дефект обёртки run.sh: перепись служб и политик ns kacho прочитана, а разбор её отказал — проба закрытости ns kacho не выбрана' "$OUT"; then ok; else bad AL7-why "причина не названа"; fi
+no_job AL7
 
 # ── размещение: место под профиль, без условия по стенду (ws#991) ─────────
 # node_j <имя> <готов 1|0> <закрыт 1|0> <taint-эффект|""> — узел 15,5 CPU и 29,5 ГиБ;
@@ -1893,6 +1935,12 @@ items() { jq -sc '{items: .}'; }
 created() { grep -qE '(^| )create -f ' "$BOX/state/calls" 2>/dev/null && echo да || echo нет; }
 NODES1="$(node_j n1 1 0 "" | items)"
 NODES12="$( { node_j n1 1 0 ""; node_j n2 1 0 ""; } | items)"
+# AL5p — размещение: перепись pod прочитана (код 0), а не JSON → 70, не 69 (ws#1210);
+# близнец — Q1 (та же перепись узлов, pod — JSON)
+fresh
+go_run al5p env FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS='not json {' bash "$RUN" --available
+expect_rc AL5p 70
+if grep -q 'дефект обёртки run.sh: размещение не проверено: перепись узлов и pod прочитана, а разбор её отказал' "$OUT"; then ok; else bad AL5p-why "дефект обёртки размещения не назван"; fi
 # Стенд замера 2026-10-09 (kubectl describe nodes): запросы 450m CPU и 2 756 МиБ.
 STAND_ALL="$( { pod_j kacho n1 Running 450m 2756Mi; pod_j kacho n2 Running 450m 2756Mi; } | items)"
 # Q1 — стенд на всех узлах, место есть → 0: стенд узел не запирает (опыт 2026-10-09:
@@ -2287,6 +2335,16 @@ if [ -e "$BOX/state/swapped" ]; then ok; else bad W9 "подмена файла 
 if [ ! -e "$BOX/state/netpol.json" ] && [ ! -e "$BOX/state/job.json" ]; then ok; else bad W9 "запись после подмены кластера"; fi
 if [ -e "$BOX/state/deleted" ]; then bad W9 "delete ns звался в чужом кластере"; else ok; fi
 if grep -q 'фаза «сетевая политика ns» не начата' "$OUT" && grep -q 'НЕ снято' "$OUT" && grep -q 'delete ns t1-heavy-w9' "$OUT"; then ok; else bad W9 "фаза, неснятое ns или шаг не названы"; fi
+# AL5w — страж фазы записи: файл сменился после создания Job, перепись узлов прочитана
+# (код 0), а не JSON → 70 «дефект обёртки», а не 69 (ws#1210); близнец — W9b
+cp "$BOX/kubeconfig" "$BOX/kc-swap-al5w"
+fresh
+go_run al5w env KACHO_REMOTE_KUBECONFIG="$BOX/kc-swap-al5w" FAKE_SWAP_AFTER_JOB="$BOX/kc-swap-al5w" FAKE_NODES_AFTER_JOB='not json {' FAKE_EXIT=0 "${B[@]}" --short al5w -- true
+expect_rc AL5w 70
+if grep -q 'дефект обёртки run.sh: перепись узлов прочитана, а разбор её отказал — кластер не доказан — фаза «доставка исходников» не начата' "$OUT"; then ok
+else bad AL5w-why "дефект обёртки стража фазы не назван"; fi
+if grep -q 'ns t1-heavy-al5w НЕ снято: перепись узлов прочитана, а не разобрана' "$OUT" && [ ! -e "$BOX/state/deleted" ]; then ok
+else bad AL5w-ns "неснятое ns не названо либо delete звался без доказанного кластера"; fi
 # W9b — близнец: файл сменился, узлы те же → 0, узлы переписаны заново
 cp "$BOX/kubeconfig" "$BOX/kc-swap"
 fresh

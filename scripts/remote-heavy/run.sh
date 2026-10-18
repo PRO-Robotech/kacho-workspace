@@ -52,6 +52,8 @@
 # «<учётка>--<профиль>.yaml»; оба есть и расходятся — отказ (файл подменён). Узлы
 # с «-infra-», чужой профиль, ноль узлов, узлы не прочитаны — 69 до ПЕРВОЙ записи
 # (в том числе до уборки прежних запусков и в --available), текст называет шаг.
+# Перепись узлов прочитана, а не разобрана — 70 (дефект обёртки), а не 69: это не
+# «кластер не доказан» и не недоступность (ws#1210).
 # Проверка повторяется перед каждой фазой записи (ns, сеть, квота, Job, доставка,
 # снятие ns), если с прошлой прошло GUARD_TTL_S или отпечаток файла сменился. Не
 # доказан кластер при снятии — ns НЕ снимается (оно в прежнем кластере, а kubectl
@@ -701,15 +703,25 @@ node_guard() {
     return 0
 }
 # guard_write <фаза> — перед фазой записи: узлы переписываются заново, если файл
-# сменился или с прошлой переписи прошло GUARD_TTL_S. Код 1 — фазу не начинать.
+# сменился или с прошлой переписи прошло GUARD_TTL_S. Не 0 — фазу не начинать: код
+# стража (1 — не доказан, 2 — дефект обёртки), исход — guard_exit (ws#1210).
 guard_write() {
+    local rc
     if [ -n "$GUARD_FP" ] && [ "$(kcfg_fp)" = "$GUARD_FP" ] && [ $(( $(now) - GUARD_AT )) -lt "$GUARD_TTL_S" ]; then
         return 0
     fi
-    node_guard && return 0
-    say "$WHY — фаза «$1» не начата (не выполнилось)"
-    return 1
+    node_guard; rc=$?
+    [ "$rc" = 0 ] && return 0
+    if [ "$rc" = 2 ]; then
+        say "дефект обёртки run.sh: $WHY — фаза «$1» не начата; это не недоступность кластера (код 70, не выполнилось, не красное)"
+    else
+        say "$WHY — фаза «$1» не начата (не выполнилось)"
+    fi
+    return "$rc"
 }
+# guard_exit <код guard_write> — дефект обёртки 70, прочее 69: отказ разбора переписи
+# узлов не читается как «кластер недоступен» (heavy-slot по 69 уходит локально).
+guard_exit() { [ "$1" = 2 ] && exit 70; exit 69; }
 
 available() {
     local out err rc
@@ -1133,7 +1145,7 @@ reap_local() {
             owner_alive "$tok" && continue
             if [ "$created" = 1 ] && [ -z "$keep" ] && [ "$ns" != kacho ] && [[ "$ns" =~ ^t[1-9][0-9]*-heavy-[a-z0-9-]+$ ]] \
                && [ "$(kc get ns "$ns" -o json 2>/dev/null | jq -r '.metadata.annotations["kacho.io/owner"] // ""')" = "$tok" ]; then
-                guard_write "уборка ns прежнего запуска" || exit 69
+                guard_write "уборка ns прежнего запуска" || guard_exit $?
                 kc delete ns "$ns" --wait=false >/dev/null 2>&1 && n_ns=$((n_ns + 1))
             fi
         else
@@ -1179,7 +1191,7 @@ sweep_heavy() {
     n_seen="$(sed -n 's/^seen //p' <<< "$plan")"
     while read -r x; do
         [ -n "$x" ] || continue
-        guard_write "уборка просроченного тяжёлого ns" || exit 69
+        guard_write "уборка просроченного тяжёлого ns" || guard_exit $?
         kc delete ns "$x" --wait=false >/dev/null 2>&1 && { n_ok=$((n_ok + 1)); own="$own $x"; }
     done <<< "$(sed -n 's/^own //p' <<< "$plan")"
     foreign="$(sed -n 's/^foreign //p' <<< "$plan" | tr '\n' ' ' | sed 's/ $//')"
@@ -1229,7 +1241,12 @@ cleanup() {
         say "ns $NSNAME оставлено для разбора до $EXPIRES (--keep $KEEP_H); снять: kubectl --context <контекст -client> delete ns $NSNAME"
         return 0
     fi
-    if ! guard_write "снятие ns $NSNAME"; then
+    local grc
+    guard_write "снятие ns $NSNAME"; grc=$?
+    if [ "$grc" = 2 ]; then
+        say "ns $NSNAME НЕ снято: перепись узлов прочитана, а не разобрана (дефект обёртки выше) — кластер не доказан; сними: kubectl --kubeconfig <файл профиля> --context <контекст -client> delete ns $NSNAME — иначе его поймает перепись по kacho.io/expires ($EXPIRES)"
+        return 0
+    elif [ "$grc" != 0 ]; then
         say "ns $NSNAME НЕ снято: kubectl смотрит не в кластер профиля, а ns — в прежнем; верни файл профиля и сними: kubectl --kubeconfig <файл профиля> --context <контекст -client> delete ns $NSNAME — иначе его поймает перепись по kacho.io/expires ($EXPIRES)"
         return 0
     fi
@@ -1261,7 +1278,7 @@ jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg repo "$REPO" --arg exp "$EXPIR
     annotations: ({"kacho.io/expires": $exp, "kacho.io/owner": $owner} + (if $keep != "" then {"kacho.io/keep": $keep} else {} end))}}' > "$BOX/ns.json"
 # create, а не apply: существующее ns create не трогает, а apply переписал бы его
 # метки, и trap снял бы чужое.
-guard_write "создание ns" || exit 69
+guard_write "создание ns" || guard_exit $?
 if ! out="$(kc create -f "$BOX/ns.json" 2>&1 >/dev/null)"; then
     case "$out" in
         *AlreadyExists*|*"already exists"*) say "ns $NSNAME уже есть — run.sh не берёт чужое и не продолжает чужой прогон"; exit 64 ;;
@@ -1316,11 +1333,13 @@ jq -n --arg ns "$NSNAME" --slurpfile D <(printf '%s' "$dns") --slurpfile A <(pri
      {to: [{ipBlock: {cidr: "0.0.0.0/0", except: (["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10", "169.254.0.0/16"]
                                                    + ($own | map(select(test(":") | not))) | unique)}},
            {ipBlock: {cidr: "::/0", except: (["fc00::/7", "fe80::/10"] + ($own | map(select(test(":")))) | unique)}}]}]}}' > "$BOX/netpol.json"
-guard_write "сетевая политика ns" || exit 69
+guard_write "сетевая политика ns" || guard_exit $?
 kc create -f "$BOX/netpol.json" >/dev/null || { say "сетевая политика ns не поставлена (не выполнилось)"; exit 69; }
 # Служба ns kacho для пробы закрытости в pod: ClusterIP с TCP-портом, чьи pod не
 # закрыты собственной политикой ns kacho (иначе проба прошла бы и без нашей).
-# Перепись служб и политик ns kacho — файлами, а не словом argv (ws#1210).
+# Перепись служб и политик ns kacho — файлами, а не словом argv; отказ её разбора —
+# 70 «дефект обёртки», а не пустая проба: иначе проба закрытости молча не исполнилась
+# бы (ws#1210). Годной службы нет — проба пуста законно, строка pod это называет.
 DENY_PROBE="$(jq -nr --slurpfile SV <(kc get svc -n kacho -o json 2>/dev/null || echo '{"items":[]}') \
                     --slurpfile NP <(kc get netpol -n kacho -o json 2>/dev/null || echo '{"items":[]}') '
   $SV[0] as $svc | $NP[0] as $np |
@@ -1330,7 +1349,8 @@ DENY_PROBE="$(jq -nr --slurpfile SV <(kc get svc -n kacho -o json 2>/dev/null ||
      | select((.spec.selector // {}) as $s | ($s | length > 0)
               and ($sel | any(.[]; covers($s)) | not))
      | {n: .metadata.name, p: ([.spec.ports[]? | select((.protocol // "TCP") == "TCP") | .port] | first)}
-     | select(.p != null)] | sort_by(.n) | (first // empty) | "\(.n).kacho.svc:\(.p)"')"
+     | select(.p != null)] | sort_by(.n) | (first // empty) | "\(.n).kacho.svc:\(.p)"')" \
+    || defect "перепись служб и политик ns kacho прочитана, а разбор её отказал — проба закрытости ns kacho не выбрана, прогон без неё не идёт"
 
 # Квота — сумма запросов профиля с запасом на init: ns не способно занять больше
 # одного прогона, даже если в нём появится второй pod.
@@ -1348,7 +1368,7 @@ jq -n --arg ns "$NSNAME" \
    spec: {limits: [{type: "Container",
      defaultRequest: {cpu: "100m", memory: "128Mi", "ephemeral-storage": "64Mi"},
      default: {cpu: "1", memory: "1Gi", "ephemeral-storage": "1Gi"}}]}}]}' > "$BOX/limits.json"
-guard_write "квота ns" || exit 69
+guard_write "квота ns" || guard_exit $?
 kc apply -f "$BOX/limits.json" >/dev/null || { say "квота ns не поставлена (не выполнилось)"; exit 69; }
 
 # ── Job ──────────────────────────────────────────────────────────────────────
@@ -1856,7 +1876,7 @@ def kesc_c: (if .command then .command |= map(kesc) else (.) end)
                + (if $dind == 1 or $pg == 1 then [{name: "tools", emptyDir: {}}] else [] end))})}}}
   | .spec.template.spec |= ((.initContainers, .containers) |= map(kesc_c))' \
     > "$BOX/job.json"
-guard_write "Job" || exit 69
+guard_write "Job" || guard_exit $?
 kc create -f "$BOX/job.json" >/dev/null || { say "Job не создан (не выполнилось)"; exit 69; }
 T0="$(now)"
 REQ_SPEC="$(jq -c '.spec.template.spec' "$BOX/job.json")"
@@ -1933,7 +1953,7 @@ done
 # Сверка pod — до доставки: без исходников в pod нет ни строки кода ветки.
 verify_spec "pod $POD" "$(kc -n "$NSNAME" get pods -l job-name=run -o json 2>/dev/null \
                           | jq -c --arg p "$POD" '.items[] | select(.metadata.name == $p) | .spec' 2>/dev/null)"
-guard_write "доставка исходников" || exit 69
+guard_write "доставка исходников" || guard_exit $?
 kc -n "$NSNAME" exec -i "$POD" -c fetch -- sh -c 'cat > /work/in.bundle && touch /work/in.done' < "$BOX/src.bundle" & wait_bg $! \
     || { say "исходники не доставлены в pod (не выполнилось)"; exit 69; }
 say "исходники доставлены: $(( $(stat -c %s "$BOX/src.bundle") / 1048576 )) МиБ bundle за $(( $(now) - T0 )) с от создания Job"
