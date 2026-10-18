@@ -26,12 +26,30 @@
                   /dev/random; свой `<`, `<>` либо `done < …` охватывающего цикла) и `read`
                   после `yes |` / `cat /dev/zero |`: ожидание, держащее 100 % ядра; отказ — при
                   любом N, в фоне и под timeout тоже (предел не снимает горящее ядро).
-Всё перечисленное — в ПЕРЕДНЕМ плане. Отсоединённое (`… &` без `wait` в той же
+Всё перечисленное — в ПЕРЕДНЕМ плане. Отдельный предмет того же стража (ws#1159):
+  pattern-kill  — снятие процессов НЕ по pid: адресаты вычислены сопоставлением (имя,
+                  строка запуска, владелец, терминал, файл или порт, «все процессы uid») —
+                  `pkill -f x`, `pkill newman`, `killall node`, `killall5`, `skill`, `fuser -k`,
+                  `kill -9 -1`, `kill <имя>`, `kill $(pgrep …)`, `pgrep … | xargs kill`,
+                  `pgrep … | while read p; do kill $p; done`, `for p in $(pidof …); do kill $p; done`,
+                  вход xargs/read/цикла от выборщика (`xargs kill < <(pgrep x)`, `… done < <(pgrep x)`,
+                  `xargs kill <<< "$(pgrep x)"`), id-значение от выборщика (`pkill -P $(pgrep x)`);
+                  число — по ЗНАЧЕНИЮ (`kill -9 -01` = `-1`, `pkill -P 01` = `-P 1`);
+                  отказ — и в фоне, и под timeout, и с меткой ci-watcher: снятие чужого не
+                  зависит от того, ждут ли его. Классы строятся от двух ролей (ВЫБОРЩИК, ДОСТАВКА —
+                  комментарий у PID_MATCHERS), а не перечнем строк.
+  Почему здесь, а не отдельным хуком: разбор строки (bash -c, $(…), heredoc, конвейеры,
+  обёртки sudo/env/setsid/timeout) один, второй процесс python на каждый вызов Bash не
+  заводится, провязку PreToolUse Bash уже держит tooling-gate check-19.
+Отсоединённое (`… &` без `wait` в той же
 оболочке, `setsid -f`) — законно: шаг возвращает «идёт», исход дочитывает короткий
 шаг. `nohup` сам не отсоединяет: без `&` он ждёт в переднем плане. Флаг
 run_in_background отсоединением не считается: живой фон держит агента workflow
 так же, как передний план (корень класса 1, ws#1001).
 
+РАЗРЕШЕНО (снятие): `kill <pid>`, `kill -- -<pgid>`, `kill $(cat <pid-файл>)`, `kill %1`, `kill "$pid"`,
+`kill -0 …` и `pkill -0 …` (сигнал 0 ничего не шлёт), `pkill -F <pid-файл>`, `pkill -P <pid>` (кроме 1),
+`pkill -g <pgid>`, `pkill -s <sid>`, `pgrep`, `pidof`, `ps` без снятия.
 РАЗРЕШЕНО: `read` из файла (`read -r l < f`, `while read …; done < f`), `head -c N
 /dev/urandom`, `yes | <не read>`; `sleep` < 300 вне цикла, `timeout` < 600, `flock -n`, `flock -w` < 300,
 одно чтение CI (`gh pr checks` без --watch, `gh run view`), `heavy-slot.sh` (без
@@ -63,6 +81,14 @@ make (страж судит строку, а не текст файла); `wait 
 судится лишь звено прямо перед `read`), `echo 900 | xargs sleep` (argv собирает xargs из
 входа), `python3 -c "import time; time.sleep(900)"` (и любой иной интерпретатор:
 страж судит команды оболочки, а не текст программы на другом языке).
+Снятие — страховка кооперативного агента, не граница безопасности (решение диспетчера,
+приёмка ws#1159): не разбираются запуск под другим пользователем и в другом окружении —
+`su -c`, `doas`, `runuser`, `nsenter`, `unshare`, `systemd-run`, `script -qc`, `strace`
+(не обёртки этого разбора: их команда — слово, а не argv); `find -exec`, `env -S` (команда
+собирается из довода); `eval`, переменная-команда (`K=pkill; $K -f x`). Также: адресат,
+переданный через переменную из ДРУГОЙ команды (`p=$(pgrep x); kill $p` —
+поток значений между командами не прослеживается), через файл (`pgrep x > f; kill $(cat f)`),
+`eval`, скрипт и иной интерпретатор (`python3 -c "os.kill(…)"`).
 """
 
 import json
@@ -87,6 +113,39 @@ CLOSERS = {"done": ("while", "until", "for", "select"), "fi": ("if",), "}": ("{"
 BUSY_DEV = {"/dev/zero", "/dev/urandom", "/dev/random"}  # чтение из них не кончается
 TRANSPARENT = {"do", "then", "else", "elif", "!", "in"}
 SUDO_ARG = {"-u", "-g", "-p", "-C", "-D", "-r", "-t", "-T", "-U", "-R", "-h"}  # флаги sudo со значением
+# флаги обёрток СО значением отдельным словом; прочие флаги — без значения
+WRAP_VAL = {"nice": ("-n", "--adjustment"), "ionice": ("-c", "-n", "-p", "-P", "-u", "--class",
+            "--classdata", "--pid", "--pgid", "--uid"), "stdbuf": ("-i", "-o", "-e"),
+            "time": ("-o", "--output", "-f", "--format"), "exec": ("-a",), "command": (),
+            "builtin": (), "nohup": (), "chrt": (), "taskset": ()}
+# ── снятие процессов (ws#1159) ──
+# КЛАСС: сигнал, чьи адресаты ВЫЧИСЛЕНЫ сопоставлением по машине (имя, строка запуска,
+# владелец, терминал, файл или порт, «все процессы uid»), а не названы pid, группой или
+# записанным pid-файлом. На общем uid такое сопоставление задевает чужие прогоны и саму
+# оболочку агента (строка `bash -c '… pkill -f образец'` совпадает с образцом).
+# Формы класса выводятся из двух ролей, а не перечнем строк:
+#   ВЫБОРЩИК — команда, печатающая или снимающая множество pid по признаку, отличному
+#     от идентичности: pgrep/pkill (вне -P/-g/-s/-F), pidof, killall, killall5, skill, ps
+#     без выбора по id, lsof, fuser;
+#   ДОСТАВКА — сигнал: сам выборщик-снимающий (pkill, killall, killall5, skill, fuser -k)
+#     либо `kill`, чьи адресаты пришли от выборщика — подстановкой `$(…)`, конвейером
+#     в xargs или в цикл `while read`, заголовком `for … in $(…)`, — либо названы
+#     именем или `-1` («все процессы uid»).
+# Сигнал 0 (`kill -0`, `pkill -0`) ничего не доставляет — вне класса.
+PID_MATCHERS = {"pkill", "pgrep"}                      # выбор по признаку, если нет id-выбора
+KILL_BY_MATCH = {"killall", "killall5", "skill"}       # снимают только сопоставлением
+# флаги pgrep/pkill, выбирающие по ИДЕНТИЧНОСТИ (родитель, группа, сеанс, pid-файл)
+PG_ID_OPTS = {"-P": "--parent", "-g": "--pgroup", "-s": "--session", "-F": "--pidfile"}
+# флаги pgrep/pkill со значением, выбирающие по признаку (владелец, терминал, cgroup, ns)
+PG_ATTR_OPTS = {"-u", "--euid", "-U", "--uid", "-G", "--group", "-t", "--terminal",
+                "--cgroup", "--ns", "--env"}
+PG_VAL_OPTS = {"--signal", "-d", "--delimiter", "--nslist", "-q", "--queue", "-r", "--runstates"}
+# ps: выбор по id — не выборщик (`ps -o pgid= -p <pid>` законен)
+PS_ID_OPTS = {"-p", "--pid", "-q", "--quick-pid", "--ppid", "--sid", "-s", "-g", "--Group", "--pgid"}
+PS_VAL_OPTS = {"-o", "-O", "--format", "-u", "-U", "--user", "-G", "--group", "-t", "--tty",
+               "--sort", "-C", "-N", "--cols", "--columns", "--rows", "-w"}
+XARGS_VAL = {"-a", "--arg-file", "-d", "--delimiter", "-E", "-e", "-I", "-L", "-l", "-n",
+             "--max-args", "-P", "--max-procs", "-s", "--max-chars", "--process-slot-var"}
 
 CLASS_TEXT = {
     "loop-sleep": "цикл until/while со sleep — опрос в переднем плане",
@@ -99,8 +158,15 @@ CLASS_TEXT = {
     "long-timeout": "timeout ≥ %d с без отсоединения" % TIMEOUT_MAX,
     "flock-wait": "flock ждёт замка ≥ %d с или без предела" % FLOCK_MAX,
     "busy-read": "read из /dev/zero, /dev/urandom или после yes | — ожидание на 100 % ядра",
+    "pattern-kill": "снятие процессов не по pid: цель выбрана по имени, строке запуска, ресурсу или «все процессы uid»",
 }
+# Классы снятия по шаблону (ws#1159) — другой предмет, чем ожидание: свой текст отказа,
+# метка ci-watcher их не снимает.
+KILL_CLASSES = {"pattern-kill"}
 CLASS_HINT = {
+    "pattern-kill": "снимай по pid — по записанному pid-файлу: `kill $(cat <pid-файл>)` либо "
+                    "`pkill -F <pid-файл>`; по pid — `kill <pid>`; группу своего сеанса — "
+                    "`kill -TERM -- -<pgid>`; детей своего pid — `pkill -P <pid>`",
     "busy-read": "жди через heavy-slot --enqueue или короткий шаг: чтение бесконечного источника "
                  "не ждёт, а жжёт ядро",
 }
@@ -244,6 +310,7 @@ class Node:
         self.bg = False
         self.substs = []
         self.redir = None         # хвост перенаправлений группы (`done < f`)
+        self.redir_substs = []    # подстановки в этом хвосте (`done < <(pgrep x)`)
         self.feed = None          # предыдущее звено конвейера `a | b`
 
 
@@ -256,10 +323,16 @@ class Parser:
         return self.t[self.i] if self.i < len(self.t) else (None, None)
 
     def skip_redirs(self):
-        """`done > журнал`, `) 2>&1` — хвост перенаправлений группы, не команда."""
+        """`done > журнал`, `) 2>&1`, `done < <(…)` — хвост перенаправлений группы, не
+        команда: (текст, подстановки хвоста) либо (None, [])."""
+        j0, substs = self.i, []
+        while self.peek()[0] == "subst":  # лексер кладёт подстановку до текста
+            substs.append(self.peek()[1])
+            self.i += 1
         k, v = self.peek()
         if k != "cmd":
-            return None
+            self.i = j0
+            return None, []
         ws, j = v.split(), 0
         while j < len(ws):
             if hg.REDIR_OP.match(ws[j]):
@@ -267,14 +340,23 @@ class Parser:
             elif hg.REDIR_WORD.match(ws[j]):
                 j += 1
             else:
-                return None
+                self.i = j0
+                return None, []
         self.i += 1
-        return v
+        return v, substs
+
+    def past_substs(self):
+        """Лексема после подряд идущих подстановок: `done < <(…)` лексер отдаёт как
+        подстановку ДО `done` — она принадлежит хвосту закрывающего слова."""
+        j = self.i
+        while j < len(self.t) and self.t[j][0] == "subst":
+            j += 1
+        return self.t[j] if j < len(self.t) else (None, None)
 
     def parse_list(self, stop):
         items = []
         while self.i < len(self.t):
-            k, v = self.peek()
+            k, v = self.past_substs()
             if (k == "kw" and v in stop) or (k == "op" and v in stop):
                 break
             if k == "op" and v in (";", "\n", ";;"):
@@ -329,13 +411,14 @@ class Parser:
         if k == "op" and v == "(":
             self.i += 1
             kids = self.parse_list({")"})
-            redir = None
+            redir, rsub = None, []
             if self.peek() == ("op", ")"):
                 self.i += 1
-                redir = self.skip_redirs()
+                redir, rsub = self.skip_redirs()
             node = Node("group", kids=kids)
             node.substs = substs
             node.redir = redir
+            node.redir_substs = rsub
             return node
         if k == "kw" and v in OPENERS:
             self.i += 1
@@ -354,13 +437,20 @@ class Parser:
                     self.i += 1
             else:
                 kids = self.parse_list({closer})
-            redir = None
+            redir, rsub, pre = None, [], []
+            while self.peek()[0] == "subst" and self.past_substs() == ("kw", closer):
+                pre.append(self.peek()[1])
+                self.i += 1
             if self.peek() == ("kw", closer):
                 self.i += 1
-                redir = self.skip_redirs()
+                redir, rsub = self.skip_redirs()
+                rsub = pre + rsub
+            elif pre:
+                substs = substs + pre
             node = Node("group", kids=kids, loop=v if v in ("while", "until", "for", "select") else None)
             node.substs = substs
             node.redir = redir
+            node.redir_substs = rsub
             return node
         if k == "kw" and v in TRANSPARENT:
             self.i += 1
@@ -390,9 +480,15 @@ def head(argv):
             i += 1
             continue
         if base in ("nohup", "nice", "ionice", "stdbuf", "time", "command", "exec", "builtin", "chrt", "taskset"):
+            # флаги СО значением — у каждой обёртки свои (ws#1159: `time -p`, `command -p` —
+            # флаги без значения; прежний общий перечень съедал следующее слово — команду)
+            vals = WRAP_VAL.get(base, ())
             i += 1
-            while i < len(argv) and argv[i].startswith("-"):
-                i += 2 if argv[i] in ("-n", "-c", "-p", "-o", "-e", "-i") else 1
+            while i < len(argv) and argv[i].startswith("-") and argv[i] != "-":
+                if argv[i] == "--":
+                    i += 1
+                    break
+                i += 2 if argv[i] in vals else 1
             if base in ("chrt", "taskset") and i < len(argv):
                 i += 1
             continue
@@ -430,6 +526,185 @@ def head(argv):
             continue
         break
     return argv[i:], tmo, detached
+
+
+# ── снятие по шаблону (ws#1159): роли ВЫБОРЩИК и ДОСТАВКА ────────────────────
+def opt_value(args, k, a, long_names, short_names):
+    """(имя, значение, сколько слов съедено) для `--x=v`, `--x v`, `-xv`, `-x v`; None — не флаг со значением."""
+    if a.startswith("--"):
+        name, eq, val = a.partition("=")
+        if name not in long_names:
+            return None
+        return (name, val, 1) if eq else (name, args[k + 1] if k + 1 < len(args) else "", 2)
+    for j in range(1, len(a)):
+        f = "-" + a[j]
+        if f in short_names:
+            rest = a[j + 1:]
+            return (f, rest, 1) if rest else (f, args[k + 1] if k + 1 < len(args) else "", 2)
+    return None
+
+
+def num_is(v, n):
+    """Слово — целое n по ЗНАЧЕНИЮ (`-01`, `-0001` = -1; `01` = 1), а не по написанию."""
+    return re.match(r"^-?\d+$", v or "") is not None and int(v) == n
+
+
+def stdin_selects(text, substs):
+    """Источник входа команды или хвоста группы (`< <(…)`, `<<< "$(…)"`, `<<< $(…)`,
+    `0< <(…)`) — подстановка, печатающая pid выборщика. Подстановка берётся ПО МЕСТУ:
+    n-е `__SUBST__` текста — n-я подстановка узла."""
+    for m in re.finditer(r"(?<![<\w])0?(<<<|<>|<)(?!<)\s*[\"']?([^\s\"']*__SUBST__)", text or ""):
+        k = (text or "")[:m.start(2)].count("__SUBST__") + m.group(2).count("__SUBST__") - 1
+        if 0 <= k < len(substs) and text_selects(substs[k]):
+            return True
+    return False
+
+
+def pg_by_pattern(args, sub_sel=False, var_sel=False):
+    """pgrep/pkill: (выбор по признаку, сигнал 0). Законен выбор ТОЛЬКО по идентичности:
+    -P/--parent (кроме 1 — это все переподчинённые), -g/--pgroup, -s/--session, -F/--pidfile."""
+    longs = set(PG_ID_OPTS.values()) | {o for o in PG_ATTR_OPTS | PG_VAL_OPTS if o.startswith("--")}
+    shorts = set(PG_ID_OPTS) | {o for o in PG_ATTR_OPTS | PG_VAL_OPTS if not o.startswith("--")}
+    pattern = attr = zero = False
+    ids = []
+    k, opts = 0, True
+    while k < len(args):
+        a = args[k]
+        if opts and a == "--":
+            opts, k = False, k + 1
+            continue
+        if opts and a.startswith("-") and len(a) > 1:
+            # сигнал: -9, -TERM, -SIGUSR1 (два знака и больше заглавными); одна заглавная — флаг (-P, -F, -G, -U)
+            got = None if re.match(r"^-(\d+|[A-Z][A-Z0-9+-]+)$", a) else opt_value(args, k, a, longs, shorts)
+            if got is None:  # флаг без значения либо сигнал
+                zero = zero or a in ("-0", "-SIG0")
+                k += 1
+                continue
+            name, val, eaten = got
+            if name in PG_ID_OPTS or name in PG_ID_OPTS.values():
+                ids.append((name, val))
+                # id-значение от выборщика — `-P $(pgrep x)`, `-g $(pgrep -f x)` (ws#1159)
+                if ("__SUBST__" in val and sub_sel) or (("$" in val or hg.SQ in val or hg.DQ in val) and var_sel):
+                    attr = True
+            elif name in PG_ATTR_OPTS:
+                attr = True
+            elif name == "--signal":
+                zero = zero or val.upper() in ("0", "SIG0")
+            k += eaten
+            continue
+        pattern = True  # позиционное — образец
+        k += 1
+    parent_all = any(n in ("-P", "--parent") and any(num_is(x, 1) for x in v.split(",")) for n, v in ids)
+    return (pattern or attr or parent_all or not ids), zero
+
+
+def ps_by_pattern(args):
+    """ps — выборщик, если не ограничен id: -p/--pid/-q/--ppid/--sid/-s/-g или pid позиционно."""
+    longs = {o for o in PS_ID_OPTS | PS_VAL_OPTS if o.startswith("--")}
+    shorts = {o for o in PS_ID_OPTS | PS_VAL_OPTS if not o.startswith("--")}
+    k = 0
+    while k < len(args):
+        a = args[k]
+        if a.startswith("-") and len(a) > 1:
+            got = opt_value(args, k, a, longs, shorts)
+            if got is None:
+                k += 1
+                continue
+            if got[0] in PS_ID_OPTS:
+                return False
+            k += got[2]
+            continue
+        if re.match(r"^\d+$", a) or "$" in a or hg.SQ in a or hg.DQ in a or "__SUBST__" in a:
+            return False  # `ps -o pgid= "$pid"` — pid позиционно
+        k += 1             # `ps aux` — BSD-флаги
+    return True
+
+
+def selects_by_pattern(argv, substs=()):
+    """argv (после head) — ВЫБОРЩИК: печатает или снимает pid по признаку, а не по id."""
+    if not argv:
+        return False
+    base, args = os.path.basename(argv[0]), argv[1:]
+    if base in PID_MATCHERS:
+        return pg_by_pattern(args, any(text_selects(x) for x in substs))[0]
+    if base in KILL_BY_MATCH or base in ("pidof", "lsof", "fuser"):
+        return True
+    if base == "ps":
+        return ps_by_pattern(args)
+    return False
+
+
+def text_selects(text, depth=0):
+    """В тексте (`$(…)`, звено конвейера) есть выборщик — в любой простой команде."""
+    if depth > 4:
+        return False
+    stack = Parser(tokens(text or "")).parse_list(set())
+    while stack:
+        n = stack.pop()
+        stack.extend(n.kids)
+        if any(text_selects(x, depth + 1) for x in n.substs):
+            return True
+        if n.kind == "simple" and selects_by_pattern(head(hg.words(n.text))[0], n.substs):
+            return True
+    return False
+
+
+def node_selects(n):
+    """Узел конвейера (простой или группа) печатает pid выборщика."""
+    stack = [n]
+    while stack:
+        x = stack.pop()
+        if x is None:
+            continue
+        stack.extend(x.kids)
+        if any(text_selects(t) for t in x.substs):
+            return True
+        if x.kind == "simple" and selects_by_pattern(head(hg.words(x.text))[0], x.substs):
+            return True
+    return False
+
+
+def feed_selects(n):
+    """Выше по конвейеру (`a | b | <n>`) есть выборщик."""
+    f = n.feed if n is not None else None
+    while f is not None:
+        if node_selects(f):
+            return True
+        f = f.feed
+    return False
+
+
+def kill_parse(args):
+    """kill (встроенный, procps, util-linux): (сигнал 0 либо ничего не шлёт, адресаты)."""
+    zero, sig, k, targets = False, False, 0, []
+    while k < len(args):
+        a = args[k]
+        if a == "--":
+            targets += args[k + 1:]
+            break
+        if a in ("-l", "-L", "--list", "--table", "-p", "--pid"):
+            return True, []          # список сигналов, печать pid — ничего не шлёт
+        if a in ("-s", "-n", "--signal") or a.startswith("--signal="):
+            v = a.split("=", 1)[1] if "=" in a else (args[k + 1] if k + 1 < len(args) else "")
+            zero, sig = num_is(v, 0) or v.upper() == "SIG0", True
+            k += 1 if "=" in a else 2
+            continue
+        if a in ("-q", "--queue"):
+            k += 2
+            continue
+        if a == "--timeout":
+            k += 3
+            continue
+        if a in ("-a", "--all", "--verbose", "-r", "--require-handler"):
+            k += 1
+            continue
+        if not sig and not targets and re.match(r"^-(\d+|[A-Za-z][A-Za-z0-9+-]*)$", a):
+            zero, sig = num_is(a, 0) or a == "-SIG0", True   # первый `-N`/`-NAME` — сигнал
+            k += 1
+            continue
+        targets.append(a)
+        k += 1
+    return zero, targets
 
 
 class Judge:
@@ -521,6 +796,17 @@ class Judge:
             ctx = dict(ctx, busy=False)
         for s in n.substs:  # подстановку оболочка ждёт до команды
             self.text(s, dict(ctx, bg=ctx["bg"]))
+        # адресаты от выборщика (ws#1159): конвейер `pgrep … | xargs kill`,
+        # `pgrep … | while read p; do kill $p; done`, `for p in $(pgrep …); do kill $p; done`
+        # класс: вход xargs/read/цикла — выборщик, каким бы путём он ни пришёл (конвейер,
+        # `< <(…)`, `<<< "$(…)"`), либо заголовок for — его подстановка
+        own_in = stdin_selects(n.redir, n.redir_substs) if n.kind == "group" else stdin_selects(n.text, n.substs)
+        head_in = n.kind == "group" and n.loop and n.kids and n.kids[0].kind == "simple" \
+            and stdin_selects(n.kids[0].text, n.kids[0].substs)
+        if feed_selects(n) or own_in or head_in or (n.loop == "for" and any(text_selects(x) for x in n.substs)):
+            ctx = dict(ctx, sel=True)
+        elif n.feed is not None:
+            ctx = dict(ctx, sel=False)
         if n.kind == "group":
             # timeout < FOR_MAX над циклом ограничивает его сам — не ожидание
             bounded = ctx["tmo"] is not None and ctx["tmo"] < FOR_MAX
@@ -534,9 +820,44 @@ class Judge:
             for k in n.kids:
                 self.node(k, c)
             return
-        self.simple(n.text, dict(ctx, bg=bg))
+        self.simple(n.text, dict(ctx, bg=bg), n.substs)
 
-    def simple(self, seg, ctx):
+    def kill_form(self, base, args, substs, ctx, shown):
+        """Снятие процессов (ws#1159): находка pattern-kill либо ничего. Фон и предел
+        времени класса не меняют: снятие чужого происходит и отсоединённым."""
+        if base in KILL_BY_MATCH:
+            if base == "killall" and any(a in ("-0", "-s0") for a in args):
+                return True
+            self.add("pattern-kill", shown, None)
+            return True
+        if base == "pkill":
+            pattern, zero = pg_by_pattern(args, any(text_selects(x) for x in substs), ctx.get("sel"))
+            if pattern and not zero:
+                self.add("pattern-kill", shown, None)
+            return True
+        if base == "fuser":
+            if any(a in ("-k", "--kill") or re.match(r"^-[a-zA-Z]*k[a-zA-Z]*$", a) for a in args):
+                self.add("pattern-kill", shown, None)
+            return True
+        if base == "kill":
+            zero, targets = kill_parse(args)
+            if zero:
+                return True
+            from_sel = any(text_selects(x) for x in substs)
+            for t in targets:
+                bad = (num_is(t, -1)                                     # все процессы uid (-01 = -1)
+                       or ("__SUBST__" in t and from_sel)                 # kill $(pgrep …)
+                       or (("$" in t or hg.SQ in t or hg.DQ in t) and ctx.get("sel"))
+                       or not re.match(r"^(-?\d+|%.*|-?\$.*|-?[\ue000\ue001].*|-?.*__SUBST__.*)$", t))
+                if bad:
+                    self.add("pattern-kill", shown, None)
+                    return True
+            if not targets and ctx.get("xargs") and ctx.get("sel"):   # pgrep … | xargs kill
+                self.add("pattern-kill", shown, None)
+            return True
+        return False
+
+    def simple(self, seg, ctx, substs=()):
         argv, tmo, det = head(hg.words(seg))
         if not argv:
             return
@@ -545,6 +866,8 @@ class Judge:
         base = os.path.basename(argv[0])
         args = argv[1:]
         shown = seg.strip()
+        if self.kill_form(base, args, substs, ctx, shown):
+            return
         if base == "read":
             own = stdin_source(seg)
             if (own in BUSY_DEV) if own is not None else ctx.get("busy"):
@@ -558,7 +881,7 @@ class Judge:
                 self.add("long-timeout", shown, None)
             sub, _, sdet = head(argv[2:])
             if sub:
-                self.simple(" ".join(shlex.quote(w) for w in argv[2:]), dict(ctx, bg=bg or sdet, tmo=None))
+                self.simple(" ".join(shlex.quote(w) for w in argv[2:]), dict(ctx, bg=bg or sdet, tmo=None), substs)
             return
         if base == "sleep":
             d = sum((duration(a) or 0) for a in args) if args else 0
@@ -603,7 +926,7 @@ class Judge:
             if rest[:1] in (["-c"], ["--command"]) and len(rest) > 1:
                 self.text(rest[1], dict(ctx, bg=bg, tmo=bound))
             elif rest:
-                self.simple(" ".join(shlex.quote(x) for x in rest), dict(ctx, bg=bg, tmo=bound))
+                self.simple(" ".join(shlex.quote(x) for x in rest), dict(ctx, bg=bg, tmo=bound), substs)
             return
         if base in SHELLS:
             cmd, script, _, _ = hg.shell_args(args)
@@ -611,6 +934,14 @@ class Judge:
                 self.text(cmd, dict(ctx, bg=bg, tmo=bound))
             return
         if base in ("xargs", "parallel"):
+            # команда после флагов xargs получает адресаты со входа (ws#1159)
+            k = 0
+            while k < len(args) and args[k].startswith("-"):
+                got = opt_value(args, k, args[k], {o for o in XARGS_VAL if o.startswith("--")},
+                                {o for o in XARGS_VAL if not o.startswith("--")})
+                k += got[2] if got else 1
+            if k < len(args):
+                self.simple(" ".join(shlex.quote(x) for x in args[k:]), dict(ctx, bg=bg, xargs=True), substs)
             return
 
 
@@ -635,20 +966,44 @@ def judge(cmd, agent_type=None):
     j.text(cmd, {"bg": False, "loop": False, "tmo": None})
     if not j.found:
         return [], None
+    # снятие по шаблону метка не снимает: её предмет — ожидание (ws#1159)
+    kills = [f for f in j.found if f.cls in KILL_CLASSES]
+    waits = [f for f in j.found if f.cls not in KILL_CLASSES]
+    if not waits:
+        return kills, None
     mins, err = exemption(cmd, agent_type)
     if mins is not None:
         limit = mins * 60
-        left = [f for f in j.found if f.bound is None or f.bound > limit]
+        left = [f for f in waits if f.bound is None or f.bound > limit]
         if left:
             err = "метка ci-watcher %d мин: форма ожидания без timeout ≤ %d с — %s" % (
                 mins, limit, left[0].text[:120])
-        return left, err
-    return j.found, err
+        return kills + left, err
+    return kills + waits, err
+
+
+def deny_kill(f):
+    """Текст отказа снятию по шаблону (ws#1159): форма, почему, как снимать по pid."""
+    return [
+        "NO-WAIT-GUARD: отказ — снятие процессов по шаблону.",
+        "  форма: %s — %s" % (CLASS_TEXT[f.cls], hg.clip(f.text, 200)),
+        "  подсказка: %s." % CLASS_HINT[f.cls],
+        "Машина и uid общие: сопоставление по имени или строке запуска задевает чужие прогоны —",
+        "отсоединённые демоны, билеты heavy-slot --enqueue соседних полос — и саму оболочку агента",
+        "(строка `bash -c '… pkill -f <образец>'` совпадает с образцом). pid своего прогона —",
+        "в pid-файле, который пишет его запуск (`echo $! > <pid-файл>`); проверка жизни — `kill -0`.",
+    ]
 
 
 def deny(found, err, ws):
+    kill = next((x for x in found if x.cls in KILL_CLASSES), None)
+    found = [x for x in found if x.cls not in KILL_CLASSES]
+    if kill is not None and not found and not err:
+        sys.stderr.write("\n".join(deny_kill(kill)) + "\n")
+        sys.exit(2)
     f = found[0] if found else None
-    lines = ["NO-WAIT-GUARD: отказ — команда ожидания в переднем плане."]
+    lines = deny_kill(kill) if kill is not None else []
+    lines.append("NO-WAIT-GUARD: отказ — команда ожидания в переднем плане.")
     if f:
         lines.append("  форма: %s — %s" % (CLASS_TEXT[f.cls], hg.clip(f.text, 200)))
         if f.cls in CLASS_HINT:

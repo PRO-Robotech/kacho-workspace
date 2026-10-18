@@ -2905,6 +2905,22 @@ python3 - "$b/.claude/agents/dispatcher.md" <<'PY'
 import sys; p = sys.argv[1]; s = open(p).read(); open(p, 'w').write(s.replace('`blocked` — лишь за файлом соседа', '`blocked` — по усмотрению'))
 PY
 run 1 "$b" "инъекция: правило о чужих файлах снято из базы — краснеет" "$C19"
+# ws#1159: страж несёт отказ снятию по шаблону — разбор исполняется, а не ищется словом.
+b="$(mksandbox)"
+python3 - "$b/.claude/hooks/no-wait-guard/guard.py" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read(); t = s.replace('        if base in KILL_BY_MATCH:', '        if False:')
+assert t != s; open(p, 'w').write(t)
+PY
+run_says 1 "$b" "инъекция E': страж пропускает killall — краснеет" "$C19" "«killall node» — - (ждали pattern-kill)"
+b="$(mksandbox)"
+python3 - "$b/.claude/hooks/no-wait-guard/guard.py" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read(); t = s.replace('            zero, targets = kill_parse(args)', '            self.add("pattern-kill", shown, None)\n            return True')
+assert t != s; open(p, 'w').write(t)
+PY
+run_says 1 "$b" "инъекция E': страж отказывает и снятию по pid — краснеет" "$C19" "«kill 4242» — pattern-kill (ждали пропуск"
+b="$(mksandbox)"
+printf '\n# комментарий пробы ws#1159\n' >> "$b/.claude/hooks/no-wait-guard/guard.py"
+run 0 "$b" "близнец E': безобидная правка стража — молчит" "$C19"
 
 echo "== check-20: «gh api — только GET» у читающих агентов, отказ провязан в PreToolUse Bash (ws#1008) =="
 C20=check-20-gh-api-read-only-is-wired.sh

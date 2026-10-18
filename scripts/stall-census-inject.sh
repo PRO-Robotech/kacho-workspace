@@ -15,6 +15,9 @@
 # 152 МБ): `time bash scripts/stall-census.sh --session <каталог>` — 0,13 с
 # (2026-10-11); предел из задания ws#1001 — 5 с.
 #
+# Отсоединённые процессы (ws#1154) — пробы Д1–Д9 и их мутанты: отбор по метке окружения,
+# живой близнец, законный срок, чужая сессия, переиспользованный pid, «не судимо».
+#
 # Коды: 0 — все пробы сошлись; 1 — нет; 2 — нет python3: вердикта нет.
 set -uo pipefail
 
@@ -273,6 +276,50 @@ proc_cases() {
 }
 proc_cases "$C"
 
+echo "== процессы: отсоединённые своей сессии — по метке окружения (ws#1154)"
+# Живая форма: прогон полосы `setsid env … sh -c '…' &` после выхода оболочки
+# переподчинён (родитель — не claude) и прежней выборкой «прямой потомок claude»
+# не осматривался вовсе. Отбор — метка окружения CLAUDE_CODE_SESSION_ID/CLAUDE_PID,
+# не строка запуска: строки запуска ниже одинаковы у находки и у близнецов.
+DS="$(session detached)"
+DCMD="sh -c go test ./...; echo 0 > /t/r.rc"
+dps() {  # dps <файл> <возраст claude 100, с> <возраст корня, с>
+    { echo "100 1 $2 claude claude --x"; echo "400 1 $3 sh $DCMD"; echo "401 400 $3 go go test ./..."
+      echo "300 1 99999 sshd sshd"; } > "$1"
+}
+denv() {  # denv <каталог proc> <сессия> <CLAUDE_PID> [KACHO_DETACHED_UNTIL]
+    local d
+    for d in 400 401; do
+        mkdir -p "$1/$d"
+        printf 'PATH=/x\0CLAUDE_CODE_SESSION_ID=%s\0CLAUDE_PID=%s\0%s' "$2" "$3" "${4:+KACHO_DETACHED_UNTIL=$4}" > "$1/$d/environ"
+    done
+    mkdir -p "$1/300"; printf 'PATH=/x\0' > "$1/300/environ"
+}
+dps "$T/ps-det" 90000 7200
+dps "$T/ps-det-young" 90000 1800
+dps "$T/ps-det-reuse" 600 7200
+denv "$T/proc-det-dead" "$OWN" 777
+denv "$T/proc-det-live" "$OWN" 100
+denv "$T/proc-det-term" "$OWN" 777 "$((NOW + 3600))"
+denv "$T/proc-det-expired" "$OWN" 777 "$((NOW - 60))"
+denv "$T/proc-det-foreign" "$FOR" 777
+mkdir -p "$T/proc-empty"
+# detached_cases <прибор> — пробы отсоединённых; их же гонят мутанты ниже.
+detached_cases() {
+    local C="$1"
+    CLAUDE_CODE_SESSION_ID=$OWN STALL_PROC_ROOT="$T/proc-det-dead" absent="pid 401" probe 1 "Д1 инъекция: отсоединённый своей сессии 120 мин, claude 777 не жив — STALL-PROC корня, потомок не назван" "STALL-PROC pid 400 (отсоединён, claude 777 не жив)" --session "$DS" --ps "$T/ps-det"
+    CLAUDE_CODE_SESSION_ID=$OWN STALL_PROC_ROOT="$T/proc-det-dead" probe 1 "  …перепись называет осмотренных отсоединённых" "корней 1 — своих 1 (claude жив 0, в объявленном сроке 0)" --session "$DS" --ps "$T/ps-det"
+    CLAUDE_CODE_SESSION_ID=$OWN STALL_PROC_ROOT="$T/proc-det-live" probe 0 "Д2 живой близнец: тот же процесс, claude 100 жив — молчит" "claude жив 1" --session "$DS" --ps "$T/ps-det"
+    CLAUDE_CODE_SESSION_ID=$OWN STALL_PROC_ROOT="$T/proc-det-term" probe 0 "Д3 законный близнец: демон в объявленном сроке (KACHO_DETACHED_UNTIL через 60 мин) — молчит" "в объявленном сроке 1" --session "$DS" --ps "$T/ps-det"
+    CLAUDE_CODE_SESSION_ID=$OWN STALL_PROC_ROOT="$T/proc-det-expired" probe 1 "Д4 инъекция: срок демона истёк минуту назад — STALL-PROC, причина названа" "срок KACHO_DETACHED_UNTIL истёк" --session "$DS" --ps "$T/ps-det"
+    CLAUDE_CODE_SESSION_ID=$OWN STALL_PROC_ROOT="$T/proc-det-foreign" probe 0 "Д5 чужая сессия (как П1, П7) — молчит" "корней 1 — своих 0 (claude жив 0, в объявленном сроке 0), чужих 1" --session "$DS" --ps "$T/ps-det"
+    CLAUDE_CODE_SESSION_ID=$OWN STALL_PROC_ROOT="$T/proc-det-dead" probe 0 "Д6 близнец: сирота 30 мин (порог 60) — молчит" "своих 1" --session "$DS" --ps "$T/ps-det-young"
+    CLAUDE_CODE_SESSION_ID=$OWN STALL_PROC_ROOT="$T/proc-det-live" probe 1 "Д7 инъекция: pid 100 переиспользован — claude моложе процесса, владелец не жив — STALL-PROC" "STALL-PROC pid 400 (отсоединён, claude 100 не жив)" --session "$DS" --ps "$T/ps-det-reuse"
+    STALL_PROC_ROOT="$T/proc-det-dead" probe 2 "Д8 своя сессия не определена, сирота старше порога — не судимо, код 2, а не «чисто»" "не судимо 1" --session "$DS" --ps "$T/ps-det"
+    CLAUDE_CODE_SESSION_ID=$OWN STALL_PROC_ROOT="$T/proc-empty" probe 2 "Д9 живой снимок, окружение не прочитано ни у одного — код 2, а не «чисто»" "окружение не прочитано ни у одного" --session "$DS" --self 1
+}
+detached_cases "$C"
+
 echo "== нечитаемое — не «чисто»"
 probe 2 "каталога сессии нет — код 2" "VOID" --session "$T/nope" --ps "$T/ps"
 s="$(session emptyps)"; : > "$T/ps-empty"
@@ -370,6 +417,17 @@ mutant "равный аптайму — неправдоподобен" 'and et 
 mutant "нечисловой возраст — ноль (до ws#1149)" 'p[2].isdigit() else None, p[3]' 'p[2].isdigit() else 0, p[3]' etimes_cases
 mutant "--verbose не печатает" $'\nif verbose:' $'\nif False:' etimes_cases
 mutant "поимённо и без --verbose" $'\nif verbose:' $'\nif True:' etimes_cases
+echo "== мутанты отсоединённых (ws#1154) — обязаны покраснеть на пробах Д1–Д9"
+mutant "выборка только прямых потомков claude" "    if e.get('CLAUDE_CODE_SESSION_ID') or e.get('CLAUDE_PID'):" "    if False:" detached_cases
+mutant "живой claude не проверяется" "    alive = owner is not None and owner[2] == 'claude'" "    alive = False and owner[2] == 'claude'" detached_cases
+mutant "любой claude — живой владелец" "    alive = owner is not None and owner[2] == 'claude'" "    alive = True or owner[2] == 'claude'" detached_cases
+mutant "pid владельца не сверен по возрасту" " and owner[1] is not None and owner[1] >= et" "" detached_cases
+mutant "объявленный срок не читается" "    if term.isdigit() and now < int(term):" "    if False:" detached_cases
+mutant "срок без сверки со временем" "    if term.isdigit() and now < int(term):" "    if term.isdigit():" detached_cases
+mutant "судится каждый меченый, а не корень" "        continue  # не корень: судится корень поддерева" "        pass" detached_cases
+mutant "чужая сессия — своя" "        who = 'own' if sid == own_sid else 'foreign'" "        who = 'own'" detached_cases
+mutant "непонятная принадлежность молчит" "            unjudged.append('pid %s (отсоединён, claude %s)' % (pid, cpid or '?'))" "            pass" detached_cases
+mutant "ноль прочитанного окружения — «чисто»" "env_void = bool(live) and env_read == 0" "env_void = False" detached_cases
 
 echo "== журнал своей сессии без transcript_path (ws#1134)"
 # Один каталог проекта, два окна: у каждого свой застрявший агент, сессия N свежее;
