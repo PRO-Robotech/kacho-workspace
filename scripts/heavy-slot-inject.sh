@@ -122,7 +122,9 @@ echo "── над настоящей памятью ручек нет: пот�
 # ручка получает 64 ДО первой записи (опыт ws#832, круги 2–3).
 REAL=(-u HEAVY_SLOT_DIR -u HEAVY_SLOT_MEMINFO -u HEAVY_SLOT_LIMIT_MIB -u HEAVY_SLOT_GUARD_S -u HEAVY_SLOT_GUARD_GRACE_S -u HEAVY_SLOT_BUDGET_MIB -u HEAVY_SLOT_POLL_S -u HEAVY_SLOT_WAIT_S)
 SHARED="$(getent passwd "$(id -u)" | cut -d: -f6)/.cache/heavy-slots"
-seen() { stat -c %s:%Y "$SHARED/journal.log" 2>/dev/null || echo нет; }
+# Общий журнал пишут и соседние полосы машины: сравнение размера и времени (stat) краснело от чужой
+# строки (2026-10-18, нагрузка 100+). Судится наше: строки журнала с путём этой пробы ($W/).
+seen() { local n; n="$(grep -cF -- "$W/" "$SHARED/journal.log" 2>/dev/null)"; echo "${n:-0}"; }
 before="$(seen)"
 assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_LIMIT_GIB=46 bash "$SLOT" docker -- touch "$W/k1") $(has "$W/err" 'HEAVY_SLOT_LIMIT_GIB=46')" "потолок 46 ГиБ — 64, ручка названа"
 assert "64 да нет" "$(slot "${REAL[@]}" HEAVY_SLOT_DIR="$W/own" bash "$SLOT" docker -- touch "$W/k2") $(has "$W/err" 'отдельная очередь') $([ -e "$W/own" ] && echo да || echo нет)" "свой каталог — 64, каталог не заведён"
@@ -172,15 +174,26 @@ assert 75 "$(slot HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" docker -- true)" "1000 
 wait "$A"
 assert 0 "$(slot HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" docker -- true)" "близнец: первый вышел — второй входит"
 
-echo "── очередь строгая: малый не обгоняет ждущий большой"
-HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" docker -- sleep 4 2>/dev/null & A=$!
-for _ in 1 2 3 4 5 6 7 8 9 10; do ls "$HEAVY_SLOT_DIR"/active/*.slot >/dev/null 2>&1 && break; sleep 0.2; done
-HEAVY_SLOT_WAIT_S=10 HEAVY_SLOT_BUDGET_MIB=250 bash "$SLOT" docker -- true 2>/dev/null & B=$!
-for _ in $(seq 1 25); do [ "$(qlen)" -ge 1 ] && break; sleep 0.2; done
-assert "75 да" "$(slot HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" docker -- true) $(has "$W/err" 'в очереди впереди 1')" "малый (50) влез бы по памяти, но большой (250) впереди — ждёт, и причина названа"
-wait "$B"; rc_b=$?; wait "$A"
-assert 0 "$rc_b" "большой дождался выхода первого и вошёл"
+echo "── очередь по билету: малый ОБГОНЯЕТ ждущего большего, которому места нет (ws#1161 д)"
+# Прежняя редакция («малый не обгоняет ждущий большой») держала малые отправки позади go-race в
+# 16 ГиБ при свободном месте. Обгон ограничен: BYPASS_MAX раз на ждущего, и не у того, кому места
+# уже хватает. Держатель ждёт по событию (файл), а не по сну: под нагрузкой машины сон не успевал.
+export HEAVY_SLOT_LIMIT_MIB=1300
+# bphold <файл> — держатель слота (бюджет 200), живёт до появления файла.
+# shellcheck disable=SC2016  # строка дочерней оболочки
+bphold() { HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" docker -- sh -c 'for _ in $(seq 1 900); do [ -e "$0" ] && break; sleep 0.1; done' "$1" 2>/dev/null & BPH=$!
+           for _ in $(seq 1 50); do [ "$(nslots)" -ge 1 ] && break; sleep 0.2; done; }
+rm -f "$W/hold-q" "$W/ov1"
+bphold "$W/hold-q"
+HEAVY_SLOT_WAIT_S=20 HEAVY_SLOT_BUDGET_MIB=250 bash "$SLOT" docker -- true 2>/dev/null & B=$!
+for _ in $(seq 1 50); do [ "$(qlen)" -ge 1 ] && break; sleep 0.2; done
+assert "0 да" "$(slot HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" docker -- touch "$W/ov1") $([ -e "$W/ov1" ] && echo да || echo нет)" "малый (50) влезает по памяти, большой (250) впереди ждёт и сам не влезает → малый проходит"
+gb250="$(grep -l '^budget=250$' "$HEAVY_SLOT_DIR"/queue/* | head -n 1)"; bp0="$(sed -n 's/^bypassed=//p' "$gb250")"
+assert "75 да да" "$(slot HEAVY_SLOT_BUDGET_MIB=150 bash "$SLOT" docker -- true) $(has "$W/err" 'потолка') $([ "$(sed -n 's/^bypassed=//p' "$gb250")" = "$bp0" ] && echo да || echo нет)" "близнец: малый (150), которому в оставшееся место не уместиться, не проходит (ждёт памяти, причина названа) и обгоном не засчитан"
+touch "$W/hold-q"; wait "$B"; rc_b=$?; wait "$BPH"
+assert 0 "$rc_b" "большой дождался выхода держателя и вошёл"
 assert 0 "$(slot HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" docker -- true)" "близнец: очередь пуста — малый входит"
+export HEAVY_SLOT_LIMIT_MIB=100000
 
 echo "── голову очереди держит лишь билет, влезающий под свой потолок при пустых слотах"
 # B3 круга 3: билет с потолком ниже занятого ждал до конца своего ожидания, и
@@ -866,6 +879,428 @@ for _ in $(seq 1 25); do ls "$HEAVY_SLOT_DIR"/active/*.slot >/dev/null 2>&1 && b
 assert "да" "$(has "$W/status" 'локально по флагу: проба обхода: запись слота')" "занятый слот с --local показывает причину в --status"
 wait "$LP"
 git -C "$R" checkout -q -- f
+
+echo "── --enqueue: каталог журналов внутри рабочего дерева git — 64 до постановки, файлы слота копию грязной не делают (ws#1181, kacho#3251)"
+# 2026-10-18 на kacho#3251 файлы hs-*.{log,pid,rc} лежали в копии git, хук отправки судил
+# «грязную» временную копию без node_modules, и проверки консоли ушли в «НЕ выполнено».
+# Законен каталог вне git и каталог в дереве, где git игнорирует ВСЕ четыре файла слота.
+git init -q "$W/er" && mkdir -p "$W/er/logs" "$W/er/ign" "$W/er/part" "$W/outside"
+printf 'ign/\n' > "$W/er/.gitignore"; printf '*.log\n' > "$W/er/part/.gitignore"
+rm -f "$W/e1" "$W/e2" "$W/e3" "$W/e4" "$W/e5"
+rc="$(slot bash "$SLOT" --enqueue "$W/er/logs" docker -- touch "$W/e1")"
+assert "64 да да 0 0 нет" "$rc $(has "$W/err" 'в рабочем дереве git') $(has "$W/err" "$HEAVY_SLOT_DIR/enq") $(ls -A "$W/er/logs" | wc -l) $(qlen) $([ -e "$W/e1" ] && echo да || echo нет)" "каталог в дереве git, файлы слота не игнорируются → 64 до постановки: причина и каталог вне копии названы, в каталоге пусто, билета нет, команда не запускалась"
+rc="$(slot bash "$SLOT" --enqueue "$W/er/ign" docker -- touch "$W/e2")"; RE2="$(rcof)"
+assert "0 0 да" "$rc $(await_rc "$RE2") $([ -e "$W/e2" ] && echo да || echo нет)" "близнец: каталог в дереве, но git игнорирует все файлы слота → поставлен и исполнен"
+assert "" "$(git -C "$W/er" status --porcelain --untracked-files=all -- ign)" "...и копия чиста: в git status файлов слота нет"
+rc="$(slot bash "$SLOT" --enqueue "$W/outside" docker -- touch "$W/e3")"; RE3="$(rcof)"
+assert "0 0 да" "$rc $(await_rc "$RE3") $([ -e "$W/e3" ] && echo да || echo нет)" "близнец: каталог вне любого git → поставлен и исполнен"
+rc="$(slot bash "$SLOT" --enqueue "$W/er/part" docker -- touch "$W/e4")"
+assert "64 да нет" "$rc $(has "$W/err" 'в рабочем дереве git') $([ -e "$W/e4" ] && echo да || echo нет)" "игнорируется лишь *.log, .pid и .rc — нет → 64: судится КАЖДЫЙ из четырёх файлов слота, не один"
+n_at="$(grep -c 'if enq_dir_in_tree ' "$SLOT")"
+sed 's/if enq_dir_in_tree /if false \&\& enq_dir_in_tree /' "$SLOT" > "$W/slot-mut-1181.sh"
+rc="$(slot bash "$W/slot-mut-1181.sh" --enqueue "$W/er/logs" docker -- touch "$W/e5")"; RE5="$(rcof)"; await_rc "$RE5" >/dev/null
+assert "1 0 да" "$n_at $rc $([ -n "$(git -C "$W/er" status --porcelain --untracked-files=all -- logs)" ] && echo да || echo нет)" "мутант «проверки каталога нет»: тот же вызов ставится, и копия становится грязной — проба выше его ловит"
+
+echo "── git push: слот печатает, откуда и куда идёт отправка; из первичной копии воркспейса в иную ветку — 64 (ws#1182)"
+# Дважды за сутки (2026-10-17…18) `git push origin HEAD:refs/heads/<ветка>` через --enqueue ушёл из
+# корня воркспейса, а не из копии задачи, и в чужом репозитории легла ветка с номером чужой
+# задачи. Узнаватель — класс «первичная копия того репозитория, где отслеживается сам слот,
+# и ветка назначения иная, чем текущая»; перечня каталогов и номеров нет.
+git init -q -b main "$W/wsr" && mkdir -p "$W/wsr/scripts" && cp "$SLOT" "$W/wsr/scripts/heavy-slot.sh"
+git -C "$W/wsr" add scripts && sandbox_git -C "$W/wsr" commit -q -m ws
+git init -q --bare "$W/wsr.git" && git -C "$W/wsr" remote add origin "$W/wsr.git"
+git -C "$W/wsr" worktree add -q -b 1182-lane "$W/wsr-lane"
+git init -q -b main "$W/kcl" && echo k > "$W/kcl/f" && git -C "$W/kcl" add f && sandbox_git -C "$W/kcl" commit -q -m k
+git -C "$W/kcl" remote add origin "https://tok:secret@github.com/PRO-Robotech/kacho.git" && git -C "$W/kcl" remote add bare "$W/wsr.git"
+bref() { git -C "$W/wsr.git" rev-parse --verify --quiet "refs/heads/$1" >/dev/null && echo да || echo нет; }
+wslot() { local d="$1"; shift; (cd "$d" && slot bash "$SLOT" docker -- "$@"); }
+wh="$(git -C "$W/wsr" rev-parse --short=8 HEAD)"; b0="$(grep -c ' push-where ' "$HEAVY_SLOT_DIR/journal.log")"
+rc="$(wslot "$W/wsr" git push -q origin HEAD:refs/heads/3251-x)"
+assert "64 да да да нет" "$rc $(has "$W/err" 'первичной копии воркспейса') $(has "$W/err" "git push: каталог $W/wsr ") $(has "$W/err" "голова $wh") $(bref 3251-x)" "корень воркспейса, ветка назначения иная, чем текущая → 64: причина и печать каталога и головы, отправки не было"
+assert "$((b0 + 1))" "$(grep -c ' push-where ' "$HEAVY_SLOT_DIR/journal.log")" "и в отказе строка push-where записана в журнал"
+rc="$(wslot "$W/wsr-lane" git push -q origin HEAD:refs/heads/1182-lane)"
+assert "0 да да" "$rc $(bref 1182-lane) $(has "$W/err" 'ветка 1182-lane')" "близнец: та же команда из связанной копии git worktree → печать и отправка идёт"
+rc="$(wslot "$W/wsr-lane" git push -q origin HEAD:refs/heads/другая-ветка)"
+assert "0 да" "$rc $(bref другая-ветка)" "близнец: из связанной копии назначение иное, чем текущая ветка → отправка идёт (копии так и работают)"
+rc="$(wslot "$W/wsr" git -C "$W/wsr-lane" push -q origin HEAD:refs/heads/через-C)"
+assert "0 да да" "$rc $(bref через-C) $(has "$W/err" "корень git $W/wsr-lane")" "близнец: из корня, но git -C <копия> → судится копия, не cwd"
+rc="$(wslot "$W/wsr" timeout 60 git push -q origin HEAD:refs/heads/3251-w)"
+assert "64 нет" "$rc $(bref 3251-w)" "обёртка перед git (timeout) не уводит от суждения"
+rc="$(wslot "$W/wsr" git push -q origin main)"
+assert "0 да" "$rc $(bref main)" "близнец: из корня, назначение — текущая ветка (main) → слот не судит, печать есть"
+rc="$(wslot "$W/kcl" git push -q bare HEAD:refs/heads/3251-y)"
+assert "0 да да нет" "$rc $(bref 3251-y) $(has "$W/err" 'git push: каталог') $(has "$W/err" 'secret')" "близнец: корень чужого репозитория (в нём слот не отслеживается) → отправка идёт; учётные данные в origin в печати не показаны"
+sed 's/&& push_to_foreign_branch /\&\& false \&\& push_to_foreign_branch /' "$SLOT" > "$W/slot-mut-1182a.sh"
+sed 's/^\( *\)git -C "$top" ls-files --error-unmatch scripts\/heavy-slot.sh >\/dev\/null 2>&1 || return 1/\1true/' "$SLOT" > "$W/slot-mut-1182b.sh"
+sed 's/^\( *\)\[ -n "$gdir" \] \&\& \[ "$gdir" = "$cdir" \] || return 1/\1true/' "$SLOT" > "$W/slot-mut-1182c.sh"
+dl() { diff "$SLOT" "$W/slot-mut-1182$1.sh" | grep -c '^<'; }
+mrc() { local m="$1" d="$2" rem="$3" ref="$4"; (cd "$d" && slot bash "$W/slot-mut-1182$m.sh" docker -- git push -q "$rem" HEAD:refs/heads/"$ref"); }
+assert "1 0 да" "$(dl a) $(mrc a "$W/wsr" origin мутант-a) $(bref мутант-a)" "мутант «не судит»: отправка из корня идёт — проба выше его ловит"
+assert "1 64 нет" "$(dl b) $(mrc b "$W/kcl" bare мутант-b) $(bref мутант-b)" "мутант «судит любую первичную копию»: корень чужого репозитория отказан — близнец выше его ловит"
+assert "1 64 нет" "$(dl c) $(mrc c "$W/wsr-lane" origin мутант-c) $(bref мутант-c)" "мутант «связанная копия — тоже корень»: копия задачи отказана — близнец выше его ловит"
+
+# Опции после имени удалённого репозитория — не refspec; отправка по имени и удаление — не «голова корня в иную ветку».
+# Первая редакция читала `--force-with-lease` как ветку назначения и отказывала законным отправкам из корня.
+git -C "$W/wsr.git" config receive.advertisePushOptions true
+wslot "$W/wsr-lane" git push -q origin HEAD:refs/heads/del-x >/dev/null
+rc="$(wslot "$W/wsr" git push -q origin main --force-with-lease)"
+assert "0 да" "$rc $(bref main)" "из корня на main: «origin main --force-with-lease» — законна (опция после refspec не ветка)"
+rc="$(wslot "$W/wsr" git push -q origin HEAD:refs/heads/main -o ci.skip)"
+assert "0 да" "$rc $(has "$W/err" 'HEAD→main')" "из корня на main: «HEAD:refs/heads/main -o ci.skip» — законна, в печати ветка назначения main, а не опция"
+rc="$(wslot "$W/wsr" git push -q origin --delete del-x)"
+assert "0 нет да" "$rc $(bref del-x) $(has "$W/err" 'удалить:del-x')" "из корня: «--delete del-x» — законно, удаление названо в печати своим текстом"
+rc="$(wslot "$W/wsr" git push -q origin 1182-lane)"
+assert "0 да да" "$rc $(bref 1182-lane) $(has "$W/err" 'по имени:1182-lane')" "из корня: «origin 1182-lane» — отправка ветки по имени, голову корня никуда не кладёт, в печати «по имени»"
+rc="$(wslot "$W/wsr" git push -q origin HEAD:refs/heads/main)"
+assert "0" "$rc" "близнец: «HEAD:refs/heads/<текущая>» из корня — законна (refs/heads/ срезается)"
+rc="$(wslot "$W/wsr" git push -q origin HEAD)"
+assert "0" "$rc" "близнец: «origin HEAD» из корня — в одноимённую ветку, законна"
+rc="$(wslot "$W/wsr" git push -q origin HEAD:refs/heads/3251-z -o ci.skip)"
+assert "64 да нет нет" "$rc $(has "$W/err" '«3251-z»') $(has "$W/err" '«-o') $(bref 3251-z)" "из корня «HEAD:refs/heads/3251-z -o ci.skip» — 64, названа ветка 3251-z (не опция), отправки не было"
+rc="$(wslot "$W/wsr" git push -q origin main:refs/heads/3251-q)"
+assert "64 нет" "$rc $(bref 3251-q)" "из корня имя текущей ветки в роли источника («main:3251-q») — тоже голова корня: 64"
+sed 's|^\( *\)dsta="${dsta#refs/heads/}"$|\1:|' "$SLOT" > "$W/slot-mut-1182r.sh"
+assert "1 0 да" "$(dl r) $(cd "$W/wsr" && slot bash "$W/slot-mut-1182r.sh" docker -- git push -q origin HEAD:refs/heads/3251-m) $(bref 3251-m)" "мутант «refs/heads/ не срезается»: «refs/heads/…» читается как не-ветка и отказ теряется (0 вместо 64) — отказ выше его ловит; близнец «HEAD:refs/heads/<текущая> → 0» держит обратную ошибку"
+
+# >>> prelude-1176
+# Двойник run.sh для проб внешнего входа (ws#1176, ws#1156). Стадия запуска настоящего run.sh —
+# перепись, размещение, создание ns — соседа не терпит: запуск внутри чужой стадии выходит 75, как
+# вторая перепись run.sh («прогон 2-й по времени создания»). Строка «ns … создано:» — её конец.
+# Ожидания — по событию (файл-держатель), а не по сну: под нагрузкой машины сон не успевал.
+cat > "$W/fake-run-gate.sh" <<'GATE'
+#!/usr/bin/env bash
+if [ "${1:-}" = --available ]; then
+    [ -n "${GATE_BUSY:-}" ] && [ -e "$GATE_BUSY" ] && { echo "remote-heavy: кластер занят: идущих тяжёлых прогонов 4 при пределе 4" >&2; exit 75; }
+    exit 0
+fi
+label="${*: -1}"
+mkdir "$GATE_DIR/starting" 2>/dev/null || { echo "remote-heavy: кластер занят: прогон 2-й по времени создания при пределе 1 — снимаю своё ns (не выполнилось)" >&2; exit 75; }
+if [ -n "${GATE_START_HOLD:-}" ]; then
+    for _ in $(seq 1 600); do [ -e "$GATE_START_HOLD" ] && break; sleep 0.1; done
+else sleep "${GATE_START_S:-0.7}"; fi
+rmdir "$GATE_DIR/starting"
+[ -n "${GATE_NOMARK:-}" ] || echo "remote-heavy: ns t1176-$label создано: задача 1176" >&2
+echo "$label" >> "$GATE_DIR/order"
+[ -z "${GATE_TRAP:-}" ] || trap 'touch "$GATE_DIR/term"; exit 143' TERM
+if [ -n "${GATE_HOLD:-}" ]; then
+    for _ in $(seq 1 600); do [ -e "$GATE_HOLD" ] && break; sleep 0.1; done
+else sleep "${GATE_RUN_S:-0.3}" & wait $!; fi
+echo "$label" >> "$GATE_DIR/end"
+exit 0
+GATE
+mkdir -p "$W/gate" "$W/enq2" "$R/sub"
+# genq <каталог> <метка> [ENV=…] — поставить lint с go version <метка> из каталога; код вызова.
+genq() {
+    local d="$1" label="$2"; shift 2
+    (cd "$d" && env -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_REMOTE_RUN="$W/fake-run-gate.sh" GATE_DIR="$W/gate" HEAVY_SLOT_ENQ_S=60 "$@" bash "${GSLOT:-$SLOT}" --enqueue "$W/enq2" lint -- go version "$label" 2> "$W/err" > "$W/out"); echo $?
+}
+gorder() { cat "$W/gate/order" 2>/dev/null | tr '\n' ' ' | sed 's/ $//'; }
+gnew() { rm -rf "$W/gate"; mkdir -p "$W/gate"; rm -f "$HEAVY_SLOT_DIR"/ext/* 2>/dev/null; JMARK="$(wc -l < "$JL")"; }
+# wait_order <ожидаемый порядок> <предел, с> — дождаться порядка стартов; 0, если дождались.
+wait_order() { local _; for _ in $(seq 1 $(( $2 * 5 ))); do [ "$(gorder)" = "$1" ] && return 0; sleep 0.2; done; return 1; }
+# tord — метки в порядке номеров билетов внешнего входа (из журнала, после отметки JMARK).
+JMARK=0
+tord() { tail -n +$((JMARK + 1)) "$JL" | sed -n 's/.* ext-enter ticket=\([0-9]*\) .* \([A-Z][A-Z0-9]*\) *$/\1 \2/p' | sort -n | awk '{ printf "%s ", $2 }' | sed 's/ $//'; }
+# <<< prelude-1176
+echo "── внешний путь: свои билеты --enqueue идут по одному, а не вытесняют друг друга (ws#1176)"
+# Замер полосы волны 10: несколько своих билетов подряд срабатывают в одну секунду и уходят в
+# run.sh разом — стадия запуска соседа не терпит, и младший выходит 75: три из трёх.
+gnew
+r1="$(genq "$R" A)"; RA="$(rcof)"; r2="$(genq "$R" B)"; RBB="$(rcof)"; r3="$(genq "$R" C)"; RCC="$(rcof)"
+ca="$(await_rc "$RA")"; cb="$(await_rc "$RBB")"; cc="$(await_rc "$RCC")"
+assert "0/0/0 0/0/0 да" "$r1/$r2/$r3 $ca/$cb/$cc $([ -n "$(tord)" ] && [ "$(gorder)" = "$(tord)" ] && echo да || echo "нет(старт «$(gorder)», билеты «$(tord)»)")" "три своих --enqueue подряд в одну секунду: коды 0 у трёх из трёх, без 75, порядок запуска = порядок номеров билетов"
+gnew
+r1="$(genq "$R" A)"; RA="$(rcof)"; sleep 0.4; r2="$(genq "$R/sub" X)"; RX="$(rcof)"; sleep 0.4; r3="$(genq "$R" B)"; RBB="$(rcof)"
+ca="$(await_rc "$RA")"; cx="$(await_rc "$RX")"; cb="$(await_rc "$RBB")"
+assert "0/0/0 0/0/0 A X B да" "$r1/$r2/$r3 $ca/$cx/$cb $(gorder) $([ "$(gorder)" = "$(tord)" ] && echo да || echo "нет(билеты «$(tord)»)")" "близнец: свой, чужой (другой каталог — иной владелец) и свой — строго по билетам, чужой не обгоняется и никого не обгоняет"
+# Внешний вход очередь памяти не держит: локальная команда входит, пока внешний билет в стадии запуска.
+gnew; rm -f "$W/shold" "$W/gl1"
+r1="$(genq "$R" A GATE_START_HOLD="$W/shold")"; RA="$(rcof)"
+for _ in $(seq 1 150); do [ -d "$W/gate/starting" ] && break; sleep 0.2; done
+# shellcheck disable=SC2016  # строка дочерней оболочки
+rl="$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=64 bash "$SLOT" docker -- sh -c 'test -d "$0" && touch "$1"' "$W/gate/starting" "$W/gl1")"
+assert "0 да" "$rl $([ -e "$W/gl1" ] && echo да || echo нет)" "близнец: локальный слот памяти исполнился, пока внешний билет в стадии запуска, — внешний вход очередь памяти не держит"
+touch "$W/shold"; await_rc "$RA" >/dev/null
+# Повтор --enqueue при ещё ждущем своём билете не плодит второго и называет первый.
+gnew; touch "$W/gate-busy"
+r1="$(genq "$R" A GATE_BUSY="$W/gate-busy")"; RA="$(rcof)"
+for _ in $(seq 1 150); do ls "$HEAVY_SLOT_DIR"/ext/* >/dev/null 2>&1 && break; sleep 0.2; done
+r2="$(genq "$R" A GATE_BUSY="$W/gate-busy")"; RA2="$(rcof)"
+assert "0 0 да да" "$r1 $r2 $([ -n "$RA" ] && [ "$RA" = "$RA2" ] && echo да || echo "нет($RA2)") $(has "$W/err" 'уже стоит')" "повторный --enqueue той же команды при ждущем своём билете: код 0, назван ПЕРВЫЙ (тот же .rc), «уже стоит» сказано"
+assert "1" "$(ls "$HEAVY_SLOT_DIR"/ext/* 2>/dev/null | wc -l)" "...и второго билета нет"
+r3="$(genq "$R" B GATE_BUSY="$W/gate-busy")"; RBB="$(rcof)"
+assert "0 да" "$r3 $([ -n "$RBB" ] && [ "$RBB" != "$RA" ] && echo да || echo нет)" "близнец: другая команда — свой билет"
+rm -f "$W/gate-busy"; await_rc "$RA" >/dev/null; await_rc "$RBB" >/dev/null
+gnew; rm -f "$W/hold5"
+r1="$(genq "$R" A GATE_HOLD="$W/hold5")"; RA="$(rcof)"; wait_order "A" 40
+r2="$(genq "$R" A GATE_HOLD="$W/hold5")"; RA2="$(rcof)"
+assert "0 0 да" "$r1 $r2 $([ -n "$RA2" ] && [ "$RA" != "$RA2" ] && echo да || echo нет)" "близнец: первый уже ИСПОЛНЯЕТСЯ (не ждёт) — та же команда ставится вновь, это не повтор"
+touch "$W/hold5"; await_rc "$RA" >/dev/null; await_rc "$RA2" >/dev/null
+# Вход отпускается строкой «ns … создано», а не выходом run.sh: B стартует, пока A ещё исполняется.
+assert "1" "$(grep -c 'say "ns $NSNAME создано:' "$HERE/remote-heavy/run.sh")" "связка с run.sh: строка «ns … создано:», по которой отпускается вход, в run.sh на месте и одна"
+gnew; rm -f "$W/hold1"
+r1="$(genq "$R" A GATE_HOLD="$W/hold1")"; RA="$(rcof)"; r2="$(genq "$R" B GATE_HOLD="$W/hold1")"; RBB="$(rcof)"
+wait_order "A B" 40; got="$(gorder)"; ended="$(cat "$W/gate/end" 2>/dev/null | wc -l)"
+assert "A B 0" "$got $ended" "вход отпущен строкой «ns … создано»: второй стартовал (A B), пока первый ещё исполняется (завершений 0)"
+touch "$W/hold1"; await_rc "$RA" >/dev/null; await_rc "$RBB" >/dev/null
+# Мутанты: «входа по одному нет», «повтор не распознаётся», «фильтр не отпускает».
+sed 's/^EXT_GATE=1$/EXT_GATE=0/' "$SLOT" > "$W/slot-mut-1176a.sh"; sed 's/^ENQ_DEDUP=1$/ENQ_DEDUP=0/' "$SLOT" > "$W/slot-mut-1176b.sh"
+sed 's/\*"ns "\*" создано:"\*) \[ -z "$EXT_T" \]/*"ns "*" НЕТ-ТАКОЙ:"*) [ -z "$EXT_T" ]/' "$SLOT" > "$W/slot-mut-1176c.sh"
+gnew; GSLOT="$W/slot-mut-1176a.sh"
+r1="$(genq "$R" A)"; RA="$(rcof)"; r2="$(genq "$R" B)"; RBB="$(rcof)"; r3="$(genq "$R" C)"; RCC="$(rcof)"
+ca="$(await_rc "$RA")"; cb="$(await_rc "$RBB")"; cc="$(await_rc "$RCC")"
+assert "1 да" "$(diff "$SLOT" "$W/slot-mut-1176a.sh" | grep -c '^<') $(case "$ca/$cb/$cc" in *75*) echo да ;; *) echo "нет($ca/$cb/$cc)" ;; esac)" "мутант «входа по одному нет»: те же три билета — хотя бы один 75 (проба выше его ловит)"
+gnew; touch "$W/gate-busy"; GSLOT="$W/slot-mut-1176b.sh"
+r1="$(genq "$R" A GATE_BUSY="$W/gate-busy")"; RA="$(rcof)"
+for _ in $(seq 1 150); do ls "$HEAVY_SLOT_DIR"/ext/* >/dev/null 2>&1 && break; sleep 0.2; done
+r2="$(genq "$R" A GATE_BUSY="$W/gate-busy")"; RA2="$(rcof)"
+assert "1 да" "$(diff "$SLOT" "$W/slot-mut-1176b.sh" | grep -c '^<') $([ "$RA" != "$RA2" ] && echo да || echo нет)" "мутант «повтор не распознаётся»: второй билет заведён — проба выше его ловит"
+rm -f "$W/gate-busy"; await_rc "$RA" >/dev/null; await_rc "$RA2" >/dev/null
+gnew; rm -f "$W/hold2"; GSLOT="$W/slot-mut-1176c.sh"
+r1="$(genq "$R" A GATE_HOLD="$W/hold2")"; RA="$(rcof)"; r2="$(genq "$R" B GATE_HOLD="$W/hold2")"; RBB="$(rcof)"
+wait_order "A" 40; sleep 3
+assert "1 A" "$(diff "$SLOT" "$W/slot-mut-1176c.sh" | grep -c '^<') $(gorder)" "мутант «фильтр не отпускает»: второй ждёт выхода первого (в порядке лишь A) — проба выше его ловит"
+touch "$W/hold2"; await_rc "$RA" >/dev/null; await_rc "$RBB" >/dev/null; GSLOT=""
+# Страховка: run.sh без строки «ns … создано» вход держит не дольше EXT_HOLD_S (ручка проб).
+gnew; rm -f "$W/hold3"
+r1="$(genq "$R" A GATE_HOLD="$W/hold3" GATE_NOMARK=1 HEAVY_SLOT_EXT_HOLD_S=2)"; RA="$(rcof)"; r2="$(genq "$R" B GATE_HOLD="$W/hold3" GATE_NOMARK=1 HEAVY_SLOT_EXT_HOLD_S=2)"; RBB="$(rcof)"
+wait_order "A B" 40; got="$(gorder)"; ended="$(cat "$W/gate/end" 2>/dev/null | wc -l)"
+assert "A B 0 да" "$got $ended $(grep -c 'ext-reap .*стадия запуска дольше 2s' "$JL" | sed 's/^[1-9][0-9]*$/да/;s/^0$/нет/')" "без строки «ns … создано» вход отпущен по сроку EXT_HOLD_S: второй стартовал (A B), пока первый исполняется, причина в журнале"
+touch "$W/hold3"; await_rc "$RA" >/dev/null; await_rc "$RBB" >/dev/null
+gnew; rm -f "$W/hold4"
+r1="$(genq "$R" A GATE_HOLD="$W/hold4" GATE_NOMARK=1)"; RA="$(rcof)"; r2="$(genq "$R" B GATE_HOLD="$W/hold4" GATE_NOMARK=1)"; RBB="$(rcof)"
+wait_order "A" 40; sleep 3
+assert "A" "$(gorder)" "близнец: срок по умолчанию (120 с) — второй ждёт выхода первого, раньше не стартует"
+touch "$W/hold4"; await_rc "$RA" >/dev/null; await_rc "$RBB" >/dev/null
+# Сигнал слоту доходит до run.sh: ребёнок, а не exec — TERM пересылается, ns снимает сам run.sh.
+gnew; rm -f "$W/never"
+r1="$(genq "$R" A GATE_HOLD="$W/never" GATE_TRAP=1)"; RA="$(rcof)"; wait_order "A" 40
+wp="$(cat "${RA%.rc}.pid" 2>/dev/null)"; sp="$(pgrep -P "${wp:-0}" -f heavy-slot 2>/dev/null | head -n 1)"
+[ -z "$sp" ] || kill -TERM "$sp"
+ca="$(await_rc "$RA")"
+for _ in $(seq 1 25); do [ -e "$W/gate/term" ] && break; sleep 0.2; done
+assert "143 да да" "$ca $([ -e "$W/gate/term" ] && echo да || echo нет) $([ -n "$sp" ] && echo да || echo нет)" "TERM слоту во внешнем запуске: run.sh получил сигнал (снимает своё ns), слот вышел 143"
+assert "0" "$(ls "$HEAVY_SLOT_DIR"/ext-*.fifo 2>/dev/null | wc -l)" "...и канал фильтра не остался"
+
+# Ключ повтора включает ВЛАДЕЛЬЦА: та же команда из другого каталога либо другой ветки — свой билет и свой .rc.
+gnew; touch "$W/gate-busy"
+r1="$(genq "$R" A GATE_BUSY="$W/gate-busy")"; RA="$(rcof)"
+for _ in $(seq 1 150); do ls "$HEAVY_SLOT_DIR"/ext/* >/dev/null 2>&1 && break; sleep 0.2; done
+r2="$(genq "$R/sub" A GATE_BUSY="$W/gate-busy")"; RA2="$(rcof)"; e2="$(has "$W/err" 'уже стоит')"
+git -C "$R" switch -q -c 985-k
+r3="$(genq "$R" A GATE_BUSY="$W/gate-busy")"; RA3="$(rcof)"; e3="$(has "$W/err" 'уже стоит')"
+git -C "$R" switch -q 984-x
+assert "0 0 0 да нет нет" "$r1 $r2 $r3 $([ -n "$RA" ] && [ "$RA" != "$RA2" ] && [ "$RA" != "$RA3" ] && [ "$RA2" != "$RA3" ] && echo да || echo нет) $e2 $e3" "та же команда --enqueue из другого каталога и из другой ветки — свой билет и свой .rc, а не «уже стоит» с чужим"
+for _ in $(seq 1 150); do [ "$(ls "$HEAVY_SLOT_DIR"/ext/* 2>/dev/null | wc -l)" -ge 3 ] && break; sleep 0.2; done
+assert "3" "$(ls "$HEAVY_SLOT_DIR"/ext/* 2>/dev/null | wc -l)" "...три билета внешнего входа"
+rm -f "$W/gate-busy"; await_rc "$RA" >/dev/null; await_rc "$RA2" >/dev/null; await_rc "$RA3" >/dev/null
+sed 's|"\$(git -C "\$PWD" branch --show-current 2>/dev/null)@\$PWD" "\$LOCAL_WHY"|"$LOCAL_WHY"|' "$SLOT" > "$W/slot-mut-1176k.sh"
+sed 's|"\$(git -C "\$PWD" branch --show-current 2>/dev/null)@\$PWD" "\$LOCAL_WHY"|"@$PWD" "$LOCAL_WHY"|' "$SLOT" > "$W/slot-mut-1176k2.sh"
+gnew; touch "$W/gate-busy"; GSLOT="$W/slot-mut-1176k.sh"
+r1="$(genq "$R" A GATE_BUSY="$W/gate-busy")"; RA="$(rcof)"
+for _ in $(seq 1 150); do ls "$HEAVY_SLOT_DIR"/ext/* >/dev/null 2>&1 && break; sleep 0.2; done
+r2="$(genq "$R/sub" A GATE_BUSY="$W/gate-busy")"; RA2="$(rcof)"
+assert "1 да" "$(diff "$SLOT" "$W/slot-mut-1176k.sh" | grep -c '^<') $([ "$RA" = "$RA2" ] && echo да || echo нет)" "мутант «ключ повтора без владельца»: из другого каталога возвращён чужой .rc — проба выше его ловит"
+rm -f "$W/gate-busy"; await_rc "$RA" >/dev/null; GSLOT=""
+gnew; touch "$W/gate-busy"; GSLOT="$W/slot-mut-1176k2.sh"
+r1="$(genq "$R" A GATE_BUSY="$W/gate-busy")"; RA="$(rcof)"
+for _ in $(seq 1 150); do ls "$HEAVY_SLOT_DIR"/ext/* >/dev/null 2>&1 && break; sleep 0.2; done
+git -C "$R" switch -q -c 985-k
+r3="$(genq "$R" A GATE_BUSY="$W/gate-busy")"; RA3="$(rcof)"
+git -C "$R" switch -q 984-x
+assert "1 да" "$(diff "$SLOT" "$W/slot-mut-1176k2.sh" | grep -c '^<') $([ "$RA" = "$RA3" ] && echo да || echo нет)" "мутант «ключ без ветки»: из другой ветки возвращён чужой .rc — проба выше его ловит"
+rm -f "$W/gate-busy"; await_rc "$RA" >/dev/null; GSLOT=""
+# Билет умершего владельца снимается: голова внешнего входа убита SIGKILL — следующий проходит быстро, а не 75 по сроку.
+reapcase() {
+    gnew; touch "$W/gate-busy"; GSLOT=""
+    genq "$R" A GATE_BUSY="$W/gate-busy" >/dev/null; RA="$(rcof)"
+    for _ in $(seq 1 150); do ls "$HEAVY_SLOT_DIR"/ext/* >/dev/null 2>&1 && break; sleep 0.2; done
+    ap="$(sed -n 's/^pid=//p' "$HEAVY_SLOT_DIR"/ext/* | head -n 1)"
+    kill -KILL "$ap" 2>/dev/null
+    rm -f "$W/gate-busy"; GSLOT="${1:-}"
+    genq "$R" B HEAVY_SLOT_ENQ_S=12 >/dev/null; RBB="$(rcof)"
+    echo "$(await_rc "$RBB") $(gorder)"; GSLOT=""
+}
+sed 's|why=владелец умер"; rm -f "\$f"; continue|why=владелец умер"; continue|' "$SLOT" > "$W/slot-mut-1176r.sh"
+assert "0 B" "$(reapcase)" "голова внешнего входа убита SIGKILL: следующий билет проходит (код 0, запуск B), а не ждёт срока"
+assert "1 75" "$(diff "$SLOT" "$W/slot-mut-1176r.sh" | grep -c '^<') $(reapcase "$W/slot-mut-1176r.sh" | cut -d' ' -f1)" "мутант «билеты умерших не снимаются»: следующий получает 75 по истечении ожидания — проба выше его ловит"
+
+echo "── --cancel <билет>: снимает СВОЮ заявку и её отсоединённое ожидание; чужую не снимает (ws#1156)"
+# Билет очереди знал только --enqueue и --resume: поставленную заявку снять было нечем.
+# Здесь заявки — настоящие: держатель слота, ждущий поставленный билет, отложенный 74, внешний вход.
+export HEAVY_SLOT_LIMIT_MIB=1300
+cdslot() { local d="$1"; shift; (cd "$d" && slot "$@"); }
+tk_of() { local b="${1%.rc}" f; f="$(grep -l "^enq=$b\$" "$HEAVY_SLOT_DIR"/queue/* "$HEAVY_SLOT_DIR"/ext/* 2>/dev/null | head -n 1)"; [ -n "$f" ] && echo $((10#${f##*/})) || echo нет; }
+mkdir -p "$W/own" "$W/alien"
+HEAVY_SLOT_BUDGET_MIB=250 bash "$SLOT" docker -- sleep 9 2>/dev/null & HA=$!
+for _ in $(seq 1 25); do [ "$(nslots)" -ge 1 ] && break; sleep 0.2; done
+rm -f "$W/cn1" "$W/cn2"
+cdslot "$W/own" -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_ENQ_S=60 HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" --enqueue "$W/enq" docker -- touch "$W/cn1" >/dev/null; RB1="$(rcof)"
+for _ in $(seq 1 25); do [ "$(tk_of "$RB1")" != нет ] && break; sleep 0.2; done
+T1="$(tk_of "$RB1")"
+cdslot "$W/own" -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_ENQ_S=60 HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" --enqueue "$W/enq" docker -- touch "$W/cn2" >/dev/null; RB2="$(rcof)"
+for _ in $(seq 1 25); do [ "$(tk_of "$RB2")" != нет ] && break; sleep 0.2; done
+T2="$(tk_of "$RB2")"
+assert "да да" "$([ "$T1" != нет ] && echo да || echo нет) $([ "$T2" != нет ] && echo да || echo нет)" "два поставленных билета ждут в очереди, у каждого есть номер"
+rc="$(cdslot "$W/alien" env bash "$SLOT" --cancel "$T1")"
+assert "64 да да" "$rc $(has "$W/err" 'чужой') $([ "$(tk_of "$RB1")" = "$T1" ] && echo да || echo нет)" "чужой билет (вызов из другого каталога) — отказ 64 с названным владельцем, билет остался"
+rc="$(cdslot "$W/own" env bash "$SLOT" --cancel 987654)"
+assert "69 да" "$rc $(has "$W/err" 'в очереди нет')" "неизвестный билет — 69 «не выполнилось», а не успех"
+rc="$(cdslot "$W/own" env bash "$SLOT" --cancel x)"
+assert "64" "$rc" "--cancel не числом — 64"
+nc="$(grep -c ' cancel ticket=' "$JL")"
+rc="$(cdslot "$W/own" env bash "$SLOT" --cancel "$T1")"; c1="$(await_rc "$RB1")"
+assert "0 да 143 нет $((nc + 1))" "$rc $(has "$W/err" 'снято') $c1 $([ -e "$W/cn1" ] && echo да || echo нет) $(grep -c ' cancel ticket=' "$JL")" "свой билет: 0, «снято» сказано, ожидание снято (.rc 143), команда не запускалась, строка cancel в журнале"
+assert "нет да" "$(tk_of "$RB1") $([ "$(tk_of "$RB2")" = "$T2" ] && echo да || echo нет)" "билет снят, соседний остался на месте"
+cdslot "$W/own" env bash "$SLOT" --cancel "$T2" >/dev/null; await_rc "$RB2" >/dev/null
+wait "$HA"
+# Отложенный 74 билет.
+HEAVY_SLOT_BUDGET_MIB=250 bash "$SLOT" docker -- sleep 4 2>/dev/null & HA=$!
+for _ in $(seq 1 25); do [ "$(nslots)" -ge 1 ] && break; sleep 0.2; done
+rc="$(cdslot "$W/own" -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" docker -- true)"; TD="$(tkof)"
+TF="$HEAVY_SLOT_DIR/queue/$(printf '%012d' "${TD:-0}")"
+rc2="$(cdslot "$W/own" env bash "$SLOT" --cancel "${TD:-0}")"
+assert "74 да 0 нет" "$rc $([ -n "$TD" ] && echo да || echo нет) $rc2 $([ -e "$TF" ] && echo да || echo нет)" "отложенный 74 билет снимается: 0, записи в очереди нет"
+wait "$HA"
+# Внешний вход: ждущий билет кластера.
+rm -rf "$W/gate"; mkdir -p "$W/gate"; touch "$W/gate-busy"
+r1="$(genq "$R" A GATE_BUSY="$W/gate-busy")"; RA="$(rcof)"
+for _ in $(seq 1 150); do [ "$(tk_of "$RA")" != нет ] && break; sleep 0.2; done
+TE="$(tk_of "$RA")"
+rc="$(cd "$R" && slot bash "$SLOT" --cancel "$TE")"; ce="$(await_rc "$RA")"
+assert "0 143 0" "$rc $ce $(ls "$HEAVY_SLOT_DIR"/ext/* 2>/dev/null | wc -l)" "ждущий билет внешнего входа: снят (0), ожидание снято (.rc 143), в ext пусто"
+rm -f "$W/gate-busy"
+# Мутант «владелец не сверяется».
+sed 's/^\( *\)if \[ "$who" != "$me" \]; then/\1if false; then/' "$SLOT" > "$W/slot-mut-1156.sh"
+HEAVY_SLOT_BUDGET_MIB=250 bash "$SLOT" docker -- sleep 5 2>/dev/null & HA=$!
+for _ in $(seq 1 25); do [ "$(nslots)" -ge 1 ] && break; sleep 0.2; done
+cdslot "$W/own" -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_ENQ_S=60 HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" --enqueue "$W/enq" docker -- touch "$W/cn3" >/dev/null; RB3="$(rcof)"
+for _ in $(seq 1 25); do [ "$(tk_of "$RB3")" != нет ] && break; sleep 0.2; done
+T3="$(tk_of "$RB3")"
+rc="$(cdslot "$W/alien" env bash "$W/slot-mut-1156.sh" --cancel "$T3")"; await_rc "$RB3" >/dev/null
+assert "1 0" "$(diff "$SLOT" "$W/slot-mut-1156.sh" | grep -c '^<') $rc" "мутант «владелец не сверяется»: чужой билет снят — проба выше его ловит"
+wait "$HA"
+export HEAVY_SLOT_LIMIT_MIB=100000
+
+echo "── ci-local, git push из копии воркспейса: клоны для наборов хука выставляются сами (KACHO_HOME_<ИМЯ>)"
+# Отправка из копии, где переменных клонов нет, проходила, но change-graph-gate («клон corelib не
+# найден») и docs-gate («копия kaname рядом не найдена») уходили в [VOID]: имена переменных
+# нигде не названы. Копия лежит в <корень>/tmp/…, а project/<имя> — только у основного клона.
+mkdir -p "$W/wsr/project/kacho" "$W/wsr/project/kaname" "$W/wsr/project/corelib"
+for _n in kacho kaname corelib; do git init -q "$W/wsr/project/$_n"; done
+printf '#!/usr/bin/env bash\ncat >/dev/null\nenv | grep "^KACHO_HOME_" | sort > "$HOOK_ENV"\nexit 0\n' > "$W/wsr/.git/hooks/pre-push"; chmod +x "$W/wsr/.git/hooks/pre-push"
+hslot() { local d="$1" cls="$2" ref="$3"; shift 3; rm -f "$W/henv"; (cd "$d" && slot "$@" HOOK_ENV="$W/henv" bash "$SLOT" "$cls" -- git push -q origin HEAD:refs/heads/"$ref"); }
+henv() { tr '\n' ' ' < "$W/henv" 2>/dev/null | sed 's/ $//'; }
+want="KACHO_HOME_CORELIB=$W/wsr/project/corelib KACHO_HOME_KACHO=$W/wsr/project/kacho KACHO_HOME_KANAME=$W/wsr/project/kaname"
+rc="$(hslot "$W/wsr-lane" ci-local h1 -u KACHO_HOME_KACHO -u KACHO_HOME_KANAME -u KACHO_HOME_CORELIB)"
+assert "0 $want да" "$rc $(henv) $(has "$W/err" 'KACHO_HOME_KANAME=')" "ci-local, git push из связанной копии без переменных: хук видит клоны основного клона (project/*), и слот назвал их"
+rc="$(hslot "$W/wsr-lane" ci-local h2 -u KACHO_HOME_KACHO -u KACHO_HOME_CORELIB KACHO_HOME_KANAME=/свой/kaname)"
+assert "0 KACHO_HOME_CORELIB=$W/wsr/project/corelib KACHO_HOME_KACHO=$W/wsr/project/kacho KACHO_HOME_KANAME=/свой/kaname" "$rc $(henv)" "близнец: заданная вызывающим переменная сильнее, остальные выставлены"
+rc="$(hslot "$W/wsr-lane" docker h3 -u KACHO_HOME_KACHO -u KACHO_HOME_KANAME -u KACHO_HOME_CORELIB)"
+assert "0 " "$rc $(henv)" "близнец: класс не ci-local — переменных слот не ставит"
+rm -rf "$W/wsr/project/corelib"
+rc="$(hslot "$W/wsr-lane" ci-local h4 -u KACHO_HOME_KACHO -u KACHO_HOME_KANAME -u KACHO_HOME_CORELIB)"
+assert "0 да да" "$rc $(has "$W/err" 'KACHO_HOME_CORELIB') $(has "$W/err" 'клона нет')" "клона нет → не выставлено, и это названо по имени переменной: узнают до отправки, а не из [VOID]"
+git init -q "$W/wsr/project/corelib"
+printf '#!/usr/bin/env bash\ncat >/dev/null\nenv | grep "^KACHO_HOME_" | sort > "$HOOK_ENV"\nexit 0\n' > "$W/kcl/.git/hooks/pre-push"; chmod +x "$W/kcl/.git/hooks/pre-push"
+rm -f "$W/henv"; (cd "$W/kcl" && slot -u KACHO_HOME_KACHO -u KACHO_HOME_KANAME -u KACHO_HOME_CORELIB HOOK_ENV="$W/henv" bash "$SLOT" ci-local -- git push -q bare HEAD:refs/heads/h5) >/dev/null
+assert "" "$(henv)" "близнец: отправка из клона другого репозитория — переменных воркспейса нет"
+sed 's/^\( *\)export "$var=$d"; set+=("$var=$d")/\1set+=("$var=$d")/' "$SLOT" > "$W/slot-mut-homes.sh"
+rm -f "$W/henv"; (cd "$W/wsr-lane" && slot -u KACHO_HOME_KACHO -u KACHO_HOME_KANAME -u KACHO_HOME_CORELIB HOOK_ENV="$W/henv" bash "$W/slot-mut-homes.sh" ci-local -- git push -q origin HEAD:refs/heads/h6) >/dev/null
+assert "1 " "$(diff "$SLOT" "$W/slot-mut-homes.sh" | grep -c '^<') $(henv)" "мутант «переменные не выставлены»: хук их не видит — проба выше его ловит"
+
+echo "── ci-local: бронь по предмету отправки, а не единые 10 ГиБ; обгон малым ограничен (ws#1161 д)"
+# Измерено по журналу слотов (строки leave класса ci-local, перемер 2026-10-18; предмет — origin
+# каталога отправки): воркспейс — пик 394–790 МиБ (не считая отказов до хука), kaname —
+# peak + container_peak + escaped_peak ≤ 4228 МиБ (36 строк), kacho — до 7595 МиБ (23 строки).
+# Бронь = максимум пика × 1,5, вверх до 512 МиБ: воркспейс 1536, kaname 6656; kacho и всё
+# неопознанное — прежние 10240. Число ставит предмет отправки (git push; -C), не имя класса.
+git init -q -b main "$W/kn" && echo k > "$W/kn/f" && git -C "$W/kn" add f && sandbox_git -C "$W/kn" commit -q -m k
+git -C "$W/kn" remote add origin "https://github.com/PRO-Robotech/kaname.git" && git -C "$W/kn" remote add bare "$W/wsr.git"
+git init -q -b main "$W/kc" && echo k > "$W/kc/f" && git -C "$W/kc" add f && sandbox_git -C "$W/kc" commit -q -m k
+git -C "$W/kc" remote add origin "https://github.com/PRO-Robotech/kacho.git"
+# book <каталог> <класс> <команда…> — бронь слота, число на stdout, основание на stderr.
+book() { local d="$1" c="$2"; shift 2; (cd "$d" && env "${REAL[@]}" bash "$SLOT" --book "$c" -- "$@" 2> "$W/err" || true); }
+assert "1536 да" "$(book "$W/wsr-lane" ci-local git push origin HEAD:refs/heads/b1) $(has "$W/err" 'воркспейс')" "отправка воркспейса: бронь 1536 МиБ (пик 394–790 × 1,5, вверх до 512), основание названо"
+assert "6656 да" "$(book "$W/kn" ci-local git push bare HEAD:refs/heads/b2) $(has "$W/err" 'kaname')" "отправка kaname: бронь 6656 МиБ (пик 4228 × 1,5, вверх до 512), основание названо"
+assert "10240" "$(book "$W/kc" ci-local git push origin HEAD:refs/heads/b3)" "отправка kacho (пик до 7595): прежняя бронь 10240 МиБ — урезать нечем"
+assert "6656" "$(book "$W/wsr" ci-local git -C "$W/kn" push bare HEAD:refs/heads/b4)" "из корня воркспейса отправка клона kaname через -C: предмет — клон, бронь 6656"
+assert "10240" "$(book "$W/wsr-lane" ci-local go version)" "ci-local не отправка (прогон набора): предмета нет, прежняя бронь 10240"
+assert "4096" "$(book "$W/wsr-lane" docker git push origin HEAD:refs/heads/b5)" "класс не ci-local — бронь класса, как была (docker 4096)"
+assert "10240" "$(env "${REAL[@]}" bash "$SLOT" --budget ci-local 2>/dev/null)" "--budget ci-local — прежние 10240 (его читает session-memcap.sh)"
+# Бронь РЕАЛЬНО ставится слотом (журнал enter, запись слота), а не только печатается: таблицу проб
+# подменяет ручка HEAVY_SLOT_SUBJECTS (в режиме проб бюджет ≤ 512, настоящие числа не влезли бы).
+SUBJ=$'workspace|96|проба\nkaname|160|проба'
+bj() { local d="$1" ref="$2" rem="$3"; (cd "$d" && slot -u HEAVY_SLOT_BUDGET_MIB HEAVY_SLOT_SUBJECTS="$SUBJ" bash "$SLOT" ci-local -- git push -q "$rem" HEAD:refs/heads/"$ref") >/dev/null; grep " enter id=.*class=ci-local .*refs/heads/$ref" "$JL" | sed -n 's/.* budget=\([0-9]*\)MiB .*/\1/p' | tail -n 1; }
+assert "96 160" "$(bj "$W/wsr-lane" b6 origin) $(bj "$W/kn" b7 bare)" "слот ставит бронь по предмету: воркспейс 96, kaname 160 (журнал enter) — брони разные"
+bjc() { local d="$1" ref="$2" rem="$3" dir="$4"; (cd "$d" && slot -u HEAVY_SLOT_BUDGET_MIB HEAVY_SLOT_SUBJECTS="$SUBJ" bash "$SLOT" ci-local -- git -C "$dir" push -q "$rem" HEAD:refs/heads/"$ref") >/dev/null; grep " enter id=.*class=ci-local .*refs/heads/$ref" "$JL" | sed -n 's/.* budget=\([0-9]*\)MiB .*/\1/p' | tail -n 1; }
+assert "160 96" "$(bjc "$W/wsr-lane" c1 bare "$W/kn") $(bjc "$W/kn" c2 origin "$W/wsr-lane")" "настоящий вход «git -C <клон> push»: бронь по клону из -C, а не по рабочему каталогу вызова (из копии воркспейса на kaname — 160, из kaname на воркспейс — 96)"
+sed 's|_top="\$(git -C "\$GDIR" rev-parse --show-toplevel|_top="$(git -C "$PWD" rev-parse --show-toplevel|' "$SLOT" > "$W/slot-mut-bpc.sh"
+bjm() { (cd "$W/wsr-lane" && slot -u HEAVY_SLOT_BUDGET_MIB HEAVY_SLOT_SUBJECTS="$SUBJ" bash "$W/slot-mut-bpc.sh" ci-local -- git -C "$W/kn" push -q bare HEAD:refs/heads/c3) >/dev/null; grep " enter id=.*class=ci-local .*refs/heads/c3" "$JL" | sed -n 's/.* budget=\([0-9]*\)MiB .*/\1/p' | tail -n 1; }
+assert "1 96" "$(diff "$SLOT" "$W/slot-mut-bpc.sh" | grep -c '^<') $(bjm)" "мутант «бронь по рабочему каталогу, не по -C»: kaname получает бронь воркспейса — проба выше его ловит"
+sed 's/^\( *\)sb_budget="${line%%|\*}"$/\1sb_budget="$(class_budget ci-local)"/' "$SLOT" > "$W/slot-mut-book.sh"
+assert "1 10240" "$(diff "$SLOT" "$W/slot-mut-book.sh" | grep -c '^<') $(cd "$W/wsr-lane" && env "${REAL[@]}" bash "$W/slot-mut-book.sh" --book ci-local -- git push origin HEAD:refs/heads/b8 2>/dev/null)" "мутант «единая бронь»: воркспейс получает 10240 — проба выше его ловит"
+# Обгон: большой (300) ждёт — ему места сейчас нет, а под свой потолок он влезает; малые (40)
+# проходят не более BYPASS_MAX = 3 раз, четвёртый стоит за ним. Держатель — по событию (файл).
+export HEAVY_SLOT_LIMIT_MIB=1300
+fld() { sed -n "s/^$2=//p" "$1" 2>/dev/null | head -n 1; }
+bpnew() { rm -f "$W/hold-bp" "$W/bp-order"; bphold "$W/hold-bp"
+          # shellcheck disable=SC2016
+          HEAVY_SLOT_WAIT_S=60 HEAVY_SLOT_BUDGET_MIB=300 bash "$SLOT" docker -- sh -c 'echo G >> "$0"' "$W/bp-order" 2>/dev/null & GB=$!
+          for _ in $(seq 1 50); do [ "$(qlen)" -ge 1 ] && break; sleep 0.2; done; }
+bpsmall() { # shellcheck disable=SC2016
+            slot HEAVY_SLOT_BUDGET_MIB=40 bash "${2:-$SLOT}" docker -- sh -c 'echo "$1" >> "$0"' "$W/bp-order" "$1"; }
+bpend() { touch "$W/hold-bp"; wait "$BPH"; wait "$GB"; }
+bpnew
+r=""; for i in 1 2 3; do r="$r $(bpsmall "S$i")"; done
+assert "0 0 0 S1 S2 S3" "$(echo $r) $(tr '\n' ' ' < "$W/bp-order" | sed 's/ $//')" "малые S1–S3 (40) проходят за ждущим большим (300), которому места нет"
+gt="$(grep -l '^budget=300$' "$HEAVY_SLOT_DIR"/queue/* | head -n 1)"
+assert "3" "$(fld "$gt" bypassed)" "у ждущего большого записано число обгонов — 3"
+# shellcheck disable=SC2016
+HEAVY_SLOT_WAIT_S=60 HEAVY_SLOT_BUDGET_MIB=40 bash "$SLOT" docker -- sh -c 'echo "$1" >> "$0"' "$W/bp-order" S4 2>"$W/errS4" & S4=$!
+for _ in $(seq 1 50); do [ "$(qlen)" -ge 2 ] && break; sleep 0.2; done
+bpend; wait "$S4"; r4=$?
+assert "0 S1 S2 S3 G S4" "$r4 $(tr '\n' ' ' < "$W/bp-order" | sed 's/ $//')" "четвёртый малый обгонять уже не может: большой не голодает, входит РАНЬШЕ S4"
+assert "да" "$(has "$W/errS4" 'в очереди впереди 1')" "...и причина ожидания S4 названа"
+# Большому, которому места уже хватает, ждать нечего: он на пороге входа, его не обгоняют.
+sleep 30 & SL=$!
+tk="$(( $(cat "$HEAVY_SLOT_DIR/ticket") + 1 ))"; echo "$tk" > "$HEAVY_SLOT_DIR/ticket"
+printf 'pid=%s\npid_start=%s\nclass=docker\nbudget=500\nlimit=100000\nmeminfo=%s\nwho=проба\n' "$SL" "$(awk '{ print $22 }' /proc/$SL/stat)" "$HEAVY_SLOT_MEMINFO" > "$HEAVY_SLOT_DIR/queue/$(printf '%012d' "$tk")"
+assert "75 да" "$(slot HEAVY_SLOT_BUDGET_MIB=40 bash "$SLOT" docker -- true) $(has "$W/err" 'в очереди впереди 1')" "близнец: большой, которому места хватает (память свободна), на пороге входа — малый его не обгоняет"
+sed 's/^BYPASS_MAX=3$/BYPASS_MAX=0/' "$SLOT" > "$W/slot-mut-bp0.sh"; sed 's/^BYPASS_MAX=3$/BYPASS_MAX=999/' "$SLOT" > "$W/slot-mut-bpinf.sh"
+sed 's/^\( *\)fits_now "\$fb".*&& return 1$/\1true/' "$SLOT" > "$W/slot-mut-bpfit.sh"
+assert "1 0" "$(diff "$SLOT" "$W/slot-mut-bpfit.sh" | grep -c '^<') $(slot HEAVY_SLOT_BUDGET_MIB=40 bash "$W/slot-mut-bpfit.sh" docker -- true)" "мутант «обгоняют и того, кому места хватает»: малый проходит за готовым к входу — проба выше его ловит"
+kill "$SL" 2>/dev/null; rm -f "$HEAVY_SLOT_DIR/queue/$(printf '%012d' "$tk")"
+bpnew
+assert "1 75" "$(diff "$SLOT" "$W/slot-mut-bp0.sh" | grep -c '^<') $(bpsmall M0 "$W/slot-mut-bp0.sh")" "мутант «обгона нет»: малый стоит за большим — проба выше его ловит"
+for i in 1 2 3; do bpsmall "S$i" >/dev/null; done
+assert "1 0" "$(diff "$SLOT" "$W/slot-mut-bpinf.sh" | grep -c '^<') $(bpsmall M4 "$W/slot-mut-bpinf.sh")" "мутант «обгон без предела»: четвёртый малый тоже проходит — проба выше его ловит"
+bpend
+# Предел обгонов переживает 75 и --resume: число bypassed не теряется ни в defer_ticket, ни при перезаписи билета.
+# Раунд 1: три обгона, G выходит 75; раунд 2: --resume <билет> — S4 всё равно не обгоняет, обгонов в журнале по-прежнему 3.
+bpresume() {
+    local sl="$1" tk f bpv rc4 cnt rg1
+    rm -f "$W/hold-bp" "$W/bp-order"; bphold "$W/hold-bp"
+    HEAVY_SLOT_BUDGET_MIB=300 env -u HEAVY_SLOT_WAIT_S bash "$sl" --wait 12 docker -- sh -c 'echo G >> "$0"' "$W/bp-order" 2> "$W/errG1" >/dev/null & G1=$!
+    for _ in $(seq 1 50); do [ "$(qlen)" -ge 1 ] && break; sleep 0.2; done
+    for i in 1 2 3; do bpsmall "S$i" >/dev/null; done
+    wait "$G1"; rg1=$?
+    tk="$(sed -n 's/.*--resume \([0-9][0-9]*\).*/\1/p' "$W/errG1" | head -n 1)"
+    f="$HEAVY_SLOT_DIR/queue/$(printf '%012d' "${tk:-0}")"
+    HEAVY_SLOT_BUDGET_MIB=300 env -u HEAVY_SLOT_WAIT_S bash "$sl" --resume "${tk:-0}" --wait 60 docker -- sh -c 'echo G >> "$0"' "$W/bp-order" 2>/dev/null >/dev/null & G2=$!
+    for _ in $(seq 1 50); do [ -e "$f" ] && ! grep -q '^resume_until=' "$f" && break; sleep 0.2; done
+    bpv="$(fld "$f" bypassed)"
+    rc4="$(bpsmall S4)"
+    cnt="$(grep -cF " bypass ticket=${tk:-0} " "$JL")"
+    touch "$W/hold-bp"; wait "$BPH"; wait "$G2"
+    echo "$rg1 ${bpv:-нет} $rc4 $cnt"
+}
+sed 's#^\( *\)\[ -z "\$BPK" \] || printf .bypassed=%s\\n. "\$BPK" >> "\$TICKET"$#\1:#' "$SLOT" > "$W/slot-mut-bpr.sh"
+sed 's|^    BPK="\$(field "\$TICKET" bypassed)"$|    BPK=""|' "$SLOT" > "$W/slot-mut-bpd.sh"
+assert "75 3 75 3" "$(bpresume "$SLOT")" "после 75 и --resume число обгонов (3) сохранено, четвёртый малый S4 не обгоняет (75), в журнале обгонов ровно 3"
+assert "1 нет 0" "$(diff "$SLOT" "$W/slot-mut-bpr.sh" | grep -c '^<') $(bpresume "$W/slot-mut-bpr.sh" | cut -d' ' -f2,3)" "мутант «при перезаписи билета bypassed теряется»: S4 проходит — проба выше его ловит"
+assert "1 нет 0" "$(diff "$SLOT" "$W/slot-mut-bpd.sh" | grep -c '^<') $(bpresume "$W/slot-mut-bpd.sh" | cut -d' ' -f2,3)" "мутант «defer_ticket теряет bypassed»: S4 проходит — проба выше его ловит"
+export HEAVY_SLOT_LIMIT_MIB=100000
 
 echo "[CENSUS] heavy-slot: утверждений $((pass + fail)), сошлось $pass, разошлось $fail; граница (не ловится, заявлено в шапке) $bound; не построено частей $void"
 [ "$fail" -eq 0 ] || exit 1
