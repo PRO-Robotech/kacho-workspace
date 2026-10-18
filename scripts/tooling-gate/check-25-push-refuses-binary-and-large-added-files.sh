@@ -305,7 +305,18 @@ expect_pass "снятие ветки" "(delete) $ZERO refs/heads/1189-pub $(pgit
 
 # ── Не судимо ────────────────────────────────────────────────────────────────
 branch 1189-void; printf 'в\n' > "$box/v.md"; commit "#1189 текст" v.md
-printf 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef\n' > "$box/.git/refs/remotes/origin/broken"
+# Битая ссылка ставится git'ом, а не файлом в refs/: ссылки могут лежать
+# упакованными (каталога refs/remotes/origin нет), а хранилище reftable файлов
+# ссылок не читает. Ссылка ведёт на настоящий коммит, затем его свободный
+# объект снимается — условие не зависит от того, как хранятся ссылки.
+bsha="$(pgit -C "$box" commit-tree "$(pgit -C "$box" rev-parse 'HEAD^{tree}')" -m "#1189 битая ссылка")" &&
+    pgit -C "$box" update-ref refs/remotes/origin/broken "$bsha" &&
+    rm -f "$box/.git/objects/${bsha:0:2}/${bsha:2}" || bsha=""
+if [ -z "$bsha" ] || pgit -C "$box" cat-file -e "$bsha" 2>/dev/null ||
+    [ "$(pgit -C "$box" rev-parse -q --verify refs/remotes/origin/broken)" != "$bsha" ]; then
+    tooling_gate_void "$NAME" "битая ссылка удалённого не создана (объект $bsha жив либо ссылки нет)"
+    exit 2
+fi
 examined=$((examined + 1)); unlawful=$((unlawful + 1))
 code=0
 (cd "$box" && HOME="$SANDBOX_GIT_HOME" bash scripts/hooks/prepush-added-files.sh origin < /dev/null > "$TMP/void.out" 2>&1) || code=$?
@@ -313,7 +324,7 @@ code=0
     fail "битая ссылка удалённого: страж вышел $code вместо 2 — пустой обход прошёл бы зелёным: $(tr '\n' ' ' < "$TMP/void.out")"
 res="$(push "$(create 1189-void)")"
 [ "$(head -1 <<< "$res")" -eq 1 ] || fail "битая ссылка удалённого: хук вышел $(head -1 <<< "$res") вместо 1"
-rm -f "$box/.git/refs/remotes/origin/broken"
+pgit -C "$box" update-ref -d refs/remotes/origin/broken
 
 mv "$box/scripts/hooks/prepush-added-files.sh" "$TMP/guard.away"
 expect_refuse "стража добавленных файлов нет" "стража нет рядом с хуком" "$(create 1189-void)"
