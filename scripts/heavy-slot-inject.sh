@@ -888,6 +888,44 @@ sed 's/if enq_dir_in_tree /if false \&\& enq_dir_in_tree /' "$SLOT" > "$W/slot-m
 rc="$(slot bash "$W/slot-mut-1181.sh" --enqueue "$W/er/logs" docker -- touch "$W/e5")"; RE5="$(rcof)"; await_rc "$RE5" >/dev/null
 assert "1 0 да" "$n_at $rc $([ -n "$(git -C "$W/er" status --porcelain --untracked-files=all -- logs)" ] && echo да || echo нет)" "мутант «проверки каталога нет»: тот же вызов ставится, и копия становится грязной — проба выше его ловит"
 
+echo "── git push: слот печатает, откуда и куда идёт отправка; из первичной копии воркспейса в иную ветку — 64 (ws#1182)"
+# Дважды за сутки (2026-10-17…18) `git push origin HEAD:refs/heads/<ветка>` через --enqueue ушёл из
+# корня воркспейса, а не из копии задачи, и в чужом репозитории легла ветка с номером чужой
+# задачи. Узнаватель — класс «первичная копия того репозитория, где отслеживается сам слот,
+# и ветка назначения иная, чем текущая»; перечня каталогов и номеров нет.
+git init -q -b main "$W/wsr" && mkdir -p "$W/wsr/scripts" && cp "$SLOT" "$W/wsr/scripts/heavy-slot.sh"
+git -C "$W/wsr" add scripts && sandbox_git -C "$W/wsr" commit -q -m ws
+git init -q --bare "$W/wsr.git" && git -C "$W/wsr" remote add origin "$W/wsr.git"
+git -C "$W/wsr" worktree add -q -b 1182-lane "$W/wsr-lane"
+git init -q -b main "$W/kcl" && echo k > "$W/kcl/f" && git -C "$W/kcl" add f && sandbox_git -C "$W/kcl" commit -q -m k
+git -C "$W/kcl" remote add origin "https://tok:secret@github.com/PRO-Robotech/kacho.git" && git -C "$W/kcl" remote add bare "$W/wsr.git"
+bref() { git -C "$W/wsr.git" rev-parse --verify --quiet "refs/heads/$1" >/dev/null && echo да || echo нет; }
+wslot() { local d="$1"; shift; (cd "$d" && slot bash "$SLOT" docker -- "$@"); }
+wh="$(git -C "$W/wsr" rev-parse --short=8 HEAD)"; b0="$(grep -c ' push-where ' "$HEAVY_SLOT_DIR/journal.log")"
+rc="$(wslot "$W/wsr" git push -q origin HEAD:refs/heads/3251-x)"
+assert "64 да да да нет" "$rc $(has "$W/err" 'первичной копии воркспейса') $(has "$W/err" "git push: каталог $W/wsr ") $(has "$W/err" "голова $wh") $(bref 3251-x)" "корень воркспейса, ветка назначения иная, чем текущая → 64: причина и печать каталога и головы, отправки не было"
+assert "$((b0 + 1))" "$(grep -c ' push-where ' "$HEAVY_SLOT_DIR/journal.log")" "и в отказе строка push-where записана в журнал"
+rc="$(wslot "$W/wsr-lane" git push -q origin HEAD:refs/heads/1182-lane)"
+assert "0 да да" "$rc $(bref 1182-lane) $(has "$W/err" 'ветка 1182-lane')" "близнец: та же команда из связанной копии git worktree → печать и отправка идёт"
+rc="$(wslot "$W/wsr-lane" git push -q origin HEAD:refs/heads/другая-ветка)"
+assert "0 да" "$rc $(bref другая-ветка)" "близнец: из связанной копии назначение иное, чем текущая ветка → отправка идёт (копии так и работают)"
+rc="$(wslot "$W/wsr" git -C "$W/wsr-lane" push -q origin HEAD:refs/heads/через-C)"
+assert "0 да да" "$rc $(bref через-C) $(has "$W/err" "корень git $W/wsr-lane")" "близнец: из корня, но git -C <копия> → судится копия, не cwd"
+rc="$(wslot "$W/wsr" timeout 60 git push -q origin HEAD:refs/heads/3251-w)"
+assert "64 нет" "$rc $(bref 3251-w)" "обёртка перед git (timeout) не уводит от суждения"
+rc="$(wslot "$W/wsr" git push -q origin main)"
+assert "0 да" "$rc $(bref main)" "близнец: из корня, назначение — текущая ветка (main) → слот не судит, печать есть"
+rc="$(wslot "$W/kcl" git push -q bare HEAD:refs/heads/3251-y)"
+assert "0 да да нет" "$rc $(bref 3251-y) $(has "$W/err" 'git push: каталог') $(has "$W/err" 'secret')" "близнец: корень чужого репозитория (в нём слот не отслеживается) → отправка идёт; учётные данные в origin в печати не показаны"
+sed 's/&& push_to_foreign_branch /\&\& false \&\& push_to_foreign_branch /' "$SLOT" > "$W/slot-mut-1182a.sh"
+sed 's/^\( *\)git -C "$top" ls-files --error-unmatch scripts\/heavy-slot.sh >\/dev\/null 2>&1 || return 1/\1true/' "$SLOT" > "$W/slot-mut-1182b.sh"
+sed 's/^\( *\)\[ -n "$gdir" \] \&\& \[ "$gdir" = "$cdir" \] || return 1/\1true/' "$SLOT" > "$W/slot-mut-1182c.sh"
+dl() { diff "$SLOT" "$W/slot-mut-1182$1.sh" | grep -c '^<'; }
+mrc() { local m="$1" d="$2" rem="$3" ref="$4"; (cd "$d" && slot bash "$W/slot-mut-1182$m.sh" docker -- git push -q "$rem" HEAD:refs/heads/"$ref"); }
+assert "1 0 да" "$(dl a) $(mrc a "$W/wsr" origin мутант-a) $(bref мутант-a)" "мутант «не судит»: отправка из корня идёт — проба выше его ловит"
+assert "1 64 нет" "$(dl b) $(mrc b "$W/kcl" bare мутант-b) $(bref мутант-b)" "мутант «судит любую первичную копию»: корень чужого репозитория отказан — близнец выше его ловит"
+assert "1 64 нет" "$(dl c) $(mrc c "$W/wsr-lane" origin мутант-c) $(bref мутант-c)" "мутант «связанная копия — тоже корень»: копия задачи отказана — близнец выше его ловит"
+
 echo "[CENSUS] heavy-slot: утверждений $((pass + fail)), сошлось $pass, разошлось $fail; граница (не ловится, заявлено в шапке) $bound; не построено частей $void"
 [ "$fail" -eq 0 ] || exit 1
 [ "$void" -eq 0 ] || exit 2

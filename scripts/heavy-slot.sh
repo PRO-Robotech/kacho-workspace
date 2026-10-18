@@ -131,6 +131,15 @@
 # несколько) переходник отклоняет кодом 78, и слот гонит ту же команду локально с
 # причиной; Job не состоялся (69, 75) — тот код, «не выполнилось».
 #
+# ОТКУДА ИДЁТ ОТПРАВКА (ws#1182): для `git … push` (любой класс, обёртки перед git, -C) слот ДО
+# постановки печатает каталог, корень git, origin (без учётных данных), ветку, голову и
+# отправляемые ссылки, и пишет то же строкой push-where. `--enqueue` каталога команды не
+# меняет, и дважды за сутки отправка ушла из корня воркспейса вместо копии задачи (ветка
+# чужой задачи легла в этот репозиторий). Первичная копия воркспейса (git-dir = common-dir, и
+# в ней отслеживается сам слот) с назначением в иную ветку, чем текущая, — отказ 64 (функция
+# push_where). Связанная копия, клон другого репозитория, -C <копия> и назначение в текущую
+# ветку не судятся. Не видно: смену каталога внутри `bash -c '…'`.
+#
 # ЖУРНАЛ: $HEAVY_SLOT_DIR/journal.log — вход, ожидание (занято слотов, свободно), уход
 # во внешний кластер (remote … до запуска Job), выход с пиком памяти, обрыв. Пик —
 # основание для пересмотра бюджетов: `grep ' leave ' journal.log`.
@@ -524,6 +533,85 @@ enq_dir_in_tree() {
     return 1
 }
 
+# git_push_form — команда — `git … push` с хуком (без --no-verify); GIT_IDX — индекс
+# слова git, GDIR — каталог клона с учётом -C. --git-dir и --work-tree не разбираются:
+# такая отправка идёт локально.
+git_push_form() {
+    local i=0 n=${#CMD_R[@]} w sub=""
+    GDIR="$PWD"; GIT_IDX=""; PUSH_AT=""
+    while [ "$i" -lt "$n" ] && [ "$(basename -- "${CMD_R[$i]}")" != git ]; do i=$(( i + 1 )); done
+    [ "$i" -lt "$n" ] || return 1
+    local gi="$i"; i=$(( i + 1 ))
+    while [ "$i" -lt "$n" ]; do
+        w="${CMD_R[$i]}"
+        case "$w" in
+            -C) GDIR="$(cd "$GDIR" 2>/dev/null && cd "${CMD_R[$(( i + 1 ))]:-}" 2>/dev/null && pwd)" || return 1; i=$(( i + 2 )) ;;
+            -c) i=$(( i + 2 )) ;;
+            --git-dir|--git-dir=*|--work-tree|--work-tree=*) return 1 ;;
+            -*) i=$(( i + 1 )) ;;
+            *) sub="$w"; break ;;
+        esac
+    done
+    [ "$sub" = push ] || return 1
+    PUSH_AT="$i"   # слово push — и у отправки с --no-verify: суждение «откуда» ей тоже нужно
+    for w in "${CMD_R[@]:$(( i + 1 ))}"; do [ "$w" = --no-verify ] && return 1; done
+    GIT_IDX="$gi"
+}
+
+# push_where — для команды `git … push` (любой класс, обёртки перед git, -C) печатает, откуда и
+# куда идёт отправка, и отказывает 64 до постановки в очередь, когда она кладёт голову ПЕРВИЧНОЙ
+# копии воркспейса в иную ветку (ws#1182). Дважды за сутки (2026-10-17…18) `--enqueue` не менял
+# рабочий каталог, отправка ушла из корня воркспейса, а не из копии задачи, и в чужом
+# репозитории легла ветка с номером чужой задачи. Узнаватель — класс, а не перечень каталогов:
+# корень git — первичная копия (git-dir совпадает с common-dir) того репозитория, где
+# отслеживается сам слот, и ветка назначения не совпадает с текущей. Связанная копия
+# (`git worktree`), клон другого репозитория и отправка в текущую ветку не судятся.
+# ГРАНИЦА: `bash -c 'cd … && git push'` — смену каталога внутри строки оболочки слот не видит.
+push_where() {
+    local top url br head i n w rem="" dst bad="" specs=() shown=()
+    CMD_R=("$@"); n=${#CMD_R[@]}
+    git_push_form; [ -n "$PUSH_AT" ] || { GIT_IDX=""; GDIR="$PWD"; return 0; }
+    top="$(git -C "$GDIR" rev-parse --show-toplevel 2>/dev/null)" || { GIT_IDX=""; GDIR="$PWD"; return 0; }
+    url="$(git -C "$top" remote get-url origin 2>/dev/null | sed 's|//[^/@]*@|//|')"
+    br="$(git -C "$GDIR" branch --show-current 2>/dev/null)"; head="$(git -C "$top" rev-parse --short=8 HEAD 2>/dev/null)"
+    i=$(( PUSH_AT + 1 ))
+    while [ "$i" -lt "$n" ]; do
+        case "${CMD_R[$i]}" in
+            --repo|-o|--push-option|--receive-pack|--exec) i=$(( i + 2 )) ;;
+            --) i=$(( i + 1 )); break ;;
+            -*) i=$(( i + 1 )) ;;
+            *) break ;;
+        esac
+    done
+    [ "$i" -lt "$n" ] && { rem="${CMD_R[$i]}"; specs=("${CMD_R[@]:$(( i + 1 ))}"); }
+    for w in "${specs[@]+"${specs[@]}"}"; do
+        shown+=("$(printf '%s' "$w" | sed 's|//[^/@]*@|//|')")
+        dst="${w#+}"; case "$dst" in *:*) dst="${dst#*:}" ;; esac
+        case "$dst" in ''|HEAD|refs/tags/*|refs/[!h]*) continue ;; esac
+        dst="${dst#refs/heads/}"
+        [ "$dst" = "$br" ] || bad="${bad:+$bad }$dst"
+    done
+    say "git push: каталог $PWD · корень git $top · origin ${url:-—} · ветка ${br:-отсоединённая} · голова ${head:-—} · отправляется: ${rem:+$(printf '%s' "$rem" | sed 's|//[^/@]*@|//|') }${shown[*]:-по настройкам git}"
+    mkdir -p "$DIR" 2>/dev/null
+    journal "push-where class=$CLASS top=$top origin=${url:-—} branch=${br:-detached} head=${head:-—} remote=${rem:+$(printf '%s' "$rem" | sed 's|//[^/@]*@|//|')} refs=${shown[*]:-—} cwd=$PWD"
+    if [ -n "$bad" ] && push_to_foreign_branch "$top"; then
+        say "git push из первичной копии воркспейса ($top) кладёт её голову в ветку «$bad» при текущей «${br:-отсоединённая}»: ветки, которой здесь нет, — а ветка задачи живёт в КОПИИ задачи (ws#1182: так ветка чужого репозитория легла в этот). Из копии: cd <копия> && heavy-slot.sh … либо git -C <копия> push …. Команда не запускалась"
+        exit 64
+    fi
+    GIT_IDX=""; GDIR="$PWD"
+}
+# push_to_foreign_branch <корень git> — 0, если корень — первичная копия воркспейса.
+push_to_foreign_branch() {
+    local top="$1" gdir cdir
+    # если корень — первичная копия воркспейса: не связанная копия (git-dir ≠ common-dir)…
+    gdir="$(cd "$top" && cd "$(git rev-parse --absolute-git-dir)" 2>/dev/null && pwd -P)"
+    cdir="$(cd "$top" && cd "$(git rev-parse --path-format=absolute --git-common-dir)" 2>/dev/null && pwd -P)"
+    [ -n "$gdir" ] && [ "$gdir" = "$cdir" ] || return 1
+    # …и тот репозиторий, где отслеживается сам слот.
+    git -C "$top" ls-files --error-unmatch scripts/heavy-slot.sh >/dev/null 2>&1 || return 1
+    return 0
+}
+
 # ── разбор вызова ────────────────────────────────────────────────────────────
 # --wait N — единственное ожидание слота, явное и ≤ 300 с (ws#1004); без него занятый
 # слот — код 74 сразу. Значение судится до класса: «--wait 2400» — 64, а не полчаса.
@@ -649,6 +737,9 @@ for a in "$@"; do
         exit 64
     fi
 done
+
+# ── откуда идёт отправка (ws#1182; push_where) — до постановки в очередь ────────
+push_where "$@"
 
 # ── постановка одним билетом (урок 2026-10-16, ws#1110; шапка) ──────────────────
 if [ -n "$ENQ_DIR" ] && { [ -n "$WAIT_ARG" ] || [ -n "$QUEUED" ]; }; then
@@ -894,29 +985,6 @@ remote_route() {
     rel="$(realpath --relative-to="$top" "$PWD")"
     ROUTE=(bash "$REMOTE_RUN" --task "$TASK" --repo "$repo" --ref "$(git -C "$top" rev-parse HEAD)" --src "$top" --workdir "$rel" --profile "$CLASS" --)
     return 0
-}
-# git_push_form — команда — `git … push` с хуком (без --no-verify); GIT_IDX — индекс
-# слова git, GDIR — каталог клона с учётом -C. --git-dir и --work-tree не разбираются:
-# такая отправка идёт локально.
-git_push_form() {
-    local i=0 n=${#CMD_R[@]} w sub=""
-    GDIR="$PWD"; GIT_IDX=""
-    while [ "$i" -lt "$n" ] && [ "$(basename -- "${CMD_R[$i]}")" != git ]; do i=$(( i + 1 )); done
-    [ "$i" -lt "$n" ] || return 1
-    local gi="$i"; i=$(( i + 1 ))
-    while [ "$i" -lt "$n" ]; do
-        w="${CMD_R[$i]}"
-        case "$w" in
-            -C) GDIR="$(cd "$GDIR" 2>/dev/null && cd "${CMD_R[$(( i + 1 ))]:-}" 2>/dev/null && pwd)" || return 1; i=$(( i + 2 )) ;;
-            -c) i=$(( i + 2 )) ;;
-            --git-dir|--git-dir=*|--work-tree|--work-tree=*) return 1 ;;
-            -*) i=$(( i + 1 )) ;;
-            *) sub="$w"; break ;;
-        esac
-    done
-    [ "$sub" = push ] || return 1
-    for w in "${CMD_R[@]:$(( i + 1 ))}"; do [ "$w" = --no-verify ] && return 1; done
-    GIT_IDX="$gi"
 }
 # push_remote — отправка с хуком Job-ом (шапка, «ХУК ОТПРАВКИ»). Возвращает 0, если
 # переходник отклонил отправку кодом 78 (не голова копии) — тогда слот идёт локально;
