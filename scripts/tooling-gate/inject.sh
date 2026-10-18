@@ -3634,6 +3634,20 @@ forms = {
     'unquoted':    "trap 'rm -rf $W' EXIT",
     'no-path':     "trap '" + good.replace('ПРЕДУПРЕЖДЕНИЕ: временный каталог $W не снят; код проверки $_rc сохранён', 'ПРЕДУПРЕЖДЕНИЕ') + "' EXIT",
     'heredoc':     None,
+    'dash-bare':   "trap -- 'rm -rf \"$W\"' EXIT",
+    'lower-bare':  "trap 'rm -rf \"$W\"' exit",
+    'chain-bare':  'wipe(){ rm -rf "$W"; }; cleanup(){ wipe; }; trap cleanup EXIT',
+    'subshell-bare': "( trap 'rm -rf \"$W\"' EXIT )",
+    'semi-bare':   ":; trap 'rm -rf \"$W\"' EXIT",
+    'and-bare':    "true && trap 'rm -rf \"$W\"' EXIT",
+    'dash-good':   "trap -- '" + good + "' EXIT",
+    'lower-good':  "trap '" + good + "' exit",
+    'semi-good':   ":; trap '" + good + "' EXIT",
+    'chain-good':  ('wipe() {\n    rm -rf "$W" 2>/dev/null || rm -rf "$W" || \\\n'
+                    '        echo "ПРЕДУПРЕЖДЕНИЕ: временный каталог $W не снят" >&2\n}\n'
+                    'cleanup() {\n    _rc=$?\n    wipe\n    exit $_rc\n}\ntrap cleanup EXIT'),
+    'foreign':     "trap 'touch \"$W/x\"' EXIT",
+    'dq':          'trap "rm -rf \\"$W\\"" EXIT',
 }
 text = open(path, encoding='utf-8').read()
 if variant == 'heredoc':
@@ -3688,6 +3702,32 @@ fi
 b="$(mksandbox)"
 if swap_trap "$b" heredoc; then
     run 0 "$b" "близнец: голая ловушка как текст heredoc-фикстуры — молчит" "$C26"
+fi
+# Белый список (ws#1193, второй круг приёмки): любая ловушка на выходе — прямо или
+# через функции файла — либо шаблон уборки, либо находка. Шесть форм проверяющего
+# красны с файлом:строкой; канон в тех же написаниях молчит.
+for v in "dash-bare:ловушка после --" "lower-bare:сигнал строчными (exit)" \
+         "chain-bare:функция вызывает функцию (wipe → cleanup)" \
+         "subshell-bare:ловушка в подоболочке" "semi-bare:ловушка после ;" "and-bare:ловушка после &&"; do
+    b="$(mksandbox)"
+    if swap_trap "$b" "${v%%:*}"; then
+        run_says 1 "$b" "белый список: ${v#*:}, голая — краснеет, файл:строка названы" "$C26" "scripts/lane-tier-inject.sh:23"
+    fi
+done
+for v in "dash-good:канон после --" "lower-good:канон, сигнал строчными" "semi-good:канон после ;" \
+         "chain-good:канон через wipe → cleanup (транзитивно)"; do
+    b="$(mksandbox)"
+    if swap_trap "$b" "${v%%:*}"; then
+        run 0 "$b" "близнец: ${v#*:} — молчит" "$C26"
+    fi
+done
+b="$(mksandbox)"
+if swap_trap "$b" foreign; then
+    run_says 1 "$b" "белый список: EXIT-ловушка вне шаблона (не уборка) — не в форме, а не молчание" "$C26" "не сводится к шаблону уборки"
+fi
+b="$(mksandbox)"
+if swap_trap "$b" dq; then
+    run_says 1 "$b" "белый список: действие в двойных кавычках с подстановкой — не в форме" "$C26" "собирается подстановкой"
 fi
 
 echo
