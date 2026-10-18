@@ -177,6 +177,8 @@ planout "$W/r1c.json" '[{key:"A",repo:"kacho-workspace",paths:["services/x/a.go"
 planout "$W/r1d.json" '[{key:"A",repo:"kacho-workspace",paths:["services/x/a.go"]},{key:"B",repo:"kacho-workspace",paths:["services/x/b.go"],deps:["A"]},{key:"C",repo:"kacho-workspace",paths:["services/x/c.go"]},{key:"D",repo:"kacho-workspace",paths:["services/x/d.go"],deps:["C"]}]'
 jq -e '[.layers[] | join(",")] | join("|") == "A,C|B,D"' "$W/r1d.json" > /dev/null || { echo "wave-template-inject: VOID — план A,C|B,D не получен: предпосылка сценария чужого слоя" >&2; exit 2; }
 jq -e '[.layers[] | join(",")] | join("|") == "A,C|B"' "$W/r1c.json" > /dev/null || { echo "wave-template-inject: VOID — план A,C|B не получен: предпосылка сценария независимой полосы" >&2; exit 2; }
+# Полоса образов без deps рядом с документной (ws#1191).
+planout "$W/r0s.json" '[{key:"A",repo:"kacho-workspace",paths:["docs/a.md"]},{key:"S",repo:"kacho-workspace",paths:["docs/s.md"]}]'
 planout "$W/r2.json" '[{key:"M",repo:"kacho-workspace",paths:["services/x/migrations/0001.sql"]}]'
 planout "$W/r2two.json" '[{key:"M",repo:"kacho-workspace",paths:["services/x/migrations/0001.sql","services/x/internal/authz/a.go"]}]'
 jq -e '.lanes[0].roles | length >= 2' "$W/r2two.json" > /dev/null || { echo "wave-template-inject: VOID — план R2 без двух ролей: предпосылка сценария возврата одной роли" >&2; exit 2; }
@@ -233,6 +235,7 @@ async function run(sc) {
     if (label.startsWith('mech:plan:')) { const o = take('plan', () => P('r0.json')); return { code: o.code, out: (sc.planOut !== undefined ? sc.planOut : (sc.planPrefix || '') + JSON.stringify(o)), reasons: (o.reasons || []).map(r => r.code), head: '' } }
     if (label.startsWith('impl:')) { const r = take('impl:' + lane, () => ({ status: 'done', head: H(lane, cnt['impl:' + lane]) })); heads[lane] = r.head; return { branch: 'b-' + lane, copy: '/ws/tmp/c-' + lane, hookLog: '/ws/tmp/push.log', issues: ['o/r#1'], report: 'r', ...r } }
     if (label.startsWith('mech:stack:')) { const r = take('stack:' + lane, () => ({ status: 'done', head: H('S' + lane, 0) })); if (r === null) return null; heads['stack:' + lane] = r.head; return { branch: (prompt.match(/заведи ветку (\S+)/) || [])[1] || '9-stack-' + lane.toLowerCase(), contains: Object.keys(heads).filter(k => !k.startsWith('stack:')).map(k => heads[k]), conflicts: [], report: 'r', ...r } }
+    if (label.startsWith('mech:premise:')) return { out: '', head: '', reasons: [], ...take('premise:' + lane, () => ({ code: 0 })) }
     if (label.startsWith('mech:precheck:')) return { out: '', head: heads[lane], reasons: [], ...take('pre:' + lane, () => ({ code: 0 })) }
     if (label.startsWith('review-wave')) return { verdict: 'accept', sha: HW, blocking: [], report: 'r', ...take('wave', () => ({})) }
     if (label.startsWith('review-landing')) return { verdict: 'accept', sha: HW, blocking: [], report: 'r' }
@@ -980,6 +983,27 @@ console.log('== уроки посадки 2026-10-14 (ws#1078): кэш дочи�
   ok(/^autoland[^:]*: red landing-precheck код 1: x$/.test(q.res.stage || '') && !jr.includes(LONG.slice(0, 1000)) && jr.includes('[полностью — в'), 'L5: строка внутри массива итога — срезана с путём отчётов', jr.slice(0, 120))
 }
 
+console.log('== полоса стенда и образов — голова на origin предусловием до исполнителя (ws#1191)')
+{
+  const HA = H('A', 1)
+  const stB = { key: 'B', repo: 'kacho-workspace', agent: 'deploy-engineer', branch: '9-b', text: 't', deps: ['A'] }
+  let q = await run({ args: { ...args, lanes: [lanes2[0], stB] }, plan: [P('r1.json')] })
+  const pB = prm(q.calls, 'mech:premise:B'), iPB = idx(q.calls, 'mech:premise:B'), iSB = idx(q.calls, 'mech:stack:B'), iIB = idx(q.calls, 'impl:B')
+  ok(q.res.ok === true && iSB >= 0 && iSB < iPB && iPB < iIB, 'стенд с deps: предусловие после сводки и ДО исполнителя, волна идёт', JSON.stringify(q.res).slice(0, 200))
+  ok(pB.includes("'head PRO-Robotech/kacho-workspace 9-a " + HA + "'") && /'head PRO-Robotech\/kacho-workspace \S+ [0-9a-f]{40}'/.test(pB.split("9-a " + HA)[1] || '') && pB.includes('scripts/lane-precheck.sh --premise /ws/tmp/wave-9/reports/B/premise.txt'), 'строки head — голова dep A и голова сводки, судит lane-precheck --premise', pB.slice(-400))
+  q = await run({ args: { ...args, lanes: [lanes2[0], stB] }, plan: [P('r1.json')], 'premise:B': [{ code: 1, out: 'REASON PREMISE-FALSE head o/r 9-a x: ветки 9-a на origin нет', reasons: ['PREMISE-FALSE'] }] })
+  ok(idx(q.calls, 'impl:B') < 0 && inRest(q.res, 'B') && /предусловие головы на origin.*ложно — REASON PREMISE-FALSE/.test(((q.res.remainder || []).find(x => x.key === 'B') || {}).stage || '') && asmHas(q.calls, '9-a'), 'голова не на origin (код 1): исполнитель стенда не зван, B — остаток с причиной, A садится', JSON.stringify(q.res.remainder || []).slice(0, 300))
+  q = await run({ args: { ...args, lanes: [lanes2[0], stB] }, plan: [P('r1.json')], 'premise:B': [{ code: 2 }] })
+  ok(idx(q.calls, 'impl:B') < 0 && inRest(q.res, 'B'), 'не судимо (код 2) — не зелёное: исполнитель не зван')
+  const solo = { key: 'S', repo: 'kacho-workspace', agent: 'go-implementer', class: 'images', branch: '9-s', text: 't' }
+  q = await run({ args: { ...args, lanes: [lanes2[0], solo] }, plan: [P('r0s.json')] })
+  ok(idx(q.calls, 'mech:premise:S') < 0 && idx(q.calls, 'impl:S') < 0 && /без головы/.test(((q.res.remainder || []).find(x => x.key === 'S') || ((q.res.lanes || {}).S) || {}).stage || ''), 'полоса образов без deps и без head — отказ без строки предусловия, исполнитель не зван', JSON.stringify(q.res).slice(0, 300))
+  q = await run({ args: { ...args, lanes: [lanes2[0], { ...solo, head: HA }] }, plan: [P('r0s.json')] })
+  ok(prm(q.calls, 'mech:premise:S').includes("'head PRO-Robotech/kacho-workspace 9-s " + HA + "'") && idx(q.calls, 'mech:premise:S') < idx(q.calls, 'impl:S'), 'класс images без deps, head задан — строка head из ветки и головы полосы, затем исполнитель')
+  q = await run({ args: { ...args, lanes: [lanes2[0], { ...solo, class: undefined, agent: 'docs-writer', head: HA }] }, plan: [P('r0s.json')] })
+  ok(by(q.calls, c => c.label.startsWith('mech:premise:')) === 0 && q.res.ok === true, 'близнец: полоса не стенда — предусловия головы нет, волна идёт')
+}
+
 console.log('== объединение вызовов всех сценариев: модель, усилие, место отчётов (ws#1016)')
 {
   // Классы шагов — из тела шаблона: литералы `label: '<класс>'` и литералы 'mech:…'
@@ -1105,7 +1129,7 @@ mutant "конфликт сводки не останавливает" "    if (
 mutant "голова dep вне сводки не судится" "|| !sha40(st.head) || missing.length) {" "|| !sha40(st.head)) {"
 mutant "сводка не снимается при вливании" "(stacks.length ? 'Сними временные сводки deps ' + stacks.join(', ') + ' коммитным предикатом (git-operator.md §«Вливание и снятие»). ' : '')" "''"
 # Мутанты check-verifier ws#939 (выжили на aeb93941) — те же образцы.
-mutant "сводка из всех прошедших, а не deps" "const ds = deps.map(d => ({ branch: lanes.find(x => x.key === d.key).branch, head: d.head }))" "const ds = Object.values(done).filter(d => d.ok).map(d => ({ branch: lanes.find(x => x.key === d.key).branch, head: d.head }))"
+mutant "сводка из всех прошедших, а не deps" "const ds = deps.map(d => ({ branch: lanes.find(x => x.key === d.key).branch, head: d.head, repo:" "const ds = Object.values(done).filter(d => d.ok).map(d => ({ branch: lanes.find(x => x.key === d.key).branch, head: d.head, repo:"
 mutant "статус failed принимается" "!['done', 'already-done'].includes(st.status) ||" ""
 mutant "ревью без дельты сводки" "(stack ? ' — своя дельта" "(false ? ' — своя дельта"
 mutant "доводка предпроверки — от базы" "rep(l.key, 'lane-precheck'), stack)" "rep(l.key, 'lane-precheck'), null)"
@@ -1385,6 +1409,10 @@ mutant "без ВОЗВРАТ — повтора дочитыванием нет
 mutant "не-выполнилось подставлено дальше (ws#1071)" "    if (!s1) return noRet(out, l, 'client-sim')" "    if (false) return noRet(out, l, 'client-sim')"
 twin "дочитывание: формулировка (ws#1071)" "дочитай .rc и журнал своего прогона и верни" "дочитай .rc и журнал своего прогона, затем верни"
 twin "схождение: формулировка запрета правки (ws#1063)" "Ничего не правь. Запись — ' + R + '/trial-convergence.md" "Ничего не правь в дереве. Запись — ' + R + '/trial-convergence.md"
+mutant "строка head не порождается (ws#1191)" "const headLines = (l, ds, stack) => (ds && ds.length ?" "const headLines = (l, ds, stack) => (false ?"
+mutant "код предусловия головы не судится (ws#1191)" "  if (p && p.code === 0) return null" "  return null"
+mutant "стенд не опознан (ws#1191)" "const standLane = l => STAND_CLASS.includes(l.class) || l.agent === 'deploy-engineer'" "const standLane = l => false"
+mutant "голова сводки не в предусловии (ws#1191)" ".concat(stack ? ['head ' + ghRepo(l.repo) + ' ' + stack.branch + ' ' + stack.head] : [])" ""
 mutant "meta не литерал: вызов" "name: 'wave'," "name: ['wa', 've'].join(''),"
 mutant "meta не литерал: шаблонная строка" "name: 'wave'," "name: \`wave\`,"
 echo

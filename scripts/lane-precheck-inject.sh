@@ -297,6 +297,20 @@ prem 'pr o/r#9 OPEN'
 assert "1 да" "$(runp) $(has 'PREMISE-FALSE pr o/r#9 OPEN: PR нет')" "PR нет (404) → PREMISE-FALSE"
 prem 'branch o/r 2-gone'
 assert "1 да" "$(runp) $(has 'ветки на origin нет')" "ветки на origin нет → PREMISE-FALSE"
+# Голова ветки на origin (ws#1191): полоса стенда и образов — на sha, которая уже на origin.
+HA=1111111111111111111111111111111111111111 HB=2222222222222222222222222222222222222222
+printf '%s' "{\"name\":\"3-stand\",\"commit\":{\"sha\":\"$HA\"}}" > "$W/c/repos_o_r_branches_3-stand.json"
+printf '%s' '{"name":' > "$W/c/repos_o_r_branches_4-flaky.json"
+prem "head o/r 3-stand $HA"
+assert "0 да" "$(runp) $(has 'предусловий 1; ложных 0, не судимо 0')" "близнец: голова 3-stand на origin равна sha → 0"
+prem "head o/r 3-stand $HB"
+assert "1 да да" "$(runp) $(has "голова 3-stand на origin $HA, ожидалась $HB") $(has 'REASON PREMISE-FALSE head')" "голова на origin иная → PREMISE-FALSE, обе sha названы"
+prem "head o/r 2-gone $HA"
+assert "1 да" "$(runp) $(has "ветки 2-gone на origin нет — ожидалась голова $HA")" "ветки на origin нет → PREMISE-FALSE с веткой и sha"
+prem "head o/r 4-flaky $HA"
+assert "2 да" "$(runp) $(has 'VOID GH-UNREADABLE head o/r 4-flaky')" "origin не ответил → не судимо (VOID), не зелёное"
+prem "head o/r 3-stand ${HA:0:12}"
+assert "2 да" "$(runp) $(has 'VOID PREMISE-FORM head')" "sha не 40 знаков → строка вне формы, код 2"
 prem 'proof o/r#8'
 comments 8 "без доказательства"
 assert "1 да" "$(runp) $(has 'комментария «DoD-proof @<sha>» нет')" "DoD-proof нет → PREMISE-FALSE"
