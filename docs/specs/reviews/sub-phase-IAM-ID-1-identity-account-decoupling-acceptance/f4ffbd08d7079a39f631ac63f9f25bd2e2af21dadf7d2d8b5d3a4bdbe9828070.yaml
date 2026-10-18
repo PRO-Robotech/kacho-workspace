@@ -1,0 +1,288 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-IAM-ID-1-identity-account-decoupling-acceptance.md
+  sha256: f4ffbd08d7079a39f631ac63f9f25bd2e2af21dadf7d2d8b5d3a4bdbe9828070
+  revision: 18
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT — «редакция 18, ждёт acceptance-reviewer»; шапка намеренно НЕ правлена
+    (change-graph.md §2). Ниже неё сохранена ДОСЛОВНО прежняя шапка кругов 1–12 со строкой
+    «✅ APPROVED — круг 12»: она описывает прежние редакции и ЭТОТ текст не одобряет. Машинный
+    читатель docs-gate прочтёт объявленный вердикт — это его объявленный предел (судит объявление,
+    а не одобрение). Действующий вердикт о редакции 18 (отпечаток f4ffbd08) — ЭТА запись, и он
+    ОДОБРЕНИЕ. APPROVED редакции 17 (`46d03ba4…`) к этому отпечатку отношения не имеет — обесценен
+    сменой отпечатка правкой предмета (внесён механизм именования аккаунта гейта), change-graph.md §2.
+  base_commit: d891aba6f9840b864f650cd90feacfc3e5b0a87e
+  content_commit: d891aba6f9840b864f650cd90feacfc3e5b0a87e
+  parent_commit: b3733208
+  parent_review_record: docs/specs/reviews/sub-phase-IAM-ID-1-identity-account-decoupling-acceptance/46d03ba4b34fdf12db060cef15292fc03f642a93a520e6aea14e3fafaed0723e.yaml
+  pull_request: https://github.com/PRO-Robotech/kacho/pull/683
+  task: https://github.com/PRO-Robotech/kacho/issues/1351
+  epic: https://github.com/PRO-Robotech/kacho-workspace/issues/211
+  fingerprint_predicate: git show d891aba6:docs/specs/sub-phase-IAM-ID-1-identity-account-decoupling-acceptance.md | sha256sum
+  fingerprint_verified: true
+  lines: 7951
+
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-19T00:00:00Z'
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac d891aba6
+    в PRO-Robotech/kacho-workspace вернул 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: d891aba6f9840b864f650cd90feacfc3e5b0a87e
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: ff087e513f8a42d5f92a8f374cdcf4e1790b0b4630d4b611224ccbd16b4b9c24
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — ОДОБРЕНИЕ. Effective approval приёмки существует только по внешнему событию
+    полномочия; я его НЕ публикую. Событие публикует курьер (git-operator/оркестратор) под учётной
+    записью, допущенной политикой (policy.yaml review_authority.acceptance-reviewer = [pointpu]),
+    отдельным коммитом/комментарием задачи kacho#1351, не правя эту запись задним числом. Роль в
+    записи — координата, а не доказательство личности (change-graph.md §3): до публикации события
+    одобрение объявлено, но не действует.
+  external_event_body_for_publication: >-
+    роль: acceptance-reviewer · вердикт: APPROVED · SHA-256 предмета:
+    f4ffbd08d7079a39f631ac63f9f25bd2e2af21dadf7d2d8b5d3a4bdbe9828070 — как комментарий/событие
+    GitHub задачи kacho#1351 под pointpu; gate сверяет digest тела и subject (policy.yaml §2).
+
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    note: >-
+      Соседние записи 1b202071….yaml (⛔ круг 14, ред.14), 4b28757a….yaml (✅ круг 15, ред.15),
+      ecd73639….yaml (⛔ круг 16, ред.16) и 46d03ba4….yaml (✅ круг 17, ред.17) НЕ правятся и НЕ
+      удаляются — каждая остаётся вердиктом о своём содержимом. Эта запись — соседняя, новая, на
+      отпечаток редакции 18 (`f4ffbd08…`). Предикат отсутствия прежней записи на этот отпечаток до
+      создания: `ls docs/specs/reviews/…/ | grep -c f4ffbd08` → 0.
+
+round_numbering:
+  convention: Круг называется РЕДАКЦИЕЙ, которую он прочитал. Эта запись — круг 18 по редакции 18.
+  note: >-
+    Редакция 18 — правка ПРЕДМЕТА (внесён механизм именования аккаунта гейта S3.1) поверх редакции
+    17 (46d03ba4, APPROVED внешним событием). Отпечаток сменился ⇒ прежний вердикт стал вердиктом
+    о прежнем содержимом (change-graph.md §2). Это отдельное содержимое под отдельным рассмотрением.
+  editions_by_fingerprint:
+    - {edition: 16, commit: 9d26309e, sha256_prefix: ecd73639, verdict: 'CHANGES_REQUESTED (круг 16, B16-1 CONVENTION)'}
+    - {edition: 17, commit: 7181ef8f, sha256_prefix: 46d03ba4, verdict: 'APPROVED (внешнее событие; обесценено сменой отпечатка ред.18)'}
+    - {edition: 18, commit: d891aba6, sha256_prefix: f4ffbd08, verdict: 'APPROVED (эта запись)'}
+  predicate: >-
+    `git show d891aba6:<путь> | sha256sum` → f4ffbd08d7079a39f631ac63f9f25bd2e2af21dadf7d2d8b5d3a4bdbe9828070 —
+    совпал с отпечатком, названным в задании и в шапке.
+
+# ─────────────────────────────────────────────────────────────────────────────
+measurement_home:
+  workspace_branch: issue-1351-iam-id-1-s4 @ d891aba6 (worktree tmp/w-s31-rebase)
+  subject_tree_service: PRO-Robotech/kaname @ f8fc5a37 (клон project/kaname; коммит резолвится)
+  subject_tree_foundation: PRO-Robotech/corelib @ 34bc8104 = тег v1.9.0 (клон project/corelib; резолвится)
+  freshness_note: >-
+    Документ объявляет kaname@f8fc5a37 «последним известным origin/main» (fetch не прошёл, ssh-agent).
+    Числа S3.1 (тип membership, объект гейта, каталог, посев) перемерены мной на f8fc5a37 напрямую
+    (git show/git grep <rev>), а не из текста документа. Названный документом предел «перемерить после
+    успешного fetch» унаследован от кругов 16/17 и остаётся открытым остатком тракта, не блокером.
+
+# ─────────────────────────────────────────────────────────────────────────────
+delta_since_prior_round:
+  parent_round: 17
+  parent_sha256: 46d03ba4b34fdf12db060cef15292fc03f642a93a520e6aea14e3fafaed0723e
+  stat: "+83/−4, только markdown (git diff --stat 7181ef8f d891aba6 — 87 строк одного .md)"
+  touched_sections:
+    - "header changelog (строка ред.18)"
+    - "§2.3а остаток пункт 2 (край СОБИРАЕТ объект вместо «берёт из поля запроса»)"
+    - "§2.3а новая врезка «ИМЕНОВАНИЕ АККАУНТА ГЕЙТА — из КОНТЕКСТА ВЫЗЫВАЮЩЕГО, не из запроса»"
+    - "§2.3а подраздел «Смена объекта … не правка модели, а правка контракта» (2 места «из поля запроса» исправлены)"
+    - "IAM-ID-1-31 (+ клаузы механизма + новый отрицательный «вызывающий не член аккаунта» с положительным близнецом)"
+    - "IAM-ID-1-57 (+ клауза «контекст A/B — аккаунт вызывающего, объект iam_membership:(контекст, user)»)"
+  untouched: >-
+    §5 (прочие сценарии), §6а, §8 (DoD), §9.3 (счёт) диффом НЕ тронуты. Счёт действующих остаётся
+    71 (31 и 57 по-прежнему «переданы предфазе S3.1», клаузы — не новый номер, §9.3). Производители,
+    близнецы прочих сценариев, DoD п.26 байт-идентичны редакции 17.
+
+# ─────────────────────────────────────────────────────────────────────────────
+what_i_verified_by_measurement:
+  fingerprint:
+    result: подтверждено
+    command: "git show d891aba6:…acceptance.md | sha256sum → f4ffbd08… (совпал с заданием и шапкой)"
+  mechanism_named_and_coherent:
+    claim: >-
+      механизм именования аккаунта гейта назван и объект гейта consistent во ВСЕХ четырёх местах
+      (§2.3а остаток п.2, врезка «Именование», IAM-ID-1-31, IAM-ID-1-57): объект =
+      iam_membership:(callerAccount, user), аккаунт из КОНТЕКСТА вызывающего, user из запроса
+    result: подтверждено чтением контракта
+    note: >-
+      осей именования две из РАЗНЫХ источников: аккаунтная — вывод из контекста (сессия/членство),
+      user-ось — from_request. Приём совпадает с §5.0 п.0 «свой список» (субъект из контекста вызова,
+      параметра нет ⇒ не обойти никаким отношением). Расхождений между четырьмя местами нет.
+  no_new_field_or_oracle:
+    claim: механизм НЕ вводит нового поля запроса и нового оракула существования
+    result: подтверждено
+    commands:
+      - "git show f8fc5a37:proto/kaname/cloud/iam/v1/user_service.proto | GetUserRequest — поля account нет"
+      - "…| ListUserOperationsRequest — поля account нет (§2.3, §1.5 соблюдены; поле аккаунта в запрос НЕ добавлено)"
+      - "отказ «вызывающий не член аккаунта» объявлен ПОБАЙТОВО равным настоящему промаху владельца (скрытие существования, security.md §Hardening #6) — различимого текста нет ⇒ оракула нет"
+  gate_verbs_and_catalog_radius:
+    claim: "остаток п.2 верен: 2 записи каталога из 15 на iam_user меняют объект гейта — ровно v_get/v_list"
+    result: подтверждено на f8fc5a37
+    commands:
+      - "fga_model.fga iam_user: v_ глаголы аккаунт-скоупные через голый super_admin → v_get·v_list (ровно 2); все v_ глаголы типа → те же два (v_delete #1128 / v_update сняты)"
+      - "permission_catalog.json object_type==iam_user → 15; из них UserService/Get (v_get) и UserService/ListOperations (v_list) — оба СЕГОДНЯ scope_extractor {object_type: iam_user, from_request_field: user_id}"
+      - "механизм верно диагностирует блокер: при смене типа на iam_membership с прежним from_request_field: user_id объект стал бы негодным iam_membership:<user_id> — потому аккаунтная ось переводится на контекст, а объект собирается на крае"
+  super_admin_cascade_intact:
+    claim: аварийный путь (админ облака) НЕ ослаблен — IAM-ID-1-57 третий Then
+    result: подтверждено
+    command: "fga_model.fga iam_user: define super_admin: admin from account (каскад уровня облака сохранён); v_get/v_list = … or super_admin"
+  model_radius_unchanged:
+    claim: "типов 32; iam_membership 0 (станет 33)"
+    result: подтверждено на f8fc5a37 (32 · 0)
+  atomicity_cross_lane:
+    claim: >-
+      реализация атомарна и кросс-полосна одним logical change-set (модель+каталог kaname ·
+      resource_scope_edge миграцией · реконсайлер · извлечение+сборка на крае kacho); половина
+      отнимает доступ (fail-closed)
+    result: подтверждено чтением; обоснование корректно ссылается на security-hardening
+    note: >-
+      «model+catalog без сборки на крае → негодный объект → fail-closed → админ своего аккаунта тоже
+      отвергнут» (security-hardening §«Разрыв, невидимый ни с одной стороны»); обратно «край без типа
+      в модели → catalog: no entry / невыразимый тип → AUTHZ_DENIED». Неделимость обоснована верно.
+  producer_and_twin:
+    claim: >-
+      производитель IAM-ID-1-31/-57 — приёмка предфазы S3.1 (§6а, DoD п.26); IAM-ID-1-31 несёт
+      новый отрицательный «вызывающий не член аккаунта» с положительным близнецом (дельта один факт)
+    result: подтверждено чтением контракта
+    commands:
+      - "IAM-ID-1-31: [ПЕРЕДАН ПРЕДФАЗЕ S3.1] — производитель приёмка S3.1, в счёте не участвует (§9.3)"
+      - "новый And: отказ когда не член + положительный близнец «тот же вызывающий как админ-ЧЛЕН аккаунта проходит (дельта одна — его членство)» — одно-фактная дельта, род TWIN удовлетворён"
+  constructibility_of_given:
+    claim: Given «человек в двух аккаунтах = одна строка личности, два членства» конструируем на субъект-дереве
+    result: подтверждено НАЗВАННОЙ ФИКСТУРОЙ (посаженной пробой субъект-дерева), не свежим посевом
+    command: "git show f8fc5a37:internal/repo/kaname/pg/user_invite_second_account_integration_test.go | sed -n '133p' → require.Len(t, mems, 2) (TestUserInvite_ExistingActiveEmail_SecondAccount) — оба членства на одной строке почты"
+  count_unchanged:
+    claim: действующих сценариев 71 (не изменилось); клаузы 31/57 — не новый номер
+    result: подтверждено — §9.3 диффом не тронут; 31/57 остаются «переданы предфазе S3.1», в счёте не участвуют
+
+# ─────────────────────────────────────────────────────────────────────────────
+owner_decision_recorded:
+  question: канал «контекста вызывающего» для человека-админа (не токен В-7, не поле запроса §2.3)
+  decision: >-
+    Канал = АКТИВНЫЙ/ЯВНО ВЫБРАННЫЙ аккаунт СЕССИИ человека (для человека в N аккаунтах — явно
+    выбранный активный); НЕ утверждение токена (kaname_active_account/kaname_account_id сняты, В-7),
+    НЕ поле запроса (§2.3). Контракт транспорта несёт модель сессии Ф1 + приёмка предфазы S3.1.
+  status: РЕШЕНО владельцем (передано диспетчером) — НЕ висит вопросом владельцу
+  consistency_with_document: >-
+    полностью согласуется: §2.3а врезка уже называет семантику «явно выбранный аккаунт сессии» и
+    делегирует конкретную форму транспорта приёмке предфазы S3.1 (отдельный предмет под своим
+    APPROVED, как 31/57 «переданы предфазе S3.1»). Решение владельца подтверждает делегацию и
+    называет Ф1 основанием сессии. Открытых вопросов ЭТОГО документа — 0.
+
+# ─────────────────────────────────────────────────────────────────────────────
+checklist:
+  scope_S3.1: >-
+    OK — §2.3а/§4/§6а/DoD п.26 держат S3.1 отдельным предметом; врезка добавляет СЕМАНТИКУ объекта
+    гейта (что этот документ и обязан назвать), транспорт делегирован приёмке S3.1. Over/under-scope нет.
+  coverage: OK — §5 прочих сценариев диффом не тронут; покрытие принято от круга 17 (сверено на субъект-дереве)
+  producers: OK — у переданных S3.1-сценариев (31, 57) производитель назван (приёмка S3.1); действующие несут своих
+  twin_IAM-ID-1-31: OK — новый отрицательный «не член аккаунта» + положительный близнец, дельта один факт (членство)
+  constructibility: OK — названной фикстурой (посаженная проба kaname, require.Len mems 2, строка 133)
+  no_new_oracle_or_field: OK — поле аккаунта в запрос не добавлено; отказ побайтово равен промаху владельца (нет оракула)
+  s2_3_s1_5_preserved: OK — GetUserRequest/ListUserOperationsRequest без поля аккаунта; User.account_id в reserved
+  authz_lives_in_model: OK — IAM-ID-1-31/-57 «держится моделью»; край лишь СОБИРАЕТ объект, РЕШЕНИЕ — Check модели
+  super_admin_cascade: OK — admin from account сохранён; аварийный путь облака не ослаблен (57 третий Then)
+  conventions: OK — правка только markdown; новых нарушений naming/non-negotiables нет
+  DoD: OK — п.26 измерим; остальные пункты диффом не тронуты
+  open_questions: OK — 0; единственный флаг «пункт к владельцу» РЕШЁН владельцем (зафиксировано выше)
+
+# ─────────────────────────────────────────────────────────────────────────────
+blocking_findings: []
+
+non_blocking_findings:
+  - id: N18-1
+    rod: '—'
+    class: '[DOC-TRUTHFULNESS] флаг «открытый пункт к владельцу» пережил ответ владельца'
+    text: >-
+      Врезка §2.3а завершается «Это открытый пункт к владельцу — строкой «вопросы владельцу» возврата
+      этой правки.» Владелец пункт РЕШИЛ (канал = явно выбранный аккаунт сессии; транспорт — Ф1 +
+      приёмка предфазы S3.1). После решения этот флаг стал устаревшим утверждением о мире (doc-truthfulness).
+      Рекомендация: в СЛЕДУЮЩЕЙ редакции свернуть решение владельца в врезку (заменить «открытый пункт»
+      записью решения), чтобы одобренная линия не несла уже отвеченный «открытый» флаг.
+    why_not_blocking: >-
+      Не дефект контракта: семантика объекта гейта названа полностью и совпадает с решением владельца;
+      транспорт легитимно делегирован приёмке предфазы S3.1 (отдельный предмет, как 31/57). Решение
+      владельца зафиксировано в ЭТОЙ записи (change-graph.md §1: вердиктовая запись владеет вердиктом).
+      Правка флага сменит отпечаток и потребует нового тривиального рассмотрения — это уборка, а не
+      условие одобрения; план тракта идёт на отпечатке f4ffbd08.
+
+# ─────────────────────────────────────────────────────────────────────────────
+constructibility:
+  seeded_by_me: 0
+  seeding_environment_named_in_task: false
+  reproduced_predicates: 11
+  reproduced_list:
+    - отпечаток f4ffbd08 (committed @d891aba6, совпал с заданием и шапкой)
+    - GetUserRequest/ListUserOperationsRequest без поля аккаунта (§2.3/§1.5)
+    - fga iam_user — только v_get/v_list аккаунт-скоупны через голый super_admin; v_delete/v_update сняты
+    - super_admin = admin from account (каскад облака сохранён)
+    - permission_catalog 15 записей на iam_user; 2 гейтовые = UserService/Get + UserService/ListOperations
+    - обе гейтовые записи сегодня scope_extractor {iam_user, from_request_field: user_id} (диагноз блокера верен)
+    - типов 32, iam_membership 0
+    - kaname-проба user_invite_second_account…:133 = require.Len(mems, 2)
+    - cutover 1202e3cf — предок d891aba6 (epoch post-cutover)
+    - policy.yaml sha256 = ff087e51… (совпал с политикой)
+    - отсутствие прежней записи на f4ffbd08 (grep -c → 0)
+  not_performed: 1
+  not_performed_detail: >-
+    Свежий ПОСЕВ Given на поднятом стенде мной не ставился: стенд заданием не назван и не поднимался.
+    Конструируемость Given доказана НАЗВАННОЙ ФИКСТУРОЙ (посаженная проба субъект-дерева require.Len
+    mems 2) — прочтены её утверждения на f8fc5a37, но не исполнял в testcontainer. Это третий исход
+    «не выполнилось» для свежего посева; в зелёное и в красное не зачитывается. На вердикт не влияет.
+
+# ─────────────────────────────────────────────────────────────────────────────
+scope:
+  reviewed: >-
+    вся дельта редакции 18: совпадение отпечатка; механизм именования аккаунта гейта назван и объект
+    гейта consistent (iam_membership:(callerAccount, user), аккаунт из контекста, user из запроса);
+    §2.3/§1.5 соблюдены (поле аккаунта в запрос не добавлено); нового оракула/поля в контракт не
+    введено (отказ побайтово равен промаху владельца); атомарность/кросс-полосность обоснованы верно;
+    IAM-ID-1-31 новый отрицательный + положительный близнец (дельта один факт); IAM-ID-1-57 клауза
+    контекста; каскад облака не ослаблен; авторизация в модели; открытый пункт решён владельцем;
+    конструируемость — названной фикстурой; счёт 71 не изменился. §5 прочих/§6а/§8/§9.3 диффом не
+    тронуты — приняты от круга 17.
+  blocking_count: 0
+  blocking_rods: []
+  repeated_rod: >-
+    n/a — вердикт ОДОБРЕНИЕ, блокирующих нет. §14а (повтор рода) не срабатывает.
+  effective_approval_requires_event: true
+  authoritative_tree_declared_correctly: true
+  route_markers:
+    proto: false
+    schema: false
+    public_rpc: false
+    ui: false
+    new_domain: false
+    security_surface: >-
+      да по СЕМАНТИКЕ (объект authz-гейта личности меняется на членство; аккаунт-ось выводится из
+      контекста, не из запроса) — но КОД этой поверхности производит приёмка предфазы S3.1, не этот
+      документ; здесь только приёмочная семантика. Правка markdown-приёмки; нового кода нет.
+  next: >-
+    ✅ APPROVED на f4ffbd08. Курьер (git-operator/оркестратор) публикует внешнее событие полномочия
+    kacho#1351 под pointpu под ЭТОТ отпечаток и обновляет PR #683 (прежний APPROVED 46d03ba4
+    обесценен). Затем class-exposure-analyst — пересверка классов на новый отпечаток f4ffbd08; далее
+    атомарная волна S3.1 (migration-writer + gateway + reconciler + go-implementer model/catalog)
+    одним logical change-set. Задачу/приёмку предфазы S3.1 и порядок волны назначает диспетчер.

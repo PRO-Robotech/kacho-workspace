@@ -1,0 +1,293 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-IAM-ID-1-identity-account-decoupling-acceptance.md
+  sha256: 24b4bf85cddf5ebc552769ed93b641515e2dfe778d821776ac7cd42fe8b33a78
+  revision: 20
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT — «редакция 20, ждёт acceptance-reviewer»; шапка намеренно НЕ
+    правлена (change-graph.md §2). Ниже неё сохранена ДОСЛОВНО прежняя шапка кругов 1–12 со
+    строкой «✅ APPROVED — круг 12»: она описывает прежние редакции и ЭТОТ текст не одобряет.
+    Машинный читатель docs-gate прочтёт объявленный вердикт — это его объявленный предел
+    (судит объявление, а не одобрение). Действующий вердикт о редакции 20 (отпечаток
+    24b4bf85) — ЭТА запись, и он ВОЗВРАТ. Одобрение редакции 19 (`c5937b4e…`) к этому
+    отпечатку отношения не имеет — обесценено сменой отпечатка (change-graph.md §2).
+  base_commit: 810136a3f09f57d2ed7c7df1165d0278ebb4a51e
+  content_commit: uncommitted
+  content_state: >-
+    Редакция 20 — НЕЗАКОММИЧЕННАЯ правка рабочего дерева поверх HEAD (810136a3, чей .md ==
+    редакция 19 `c5937b4e…`). Судится рабочий файл в worktree tmp/w-s31-rebase (ветка
+    issue-1351-iam-id-1-s4), как назвало задание. Коммит редакции 20 и этой записи — момент
+    git-operator, не мой.
+  parent_review_record: docs/specs/reviews/sub-phase-IAM-ID-1-identity-account-decoupling-acceptance/c5937b4eb14210f89398f288d7a55fc8c8d086c57b7d7313c45bb6da10b7eda8.yaml
+  task: https://github.com/PRO-Robotech/kacho/issues/1351
+  epic: https://github.com/PRO-Robotech/kacho-workspace/issues/211
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-IAM-ID-1-identity-account-decoupling-acceptance.md  (worktree tmp/w-s31-rebase, рабочий файл)
+  fingerprint_verified: true
+  lines: 8021
+
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-19T00:00:00Z'
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac HEAD
+    в worktree tmp/w-s31-rebase (HEAD=810136a3) вернул 0
+  repository: PRO-Robotech/kacho-workspace
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: ff087e513f8a42d5f92a8f374cdcf4e1790b0b4630d4b611224ccbd16b4b9c24
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: none
+  status: not_applicable
+  published: false
+  rationale: >-
+    Вердикт — ВОЗВРАТ. Внешнее событие полномочия публикуется только под ОДОБРЕНИЕ;
+    возврату события не требуется. Роль в записи — координата, а не доказательство
+    личности (change-graph.md §3).
+  external_event_body_for_publication: null
+
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    note: >-
+      Соседние записи 1b202071….yaml, 4b28757a….yaml, ecd73639….yaml, 46d03ba4….yaml,
+      f4ffbd08….yaml и c5937b4e….yaml НЕ правятся и НЕ удаляются — каждая остаётся вердиктом
+      о своём содержимом. Эта запись — соседняя, новая, на отпечаток редакции 20.
+      Предикат отсутствия прежней записи на этот отпечаток до создания:
+      `ls docs/specs/reviews/…/ | grep -c 24b4bf85` → 0.
+
+round_numbering:
+  convention: Круг называется РЕДАКЦИЕЙ, которую он прочитал. Эта запись — круг 20 по редакции 20.
+  note: >-
+    Редакция 20 — правка ПРЕДМЕТА поверх редакции 19 (c5937b4e, APPROVED этой линией). Это НЕ
+    возврат по моему ⛔: правку инициировал диспетчер (решение владельца делегировано) после
+    того, как разбор показал, что механика редакции 19 («край СОБИРАЕТ объект из двух
+    значений») требует расширить арность деривации фундамента. Механика переписана: край
+    ЧИТАЕТ `membership_id`, объект — `iam_membership:<mbr-…>`. Отпечаток сменился ⇒ прежний
+    вердикт стал вердиктом о прежнем содержимом (change-graph.md §2).
+
+measurement_home:
+  workspace_branch: issue-1351-iam-id-1-s4 @ 810136a3 (worktree tmp/w-s31-rebase), редакция 20 — рабочий файл (uncommitted)
+  subject_tree_service: PRO-Robotech/kaname — клон project/kaname; сверка велась на f8fc5a37 (ревизия, названная документом) и на dd66b5be (вершина клона)
+  subject_tree_edge: PRO-Robotech/kacho @ 8d70f599 (клон project/kacho)
+
+# ─────────────────────────────────────────────────────────────────────────────
+targeted_checks_from_task:
+  - id: T1
+    what: механика переписана с «край СОБИРАЕТ объект из двух значений» на «край ЧИТАЕТ membership_id»
+    result: ПОДТВЕРЖДЕНО
+    evidence: >-
+      git diff показывает переписанную врезку §2.3а: заголовок «ИМЕНОВАНИЕ АККАУНТА ГЕЙТА» →
+      «ИМЕНОВАНИЕ ОБЪЕКТА ГЕЙТА — ЧЛЕНСТВО СВОИМ СОБСТВЕННЫМ id `mbr-…`, ОДНИМ полем запроса»;
+      тело: «Край **читает** идентификатор членства из **одного** поля запроса».
+  - id: T2
+    what: существо сохранено — объект гейта есть членство, идентичность которого пара
+    result: ПОДТВЕРЖДЕНО
+    evidence: >-
+      Существо подтверждено деревом, а не текстом: kaname.membership_mirror_id(p_user_id,
+      p_account_id) LANGUAGE sql IMMUTABLE (internal/migrations/0001_initial.sql:1251-1255) —
+      идентификатор детерминированно производится ИЗ пары, значит «id по построению есть пара»
+      верно буквально. Форма закреплена CONSTRAINT memberships_id_form_check
+      (строка 2169): '^mbr-[0-9abcdefghjkmnpqrstvwxyz]{17}$'.
+  - id: T3
+    what: обе величины записи каталога — скаляры
+    result: ПОДТВЕРЖДЕНО
+    evidence: >-
+      Текст: «обе величины остаются **скалярами**, как и у всех прочих записей каталога».
+      Дерево подтверждает: сгенерированный каталог
+      kacho gateway/internal/middleware/embed/permission_catalog.json несёт у обеих записей
+      "scope_extractor": {"object_type": "iam_user", "from_request_field": "user_id"} — два
+      скаляра; исходник — option (corelib.authz.v1.scope_extractor) в
+      kaname proto/kaname/cloud/iam/v1/user_service.proto.
+  - id: T4
+    what: изоляция названа структурной
+    result: ПОДТВЕРЖДЕНО
+    evidence: >-
+      «**Изоляция становится СТРУКТУРНОЙ, а не проверяемой.** Членство называет **ровно одну**
+      пару … поэтому „назвать человека, которого нет в названном аккаунте“ **невыразимо**».
+      Довод верен: membership_mirror_id принимает ровно пару, а memberships_id_form_check не
+      допускает иной формы.
+  - id: T5
+    what: subject внесён в семантику гейта
+    result: ПОДТВЕРЖДЕНО
+    evidence: >-
+      Текст: «`super_admin: admin from account` и `subject: [user]` (сам член — для
+      самочтения); `v_get` = `… or subject or super_admin`, `v_list` = `… or super_admin`».
+      Сверено с деревом @ kaname f8fc5a37, блок type iam_user: define subject: [user];
+      define v_get: [...] or subject or super_admin; define v_list: [...] or super_admin —
+      совпадает дословно, включая асимметрию v_get/v_list.
+
+declared_deviation_assessment:
+  declared_by_author: >-
+    Задание говорило «не трогая сценарии», но механическая строка объекта жила и в сценариях
+    IAM-ID-1-31 и -57; поправлены ТОЛЬКО механические оговорки этих двух, Given/When/Then не
+    тронуты.
+  verdict: ПОДТВЕРЖДЕНО ЗАМЕРОМ — отступление ровно такое, как объявлено
+  method: >-
+    git diff -U0 дал 15 хунков. Диапазоны в новом файле: 3 (шапка), 30 (журнал редакций),
+    3022–3210 (§2.3а — врезка и таблицы), 4893–4902, 5006–5008. Ближайший заголовок сценария
+    выше каждого из двух последних диапазонов получен awk-обходом:
+    4876 «#### IAM-ID-1-31 · Административный уровень одного аккаунта не растекается на
+    человека» и 4992 «#### IAM-ID-1-57 · Каскад супер-доступа разрешается относительно
+    НАЗВАННОГО аккаунта». Иных сценариев правка не касается.
+  gwt_untouched: >-
+    В обоих сценариях строки **Given** / **When** / **Then** и «**And** положительный
+    контроль» пришли в диффе КОНТЕКСТОМ (префикс пробела), то есть не менялись. Изменены
+    только клаузы «**And** «контекст» — …» и «**And** отказ, когда вызывающий не
+    `super_admin` …», то есть механические оговорки. Структура утверждения сохранена:
+    отказ + побайтовое равенство промаху + положительный близнец с ОДНОЙ дельтой.
+
+measurement_11_0:
+  claim_by_author: в редакции 19 парных написаний объекта 11, двоеточных 0
+  my_result: ПОДТВЕРЖДАЮ — 11 и 0, перемерено своим прогоном
+  predicate_pair: git show HEAD:$D | grep -o 'iam_membership:([^)]*)' | wc -l
+  predicate_colon: git show HEAD:$D | grep -cE 'iam_membership:[<A-Za-z_][^ )>]*:'
+  red19_breakdown:
+    - '8 × iam_membership:(<скоуп-аккаунт>, user)'
+    - '2 × iam_membership:(названный аккаунт, user)'
+    - '1 × iam_membership:(callerAccount, user)'
+    - 'итого парных 11; двоеточных 0'
+  falsifiability_proven_by_me: >-
+    Инъекция синтетики в обе стороны, с законным близнецом:
+    'iam_membership:acc-01ABC:usr-02DEF' → A(парные)=0, B(двоеточные)=1;
+    'iam_membership:(<скоуп-аккаунт>, user)' → A=1, B=0;
+    законный близнец 'iam_membership:<mbr-…>' → A=0, B=0.
+    Оба предиката различают предмет, а не находят слово.
+  red20_state:
+    pair_spellings_remaining: 2
+    where: >-
+      строки 28 и 29 — ЖУРНАЛ РЕДАКЦИЙ (строки редакций 18 и 19), описывающий, что говорили
+      прежние редакции. Это корректная история, а не живое утверждение: history_is_appended
+      (change-graph.md §2). Живых парных написаний механики — 0.
+    colon_spellings: 0
+    new_form_occurrences: 6 ('iam_membership:<mbr')
+    membership_id_occurrences: 23
+
+# ─────────────────────────────────────────────────────────────────────────────
+blocking_findings:
+  - id: B20-1
+    kind: CONVENTION
+    title: ОТБОР выдан за ОБЛАСТЬ — самопротиворечие внутри одного абзаца врезки §2.3а
+    where: §2.3а, врезка «ИМЕНОВАНИЕ ОБЪЕКТА ГЕЙТА», абзац «Форма пути — аккаунт-скоупная»
+    what_the_text_says: >-
+      Двумя предложениями раньше: «Областью решения о доступе он при этом **не является** —
+      её называет `membership_id`». Затем: «Поле `account_id` в запросе — это место 2/5
+      переписи §1.5 (поле-**область**, сохранённое явно), а **не** снятое §2.3 место 1».
+    why_wrong:
+      - >-
+        САМОПРОТИВОРЕЧИЕ: один и тот же `account_id` запроса назван «не областью решения» и
+        тут же «поле-область». Врезка существует ровно затем, чтобы решить, ЧТО называет
+        область решения; противоречие стоит в ней самой.
+      - >-
+        НЕВЕРНАЯ АТРИБУЦИЯ ПО §1.5: места 2 и 5 переписи — это `InviteUserRequest.account_id`
+        и `scope_extractor.from_request_field: "account_id"` у `Invite`/`RemoveFromAccount`.
+        Новый сегмент `{accountId}` на `UserService.Get`/`ListOperations` не является ни тем,
+        ни другим: это НОВОЕ вхождение, и его род — ОТБОР, которого в переписи §1.5 слота нет
+        вовсе. Перепись §1.5 меряет сегодняшнее дерево; новый сегмент в неё не входит.
+      - >-
+        ЦЕНА ОШИБКИ НАЗВАНА В ТОЙ ЖЕ ВРЕЗКЕ: третья отвергнутая альтернатива — «гейт на
+        `account` + сужение данных», отвергнутая как НЕОБРАТИМАЯ (ban #18, ось
+        перспективности). Читатель, принявший `account_id` за поле-область, переизобретёт
+        ровно её.
+    what_is_correct_and_must_stay: >-
+      Вывод абзаца — верен и подтверждён мной: §2.3 остаётся соблюдён, потому что снятое
+      место 1 (`User.account_id`) — поле РЕСУРСА, а сегмент пути полем ресурса не является.
+      Этот вывод от «поля-области» не зависит и в правке не нуждается.
+    how_to_close: >-
+      Назвать род сегмента одним словом и одним: ОТБОР (как уже сказано двумя предложениями
+      выше и как это дословно сделано в приёмке предфазы §1.1 и §4.1). Довод §2.3-соблюдения
+      строить на «не поле ресурса», а не на приписывании местам 2/5.
+    reference_that_gets_it_right: >-
+      Приёмка предфазы S3.1, §4.1: «Редакция 2 называет область полем `membership_id`, а
+      сегмент `{accountId}` несёт **отбор** (§1.1)». Формулировка уже найдена — в родителе
+      она осталась прежней.
+
+important_non_blocking:
+  - id: N20-1
+    kind: precision
+    title: «край склеивает тип с одним идентификатором» — край не склеивает вовсе
+    where: §2.3а, таблица «Отвергнуто замером», строка про композитный объект
+    measured: >-
+      kacho @ 8d70f599: AuthzCheckInput (gateway/internal/middleware/authz.go:70-82) несёт
+      ResourceType и ResourceID ОТДЕЛЬНЫМИ скалярными полями; вызов
+      m.cfg.Checker.Check(ctx, AuthzCheckInput{… ResourceType: resourceType, ResourceID:
+      resourceID.String() …}) на строке 1186 передаёт пару, а не строку. Выражение
+      descriptor.ResourceType+":"+descriptor.ResourceID встречается в этом файле ТОЛЬКО в
+      журнальных вызовах (строки 1129, 1219, 1232, 1250) и на путь Check не попадает.
+      Склейки нет и в адаптере gateway/internal/clients/.
+    why_not_blocking: >-
+      ВЫВОД абзаца («композит требует расширить арность деривации фундамента») верен и моим
+      замером УСИЛИВАЕТСЯ: у края ровно одно скалярное поле ResourceID, значит композит
+      непредставим без правки структуры. Неточен глагол, а не заключение.
+    note: >-
+      Тот же класс в приёмке предфазы стоит НАЗВАННЫМ ПРОИЗВОДИТЕЛЕМ сценария S31E-11 и там
+      блокирует (B2-2 записи предфазы).
+  - id: N20-2
+    kind: precision
+    title: таблица атомарности делит ОДИН блок scope_extractor между двумя полосами
+    where: §2.3а, таблица «Реализация АТОМАРНА и КРОСС-ПОЛОСНА»
+    what: >-
+      `object_type` отнесён к полосе «модель + каталог | kaname», `from_request_field` — к
+      полосе «край | kacho (gateway)». Обе величины — соседние поля ОДНОГО
+      option (corelib.authz.v1.scope_extractor) в kaname
+      proto/kaname/cloud/iam/v1/user_service.proto и ОДНОГО объекта "scope_extractor" в
+      сгенерированном kacho gateway/internal/middleware/embed/permission_catalog.json.
+    why_not_blocking: >-
+      Я заводил это кандидатом в блокеры и ОПРОВЕРГ собственным замером: каталог существует
+      в ОБОИХ деревьях (исходник — опции proto в kaname, встроенная копия — JSON в kacho),
+      поэтому у каждой полосы есть свой артефакт, и регенерация переносит обе величины
+      вместе. Описание неточно, но change-set исполним, а «Приземляются вместе» это
+      покрывает.
+    how_to_improve: >-
+      Сказать, что полоса kaname меняет ОБЕ величины в опции proto, а полоса kacho
+      регенерирует встроенный каталог и вносит строку таблицы форм ответа на новый тип.
+  - id: N20-3
+    kind: coverage
+    title: остаток «сведён к ДВУМ вещам» не называет правку контракта двух запросов
+    what: >-
+      Механика редакции 20 требует, чтобы `from_request_field: "membership_id"` разрешался,
+      а путь нёс два плейсхолдера. Измерено @ kaname f8fc5a37: GetUserRequest несёт ТОЛЬКО
+      `string user_id = 1`; ListUserOperationsRequest — `user_id`, `page_size`, `page_token`;
+      HTTP-путь `rpc Get` сегодня `/iam/v1/users/{user_id}`. Поля `membership_id` и
+      `account_id` в этих сообщениях НЕТ. Сам документ предупреждает: «неразрешённое поле
+      роняет процесс при старте».
+    why_not_blocking_here: >-
+      Родитель прямо делегирует: «Производитель каждого «Тогда» остатка — приёмка предфазы
+      S3.1». REST-форму и записи каталога предфаза называет (§1.1, DoD пп. 1–2). Но СУДЬБА
+      поля `user_id` не названа НИ ОДНИМ из двух документов — это блокер записи предфазы
+      (B2-1), а здесь остаётся заметкой: перечень остатка стоит привести к механике редакции
+      20, назвав правку контракта третьей вещью.
+
+checklist:
+  scope: PASS — §2.3а остаётся в границах S3.1; «Что НЕ входит» и передача предфазе названы
+  coverage: PASS с заметкой N20-3
+  negative: PASS — IAM-ID-1-31/-57 несут отказ, побайтовое равенство промаху и близнеца
+  producer: PASS — производитель остатка назван (приёмка предфазы S3.1) и подтверждён её существованием
+  twin: PASS — у обоих тронутых отрицаний положительный близнец с ОДНОЙ названной дельтой
+  constructibility: PASS — посев второго членства доказан пробой субъект-дерева; форма id закреплена ограничением
+  format: PASS
+  convention: FAIL — B20-1
+  dod: PASS (в этой правке не менялся)
+  open_question: PASS — открытых пунктов к владельцу редакция 20 не оставляет; вопрос редакции 18 явно снят
+  disclosure: PASS — координаты публичны, разбора «где защита не сработала» нет
+
+counts:
+  blocking: 1
+  blocking_kinds: [CONVENTION]
+  important_non_blocking: 3
+  scenarios_touched: 2 (IAM-ID-1-31, IAM-ID-1-57 — только механические оговорки)
+  owner_questions: 0
+  not_performed: 0

@@ -1,0 +1,250 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-IAM-ID-1-identity-account-decoupling-acceptance.md
+  sha256: 46d03ba4b34fdf12db060cef15292fc03f642a93a520e6aea14e3fafaed0723e
+  revision: 17
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT — «редакция круга 16, ждёт acceptance-reviewer»; шапка намеренно НЕ
+    правлена (change-graph.md §2). Ниже неё сохранена ДОСЛОВНО прежняя шапка кругов 1–12 со строкой
+    «✅ APPROVED — круг 12»: она описывает прежние редакции и ЭТОТ текст не одобряет (документ
+    объясняет это тремя предикатами). Машинный читатель docs-gate прочтёт объявленный вердикт —
+    это его объявленный предел (судит объявление, а не одобрение). Действующий вердикт о редакции 17
+    (отпечаток 46d03ba4) — ЭТА запись, и он ОДОБРЕНИЕ. Одобрения кругов 15 (`4b28757a…`) и 16
+    (обесценено ⛔, `ecd73639…`) к этому отпечатку отношения не имеют — оба обесценены сменой
+    отпечатка (change-graph.md §2).
+  base_commit: 7181ef8f93164636f5c016860e42183f8f7d9973
+  content_commit: 7181ef8f93164636f5c016860e42183f8f7d9973
+  parent_commit: 9d26309e87ca282277698a4af538e038df4e81de
+  parent_review_record: docs/specs/reviews/sub-phase-IAM-ID-1-identity-account-decoupling-acceptance/ecd736390ac3e41759e6753d3695ab115c9aafddf5ea732983589b06af057c45.yaml
+  pull_request: https://github.com/PRO-Robotech/kacho/pull/683
+  task: https://github.com/PRO-Robotech/kacho/issues/1351
+  epic: https://github.com/PRO-Robotech/kacho-workspace/issues/211
+  fingerprint_predicate: git show 7181ef8f:docs/specs/sub-phase-IAM-ID-1-identity-account-decoupling-acceptance.md | sha256sum
+  fingerprint_verified: true
+  lines: 7872
+
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-19T00:00:00Z'
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac 7181ef8f
+    в PRO-Robotech/kacho-workspace вернул 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: 7181ef8f93164636f5c016860e42183f8f7d9973
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: ff087e513f8a42d5f92a8f374cdcf4e1790b0b4630d4b611224ccbd16b4b9c24
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — ОДОБРЕНИЕ. Effective approval приёмки существует только по внешнему событию
+    полномочия; я его НЕ публикую. Событие публикует курьер (git-operator/оркестратор) под учётной
+    записью, допущенной политикой (policy.yaml review_authority.acceptance-reviewer = [pointpu]),
+    отдельным коммитом/комментарием задачи kacho#1351, не правя эту запись задним числом. Роль в
+    записи — координата, а не доказательство личности (change-graph.md §3): до публикации события
+    одобрение объявлено, но не действует.
+  external_event_body_for_publication: >-
+    роль: acceptance-reviewer · вердикт: APPROVED · SHA-256 предмета:
+    46d03ba4b34fdf12db060cef15292fc03f642a93a520e6aea14e3fafaed0723e — как комментарий/событие
+    GitHub задачи kacho#1351 под pointpu; gate сверяет digest тела и subject (policy.yaml §2).
+
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    note: >-
+      Соседние записи 1b202071….yaml (⛔ круг 14, редакция 14), 4b28757a….yaml (✅ круг 15,
+      редакция 15) и ecd73639….yaml (⛔ круг 16, редакция 16) НЕ правятся и НЕ удаляются — каждая
+      остаётся вердиктом о своём содержимом. Эта запись — соседняя, новая, на отпечаток редакции 17
+      (`46d03ba4…`). Предикат отсутствия прежней записи на этот отпечаток до создания:
+      `ls docs/specs/reviews/…/ | grep -c 46d03ba4` → 0.
+
+round_numbering:
+  convention: Круг называется РЕДАКЦИЕЙ, которую он прочитал. Эта запись — круг 17 по редакции 17.
+  note: >-
+    Документ в шапке и §20 называет эту редакцию «круг 16 (правка 2)» и адресует следующий вердикт
+    «кругу 17» (§20.6). Нумерую вердикт кругом 17, редакцию — 17 (преемник редакции 16, ecd73639):
+    отпечаток сменился, значит это отдельное содержимое под отдельным рассмотрением.
+  editions_by_fingerprint:
+    - {edition: 15, commit: 93359033, sha256_prefix: 4b28757a, verdict: 'APPROVED (внешнее событие; обесценено сменой отпечатка)'}
+    - {edition: 16, commit: 9d26309e, sha256_prefix: ecd73639, verdict: 'CHANGES_REQUESTED (круг 16, B16-1 CONVENTION)'}
+    - {edition: 17, commit: 7181ef8f, sha256_prefix: 46d03ba4, verdict: 'APPROVED (эта запись)'}
+  predicate: >-
+    `git show 7181ef8f:<путь> | sha256sum` → 46d03ba4b34fdf12db060cef15292fc03f642a93a520e6aea14e3fafaed0723e —
+    совпал с отпечатком, названным в задании и в шапке.
+
+# ─────────────────────────────────────────────────────────────────────────────
+measurement_home:
+  workspace_branch: issue-1351-iam-id-1-s4 @ 7181ef8f (worktree tmp/w-s31-rebase)
+  subject_tree_service: PRO-Robotech/kaname @ f8fc5a37 (клон project/kaname; коммит резолвится)
+  subject_tree_foundation: PRO-Robotech/corelib @ 34bc8104 = тег v1.9.0 (клон project/corelib; резолвится)
+  freshness_note: >-
+    Документ объявляет kaname@f8fc5a37 «последним известным origin/main» (fetch не прошёл, ssh-agent).
+    Числа S3.1 перемерены мной на f8fc5a37 напрямую (git show/git grep <rev>), а не из текста
+    документа. Названный документом предел «перемерить после успешного fetch» унаследован от круга 16
+    и остаётся открытым остатком тракта, не блокером приёмки.
+
+# ─────────────────────────────────────────────────────────────────────────────
+delta_since_prior_round:
+  parent_round: 16
+  parent_sha256: ecd736390ac3e41759e6753d3695ab115c9aafddf5ea732983589b06af057c45
+  stat: "+52/−20, только markdown (git diff --stat 9d26309e 7181ef8f — .md 72 строки; вторая правка — эта запись ревью)"
+  touched_sections: [header changelog, §1.9, §2.3а врезка «Радиус смены объекта», §20.5, §20.6]
+  untouched: >-
+    §5 (сценарии), §6а, §8 (DoD), §9 (трассировка) диффом НЕ тронуты — производители, близнецы,
+    счёт, DoD п.26 байт-идентичны редакции 16, которую круг 16 сверил на субъект-дереве и принял.
+
+what_i_verified_by_measurement:
+  fingerprint:
+    result: подтверждено
+    command: "git show 7181ef8f:…acceptance.md | sha256sum → 46d03ba4… (совпал с заданием и шапкой)"
+  B16-1_closed:
+    claim: >-
+      блокер круга 16 (род CONVENTION) закрыт: монорепо-предикат «$R:gateway/…/permission_catalog.json → 10»
+      БОЛЬШЕ НЕ предъявлен как радиус остатка S3.1; подраздел «Радиус смены объекта» перебазирован на
+      субъект-дерево (вариант «б») И снабжён круг-16 [!warning]-выноской (вариант «а») — сделаны ОБА,
+      предикат снятия требовал любого одного
+    result: подтверждено
+    commands:
+      - "grep -n 'permission_catalog.json' <doc> → живой предикат только на internal/apps/kaname/seed/embedded/ (стр.3079); монорепо-форма $R:gateway/… — только в врезке «Перебазировка» (2985), в строке-объявлении о снятии (3076), в круг-16 [!warning] (3099) и в §20-таблицах истории (7827, 7861)"
+      - "git show f8fc5a37:internal/apps/kaname/seed/embedded/permission_catalog.json | python3 (object_type==iam_user) → 15 (совпал с доком)"
+      - "разбивка required_relation по 15 записям: v_get 1 · v_list 1 (МЕНЯЮТ объект гейта = 2) · token_issuer 5 · token_reader 2 · session_reader 1 · identity_suspender 3 · identity_remover 1 · record_writer 1 (= 13 СОХРАНЯЮТ iam_user) — совпал с доком дословно"
+      - "iam_user блок fga_model.fga @f8fc5a37: v_ глаголы, аккаунт-скоупные через голый super_admin → v_get·v_list (ровно 2); все v_ глаголы типа → те же два (v_delete/v_update сняты) — совпал"
+  N16-1_closed:
+    claim: врезка §2.3а называет kaname-аналог посева Given вместо монорепо-§16.2
+    result: подтверждено
+    commands:
+      - "<doc> стр.3026-3027: `internal/repo/kaname/pg/user_invite_second_account_integration_test.go` (`require.Len(t, mems, 2)`, строка 133) — kaname-аналог"
+      - "git show f8fc5a37:internal/repo/kaname/pg/user_invite_second_account_integration_test.go | sed -n '133p' → require.Len(t, mems, 2) — файл и строка реальны"
+  N16-2_closed:
+    claim: >-
+      §1.9 историческая монорепо-таблица (member_remover=4 на $R) помечена круг-16 [!warning];
+      живой предикат — блок RemoveUserFromAccountRequest на $KN
+    result: подтверждено
+    commands:
+      - "<doc> стр.2423-2428: [!warning] «таблица ниже — МОНОРЕПО $R, историческая»; заголовок колонки → «Предикат на $R (МОНОРЕПО — историческое, см. врезку)»"
+      - "git show f8fc5a37:...user_service.proto | RemoveUserFromAccountRequest → membership_id 0; membership_id в proto → 2; MembershipService → присутствует; member_remover на kaname-модели → 5 (совпал с цитатой врезки)"
+  no_new_monorepo_predicate:
+    claim: дельта НЕ вводит новых монорепо-предикатов как живой радиус S3.1
+    result: подтверждено
+    note: >-
+      дельта УДАЛЯЕТ монорепо-предикат gateway/… и заменяет субъект-деревом ($KN). §2.1а и §1.10.6
+      (прочие S3.1-разделы) диффом не тронуты — перебазированы ещё кругом 16, подтверждены [!warning].
+      Все монорепо-упоминания в дельте — явно историей/врезкой.
+  model_radius_unchanged:
+    claim: "account:[account] 6 · super_admin: admin from account 6 · голой формой 4; типов 32; iam_membership 0"
+    result: подтверждено на f8fc5a37 (6·6·4·32·0)
+  named_producer_path_real:
+    claim: страж скрытия существования internal/authzguard/own_door.go (назван в добавленном тексте B16-1) существует на субъект-дереве
+    result: подтверждено — git ls-tree f8fc5a37 → internal/authzguard/own_door.go есть
+  producer_and_twin:
+    claim: >-
+      у остатка производитель — будущая приёмка S3.1 (§6а, DoD п.26); различающий сценарий
+      IAM-ID-1-31 несёт положительного близнеца (дельта одного факта — контекст аккаунта)
+    result: подтверждено чтением контракта
+    commands:
+      - "IAM-ID-1-31 (стр.4740): [ПЕРЕДАН ПРЕДФАЗЕ S3.1] — производитель приёмка S3.1, в счёте не участвует (§9.3); Then=отказ (контекст B) + And положительный контроль (контекст A ПРОХОДИТ) — одно-фактная дельта"
+      - "DoD п.26 (стр.6241-6248): предикат старта В1 — git show <ствол службы>:internal/authzmodel/fga_model.fga | grep -cE '^type .*membership' → ≥1 (сегодня 0 из 32); измеримый, порядок-не-владение"
+  constructibility_of_given:
+    claim: Given «человек в двух аккаунтах = одна строка личности, два членства» конструируем на субъект-дереве
+    result: подтверждено НАЗВАННОЙ ФИКСТУРОЙ (посаженной пробой субъект-дерева), не свежим посевом
+    command: "git show f8fc5a37:...user_invite_second_account_integration_test.go:133 → require.Len(t, mems, 2) на одной строке почты; оба членства ACTIVE"
+
+# ─────────────────────────────────────────────────────────────────────────────
+checklist:
+  scope_S3.1: >-
+    OK — §2.3а/§4/§6а/DoD п.26 описывают S3.1 отдельным предметом (владение сведено круга 15, B14-1);
+    остаток честно сведён к двум вещам (тип iam_membership + смена объекта v_get/v_list), «уже
+    приземлено» отделено и сверено на субъект-дереве. Over/under-scope нет.
+  coverage: OK — диффом §5 не тронут; покрытие принято от круга 16 (сверено на субъект-дереве)
+  producers: OK — у переданных S3.1-сценариев (31, 57) производитель назван (приёмка S3.1); действующие сценарии несут своих
+  twin_IAM-ID-1-31: OK — положительный близнец (контекст A проходит) присутствует, дельта один факт
+  constructibility: OK — названной фикстурой (посаженная проба kaname, require.Len mems 2)
+  conventions: OK — правка только markdown; новых нарушений naming/non-negotiables нет
+  DoD: OK — п.26 измерим; остальные пункты диффом не тронуты
+  open_questions: OK — блокирующих нет (принято от круга 16; §7 отвечены/дефолтны)
+
+# ─────────────────────────────────────────────────────────────────────────────
+blocking_findings: []
+
+non_blocking_findings:
+  - id: N17-1
+    rod: '—'
+    class: '[DATED] унаследованный от круга 16 предел: перемер S3.1-предикатов после успешного fetch kaname origin/main'
+    text: >-
+      Числа S3.1 стоят на kaname@f8fc5a37 (последний известный origin/main; fetch не прошёл —
+      ssh-agent). В клоне project/kaname origin/main = 8294f83a, f8fc5a37 — его предок (1 коммит),
+      и этот коммит не трогает proto/kaname/cloud/iam, internal/authzmodel, internal/migrations —
+      числа стабильны. Предел назван самим документом и §20.6 п.3.
+    why_not_blocking: >-
+      Числа перемерены мной прямо на f8fc5a37; предел про будущий fetch, а не про сегодняшнюю
+      корректность. Не влияет на вердикт.
+
+# ─────────────────────────────────────────────────────────────────────────────
+constructibility:
+  seeded_by_me: 0
+  seeding_environment_named_in_task: false
+  reproduced_predicates: 13
+  reproduced_list:
+    - отпечаток 46d03ba4 (committed @7181ef8f)
+    - permission_catalog 15 записей на iam_user (субъект-дерево)
+    - разбивка 15 = 2 (v_get/v_list меняют объект) + 13 (сохраняют iam_user)
+    - iam_user блок модели — только v_get/v_list аккаунт-скоупны; v_delete/v_update сняты
+    - радиус модели 6/6/4
+    - типов 32, iam_membership 0
+    - kaname-проба user_invite_second_account...:133 = require.Len(mems, 2)
+    - membership_id 2 в proto, RemoveUserFromAccountRequest membership_id 0
+    - member_remover 5 на kaname-модели (цитата N16-2 верна)
+    - own_door.go существует на субъект-дереве
+    - монорепо-«10» только в истории/врезках (grep permission_catalog.json)
+    - пин kaname@f8fc5a37 → corelib v1.9.0, cutover предок HEAD
+    - отсутствие прежней записи на 46d03ba4 (grep -c → 0)
+  not_performed: 1
+  not_performed_detail: >-
+    Свежий ПОСЕВ Given на поднятом стенде мной не ставился: стенд заданием не назван и не
+    поднимался. Конструируемость Given доказана НАЗВАННОЙ ФИКСТУРОЙ (посаженная проба субъект-дерева
+    require.Len mems 2) — я прочёл её утверждения на f8fc5a37, но не исполнял в testcontainer. Это
+    третий исход «не выполнилось» для свежего посева; в зелёное и в красное не зачитывается. На
+    вердикт не влияет: конструируемость подтверждена фикстурой, а закрытие B16-1 — сверкой числа
+    (15/2) на субъект-дереве.
+
+# ─────────────────────────────────────────────────────────────────────────────
+scope:
+  reviewed: >-
+    вся редакция 17 на предмет закрытия возврата круга 16: совпадение отпечатка; закрытие B16-1
+    (монорепо-«10» больше не радиус остатка — субъект-дерево 15/2 плюс круг-16 [!warning]); закрытие
+    N16-1 (kaname-аналог посева) и N16-2 (§1.9 таблица помечена историей); отсутствие новых
+    монорепо-предикатов; scope S3.1, покрытие, производители, близнец IAM-ID-1-31, конструируемость,
+    конвенции, DoD. §5/§6а/§8/§9 диффом не тронуты — приняты от круга 16, сверенного на субъект-дереве.
+  blocking_count: 0
+  blocking_rods: []
+  repeated_rod: >-
+    n/a — вердикт ОДОБРЕНИЕ, блокирующих нет. B16-1 (CONVENTION) был единственным появлением этого
+    рода (круг 14 — SCOPE, круг 15 — APPROVED, круг 16 — CONVENTION) и ЗАКРЫТ; §14а не срабатывает.
+  monorepo_predicate_remaining: >-
+    НЕТ — живой S3.1-радиус на монорепо не предъявлен ни в §2.3а, ни в §1.9, ни в §2.1а, ни в §1.10.6.
+    Монорепо-формы присутствуют только явной историей (врезки/выноски круга 16, §20-таблицы).
+  authoritative_tree_declared_correctly: true
+  effective_approval_requires_event: true
+  next: >-
+    ✅ APPROVED на 46d03ba4. Курьер (git-operator/оркестратор) публикует внешнее событие полномочия
+    kacho#1351 под pointpu под ЭТОТ отпечаток и обновляет PR #683 (прежние APPROVED 4b28757a и
+    промежуточный ecd73639 обесценены). Затем integration-tester — честный красный на IAM-ID-1-31
+    (его производитель — будущая приёмка S3.1; красный этого документа его не открывает, он открывает
+    работу S3.1). Задачу и приёмку S3.1 заводит диспетчер (В-14, N3 круга 14).
