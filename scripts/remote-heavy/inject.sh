@@ -1833,14 +1833,17 @@ qr() {  # qr <случай> <профиль> <репозиторий|""> <ждё
     go_run "qr-$1" env FAKE_NODES="$NODES12" bash "$RUN" --available --profile "$2" ${3:+--repo "$3"}
     expect_rc "QR-$1" 0
     if grep -q "запрос pod: cpu [0-9]*m, память $4 МиБ — .*$5" "$OUT"; then ok; else bad "QR-$1" "запрос pod не $4 МиБ либо без признака «$5»"; fi
+    QR_GOT="$(sed -n 's/.*запрос pod: cpu [0-9]*m, память \([0-9]*\) МиБ.*/\1/p' "$OUT" | head -n 1)"
 }
 read -r w_ck _ <<< "$(qr_want ci-local kacho)"; read -r w_cn _ <<< "$(qr_want ci-local kaname)"
 read -r w_cc s_cc <<< "$(qr_want ci-local corelib)"
-qr ci-kacho ci-local kacho "$w_ck" 'репозиторий kacho, прогонов'
-qr ci-kaname ci-local kaname "$w_cn" 'репозиторий kaname, прогонов'
+qr ci-kacho ci-local kacho "$w_ck" 'репозиторий kacho, прогонов'; g_ck="$QR_GOT"
+qr ci-kaname ci-local kaname "$w_cn" 'репозиторий kaname, прогонов'; g_cn="$QR_GOT"
 if [ "$s_cc" = '*' ]; then ok; else bad QR-corelib-premise "строка corelib ci-local набрала прогонов ≥ $PEAK_MIN — случай «мало прогонов» пуст"; fi
 qr ci-corelib ci-local corelib "$w_cc" 'прогонов меньше'
-if [ -n "$w_ck" ] && [ "$w_ck" != "$w_cn" ]; then ok; else bad QR-repo "запрос ci-local kacho ($w_ck) и kaname ($w_cn) не различаются — репозиторий не судит"; fi
+# QR-repo — различие судится по ВЫВОДУ run.sh (у таблицы строки kacho и kaname разные — предпосылка)
+if [ -n "$w_ck" ] && [ "$w_ck" != "$w_cn" ]; then ok; else bad QR-repo-premise "в PEAKS у ci-local kacho и kaname один запрос ($w_ck) — различать нечего"; fi
+if [ -n "$g_ck" ] && [ -n "$g_cn" ] && [ "$g_ck" != "$g_cn" ]; then ok; else OUT=""; bad QR-repo "run.sh дал ci-local kacho «$g_ck» и kaname «$g_cn» МиБ — репозиторий не судит"; fi
 w_max="$(for r in kacho kaname corelib; do qr_want ci-local "$r" | cut -d' ' -f1; done | sort -n | tail -n 1)"
 qr ci-any ci-local "" "$w_max" 'репозиторий не назван'
 fresh
