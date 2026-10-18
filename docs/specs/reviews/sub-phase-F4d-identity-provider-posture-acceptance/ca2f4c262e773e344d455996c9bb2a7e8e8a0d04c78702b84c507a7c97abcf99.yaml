@@ -1,0 +1,147 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-F4d-identity-provider-posture-acceptance.md
+  sha256: ca2f4c262e773e344d455996c9bb2a7e8e8a0d04c78702b84c507a7c97abcf99
+  revision: редакция 2026-10-19, правка по возврату круга 6 (§18.9; задачи ws#679 и ws#660)
+  static_status: APPROVED
+  static_status_note: >-
+    Слово в шапке — вердикт круга 3 о прежней редакции. Шапка этой записью НЕ правится (скил
+    change-graph, раздел «Вердикт привязан к ОТПЕЧАТКУ, а не к документу»). Вердикт круга 6
+    относится к отпечатку 5cf3b2d5…, круга 5 — к 673f705e…; ни один на эту редакцию не
+    переносится. Действующий вердикт об этой редакции — эта запись и внешнее событие, которое
+    публикует курьер.
+  base_commit: eb9e68454affb3bd82546d3a69b9bcad8d1a72f9
+  content_commit: none
+  branch: 679-f4d-second-factor-reset
+  branch_note: >-
+    рабочая копия kacho-workspace/tmp/w13-ws679; правка документа не закоммичена (git status:
+    M <путь>); отпечаток взят с рабочего файла; HEAD несёт 673f705e… (редакция круга 5)
+  task:
+    - https://github.com/PRO-Robotech/kacho-workspace/issues/679
+    - https://github.com/PRO-Robotech/kacho-workspace/issues/660
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-F4d-identity-provider-posture-acceptance.md
+  fingerprint_reproduced: true
+  lines: 2769
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-18T22:53:00Z'
+round: 7
+round_note: >-
+  Второй и последний круг этой правки (fa-b8-acceptance-two-rounds); счёт кругов документа —
+  сквозной. Предмет — только дельта по блокирующему круга 6 (B1); новые блокирующие — только от
+  этой правки. Решение диспетчера: сброс пароля чужому человеку не обещается (вариант «а»);
+  находка 401/403 в F4d-32/36/42 — вне дельты, заведена отдельно (ws#1221).
+previous_round:
+  round: 6
+  sha256: 5cf3b2d5e02e7612226c421f7258ea841f842e48a97ef34038f71835b499f793
+  verdict: CHANGES_REQUESTED
+  record: docs/specs/reviews/sub-phase-F4d-identity-provider-posture-acceptance/5cf3b2d5e02e7612226c421f7258ea841f842e48a97ef34038f71835b499f793.yaml
+blocking_count: 0
+blocking_kinds_distinct: []
+
+premise:
+  stated: >-
+    дельта к 5cf3b2d5… касается только B1 и учёта в документе (строка истории круга 6, F4d-51,
+    §18.5, §18.7, §18.9); сценариев 53; §11 вне F4d-20 и F4d-51 не тронут
+  outcome: подтверждена
+  measured:
+    - 'sha256sum <документ> → ca2f4c262e773e34… (совпал с заданием)'
+    - 'блоков **ID: F4d- / строк **Given**/**When**/**Then** — 53/53/53/53'
+    - 'awk-извлечение §11 (от «## §11 » до «## §12 »): рабочий файл → 9c6a3d82389f…, HEAD → 6858965463e2… — оба числа §18.7 воспроизведены'
+    - 'независимое извлечение §11 без блоков F4d-20 и F4d-51 (своим методом рецензента): рабочий файл и HEAD → cfd718cc383f… одинаково — вне двух блоков §11 не тронут'
+    - 'git diff -U0 HEAD → тот же набор из 9 мест, что в круге 6 (шапка, Р4 ×2, §6, §9.1, §11, §13, §14, §15, §18); шапка +3 строки против +2 в круге 6 — дописана строка истории круга 6'
+  not_performed:
+    - 'побайтовый дифф 5cf3b2d5…→ca2f4c26… — копии редакции 5cf3b2d5… в дереве и скретчпаде нет; дельта выведена из диффа к HEAD и неизменности §11 вне двух блоков'
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac eb9e68454 → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: eb9e68454affb3bd82546d3a69b9bcad8d1a72f9
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: approved
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  body_for_courier: acceptance-reviewer · APPROVED · ca2f4c262e773e344d455996c9bb2a7e8e8a0d04c78702b84c507a7c97abcf99
+  rationale: >-
+    Имя роли в этой записи — координата, а не доказательство личности. Событие публикует курьер
+    и тем же заходом приводит этот блок к факту.
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    note: записи кругов 4, 5 и 6 не правлены; эта — соседняя
+
+# ─────────────────────────────────────────────────────────────────────────────
+edition_binding:
+  question: объявлена ли правка и не перенесён ли вердикт круга 6 на новый отпечаток
+  answer: ДА, объявлена (шапка — строка истории круга 6 со ссылкой на §18.9; §18.9); вердикт не перенесён
+  evidence:
+    - 'строка статуса не правлена; строки истории кругов 4 и 5 не тронуты, строка круга 6 дописана'
+
+blocking_resolution:
+  - id: B1
+    kind: PRODUCER
+    status: снято
+    where: 'F4d-51, последнее «И» об административном ResetSecondFactor на своей записи (строки 1384–1392)'
+    predicate_of_round_6: "sed -n 1383,1385p <документ> | grep -c 'сесси[а-я]* «2»\\|S3'"
+    result: '1 (было 0); на сдвинутом на строку окне 1384–1386 — тоже 1'
+    content_check:
+      - 'вызов назван «до Когда», под S3 — сессией уровня «2» из «Дано»; 403 · AUTHZ_DENIED теперь судится при выполненном поле'
+      - 'исход под S1 уровня «1» назван отдельно: UNAUTHENTICATED / 401 · code 16, «об отношении не свидетельствует» — совпадает с производителем §18.2 строка 8 (kaname public_caller_policy, restfront/stepup.go) и порядком цепочки serve.go:966–973 @ db8bcb7e8, перемеренным в круге 6'
+      - 'одно-фактный близнец: тот же вызов на своей записи под сессией «2» личностью с system_admin на кластере → 200, различие одно — держит ли вызывающий отношение; дословно соответствует Ф12-45 «б» одобренной Ф12 ред. 18 (c6ea48973b04…, строки 2003–2009 копии)'
+    constructibility_of_twin: >-
+      по названной фикстуре: отношение identity_suspender выводится только от cluster#system_admin
+      (fga_model.fga, §18.2 строка 2) и от объекта не зависит — TestResetSecondFactorAuthzMatrix
+      утверждает «да» администратору облака на существующем, несуществующем и кривом id
+      (resetting_the_second_factor_authz_integration_test.go:189–197 @ db8bcb7e8); сквозь край
+      Ф12-45 держит cloud-admin-lane.spec.ts (SCENARIO_HOME, newman-suite-debt.py:1465 @ db8bcb7e8)
+
+new_blocking_from_delta: []
+
+docs_gate:
+  command: KACHO_MONOREPO=project/kacho KACHO_HOME_KANAME=project/kaname ./scripts/docs-gate/run-all.sh
+  exit_code: 0
+  result: 'рассмотрено проверок 9; пройдено 9, провалено 0, без предмета 0 (прогнано рецензентом)'
+
+constructibility:
+  seeded: 0
+  by_named_fixture: 2 of 2
+  fixtures:
+    - 'F4d-51 «И» (403 под S3): TestF12_28_29_RemoveEndsOtherSessionsAndKeepsTheCurrentAtTwo строит S1 «1» и S3 «2»; отказ не держателю — TestResetSecondFactorAuthzMatrix (человек на своей записи — «нет», :151–154)'
+    - 'близнец (200 с system_admin): TestResetSecondFactorAuthzMatrix, cloudAdmin — «да» на любом объекте'
+  not_performed:
+    - 'посев на стенде — стенд заданием не выделен; сквозной производитель F4d-20 — долг kaname#468 (OPEN)'
+
+non_blocking_findings:
+  - '§18.8 п. 1: «Задача на неё не заведена» устарело — заведена PRO-Robotech/kacho-workspace#1221 (OPEN, 2026-10-18T22:49Z); при следующей правке вписать номер'
+  - 'перенесено из круга 6, не исправлено: F4d-51 «Тогда» пишет `enrolled: false`, ответ GET /iam/v1/auth/second-factor несёт `totp.enrolled` (loginlanehttp/handler.go:949, :966 @ db8bcb7e8)'
+  - 'перенесено из круга 6: F4d-20 «тела различаются только значением user_id» можно усилить до «побайтово»'
+
+open_questions_resolved:
+  - 'сброс пароля чужому человеку (§18.3 п. 4, §18.4): решение диспетчера — не обещать (вариант «а»); документ так и утверждает (F4d-20, последнее «И»)'
+
+out_of_delta:
+  - 'форма отказа по полу в F4d-32, F4d-36, F4d-42 и §14 п. 9в (403 authz.step_up против 401 code 16) — ws#1221; по решению диспетчера не блокирует эту редакцию'
+
+scope:
+  reviewed: >-
+    дельта по B1: последнее «И» F4d-51, строка истории круга 6 в шапке, строка F4d-51 §18.5,
+    §18.7 (отпечатки §11), §18.9; неизменность §11 вне F4d-20/F4d-51 перемерена своим методом
+  route_flags: 'proto нет · схема нет · публичный RPC нет · UI нет · новый домен нет · поверхность безопасности да (держатель сброса второго фактора, отказ не держателю)'
+  blocking_count: 0
+  next: git-operator — коммит записи и публикация события; блок event — к факту тем же заходом

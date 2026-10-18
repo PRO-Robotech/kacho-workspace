@@ -1,0 +1,159 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-F4d-identity-provider-posture-acceptance.md
+  sha256: 5cf3b2d5e02e7612226c421f7258ea841f842e48a97ef34038f71835b499f793
+  revision: редакция 2026-10-19 (правка после вердикта круга 5; задачи ws#679 и ws#660)
+  static_status: APPROVED
+  static_status_note: >-
+    Слово в шапке — вердикт круга 3 о прежней редакции. Шапка этой записью НЕ правится (скил
+    change-graph, раздел «Вердикт привязан к ОТПЕЧАТКУ, а не к документу»). Вердикт круга 5
+    относится к отпечатку 673f705e…, на эту редакцию не переносится; действующий вердикт об
+    этой редакции — эта запись и внешнее событие, которое публикует курьер.
+  base_commit: eb9e68454affb3bd82546d3a69b9bcad8d1a72f9
+  content_commit: none
+  branch: 679-f4d-second-factor-reset
+  branch_note: >-
+    рабочая копия kacho-workspace/tmp/w13-ws679; правка документа не закоммичена (git status:
+    M <путь>); отпечаток взят с рабочего файла; HEAD несёт 673f705e… (редакция круга 5)
+  task:
+    - https://github.com/PRO-Robotech/kacho-workspace/issues/679
+    - https://github.com/PRO-Robotech/kacho-workspace/issues/660
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-F4d-identity-provider-posture-acceptance.md
+  fingerprint_reproduced: true
+  lines: 2741
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-18T21:57:44Z'
+round: 6
+round_note: >-
+  Первый круг этой правки (ws#679, ws#660); счёт кругов документа — сквозной. Блокирует только то,
+  что угрожает корректности контракта (ban19-block-criterion).
+previous_round:
+  round: 5
+  sha256: 673f705ee72e40bddb5711bec419b1c26fe9dcb139c71f7a78350f86920011ae
+  verdict: APPROVED
+  record: docs/specs/reviews/sub-phase-F4d-identity-provider-posture-acceptance/673f705ee72e40bddb5711bec419b1c26fe9dcb139c71f7a78350f86920011ae.yaml
+blocking_count: 1
+blocking_kinds_distinct: [PRODUCER]
+
+premise:
+  stated: >-
+    продукт решению владельца kaname#254 верен, расходился документ; Ф12 в стволе kaname — редакция
+    18, одобрена 2026-10-08
+  outcome: подтверждена
+  measured:
+    - 'git -C project/kaname show db8bcb7e8:docs/engineering/acceptance/second-factor-totp-and-recovery-codes.md | sha256sum → c6ea48973b04…; запись reviews/second-factor-totp-and-recovery-codes/c6ea4897….yaml: verdict: APPROVED, reviewed_at 2026-10-08'
+    - 'db8bcb7e8 — предок origin/main kaname (merge-base --is-ancestor → 0)'
+    - 'fga_model.fga: iam_user.identity_suspender = super_admin from account; account.super_admin = any_admin from cluster; cluster.any_admin = system_admin — источников уровня аккаунта нет'
+    - 'permission_catalog.json: ResetSecondFactor → identity_suspender, required_acr_min "2"'
+    - 'TestResetSecondFactorAuthzMatrix (internal/service/resetting_the_second_factor_authz_integration_test.go:62): владелец, приглашающий, приглашённый, посторонний — false; cloudAdmin — true'
+    - 'sf_remove.go прочитан: JudgeCodeForm первым; уровень сессии не проверяется; отказа «последний фактор» нет; EndOtherSessions; presentInSession → уровень «2»'
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac eb9e68454 → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: eb9e68454affb3bd82546d3a69b9bcad8d1a72f9
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: changes_requested
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  body_for_courier: acceptance-reviewer · CHANGES_REQUESTED · 5cf3b2d5e02e7612226c421f7258ea841f842e48a97ef34038f71835b499f793
+  rationale: >-
+    Имя роли в этой записи — координата, а не доказательство личности. Событие публикует курьер
+    и тем же заходом приводит этот блок к факту.
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    note: записи кругов 4 и 5 не правлены; эта — соседняя
+
+# ─────────────────────────────────────────────────────────────────────────────
+edition_binding:
+  question: объявлена ли правка и не перенесён ли вердикт круга 5 на новый отпечаток
+  answer: ДА, объявлена (шапка, строка редакции 2026-10-19; §18.6); вердикт не перенесён
+  evidence:
+    - 'git diff -U0 → 9 ханков: шапка, Р4 ×2, §6, §9.1, §11 (F4d-20, F4d-51), §13, §14, §15, новый §18'
+    - 'строка статуса не правлена; строка истории круга 5 дописана, прежние строки не тронуты'
+
+scope_not_widened:
+  measured:
+    - 'блоков **ID: F4d-, строк **Given**/**When**/**Then** — 53/53/53/53 до (HEAD) и после'
+    - '§11 без блоков F4d-20 и F4d-51 — sha256 6ee6eebc2075946f… до и после (извлечение awk, перемерено рецензентом)'
+
+issue_predicates:
+  ws679:
+    - 'блок F4d-20 | grep -c NOT_FOUND → 0'
+    - 'блок F4d-20 | grep -c "администратор облака\|Ф12" → 2'
+  ws660:
+    - 'grep -n "снять последний **не может**\|после снятия **последнего** оставшегося" | wc -l → 0 (HEAD → 2)'
+
+docs_gate:
+  command: KACHO_MONOREPO=project/kacho KACHO_HOME_KANAME=project/kaname ./scripts/docs-gate/run-all.sh
+  exit_code: 0
+  result: 'рассмотрено проверок 9; пройдено 9, провалено 0, без предмета 0'
+
+constructibility:
+  seeded: 0
+  by_named_fixture: 2 of 2
+  fixtures:
+    - 'F4d-20 (I): TestResetSecondFactorAuthzMatrix строит владельца, делегированного администратора, постороннего, администратора облака, отсутствующий и кривой id; распорядитель ЧУЖОГО аккаунта — тот же seedAccountWithOwner на втором аккаунте'
+    - 'F4d-51: TestF12_28_29_RemoveEndsOtherSessionsAndKeepsTheCurrentAtTwo строит S1 «1», прочие сессии, S3 поднятую до «2», снятие кодом; заведение выдаёт набор кодов (sf_enroll.go:248, :298)'
+  not_performed:
+    - 'посев уровня E на стенде — стенд заданием не выделен; сквозной производитель F4d-20 — долг kaname#468 (OPEN)'
+
+blocking_findings:
+  - id: B1
+    kind: PRODUCER
+    where: 'F4d-51, «И» об административном ResetSecondFactor на своей записи (строка 1383)'
+    claim: '«PERMISSION_DENIED / 403 · AUTHZ_DENIED» — уровень сессии вызывающего не назван'
+    why: >-
+      Пол «2» судится раньше отношения: в kaname publicCallerPolicy.Unary() стоит до
+      publicObjectDoor.Unary() (cmd/kaname/serve.go:966–973 @ db8bcb7e8), у края платформы шаг вверх
+      — в слое authN (gateway/internal/middleware/auth_stepup.go:159, :224 @ origin/main kacho). Под
+      сессией «1» не держатель получает UNAUTHENTICATED / 401 · code 16, а не 403. Единственная
+      текущая сессия «Дано» F4d-51 — S1 уровня «1», и соседние «И» об отказах судятся в состоянии
+      «Дано» («ни в одном отказе фактор не снят, сессии не тронуты»). Проба по этому чтению
+      краснеет на верном продукте. Ф12-45 (б) ставит этот вызов под сессию «2» (человек W) именно
+      поэтому; F4d-20 развела распорядителей и A₁ по уровню тем же способом.
+    predicate: >-
+      git -C project/kaname show db8bcb7e8:cmd/kaname/serve.go | sed -n 966,973p — callerPolicy раньше
+      objectDoor; awk-блок F4d-51 | grep -c 'сесси[а-я]* «2»\|S3' в строке этого «И» → 0
+    fix: >-
+      Назвать сессию: под S3 до снятия либо под S1 после снятия (обе — «2»). Близнец в одно различие
+      — тот же вызов на своей записи личностью с system_admin на кластере → 200 (как Ф12-45 (б)),
+      либо ссылка на Ф12-45 (б) как на держателя близнеца.
+
+non_blocking_findings:
+  - 'F4d-51 (строка 1370): ответ GET /iam/v1/auth/second-factor несёт поле totp.enrolled (loginlanehttp/handler.go:949, :966), а не корневое enrolled — писать `totp.enrolled: false`'
+  - 'F4d-20 (строка 1344): «тела различаются только значением user_id» — верно, но слабее продукта: деталь отказа — функция метода, тела побайтово одинаковы (authzguard/deny_details.go, TestDenyNextStep_IsAFunctionOfTheMethodOnly); при правке можно усилить до «побайтово»'
+
+found_by_the_way:
+  - >-
+    §18.8 п. 1 подтверждён: F4d-32, F4d-36, F4d-42 и §14 п. 9в утверждают отказ по полу как 403 с
+    authz.step_up, тогда как оба края дают 401 (kaname public_caller_policy.go:524; kacho
+    gateway auth_stepup.go:159, :224). После этой редакции документ несёт ДВЕ формы одного отказа.
+    Предмет — корректность контракта: задачу заводить (решает диспетчер).
+  - '§18.8 п. 2: приёмки Ф5 и Ф1 в kaname ссылаются на снятую строку Р4 «сброс распорядителем»'
+
+scope:
+  reviewed: >-
+    дельта HEAD..рабочий файл целиком (9 ханков); производители в kaname@db8bcb7e8 по координатам
+    §18.2; порядок пола и отношения на обоих краях; Ф12 Р9, Р10, Ф12-45
+  route_flags: 'proto нет · схема нет · публичный RPC нет · UI нет · новый домен нет · поверхность безопасности да (держатель сброса второго фактора, отказ не держателю)'
+  blocking_count: 1
+  next: acceptance-author — правка одного «И» F4d-51 (B1), затем проверка исполнения на новом отпечатке
