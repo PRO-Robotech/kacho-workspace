@@ -53,7 +53,8 @@ if [ "${#missing[@]}" -gt 0 ]; then
 fi
 ELF="$(type -P true || true)"
 [ -z "$ELF" ] || ELF="$(readlink -f "$ELF")"
-if ! file -b "$ELF" 2>/dev/null | grep -q '^ELF'; then
+elf_kind="$( [ -z "$ELF" ] || file -b "$ELF" 2>/dev/null || true)"
+if [ "${elf_kind#ELF}" = "$elf_kind" ]; then
     tooling_gate_void "$NAME" "настоящего исполняемого файла для инъекции нет ($ELF не ELF либо нет file)"
     exit 2
 fi
