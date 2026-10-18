@@ -78,16 +78,18 @@ if [ ! -f "$LIB" ]; then
     tooling_gate_void "$NAME" "библиотеки песочницы git нет в дереве ($LIB) — гасить обслуживание нечему"
     exit 2
 fi
-# shellcheck source=../lib/sandbox-git-home.sh
-. "$LIB"
-if ! sandbox_git_home "$TMP/home" 2>/dev/null; then
-    tooling_gate_void "$NAME" "песочница git не родилась (корневой подписи нет либо библиотека отказала) — настройки обслуживания судить не на чем"
+# Библиотека читается подоболочкой: судимое дерево — не то, что подключил бы этот
+# скрипт по своему пути, а подключение по переменной набор suites-gate не разрешает.
+sbx() { bash -c '. "$1"; shift; "$@"' _ "$LIB" "$@"; }
+rc=0; sbx sandbox_git_home "$TMP/home" 2>/dev/null || rc=$?
+if [ "$rc" -ne 0 ]; then
+    tooling_gate_void "$NAME" "песочница git не родилась (код $rc: корневой подписи нет либо библиотека отказала) — настройки обслуживания судить не на чем"
     exit 2
 fi
 cfg=0
 for pair in gc.auto=0 gc.autoDetach=false maintenance.auto=false receive.autogc=false; do
     cfg=$((cfg + 1))
-    got="$(sandbox_git config --global --get "${pair%%=*}" 2>/dev/null || true)"
+    got="$(bash -c '. "$1"; SANDBOX_GIT_HOME="$2"; sandbox_git config --global --get "$3"' _ "$LIB" "$TMP/home" "${pair%%=*}" 2>/dev/null || true)"
     [ "$got" = "${pair#*=}" ] || fail "scripts/lib/sandbox-git-home.sh — песочница git не гасит фоновое обслуживание: ${pair%%=*} = «$got», ждали «${pair#*=}»"
 done
 
