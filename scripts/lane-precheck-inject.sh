@@ -23,7 +23,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 P="$HERE/lane-precheck.sh"
 W="$(mktemp -d)"
 W="$(cd "$W" && pwd -P)"
-trap 'rm -rf "$W"' EXIT
+# shellcheck disable=SC2154
+trap '_rc=$?; rm -rf "$W" 2>/dev/null || rm -rf "$W" || echo "ПРЕДУПРЕЖДЕНИЕ: временный каталог $W не снят; код проверки $_rc сохранён" >&2; exit $_rc' EXIT
 pass=0 fail=0
 command -v jq > /dev/null || { echo "  [VOID] jq нет — обёртку трекера не построить" >&2; exit 2; }
 

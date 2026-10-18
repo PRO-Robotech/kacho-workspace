@@ -43,6 +43,17 @@ sandbox_git_home() {
     : > "$home/.gitconfig" || return 2
     HOME="$home" XDG_CONFIG_HOME="$home/.config" command git config --global user.name "$name" || return 2
     HOME="$home" XDG_CONFIG_HOME="$home/.config" command git config --global user.email "$email" || return 2
+    # Фоновое обслуживание в песочнице выключено: `gc --auto` и `maintenance run
+    # --auto` отсоединяются после коммита и пишут в `.git` НЕ дожидаясь проверки;
+    # снятие песочницы встречало растущий каталог (`rm: cannot remove …/.git:
+    # Directory not empty`, ws#1189, check-25 на 3000 новых blob'ах);
+    # `receive.autogc` — то же для приёмника отправки в голый удалённый. Это не
+    # подпись: check-16 судит лишь `user.*` и переопределения подписи.
+    local k
+    for k in "gc.auto 0" "gc.autoDetach false" "maintenance.auto false" "receive.autogc false"; do
+        # shellcheck disable=SC2086
+        HOME="$home" XDG_CONFIG_HOME="$home/.config" command git config --global $k || return 2
+    done
     SANDBOX_GIT_HOME="$home"
 }
 
