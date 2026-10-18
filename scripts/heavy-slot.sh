@@ -16,7 +16,8 @@
 #   heavy-slot.sh --enqueue <каталог> [--local "<причина>"] <класс> -- <команда> …   (поставить ОДИН раз, ниже)
 #   heavy-slot.sh --classes     классы, бюджеты и основание каждого
 #   heavy-slot.sh --budget <класс>  бюджет класса в МиБ (читает session-memcap.sh)
-#   heavy-slot.sh --status      занятые слоты, память машины, хвост журнала
+#   heavy-slot.sh --status      занятые слоты, билеты очереди и внешнего входа, память машины, хвост журнала
+#   heavy-slot.sh --cancel <билет>  снять СВОЮ заявку (ждущую, отложенную, внешнего входа) и её --enqueue
 #   heavy-slot.sh --prune-tmp   снять TMPDIR копий класса ci-local, не тронутые > 7 суток
 #
 # ВХОД — строгая очередь по билету под flock на каталоге слотов, ОДНОМ на машину;
@@ -52,6 +53,10 @@
 # MemAvailable) − память слотов + бюджет ≤ потолок билета. Прочий ждёт памяти не
 # от слотов — её очередь не освободит, и держать за ним соседей незачем (опыт ws#832,
 # круг 3: потолок 1 ГиБ на 99999 с стоял головой строгой очереди).
+# Заявку снимает `--cancel <билет>` (ws#1156): СВОЮ — ждущую, отложенную либо внешнего входа —
+# вместе с её отсоединённым ожиданием; номера билетов показывает --status, а ENQUEUED связан с
+# билетом полем enq записи. Чужую (иной «ветка@каталог») не снимает: отказ 64 с названным
+# владельцем; неизвестный билет — 69, «не выполнилось». Строка cancel — в журнал.
 # Потолок — в ГиБ, в тех единицах, что печатает `free -g` (MemTotal здесь 92,2).
 #
 # ГРАНИЦА: предел держит cgroup слота, а из неё уводит перенос процесса в другой
@@ -660,6 +665,37 @@ push_to_foreign_branch() {
     return 0
 }
 
+# cancel_ticket <номер> — снять СВОЮ заявку очереди по билету (ws#1156): ждущую, отложенную (74/75)
+# или внешнего входа, и её отсоединённое ожидание --enqueue (процесс слота получает TERM, его .rc
+# запишет обёртка). Билет чужой — «who» (ветка@каталог) не совпал с вызвавшим — не снимается:
+# отказ 64 с названным владельцем. Неизвестный билет — 69 «не выполнилось», а не успех. Запись
+# cancel — в журнал. Билет ВОШЕДШЕГО в слот снять нечем: его уже нет в очереди (слот снимает сигнал).
+cancel_ticket() {
+    local n="${1:-}" k f="" kind="" me who pid st cls what
+    [[ "$n" =~ ^[0-9]{1,12}$ ]] || { say "--cancel «$n» — номер билета (целое); билеты и их владельцев показывает --status"; return 64; }
+    n=$((10#$n)); k="$(printf '%012d' "$n")"
+    mkdir -p "$DIR/queue" "$DIR/ext" 2>/dev/null
+    me="$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD"
+    elock
+    if [ -e "$DIR/ext/$k" ]; then f="$DIR/ext/$k"; kind=ext; else eunlock; lock; [ ! -e "$DIR/queue/$k" ] || { f="$DIR/queue/$k"; kind=queue; }; fi
+    if [ -z "$f" ]; then
+        unlock
+        say "билета $n в очереди нет: снят, исполнился либо не выдавался — не выполнилось"; return 69
+    fi
+    who="$(field "$f" who)"; cls="$(field "$f" class)"; pid="$(field "$f" pid)"; st="$(field "$f" pid_start)"
+    if [ "$who" != "$me" ]; then
+        if [ "$kind" = ext ]; then eunlock; else unlock; fi
+        say "билет $n чужой: владелец «$who», вызвал «$me» — снимает только владелец, из своего каталога и ветки"; return 64
+    fi
+    what="ждал"; [ "$kind" = ext ] && what="внешний вход"; [ -z "$(field "$f" resume_until)" ] || what="отложенный"
+    if [ -n "$pid" ] && [ "$(pid_start "$pid")" = "$st" ]; then kill -TERM "$pid" 2>/dev/null; what="$what, ожидание pid $pid снято"; fi
+    rm -f "$f"
+    journal "cancel ticket=$n kind=$kind class=$cls who=$who waiter_pid=${pid:-—}"
+    if [ "$kind" = ext ]; then eunlock; else unlock; fi
+    say "снято: билет $n ($cls: $what)"
+    return 0
+}
+
 # ── разбор вызова ────────────────────────────────────────────────────────────
 # --wait N — единственное ожидание слота, явное и ≤ 300 с (ws#1004); без него занятый
 # слот — код 74 сразу. Значение судится до класса: «--wait 2400» — 64, а не полчаса.
@@ -706,12 +742,13 @@ case "${1:-}" in
     --classes) print_classes; exit 0 ;;
     --budget)  class_budget "${2:-}" || { say "класса «${2:-}» нет"; exit 64; }; exit 0 ;;
     --status)  mkdir -p "$DIR/active" 2>/dev/null; print_status; exit 0 ;;
+    --cancel)  cancel_ticket "${2:-}"; exit $? ;;
     --prune-tmp)
         { mkdir -p "$DIR/active" && touch "$DIR/lock"; } 2>/dev/null || { say "каталог слотов $DIR недоступен на запись"; exit 69; }
         exec {LK}>>"$DIR/lock"; flock -w 120 "$LK" || { say "замок $DIR/lock не взят за 120 с"; exit 69; }
         prune_tmp; exit 0 ;;
     ''|-h|--help)
-        sed -n '14,19p' "$0" >&2; exit 64 ;;
+        sed -n '/^# ФОРМА/,/^#$/p' "$0" | sed '$d' >&2; exit 64 ;;
 esac
 
 CLASS="$1"; shift
