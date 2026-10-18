@@ -200,8 +200,8 @@ MUTANTS = [
      r'''  tp=0
   "$@" 2>&1 | tee /work/heavy-cmd.out; rc="${PIPESTATUS[0]}"'''),
     ("red-unwired", "RG1", "команда идёт мимо шага красных групп",
-     '$REDLOG_SH\nheavy_cmd \\"\\$@\\""',
-     '$REDLOG_SH\nheavy_cmd() { \\"\\$@\\"; }\nheavy_cmd \\"\\$@\\""'),
+     ' с\\" >&2\nheavy_cmd \\"\\$@\\""',
+     ' с\\" >&2\nheavy_cmd() { \\"\\$@\\"; }\nheavy_cmd \\"\\$@\\""'),
     ("red-no-mask", "RG2", "копия журнала кладётся без маски адресов",
      r'''mask < "$RP/$n.raw" > "$f"''',
      r'''cat < "$RP/$n.raw" > "$f"'''),
