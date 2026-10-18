@@ -36,6 +36,22 @@
     комментарием (вторая страница) находится;
   * атрибуция в коммите — отказ (код 1), sha назван; в заголовке задачи — отказ «в собранном
     теле»; близнец — слово в середине прозы — тело собрано;
+  * ССЫЛКА НА ЗАДАЧУ — одно правило (ws#1155): `task_ref_re` (держатель записи долга) и
+    `issue_refs` (номера задач текста) исполняются НАСТОЯЩИМИ функциями ритуала на одной
+    таблице строк и обязаны совпасть с ожидаемым и друг с другом: своя полная, краткая и
+    адресная формы (и владелец в нижнем регистре) — ссылка; `<чужая организация>/kacho#5`
+    (любым регистром, через `-`, однобуквенная) и адрес чужого владельца — нет; мусор
+    (`x.kacho#5`, `kacho#55`, `kacho-workspace#5`, `#5a`) — нет; голый `#5` — ссылка лишь в
+    ведомости своего репозитория. Поведением: строка ведомости `otherorg/kaname#41 — …`
+    держателем #41 не делает — Closes #41 остаётся;
+  * НОМЕР ДРУГОГО РЕПОЗИТОРИЯ (ws#1164, голова `50-cross`): номера первой строки нет в
+    репозитории запроса (трекер — 404 настоящей формы) — он ищется в прочих репозиториях
+    владельца из ведомости стволов `scripts/ci-read-expected.tsv` дерева: #3274 найдена в
+    одном (`PRO-Robotech/kacho`) — строкой и `Refs` полной формой, а не `Closes`, хотя
+    доказательство у неё в диапазоне (закрывает её каскад своего репозитория); #3275 — в двух,
+    #3276 — ни в одном: строкой «без задачи» без `#`, ни Refs, ни Closes; `kaname#3277` полной
+    формой своего репозитория, которого нет, — «без задачи», в других не ищется; отказ чтения
+    кандидата (не 404) — код 2, а не «нет нигде»;
   * не выполнилось (код 2): задача не прочитана; диапазон пуст; ревизии нет; ведомость
     долга своего репозитория снята с головы; форма вызова не та.
 Каждый отказ судится по коду И по причине: красное от соседнего отказа пробу не проходит.
@@ -51,7 +67,8 @@ import _probe as P  # noqa: E402
 R = "PRO-Robotech/kaname"
 # Выражение номера — то же, что `NUM` пункта (в) landing-precheck и `NUM_RE` ритуала.
 NUM = re.compile(r"(?<![\w/#])#([0-9]+)\b")
-LEDGER = ('DEBT = {\n    "suite-a": ("B", "довод", "PRO-Robotech/kaname#45 — прогонит набор"),\n}\n'
+LEDGER = ('DEBT = {\n    "suite-a": ("B", "довод", "PRO-Robotech/kaname#45 — прогонит набор"),\n'
+          '    "suite-b": ("B", "довод", "otherorg/kaname#41 — задача чужого владельца"),\n}\n'
           "# история: kaname#41 упомянута прозой, не держит ничего\n")
 RESULTS = "# Newman results\n\n<!-- known-failing: #46 — кейс красен до починки -->\n"
 
@@ -73,7 +90,7 @@ def tail_of(out):
     lines = out.rstrip("\n").splitlines()
     t = []
     for ln in reversed(lines):
-        if re.match(r"^(Refs|Closes) (PRO-Robotech/kaname)?#\d+$", ln):
+        if re.match(r"^(Refs|Closes) ([\w.-]+/[\w.-]+)?#\d+$", ln):
             t.append(ln)
         else:
             break
@@ -126,6 +143,12 @@ def seed(pr):
     pr.git(d, "merge", "-q", "--no-ff", "1147-autoland", "-m", "#50 merge 1147-autoland (#57)")
     sha["twin-merge"] = pr.git(d, "rev-parse", "HEAD").strip()
     sha["twin-t7"] = pr.commit(d, "#50 fix: не делать merge main (#67)", rel="h.txt")
+    # Номера первых строк, которых нет в репозитории запроса (ws#1164): задача другого
+    # репозитория владельца, номер двух репозиториев и номер ни одного.
+    pr.git(d, "checkout", "-qb", "50-cross", "50")
+    sha["x3274"] = pr.commit(d, "#3274 приёмка: задача другого репозитория", rel="x.txt")
+    sha["x3275"] = pr.commit(d, "#3275 номер двух репозиториев", rel="x.txt")
+    sha["x3276"] = pr.commit(d, "#3276 номер ни одного репозитория (PRO-Robotech/kaname#3277)", rel="x.txt")
     return d, sha
 
 
@@ -163,11 +186,48 @@ def world(sha, c41=None, title41=None):
     }
 
 
+# Таблица правила ссылки (ws#1155): строка → ссылка ли она на задачу PRO-Robotech/kacho#5.
+REF_TABLE = (
+    ("PRO-Robotech/kacho#5", True), ("kacho#5", True), ("(kacho#5).", True), ("pro-robotech/kacho#5", True),
+    ("https://github.com/PRO-Robotech/kacho/issues/5", True), ("https://github.com/pro-robotech/kacho/issues/5", True),
+    ("OtherOrg/kacho#5", False), ("other-org/kacho#5", False), ("x/kacho#5", False), ("otherorg/KACHO#5", False),
+    ("https://github.com/OtherOrg/kacho/issues/5", False), ("x.kacho#5", False), ("kacho#55", False),
+    ("kacho-workspace#5", False), ("xkacho#5", False), ("PRO-Robotech/kacho#5a", False),
+    ("x.github.com/PRO-Robotech/kacho/issues/5", False),
+)
+# Голый номер — ссылка лишь в тексте своего репозитория.
+BARE_TABLE = (("#5", True), ("см. #5.", True), ("x#5", False), ("/#5", False), ("##5", False), ("#55", False))
+
+
+def ref_rule(pr):
+    """Обе функции ритуала — одним правилом на одной таблице (ws#1155)."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("rituals_under_test", os.path.join(P.RIT, "rituals.py"))
+    mod = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(mod)
+    except Exception as e:  # noqa: BLE001 — ритуал не загрузился: предмета нет
+        raise P.Void("rituals.py не загружается: %s" % e)
+    trepo, other = "PRO-Robotech/kacho", "PRO-Robotech/kaname"
+    for text, want in REF_TABLE:
+        holder = re.search(mod.task_ref_re(trepo, 5, other), text) is not None
+        refs = 5 in mod.issue_refs(trepo, text)
+        pr.ok("ссылка «%s»: держатель %s, номер текста %s — ждали %s" % (text, holder, refs, want),
+              holder is want and refs is want)
+    for text, want in BARE_TABLE:
+        own = re.search(mod.task_ref_re(trepo, 5, trepo), text) is not None
+        refs = 5 in mod.issue_refs(trepo, text)
+        foreign = re.search(mod.task_ref_re(trepo, 5, other), text) is not None
+        pr.ok("голый «%s»: своя ведомость %s, номер текста %s — ждали %s; чужая ведомость %s — ждали False"
+              % (text, own, refs, want, foreign), own is want and refs is want and not foreign)
+
+
 def body(pr):
+    ref_rule(pr)
     d, sha = seed(pr)
     extra = {"RITUAL_REPO_DIR": d, "RITUAL_LEDGER_CLONES": os.path.join(pr.tmp, "no-clones")}
     args = [R, "main", "50"]
-    in_range = [s for k, s in sha.items() if k == "50" or not (k == "base42" or k.startswith(("dogon", "twin", "side")))]
+    in_range = [s for k, s in sha.items() if k == "50" or not (k == "base42" or k.startswith(("dogon", "twin", "side", "x")))]
 
     rc, out, err, st = pr.run("pr-body", args, pr.state(world(sha)), extra=extra)
     pr.ok("законный вход: код 0", rc == 0, err)
@@ -220,6 +280,8 @@ def body(pr):
           "держит запись долга `kaname:.github/scripts/newman-suite-debt.py:2`" in out, out)
     pr.ok("#46: держатель RESULTS.md, строка 3", "держит запись долга `kaname:tests/newman/docs/RESULTS.md:3`" in out, out)
     pr.ok("близнец: проза ведомости (kaname#41) держателем не делает", "Closes #41" in out, out)
+    pr.ok("ws#1155: otherorg/kaname#41 — задача чужого владельца — держателем не делает",
+          "Closes #41" in closes(out) and "держит запись долга `kaname:.github/scripts/newman-suite-debt.py:3`" not in out, out)
     pr.ok("#43 закрыта — Refs", "#43 «задача 43» — уже закрыта" in out, out)
     pr.ok("перепись: Closes 2, Refs 7, полной формой 2; чужие ведомости — НЕ СВЕРЕНА",
           "Closes 2, Refs 7, из них полной формой 2" in err and "НЕ СВЕРЕНА" in err, err)
@@ -274,6 +336,35 @@ def body(pr):
     pr.ok("близнец T7: коммит-не-слияние «merge main» — #67 задача",
           rc == 0 and "- #67 «задача 67»" in out and "Refs #67" in out, out + err)
     pr.ok("близнецы: догоны на той же голове — по-прежнему без #56", "#56" not in out, out)
+
+    # Номер другого репозитория (ws#1164): kacho-workspace PR приёмки kacho#3274 — генератор
+    # отказывал кодом 2 «GET repos/<репо PR>/issues/3274 — код 1: … 404».
+    w = world(sha)
+    for key in ("PRO-Robotech/kacho#3274", "PRO-Robotech/kacho#3275", "PRO-Robotech/corelib#3275"):
+        r_, n_ = key.split("#")
+        w["issues"][key] = dict(issue(int(n_)), html_url="https://github.com/%s/issues/%s" % (r_, n_))
+    w["comments"]["PRO-Robotech/kacho#3274"] = [comment(3274, 31, "DoD-proof @%s\nкод 0" % sha["x3274"][:9])]
+    rc, out, err, st = pr.run("pr-body", [R, "main", "50-cross"], pr.state(w), extra=extra)
+    pr.ok("другой репозиторий: код 0, а не отказ «404»", rc == 0, out + err)
+    pr.ok("другой репозиторий: трекер не изменён", not P.writes(st), str(P.writes(st)))
+    pr.ok("#3274 — задача PRO-Robotech/kacho: строка полной формой",
+          "- PRO-Robotech/kacho#3274 «задача 3274» — задача PRO-Robotech/kacho, не %s" % R in out, out)
+    pr.ok("#3274 — Refs полной формой, не Closes (доказательство диапазона есть)",
+          "Refs PRO-Robotech/kacho#3274" in tail_of(out) and not any("3274" in x for x in closes(out)), out)
+    pr.ok("#3274 — голым #N в хвосте нет", not any(re.match(r"^(Refs|Closes) #327[456]$", x) for x in tail_of(out)), out)
+    orphan = (re.search(r"Номера первых строк без задачи[^\n]*", out) or [""])[0]
+    pr.ok("#3275 — в двух репозиториях: без задачи, оба названы, без #",
+          "3275 — в нескольких: PRO-Robotech/corelib, PRO-Robotech/kacho" in orphan and "#3275" not in orphan, out)
+    pr.ok("#3276 — ни в одном: без задачи, без #", "3276 — ни в одном из" in orphan and "#3276" not in orphan, out)
+    pr.ok("kaname#3277 — полная форма своего репозитория, номера нет: без задачи, в других не ищется",
+          "3277 — в %s номера нет, а назван он полной формой этого репозитория" % R in orphan, out)
+    pr.ok("#3275, #3276 — ни Refs, ни Closes", not any(("3275" in x or "3276" in x) for x in tail_of(out)), out)
+    pr.ok("перепись: другого репозитория 1, без задачи 3", "другого репозитория 1, без задачи 3" in err, err)
+    w["fail"] = ["GET repos/PRO-Robotech/kacho/issues/3274"]
+    rc, out, err, _ = pr.run("pr-body", [R, "main", "50-cross"], pr.state(w), extra=extra)
+    pr.refused("отказ чтения кандидата (не 404) — не «нет нигде»", rc, err,
+               "GET repos/PRO-Robotech/kacho/issues/3274 — код 1", want=2)
+    pr.ok("отказ чтения кандидата: тела нет", out == "", out)
 
     # атрибуция
     link = "claude" + ".ai/code"
