@@ -67,6 +67,7 @@
 #      дождался — 125 по сроку (P6b); дождался позже старта — 0 и «ждал N с» (P6c);
 #      psql не исполняется — 125 (P6d)
 #   P5 «подготовка pod до команды — N с» печатается до команды
+#   P7 срок Job — команда плюс 1800 с до начала (холодный pull, dind, доставка)
 #   C1 идущих 2 при пределе 2              → 75, create не звался (F3)
 #   C2 близнец: их Job завершены           → 0
 #   C3 близнец: срок ns в прошлом          → 0
@@ -628,7 +629,7 @@ kx() { python3 "$BOX/kexpand.py" "$@" 2>/dev/null; }
 go_run() {
     local name="$1"; shift
     OUT="$BOX/$name.out"
-    # Срок — чтобы дефект, на котором run.sh ждёт свои 900 с, краснел, а не висел.
+    # Срок — чтобы дефект, на котором run.sh ждёт свои 1800 с, краснел, а не висел.
     timeout 90 env PATH="$BOX/bin:$PATH" FAKE_STATE="$BOX/state" FAKE_HOST="$SERVER_HOST" FAKE_IP="$SERVER_IP" \
         KACHO_REMOTE_KUBECONFIG="$BOX/kubeconfig" TMPDIR="$BOX" "$@" > "$OUT" 2>&1
     RC=$?
@@ -902,6 +903,8 @@ fresh
 go_run p4kb env KACHO_REMOTE_HEAVY_PG_IMAGE="postgres 16" "${B[@]}" --short p4kb -- true
 expect_rc P4kb 64
 no_cluster_call P4kb
+# P7 — срок Job: команда (по умолчанию 5400 с) плюс 1800 с до начала (pull, dind, доставка)
+if [ "$(jq -r '.spec.activeDeadlineSeconds' "$EJ")" = 7200 ]; then ok; else OUT="$EJ"; bad P7 "срок Job $(jq -r '.spec.activeDeadlineSeconds' "$EJ") с, ждали 5400 + 1800"; fi
 # P5 — число «до/после» печатается и стоит перед командой
 if awk '/PT0=\$\(date \+%s\)/ { a = NR } /подготовка pod до команды/ { b = NR } /^heavy_cmd "\$@"$/ { e = NR } END { exit !(a && b && e && a < b && b < e) }' "$BOX/e1.cmd"; then ok
 else OUT="$BOX/e1.cmd"; bad P5 "времени подготовки до команды в тексте run нет либо оно стоит после команды"; fi
@@ -1864,7 +1867,7 @@ go_run q5 env FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS_FILE="$BOX/bigpods.json" b
 expect_rc Q5 0
 if [ "$(stat -c %s "$BOX/bigpods.json")" -gt 131072 ]; then ok; else bad Q5 "перепись меньше 128 КиБ — случай пуст"; fi
 # Q4 — pod ждёт планирования, а чужой pod занял последнее место → 75 сразу, а не
-# через 900 с; ns снято и при --keep
+# через 1800 с; ns снято и при --keep
 fresh
 t0=$(date +%s)
 go_run q4 env FAKE_EXIT=0 FAKE_UNSCHED=1 FAKE_PODS_AFTER_JOB="$(pod_j other n1 Running 15 28Gi | items)" "${B[@]}" --short q4 --keep 2 -- true
