@@ -60,6 +60,11 @@
 # серверу; `ssh localhost`; `docker exec` в живой контейнер; `at`. Перенос уводит и
 # из-под потолка сессии (scripts/session-memcap.sh): предела ядра у них нет, их видят
 # лишь вход и сторож слотов по памяти машины да systemd-oomd.
+# Стенд во внешнем ns без слота (ws#1143, stand_ns_light): рецепт, закоммиченный в
+# клон kacho (deploy/Makefile, stand-ns.sh и то, что они зовут), и PATH, подменяющий
+# kubectl, helm или go рецепта, слот не видит — судится дерево клона, а не дело его
+# коммита. BASH_ENV вызова исполняет сама оболочка heavy-slot.sh при старте, до
+# любого суждения слота, — для всякого класса.
 #
 # ИСПОЛНЕНИЕ
 #   · systemd-run --user --scope -p MemoryMax=<бюджет> -p MemorySwapMax=0 — предел
@@ -104,7 +109,11 @@
 # классы go-race, integration, lint и ci-local при отвечающем кластере уходят Job-ом
 # в scripts/remote-heavy/run.sh и слота машины не занимают; код — код команды там.
 # Локальный подъём стенда и неопознанная нагрузка при отвечающем кластере — 77;
-# кластер занят — 74/75, локально не идёт. Локально — с причиной в журнале
+# кластер занят — 74/75, локально не идёт. Стенд во внешнем ns (make stand-ns-up,
+# -down, -census; stand-ns.sh up, down, census, forward, unforward) из deploy/
+# неправленого клона kacho слота не занимает: на машине лишь kubectl и helm
+# (ws#1143; условия и ГРАНИЦА — у stand_ns_light ниже).
+# Локально — с причиной в журнале
 # (local … why=…, при недоступном — и proof=… вывода проверки), либо флагом --local
 # с причиной (bypass-local, «локально по флагу» в --status); условия — у блока
 # «внешний кластер» ниже.
@@ -141,6 +150,17 @@ FREE_MIN_MIB=15360  # старт при свободных ≥ 15 ГБ (2026-10-
 PROBE_MIB=512  # потолок бюджета в режиме проб: пробы берут ≤ 301 МиБ
 # Рабочие величины; ручки HEAVY_SLOT_* их меняют только в режиме проб (ниже).
 RESUME_TTL_S=120  # срок отложенного билета 74/75 (ws#1115)
+# Проверка внешнего кластера (ws#1141): `run.sh --available` — шесть обращений к API
+# подряд (can-i, узлы стража, ns и Job тяжёлых, узлы и pod размещения). Замер
+# 2026-10-17, 22 опроса: 3,3–5,3 с, медиана 3,5 с; диспетчер видел до 12,6 с. При
+# прежнем сроке 10 с журнал слотов за 16–17.10 — 33 отказа 124 из 224 проверок
+# (14,7 %), вперемешку с уходами в кластер в те же минуты: медленный ответ шёл за
+# недоступность. Срок — 30 с, в 2,4 раза выше худшего виденного; повтор —
+# один и только после 124: висение бывает разовым. Настоящая недоступность сетью
+# отвечает раньше срока — can-i несёт свой --request-timeout=10s и даёт 69, повтора
+# по 69 нет; до локального запуска при висении — не дольше CHECK_S × CHECK_TRIES.
+CHECK_S=30 # срок одной проверки, с
+CHECK_TRIES=2 # попыток, если проверка не ответила (124)
 LIMIT_MIB="$CAP_MIB"; POLL_S=30; WAIT_S=0; WAIT_MAX_S=300; ENQ_MAX_S=7200; GUARD_S=2; GRACE_S=10; LIMITER=auto
 MEMINFO="${HEAVY_SLOT_MEMINFO:-/proc/meminfo}"
 CGROOT=/sys/fs/cgroup
@@ -153,7 +173,7 @@ integration|8192|go test -tags=integration (testcontainers); make test-integrati
 ci-local|10240|scripts/ci-local.sh; git push в клон, чей pre-push зовёт ci-local|scripts/ci-local.sh go (23 проверки: build, vet, go test -short ./..., golangci-lint, gosec; кэш сборки тёплый, линтера холодный) — 5,2 ГиБ; прочие группы идут после неё по одной, не замерены
 lint|8192|golangci-lint run, govulncheck, gosec, make lint|golangci-lint run ./... по монорепо, холодный кэш линтера — 4,5 ГиБ
 docker|4096|docker run/create/start/build, docker compose up/run/build|общий класс — предел, а не прогноз: docker run получает --memory=бюджет
-stand|8192|kind create cluster; make dev-up, reload-svc*; helm install/upgrade|узел kind — до 2,9 ГиБ (9 показаний docker stats в журналах сессий); сборка образов dev-up последовательная, её память в BuildKit не замерена
+stand|8192|kind create cluster; make dev-up, reload-svc*, stand-ns-run; helm install/upgrade (stand-ns-up, -down, -census — без слота, ws#1143)|узел kind — до 2,9 ГиБ (9 показаний docker stats в журналах сессий); сборка образов dev-up последовательная, её память в BuildKit не замерена
 newman|2048|newman run; make e2e-newman, e2e-test; newman-e2e.sh, newman-parallel.sh|newman run самой большой коллекции (2,7 МБ, отчёт json) — 0,4 ГиБ; JOBS=1'
 
 say() { printf 'heavy-slot: %s\n' "$*" >&2; }
@@ -563,7 +583,7 @@ if [ "$CLASS" = ci-local ] && [ -z "${GIT_SSH_COMMAND:-}" ] && [ -z "${GIT_SSH:-
 fi
 
 # Ручки — до первой записи: отказ не оставляет следа в общем каталоге.
-KNOBS="HEAVY_SLOT_LIMIT_GIB HEAVY_SLOT_LIMIT_MIB HEAVY_SLOT_WAIT_S HEAVY_SLOT_ENQ_S HEAVY_SLOT_POLL_S HEAVY_SLOT_BUDGET_MIB HEAVY_SLOT_LIMITER HEAVY_SLOT_GUARD_S HEAVY_SLOT_GUARD_GRACE_S HEAVY_SLOT_REMOTE_RUN HEAVY_SLOT_SLOTS_SUM_MIB"
+KNOBS="HEAVY_SLOT_LIMIT_GIB HEAVY_SLOT_LIMIT_MIB HEAVY_SLOT_WAIT_S HEAVY_SLOT_ENQ_S HEAVY_SLOT_POLL_S HEAVY_SLOT_BUDGET_MIB HEAVY_SLOT_LIMITER HEAVY_SLOT_GUARD_S HEAVY_SLOT_GUARD_GRACE_S HEAVY_SLOT_REMOTE_RUN HEAVY_SLOT_SLOTS_SUM_MIB HEAVY_SLOT_CHECK_S"
 if [ "$MEMINFO" = /proc/meminfo ]; then
     knob=""
     [ "$DIR" = "$SHARED" ] || [ "$DIR" -ef "$SHARED" ] || knob="свой каталог слотов $DIR — отдельная очередь, соседей общей он не видит"
@@ -588,6 +608,8 @@ else
     GUARD_S="${HEAVY_SLOT_GUARD_S:-$GUARD_S}"; GRACE_S="${HEAVY_SLOT_GUARD_GRACE_S:-$GRACE_S}"
     LIMITER="${HEAVY_SLOT_LIMITER:-$LIMITER}"
     SLOTS_SUM_MIB="${HEAVY_SLOT_SLOTS_SUM_MIB:-$SLOTS_SUM_MIB}"
+    CHECK_S="${HEAVY_SLOT_CHECK_S:-$CHECK_S}"
+    [ "$CHECK_S" -ge 1 ] || { say "HEAVY_SLOT_CHECK_S=0 — timeout 0 срок снимает: проверка висела бы без предела"; exit 64; }
     if [ "$BUDGET" -gt "$PROBE_MIB" ] || ! [[ "$GUARD_S" =~ ^[12]$ ]]; then
         say "синтетический HEAVY_SLOT_MEMINFO — режим проб: бюджет ≤ $(mib "$PROBE_MIB") (здесь $(mib "$BUDGET")), сторож раз в 1–2 с (здесь «$GUARD_S»). Настоящий прогон — без HEAVY_SLOT_MEMINFO и ручек"
         exit 64
@@ -660,11 +682,13 @@ fi
 # словом строки оболочки) и строка оболочки без внешней формы stand-ns-* при
 # принимающем кластере — 77 с формой своего ns; прочие команды стенда (stand-ns-*,
 # reload-svc, dev-down, helm идущего стенда) маршрут не судит.
-# Проверка кластера — `timeout 10 run.sh --available`: current-context она не читает
+# Проверка кластера — `timeout $CHECK_S run.sh --available` (срок и повтор — по замеру,
+# у CHECK_S): current-context она не читает
 # и не меняет (контекст — явный, шапка run.sh). Занят (75) — НЕ недоступен (решение
 # диспетчера 2026-10-16): место ждётся до --wait N, затем 74 либо 75, локально не
-# идёт. Не ответила (124) либо иной отказ — недоступен: локально, вывод проверки — в
-# журнал строкой «local … proof=…». Причина КАЖДОГО локального запуска — в журнале
+# идёт. Не ответила (124) на каждой из CHECK_TRIES попыток либо иной отказ —
+# недоступен: локально, вывод проверки — в журнал строкой «local … proof=…».
+# Причина КАЖДОГО локального запуска — в журнале
 # («local … why=…»). Обход — только --local с причиной перед классом (bypass-local).
 # В режиме проб маршрут судится лишь с HEAVY_SLOT_REMOTE_RUN — двойником run.sh; над
 # настоящей памятью эта ручка — 64, как прочие.
@@ -677,10 +701,15 @@ PROOF=""; CL_OUT=""
 # journal_early — запись журнала до входа в очередь (каталог может быть ещё не заведён).
 journal_early() { mkdir -p "$DIR" 2>/dev/null; journal "$@"; }
 # cluster_once [профиль] — один опрос: код run.sh --available, его вывод — в CL_OUT.
+# Не ответила за CHECK_S (124) — повтор, всего CHECK_TRIES попыток (ws#1141).
 cluster_once() {
-    local out rc
-    out="$(timeout 10 bash "$REMOTE_RUN" --available ${1:+--profile "$1"} 2>&1)"; rc=$?
-    [ "$rc" -eq 124 ] && out="проверка доступности не ответила за 10 с (сеть до кластера)${out:+; $out}"
+    local out rc try=1
+    while :; do
+        out="$(timeout "$CHECK_S" bash "$REMOTE_RUN" --available ${1:+--profile "$1"} 2>&1)"; rc=$?
+        [ "$rc" -eq 124 ] && [ "$try" -lt "$CHECK_TRIES" ] || break
+        try=$(( try + 1 ))
+    done
+    [ "$rc" -eq 124 ] && out="проверка доступности не ответила за $CHECK_S с, попыток $try (сеть до кластера)${out:+; $out}"
     CL_OUT="$(printf '%s' "$out" | tr '[:cntrl:]' ' ' | cut -c1-400)"
     return "$rc"
 }
@@ -726,12 +755,13 @@ refuse_external() {
 }
 # payload — слово полезной нагрузки за обёртками env, nice, ionice, timeout, nohup,
 # setsid, stdbuf, command, time (ws#1105: обёртка не уводит тяжёлое локально). PAY —
-# имя (basename) команды либо файла скрипта оболочки; PAY_SH — строка `sh -c`,
+# имя (basename) команды либо файла скрипта оболочки, PAY_I — номер его слова в
+# argv; PAY_SH — строка `sh -c`,
 # которую исполнит дочерняя оболочка (её слов разбор не судит); ключ обёртки, разбору
 # неизвестный (env -C, env -S, …), — PAY «?<обёртка> <ключ>»: нагрузка не опознана.
 payload() {
     local i=0 n=${#CMD_R[@]} w
-    PAY=""; PAY_SH=""
+    PAY=""; PAY_SH=""; PAY_I=""
     while [ "$i" -lt "$n" ]; do
         w="$(basename -- "${CMD_R[$i]}")"; i=$(( i + 1 ))
         case "$w" in
@@ -768,9 +798,9 @@ payload() {
                         *) break ;;
                     esac
                 done
-                if [ "$i" -lt "$n" ]; then PAY="$(basename -- "${CMD_R[$i]}")"; else PAY="?$w без скрипта"; fi
+                if [ "$i" -lt "$n" ]; then PAY="$(basename -- "${CMD_R[$i]}")"; PAY_I="$i"; else PAY="?$w без скрипта"; fi
                 return ;;
-            *) PAY="$w"; return ;;
+            *) PAY="$w"; PAY_I=$(( i - 1 )); return ;;
         esac
     done
     PAY="?обёртка без команды"
@@ -899,7 +929,83 @@ push_remote() {
     esac
     exit "$rc"
 }
+# stand_ns_light — команда класса stand лишь работает с ns внешнего кластера (ws#1143):
+# на машине тогда идут лишь kubectl и helm — журнал слотов до правки: 139 таких
+# запусков, пик памяти ≤ 118 МиБ, ожидание слота до 1343 с; слот ей не нужен. Лёгкой
+# признаётся команда, чьи правила и скрипт — ОТСЛЕЖИВАЕМЫЕ и НЕПРАВЛЕНЫЕ файлы клона
+# kacho (приёмка ws#1143: подменённый рецепт, чужой -C, чужой stand-ns.sh,
+# присваивание `NS='$(shell …)'` и MAKEFILES исполняли тяжёлое без слота):
+#   · `make` первым словом argv (обёрток нет): ключи -s, --silent, --quiet,
+#     --no-print-directory, -C <каталог>; каталог make (рабочий и -C по порядку) по
+#     настоящему пути — deploy/ клона; цели — только stand-ns-up, stand-ns-down,
+#     stand-ns-census; присваивания — только NS, STACK, REF, EXPIRED, значение без $ и `;
+#   · `bash <путь>` (без ключей bash) либо `<путь>` — по настоящему пути
+#     deploy/scripts/stand-ns.sh клона; подкоманда up, down, census, forward, unforward;
+#     аргументы без $ и `;
+#   · клон — origin PRO-Robotech/kacho; deploy/Makefile и deploy/scripts/stand-ns.sh
+#     отслеживаются; в deploy/ ни правок, ни неотслеживаемых файлов; GNUmakefile и
+#     makefile (make взял бы их раньше Makefile) нет;
+#   · окружение без MAKEFILES, MAKEFLAGS, MFLAGS, GNUMAKEFLAGS, BASH_ENV, ENV.
+# Прочее — под слотом, как было: stand-ns-run (CMD идёт на машине, пик 798 МиБ),
+# строка оболочки, обёртки, -f и иные ключи, иные цели и присваивания (MAKEFILES=,
+# MAKEFILE= в их числе), чужой каталог и чужой скрипт.
+# ГРАНИЦА (не ловится, heavy-slot-inject.sh печатает [BOUND]): рецепт, ЗАКОММИЧЕННЫЙ в
+# клон (deploy/Makefile, stand-ns.sh и то, что они зовут), и PATH, подменяющий
+# kubectl, helm или go рецепта: судится дерево клона по его коммиту, а не то, что
+# этот коммит делает.
+stand_ns_clone_deploy() {  # <каталог> — 0, если это deploy/ чистого клона kacho
+    local d top url
+    d="$(cd "$1" 2>/dev/null && pwd -P)" || return 1
+    top="$(git -C "$d" rev-parse --show-toplevel 2>/dev/null)" && top="$(cd "$top" && pwd -P)" || return 1
+    [ "$d" = "$top/deploy" ] || return 1
+    url="$(git -C "$top" remote get-url origin 2>/dev/null)"
+    case "$url" in *PRO-Robotech/kacho|*PRO-Robotech/kacho.git) ;; *) return 1 ;; esac
+    git -C "$top" ls-files --error-unmatch deploy/Makefile deploy/scripts/stand-ns.sh >/dev/null 2>&1 || return 1
+    [ -z "$(git -C "$top" status --porcelain --untracked-files=all -- deploy 2>/dev/null)" ] || return 1
+    [ ! -e "$d/GNUmakefile" ] && [ ! -e "$d/makefile" ]
+}
+stand_ns_light() {
+    local i n=${#CMD_R[@]} w d s t=0 v
+    for v in MAKEFILES MAKEFLAGS MFLAGS GNUMAKEFLAGS BASH_ENV ENV; do [ -z "${!v:-}" ] || return 1; done
+    payload
+    [ -z "$PAY_SH" ] && [ -n "$PAY_I" ] || return 1
+    case "$PAY_I:$(basename -- "${CMD_R[0]}")" in 0:make|0:stand-ns.sh|1:bash) ;; *) return 1 ;; esac
+    i=$(( PAY_I + 1 ))
+    case "$PAY" in
+        make)
+            d="$PWD"
+            while [ "$i" -lt "$n" ]; do
+                w="${CMD_R[$i]}"
+                case "$w" in
+                    -s|--silent|--quiet|--no-print-directory) i=$(( i + 1 )) ;;
+                    -C) d="$(cd "$d" 2>/dev/null && cd -- "${CMD_R[$(( i + 1 ))]:-}" 2>/dev/null && pwd -P)" || return 1
+                        i=$(( i + 2 )) ;;
+                    stand-ns-up|stand-ns-down|stand-ns-census) t=$(( t + 1 )); i=$(( i + 1 )) ;;
+                    NS=*|STACK=*|REF=*|EXPIRED=*)
+                        v="${w#*=}"; [[ "$v" != *'$'* && "$v" != *'`'* ]] || return 1; i=$(( i + 1 )) ;;
+                    *) return 1 ;;
+                esac
+            done
+            [ "$t" -gt 0 ] && stand_ns_clone_deploy "$d" ;;
+        stand-ns.sh)
+            s="$(readlink -f -- "${CMD_R[$PAY_I]}" 2>/dev/null)" || return 1
+            [ "${CMD_R[$PAY_I]}" != "${CMD_R[$PAY_I]#*/}" ] || return 1  # путь, а не поиск по PATH
+            stand_ns_clone_deploy "$(dirname -- "$(dirname -- "$s")")" || return 1
+            [ "$s" = "$(cd "$(dirname -- "$(dirname -- "$s")")" && pwd -P)/scripts/stand-ns.sh" ] || return 1
+            case "${CMD_R[$i]:-}" in up|down|census|forward|unforward) ;; *) return 1 ;; esac
+            for w in "${CMD_R[@]:$(( i + 1 ))}"; do [[ "$w" != *'$'* && "$w" != *'`'* ]] || return 1; done
+            return 0 ;;
+        *) return 1 ;;
+    esac
+}
 CMD_R=("$@"); WHY_LOCAL=""; ROUTE=(); GIT_IDX=""; GDIR="$PWD"
+if [ "$CLASS" = stand ] && stand_ns_light; then
+    busy=0
+    for f in "$DIR"/active/*.slot; do [ -e "$f" ] && busy=$(( busy + 1 )); done
+    journal_early "external-ns class=stand slot=нет busy_slots=$busy waited=0s who=$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD cmd=$(printf '%q ' "${CMD_R[@]}")"
+    say "класс stand: «$(printf '%s ' "${CMD_R[@]:$PAY_I:3}")…» работает лишь с ns внешнего кластера (на машине — kubectl и helm) — слот машины не занимается: занято слотов $busy из $SLOTS_MAX, ожидание 0 с (ws#1143)"
+    exec "$@"
+fi
 if [ -n "$LOCAL_SET" ]; then
     say "локально по флагу --local: $LOCAL_WHY — маршрут во внешний кластер не судился"
 elif [ "$REMOTE_ON" = 1 ]; then
