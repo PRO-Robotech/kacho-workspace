@@ -1,0 +1,124 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-ADM-1-geo-mutation-acr-floor-acceptance.md
+  sha256: d3b4836f588068a469c154f5e384bc068aa7200549843ab17d57cbf5d9ec2a43
+  revision: 1
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка документа намеренно не правлена (change-graph.md §2): слово DRAFT — то, что вписал
+    автор. Действующий вердикт о редакции d3b4836f — эта запись плюс внешнее событие.
+  base_commit: 0225db3e3
+  content_commit: a4c572b8f8d969b0ac89635de2a3a6d4e6686d34
+  branch: 3190-w9-ws-geo-acr
+  product_revision: PRO-Robotech/kacho@990861542f36f953320c2c993b734d9dea372ae1
+  access_revision: PRO-Robotech/kaname@ede94db30 (origin/746)
+  task: https://github.com/PRO-Robotech/kacho/issues/3190
+  workspace_task: https://github.com/PRO-Robotech/kacho-workspace/issues/968
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-ADM-1-geo-mutation-acr-floor-acceptance.md
+  lines: 222
+  anchors:
+    - path: docs/specs/sub-phase-ADM-1-geo-placement-catalog-admin-acceptance.md
+      sha256: 75335edd56d414d631e903cd016e0970f35b1262611f94aa452cdd8201b27fa4
+      status: APPROVED (круг 2), отпечаток сверен sha256sum
+    - path: docs/specs/sub-phase-SEC-acr-stepup-refinement-acceptance.md
+      sha256: 776b6892331bcd0cad03cccda9aef5614494eb4df66e48c5a25dc73d977edb48
+      status: APPROVED (R3), отпечаток сверен sha256sum
+  prior_record: none
+verdict: CHANGES_REQUESTED
+round: 1
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-15T18:30:00Z'
+blocking:
+  count: 1
+  kinds: [DoD]
+  items:
+    - kind: DoD
+      where: "§6 DoD п.1; §4 строка «ADM-1-GEO-ACR-01, ветвь geo»; §2 Р3"
+      claim: >-
+        Р3 обещает, что сдвиг ЛЮБОГО из шестнадцати значений — находка с FQN, а сценарий 01
+        утверждает равенство "1" и system_admin. DoD п.1 и строка производителя заказывают
+        иное: «расширение TestPermissionCatalog_ACR_ComplementNotTwo до двенадцати FQN» и
+        инъекцию только вверх ("2"). Эта проба утверждает assert.NotEqual(t, "2", …), поэтому
+        сдвиг пола geo ВНИЗ — на "0" или "" (оба законны и означают «пола нет»,
+        stepup_gate.go:25,51) — она пропускает молча. DoD выполним при нарушенном Р3, а
+        сдвиг вниз — снятие подтверждения с мутации system_admin, то есть ослабление защиты.
+      predicate: >-
+        sed -n 335,381p gateway/internal/middleware/permission_catalog_acr_invariant_test.go
+        → :380 assert.NotEqual(t, "2", e.RequiredACRMin, …); grep -n '"0"' stepup_gate.go
+        → :25 «"0" (anonymous) < "1"», :51 «acrlevel.Satisfies treats ""/"0" as no floor»
+        @kacho 990861542. Родительская ADM-1-GEO-17 держит "0"-отказ только для двух FQN
+        (RegionService/Create, InternalRegionService/Create — geo_public_admin_stepup_test.go:85-86).
+      fix: >-
+        DoD п.1 и строка §4: проба утверждает РАВЕНСТВО required_acr_min = "1" и
+        required_relation = "system_admin" для каждого из двенадцати FQN geo (отдельной
+        функцией либо циклом с FQN в сообщении), а не NotEqual "2"; инъекции — обе
+        стороны: "2" (вверх) и "0" (вниз) в одну запись geo, каждая роняет пробу с её FQN,
+        законный каталог проходит молча. То же — в «Тогда» сценария 01: добавить ветвь
+        инъекции вниз.
+non_blocking:
+  - >-
+    Сценарий 02, нативный gRPC: «ни один не отвергнут с UNAUTHENTICATED и текстом
+    stepUpDenyMessage» — оракул отрицанием, зелёный и при любом ином отказе. Фикстура
+    callUnary на проходе возвращает nil (geo_public_admin_stepup_test.go:92 require.NoError),
+    значит утверждать «ошибки нет» — сильнее и производимо.
+  - >-
+    DoD п.4 «обе вшитые копии каталога побайтово равны»: отслеживаемая копия одна
+    (git ls-files | grep permission_catalog.json → 1); вторая — сборочная
+    build/permission_catalog.json цели make -C gateway permission-catalog-check
+    (gateway/Makefile:115-118). Назвать цель, а не «две вшитые копии».
+  - >-
+    Вводная ссылается на родителя, а не на 04-roadmap-and-phasing.md §3 — для дельты к
+    одобренной ADM-1 приемлемо, scope родителя не расширяется.
+  - >-
+    Решение Р2 (geo остаётся "1") согласовано с опорой: SEC-acr B5 называет
+    geo.Internal{Region,Zone}Service/* рутиной, B4 — GrantAdmin/RevokeAdmin "2"; родитель Р2
+    приравнивает публичного близнеца к внутреннему. Вопрос «А против Б» — диспетчеру;
+    рецензент возражений против (А) не имеет.
+  - >-
+    Родительская ADM-1-GEO-17 (75335edd) записала текст отказа
+    "insufficient_user_authentication", а край отвечает константой stepUpDenyMessage
+    (auth_stepup.go:252) — расхождение в одобренном родителе, этой редакцией не создано;
+    закрывать записью ревью родителя либо его новым кругом, не правкой шапки.
+facts_verified:
+  - "Е1: 12 мутаций geo — system_admin / \"1\" — grep по трём .proto @990861542"
+  - "Е3/Е4: каталог 359 записей; kacho/1: 236, kaname/2: 38, kacho/2: 0 — разбор JSON @990861542"
+  - "Е2: kaname origin/746 = ede94db30; GrantAdmin/RevokeAdmin \"2\", Get/ListAdmins \"1\" на обоих сервисах — git grep"
+  - "Е5/Е6: sensitiveACR2FQNs категория G, SetInvariant Equal \"2\" + over-inclusion, Len 38; ComplementNotTwo — NotEqual \"2\", из geo одна InternalRegionService/Create — чтение"
+  - "Е7: SEC-acr 776b6892 :69-95 принцип, :264-280 B4/B5 — чтение"
+  - "Е8/Е9: Emits NotApplicable (serve.go), TestGeoBootGateExemptionRestsOnNoEmission (describe_test.go:182); zones.region_id ON DELETE RESTRICT, текст region <id> is not empty — чтение"
+  - "Е10: rest_route_table_gen.go:113-114,125-126 — маршруты GrantAdmin/RevokeAdmin — чтение"
+  - "Е11/Е12: alwaysOnAuth/alwaysOnClaims/serveREST/callUnary :55,73,81,98; writeHTTPStepUpFloor :155-160, gRPC :224, константа :252, BuildStepUpChallenge stepup_gate.go:186 — чтение"
+  - "прогон @990861542: TestStepUp_ADM1GEO17…, TestPermissionCatalog_ACR_{SetInvariant,ComplementNotTwo,GroupDeleteSensitive,CreateNetStrengthening,Counts} — 6 PASS"
+constructibility:
+  seeded: 3
+  of: 3
+  not_executed: 0
+  how: >-
+    Временная проба (не закоммичена в ветку; отсоединённый коммит 0a09b9ea4 поверх
+    kacho@990861542, копия снята) на фикстурах Е11: newJWKSFixture/alwaysOnAuth/alwaysOnClaims/
+    serveREST/callUnary; прогон heavy-slot go-race во внешнем кластере, ns
+    t3190-heavy-go-race-d406, код 0, ns снято.
+  observed:
+    - "01: разбор вшитого каталога — 12 записей geo \"1\"/system_admin, 4 записи *ClusterService/{Grant,Revoke}Admin \"2\"/system_admin"
+    - "02 REST: POST /geo/v1/regions acr=1 → 200, дошёл до бэкенда"
+    - "02 gRPC: все 12 мутаций geo acr=1 → ошибки нет (OK)"
+    - "03 REST: POST /iam/v1/cluster/admins acr=1 → 401, тело {code:16, message:stepUpDenyMessage}, WWW-Authenticate error=insufficient_user_authentication, acr_values=\"2\", до бэкенда не дошёл"
+    - "03 gRPC: 4 метода *ClusterService/{Grant,Revoke}Admin acr=1 → Unauthenticated, текст = тексту тела REST"
+    - "03 близнец: acr=2 → REST 200 и дошёл до бэкенда; 4 нативных вызова — OK"
+event:
+  type: issue_comment
+  target: PRO-Robotech/kacho#3190
+  status: not_performed
+  published: false
+  body: "acceptance-reviewer · CHANGES_REQUESTED · d3b4836f588068a469c154f5e384bc068aa7200549843ab17d57cbf5d9ec2a43"
+  publication_mode: scripts/rituals/approval-event.sh
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched: []

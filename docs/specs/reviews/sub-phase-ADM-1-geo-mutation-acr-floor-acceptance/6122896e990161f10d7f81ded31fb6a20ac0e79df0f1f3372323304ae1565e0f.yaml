@@ -1,0 +1,91 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-ADM-1-geo-mutation-acr-floor-acceptance.md
+  sha256: 6122896e990161f10d7f81ded31fb6a20ac0e79df0f1f3372323304ae1565e0f
+  revision: 2
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка документа намеренно не правлена (change-graph.md §2): слово DRAFT — то, что вписал
+    автор. Действующий вердикт о редакции 6122896e — эта запись плюс внешнее событие.
+  base_commit: 5f9001807
+  content_commit: none (редакция в рабочем дереве ветки 3190-w9-ws-geo-acr, коммит — git-operator)
+  branch: 3190-w9-ws-geo-acr
+  product_revision: PRO-Robotech/kacho@990861542f36f953320c2c993b734d9dea372ae1
+  task: https://github.com/PRO-Robotech/kacho/issues/3190
+  workspace_task: https://github.com/PRO-Robotech/kacho-workspace/issues/968
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-ADM-1-geo-mutation-acr-floor-acceptance.md
+  lines: 236
+  review_scope: >-
+    дельта d3b4836f → 6122896e (git diff HEAD -- документ), круг 2 из 2 (fa-b8);
+    вне дельты пункты круга 1 не переоткрываются (fa-b1)
+  prior_record: docs/specs/reviews/sub-phase-ADM-1-geo-mutation-acr-floor-acceptance/d3b4836f588068a469c154f5e384bc068aa7200549843ab17d57cbf5d9ec2a43.yaml
+verdict: APPROVED
+round: 2
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-15T20:00:00Z'
+blocking:
+  count: 0
+  kinds: []
+  closed_from_prior:
+    - kind: DoD
+      how: >-
+        Р3 требует равенства и сдвига «в любую сторону»; Е13 называет "0"/"" снятием пола
+        (stepup_gate.go:25,51,60 — сверено); сценарий 01 несёт инъекции "2" и "0" с FQN;
+        строка §4 и DoD п.1 заказывают Equal "1" и Equal "system_admin" по двенадцати FQN,
+        «NotEqual "2" пункт не закрывает», обе инъекции — выводом прогона.
+non_blocking:
+  - >-
+    Е6 исправлен по факту: цикл ComplementNotTwo утверждает и NotEqual "2", и Equal "1"
+    (:380-381 @990861542) — запись круга 1 называла только :380. Для выборочного FQN
+    InternalRegionService/Create инъекция "0" уже роняла бы :381; дефект был в охвате
+    (1 из 12) и в отсутствии required_relation, оба закрыты DoD п.1.
+  - >-
+    Сценарий 01: строки «**And** (инъекция вверх…)» и «**And** (инъекция вниз…)» идут без
+    пустой строки — в рендере Markdown сольются в один абзац. Форма, не смысл.
+  - >-
+    Пункты круга 1 «оракул отрицанием в 02» и «две вшитые копии в DoD п.4» закрыты:
+    02 утверждает «завершается без ошибки», DoD п.4 называет make -C gateway
+    permission-catalog-check (gateway/Makefile:114-117 — сверено).
+  - >-
+    Текст отказа родительской ADM-1-GEO-17 ("insufficient_user_authentication" против
+    stepUpDenyMessage) — по-прежнему предмет родителя, этой редакцией не затронут.
+facts_verified:
+  - "sha256sum документа → 6122896e990161f10d7f81ded31fb6a20ac0e79df0f1f3372323304ae1565e0f"
+  - "Е6: permission_catalog_acr_invariant_test.go:380 NotEqual \"2\", :381 Equal \"1\" — sed -n 370,384p @990861542"
+  - "Е13: stepup_gate.go:25 ранг \"0\" anonymous, :51 Satisfies treats \"\"/\"0\" as no floor, :60 \"\" → no step-up — sed -n 20,62p @990861542"
+  - "инъекция \"0\" конструируема: загрузчик каталога значение не валидирует (permission_catalog.go:92-93, поле string без проверки) — grep @990861542"
+  - "DoD п.4: цель permission-catalog-check — gateway/Makefile:114-117 — grep @990861542"
+constructibility:
+  seeded: 3
+  of: 3
+  not_executed: 0
+  how: >-
+    Given дельтой не добавлено, кроме инъекции "0": она строится той же правкой вшитого
+    JSON, что инъекция "2" круга 1, и роняет существующее утверждение Equal "1" (:381) с FQN
+    в сообщении. Посев круга 1 (отсоединённый 0a09b9ea4 поверх kacho@990861542) остаётся в силе,
+    продукт той же ревизии.
+route_signs:
+  proto: да (только комментарии, DoD п.4)
+  schema: нет
+  public_rpc: нет
+  ui: нет
+  new_domain: нет
+  security_surface: да (пол подтверждения закрепляется, значения не меняются)
+event:
+  type: issue_comment
+  target: PRO-Robotech/kacho#3190
+  status: not_performed
+  published: false
+  body: "acceptance-reviewer · APPROVED · 6122896e990161f10d7f81ded31fb6a20ac0e79df0f1f3372323304ae1565e0f"
+  publication_mode: scripts/rituals/approval-event.sh
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    - d3b4836f588068a469c154f5e384bc068aa7200549843ab17d57cbf5d9ec2a43.yaml
