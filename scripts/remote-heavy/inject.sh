@@ -926,14 +926,14 @@ sed -n '/^# pkgs-begin$/,/^# pkgs-end$/p' "$BOX/e1.cmd" > "$BOX/pkgs.raw"
 if grep -q '^# pkgs-end$' "$BOX/pkgs.raw"; then ok; else OUT="$BOX/e1.cmd"; bad P2 "текста шага пакетов в Job нет — исполнять нечего"; fi
 rm -rf "$BOX/passets"; mkdir -p "$BOX/passets/pyyaml-6.0.2/lib/yaml"
 printf '#!/bin/sh\necho jq-1.7.1\n' > "$BOX/passets/jq"
-printf '# yaml\n' > "$BOX/passets/pyyaml-6.0.2/lib/yaml/__init__.py"
+printf '__version__ = "6.0.2"\n' > "$BOX/passets/pyyaml-6.0.2/lib/yaml/__init__.py"
 tar -czf "$BOX/passets/pyyaml.tgz" -C "$BOX/passets" pyyaml-6.0.2
 # Порченые двойники ВАЛИДНЫ: jq исполняется и печатает версию, PyYAML — настоящий tar.gz
 # с тем же каталогом, но другим содержимым. Без проверки суммы оба прошли бы весь шаг до
 # конца (не-архив и не-исполнимое падали бы и без неё — проба мимо предмета).
 printf '#!/bin/sh\necho jq-1.7.1\n# подмена\n' > "$BOX/passets/jq-evil"
 mkdir -p "$BOX/passets/evil/pyyaml-6.0.2/lib/yaml"
-printf '# yaml подмена\n' > "$BOX/passets/evil/pyyaml-6.0.2/lib/yaml/__init__.py"
+printf '__version__ = "6.0.2"  # подмена\n' > "$BOX/passets/evil/pyyaml-6.0.2/lib/yaml/__init__.py"
 tar -czf "$BOX/passets/pyyaml-evil.tgz" -C "$BOX/passets/evil" pyyaml-6.0.2
 JQSUM="$(sha256sum < "$BOX/passets/jq" | cut -d' ' -f1)"; YSUM="$(sha256sum < "$BOX/passets/pyyaml.tgz" | cut -d' ' -f1)"
 # Пины в тексте: у jq две суммы (amd64, arm64), у PyYAML одна, каждая — РОВНО раз.
@@ -945,7 +945,14 @@ sed -E -e "s/(js=)[0-9a-f]{64}/\1$JQSUM/" -e "s/(pyyaml.tgz )[0-9a-f]{64}/\1$YSU
 # Подмены отличаются от настоящих ТОЛЬКО суммой: иначе P2b и P2g судили бы не пин
 if [ "$(sha256sum < "$BOX/passets/jq-evil" | cut -d' ' -f1)" != "$JQSUM" ] && [ "$(sha256sum < "$BOX/passets/pyyaml-evil.tgz" | cut -d' ' -f1)" != "$YSUM" ] \
    && [ "$(sh "$BOX/passets/jq-evil")" = "$(sh "$BOX/passets/jq")" ]; then ok; else bad P2 "подмена jq отличима не только суммой — проба P2b мимо предмета"; fi
-# p_stubs — двойники curl, python3, apt-get; uname — по STUB_UNAME
+# Интерпретатор песочницы — venv без системных пакетов и без пользовательского
+# site: yaml машины запуска в нём не виден, и «yaml уже есть» не пропускает шаг.
+PVENV="$BOX/pyvenv"; rm -rf "$PVENV"
+python3 -m venv --without-pip "$PVENV" || { echo "inject: venv python3 не создан — пробы Y не исполнить (не выполнилось)" >&2; exit 2; }
+PSITE="$(env -i "$PVENV/bin/python3" -c 'import site; print(site.getsitepackages()[0])')"
+if [ -n "$PSITE" ] && ! env -i "$PVENV/bin/python3" -c "import yaml" >/dev/null 2>&1; then ok
+else bad Y0 "в venv песочницы yaml виден до шага либо site-packages не назван ($PSITE) — пробы Y беспредметны"; fi
+# p_stubs — двойники curl, apt-get; uname — по STUB_UNAME; python3 — настоящий (venv)
 p_stubs() {
     rm -rf "$PW" "$PS"; mkdir -p "$PW/bin" "$PS"
     cat > "$PS/curl" <<'STUB'
@@ -960,13 +967,10 @@ case "$u" in
   *) echo "curl: чужой адрес $u" >&2; exit 22 ;;
 esac
 STUB
-    cat > "$PS/python3" <<'STUB'
-#!/bin/sh
-ok=0; [ -z "$STUB_YAML" ] || ok=1
-OLDIFS="$IFS"; IFS=:; for d in $PYTHONPATH; do [ -f "$d/yaml/__init__.py" ] && ok=1; done; IFS="$OLDIFS"
-[ "$ok" = 1 ] || { echo "ModuleNotFoundError: No module named 'yaml'" >&2; exit 1; }
-case "$*" in *__version__*) echo 6.0.2 ;; esac
-STUB
+    # python3 — НАСТОЯЩИЙ интерпретатор (venv без системных пакетов), не двойник: прежний
+    # двойник читал PYTHONPATH и тем узаконил регрессию ws#1207 — проба судила договор
+    # двойника, а не то, что находит интерпретатор подпроцесса с пустым окружением.
+    rm -rf "$PSITE/yaml"
     # shellcheck disable=SC2016  # тексты двойников: раскрываются при их запуске
     printf '#!/bin/sh\necho позван >> "$P_APT"\nexit 1\n' > "$PS/apt-get"; cp "$PS/apt-get" "$PS/apt"
     # shellcheck disable=SC2016  # текст двойника
@@ -975,20 +979,42 @@ STUB
     # PATH песочницы — лишь перечисленное: jq, curl, python3 и apt машины в неё не входят
     # (иначе «jq уже есть» пропускало бы загрузку и проба P2 судила бы машину, а не шаг)
     local t
-    for t in bash cat gzip head install mkdir rm sha256sum tar tr cut; do ln -sf "$(command -v "$t")" "$PS/$t"; done
+    for t in bash cat cut env gzip head install mkdir rm sha256sum tar tr; do ln -sf "$(command -v "$t")" "$PS/$t"; done
     : > "$BOX/p.log"; rm -f "$BOX/p.apt" "$BOX/p.etl"
 }
 # p_run <случай> <ожидаемый код> [VAR=знач…] — шаг пакетов в песочнице; нужные двойники — PATH
 p_run() {
     local n="$1" want="$2"; shift 2
     OUT="$BOX/$n.out"
-    env -i PATH="$PW/bin:$PS" P_LOG="$BOX/p.log" P_ASSETS="$BOX/passets" P_APT="$BOX/p.apt" "$@" bash "$BOX/pkgs.sh" > "$OUT" 2>&1; RC=$?
+    env -i PATH="$PW/bin:$PS:$PVENV/bin" P_LOG="$BOX/p.log" P_ASSETS="$BOX/passets" P_APT="$BOX/p.apt" "$@" bash "$BOX/pkgs.sh" > "$OUT" 2>&1; RC=$?
     cat "$OUT" >> "$ALL_OUT"
     expect_rc "$n" "$want"
 }
 # P2 — чисто: ни jq, ни yaml в образе → ставятся; apt не позван; адреса — не Debian
 p_stubs; p_run P2 0
-if [ -x "$PW/bin/jq" ] && [ "$("$PW/bin/jq" --version)" = jq-1.7.1 ] && [ -f "$PW/pylib/yaml/__init__.py" ]; then ok; else bad P2 "после шага нет исполняемого jq либо каталога yaml"; fi
+if [ -x "$PW/bin/jq" ] && [ "$("$PW/bin/jq" --version)" = jq-1.7.1 ] && [ -f "$PSITE/yaml/__init__.py" ]; then ok; else bad P2 "после шага нет исполняемого jq либо yaml в site-packages интерпретатора"; fi
+# Y1 (ws#1207) — подпроцесс с ПУСТЫМ окружением (форма проб deploy и хука) видит yaml;
+#     PYTHONPATH шаг не выставляет и каталога /work/pylib не заводит
+if env -i PATH="$PVENV/bin:/usr/bin:/bin" python3 -c "import yaml" >/dev/null 2>&1 && env -i "$PVENV/bin/python3" -c "import yaml" >/dev/null 2>&1; then ok
+else bad Y1 "после шага yaml не виден подпроцессу env -i python3 -c 'import yaml'"; fi
+if ! grep -v '^[[:space:]]*#' "$BOX/pkgs.raw" | grep -qE 'PYTHONPATH=|\$\{?PYTHONPATH' && [ ! -e "$PW/pylib" ]; then ok; else OUT="$BOX/pkgs.raw"; bad Y1 "шаг пакетов опирается на PYTHONPATH либо заводит /work/pylib"; fi
+if grep -q 'PyYAML 6.0.2 (без окружения)' "$BOX/P2.out"; then ok; else bad Y1 "строка итога не называет версию yaml, прочитанную без окружения"; fi
+# Y2 — мутант «только PYTHONPATH» (форма до ws#1207): yaml в /work/pylib и экспорт
+#     переменной. Он ставит и импортирует yaml С переменной, но подпроцесс без
+#     окружения его не видит — шаг обязан отказать 125, а не пропустить.
+# shellcheck disable=SC2016  # текст мутанта: раскрывается при его исполнении
+sed 's#^  ys="\$(.*#  ys=/work/pylib; export PYTHONPATH="/work/pylib${PYTHONPATH:+:$PYTHONPATH}"#' "$BOX/pkgs.raw" > "$BOX/pkgs-mut.raw"
+if [ "$(diff "$BOX/pkgs.raw" "$BOX/pkgs-mut.raw" | grep -c '^>')" = 1 ] && grep -q 'export PYTHONPATH="/work/pylib' "$BOX/pkgs-mut.raw"; then ok
+else OUT="$BOX/pkgs-mut.raw"; bad Y2 "мутант не построен (строка выбора каталога не найдена) — проба мимо предмета"; fi
+cp "$BOX/pkgs.sh" "$BOX/pkgs-orig.sh"
+# shellcheck disable=SC2016  # pf раскрывается при исполнении шага
+sed -E -e "s/(js=)[0-9a-f]{64}/\1$JQSUM/" -e "s/(pyyaml.tgz )[0-9a-f]{64}/\1$YSUM/" -e "s#/work#$PW#g" "$BOX/pkgs-mut.raw" \
+    | { echo 'pf() { echo "remote-heavy-prep: $1" >&2; exit 125; }'; cat; } > "$BOX/pkgs.sh"
+p_stubs; p_run Y2 125
+cp "$BOX/pkgs-orig.sh" "$BOX/pkgs.sh"
+if grep -q 'remote-heavy-prep: PyYAML не виден подпроцессу с пустым окружением' "$BOX/Y2.out"; then ok; else bad Y2 "мутант «только PYTHONPATH» не отвергнут причиной"; fi
+if [ -f "$PW/pylib/yaml/__init__.py" ] && env -i PYTHONPATH="$PW/pylib" "$PVENV/bin/python3" -c "import yaml" >/dev/null 2>&1; then ok
+else bad Y2 "мутант не поставил yaml в /work/pylib — красное пришло не от видимости, проба мимо предмета"; fi
 if [ ! -e "$BOX/p.apt" ]; then ok; else bad P2 "шаг пакетов позвал apt"; fi
 if grep -q 'github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-' "$BOX/p.log" && grep -q 'files.pythonhosted.org/.*pyyaml-6.0.2.tar.gz' "$BOX/p.log" && ! grep -qi debian "$BOX/p.log"; then ok
 else OUT="$BOX/p.log"; bad P2 "адреса загрузок не те: jq с GitHub и PyYAML с PyPI, без Debian"; fi
@@ -1000,7 +1026,7 @@ if grep -q 'jq-linux-arm64' "$BOX/p.log"; then ok; else OUT="$BOX/p.log"; bad P2
 p_stubs; p_run P2b 125 STUB_BAD_JQ=1
 if grep -q 'remote-heavy-prep: jq 1.7.1 не поставлен' "$BOX/P2b.out" && [ ! -e "$PW/bin/jq" ]; then ok; else bad P2b "порченый jq принят либо отказ не назван"; fi
 p_stubs; p_run P2g 125 STUB_BAD_YAML=1
-if grep -q 'remote-heavy-prep: PyYAML 6.0.2 не поставлен' "$BOX/P2g.out" && [ ! -e "$PW/pylib/yaml" ]; then ok; else bad P2g "порченый PyYAML принят либо отказ не назван"; fi
+if grep -q 'remote-heavy-prep: PyYAML 6.0.2 не поставлен' "$BOX/P2g.out" && [ ! -e "$PSITE/yaml" ]; then ok; else bad P2g "порченый PyYAML принят либо отказ не назван"; fi
 # P2d — сети нет: 125, а не тихий пропуск
 p_stubs; p_run P2d 125 STUB_NET_DOWN=1
 if grep -q 'remote-heavy-prep: jq 1.7.1 не поставлен' "$BOX/P2d.out"; then ok; else bad P2d "отказ сети не назван отказом jq (проглоченная загрузка прячется за соседним отказом)"; fi
@@ -1009,7 +1035,8 @@ p_stubs; p_run P2f 125 STUB_UNAME=riscv64
 if grep -q 'jq: архитектура riscv64 не поддержана' "$BOX/P2f.out"; then ok; else bad P2f "чужая архитектура не отвергнута"; fi
 # P2c — близнец: jq и yaml уже есть → ничего не качается
 p_stubs; printf '#!/bin/sh\necho jq-1.7.1\n' > "$PS/jq"; chmod +x "$PS/jq"
-p_run P2c 0 STUB_YAML=1
+mkdir -p "$PSITE/yaml"; printf '__version__ = "6.0.2"\n' > "$PSITE/yaml/__init__.py"
+p_run P2c 0
 if [ ! -s "$BOX/p.log" ]; then ok; else OUT="$BOX/p.log"; bad P2c "инструменты уже есть, а шаг качает"; fi
 
 # P3 — init-контейнер pgclient исполнением над поддельным образом postgres
@@ -1087,6 +1114,121 @@ for prof in "${PPROFS[@]}"; do
     fi
     if [ "$(p_spec "$BOX/p8-$prof-job.json")" = "$want" ]; then ok; else OUT="$BOX/p8-$prof-job.json"; bad "P8-$prof" "pgclient в Job профиля $prof: $(p_spec "$BOX/p8-$prof-job.json")"; fi
 done
+# ── видимость инструментов и хуки клона (ws#1207) ────────────────────────────
+# Регрессия ws#1188: (1) «; go install golangci-lint …» дописывался к PREP после
+# строки-маркера «# pkgs-end» и исполнялся комментарием; (2) PyYAML — лишь через
+# PYTHONPATH (Y1/Y2 выше); (3) хук corelib отказывал на непровязанном клоне pod.
+#   G1  ни в одном профиле строка-комментарий подготовки не несёт команду
+#       («|| pf» — подпись любого шага); мутант — склейка установки golangci-lint с
+#       маркером, как до правки, — находится
+#   G2  ci-local и lint: установка golangci-lint — исполняемой строкой
+#   X0  шаг видимости есть в каждом профиле, ПОСЛЕ ожидания клиента postgres и всех
+#       установок, ПЕРЕД командой
+#   X1* шаг видимости ИСПОЛНЕНИЕМ: golangci-lint из /work/bin и psql из /tools видны
+#       подпроцессу `env -i` с PATH образа; каталог и неисполнимое — без ссылки;
+#       мутант без ссылки — 125 с причиной
+#   H0  шаг хуков — только у ci-local, перед командой
+#   H1* шаг хуков ИСПОЛНЕНИЕМ над клоном-двойником: провязан (check установщика 0);
+#       близнец без шага — check 1 (двойник различает); установщик отказал либо
+#       check после провязки не сверился — 125 с причиной; установщика нет — 0
+for prof in "${PPROFS[@]}"; do
+    pc="$BOX/p8-$prof.cmd"
+    sw="$(grep -c -E '^[[:space:]]*#.*\|\| pf' "$pc")"
+    if [ "$sw" = 0 ] && [ -s "$pc" ]; then ok; else OUT="$pc"; bad "G1-$prof" "строк-комментариев с командой подготовки: $sw — команда ушла в комментарий"; fi
+    if awk -v pg="$([ "$prof" = lint ] && echo 0 || echo 1)" '/^# pgwait-end$/ { w = NR } /^# expose-begin$/ { b++; x = NR } /^heavy_cmd "\$@"$/ { e = NR } /go install github.com\/golangci/ { g = NR }
+           END { exit !(b == 1 && e && x < e && (!pg || (w && w < x)) && (!g || g < x)) }' "$pc"; then ok
+    else OUT="$pc"; bad "X0-$prof" "шага видимости нет, он не один либо стоит не после установок и не перед командой"; fi
+    nh="$(grep -c '^# hooks-begin$' "$pc")"
+    if [ "$prof" = ci-local ]; then
+        if [ "$nh" = 1 ] && awk '/^# hooks-end$/ { h = NR } /^heavy_cmd "\$@"$/ { e = NR } END { exit !(h && e && h < e) }' "$pc"; then ok
+        else OUT="$pc"; bad H0 "шага провязки хуков перед командой в Job ci-local нет"; fi
+    elif [ "$nh" = 0 ]; then ok; else OUT="$pc"; bad "H0-$prof" "провязка хуков в Job профиля $prof — хук отправки гонит лишь ci-local"; fi
+    case "$prof" in ci-local|lint)
+        if grep -qE '^echo "remote-heavy: ставлю golangci-lint v2\.12\.2" >&2; GOBIN=/work/bin go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2\.12\.2 ' "$pc"; then ok
+        else OUT="$pc"; bad "G2-$prof" "установки golangci-lint исполняемой строкой в Job профиля $prof нет"; fi ;;
+    esac
+done
+# G1 мутант: форма до правки — установка склеена с маркером шага пакетов
+sed -e '/^# pkgs-end$/{N;s/\n\(echo "remote-heavy: ставлю golangci-lint\)/; \1/}' "$BOX/p8-ci-local.cmd" > "$BOX/g1-mut.cmd"
+if ! cmp -s "$BOX/p8-ci-local.cmd" "$BOX/g1-mut.cmd" && [ "$(grep -c -E '^[[:space:]]*#.*\|\| pf' "$BOX/g1-mut.cmd")" -ge 1 ]; then ok
+else OUT="$BOX/g1-mut.cmd"; bad G1m "мутант «установка в комментарии» не построен либо не найден распознавателем"; fi
+
+# X1 — шаг видимости исполнением
+XB="$BOX/xb"
+sed -n '/^# expose-begin$/,/^# expose-end$/p' "$BOX/p8-ci-local.cmd" > "$BOX/expose.raw"
+if grep -q '^# expose-end$' "$BOX/expose.raw"; then ok; else OUT="$BOX/p8-ci-local.cmd"; bad X1 "текста шага видимости в Job нет — исполнять нечего"; fi
+XSP="/usr/local/sbin:$XB/ulb:/usr/sbin:/usr/bin:/sbin:/bin"
+x_box() {
+    rm -rf "$XB"; mkdir -p "$XB/work/bin" "$XB/tools/pg/lib" "$XB/ulb"
+    printf '#!/bin/sh\necho "golangci-lint has version 2.12.2"\n' > "$XB/work/bin/golangci-lint"
+    printf '#!/bin/sh\necho "psql 17"\n' > "$XB/tools/psql"
+    printf 'не исполняемое\n' > "$XB/tools/notes"
+    chmod +x "$XB/work/bin/golangci-lint" "$XB/tools/psql"
+}
+x_run() {
+    OUT="$BOX/$1.out"
+    # shellcheck disable=SC2016  # pf раскрывается при исполнении шага
+    { echo 'pf() { echo "remote-heavy-prep: $1" >&2; exit 125; }'; sed -e "s#/usr/local/bin#$XB/ulb#g" -e "s#/work#$XB/work#g" -e "s#/tools#$XB/tools#g" "$2"; } > "$BOX/$1.sh"
+    env -i PATH="$XB/work/bin:/usr/bin:/bin" bash "$BOX/$1.sh" > "$OUT" 2>&1; RC=$?
+    cat "$OUT" >> "$ALL_OUT"
+    expect_rc "$1" "$3"
+}
+x_box
+if [ -z "$(env -i PATH="$XSP" bash -c 'command -v golangci-lint')" ]; then ok; else bad X1 "golangci-lint виден подпроцессу без окружения ДО шага — проба беспредметна"; fi
+x_run X1 "$BOX/expose.raw" 0
+if [ "$(env -i PATH="$XSP" bash -c 'command -v golangci-lint')" = "$XB/ulb/golangci-lint" ] && [ "$(env -i PATH="$XSP" bash -c 'command -v psql')" = "$XB/ulb/psql" ] \
+   && [ "$(env -i PATH="$XSP" golangci-lint)" = "golangci-lint has version 2.12.2" ]; then ok
+else bad X1 "после шага golangci-lint либо psql не видны подпроцессу env -i с PATH образа"; fi
+if [ ! -e "$XB/ulb/notes" ] && [ ! -e "$XB/ulb/pg" ] && grep -qF "инструментов подготовки в стандартном PATH образа ($XB/ulb) — 2" "$BOX/X1.out"; then ok
+else bad X1 "ссылка на неисполнимое либо каталог, или счёт ссылок не 2"; fi
+# X1m — мутант без ссылки: шаг обязан отказать причиной, а не молчать
+# shellcheck disable=SC2016  # текст шага, не раскрывается здесь
+sed 's#ln -sf "$f" "/usr/local/bin/$b"#true#' "$BOX/expose.raw" > "$BOX/expose-mut.raw"
+x_box
+if ! cmp -s "$BOX/expose.raw" "$BOX/expose-mut.raw"; then ok; else bad X1m "мутант без ссылки не построен — проба мимо предмета"; fi
+x_run X1m "$BOX/expose-mut.raw" 125
+if grep -q 'remote-heavy-prep: golangci-lint: подпроцесс с пустым окружением (PATH образа) находит «»' "$BOX/X1m.out"; then ok; else bad X1m "мутант без ссылки не отвергнут причиной"; fi
+
+# H1 — шаг провязки хуков исполнением над клоном-двойником
+HB="$BOX/hb"
+sed -n '/^# hooks-begin$/,/^# hooks-end$/p' "$BOX/p8-ci-local.cmd" > "$BOX/hooks.raw"
+if grep -q '^# hooks-end$' "$BOX/hooks.raw"; then ok; else OUT="$BOX/p8-ci-local.cmd"; bad H1 "текста шага хуков в Job нет — исполнять нечего"; fi
+# h_box <установщик: ok|fail|nocheck|none> — клон с установщиком формы corelib:
+# install пишет переходники в .git/hooks, check отказывает «не провязаны: …»
+h_box() {
+    rm -rf "$HB"; git init -q "$HB/src"; mkdir -p "$HB/src/scripts/hooks"
+    [ "$1" = none ] && return 0
+    cat > "$HB/src/scripts/hooks/install.sh" <<HINST
+#!/usr/bin/env bash
+d="\$(git rev-parse --git-dir)/hooks"; mkdir -p "\$d"
+case "\$1" in
+  install) [ "$1" = fail ] && { echo "ОТКАЗ: под именем хука уже лежит ЧУЖОЙ файл: pre-push" >&2; exit 1; }
+           for h in commit-msg pre-push; do echo "# corelib-hook-stub v2" > "\$d/\$h"; chmod +x "\$d/\$h"; done ;;
+  check)   [ "$1" = nocheck ] && { echo "ОТКАЗ: прежней редакции 1" >&2; exit 1; }
+           n=""; for h in commit-msg pre-push; do grep -q 'corelib-hook-stub v2' "\$d/\$h" 2>/dev/null || n="\$n \$h"; done
+           [ -z "\$n" ] || { echo "ОТКАЗ: не провязаны:\$n"; exit 1; } ;;
+esac
+HINST
+}
+h_run() {
+    OUT="$BOX/$1.out"
+    # shellcheck disable=SC2016  # pf раскрывается при исполнении шага
+    { echo 'pf() { echo "remote-heavy-prep: $1" >&2; exit 125; }'; sed -e "s#/work/src#$HB/src#g" "$BOX/hooks.raw"; } > "$BOX/$1.sh"
+    env -i PATH="/usr/bin:/bin" HOME="$BOX/ghome" bash "$BOX/$1.sh" > "$OUT" 2>&1; RC=$?
+    cat "$OUT" >> "$ALL_OUT"
+    expect_rc "$1" "$2"
+}
+h_box ok
+if ! (cd "$HB/src" && bash scripts/hooks/install.sh check >/dev/null 2>&1); then ok; else bad H1 "двойник установщика считает свежий клон провязанным — проба беспредметна"; fi
+h_run H1 0
+if (cd "$HB/src" && bash scripts/hooks/install.sh check >/dev/null 2>&1) && grep -q 'хуки клона провязаны — install.sh install и check, код 0' "$BOX/H1.out"; then ok
+else bad H1 "после шага клон не провязан либо итог не назван"; fi
+h_box fail; h_run H1f 125
+if grep -q 'remote-heavy-prep: хуки клона: install.sh install отказал — ОТКАЗ: под именем хука уже лежит ЧУЖОЙ файл' "$BOX/H1f.out"; then ok; else bad H1f "отказ установщика не назван причиной"; fi
+h_box nocheck; h_run H1c 125
+if grep -q 'remote-heavy-prep: хуки клона: install.sh check после провязки не сверился — ОТКАЗ: прежней редакции 1' "$BOX/H1c.out"; then ok; else bad H1c "несверившаяся провязка не отвергнута причиной"; fi
+h_box none; h_run H1n 0
+if grep -q 'установщика scripts/hooks/install.sh в дереве нет, провязывать нечего' "$BOX/H1n.out"; then ok; else bad H1n "дерево без установщика — исход не назван"; fi
 # P6 — шаг pgwait исполнением (ожидание клиента postgres перед командой)
 sed -n '/^# pgwait-begin$/,/^# pgwait-end$/p' "$BOX/e1.cmd" > "$BOX/pgwait.raw"
 if grep -q '^# pgwait-end$' "$BOX/pgwait.raw"; then ok; else OUT="$BOX/e1.cmd"; bad P6 "текста шага pgwait в Job нет — исполнять нечего"; fi
