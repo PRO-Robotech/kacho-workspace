@@ -61,15 +61,27 @@
 #   C5 гонка при --keep                    → 75, ns всё равно снято
 #   V2 --available при занятом кластере    → 75; близнец V2b → 0
 #   M1 KACHO_REMOTE_HEAVY_MAX=0            → 64
+#   M2 предел по умолчанию 4 — страховка над размещением: 4 идущих → 75;
+#      близнец M2b 3 идущих → 0 (C1–C5, V2 судят предел явным 2)
 #   Q1 стенд (pod ns kacho) на всех узлах, место есть → --available 0 и прогон 0
-#      (стенд узел не запирает); Q1d два go-race рядом со стендом замера
-#      2026-10-09 на ОДНОМ узле — второй тоже встаёт → 0
+#      (стенд узел не запирает); Q1d второй go-race на ОДНОМ узле со стендом
+#      оставил бы меньше 20 % CPU → 75, запас назван (ws#1143)
+#   QH допуск по запросам профиля и запасу 20 %: узлы и фон замера 2026-10-17 —
+#      помещаются 4 лёгких, 1 тяжёлый и 2 лёгких, 2 тяжёлых; следующий — 75 с
+#      названным запасом (ws#1143); порча «запас 0 %» — mutants.py headroom-0
+#   QB запас на самой границе: остаток CPU 3 100m → 0, 3 099m → 75; фон памяти
+#      18 007 МиБ → 0, 18 008 МиБ → 75; порча порога hr-0.1 с прежним текстом — по коду
 #   Q3 единственный узел не готов / закрыт / taint NoSchedule → 69; прогон 69 без ns
 #   Q2 места под go-race нет ни на одном узле → 75 и прогон 75 без ns; близнец Q2b
 #      тот же кластер, профиль lint → 0 и прогон 0; Q2c профиля нет → 64
 #   Q5 перепись pod кластера > 128 КиБ (строка аргумента) → разбирается, 0
 #   Q4 pod ждёт планирования, чужой pod занял последнее место → 75 сразу, ns снято
 #      и при --keep; близнец Q4b место есть → run.sh ждёт дальше
+#   KX1 команда с $$, $(ИМЯ) env контейнера, $$(…), $(…), $ в конце и незакрытым
+#      $( → раскрытием kubelet (двойник правила Kubernetes) доходит до run байт в
+#      байт (ws#1142); KX1-ctl — та же команда без экранирования искажается;
+#      KX1-env — вход pre-push с $$ и $(HEAVY_NODE) доходит до env run байт в байт;
+#      KX1-all — во всех контейнерах Job, init тоже, $ лишь парами
 #   O1 строки run.sh после выбора ns несут его имя
 #   O2 stderr — файл, в который пишет посторонний живой процесс → предупреждение с
 #      его pid; близнец O2b файл держат только предки прогона → молчание
@@ -526,6 +538,78 @@ chmod +x "$BOX/bin/curl"
 
 fresh() { rm -rf "$BOX/state"; mkdir -p "$BOX/state/ns"; }
 
+# ── kubelet: раскрытие command, args и env контейнера (ws#1142) ─────────────
+# Что получит контейнер, решает не spec, а kubelet: в command, args и value env он
+# раскрывает $(ИМЯ) значением env контейнера (объявленного раньше — для env),
+# сворачивает $$ в $, прочее оставляет как есть — правило expansion.Expand
+# Kubernetes (third_party/forked/golang/expansion), перенесённое дословно. Пробы,
+# исполняющие текст из Job, читают его через это раскрытие: так они судят то, что
+# исполнит pod, а не то, что лежит в манифесте.
+cat > "$BOX/kexpand.py" <<'PY'
+import json, sys
+
+def expand(s, env):
+    out, cp, i, n = [], 0, 0, len(s)
+    while i < n:
+        if s[i] == "$" and i + 1 < n:
+            out.append(s[cp:i])
+            rest = s[i + 1:]
+            if rest[0] == "$":
+                read, isvar, adv = "$", False, 1
+            elif rest[0] == "(":
+                j = rest.find(")", 1)
+                if j < 0:
+                    read, isvar, adv = "$(", False, 1
+                else:
+                    read, isvar, adv = rest[1:j], True, j + 1
+            else:
+                read, isvar, adv = "$" + rest[0], False, 1
+            out.append(env.get(read, "$(" + read + ")") if isvar else read)
+            i += adv
+            cp = i + 1
+        i += 1
+    return "".join(out) + s[cp:]
+
+mode, path, name = sys.argv[1:4]
+sp = json.load(open(path))["spec"]["template"]["spec"]
+c = next(x for x in sp.get("initContainers", []) + sp.get("containers", []) if x["name"] == name)
+env = {}
+for e in c.get("env", []):
+    if "value" in e:
+        env[e["name"]] = expand(e["value"], env)
+argv = [expand(a, env) for a in c.get("command", []) + c.get("args", [])]
+if mode == "cmd":
+    sys.stdout.write(argv[int(sys.argv[4])] + "\n")
+elif mode == "argv":
+    sys.stdout.write("".join(a + "\0" for a in argv))
+elif mode == "env":
+    if sys.argv[4] in env:
+        sys.stdout.write(env[sys.argv[4]] + "\n")
+PY
+# kodd.py <job.json> — экранирование без исполнения: в command, args и value env КАЖДОГО
+# контейнера Job (init — тоже) $ стоят лишь парами. Печатает «нечётных N · строк с $ M
+# (init K)» и места нечётных серий.
+cat > "$BOX/kodd.py" <<'PY'
+import json, re, sys
+sp = json.load(open(sys.argv[1]))["spec"]["template"]["spec"]
+odd, withd, initd, where = 0, 0, 0, []
+for kind in ("initContainers", "containers"):
+    for c in sp.get(kind, []):
+        vals = [("command", a) for a in c.get("command", [])] + [("args", a) for a in c.get("args", [])]
+        vals += [("env " + e["name"], e["value"]) for e in c.get("env", []) if "value" in e]
+        for field, v in vals:
+            if "$" not in v:
+                continue
+            withd += 1
+            initd += kind == "initContainers"
+            if any(len(m) % 2 for m in re.findall(r"\$+", v)):
+                odd += 1
+                where.append(c["name"] + ": " + field)
+print("нечётных %d · строк с $ %d (init %d)%s" % (odd, withd, initd, "".join(" · " + w for w in where)))
+PY
+# kx cmd <job.json> <контейнер> <номер> | argv <job.json> <контейнер> | env <job.json> <контейнер> <имя>
+kx() { python3 "$BOX/kexpand.py" "$@" 2>/dev/null; }
+
 # go <имя> — запуск run.sh в окружении двойника; код — в RC, вывод — в OUT.
 go_run() {
     local name="$1"; shift
@@ -646,8 +730,8 @@ if grep -q 'контейнер fetch: privileged без запроса' "$OUT"; 
 # U2 — проверка в pod: текст берётся из Job (команда dind и run), стоит ПЕРВЫМ и
 # исполняется над поддельным /proc: sh — как busybox dind, bash — как run.
 UJ="$BOX/u1-job.json"; UP="$BOX/uproc"; mkdir -p "$UP"
-jq -r '.spec.template.spec.initContainers[] | select(.name == "dind") | .command[2]' "$UJ" > "$BOX/dind.cmd"
-jq -r '.spec.template.spec.containers[] | select(.name == "run") | .command[2]' "$UJ" > "$BOX/run.cmd"
+kx cmd "$UJ" dind 2 > "$BOX/dind.cmd"
+kx cmd "$UJ" run 2 > "$BOX/run.cmd"
 sed -n '1,/^# userns-end$/p' "$BOX/dind.cmd" > "$BOX/userns.sh"
 if grep -q '^# userns-end$' "$BOX/userns.sh" && [ "$(sed -n '1,/^# userns-end$/p' "$BOX/run.cmd")" = "$(cat "$BOX/userns.sh")" ] \
    && [[ "$(head -n 1 "$BOX/userns.sh")" == 'uf() '* ]]; then ok
@@ -693,10 +777,10 @@ fresh
 go_run e1 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref pins --src "$SRC" --profile integration --short e1 -- true
 expect_rc E1 0
 EJ="$BOX/state/job.json"; cp "$EJ" "$BOX/e1-job.json" 2>/dev/null
-envv() { jq -r --arg n "$2" '.spec.template.spec.containers[] | select(.name == "run") | .env[] | select(.name == $n) | .value' "$1" 2>/dev/null; }
+envv() { kx env "$1" run "$2"; }
 if [ "$(envv "$EJ" HEAVY_HELM)" = v4.2.4 ] && [ "$(envv "$EJ" HEAVY_NODE)" = 26 ]; then ok
 else OUT="$EJ"; bad E1 "пины в окружении run: helm «$(envv "$EJ" HEAVY_HELM)», node «$(envv "$EJ" HEAVY_NODE)», ждали v4.2.4 и 26"; fi
-jq -r '.spec.template.spec.containers[] | select(.name == "run") | .command[2]' "$EJ" > "$BOX/e1.cmd" 2>/dev/null
+kx cmd "$EJ" run 2 > "$BOX/e1.cmd" 2>/dev/null
 # shellcheck disable=SC2016  # ищется буквальный текст подготовки
 if grep -q 'get.helm.sh/helm-$HEAVY_HELM-linux-' "$BOX/e1.cmd" && grep -q 'sha256sum -c' "$BOX/e1.cmd" \
    && grep -q 'nodejs.org/dist/' "$BOX/e1.cmd" && grep -q 'SHASUMS256.txt' "$BOX/e1.cmd"; then ok
@@ -752,7 +836,7 @@ for prof in go-race ci-local lint; do
     fresh
     go_run "d1-$prof" env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref HEAD --src "$SRC" --profile "$prof" --short "d1$prof" -- true
     expect_rc "D1-$prof" 0
-    jq -r '.spec.template.spec.containers[] | select(.name == "run") | .command[2]' "$BOX/state/job.json" > "$BOX/d1-$prof.cmd" 2>/dev/null
+    kx cmd "$BOX/state/job.json" run 2 > "$BOX/d1-$prof.cmd" 2>/dev/null
     if modstep_in "$BOX/d1-$prof.cmd"; then ok; else OUT="$BOX/d1-$prof.cmd"; bad "D1-$prof" "шага загрузки модулей перед командой в Job профиля $prof нет"; fi
 done
 # Исполнение: настоящий go, сеть — файловый прокси с модулем, который модуль
@@ -801,7 +885,7 @@ npm_in() { awk '/^# tools-end$/ { t = NR } /^# npmci-begin$/ { b = NR } /^# npmc
 fresh
 go_run nc1 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kacho --ref HEAD --src "$SRC" --profile ci-local --short nc1 --push-input "$PUSH_LINE" -- true
 expect_rc NC1 0
-jq -r '.spec.template.spec.containers[] | select(.name == "run") | .command[2]' "$BOX/state/job.json" > "$BOX/nc1.cmd" 2>/dev/null
+kx cmd "$BOX/state/job.json" run 2 > "$BOX/nc1.cmd" 2>/dev/null
 if npm_in "$BOX/nc1.cmd"; then ok; else OUT="$BOX/nc1.cmd"; bad NC1 "шага зависимостей консоли между сверкой среды и exec в Job ci-local kacho нет"; fi
 if [ "$(envv "$BOX/state/job.json" HEAVY_PUSH_INPUT)" = "$PUSH_LINE" ]; then ok
 else OUT="$BOX/state/job.json"; bad NC1 "вход pre-push не дошёл до окружения run: «$(envv "$BOX/state/job.json" HEAVY_PUSH_INPUT)»"; fi
@@ -809,7 +893,7 @@ for tw in kaname:ci-local kacho:go-race; do
     tr_="${tw%%:*}"; tp="${tw#*:}"; fresh
     go_run "nc1-$tr_-$tp" env FAKE_EXIT=0 bash "$RUN" --task 1 --repo "$tr_" --ref HEAD --src "$SRC" --profile "$tp" --short "nc1$tp" --push-input "$PUSH_LINE" -- true
     expect_rc "NC1-$tr_-$tp" 0
-    tw_cmd="$(jq -r '.spec.template.spec.containers[] | select(.name == "run") | .command[2]' "$BOX/state/job.json" 2>/dev/null)"
+    tw_cmd="$(kx cmd "$BOX/state/job.json" run 2)"
     if [[ $'\n'"$tw_cmd"$'\n' == *$'\n# npmci-begin\n'* ]]; then
         bad "NC1-$tr_-$tp" "шаг консоли в Job $tr_ $tp — он лишь у ci-local kacho"; else ok; fi
 done
@@ -949,7 +1033,7 @@ gi_in() { awk '/^# gitid-begin$/ { b = NR } /^# gitid-end$/ { m = NR } /^heavy_c
 fresh
 go_run gi1 env FAKE_EXIT=0 GIT_CONFIG_GLOBAL="$BOX/gi.cfg" bash "$RUN" --task 1 --repo kaname --ref HEAD --src "$SRC" --profile ci-local --short gi1 --push-input "$PUSH_LINE" -- true
 expect_rc GI1 0
-jq -r '.spec.template.spec.containers[] | select(.name == "run") | .command[2]' "$BOX/state/job.json" > "$BOX/gi1.cmd" 2>/dev/null
+kx cmd "$BOX/state/job.json" run 2 > "$BOX/gi1.cmd" 2>/dev/null
 if [ "$(envv "$BOX/state/job.json" HEAVY_GIT_NAME)" = "$GI_NAME" ] && [ "$(envv "$BOX/state/job.json" HEAVY_GIT_EMAIL)" = "$GI_EMAIL" ]; then ok
 else OUT="$BOX/state/job.json"; bad GI1 "учётка не дошла до окружения run: «$(envv "$BOX/state/job.json" HEAVY_GIT_NAME)» «$(envv "$BOX/state/job.json" HEAVY_GIT_EMAIL)»"; fi
 if gi_in "$BOX/gi1.cmd"; then ok; else OUT="$BOX/gi1.cmd"; bad GI1 "шага записи учётки перед командой в Job ci-local нет"; fi
@@ -1151,7 +1235,7 @@ if grep -q 'пин helm неоднозначен' "$OUT"; then ok; else bad E3 "
 fresh
 go_run e4 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref pins --src "$SRC" --profile lint --short e4 -- true
 expect_rc E4 0
-e4cmd="$(jq -r '.spec.template.spec.containers[0].command[2]' "$BOX/state/job.json" 2>/dev/null)"
+e4cmd="$(kx cmd "$BOX/state/job.json" run 2)"
 if [ -z "$(envv "$BOX/state/job.json" HEAVY_HELM)" ] && [ -n "$e4cmd" ] && ! grep -q 'get.helm.sh' <<< "$e4cmd"; then ok
 else OUT="$BOX/state/job.json"; bad E4 "lint ставит helm"; fi
 # E5 ревизия без пинов — сверять нечего, строка это называет
@@ -1178,7 +1262,7 @@ heads="$(git bundle list-heads "$BOX/state/bundle" 2>/dev/null)"
 if grep -q " refs/remotes/origin/side$" <<< "$heads" && grep -q " refs/tags/probe-tag$" <<< "$heads"; then ok
 else bad H1 "в bundle нет боковой ветки origin либо метки: $(tr '\n' ';' <<< "$heads")"; fi
 FW="$BOX/fw"; rm -rf "$FW"; mkdir -p "$FW"; cp "$BOX/state/bundle" "$FW/in.bundle"; touch "$FW/in.done"
-jq -r '.spec.template.spec.initContainers[] | select(.name == "fetch") | .command[2]' "$BOX/state/job.json" | sed "s#/work#$FW#g" > "$BOX/fetch.sh"
+kx cmd "$BOX/state/job.json" fetch 2 | sed "s#/work#$FW#g" > "$BOX/fetch.sh"
 OUT="$BOX/h1-fetch.out"
 ( cd "$FW" && env HEAVY_SHA="$(git -C "$SRC" rev-parse HEAD)" HEAVY_MAIN="$(git -C "$SRC" rev-parse HEAD)" \
     GIT_CONFIG_GLOBAL="$BOX/ghome/.gitconfig" sh "$BOX/fetch.sh" ) > "$OUT" 2>&1; frc=$?
@@ -1348,7 +1432,7 @@ no_job() { if [ -e "$BOX/state/job.json" ]; then bad "$1" "Job создан"; el
 
 # C1 — идущих 2 при пределе 2 → 75 до создания ns
 fresh; seed_ns t7-heavy-a '+1 hour'; seed_ns t8-heavy-b '+1 hour'
-go_run c1 env FAKE_EXIT=0 "${B[@]}" --short c1 -- true
+go_run c1 env FAKE_EXIT=0 KACHO_REMOTE_HEAVY_MAX=2 "${B[@]}" --short c1 -- true
 expect_rc C1 75
 if grep -qE '(^| )create -f ' "$BOX/state/calls"; then bad C1 "create звался при занятом кластере"; else ok; fi
 # C2 — близнец C1: те же ns, их Job завершены → не идущие → 0
@@ -1361,26 +1445,35 @@ go_run c3 env FAKE_EXIT=0 "${B[@]}" --short c3 -- true
 expect_rc C3 0
 # C4 — гонка: первая перепись видит 1 из 2, второй запуск создал ns мгновением раньше → 75, своё ns снято, Job нет
 fresh; seed_ns t7-heavy-a '+1 hour'
-go_run c4 env FAKE_EXIT=0 FAKE_RACE=t9-heavy-racer "${B[@]}" --short c4 -- true
+go_run c4 env FAKE_EXIT=0 KACHO_REMOTE_HEAVY_MAX=2 FAKE_RACE=t9-heavy-racer "${B[@]}" --short c4 -- true
 expect_rc C4 75
 own_gone C4 t1-heavy-c4
 no_job C4
 # C4b — близнец C4 без гонки → 0
 fresh; seed_ns t7-heavy-a '+1 hour'
-go_run c4b env FAKE_EXIT=0 "${B[@]}" --short c4b -- true
+go_run c4b env FAKE_EXIT=0 KACHO_REMOTE_HEAVY_MAX=2 "${B[@]}" --short c4b -- true
 expect_rc C4b 0
 # C5 — --keep не спасает ns запуска, вышедшего сверх предела
 fresh; seed_ns t7-heavy-a '+1 hour'
-go_run c5 env FAKE_EXIT=0 FAKE_RACE=t9-heavy-racer "${B[@]}" --short c5 --keep 2 -- true
+go_run c5 env FAKE_EXIT=0 KACHO_REMOTE_HEAVY_MAX=2 FAKE_RACE=t9-heavy-racer "${B[@]}" --short c5 --keep 2 -- true
 expect_rc C5 75
 own_gone C5 t1-heavy-c5
 # V2 — --available при занятом кластере → 75; близнец с одним идущим → 0
 fresh; seed_ns t7-heavy-a '+1 hour'; seed_ns t8-heavy-b '+1 hour'
-go_run v2 bash "$RUN" --available
+go_run v2 env KACHO_REMOTE_HEAVY_MAX=2 bash "$RUN" --available
 expect_rc V2 75
 fresh; seed_ns t7-heavy-a '+1 hour'
-go_run v2b bash "$RUN" --available
+go_run v2b env KACHO_REMOTE_HEAVY_MAX=2 bash "$RUN" --available
 expect_rc V2b 0
+# M2 — предел по умолчанию — 4, страховка над размещением (ws#1143): 4 идущих → 75 с
+# пределом в причине; близнец — 3 идущих → 0
+fresh; for x in a b c d; do seed_ns "t7-heavy-$x" '+1 hour'; done
+go_run m2 bash "$RUN" --available
+expect_rc M2 75
+if grep -q 'идущих тяжёлых прогонов 4 при пределе 4' "$OUT"; then ok; else bad M2-why "предел по умолчанию не 4 либо не назван"; fi
+fresh; for x in a b c; do seed_ns "t7-heavy-$x" '+1 hour'; done
+go_run m2b bash "$RUN" --available
+expect_rc M2b 0
 # M1 — предел вне 1..8 → 64
 fresh
 go_run m1 env KACHO_REMOTE_HEAVY_MAX=0 "${B[@]}" -- true
@@ -1415,8 +1508,8 @@ go_run q1r env FAKE_EXIT=0 FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$STAND_ALL" 
 expect_rc Q1r 0
 if [ "$(created)" = да ]; then ok; else bad Q1r "ns не создавалось при стенде на всех узлах и месте под профиль"; fi
 expect_ns_gone Q1r t1-heavy-q1r
-# Q1d — ПРЕДЕЛ 2: единственный узел со стендом и одним идущим go-race — второй
-# go-race тоже встаёт (запросы профиля подобраны под это) → 0
+# Q1d — запас 20 % (ws#1143): единственный узел со стендом и одним идущим go-race —
+# второй go-race на нём оставил бы узлу меньше 20 % по CPU → 75, запас назван
 IFS='|' read -r _ gcpu _ gmib _ <<< "$(sed -n "s/^PROFILES='\\(go-race|.*\\)/\\1/p" "$RUN")"
 IFS='|' read -r dind_cpu _ dind_gi _ <<< "$(sed -n "s/^DIND_RES='\\(.*\\)'$/\\1/p" "$RUN")"
 dind_gi="${dind_gi%Gi}"
@@ -1424,8 +1517,60 @@ if [ -n "$gcpu" ] && [ -n "$dind_cpu" ] && [ -n "$dind_gi" ]; then
     one_run="$(pod_j t9-heavy-a n1 Running "$(( gcpu + dind_cpu ))" "$(( ${gmib%Gi} + dind_gi ))Gi")"
     fresh
     go_run q1d env FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$( { pod_j kacho n1 Running 450m 2756Mi; echo "$one_run"; } | items)" bash "$RUN" --available --profile go-race
-    expect_rc Q1d 0
+    expect_rc Q1d 75
+    if grep -q 'с запасом 20 % узла' "$OUT"; then ok; else bad Q1d-why "причина без запаса"; fi
 else bad Q1d "запрос go-race и dind не прочитаны из run.sh"; fi
+# QH — допуск по запросам профиля и запасу 20 % (ws#1143). Узлы и фон — замер
+# 2026-10-17 (get nodes и get pods -A): два узла по 15 500m и 30 189 МиБ, фон
+# 2 265m/8 436 МиБ и 2 335m/9 460 МиБ. Тяжёлый (go-race, ci-local) — 7 CPU и 12 ГиБ,
+# лёгкий (integration, lint) — 4 CPU и 6 ГиБ (запросы PROFILES с dind). Уже идущие
+# прогоны — pod на узлах; число идущих ns ноль: решает размещение, а не счёт штуками.
+# Помещаются 4 лёгких, или 1 тяжёлый и 2 лёгких, или 2 тяжёлых; следующий — 75.
+BG="$(pod_j sys n1 Running 2265m 8436Mi) $(pod_j sys n2 Running 2335m 9460Mi)"
+qh() {  # qh <случай> <профиль> <код> <узлы идущих: h1 l2 …>
+    local id="$1" prof="$2" want="$3" pods="$BG" r; shift 3
+    for r in "$@"; do
+        case "$r" in
+            h*) pods="$pods $(pod_j t9-heavy-h n"${r#h}" Running 7 12Gi)" ;;
+            l*) pods="$pods $(pod_j t9-heavy-l n"${r#l}" Running 4 6Gi)" ;;
+        esac
+    done
+    fresh
+    go_run "qh-$id" env FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$(printf '%s\n' "$pods" | items)" bash "$RUN" --available --profile "$prof"
+    expect_rc "QH-$id" "$want"
+    if [ "$want" = 75 ]; then
+        if grep -q 'с запасом 20 % узла по CPU и памяти нет' "$OUT"; then ok; else bad "QH-$id-why" "причина 75 не называет запас"; fi
+    fi
+}
+qh light-0 lint 0
+qh light-1 integration 0 l1
+qh light-2 lint 0 l1 l2
+qh light-3 integration 0 l1 l1 l2
+qh light-4 lint 75 l1 l1 l2 l2
+qh mix-0 go-race 0
+qh mix-1 lint 0 h1
+qh mix-2 integration 0 h1 l2
+qh mix-3 lint 75 h1 l2 l2
+qh mix-3h go-race 75 h1 l2 l2
+qh heavy-1 ci-local 0 h1
+qh heavy-2 go-race 75 h1 h2
+qh heavy-2c ci-local 75 h2 h1
+# QB — запас на самой границе (приёмка ws#1143): один узел 15 500m и 30 913 596 КиБ,
+# профиль lint (4 000m и 6 ГиБ), фон — один pod. Запас 20 % — 3 100m и 6 037,8 МиБ:
+# фон 8 400m оставляет после посадки ровно 3 100m (0), 8 401m — 3 099m (75); фон
+# 18 007 МиБ оставляет 6 038,06 МиБ (0), 18 008 МиБ — 6 037,06 МиБ (75). Судится КОДОМ:
+# id случая стоит лишь у expect_rc, порча порога с прежним текстом причины краснеет им.
+qb() {  # qb <случай> <фон cpu> <фон память> <код>
+    fresh
+    go_run "qb-$1" env FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$(pod_j sys n1 Running "$2" "$3" | items)" bash "$RUN" --available --profile lint
+    expect_rc "QB-$1" "$4"
+}
+qb cpu-in 8400m 1000Mi 0
+qb cpu-out 8401m 1000Mi 75
+qb mem-in 100m 18007Mi 0
+qb mem-out 100m 18008Mi 75
+qb both-in 8400m 18007Mi 0
+qb both-out 8401m 18008Mi 75
 # Q3 — единственный узел не готов / закрыт / с taint NoSchedule → 69; прогон 69 без ns
 for q in "0 0 :не-готов" "1 1 :закрыт" "1 0 NoSchedule:taint"; do
     read -r rdy cord rest <<< "$q"; eff="${rest%%:*}"; nm="${rest#*:}"
@@ -1438,8 +1583,9 @@ fresh
 go_run q3r env FAKE_EXIT=0 FAKE_NODES="$(node_j n1 1 1 "" | items)" "${B[@]}" --short q3r -- true
 expect_rc Q3r 69
 if [ "$(created)" = нет ]; then ok; else bad Q3r "ns создавалось без открытого узла"; fi
-# Q2 — оба узла заняты: 20 ГиБ запрошено чужими pod → go-race не встаёт → 75 до ns
-BUSY="$( { pod_j kacho n1 Running 450m 2756Mi; pod_j other n1 Running 2 20Gi; pod_j other n2 Running 2 20Gi; } | items)"
+# Q2 — оба узла заняты: 16 ГиБ запрошено чужими pod → go-race (12 ГиБ) с запасом
+# 20 % не встаёт → 75 до ns
+BUSY="$( { pod_j kacho n1 Running 450m 2756Mi; pod_j other n1 Running 2 16Gi; pod_j other n2 Running 2 16Gi; } | items)"
 fresh
 go_run q2 env FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$BUSY" bash "$RUN" --available --profile go-race
 expect_rc Q2 75
@@ -1483,6 +1629,48 @@ timeout 15 env PATH="$BOX/bin:$PATH" FAKE_STATE="$BOX/state" FAKE_HOST="$SERVER_
     KACHO_REMOTE_KUBECONFIG="$BOX/kubeconfig" TMPDIR="$BOX" "${B[@]}" --short q4b -- true > "$OUT" 2>&1
 RC=$?; cat "$OUT" >> "$ALL_OUT"
 expect_rc Q4b 124
+
+# ── команда доходит до контейнера байт в байт (ws#1142) ────────────────────
+# Составной Job потерял переменные и коды осей: kubelet свернул $$ в $ и раскрыл
+# $(ИМЯ) значением env контейнера. KX1 — команда со всеми формами, которые kubelet
+# трогает ($$, $(ИМЯ) объявленного env, $$(…), $(…) команды оболочки, $ в конце,
+# незакрытое $(), читается раскрытием kubelet (kx) и сверяется с отправленной
+# поэлементно. KX1-ctl — контроль пробы: та же команда, положенная в Job как есть,
+# раскрытием искажается (иначе KX1 не судит ничего).
+# shellcheck disable=SC2016  # все $ — буквальные байты команды
+CMDX=(bash -c 'printf "%s|" "$$" "$(CI)" "$(id -u)"' 'arg0' '$$' '$(CI)' '$(HEAVY_WORKDIR)' '$$(CI)' '$(echo a b)' 'tail$' '$(open' 'x$$$y' '$')
+fresh
+go_run kx1 env FAKE_EXIT=0 "${B[@]}" --short kx1 -- "${CMDX[@]}"
+expect_rc KX1 0
+mapfile -d '' -t KXGOT < <(kx argv "$BOX/state/job.json" run)
+kx_diff=""
+[ "${#KXGOT[@]}" -eq $(( ${#CMDX[@]} + 4 )) ] || kx_diff="элементов ${#KXGOT[@]}, ждали $(( ${#CMDX[@]} + 4 ))"
+for i in "${!CMDX[@]}"; do
+    [ "${KXGOT[$((i + 4))]:-}" = "${CMDX[$i]}" ] || kx_diff="${kx_diff:+$kx_diff; }[$i] отправлено «${CMDX[$i]}», получено «${KXGOT[$((i + 4))]:-}»"
+done
+[ "${KXGOT[0]:-} ${KXGOT[1]:-} ${KXGOT[3]:-}" = "bash -c run" ] || kx_diff="${kx_diff:+$kx_diff; }голова команды «${KXGOT[0]:-} ${KXGOT[1]:-} … ${KXGOT[3]:-}»"
+if [ -z "$kx_diff" ]; then ok; else OUT="$BOX/state/job.json"; bad KX1 "команда дошла до контейнера искажённой: $kx_diff"; fi
+jq --argjson c "$(printf '%s\0' "${CMDX[@]}" | jq -Rsc 'split("\u0000")[:-1]')" \
+    '(.spec.template.spec.containers[] | select(.name == "run") | .command) |= (.[0:4] + $c)' "$BOX/state/job.json" > "$BOX/kx-raw.json"
+mapfile -d '' -t KXRAW < <(kx argv "$BOX/kx-raw.json" run)
+# CMDX[4] — «$$», CMDX[5] — «$(CI)»; в команде Job они — элементы 8 и 9.
+if [ "${KXRAW[8]:-}" = '$' ] && [ "${KXRAW[9]:-}" = true ]; then ok
+else bad KX1-ctl "раскрытие kubelet пробы не искажает неэкранированную команду: «${CMDX[4]}» → «${KXRAW[8]:-}», «${CMDX[5]}» → «${KXRAW[9]:-}» — KX1 слепа"; fi
+# KX1-env — value env: вход pre-push с $$ и $(HEAVY_NODE) (env, объявленный в run РАНЬШЕ
+# HEAVY_PUSH_INPUT, — kubelet раскрыл бы его) доходит до окружения run байт в байт.
+# shellcheck disable=SC2016  # $ — буквальные байты имени ссылки
+KXREF='refs/heads/kx$$a$(HEAVY_NODE)b'
+KXPL="$KXREF $(git -C "$SRC" rev-parse HEAD) $KXREF $ZS"
+fresh
+go_run kx1e env FAKE_EXIT=0 "${B[@]}" --short kx1e --push-input "$KXPL" -- true
+expect_rc KX1-env-run 0
+if [ "$(envv "$BOX/state/job.json" HEAVY_PUSH_INPUT)" = "$KXPL" ]; then ok
+else OUT="$BOX/state/job.json"; bad KX1-env "вход pre-push дошёл до env искажённым: «$(envv "$BOX/state/job.json" HEAVY_PUSH_INPUT)»"; fi
+# KX1-all — каждый контейнер Job, init тоже (fetch несёт $ подготовки): $ лишь парами;
+# строк с $ в init больше нуля — иначе init судить нечем.
+kodd="$(python3 "$BOX/kodd.py" "$BOX/state/job.json" 2>&1)"
+if [[ "$kodd" == "нечётных 0 · "* ]] && ! [[ "$kodd" == *"(init 0)"* ]]; then ok
+else OUT="$BOX/state/job.json"; bad KX1-all "экранирование не во всех контейнерах: $kodd"; fi
 
 # ── вывод прогона (ws#991) ──────────────────────────────────────────────────
 # O1 — каждая строка run.sh после выбора ns несёт его имя (K1 — тот же прогон)
@@ -1624,7 +1812,7 @@ red_dirs() { find "$BOX" -maxdepth 1 -name "$1.out.red-*" | wc -l; }
 fresh
 go_run rg0 env FAKE_EXIT=0 "${B[@]}" --short rg0 -- true
 expect_rc RG0 0
-jq -r '.spec.template.spec.containers[] | select(.name == "run") | .command[2]' "$BOX/state/job.json" > "$BOX/rg0.cmd" 2>/dev/null
+kx cmd "$BOX/state/job.json" run 2 > "$BOX/rg0.cmd" 2>/dev/null
 if rg_in "$BOX/rg0.cmd"; then ok; else OUT="$BOX/rg0.cmd"; bad RG0 "шага красных групп перед командой в Job нет либо команда идёт не через heavy_cmd"; fi
 if [ "$(red_dirs rg0)" -eq 0 ] && ! grep -q 'журналы красных групп' "$OUT"; then ok; else bad RG0 "зелёный прогон завёл каталог копий либо заговорил о них"; fi
 # RG1 — шаг ИСПОЛНЕНИЕМ (текст из Job) над синтетическим прогоном: настоящий go test,

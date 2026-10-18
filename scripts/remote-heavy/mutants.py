@@ -247,6 +247,28 @@ MUTANTS = [
     ("red-zero-silent", "RG6", "красный код при нуле красных групп молчит",
      r'''[ "$rc" = 0 ] || say "красных групп ci-local''',
      r'''[ "$rc" != x ] || say "красных групп ci-local'''),
+    # ws#1142: kubelet сворачивает $$ и раскрывает $(ИМЯ) в command, args и env.
+    ("k8s-dollar", "KX1", "команда уходит в Job без экранирования $ — kubelet её искажает",
+     r'''  | .spec.template.spec |= ((.initContainers, .containers) |= map(kesc_c))''',
+     r''''''),
+    # ws#1143 (предел по профилю): допуск — запросы профиля и запас узла, счёт штуками — страховка.
+    ("headroom-0", "QH-light-4", "запас узла 0 %: прогон садится до 100 % узла",
+     r'''HEADROOM_PCT=20 ''',
+     r'''HEADROOM_PCT=0 '''),
+    ("max-par-2", "M2b", "страховка счётом штуками прежняя (2): лёгкие ждут при месте под них",
+     r'''MAX_PAR="${KACHO_REMOTE_HEAVY_MAX:-4}"''',
+     r'''MAX_PAR="${KACHO_REMOTE_HEAVY_MAX:-2}"'''),
+    # Приёмка ws#1143: порог на 0,1 п.п. ниже при прежнем тексте причины — судится кодом QB.
+    ("hr-0.1", "QB-cpu-out", "запас 19,9 % вместо 20 % (текст причины прежний)",
+     r'''.fcpu - $cpu >= .acpu * $hr / 100 and .fmem - $mem >= .amem * $hr / 100''',
+     r'''.fcpu - $cpu >= .acpu * ($hr - 0.1) / 100 and .fmem - $mem >= .amem * ($hr - 0.1) / 100'''),
+    # Приёмка ws#1142: экранирование value env и init-контейнеров.
+    ("k8s-env", "KX1-env", "value env контейнеров Job не экранируется",
+     r'''  | (if .env then .env |= map(if has("value") then .value |= kesc else (.) end) else (.) end);''',
+     r''';'''),
+    ("k8s-init", "KX1-all", "экранируются лишь .containers, init-контейнеры — нет",
+     r'''((.initContainers, .containers) |= map(kesc_c))''',
+     r'''(.containers |= map(kesc_c))'''),
 ]
 
 
