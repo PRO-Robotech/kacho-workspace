@@ -1,0 +1,383 @@
+# Пост-дифф ревью Go-кода продукта — роль go-style-reviewer.
+#
+# Имя файла — и есть content_digest: запись самоидентифицируется отпечатком
+# отсуженного содержимого. Прежние записи не правятся; сменился дайджест —
+# новый запуск и новый файл (change-graph §2 «вердикт привязан к ОТПЕЧАТКУ»).
+#
+# Форма повторена за соседней записью той же роли по линии —
+# docs/changes/issue-2713/reviews/post-diff/go-style-reviewer/ea0fd6d3….yaml.
+schema_version: 1
+change_id: issue-2722
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+subject: >-
+  #2722 посадка линии «своя полоса входа»: стек посадки `own` в таблице стендов
+  и накладка профиля зонта (#2716), плюс две величины Ф12 и четвёртый потолок с
+  привязкой ключей доступа в зонтичной КОПИИ чарта службы доступа (#2714, #2715).
+  Семь новых проб `deploy/`, каждая с инъекционным близнецом; ожидания выводятся
+  из ПИНА службы, а не выписываются литералом.
+
+# ── отпечаток ──────────────────────────────────────────────────────────────
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: issue-2714-2716-own-landing
+  worktree: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/w-own-landing
+  base: ac33f733962577688958fe9fbba35d715822c8b9
+  head: ea44be6e4db6a52fe520ebecae74ba9753f5c049
+content_digest: sha256:3d0e01dbead1cf26405aa61192b6b77f6650d99973c39f0464c8d705c5172c26
+digest_definition: >-
+  sha256 сырого вывода `git diff ac33f733...ea44be6e` (полный ТРЁХТОЧЕЧНЫЙ дифф
+  от базы origin/main до головы ветки; оба конца из задания, перемерены своей
+  командой в worktree). Перемер: `git diff ac33f733...ea44be6e | sha256sum`
+  → 3d0e01dbead1cf26405aa61192b6b77f6650d99973c39f0464c8d705c5172c26 (совпал,
+  два независимых прогона). Точка слияния перемерена отдельно:
+  `git merge-base ac33f733 ea44be6e` → ac33f733962577688958fe9fbba35d715822c8b9,
+  то есть трёхточечный и двухточечный диффы здесь совпадают by construction.
+
+# ── вердикт ────────────────────────────────────────────────────────────────
+verdict: accepted            # ✅ принято
+blocks_landing: false
+timestamp: '2026-09-19T00:00:00Z'
+review_scope: >-
+  ПОЛНЫЙ дифф: 15 файлов, +1992/-5. Запрет отсрочки (#11) и требование проб в
+  том же изменении (#12) отсужены по ВСЕМУ диффу, а не по выборке файлов.
+
+# ── объём предмета НАЗВАН ЧИСЛОМ, иначе «находок нет» не отличимо от «судить
+#    было нечего» ────────────────────────────────────────────────────────────
+subject_census:
+  go_files_in_diff: 8              # 7 новых + 1 правка одной строки
+  non_test_go_files_in_diff: 0     # предикат: git diff --name-only … -- '*.go' | grep -v '_test\.go$' | wc -l
+  package_of_all_new_go: deploy_test
+  non_go_files_in_diff: 7          # 5 чартов/профилей зонта, gateway/deploy/values.yaml, deploy/stacks.txt
+  new_test_functions: 13
+  consequence: >-
+    ПРОДУКТОВОГО Go в диффе НЕТ НИ ОДНОЙ СТРОКИ. Ядро моего чеклиста — обёртка
+    ошибок, проброс ctx, отсутствие паники в рабочем пути, log/slog, тонкие
+    handler'ы, направление зависимостей — на этом диффе БЕСПРЕДМЕТНО: ни
+    handler'а, ни use-case, ни repo, ни clients, ни cmd/*/main.go он не трогает.
+    Судимое здесь — устройство и стиль Go в ПРОБАХ и способность их читателей
+    отказывать. Утверждение «нарушений нет» ниже покрывает ровно это и не шире.
+
+files_reviewed:
+  - deploy/own_posture_stack_test.go                        # +242 стек `own`: согласие ДВУХ половин об одном слушателе
+  - deploy/own_posture_stack_injection_test.go              # +163 инъекция: 9 осей, одно-фактная дельта
+  - deploy/own_lane_memory_budget_test.go                   # +412 бюджет полосы против предела контейнера; РАЗБОР go/ast у пина
+  - deploy/own_lane_memory_budget_injection_test.go         # +138 инъекция арифметики; величина подаётся аргументом
+  - deploy/own_second_factor_umbrella_test.go               # +252 две величины Ф12 в зонтичной копии чарта
+  - deploy/own_second_factor_umbrella_injection_test.go     # +127 инъекция: законный близнец `external` молчит
+  - deploy/own_ceilings_and_access_keys_umbrella_test.go    # +374 потолки и привязка; перечень ЧИТАЕТСЯ у пина
+  - deploy/pool_fits_database_test.go                       # +1 строка самоистекающего послабления для стенда `own`
+  - deploy/stacks.txt                                       # +6 стек `own` накладкой поверх боевого слоя
+  - deploy/helm/umbrella/charts/kaname/templates/configmap.yaml   # +67
+  - deploy/helm/umbrella/charts/kaname/templates/deployment.yaml   # +22
+  - deploy/helm/umbrella/charts/kaname/values.yaml           # +71
+  - deploy/helm/umbrella/values.own.yaml                     # +70 новый профиль накладки
+  - deploy/helm/umbrella/values.prod.yaml                    # +29
+  - gateway/deploy/values.yaml                               # +23/-5
+
+# ── находки ────────────────────────────────────────────────────────────────
+critical: []                 # блокирующих находок по коду нет
+
+important:
+  - id: AST-READER-DEGRADES-SILENTLY
+    coord: deploy/own_lane_memory_budget_test.go:210 · argon2MemoryOf:232-268
+    class: doc-truthfulness + gate-authoring (проверка, способная молча позеленеть)
+    claim_in_code: >-
+      шапка файла, строки 41-43: «Сменится форма таблицы — разбор не найдёт
+      ничего и ОТКАЖЕТ; молча устареть он не может, и это единственное, что
+      отличает чтение источника истины от его копии».
+    what_is_true_instead: >-
+      это верно для ГРУБОЙ смены формы и неверно для смены формы ОДНОЙ ЗАПИСИ.
+      argon2MemoryOf возвращает (0,false) в ЧЕТЫРЁХ разных случаях, и вызывающий
+      их не различает: (1) у записи нет ключа `Ceiling` — законно; (2) значение
+      `Ceiling` не CompositeLit; (3) ключ параметра не *ast.Ident (например
+      `domain.CostParamArgon2Memory` — SelectorExpr); (4) величина не десятичный
+      BasicLit (`128 * 1024`, именованная константа, `0x20000`, `131_072`).
+      Случаи 2-4 — смена формы, и каждый неотличим от случая 1, потому что
+      обработчик у них один: `} else if bcryptBytes > worst {`.
+    why_the_confusion_is_structural: >-
+      путь «не нашли» УЖЕ живой и УЖЕ законный на сегодняшнем пине: первая запись
+      таблицы (bcrypt) несёт `Ceiling` БЕЗ `CostParamArgon2Memory`
+      (password_hash_format.go:180-183 у пина), поэтому падение на bcrypt-постоянную
+      — штатный исход, а не признак поломки. Различить «законно нет потолка
+      argon2» и «потолок есть, но разобрать нечем» разбор не может by construction.
+    direction_and_size_of_the_error: >-
+      в сторону ЗЕЛЁНОГО и на четыре порядка. Перемерено у пина
+      v0.4.1-0.20260917085954-16b5cadead2a: потолок argon2 = 131072 КиБ → 134217728
+      байт на проверку; bcrypt-постоянная = 10328 байт. При молчаливом падении
+      бюджет 8 × 134217728 + 268435456 = 1342177280 (1280 МиБ) превратился бы в
+      8 × 10328 + 268435456 = 268517080 (≈256 МиБ) — и предел 512Mi, то есть
+      РОВНО исходный дефект, ради которого проба заведена (шапка, строки 16-26),
+      прошёл бы зелёным. Сторож `records == 0 || worst == 0` (строка 222) при этом
+      НЕ срабатывает: записей две, worst ненулевой.
+    armed_today: >-
+      да. Перемерено по пину: разбор резолвится, worst = 134217728 байт, бюджет
+      1280 МиБ — арифметика шапки сходится. Дыра вооружается не сегодня, а на
+      первом подъёме пина, меняющем форму литерала, — то есть там же, где
+      расхождение и опасно.
+    requirement: >-
+      сделать отказ ТОТАЛЬНЫМ: argon2MemoryOf обязана вернуть три состояния, а не
+      два — «ключа `Ceiling` нет» (законно, падать на bcrypt), «ключ есть и
+      прочитан», «ключ есть и НЕ прочитан» (t.Fatalf с координатой записи).
+      Отдельно: strconv.ParseUint(lit.Value, 10, 64) → база 0, иначе `0x`- и
+      `_`-формы, законные для Go, читаются как поломка; и значение НЕ BasicLit
+      обязано давать третье состояние, а не второе.
+    predicate_of_closure: >-
+      в пиненном модуле заменить `CostParamArgon2Memory: 131072` на
+      `CostParamArgon2Memory: 128 * 1024` (форма, эквивалентная для Go) и
+      прогнать TestOwnLaneMemoryBudget_ProfilesDeclareALimitThatTheGuardAccepts:
+      сегодня проба зеленеет с перечнем «память одной проверки 10328 байт»,
+      после фикса обязана ОТКАЗАТЬ с именем записи. Ось ставится в инъекционного
+      близнеца — синтетическим *ast.CompositeLit, без правки пина.
+    blocks: false
+
+  - id: CEILING-READER-NARROWS-SILENTLY
+    coord: deploy/own_ceilings_and_access_keys_umbrella_test.go:141-158
+    class: тот же — частичная смена формы сужает ожидание молча
+    what: >-
+      ceilingKeysOfPin отказывает только на НУЛЕ ключей (строка 150). Перемерено
+      у пина: `ownCeilingKeyPrefix + "…"` даёт ровно 3 совпадения
+      (own_ceilings.go:74,83,91) — шапка, строка 45, верна. Но если одна из трёх
+      строк перейдёт на именованную константу либо на printf-сборку ключа, regexp
+      вернёт 2, сторож промолчит (2 ≠ 0), и рендер будет проверен на ДВА потолка
+      из трёх. Третий — тот самый, чьё отсутствие роняет старт службы БЕЗУСЛОВНО,
+      на каждом стенде, включая `external`.
+    requirement: >-
+      сверять число прочитанных ключей с числом ЗАПИСЕЙ таблицы у того же пина
+      (обе величины читаются из одного файла), а не с нулём; расхождение — отказ
+      с обоими числами. Перепись уже печатает DerivedFromPin — добавить рядом
+      «записей в таблице N», и «выведено 2 из 3» станет видимым.
+    blocks: false
+
+  - id: BINDING-ARMS-FROM-A-TOKEN-THAT-DOES-NOT-EXIST-YET
+    coord: >-
+      deploy/own_ceilings_and_access_keys_umbrella_test.go:166-180 ·
+      deploy/own_posture_stack_test.go:169
+    what: >-
+      accessKeyKnobsOfPin ищет `accessKeyRequirement("…")`. Перемерено у пина:
+      совпадений 0 — и это ЗАКОННО, шапка это называет прямо (строки 45-51).
+      Следствие: пустой исход читателя означает одновременно «привязки у службы
+      ещё нет» и «читатель сломался», а от него вооружается условие
+      pinNeedsBinding в own_posture_stack_test.go:169 и вся вторая половина
+      TestAccessKeys_RenderEmitsTheBindingUnderOwn (цикл «перечень пина не должен
+      УЙТИ ВПЕРЁД», строки 304-310). Появись привязка у службы под другим именем
+      помощника — обе проверки промолчат, а не покраснеют.
+      Инъекция TestOwnStackJudgement_BindingArmsItselfWithThePin доказывает, что
+      СУДЬЯ вооружается (признак подаётся аргументом), — и она права; но
+      вооружается ли ЧИТАТЕЛЬ, не доказывает ничто.
+    requirement: >-
+      привязать читателя к якорю, обязанному существовать на ЛЮБОМ пине: в том же
+      required_settings.go счёт `Requirement(` даёт у пина 23 (перемерено).
+      Ноль по этому якорю означает, что читатель сломался, и обязан быть
+      t.Fatalf; ноль ключей привязки при ненулевом якоре — законный исход, как
+      сейчас. Тогда «привязки нет» отличимо от «прочитать не удалось».
+    blocks: false
+
+foundation_candidates: []
+# Выноса в corelib изменение не порождает. Судящие функции (judgeOwnStacks,
+# judgeLaneMemoryBudget, judgeSecondFactorDeclarations) — арифметика и ветвление
+# ЭТОГО дерева о ЕГО профилях; потребитель один. Чтение пиненного модуля из
+# кэша — приём, а не пакет: выносить нечего, пока второй потребитель не заведён.
+# parseMemoryQuantity (own_lane_memory_budget_test.go:386) — единственный
+# кандидат по форме (разбор количества Kubernetes), и он обоснованно оставлен
+# своим: шапка функции (строки 376-385) называет довод — ребро на
+# k8s.io/apimachinery ради двадцати строк платится КАЖДОЙ сборкой дерева.
+# Довод принят: это решение, а не умолчание.
+
+style:
+  - id: SHADOWS-BUILTIN-CAP
+    coord: deploy/own_lane_memory_budget_test.go:324
+    note: >-
+      `cap, okCap := lookup(...)` затеняет предобъявленный `cap`. Go это
+      разрешает, но в области, где рядом делается арифметика по срезам, имя
+      обманчиво. Короче и без тени: `capacity` либо `c`.
+  - id: MAXINT64-DUPLICATES-BUILTIN
+    coord: deploy/own_lane_memory_budget_test.go:369
+    note: >-
+      go.mod дерева объявляет `go 1.26.0`, встроенный `max` есть с 1.21 —
+      `maxInt64(a, b)` дублирует его. LEAN: снять помощника, звать `max`.
+  - id: DOC-COMMENT-NAMES-ANOTHER-FUNCTION
+    coord: deploy/own_ceilings_and_access_keys_umbrella_test.go:217
+    note: >-
+      `// section — …` стоит над `func configSection`. Конвенция godoc (и стиль
+      остальных файлов диффа, где каждая шапка начинается с имени) требует
+      `// configSection — …`. Поиск по имени такую шапку не находит.
+  - id: YAML-DECODE-ERROR-READS-AS-END-OF-INPUT
+    coord: deploy/own_ceilings_and_access_keys_umbrella_test.go:186-193
+    note: >-
+      `err := dec.Decode(&doc); if err != nil { break }` схлопывает io.EOF и
+      настоящую ошибку разбора в один исход. Сломанный рендер дойдёт до Fatal на
+      строке 211 с текстом «в рендере нет карты настроек» — причина названа не
+      та. Разделить: io.EOF — выход, прочее — Fatal с текстом ошибки.
+  - id: HOST-PREFIX-INSTEAD-OF-SEGMENT
+    coord: deploy/own_posture_stack_test.go:140
+    note: >-
+      `!strings.HasPrefix(host, svc+"-internal")` — по префиксу, а не по полному
+      имени: хост `kaname-internal-<чужое>.example` находкой не станет, хотя
+      утверждение пробы («слушатель выставлен на ВНУТРЕННЕМ Service службы»)
+      он не выполняет. Сверять первую метку хоста целиком:
+      `strings.Split(host, ".")[0] != svc+"-internal"`.
+  - id: ANONYMOUS-STRUCT-LEAKS-INTO-SIGNATURE
+    coord: >-
+      deploy/own_ceilings_and_access_keys_umbrella_test.go:80 ·
+      containsConfigKey:367
+    note: >-
+      анонимный `[]struct{ configKey, valueKey string }` вынуждает повторить тип
+      целиком в подписи помощника. Именованный тип (`accessKeyKnob`) убирает
+      повтор и даёт имя предмету.
+
+security_comments_contradicting_code: []
+# Комментариев о защите, противоречащих коду, нет. Проверены поимённо:
+#  • deployment.yaml: `optional: true` у KANAME_SECOND_FACTOR_ENC_KEY объявлен
+#    ради ИМЕНОВАННОГО отказа стража старта вместо CreateContainerConfigError —
+#    утверждение о поведении Kubernetes верное, и проба
+#    own_second_factor_umbrella_test.go:162-175 требует ровно эту форму (ссылка
+#    на секрет, не значение профиля);
+#  • configmap.yaml: «ПРОВЕРКА ПОТОЛКОВ У СЛУЖБЫ БЕЗУСЛОВНА (validate.go): не
+#    зависит ни от режима, ни от посадки» — перемерено у пина и подтверждено
+#    вторым способом: TestOwnCeilings_RenderEmitsEveryCeilingOfThePin гоняет ОБЕ
+#    посадки (строка 268), то есть код пробы говорит то же, что комментарий;
+#  • gateway/deploy/values.yaml: прежнее утверждение «ни один профиль посадку
+#    `own` не объявляет — 0 профилей» СНЯТО вместе со своим предметом, а не
+#    подновлено новым числом. Это верный ход по doc-truthfulness: число в
+#    комментарии устарело бы снова, перепись печатает проба.
+pii_in_logs: none            # журналирования в диффе нет вовсе; продуктового Go — ноль строк
+hand_rolled_authz: none      # проверок прав в диффе нет
+
+# ── счётчики по ВСЕМУ диффу ────────────────────────────────────────────────
+fresh_deferral_markers: 0
+# Предикат: `git diff ac33f733...ea44be6e | grep '^+' | grep -E 'TODO|FIXME|XXX|HACK|t\.Skip|SKIP'`
+# → ни одного совпадения. Отдельно проверено отсутствие t.Skip во всех семи
+# новых файлах: проба, умеющая пропуститься, гейтом не является, и ни одна из
+# тринадцати этого не делает. Запись, добавленная в knownUnfitting
+# (pool_fits_database_test.go:406), маркером отсрочки НЕ является и под ban #11
+# не подпадает: у неё назван предмет (чарт здесь, код в другом репозитории),
+# названа причина и назван предикат истечения («истечёт сама, как только чарт
+# уедет вслед за кодом либо код вернётся») — то есть это ПРЕДМЕТ, третий из трёх
+# законных исходов ban #11, а не обращение к читателю кода. Текст дословно
+# повторяет четыре соседние записи того же класса — новой семантики не заводит.
+tests_in_same_pr: true
+# Тринадцать проб в ТОМ ЖЕ диффе, у каждой предметной пробы — инъекционный
+# близнец в отдельном файле (три пары), вход синтетический, дельта одно-фактная.
+# Ban #12 выполнен по всему диффу. Обратное направление ban #13 («test-only PR
+# не трогает прод-код») здесь неприменимо: дифф несёт чарты и профили, то есть
+# не является test-only.
+
+# ── что проверено и на чём основано ────────────────────────────────────────
+approved:
+  no_prod_go_touched: >-
+    предикат назван и повторяем: git diff --name-only ac33f733...ea44be6e --
+    '*.go' | grep -v '_test\.go$' | wc -l → 0. Ни services/*/internal/**, ни
+    pkg/**, ни gateway/** (кроме deploy/values.yaml), ни **/cmd/*/main.go дифф
+    не трогает. Направление зависимостей, тонкость handler'ов и слои по этому
+    диффу НЕ судятся — их предмета в нём нет.
+  no_panic_no_background_ctx: >-
+    в семи новых файлах ноль вхождений panic(, context.Background, log.Fatal,
+    MustParse (перемерено grep'ом по каждому файлу). Отказ везде через t.Fatalf
+    и t.Errorf — верное разделение: Fatalf там, где дальше судить не о чем
+    (файл пина не разобран, таблица стендов пуста), Errorf там, где обход обязан
+    досчитать и напечатать ВСЕ находки разом.
+  refusal_restores_the_next_step: >-
+    каждый t.Fatalf называет координату и следующий шаг, а не только факт
+    неудачи: «прогони go mod download … и повтори» (kanameModuleDir:122),
+    «почини разбор, а не выписывай число рядом» (memoryPerVerificationAtCeiling:225),
+    «Поднимите предел до N байт либо уменьшите ёмкость» (judgeLaneMemoryBudget:154),
+    и отдельная ось инъекции требует именно этой величины
+    (TestLaneMemoryBudgetJudgement_NamesTheNeededNumber:128).
+  pure_judgement_separated_from_reading: >-
+    во всех трёх парах судящая функция ЧИСТАЯ и принимает факты аргументом
+    (judgeOwnStacks, judgeLaneMemoryBudget, judgeSecondFactorDeclarations), а
+    чтение дерева вынесено в read*Facts. Следствие, ради которого это и сделано:
+    инъекция подаёт синтетический вход, не трогая ни общего клона, ни кэша
+    модулей. Признак, отличающий пина от кэша, тоже подаётся аргументом
+    (pinNeedsBinding, perCheck) — оси не зависят от состояния диска.
+  census_prints_two_numbers_not_one: >-
+    все три переписи печатают И объём осмотренного, И объём предметного
+    (ownStackCensus: стендов · из них на own; laneBudgetCensus: стендов · own ·
+    объявляют числа полосы · байт на проверку; knobCensus: из пина выведено ·
+    сверх пина проверено). Одно число скрыло бы ровно тот случай, ради которого
+    проверка заведена, — и это сказано в коде, а не только в шапке.
+  empty_walk_is_a_refusal: >-
+    пустой обход везде отказ, а не «находок нет»: len(facts)==0 → Fatal в трёх
+    предметных пробах; census.Own==0 в own_posture_stack_test.go — НАХОДКА, а не
+    молчание (judgeOwnStacks:158), и это верно: состояние дерева до задачи и
+    было нулём, молчащая здесь проверка не поймала бы свой предмет. Инъекция
+    закрепляет это отдельной осью (TestOwnStackJudgement_AbsentOwnStackIsAFinding).
+  naming_ascii: >-
+    ban #17 цел. Все новые идентификаторы латиницей (laneBudgetFacts,
+    laneBudgetCensus, judgeLaneMemoryBudget, memoryPerVerificationAtCeiling,
+    argon2MemoryOf, kanameModuleDir, ceilingKeysOfPin, accessKeyKnobsOfPin,
+    kanameServiceConfig, configSection, ownCeilingsSet, knobCensus,
+    ownStackFacts, ownStackCensus, judgeOwnStacks, readOwnStackFacts,
+    declaredString, secondFactorStackFacts, secondFactorCensus,
+    judgeSecondFactorDeclarations, readSecondFactorStackFacts, legalOwnStack,
+    legalOwnStackFacts, legalExternalStackFacts, legalBudgetStack, injPerCheck,
+    containsConfigKey, parseMemoryQuantity, asInt64, maxInt64). Кириллица —
+    только в комментариях, именах подпроб и текстах находок: законна, обязана
+    остаться, под запрет не подпадает.
+  name_collision_measured_not_assumed: >-
+    declaredString (own_posture_stack_test.go:237) несёт шапку, объясняющую, ПОЧЕМУ
+    имя не `str`: под признаком сборки `helmcharts` в этом же пакете уже есть
+    помощник с таким именем, и обычная сборка тех файлов не читает — пакет
+    собирался бы зелёным, а под признаком не собирался бы вовсе. Класс назван
+    верно, и он неочевиден: обычный прогон о нём не узнал бы.
+  no_magic_numbers: >-
+    величины названы константами (secondFactorEnv, selfServiceFreshnessKey/Env/Value,
+    accessKeysCeilingKey, kanameModulePart, injPerCheck), а не вписаны в тело.
+    Единственные литералы в предметных пробах — координаты внутри пиненного
+    модуля (пути файлов), и они по определению литералы.
+  defer_and_resources: >-
+    ресурсов, требующих освобождения, новые файлы не открывают: parser.ParseFile
+    и os.ReadFile закрывают за собой, exec.Command(...).Output() — тоже. Течи нет.
+  exec_without_context_is_prior_art: >-
+    kanameModuleDir:113 зовёт exec.Command("go","env","GOMODCACHE") без контекста.
+    Находкой НЕ является: перемерено по каталогу — exec.Command в deploy/ несут 9
+    файлов, exec.CommandContext — 0, то есть это установленный порядок пакета, а
+    не решение этого диффа; и класс «внешний вызов без своего предела» относится
+    к рабочему пути службы, которого здесь нет вовсе.
+  reading_the_pin_is_the_opposite_of_a_copy: >-
+    ban #20 не нарушен, а ИСПОЛНЕН. Запрет касается копии ФАЙЛА чужого
+    репозитория в этом дереве; здесь файла нет — есть чтение исходников по пину
+    из кэша модулей, с резолвом через go.mod (версия) и `go env GOMODCACHE`
+    (каталог), то есть по признаку, который дерево ПРОИЗВОДИТ. go.mod диффом не
+    тронут (перемерено: git diff --name-only не называет ни одного go.mod),
+    ребро сборки не заводится, рёбер полирепо дифф не меняет. Это ровно тот
+    порядок, который ban #20 и предписывает взамен копии.
+
+# ── перемеренные основания (doc-truthfulness шапок) ────────────────────────
+verified_facts:
+  - 'пин службы в go.mod дерева: github.com/PRO-Robotech/kaname v0.4.1-0.20260917085954-16b5cadead2a — совпадает с `16b5cade`, названным шапками обоих файлов.'
+  - 'шапка own_ceilings…:45 «таблица потолков ТРЁХСТРОЧНАЯ» — верно: ownCeilingKeyPrefix + "…" даёт у пина ровно 3 совпадения (own_ceilings.go:74,83,91).'
+  - 'шапка own_ceilings…:45 «ручек access-keys нет вовсе» — верно: `accessKeyRequirement` в required_settings.go пина 0 совпадений; всего Requirement( там 23, помощников три семейства (loginLane/ownCeiling/registration).'
+  - 'шапка own_lane_memory_budget:39-41 «у записи есть и Ceiling, и Floor, оба несут тот же параметр, и текстовый поиск взял бы не ту карту» — ВЕРНО и перемерено: password_hash_format.go:190 Ceiling CostParamArgon2Memory 131072, :199 Floor CostParamArgon2Memory 65536. Выбор структурного разбора вместо образца обоснован фактом дерева, а не вкусом.'
+  - 'разбор повторяет правило стража ДОСЛОВНО: MemoryPerVerificationAtCeilingBytes (password_hash_format.go:260-264) — «есть Ceiling[CostParamArgon2Memory] → ×1024, иначе bcryptMemoryPerVerificationBytes»; argon2MemoryOf + ветвь на строке 214 делают то же. Копии арифметики в дереве платформы нет.'
+  - 'арифметика шапки сходится на пине: 131072 КиБ × 1024 = 134217728 Б; 8 × 134217728 + 268435456 = 1342177280 = 1280 МиБ — ровно та величина, которую шапка называет против умолчания подчарта 512Mi.'
+  - 'bcryptMemoryPerVerificationBytes у пина = 10328 (password_hash_format.go:157) — отсюда размер ошибки в находке AST-READER-DEGRADES-SILENTLY.'
+  - 'шапка own_posture_stack:14-18 о состоянии дерева на ac33f733 (стеков 6, на own 0) согласуется с диффом stacks.txt: стек own добавлен седьмым.'
+  - 'go.mod дерева объявляет go 1.26.0 (toolchain go1.26.8) — отсюда замечание о встроенном max.'
+
+# ── дисциплина исходов ─────────────────────────────────────────────────────
+# Исход линтера и проб НЕ объявляется: сырой вывод читает landing-reviewer,
+# независимый перемер делает check-verifier. Прогон «66 из 66», названный в
+# задании, — посылка посадочной полосы, я её не перепроверял и своим выводом
+# не объявляю. Здесь — только форма и устройство Go.
+linter_probes_outcome: not-claimed-by-this-role
+
+return_to: null              # блокирующих находок нет
+next_requested: 'сбор пост-дифф записей: convergence-reviewer либо landing-reviewer'
+
+# ── полномочие ─────────────────────────────────────────────────────────────
+# Событие публикации вердикта по этой записи НЕ опубликовано: роль в policy.yaml
+# — координата, а не доказательство личности, и authority даёт внешнее событие
+# (docs/changes/policy.yaml §2). Запись о своём событии пока не знает; допись
+# делается отдельной строкой ПОСЛЕ публикации, без переписывания ни одной
+# прежней строки.
+authority:
+  status: not-published
+  reason: >-
+    публикация события — момент git-operator, не мой (область задания: запись в
+    рабочую копию, без отправки и без PR).
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: go-style-reviewer
+  history_is_appended_not_rewritten: true
