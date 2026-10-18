@@ -41,7 +41,8 @@ HK="$WS/scripts/hooks"
 command -v git > /dev/null 2>&1 || { tooling_gate_void "$NAME" "нет git — проверять нечем"; exit 2; }
 
 TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
+# shellcheck disable=SC2154
+trap '_rc=$?; rm -rf "$TMP" 2>/dev/null || rm -rf "$TMP" || echo "ПРЕДУПРЕЖДЕНИЕ: временный каталог $TMP не снят; код проверки $_rc сохранён" >&2; exit $_rc' EXIT
 
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR \
       GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_PREFIX GIT_CONFIG_GLOBAL GIT_CONFIG_PARAMETERS \
@@ -69,7 +70,7 @@ bad() { tooling_gate_fail "$NAME" "$1"; findings=$((findings + 1)); }
 okp() { probes=$((probes + 1)); }
 badp() { probes=$((probes + 1)); bad "$1"; }
 
-KIT=(commit-msg attribution-rule.sh prepush-attribution.sh pre-push install.sh)
+KIT=(commit-msg attribution-rule.sh prepush-attribution.sh prepush-added-files.sh pre-push install.sh)
 tracked_n="$(git -C "$WS" ls-files 2>/dev/null | wc -l)"
 if [ "$tracked_n" -eq 0 ]; then
     tooling_gate_void "$NAME" "в индексе дерева $WS файлов 0 — дерево пусто, существование файлов правила спрашивать не в чем"

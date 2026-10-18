@@ -18,7 +18,8 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 E="$HERE/wave-errors.sh"
 W="$(mktemp -d)"
-trap 'rm -rf "$W"' EXIT
+# shellcheck disable=SC2154
+trap '_rc=$?; rm -rf "$W" 2>/dev/null || rm -rf "$W" || echo "ПРЕДУПРЕЖДЕНИЕ: временный каталог $W не снят; код проверки $_rc сохранён" >&2; exit $_rc' EXIT
 pass=0 fail=0
 assert() {
     if [ "$1" = "$2" ]; then echo "  [OK]   $3"; pass=$((pass + 1))

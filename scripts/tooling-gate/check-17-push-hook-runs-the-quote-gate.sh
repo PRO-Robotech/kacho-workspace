@@ -82,7 +82,8 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR \
       GATE_ROOT DOCS_GATE_ROOT KACHO_HOME_KACHO KACHO_HOME_KANAME KACHO_HOME_CORELIB
 
 TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
+# shellcheck disable=SC2154
+trap '_rc=$?; rm -rf "$TMP" 2>/dev/null || rm -rf "$TMP" || echo "ПРЕДУПРЕЖДЕНИЕ: временный каталог $TMP не снят; код проверки $_rc сохранён" >&2; exit $_rc' EXIT
 if ! sandbox_git_home "$TMP/home" 2> "$TMP/home.err"; then
     tooling_gate_void "$NAME" "$(tr '\n' ' ' < "$TMP/home.err")"
     exit 2

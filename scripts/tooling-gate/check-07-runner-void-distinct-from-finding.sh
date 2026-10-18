@@ -54,7 +54,8 @@ if [ "${#RUNNERS[@]}" -eq 0 ]; then
 fi
 
 TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
+# shellcheck disable=SC2154
+trap '_rc=$?; rm -rf "$TMP" 2>/dev/null || rm -rf "$TMP" || echo "ПРЕДУПРЕЖДЕНИЕ: временный каталог $TMP не снят; код проверки $_rc сохранён" >&2; exit $_rc' EXIT
 
 # probe <прогонщик> <код>… — печатает код выхода прогонщика в песочнице, где
 # лежит по одной заглушке на каждый переданный код.

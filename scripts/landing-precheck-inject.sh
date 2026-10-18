@@ -54,7 +54,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOOL="$HERE/landing-precheck.sh"
 FIX="$HERE/landing-precheck-fixtures"
 W="$(mktemp -d)"
-trap 'rm -rf "$W"' EXIT
+# shellcheck disable=SC2154
+trap '_rc=$?; rm -rf "$W" 2>/dev/null || rm -rf "$W" || echo "ПРЕДУПРЕЖДЕНИЕ: временный каталог $W не снят; код проверки $_rc сохранён" >&2; exit $_rc' EXIT
 
 HEAD_SHA="$(jq -r '.head.sha' "$FIX/pull.json")"
 pass=0; fail=0
