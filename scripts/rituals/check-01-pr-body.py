@@ -36,6 +36,14 @@
     комментарием (вторая страница) находится;
   * атрибуция в коммите — отказ (код 1), sha назван; в заголовке задачи — отказ «в собранном
     теле»; близнец — слово в середине прозы — тело собрано;
+  * ССЫЛКА НА ЗАДАЧУ — одно правило (ws#1155): `task_ref_re` (держатель записи долга) и
+    `issue_refs` (номера задач текста) исполняются НАСТОЯЩИМИ функциями ритуала на одной
+    таблице строк и обязаны совпасть с ожидаемым и друг с другом: своя полная, краткая и
+    адресная формы (и владелец в нижнем регистре) — ссылка; `<чужая организация>/kacho#5`
+    (любым регистром, через `-`, однобуквенная) и адрес чужого владельца — нет; мусор
+    (`x.kacho#5`, `kacho#55`, `kacho-workspace#5`, `#5a`) — нет; голый `#5` — ссылка лишь в
+    ведомости своего репозитория. Поведением: строка ведомости `otherorg/kaname#41 — …`
+    держателем #41 не делает — Closes #41 остаётся;
   * НОМЕР ДРУГОГО РЕПОЗИТОРИЯ (ws#1164, голова `50-cross`): номера первой строки нет в
     репозитории запроса (трекер — 404 настоящей формы) — он ищется в прочих репозиториях
     владельца из ведомости стволов `scripts/ci-read-expected.tsv` дерева: #3274 найдена в
@@ -59,7 +67,8 @@ import _probe as P  # noqa: E402
 R = "PRO-Robotech/kaname"
 # Выражение номера — то же, что `NUM` пункта (в) landing-precheck и `NUM_RE` ритуала.
 NUM = re.compile(r"(?<![\w/#])#([0-9]+)\b")
-LEDGER = ('DEBT = {\n    "suite-a": ("B", "довод", "PRO-Robotech/kaname#45 — прогонит набор"),\n}\n'
+LEDGER = ('DEBT = {\n    "suite-a": ("B", "довод", "PRO-Robotech/kaname#45 — прогонит набор"),\n'
+          '    "suite-b": ("B", "довод", "otherorg/kaname#41 — задача чужого владельца"),\n}\n'
           "# история: kaname#41 упомянута прозой, не держит ничего\n")
 RESULTS = "# Newman results\n\n<!-- known-failing: #46 — кейс красен до починки -->\n"
 
@@ -177,7 +186,44 @@ def world(sha, c41=None, title41=None):
     }
 
 
+# Таблица правила ссылки (ws#1155): строка → ссылка ли она на задачу PRO-Robotech/kacho#5.
+REF_TABLE = (
+    ("PRO-Robotech/kacho#5", True), ("kacho#5", True), ("(kacho#5).", True), ("pro-robotech/kacho#5", True),
+    ("https://github.com/PRO-Robotech/kacho/issues/5", True), ("https://github.com/pro-robotech/kacho/issues/5", True),
+    ("OtherOrg/kacho#5", False), ("other-org/kacho#5", False), ("x/kacho#5", False), ("otherorg/KACHO#5", False),
+    ("https://github.com/OtherOrg/kacho/issues/5", False), ("x.kacho#5", False), ("kacho#55", False),
+    ("kacho-workspace#5", False), ("xkacho#5", False), ("PRO-Robotech/kacho#5a", False),
+    ("x.github.com/PRO-Robotech/kacho/issues/5", False),
+)
+# Голый номер — ссылка лишь в тексте своего репозитория.
+BARE_TABLE = (("#5", True), ("см. #5.", True), ("x#5", False), ("/#5", False), ("##5", False), ("#55", False))
+
+
+def ref_rule(pr):
+    """Обе функции ритуала — одним правилом на одной таблице (ws#1155)."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("rituals_under_test", os.path.join(P.RIT, "rituals.py"))
+    mod = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(mod)
+    except Exception as e:  # noqa: BLE001 — ритуал не загрузился: предмета нет
+        raise P.Void("rituals.py не загружается: %s" % e)
+    trepo, other = "PRO-Robotech/kacho", "PRO-Robotech/kaname"
+    for text, want in REF_TABLE:
+        holder = re.search(mod.task_ref_re(trepo, 5, other), text) is not None
+        refs = 5 in mod.issue_refs(trepo, text)
+        pr.ok("ссылка «%s»: держатель %s, номер текста %s — ждали %s" % (text, holder, refs, want),
+              holder is want and refs is want)
+    for text, want in BARE_TABLE:
+        own = re.search(mod.task_ref_re(trepo, 5, trepo), text) is not None
+        refs = 5 in mod.issue_refs(trepo, text)
+        foreign = re.search(mod.task_ref_re(trepo, 5, other), text) is not None
+        pr.ok("голый «%s»: своя ведомость %s, номер текста %s — ждали %s; чужая ведомость %s — ждали False"
+              % (text, own, refs, want, foreign), own is want and refs is want and not foreign)
+
+
 def body(pr):
+    ref_rule(pr)
     d, sha = seed(pr)
     extra = {"RITUAL_REPO_DIR": d, "RITUAL_LEDGER_CLONES": os.path.join(pr.tmp, "no-clones")}
     args = [R, "main", "50"]
@@ -234,6 +280,8 @@ def body(pr):
           "держит запись долга `kaname:.github/scripts/newman-suite-debt.py:2`" in out, out)
     pr.ok("#46: держатель RESULTS.md, строка 3", "держит запись долга `kaname:tests/newman/docs/RESULTS.md:3`" in out, out)
     pr.ok("близнец: проза ведомости (kaname#41) держателем не делает", "Closes #41" in out, out)
+    pr.ok("ws#1155: otherorg/kaname#41 — задача чужого владельца — держателем не делает",
+          "Closes #41" in closes(out) and "держит запись долга `kaname:.github/scripts/newman-suite-debt.py:3`" not in out, out)
     pr.ok("#43 закрыта — Refs", "#43 «задача 43» — уже закрыта" in out, out)
     pr.ok("перепись: Closes 2, Refs 7, полной формой 2; чужие ведомости — НЕ СВЕРЕНА",
           "Closes 2, Refs 7, из них полной формой 2" in err and "НЕ СВЕРЕНА" in err, err)

@@ -255,14 +255,36 @@ DEBT_LEDGERS = (
 )
 
 
+# ССЫЛКА НА ЗАДАЧУ — ОДНО правило на ритуалы (ws#1155): им ищутся и номера задач своего
+# репозитория в тексте (`issue_refs`), и держатель записи долга (`task_ref_re`). До ws#1155
+# правил было два, и они разошлись: `task_ref_re` засчитывал `OtherOrg/kacho#5` своей
+# задачей (перед краткой формой не отсекался `/`), а `issue_refs` — нет; адрес с владельцем в
+# нижнем регистре не засчитывал ни один, краткую форму в нижнем регистре — первый.
+#
+# Ссылка на задачу `<владелец>/<имя>#N` — одна из форм: полная `<владелец>/<имя>#N`, краткая
+# `<имя>#N`, адрес `github.com/<владелец>/<имя>/issues/N` и голый `#N` (только где текст —
+# свой репозиторий). Границы — по КЛАССУ знака, не по перечню чужих владельцев:
+#   * перед владельцем полной формы и перед `github.com` — не знак имени (буква, цифра, `_`,
+#     `.`, `-`): `xPRO-Robotech/…`, `x.github.com/…` — не ссылка;
+#   * перед краткой — ещё и не `/`: `<любой владелец>/<имя>#N` — либо полная форма своего
+#     владельца, либо задача ЧУЖОГО, и `<имя>#N` внутри неё своей не засчитывается;
+#   * перед голым `#N` — не знак имени, не `/` и не `#` (как `NUM_RE` и `NUM` landing-precheck);
+#   * после номера — не знак слова: `kacho#55`, `#5a` — не задача 5;
+#   * владелец и имя — без регистра во ВСЕХ формах: трекер их регистр не различает.
+def task_ref_pattern(trepo: str, n: int | None = None, bare: bool = True) -> str:
+    """Выражение ссылки на задачу репозитория `trepo` (номер — группа 1); `n` — только этот номер."""
+    owner, name = (re.escape(x) for x in trepo.split("/", 1))
+    lead = [r"(?<![\w.-])(?i:%s/%s)#" % (owner, name),
+            r"(?<![\w./-])(?i:%s)#" % name,
+            r"(?<![\w.-])(?i:github\.com/%s/%s)/issues/" % (owner, name)]
+    if bare:
+        lead.append(r"(?<![\w/#])#")
+    return r"(?:%s)(%s)(?!\w)" % ("|".join(lead), r"[0-9]+" if n is None else str(n))
+
+
 def task_ref_re(trepo: str, n: int, lrepo: str) -> str:
-    """Ссылка на задачу `trepo#n` в тексте ведомости репозитория `lrepo` — все законные формы."""
-    name = trepo.split("/", 1)[1]
-    alts = [re.escape(trepo) + "#%d" % n, r"(?<![\w.-])" + re.escape(name) + "#%d" % n,
-            r"github\.com/" + re.escape(trepo) + "/issues/%d" % n]
-    if trepo == lrepo:
-        alts.append(r"(?<![\w/#])#%d" % n)
-    return "(?:%s)(?![0-9])" % "|".join(alts)
+    """Ссылка на задачу `trepo#n` в тексте ведомости репозитория `lrepo`: голый `#n` — только в своём."""
+    return task_ref_pattern(trepo, n, bare=trepo.lower() == lrepo.lower())
 
 
 def ledger_source(lrepo: str, trepo: str, head: str):
@@ -327,23 +349,8 @@ def debt_holder(trepo: str, n: int, ledgers) -> str | None:
 
 
 def issue_refs(repo: str, text: str) -> set[int]:
-    """Номера задач ЭТОГО репозитория, названные в тексте в любой законной форме.
-
-    Формы: `#N` (не после буквы, цифры и `/`), `<владелец>/<имя>#N`, `<имя>#N` и адрес
-    `https://github.com/<владелец>/<имя>/issues/N` — три последние только своего репозитория:
-    владелец — ровно владелец запроса, `<имя>#N` после `/` (чужой владелец) не своё.
-    """
-    nums: set[int] = set()
-    for m in re.finditer(r"(?<![\w/])#(\d+)\b", text):
-        nums.add(int(m.group(1)))
-    name = re.escape(repo.split("/", 1)[1])
-    # Перед именем — ни буквы, ни `.`, `-`, ни `/`: `otherorg/kaname#77` — задача ЧУЖОГО
-    # владельца, и короткая форма `kaname#77` внутри неё своей не засчитывается.
-    for m in re.finditer(r"(?<![\w./-])(?:%s/)?%s#(\d+)\b" % (re.escape(repo.split("/", 1)[0]), name), text):
-        nums.add(int(m.group(1)))
-    for m in re.finditer(r"https://github\.com/%s/issues/(\d+)\b" % re.escape(repo), text):
-        nums.add(int(m.group(1)))
-    return nums
+    """Номера задач ЭТОГО репозитория, названные в тексте любой законной формой (`task_ref_pattern`)."""
+    return {int(m.group(1)) for m in re.finditer(task_ref_pattern(repo), text)}
 
 
 def first_line(msg: str) -> str:

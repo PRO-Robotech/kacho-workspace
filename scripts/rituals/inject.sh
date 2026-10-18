@@ -73,8 +73,13 @@
 #   M46 pr-body: номера задач — из всего сообщения, а не из первой строки → check-01
 #   M47 pr-body: задача первой строки в полной форме — голым `#N`       → check-01
 #   M48 pr-body: задача первой строки в полной форме — не задача       → check-01
-#   M49 pr-body: `otherorg/kaname#N` засчитан задачей своего репозитория (прежнее
-#       выражение `issue_refs`, `/` перед именем не отсекался)          → check-01
+#   M49 правило ссылки (ws#1155, одно на `task_ref_re` и `issue_refs`): `/` перед краткой
+#       формой снят — `otherorg/kaname#N` засчитан задачей своего репозитория → check-01
+#   M64–M65 регистр владельца различается (адрес; полная форма)         → check-01
+#   M66 голый номер — и в ведомости чужого репозитория                  → check-01
+#   M67 хвост номера — только «не цифра» (`#5a` — задача 5)              → check-01
+#   M68 issue_refs снова своим выражением, мимо общего правила           → check-01
+#   близнец T3: граница краткой формы записана иным классом — зелен
 #   M50 pr-body: догон базы не распознан — номера строки догона берутся задачами → check-01
 #   M51 pr-body: строка догона в составе — с `#N` базы                   → check-01
 #   M52 pr-body: доказательство засчитано лишь на голове — предок диапазона
@@ -322,9 +327,26 @@ inject "M47 pr-body: полная форма — голым #N" check-01-pr-body
 inject "M48 pr-body: полная форма — не задача" check-01-pr-body.py \
     '    for n in sorted(first | qual):' \
     '    for n in sorted(first):'
-inject "M49 pr-body: чужой владелец засчитан своим" check-01-pr-body.py \
-    'r"(?<![\w./-])(?:%s/)?%s#(\d+)\b"' \
-    'r"(?<![\w.-])(?:%s/)?%s#(\d+)\b"'
+inject "M49 правило ссылки: «/» снят перед краткой формой — чужой владелец засчитан своим" check-01-pr-body.py \
+    'r"(?<![\w./-])(?i:%s)#" % name' \
+    'r"(?<![\w.-])(?i:%s)#" % name'
+inject "M64 правило ссылки: регистр владельца в адресе различается" check-01-pr-body.py \
+    'r"(?<![\w.-])(?i:github\.com/%s/%s)/issues/" % (owner, name)' \
+    'r"(?<![\w.-])(?:github\.com/%s/%s)/issues/" % (owner, name)'
+inject "M65 правило ссылки: регистр полной формы различается" check-01-pr-body.py \
+    'r"(?<![\w.-])(?i:%s/%s)#" % (owner, name)' \
+    'r"(?<![\w.-])(?:%s/%s)#" % (owner, name)'
+inject "M66 правило ссылки: голый номер и в чужой ведомости" check-01-pr-body.py \
+    'return task_ref_pattern(trepo, n, bare=trepo.lower() == lrepo.lower())' \
+    'return task_ref_pattern(trepo, n)'
+inject "M67 правило ссылки: хвост номера — только не цифра" check-01-pr-body.py \
+    'r"(?:%s)(%s)(?!\w)"' 'r"(?:%s)(%s)(?![0-9])"'
+inject "M68 правило ссылки: issue_refs своим выражением (прежнее)" check-01-pr-body.py \
+    '    return {int(m.group(1)) for m in re.finditer(task_ref_pattern(repo), text)}' \
+    '    return {int(m.group(1)) for m in re.finditer(r"(?<![\w/])#(\d+)\b|(?<![\w./-])%s#(\d+)\b" % re.escape(repo.split("/")[1]), text) if m.group(1)}'
+twin "T3 правило ссылки: граница краткой формы — тот же класс иной записью" check-01-pr-body.py \
+    'r"(?<![\w./-])(?i:%s)#" % name' \
+    'r"(?<![\w/.\-])(?i:%s)#" % name'
 inject "M50 pr-body: догон не распознан" check-01-pr-body.py \
     '    return bool(side) and all(is_ancestor(p, base) for p in side)' \
     '    return False'
