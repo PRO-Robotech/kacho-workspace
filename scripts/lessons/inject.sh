@@ -107,8 +107,8 @@ suite() {
     ok() { echo "  [OK]   $1"; }
     no() { echo "  [FAIL] $1" >&2; fails=$((fails + 1)); }
     chk() { if [ "$1" = "$2" ]; then ok "$3"; else no "$3 — ожидалось «$1», получено «$2»"; fi; }
-    has() { if printf '%s\n' "$out" | grep -qF -- "$1"; then ok "$2"; else no "$2 — нет «$1»"; fi; }
-    hasnt() { if printf '%s\n' "$out" | grep -qF -- "$1"; then no "$2 — есть «$1»"; else ok "$2"; fi; }
+    has() { if grep -qF -- "$1" <<< "$out"; then ok "$2"; else no "$2 — нет «$1»"; fi; }
+    hasnt() { if grep -qF -- "$1" <<< "$out"; then no "$2 — есть «$1»"; else ok "$2"; fi; }
     L() { LESSONS_PY="$py" LESSONS_DIR="$1/led" LESSONS_PROJECTS_DIR="$1/proj" LESSONS_WAVES_DIR="$1/waves" \
         LESSONS_ALIASES="$1/aliases.tsv" LESSONS_SINCE=2000-01-01 bash "$HERE/collect.sh" "${@:2}" 2>&1; }
     H() { local d="$1" inp="${2:-}"; [ -n "$inp" ] || inp='{}'; printf '%s' "$inp" | LESSONS_COLLECT="$HERE/collect.sh" LESSONS_PY="$py" LESSONS_DIR="$d/led" \
@@ -218,6 +218,7 @@ mutant dedup-off py '        if lid in self.ids:
             return False' '        if False:
             return False'
 mutant threshold-3 py 'THRESHOLD = 2' 'THRESHOLD = 3'
+# shellcheck disable=SC2016  # фрагмент кода хука — литералом, без подстановки
 mutant hook-prints-on-empty hook '[ "$rc" = 1 ] && [ -n "$out" ] || exit 0' 'true'
 mutant repeat-after-landed-blind py '            if late:' '            if False:'
 mutant first-return-block py "i = text.rfind('### ВОЗВРАТ')" "i = text.find('### ВОЗВРАТ')"
