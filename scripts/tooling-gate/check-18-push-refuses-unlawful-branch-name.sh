@@ -33,6 +33,18 @@
 #   переходное условие релиза (владелец 2026-09-30, gi-branch-bare-number-release):
 #     дописывание существующей на удалённом «26»        → 0,
 #     создание новой «27»                               → 1, имя названо.
+#   номер — задача ЭТОГО репозитория (ws#1214; признак — `3274-reg-pub-narrow`,
+#     3274 — задача kacho, прошла хук воркспейса кодом 0). Трекер — подменный gh
+#     песочницы (PREPUSH_GH, без сети), репозиторий — адрес удалённого вторым
+#     доводом либо PREPUSH_REPO; задачи воркспейса в нём — 1214 (задача) и
+#     1209 (запрос на слияние):
+#     создание «3274-reg-pub-narrow» (номера нет)     → 1, имя и причина названы,
+#       до прогона наборов; то же по адресу git@github.com:… без PREPUSH_REPO → 1;
+#     создание «1209-x» (номер — запрос, не задача)    → 1;
+#     трекер не ответил                                → 1 («не проверена»);
+#     близнец: создание «1214-push-owner» (задача есть) → 0;
+#     дописывание существующей «3274-reg-pub-narrow»   → 0 (не судится);
+#     удалённый не GitHub (адреса нет)                 → 0 и строка «не судится».
 #
 # ПРЕДПОСЫЛКА (исход VOID): хук есть в дереве и отвечает НУЛЁМ на законном
 # имени. Хук, красный и на нём, к остальным пробам непригоден: отказ на
@@ -85,15 +97,33 @@ pgit -C "$box" add -A
 pgit -C "$box" commit -q -m "песочница check-18"
 SHA="$(git -C "$box" rev-parse HEAD)"
 
-# push <вход git> — печатает «<код>» первой строкой и вывод хука следом.
+# Подменный трекер (ws#1214): `gh api repos/<репо>/issues/<N> --jq …` — ответ формы
+# настоящего gh 2.x: «<N> false» задаче, «<N> true» запросу на слияние; иначе тело
+# 404 и «gh: Not Found (HTTP 404)», код 1. GH_DOWN — отказ сети, код 1.
+cat > "$TMP/gh" <<'GH'
+#!/usr/bin/env bash
+[ -z "${GH_DOWN:-}" ] || { echo "gh: HTTP 502: Bad Gateway" >&2; exit 1; }
+[ "$1" = api ] || { echo "fake gh: только api" >&2; exit 64; }
+case "$2" in
+    repos/PRO-Robotech/kacho-workspace/issues/1214) echo "1214 false" ;;
+    repos/PRO-Robotech/kacho-workspace/issues/1209) echo "1209 true" ;;
+    repos/*/issues/*) printf '{"message":"Not Found","status":"404"}'; echo "gh: Not Found (HTTP 404)" >&2; exit 1 ;;
+    *) echo "fake gh: путь $2 не известен" >&2; exit 64 ;;
+esac
+GH
+chmod +x "$TMP/gh"
+
+# push <вход git> [адрес удалённого] — печатает «<код>» первой строкой и вывод хука
+# следом. PUSH_REPO — PREPUSH_REPO хука; трекер — всегда подменный.
 push() {
     local out code
     out="$(
         cd "$box" || exit 111
         unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
               GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_COMMON_DIR GIT_PREFIX \
-              KACHO_MONOREPO KACHO_SKIP_PREPUSH
-        printf '%s\n' "$1" | bash ./scripts/hooks/pre-push origin 2>&1
+              KACHO_MONOREPO KACHO_SKIP_PREPUSH PREPUSH_REPO
+        [ -z "${PUSH_REPO:-}" ] || export PREPUSH_REPO="$PUSH_REPO"
+        printf '%s\n' "$1" | PREPUSH_GH="$TMP/gh" bash ./scripts/hooks/pre-push origin ${2:+"$2"} 2>&1
     )"; code=$?
     printf '%s\n%s\n' "$code" "$out"
 }
@@ -121,16 +151,18 @@ expect_pass() {  # <описание> <вход>
         || fail "$1 — отвергнуто (код $(head -1 <<< "$res")), а форма законна"
 }
 
-expect_refuse() {  # <имя-которое-обязан-назвать> <описание> <вход>
+expect_refuse() {  # <имя-которое-обязан-назвать> <описание> <вход> [адрес] [слово причины]
     local res body
     examined=$((examined + 1)); unlawful=$((unlawful + 1))
-    res="$(push "$3")"; body="$(tail -n +2 <<< "$res")"
+    res="$(push "$3" "${4:-}")"; body="$(tail -n +2 <<< "$res")"
     if [ "$(head -1 <<< "$res")" -ne 1 ]; then
         fail "$2 — хук вышел $(head -1 <<< "$res") вместо 1: ветка незаконной формы уехала бы"
     elif ! grep -qF -- "$1" <<< "$body"; then
         fail "$2 — отказ не называет отвергнутое имя «$1»"
     elif grep -qF -- "$MARK" <<< "$body"; then
         fail "$2 — отказ пришёл ПОСЛЕ прогона наборов, а не до него"
+    elif [ -n "${5:-}" ] && ! grep -qF -- "$5" <<< "$body"; then
+        fail "$2 — отказ не называет причину «$5»"
     fi
 }
 
@@ -157,6 +189,30 @@ expect_refuse issue-880 "законное рядом с незаконным (а
     "$(create 2914-notify)
 $(create issue-880)"
 
+# Номер — задача ЭТОГО репозитория (ws#1214).
+WSR=PRO-Robotech/kacho-workspace
+PUSH_REPO=$WSR expect_refuse 3274-reg-pub-narrow "создание ветки под номером задачи другого репозитория (признак ws#1214)" \
+    "$(create 3274-reg-pub-narrow)" "" "задачи #3274 в $WSR нет"
+expect_refuse 3274-reg-pub-narrow "то же, репозиторий — из адреса удалённого git@github.com" \
+    "$(create 3274-reg-pub-narrow)" "git@github.com:$WSR.git" "задачи #3274 в $WSR нет"
+PUSH_REPO=$WSR expect_refuse 1209-x "создание ветки под номером запроса на слияние, а не задачи" \
+    "$(create 1209-x)" "" "запрос на слияние, а не задача"
+GH_DOWN=1 PUSH_REPO=$WSR expect_refuse 1214-push-owner "трекер не ответил — принадлежность не проверена, отказ" \
+    "$(create 1214-push-owner)" "" "принадлежность не проверена"
+examined=$((examined + 1)); lawful=$((lawful + 1))
+res="$(PUSH_REPO=$WSR push "$(create 1214-push-owner)")"
+[ "$(head -1 <<< "$res")" -eq 0 ] || fail "близнец: создание «1214-push-owner» (задача воркспейса есть) — отвергнуто (код $(head -1 <<< "$res"))"
+examined=$((examined + 1)); lawful=$((lawful + 1))
+res="$(push "$(create 1214-push-owner)" "https://github.com/$WSR")"
+[ "$(head -1 <<< "$res")" -eq 0 ] || fail "близнец: «1214-push-owner» по адресу https://github.com/… — отвергнуто (код $(head -1 <<< "$res"))"
+examined=$((examined + 1)); lawful=$((lawful + 1))
+res="$(PUSH_REPO=$WSR push "refs/heads/3274-reg-pub-narrow $SHA refs/heads/3274-reg-pub-narrow 2222222222222222222222222222222222222222")"
+[ "$(head -1 <<< "$res")" -eq 0 ] || fail "дописывание существующей «3274-reg-pub-narrow» — отвергнуто (код $(head -1 <<< "$res")), а не судится"
+examined=$((examined + 1)); lawful=$((lawful + 1))
+res="$(push "$(create 3274-reg-pub-narrow)")"
+if [ "$(head -1 <<< "$res")" -ne 0 ]; then fail "удалённый не GitHub — отвергнуто (код $(head -1 <<< "$res")), а принадлежность не судима"
+elif ! grep -qF 'не судится' <<< "$res"; then fail "удалённый не GitHub — хук не сказал, что принадлежность не судится"; fi
+
 tooling_gate_census "$NAME: хуков осмотрено ${#HOOKS[@]}, проб по входу git $examined (законных $lawful, незаконных $unlawful)"
 
 if [ "$findings" -gt 0 ]; then
@@ -164,4 +220,4 @@ if [ "$findings" -gt 0 ]; then
     exit 1
 fi
 
-tooling_gate_pass "$NAME" "хук отвергает создание ветки не по форме «<N>-<суффикс>» до прогона наборов и называет имя; законные имена, удаление и дописывание прежних (в т.ч. голого номера релиза) проходят"
+tooling_gate_pass "$NAME" "хук отвергает создание ветки не по форме «<N>-<суффикс>» и под номером, которого нет среди задач репозитория отправки, до прогона наборов и называет имя; законные имена, удаление и дописывание прежних (в т.ч. голого номера релиза) проходят"
