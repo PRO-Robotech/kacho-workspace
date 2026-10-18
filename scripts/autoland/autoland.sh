@@ -202,7 +202,11 @@ if [ "${1:-}" = start ]; then
     # Демон исполняет СВОЮ копию: копия, откуда его запустили, может быть снята им же.
     cp "$SELF" "$RUN_DIR/$NAME.autoland.sh" || die "копия демона не легла в «$RUN_DIR»"
     printf 'running старт\n' > "$STATE"
-    setsid env --default-signal=PIPE AUTOLAND_WS="$WS" bash "$RUN_DIR/$NAME.autoland.sh" run "$@" \
+    # Срок демона для переписи застоя (ws#1154): до --timeout и последнего шага проверки;
+    # сирота своей сессии в сроке не судится как застой.
+    setsid env --default-signal=PIPE AUTOLAND_WS="$WS" \
+        KACHO_DETACHED_UNTIL="$(( $(date +%s) + TIMEOUT + GATE_TIMEOUT ))" \
+        bash "$RUN_DIR/$NAME.autoland.sh" run "$@" \
         >> "$LOG" 2>&1 < /dev/null &
     for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
         [ -s "$PIDF" ] && break

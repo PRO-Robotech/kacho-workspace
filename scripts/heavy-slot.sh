@@ -630,7 +630,9 @@ if [ -n "$ENQ_DIR" ]; then
     fwd=(); [ -n "$LOCAL_SET" ] && fwd=(--local "$LOCAL_WHY")
     [ -n "$RESUME" ] && fwd+=(--resume "$RESUME")
     # shellcheck disable=SC2016  # строка дочерней оболочки, $1… раскрывает она
-    setsid -f env --default-signal=PIPE bash -c 'echo $$ > "$2.pid"; bash "$1" --queued "$2" "${@:3}"; rc=$?; printf "%s
+    # KACHO_DETACHED_UNTIL — срок билета для переписи застоя (ws#1154): предел ожидания
+    # слота; сирота своей сессии в сроке не судится как застой.
+    setsid -f env --default-signal=PIPE KACHO_DETACHED_UNTIL="$(( $(now) + ENQ_MAX_S ))" bash -c 'echo $$ > "$2.pid"; bash "$1" --queued "$2" "${@:3}"; rc=$?; printf "%s
 " "$rc" > "$2.rc.tmp" && mv -f "$2.rc.tmp" "$2.rc"' \
         heavy-slot "$SELF" "$EB" "${fwd[@]+"${fwd[@]}"}" "$CLASS" -- "$@" > "$EB.log" 2>&1 < /dev/null ||
         { say "отсоединённый прогон не запущен (setsid) — не выполнилось"; exit 69; }
