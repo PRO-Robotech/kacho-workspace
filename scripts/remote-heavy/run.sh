@@ -191,6 +191,27 @@
 # run.sh выходит 69 строкой «не выполнилось — среда: …». Так прогон без
 # инструмента не выдаётся ни за зелёный, ни за красный.
 #
+# ПАКЕТЫ БЕЗ APT (ws#1178). Подготовка pod не ходит на deb.debian.org: сеть pod до
+# зеркала Debian пропадала периодически («Cannot initiate the connection to
+# deb.debian.org:80 … Network is unreachable» → 69; сборка kacho волны 10, полосы
+# kaname#874), а `apt-get update` и установка стоили около 90 с на КАЖДОМ прогоне.
+# Выбор — способ (б): (а) образ ранера с пакетами негде собрать и опубликовать
+# (образы продукта в конвейере не публикуются в реестр, который читает кластер), кэша
+# пакетов в кластере нет (переписью служб — ни прокси, ни зеркала). Поэтому:
+#   • psql, pg_dump, pg_dumpall, pg_restore, pg_isready — init-контейнер pgclient из
+#     образа postgres:17-trixie (зеркало Docker Hub, как golang и docker): сети pod не
+#     нужно вовсе; библиотеки клиента лежат в /tools/pg/lib и видны лишь обёрткам
+#     /tools/<имя>; выпуск Debian образа обязан совпадать с golang (trixie), и
+#     «исполняется ли» судит шаг пакетов, а не надежда;
+#   • jq 1.7.1 и PyYAML 6.0.2 — шаг PKGS_SH: версия и sha256 зашиты в тексте шага
+#     (jq — статический бинарь выпуска; PyYAML — каталог lib/yaml архива исходников,
+#     чистый python), загрузка curl с повтором, сумма не сходится — отказ без повтора.
+#     Это сеть pod до github.com и files.pythonhosted.org, а не до зеркала Debian: из
+#     них github.com pod и так зовёт для buf. Сеть pod остаётся предпосылкой подготовки
+#     (proxy.golang.org, сборка модулей), отказ — «remote-heavy-prep:», то есть 69.
+# До команды pod печатает «подготовка pod до команды — N с» (от старта контейнера run):
+# это число до/после для правок подготовки.
+#
 # DOCKER. Профили go-race, integration и ci-local несут боковой docker:dind (сокет
 # unix в общем томе pod, без TCP) — testcontainers поднимают контейнеры в нём.
 # dind БЕЗ privileged: dockerd в пространстве пользователей pod, среда исполнения —
@@ -301,6 +322,11 @@ WS="$(dirname "${_common:-$SELF_DIR/../../.git}")"
 REGISTRY="mirror.gcr.io/library"
 DIND_IMAGE="$REGISTRY/docker:29-dind"
 CLI_IMAGE="$REGISTRY/docker:29-cli"
+# Клиент postgres (psql, pg_dump…) берётся из образа, а не из apt в pod (ws#1178):
+# kubelet тянет образ через зеркало, как golang и docker, сети pod это не требует.
+# Выпуск Debian образа ОБЯЗАН совпадать с выпуском образа golang (оба — trixie): общие
+# библиотеки берутся из образа postgres, а ABI libc — из golang.
+PG_IMAGE="$REGISTRY/postgres:17-trixie"
 WAIT_START_S=900     # образ, планирование и доставка — до начала команды
 DEFAULT_TIMEOUT_S=5400
 MAX_TIMEOUT_S=14400
@@ -1180,7 +1206,7 @@ echo "remote-heavy: пространство пользователей — uid 
 USERNS
 )"
 # shellcheck disable=SC2016  # раскрывается в pod, не здесь
-PREP='pf() { echo "remote-heavy-prep: $1" | tee /dev/termination-log >&2; exit 125; }; export PATH=/tools:/work/bin:$PATH; cd "/work/src/$HEAVY_WORKDIR" || pf "каталог $HEAVY_WORKDIR в дереве не найден"'
+PREP='PT0=$(date +%s); pf() { echo "remote-heavy-prep: $1" | tee /dev/termination-log >&2; exit 125; }; export PATH=/tools:/work/bin:$PATH; cd "/work/src/$HEAVY_WORKDIR" || pf "каталог $HEAVY_WORKDIR в дереве не найден"'
 # Предпосылка сети pod — до команды и до установки инструментов. Положительный
 # контроль (DNS, мир) обязателен: без него «закрыто» читалось бы и при мёртвом DNS.
 # shellcheck disable=SC2016  # раскрывается в pod, не здесь
@@ -1196,10 +1222,49 @@ echo "remote-heavy: сеть pod — DNS и мир есть, управлени�
 # Инструменты, которые пробы зовут из PATH, а ранер конвейера несёт в образе
 # (опыт 2026-10-08: internal/check kaname — «jq не исполняется», 2 пробы красные
 # только в pod). Перепись `exec.Command("…")` по дереву kacho и kaname: git, go,
-# bash, make, tar — в образе; jq, python3 с yaml, psql/pg_dump — ставятся здесь;
-# helm, node и buf — СРЕДА ниже; gh, trivy, gitleaks — нет, их пробы в pod не
-# равны конвейеру.
-[ "$PROFILE" = lint ] || PREP="$PREP; command -v jq >/dev/null || { echo \"remote-heavy: ставлю jq, python3-yaml, postgresql-client\" >&2; apt-get -qq update >/dev/null && DEBIAN_FRONTEND=noninteractive apt-get -qq install -y --no-install-recommends jq python3-yaml postgresql-client >/dev/null || pf \"jq, python3-yaml, postgresql-client не поставлены\"; }"
+# bash, make, tar — в образе; jq, python3 с yaml, psql/pg_dump — ставятся здесь
+# БЕЗ apt и БЕЗ deb.debian.org (ws#1178: сеть pod до зеркала Debian пропадала
+# периодически, а установка стоила около 90 с): psql и pg_dump приносит init-контейнер
+# pgclient из образа postgres (PG_SH ниже), jq и PyYAML — шаг PKGS_SH с пином версии и
+# суммы в тексте; helm, node и buf — СРЕДА ниже; gh, trivy, gitleaks — нет, их пробы
+# в pod не равны конвейеру.
+# Версии — те, что ставил apt образа trixie и что несёт ранер ubuntu-24.04: jq 1.7.1,
+# PyYAML 6.0.2 (чистый python: в архиве исходников каталог lib/yaml, расширения C нет).
+# shellcheck disable=SC2016  # раскрывается в pod, не здесь
+PKGS_SH="$(cat <<'PKGS'
+# pkgs-begin
+pk_dl() { curl -fsSL --retry 4 --retry-all-errors --retry-delay 3 --connect-timeout 10 --max-time 180 -o "$2" "$1" && echo "$3  $2" | sha256sum -c --quiet -; }
+mkdir -p /work/dl/pk /work/bin /work/pylib || pf "каталог загрузки не создан"
+if ! command -v jq >/dev/null 2>&1; then
+  case "$(uname -m)" in
+    x86_64) ja=amd64; js=5942c9b0934e510ee61eb3e30273f1b3fe2590df93933a93d7c58b81d19c8ff5 ;;
+    aarch64|arm64) ja=arm64; js=4dd2d8a0661df0b22f1bb9a1f9830f06b6f3b8f7d91211a1ef5d7c4f06a8b4a5 ;;
+    *) pf "jq: архитектура $(uname -m) не поддержана" ;;
+  esac
+  echo "remote-heavy: ставлю jq 1.7.1" >&2
+  pk_dl "https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-$ja" /work/dl/pk/jq "$js" \
+    && install -m 0755 /work/dl/pk/jq /work/bin/jq || pf "jq 1.7.1 не поставлен"
+fi
+if ! python3 -c "import yaml" >/dev/null 2>&1; then
+  echo "remote-heavy: ставлю PyYAML 6.0.2" >&2
+  pk_dl "https://files.pythonhosted.org/packages/source/p/pyyaml/pyyaml-6.0.2.tar.gz" /work/dl/pk/pyyaml.tgz d584d9ec91ad65861cc08d42e834324ef890a082e591037abe114850ff7bbc3e \
+    && tar -xzf /work/dl/pk/pyyaml.tgz -C /work/pylib --strip-components=2 pyyaml-6.0.2/lib/yaml || pf "PyYAML 6.0.2 не поставлен"
+fi
+export PYTHONPATH="/work/pylib${PYTHONPATH:+:$PYTHONPATH}"
+rm -rf /work/dl/pk
+# Установленное — ИСПОЛНЕНИЕМ: бинарь, не исполняющийся в образе (ABI, чужая архитектура),
+# отказывает здесь, а не красной пробой команды.
+jq --version >/dev/null 2>&1 || pf "jq не исполняется в образе"
+python3 -c "import yaml" >/dev/null 2>&1 || pf "PyYAML не импортируется"
+for x in psql pg_dump; do
+  "$x" --version >/dev/null 2>&1 || pf "$x из образа postgres не исполняется в образе golang: $("$x" --version 2>&1 | head -n 1)"
+done
+echo "remote-heavy: инструменты без пакетного менеджера — $(jq --version), PyYAML $(python3 -c 'import yaml; print(yaml.__version__)'), $(psql --version)" >&2
+# pkgs-end
+PKGS
+)"
+[ "$PROFILE" = lint ] || PREP="$PREP
+$PKGS_SH"
 [ "$PROFILE" = lint ] || [ "$PROFILE" = ci-local ] && [ -n "$LINT_PIN" ] && \
     PREP="$PREP; echo \"remote-heavy: ставлю golangci-lint $LINT_PIN\" >&2; GOBIN=/work/bin go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$LINT_PIN || pf \"golangci-lint $LINT_PIN не поставлен\""
 [ "$PROFILE" = ci-local ] && [ -n "$GOSEC_PIN" ] && \
@@ -1370,6 +1435,7 @@ $NPMCI_SH"
 # журналов красных групп потоком лога. Маркеры — граница, по которой inject.sh
 # исполняет шаг над синтетическим прогоном.
 # shellcheck disable=SC2016  # раскрывается в pod, не здесь
+PG=1; [ "$PROFILE" != lint ] || PG=0
 REDLOG_SH="$(cat <<'REDLOG'
 # redlog-begin
 heavy_red() {
@@ -1439,7 +1505,36 @@ REDLOG
 PREP="$USERNS_SH
 $PREP
 $REDLOG_SH
+echo \"remote-heavy: подготовка pod до команды — \$(( \$(date +%s) - PT0 )) с\" >&2
 heavy_cmd \"\$@\""
+
+# Клиент postgres из образа (ws#1178): init-контейнер pgclient кладёт в общий том
+# /tools бинари psql, pg_dump, pg_dumpall, pg_restore, pg_isready и их библиотеки,
+# кроме семейства libc (её даёт образ golang), а в /tools — обёртки с
+# LD_LIBRARY_PATH ТОЛЬКО на время вызова: прочие процессы pod чужих библиотек не видят.
+# Отказ — строка в termination-log и код 125 init-контейнера; run.sh до доставки
+# исходников читает его лог и выходит 69.
+PG_SH="$(cat <<'PGSH'
+set -e
+pgf() { echo "remote-heavy-prep: pgclient: $1" | tee /dev/termination-log >&2; exit 125; }
+b="$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -n 1)"
+[ -n "$b" ] || pgf "каталога /usr/lib/postgresql/*/bin в образе postgres нет"
+mkdir -p /tools/pg/bin /tools/pg/lib
+for x in psql pg_dump pg_dumpall pg_restore pg_isready; do
+  [ -x "$b/$x" ] || pgf "$b/$x в образе postgres нет"
+  cp -L "$b/$x" /tools/pg/bin/
+done
+for x in /tools/pg/bin/*; do ldd "$x"; done | awk '/=> \//{print $3}' | sort -u \
+  | grep -v -E '/(libc|libm|libdl|libpthread|librt|libresolv|libutil|libnss_[a-z]+|ld-linux[^/]*)\.so' \
+  | while read -r l; do cp -L "$l" /tools/pg/lib/; done
+[ -f /tools/pg/lib/libpq.so.5 ] || pgf "libpq.so.5 среди библиотек клиента не найдена"
+for x in psql pg_dump pg_dumpall pg_restore pg_isready; do
+  printf '#!/bin/sh\nexec env LD_LIBRARY_PATH=/tools/pg/lib /tools/pg/bin/%s "$@"\n' "$x" > "/tools/$x"
+  chmod 0755 "/tools/$x"
+done
+echo "remote-heavy: клиент postgres из образа: $(/tools/pg/bin/psql --version 2>&1 | head -n 1)" >&2
+PGSH
+)"
 
 # dind без privileged (DOCKER в шапке): crun с выключенным cgroup-менеджером —
 # средой исполнения по умолчанию; отказ установки — код 1 бокового, и pod не
@@ -1465,7 +1560,7 @@ jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg goimg "$GO_IMAGE" --arg dimg "
     --argjson deadline "$(( TIMEOUT_S + WAIT_START_S ))" --argjson dind "$DIND" \
     --arg cr "$CPU_REQ" --arg cl "$CPU_LIM" --arg mr "$MEM_REQ" --arg ml "$MEM_LIM" --arg eph "$EPH" \
     --arg dcr "$DCR" --arg dcl "$DCL" --arg dmr "$DMR" --arg dml "$DML" \
-    --arg dindsh "$DIND_SH" --arg deny "$DENY_PROBE" --arg helm "$HELM_PIN" --arg node "$NODE_PIN" --arg buf "$BUF_PIN" \
+    --arg pgimg "$PG_IMAGE" --arg pgsh "$PG_SH" --argjson pg "$PG" --arg dindsh "$DIND_SH" --arg deny "$DENY_PROBE" --arg helm "$HELM_PIN" --arg node "$NODE_PIN" --arg buf "$BUF_PIN" \
     --arg pushin "$PUSH_INPUT" --arg gname "$GIT_NAME" --arg gemail "$GIT_EMAIL" --argjson cmd "$CMD_JSON" '
 # kubelet раскрывает в command, args и value env контейнера $(ИМЯ) значением env и
 # сворачивает $$ в $ (ws#1142: составной Job потерял переменные и коды осей). Каждый
@@ -1491,6 +1586,10 @@ def kesc_c: (if .command then .command |= map(kesc) else (.) end)
         startupProbe: {exec: {command: ["docker", "-H", "unix:///run/dind/docker.sock", "info"]}, periodSeconds: 2, failureThreshold: 150},
         resources: {requests: {cpu: $dcr, memory: $dmr}, limits: {cpu: $dcl, memory: $dml}},
         volumeMounts: [{name: "dind-lib", mountPath: "/var/lib/docker"}, {name: "dind-sock", mountPath: "/run/dind"}]}]
+      else [] end) + (if $pg == 1 then [
+       {name: "pgclient", image: $pgimg, command: ["sh", "-c", $pgsh],
+        resources: {requests: {cpu: "100m", memory: "128Mi"}, limits: {cpu: "1", memory: "512Mi"}},
+        volumeMounts: [{name: "tools", mountPath: "/tools"}]}]
       else [] end) + [
        {name: "fetch", image: $goimg, command: ["sh", "-c", $fetch],
         env: [{name: "HEAVY_SHA", value: $sha}, {name: "HEAVY_MAIN", value: $main}],
@@ -1504,9 +1603,11 @@ def kesc_c: (if .command then .command |= map(kesc) else (.) end)
                                     {name: "TESTCONTAINERS_RYUK_DISABLED", value: "true"}] else [] end)),
        resources: {requests: {cpu: $cr, memory: $mr, "ephemeral-storage": "1Gi"}, limits: {cpu: $cl, memory: $ml, "ephemeral-storage": $eph}},
        volumeMounts: ([{name: "work", mountPath: "/work"}, {name: "cache", mountPath: "/cache"}]
-                      + (if $dind == 1 then [{name: "dind-sock", mountPath: "/run/dind"}, {name: "tools", mountPath: "/tools"}] else [] end))}],
+                      + (if $dind == 1 then [{name: "dind-sock", mountPath: "/run/dind"}] else [] end)
+                      + (if $dind == 1 or $pg == 1 then [{name: "tools", mountPath: "/tools"}] else [] end))}],
      volumes: ([{name: "work", emptyDir: {}}, {name: "cache", emptyDir: {}}]
-               + (if $dind == 1 then [{name: "dind-lib", emptyDir: {}}, {name: "dind-sock", emptyDir: {}}, {name: "tools", emptyDir: {}}] else [] end))})}}}
+               + (if $dind == 1 then [{name: "dind-lib", emptyDir: {}}, {name: "dind-sock", emptyDir: {}}] else [] end)
+               + (if $dind == 1 or $pg == 1 then [{name: "tools", emptyDir: {}}] else [] end))})}}}
   | .spec.template.spec |= ((.initContainers, .containers) |= map(kesc_c))' \
     > "$BOX/job.json"
 guard_write "Job" || exit 69
@@ -1560,6 +1661,7 @@ while :; do
             say "pod не стартует: $WAITR (не выполнилось)"; exit 69 ;;
     esac
     if [ "$PHASE" = Failed ] || [ "$FETCH_ST" = terminated ]; then
+        kc -n "$NSNAME" logs "$POD" -c pgclient 2>/dev/null | tail -n 10 | mask >&2
         say "pod завершился до доставки исходников (фаза $PHASE) — не выполнилось"; exit 69
     fi
     # pod нет — Job не может его создать (квота, допуск): ждать срока незачем.

@@ -53,6 +53,15 @@
 #      диапазонов, адресов узлов, диапазона служб и управления кластера (F2)
 #   P1 проба закрытости в pod — служба kacho, не закрытая политикой kacho;
 #      близнец (закрытая) не выбран
+#   P1 ни один контейнер Job профиля с go test не зовёт apt и не называет
+#      deb.debian.org; шаг пакетов в run есть; lint без пакетов (P1l)
+#   P2 шаг пакетов исполнением: jq и PyYAML ставятся с пином суммы, apt не позван;
+#      близнецы — сумма не сходится (P2b, P2g), сети нет (P2d), архитектура чужая
+#      (P2f), psql не исполняется (P2e), всё уже есть и ничего не качается (P2c)
+#   P3 init-контейнер pgclient исполнением: бинари и библиотеки клиента без семейства
+#      libc, обёртки несут LD_LIBRARY_PATH лишь на вызов; нет libpq (P3b) либо psql (P3c) — 125
+#   P4 pgclient — init из postgres:17-trixie до fetch, том tools смонтирован; у lint нет
+#   P5 «подготовка pod до команды — N с» печатается до команды
 #   C1 идущих 2 при пределе 2              → 75, create не звался (F3)
 #   C2 близнец: их Job завершены           → 0
 #   C3 близнец: срок ns в прошлом          → 0
@@ -826,6 +835,201 @@ buf_tools_case E2-buf-absent - 125
 buf_tools_case E2-buf-other 1.71.0 125
 buf_tools_case E2-buf-prefix 1.72.01 125
 buf_tools_case E2-buf-legit 1.72.0 0
+# ── пакеты без apt (ws#1178) ─────────────────────────────────────────────────
+# Подготовка pod не ходит на deb.debian.org: jq и PyYAML ставит шаг пакетов с пином
+# суммы, psql и pg_dump приносит init-контейнер pgclient из образа postgres.
+#   P1  ни один контейнер Job профиля с go test не зовёт apt и не называет зеркало
+#       Debian; шаг пакетов (pkgs-begin) в run есть; близнец P1l — lint без пакетов
+#   P4  pgclient — init-контейнер из образа postgres:17-trixie ДО fetch, том tools
+#       смонтирован в pgclient и run; у lint ни pgclient, ни тома
+#   P5  «подготовка pod до команды — N с» печатается до команды, отсчёт — с начала PREP
+#   P2* шаг пакетов ИСПОЛНЕНИЕМ (текст из Job, curl и python3 — двойники, суммы
+#       заменены на суммы двойных архивов — это же доказывает, что пин стоит в тексте
+#       ровно один раз): чисто → jq и yaml на месте, apt не позван; близнецы — суммы
+#       не сходятся, сеть мертва, архитектура чужая, psql не исполняется, всё уже
+#       есть (ничего не качается)
+#   P3* init-контейнер pgclient ИСПОЛНЕНИЕМ над поддельным образом: бинари и
+#       библиотеки (кроме семейства libc) в /tools, обёртки несут LD_LIBRARY_PATH
+#       лишь на вызов; нет libpq либо psql — 125
+EJ="$BOX/e1-job.json"
+p_apt_count() { python3 - "$1" <<'PY'
+import json, re, sys
+sp = json.load(open(sys.argv[1]))["spec"]["template"]["spec"]
+n = 0
+for kind in ("initContainers", "containers"):
+    for c in sp.get(kind, []):
+        vals = list(c.get("command", [])) + list(c.get("args", [])) + [e.get("value", "") for e in c.get("env", [])]
+        n += sum(1 for v in vals if re.search(r"\bapt(-get)?\b|deb\.debian\.org", v))
+print(n)
+PY
+}
+if [ "$(p_apt_count "$EJ")" = 0 ]; then ok; else OUT="$EJ"; bad P1 "в Job профиля с go test остался apt либо зеркало Debian (строк: $(p_apt_count "$EJ"))"; fi
+if grep -q '^# pkgs-begin$' "$BOX/e1.cmd" && grep -q '^# pkgs-end$' "$BOX/e1.cmd"; then ok; else OUT="$BOX/e1.cmd"; bad P1 "шага пакетов (pkgs-begin … pkgs-end) в подготовке run нет"; fi
+fresh
+go_run p1l env FAKE_EXIT=0 "${B[@]}" --short p1l -- true
+cp "$BOX/state/job.json" "$BOX/p1l-job.json" 2>/dev/null
+kx cmd "$BOX/p1l-job.json" run 2 > "$BOX/p1l.cmd"
+if ! grep -q '^# pkgs-begin$' "$BOX/p1l.cmd" && [ -s "$BOX/p1l.cmd" ]; then ok; else OUT="$BOX/p1l.cmd"; bad P1l "lint ставит пакеты — ему jq, yaml и клиент postgres не нужны"; fi
+p_spec() { python3 - "$1" <<'PY'
+import json, sys
+sp = json.load(open(sys.argv[1]))["spec"]["template"]["spec"]
+ini = [c["name"] for c in sp.get("initContainers", [])]
+pg = next((c for c in sp.get("initContainers", []) if c["name"] == "pgclient"), None)
+run = next(c for c in sp["containers"] if c["name"] == "run")
+tm = lambda c: any(m["name"] == "tools" and m["mountPath"] == "/tools" for m in c.get("volumeMounts", []))
+vol = any(v["name"] == "tools" for v in sp.get("volumes", []))
+before = pg is not None and "fetch" in ini and ini.index("pgclient") < ini.index("fetch")
+print("pg=%d image=%s before_fetch=%d pg_mount=%d run_mount=%d volume=%d" % (
+    pg is not None, (pg or {}).get("image", "-"), before, tm(pg) if pg else 0, tm(run), vol))
+PY
+}
+if [ "$(p_spec "$EJ")" = "pg=1 image=mirror.gcr.io/library/postgres:17-trixie before_fetch=1 pg_mount=1 run_mount=1 volume=1" ]; then ok
+else OUT="$EJ"; bad P4 "pgclient в Job: $(p_spec "$EJ")"; fi
+if [ "$(p_spec "$BOX/p1l-job.json")" = "pg=0 image=- before_fetch=0 pg_mount=0 run_mount=0 volume=0" ]; then ok
+else OUT="$BOX/p1l-job.json"; bad P4l "pgclient либо том tools в Job lint: $(p_spec "$BOX/p1l-job.json")"; fi
+# P5 — число «до/после» печатается и стоит перед командой
+if awk '/PT0=\$\(date \+%s\)/ { a = NR } /подготовка pod до команды/ { b = NR } /^heavy_cmd "\$@"$/ { e = NR } END { exit !(a && b && e && a < b && b < e) }' "$BOX/e1.cmd"; then ok
+else OUT="$BOX/e1.cmd"; bad P5 "времени подготовки до команды в тексте run нет либо оно стоит после команды"; fi
+
+# P2 — шаг пакетов исполнением
+PW="$BOX/pw"; PS="$BOX/pstub"
+sed -n '/^# pkgs-begin$/,/^# pkgs-end$/p' "$BOX/e1.cmd" > "$BOX/pkgs.raw"
+if grep -q '^# pkgs-end$' "$BOX/pkgs.raw"; then ok; else OUT="$BOX/e1.cmd"; bad P2 "текста шага пакетов в Job нет — исполнять нечего"; fi
+rm -rf "$BOX/passets"; mkdir -p "$BOX/passets/pyyaml-6.0.2/lib/yaml"
+printf '#!/bin/sh\necho jq-1.7.1\n' > "$BOX/passets/jq"
+printf '# yaml\n' > "$BOX/passets/pyyaml-6.0.2/lib/yaml/__init__.py"
+tar -czf "$BOX/passets/pyyaml.tgz" -C "$BOX/passets" pyyaml-6.0.2
+printf 'другие байты\n' > "$BOX/passets/other"
+JQSUM="$(sha256sum < "$BOX/passets/jq" | cut -d' ' -f1)"; YSUM="$(sha256sum < "$BOX/passets/pyyaml.tgz" | cut -d' ' -f1)"
+# Пины в тексте: у jq две суммы (amd64, arm64), у PyYAML одна, каждая — РОВНО раз.
+pins_jq="$(grep -oE '(js=)[0-9a-f]{64}' "$BOX/pkgs.raw" | wc -l)"; pins_y="$(grep -oE 'pyyaml.tgz [0-9a-f]{64}' "$BOX/pkgs.raw" | wc -l)"
+if [ "$pins_jq" = 2 ] && [ "$pins_y" = 1 ]; then ok; else OUT="$BOX/pkgs.raw"; bad P2 "пинов сумм в тексте: jq $pins_jq (ждали 2), PyYAML $pins_y (ждали 1)"; fi
+sed -E -e "s/(js=)[0-9a-f]{64}/\1$JQSUM/" -e "s/(pyyaml.tgz )[0-9a-f]{64}/\1$YSUM/" -e "s#/work#$PW#g" "$BOX/pkgs.raw" > "$BOX/pkgs.body"
+# shellcheck disable=SC2016  # текст шага для исполнения в песочнице, не здесь
+{ echo 'pf() { echo "remote-heavy-prep: $1" >&2; exit 125; }'; cat "$BOX/pkgs.body"; } > "$BOX/pkgs.sh"
+# p_stubs — двойники curl, python3, psql, pg_dump, apt-get; uname — по STUB_UNAME
+p_stubs() {
+    rm -rf "$PW" "$PS"; mkdir -p "$PW/bin" "$PS"
+    cat > "$PS/curl" <<'STUB'
+#!/bin/sh
+o=""; u=""
+while [ "$#" -gt 0 ]; do case "$1" in -o|--retry|--retry-delay|--connect-timeout|--max-time) [ "$1" = -o ] && o="$2"; shift 2 ;; -*) shift ;; *) u="$1"; shift ;; esac; done
+echo "$u" >> "$P_LOG"
+[ -z "$STUB_NET_DOWN" ] || { echo "curl: (22) нет сети" >&2; exit 22; }
+case "$u" in
+  *jq-linux-*) if [ -n "$STUB_BAD_JQ" ]; then cat "$P_ASSETS/other" > "$o"; else cat "$P_ASSETS/jq" > "$o"; fi ;;
+  *pyyaml-6.0.2.tar.gz) if [ -n "$STUB_BAD_YAML" ]; then cat "$P_ASSETS/other" > "$o"; else cat "$P_ASSETS/pyyaml.tgz" > "$o"; fi ;;
+  *) echo "curl: чужой адрес $u" >&2; exit 22 ;;
+esac
+STUB
+    cat > "$PS/python3" <<'STUB'
+#!/bin/sh
+ok=0; [ -z "$STUB_YAML" ] || ok=1
+OLDIFS="$IFS"; IFS=:; for d in $PYTHONPATH; do [ -f "$d/yaml/__init__.py" ] && ok=1; done; IFS="$OLDIFS"
+[ "$ok" = 1 ] || { echo "ModuleNotFoundError: No module named 'yaml'" >&2; exit 1; }
+case "$*" in *__version__*) echo 6.0.2 ;; esac
+STUB
+    printf '#!/bin/sh\necho "psql (PostgreSQL) 17.fake"\n' > "$PS/psql"
+    printf '#!/bin/sh\necho "pg_dump (PostgreSQL) 17.fake"\n' > "$PS/pg_dump"
+    # shellcheck disable=SC2016  # тексты двойников: раскрываются при их запуске
+    printf '#!/bin/sh\necho позван >> "$P_APT"\nexit 1\n' > "$PS/apt-get"; cp "$PS/apt-get" "$PS/apt"
+    # shellcheck disable=SC2016  # текст двойника
+    printf '#!/bin/sh\n[ -n "$STUB_UNAME" ] && echo "$STUB_UNAME" || exec /usr/bin/uname "$@"\n' > "$PS/uname"
+    chmod +x "$PS"/*
+    # PATH песочницы — лишь перечисленное: jq, curl, python3 и apt машины в неё не входят
+    # (иначе «jq уже есть» пропускало бы загрузку и проба P2 судила бы машину, а не шаг)
+    local t
+    for t in bash cat gzip head install mkdir rm sha256sum tar tr cut; do ln -sf "$(command -v "$t")" "$PS/$t"; done
+    : > "$BOX/p.log"; rm -f "$BOX/p.apt" "$BOX/p.etl"
+}
+# p_run <случай> <ожидаемый код> [VAR=знач…] — шаг пакетов в песочнице; нужные двойники — PATH
+p_run() {
+    local n="$1" want="$2"; shift 2
+    OUT="$BOX/$n.out"
+    env -i PATH="$PW/bin:$PS" P_LOG="$BOX/p.log" P_ASSETS="$BOX/passets" P_APT="$BOX/p.apt" "$@" bash "$BOX/pkgs.sh" > "$OUT" 2>&1; RC=$?
+    cat "$OUT" >> "$ALL_OUT"
+    expect_rc "$n" "$want"
+}
+# P2 — чисто: ни jq, ни yaml в образе → ставятся; apt не позван; адреса — не Debian
+p_stubs; p_run P2 0
+if [ -x "$PW/bin/jq" ] && [ "$("$PW/bin/jq" --version)" = jq-1.7.1 ] && [ -f "$PW/pylib/yaml/__init__.py" ]; then ok; else bad P2 "после шага нет исполняемого jq либо каталога yaml"; fi
+if [ ! -e "$BOX/p.apt" ]; then ok; else bad P2 "шаг пакетов позвал apt"; fi
+if grep -q 'github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-' "$BOX/p.log" && grep -q 'files.pythonhosted.org/.*pyyaml-6.0.2.tar.gz' "$BOX/p.log" && ! grep -qi debian "$BOX/p.log"; then ok
+else OUT="$BOX/p.log"; bad P2 "адреса загрузок не те: jq с GitHub и PyYAML с PyPI, без Debian"; fi
+if grep -q 'инструменты без пакетного менеджера — jq-1.7.1, PyYAML 6.0.2, psql (PostgreSQL) 17.fake' "$BOX/P2.out"; then ok; else bad P2 "строка итога шага не называет версии"; fi
+# P2a — arm64: берётся jq-linux-arm64
+p_stubs; p_run P2a 0 STUB_UNAME=aarch64
+if grep -q 'jq-linux-arm64' "$BOX/p.log"; then ok; else OUT="$BOX/p.log"; bad P2a "на aarch64 не взят jq-linux-arm64"; fi
+# P2b — сумма jq не сходится: 125, jq не поставлен; P2g — то же для PyYAML
+p_stubs; p_run P2b 125 STUB_BAD_JQ=1
+if grep -q 'remote-heavy-prep: jq 1.7.1 не поставлен' "$BOX/P2b.out" && [ ! -e "$PW/bin/jq" ]; then ok; else bad P2b "порченый jq принят либо отказ не назван"; fi
+p_stubs; p_run P2g 125 STUB_BAD_YAML=1
+if grep -q 'remote-heavy-prep: PyYAML 6.0.2 не поставлен' "$BOX/P2g.out" && [ ! -e "$PW/pylib/yaml" ]; then ok; else bad P2g "порченый PyYAML принят либо отказ не назван"; fi
+# P2d — сети нет: 125, а не тихий пропуск
+p_stubs; p_run P2d 125 STUB_NET_DOWN=1
+if grep -q 'remote-heavy-prep: jq 1.7.1 не поставлен' "$BOX/P2d.out"; then ok; else bad P2d "отказ сети не назван отказом jq (проглоченная загрузка прячется за соседним отказом)"; fi
+# P2f — чужая архитектура
+p_stubs; p_run P2f 125 STUB_UNAME=riscv64
+if grep -q 'jq: архитектура riscv64 не поддержана' "$BOX/P2f.out"; then ok; else bad P2f "чужая архитектура не отвергнута"; fi
+# P2e — psql из образа postgres не исполняется в образе golang → отказ здесь, не красная проба
+p_stubs; printf '#!/bin/sh\necho "psql: error while loading shared libraries: libpq.so.5" >&2\nexit 127\n' > "$PS/psql"
+p_run P2e 125
+if grep -q 'remote-heavy-prep: psql из образа postgres не исполняется в образе golang: psql: error while loading shared libraries' "$BOX/P2e.out"; then ok; else bad P2e "отказ psql не назван причиной"; fi
+# P2c — близнец: jq и yaml уже есть → ничего не качается
+p_stubs; printf '#!/bin/sh\necho jq-1.7.1\n' > "$PS/jq"; chmod +x "$PS/jq"
+p_run P2c 0 STUB_YAML=1
+if [ ! -s "$BOX/p.log" ]; then ok; else OUT="$BOX/p.log"; bad P2c "инструменты уже есть, а шаг качает"; fi
+
+# P3 — init-контейнер pgclient исполнением над поддельным образом postgres
+PG="$BOX/pgimg"
+kx cmd "$EJ" pgclient 2 > "$BOX/pg.raw"
+if grep -q 'pgf()' "$BOX/pg.raw"; then ok; else OUT="$BOX/pg.raw"; bad P3 "текста init-контейнера pgclient в Job нет — исполнять нечего"; fi
+sed -e "s#/dev/termination-log#$PG.tl#g" -e "s#/tools#$PG/tools#g" -e "s#/usr/lib/postgresql#$PG/usr/lib/postgresql#g" "$BOX/pg.raw" > "$BOX/pg.sh"
+# pg_image <без libpq?> <без psql?> — поддельный образ: 16 и 17 (берётся старшая), библиотеки, ldd
+pg_image() {
+    rm -rf "$PG" "$PG.tl" "$BOX/pgbin"; mkdir -p "$PG/usr/lib/x86_64-linux-gnu" "$BOX/pgbin"
+    local v x
+    for v in 16 17; do
+        mkdir -p "$PG/usr/lib/postgresql/$v/bin"
+        for x in psql pg_dump pg_dumpall pg_restore pg_isready; do
+            [ "$x" = psql ] && [ "$2" = nopsql ] && [ "$v" = 17 ] && continue
+            # shellcheck disable=SC2016  # текст двойника: LD_LIBRARY_PATH раскрывается при его запуске
+            printf '#!/bin/sh\necho "%s %s LD=$LD_LIBRARY_PATH"\n' "$x" "$v" > "$PG/usr/lib/postgresql/$v/bin/$x"
+            chmod +x "$PG/usr/lib/postgresql/$v/bin/$x"
+        done
+    done
+    for x in libpq.so.5.17 libssl.so.3 libc.so.6 libm.so.6 libnss_files.so.2 libpthread.so.0 ld-linux-x86-64.so.2; do echo "$x" > "$PG/usr/lib/x86_64-linux-gnu/$x"; done
+    ln -s libpq.so.5.17 "$PG/usr/lib/x86_64-linux-gnu/libpq.so.5"
+    {
+        echo '#!/bin/sh'
+        echo "echo '	linux-vdso.so.1 (0x00007ffd)'"
+        [ "$1" = nolibpq ] || echo "echo '	libpq.so.5 => $PG/usr/lib/x86_64-linux-gnu/libpq.so.5 (0x00007f01)'"
+        for x in libssl.so.3 libc.so.6 libm.so.6 libnss_files.so.2 libpthread.so.0; do echo "echo '	$x => $PG/usr/lib/x86_64-linux-gnu/$x (0x00007f02)'"; done
+        echo "echo '	/lib64/ld-linux-x86-64.so.2 (0x00007f03)'"
+    } > "$BOX/pgbin/ldd"; chmod +x "$BOX/pgbin/ldd"
+}
+pg_run() {
+    OUT="$BOX/$1.out"
+    env -i PATH="$BOX/pgbin:/usr/bin:/bin" bash "$BOX/pg.sh" > "$OUT" 2>&1; RC=$?
+    cat "$OUT" >> "$ALL_OUT"
+    expect_rc "$1" "$2"
+}
+pg_image - -; pg_run P3 0
+pgw=0; for x in psql pg_dump pg_dumpall pg_restore pg_isready; do [ -x "$PG/tools/$x" ] && pgw=$((pgw + 1)); done
+if [ "$pgw" = 5 ]; then ok; else bad P3 "обёрток в /tools: $pgw из 5"; fi
+if [ -f "$PG/tools/pg/lib/libpq.so.5" ] && [ -f "$PG/tools/pg/lib/libssl.so.3" ] && [ "$(cat "$PG/tools/pg/lib/libpq.so.5")" = libpq.so.5.17 ]; then ok
+else bad P3 "libpq.so.5 (по ссылке — содержимым) и libssl среди библиотек клиента не лежат"; fi
+if [ ! -e "$PG/tools/pg/lib/libc.so.6" ] && [ ! -e "$PG/tools/pg/lib/libm.so.6" ] && [ ! -e "$PG/tools/pg/lib/libnss_files.so.2" ] && [ ! -e "$PG/tools/pg/lib/libpthread.so.0" ]; then ok
+else bad P3 "в библиотеки клиента попало семейство libc — ABI берётся из образа golang"; fi
+# старшая major: 17, а не 16; библиотечный путь — на вызов обёртки, не на вызывающего
+pgo="$(env -i PATH="/usr/bin:/bin" LD_LIBRARY_PATH=вызывающий "$PG/tools/psql" --version 2>&1)"
+if [ "$pgo" = "psql 17 LD=$PG/tools/pg/lib" ]; then ok; else bad P3 "обёртка psql: «$pgo», ждали «psql 17 LD=$PG/tools/pg/lib» (старшая major и свой путь библиотек)"; fi
+if [ "$(env -i PATH="/usr/bin:/bin" LD_LIBRARY_PATH=вызывающий bash -c "$PG/tools/psql >/dev/null; echo \$LD_LIBRARY_PATH")" = вызывающий ]; then ok; else bad P3 "обёртка меняет библиотечный путь вызывающего"; fi
+pg_image nolibpq -; pg_run P3b 125
+if grep -q 'remote-heavy-prep: pgclient: libpq.so.5 среди библиотек клиента не найдена' "$PG.tl"; then ok; else bad P3b "нет libpq — отказ не записан в termination-log"; fi
+pg_image - nopsql; pg_run P3c 125
+if grep -q 'remote-heavy-prep: pgclient: .*/psql в образе postgres нет' "$PG.tl"; then ok; else bad P3c "нет psql в образе — отказ не записан в termination-log"; fi
+
 # D1 модули исходниками (ws#1018). Пакет deploy kacho читает исходник пиненного
 #    kaname из GOMODCACHE, а сборка этот модуль не тянет: без шага загрузки кэш
 #    Job его не содержит (32 отказа «stat /cache/mod/…: no such file»). Конвейер
