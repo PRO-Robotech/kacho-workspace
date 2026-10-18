@@ -28,7 +28,8 @@ set -uo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SUT="$here/trunk-future.sh"
 tmp="$(mktemp -d "${TMPDIR:-/tmp}/trunk-future-inject.XXXXXX")"
-trap 'rm -rf "$tmp"' EXIT
+# shellcheck disable=SC2154
+trap '_rc=$?; rm -rf "$tmp" 2>/dev/null || rm -rf "$tmp" || echo "ПРЕДУПРЕЖДЕНИЕ: временный каталог $tmp не снят; код проверки $_rc сохранён" >&2; exit $_rc' EXIT
 pass=0 fail=0
 ok() { if [ "$1" = 0 ]; then pass=$((pass + 1)); echo "  [OK]   $2"; else fail=$((fail + 1)); echo "  [FAIL] $2"; fi; }
 

@@ -32,7 +32,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOOL="$HERE/stand-report.sh"
 for t in jq python3; do command -v "$t" > /dev/null 2>&1 || { echo "stand-report-inject: VOID — нет $t" >&2; exit 2; }; done
 W="$(mktemp -d "${TMPDIR:-/tmp}/stand-report-inject.XXXXXX")" || exit 2
-trap 'rm -rf "$W"' EXIT
+# shellcheck disable=SC2154
+trap '_rc=$?; rm -rf "$W" 2>/dev/null || rm -rf "$W" || echo "ПРЕДУПРЕЖДЕНИЕ: временный каталог $W не снят; код проверки $_rc сохранён" >&2; exit $_rc' EXIT
 # shellcheck source=lib/sandbox-git-home.sh
 . "$HERE/lib/sandbox-git-home.sh"
 sandbox_git_home "$W/home" || { echo "stand-report-inject: VOID — подписи песочницы нет" >&2; exit 2; }
