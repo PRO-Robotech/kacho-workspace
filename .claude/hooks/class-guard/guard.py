@@ -239,6 +239,7 @@ def classify(path: str) -> str:
 # метки, иначе — в блоке комментариев Makefile корня git, где назван этот файл.
 GEN_MARK = re.compile(r"<!--[^\n]*ПОРОЖД[ЕЁ]Н")
 MAKE_TARGET = re.compile(r"make ([A-Za-z0-9_.-]+)")
+BLOCK_MARK = re.compile(r"(начало|конец)")
 
 
 def generator_target(path: str, mark: str) -> str:
@@ -269,7 +270,9 @@ def generator_target(path: str, mark: str) -> str:
 def generated_edit(path: str, raw: str, tool_input: dict) -> tuple[int, str] | None:
     """(строка метки, текст метки), если правка задела порождённое; иначе None."""
     lines = raw.split("\n")
-    whole = next((i for i, ln in enumerate(lines[:5]) if GEN_MARK.search(ln) and "начало" not in ln), None)
+    # Метка всего файла — метка шапки, не метка блока: «начало» и «конец» — пара блока,
+    # блок в первых пяти строках файла целиком порождённым не делает.
+    whole = next((i for i, ln in enumerate(lines[:5]) if GEN_MARK.search(ln) and not BLOCK_MARK.search(ln)), None)
     if whole is not None:
         end = next((j for j in range(whole, len(lines)) if "-->" in lines[j]), whole)
         return whole + 1, "\n".join(lines[whole:end + 1])

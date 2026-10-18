@@ -884,6 +884,14 @@ if grep -q '\[E2\]' <<<"$out" && grep -q 'NOTICES.md:1' <<<"$out" && grep -q 'ma
   echo "  ✔ (+) E2 Write порождённого целиком — цель из метки шапки"; PASS=$((PASS+1))
 else echo "  ✘ (+) E2 Write порождённого целиком: $out"; FAIL=$((FAIL+1)); fi
 expect_silent E2 Write "$TMP/gen/NEAR.md" "близнец: непорождаемый документ рядом"
+# Блок в первых пяти строках: его метка «— конец» — метка блока, а не всего файла.
+printf '# Сверху\n<!-- ПОРОЖДЕНО: перечень — начало -->\nПУНКТ_Б\n<!-- ПОРОЖДЕНО: перечень — конец -->\n\nПроза ниже блока.\n' > "$TMP/gen/TOP.md"
+NS="Проза ниже блока." expect_silent E2 Edit "$TMP/gen/TOP.md" "близнец: блок в строках 2-4, Edit прозы ниже него"
+out="$(NS="ПУНКТ_Б" run Edit "$TMP/gen/TOP.md")"
+CASES=$((CASES+1))
+if grep -q '\[E2\]' <<<"$out" && grep -q 'TOP.md:2' <<<"$out"; then
+  echo "  ✔ (+) E2 Edit внутри блока в строках 2-4 — координата метки «начало»"; PASS=$((PASS+1))
+else echo "  ✘ (+) E2 Edit внутри блока в строках 2-4: $out"; FAIL=$((FAIL+1)); fi
 
 echo "== G. событие инструмента =="
 
