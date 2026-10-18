@@ -64,14 +64,21 @@
 #      снимается, только если её голова РАВНА влитой либо её предок, а влитая — предок
 #      origin/<база>; копия (worktree) — `git worktree remove` лишь при пустом
 #      `status --porcelain`; origin — `--delete-branch`, оставшуюся — `git push origin
-#      --delete` под замком interim; перепись `branch-audit.sh` до и после — в журнал.
+#      --delete` под замком interim; перепись `branch-audit.sh` до и после — в журнал;
+#   7. догон основного клона (ws#1200): запрос в `main` репозитория, чей origin у
+#      основного клона воркспейса (каталог, чей `.git` = `git rev-parse --git-common-dir`),
+#      влит — `git fetch origin main` (предел AUTOLAND_FF_FETCH_TIMEOUT, без запросов
+#      пароля и ssh) и `git merge --ff-only -q origin/main` в нём;
+#      исполнители берут $WS/scripts оттуда. Отказ ff (пересечение с локальной правкой —
+#      перечнем файлов, свои коммиты, выписана не main) — строкой в журнал и в исход
+#      merged, ошибкой вливания не считается; ни stash, ни reset.
 # Гейты — рецептом «ЗАПУСК» шапки landing-precheck.sh, вырезанным по меткам из
 # origin/main воркспейса (тем же способом, что у шаблона волны): каталог scripts/ —
 # целиком из origin/main, не из рабочей копии; сбой подготовки — код 2.
 #
 # ИСХОД — первая строка .state, первое слово — исход:
 #   running <фаза> — идёт;
-#   merged <sha коммита слияния> снятие: …;
+#   merged <sha коммита слияния> снятие: …[; основной клон: <было> → <стало> | ff отказ — …];
 #   red <гейт> код <n>: <строки REASON дословно через « | »>;
 #   stale-base <строки REASON ci-read дословно> — базу демон НЕ догоняет;
 #   head-moved <ожидалась> <стала>;
@@ -81,7 +88,7 @@
 #        (testing-verdict: не зелёное и не красное), а также остановка сигналом и
 #        занятый замок.
 #
-# ЧЕГО НЕ ДЕЛАЕТ. Не чинит, не догоняет базу слиянием (stale-base — наружу), не
+# ЧЕГО НЕ ДЕЛАЕТ. Не чинит, не догоняет базу запроса слиянием (stale-base — наружу), не
 # переводит черновик в готовый, не применяет форсирующих флагов ни к вливанию, ни
 # к отправке, ни к снятию копии, и не обходит хуки (держит scripts/autoland/inject.sh,
 # раздел «статика»). Ожидание живёт в отсоединённом процессе: в вызове агента цикла
@@ -95,6 +102,7 @@
 #   AUTOLAND_DIR     — каталог .state, журналов и замков (по умолчанию $WS/tmp/autoland);
 #   AUTOLAND_CLONES  — клоны для снятия через «:» (заданная пустой — ни одного);
 #   AUTOLAND_GATE_TIMEOUT — предел одного гейта, с (по умолчанию 900);
+#   AUTOLAND_FF_FETCH_TIMEOUT — предел fetch догона основного клона, с (по умолчанию 8);
 #   AUTOLAND_INTERIM_LOCK — замок отправок (по умолчанию ~/.cache/heavy-slots/interim.lock);
 #   CI_STATE_DIR     — каталог демона состояния (его FIFO), как у ci-read.sh.
 set -uo pipefail
@@ -102,6 +110,7 @@ set -uo pipefail
 SELF="$(readlink -f "${BASH_SOURCE[0]}")"
 GH="${AUTOLAND_GH:-gh}"
 GATE_TIMEOUT="${AUTOLAND_GATE_TIMEOUT:-900}"
+FF_FETCH_TIMEOUT="${AUTOLAND_FF_FETCH_TIMEOUT:-8}"
 INTERIM_LOCK="${AUTOLAND_INTERIM_LOCK:-$HOME/.cache/heavy-slots/interim.lock}"
 
 die() { printf 'autoland: ОТКАЗ — %s\n' "$1" >&2; exit "${2:-2}"; }
@@ -337,15 +346,19 @@ read_pr() {
 }
 
 # ── снятие влитой ветки коммитным предикатом ───────────────────────────────────
+origin_is_repo() {  # <клон> — его origin есть репозиторий запроса
+    local u; u="$(git -C "$1" remote get-url origin 2>/dev/null)" || return 1
+    u="${u%.git}"; u="${u,,}"
+    case "$u" in */"${REPO,,}" | *:"${REPO,,}") return 0 ;; esac
+    return 1
+}
 clones() {
     if [ -n "${AUTOLAND_CLONES+x}" ]; then tr ':' '\n' <<< "$AUTOLAND_CLONES" | sed '/^$/d'; return; fi
-    local c u
+    local c
     for c in "$WS" "$WS"/project/*; do
-        [ -e "$c/.git" ] || continue
-        u="$(git -C "$c" remote get-url origin 2>/dev/null)" || continue
-        u="${u%.git}"; u="${u,,}"
-        case "$u" in */"${REPO,,}" | *:"${REPO,,}") printf '%s\n' "$c" ;; esac
+        [ -e "$c/.git" ] && origin_is_repo "$c" && printf '%s\n' "$c"
     done
+    return 0
 }
 PRUNE=""
 prune() {  # <ветка головы> <база>
@@ -396,7 +409,42 @@ prune() {  # <ветка головы> <база>
     log "$PRUNE"
 }
 
-landed() {  # запрос влит — проверка родителя, снятие, исход
+# ── догон основного клона воркспейса (ws#1200) ─────────────────────────────────
+SYNC=""
+sync_main_clone() {  # запрос в main репозитория основного клона влит — ff основного клона
+    local top common old new both
+    SYNC=""
+    [ "$PR_BASE" = main ] && origin_is_repo "$WS" || return 0
+    top="$(cd "$WS" && pwd -P)"
+    common="$(git -C "$WS" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"
+    if [ "$common" != "$top/.git" ]; then
+        SYNC="основной клон: не догоняется — $WS не основной клон (git-common-dir «${common:-—}»)"; log "$SYNC"; return 0
+    fi
+    if [ "$(git -C "$WS" symbolic-ref -q HEAD)" != refs/heads/main ]; then
+        SYNC="основной клон: ff отказ — выписана не main ($(git -C "$WS" symbolic-ref -q --short HEAD || echo отделённая голова))"
+        log "$SYNC"; return 0
+    fi
+    # Сеть не держит исход: предел и неинтерактивность — как у main-clone-lag.sh; влитое не становится void.
+    if ! GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh -o BatchMode=yes}" \
+        timeout "$FF_FETCH_TIMEOUT" git -C "$WS" fetch -q origin main 2> "$W/sync.err"; then
+        SYNC="основной клон: ff отказ — fetch origin main (предел $FF_FETCH_TIMEOUT с): $(head -c 200 "$W/sync.err" | tr '\n' ' ')"; log "$SYNC"; return 0
+    fi
+    old="$(git -C "$WS" rev-parse HEAD)"; new="$(git -C "$WS" rev-parse refs/remotes/origin/main)"
+    if [ "$old" = "$new" ]; then SYNC="основной клон: на origin/main ${new:0:12}"; log "$SYNC"; return 0; fi
+    if ! git -C "$WS" merge-base --is-ancestor "$old" "$new"; then
+        SYNC="основной клон: ff отказ — main несёт $(git -C "$WS" rev-list --count "$new..$old") своих коммитов вне origin/main; голова ${old:0:12}"
+        log "$SYNC"; return 0
+    fi
+    if git -C "$WS" merge --ff-only -q origin/main > "$W/sync.out" 2>&1; then
+        SYNC="основной клон: ${old:0:12} → $(git -C "$WS" rev-parse HEAD | cut -c1-12) (origin/main)"; log "$SYNC"; return 0
+    fi
+    # Отказ ff: входящие файлы, пересекающие локальную правку (отслеживаемую и неотслеживаемую).
+    both="$(comm -12 <(git -C "$WS" diff --name-only "$old" "$new" | sort -u) <({ git -C "$WS" diff --name-only HEAD; git -C "$WS" ls-files --others --exclude-standard; } | sort -u) | join)"
+    SYNC="основной клон: ff отказ — пересекаются с локальной правкой: ${both:-—}; git: $(grep -v '^[[:space:]]*$' "$W/sync.out" | head -n2 | join); голова ${old:0:12}, origin/main ${new:0:12}"
+    log "$SYNC"; return 0  # отказ ff — не ошибка вливания: исход остаётся merged
+}
+
+landed() {  # запрос влит — проверка родителя, снятие, догон основного клона, исход
     local note="${1:-}"
     if "$GH" api "repos/$REPO/commits/$PR_MSHA" > "$W/mc.json" 2>/dev/null \
         && jq -e --arg h "$HEAD" '[.parents[].sha] | index($h) != null' "$W/mc.json" > /dev/null 2>&1; then
@@ -404,8 +452,8 @@ landed() {  # запрос влит — проверка родителя, сн�
     else
         log "коммит слияния $PR_MSHA: родитель $HEAD не подтверждён площадкой"
     fi
-    prune "$PR_REF" "$PR_BASE"
-    finish merged "$PR_MSHA${note:+ $note}; $PRUNE"
+    prune "$PR_REF" "$PR_BASE"; sync_main_clone
+    finish merged "$PR_MSHA${note:+ $note}; $PRUNE${SYNC:+; $SYNC}"
 }
 
 LP_ARGS=()

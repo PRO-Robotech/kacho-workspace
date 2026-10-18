@@ -1089,12 +1089,13 @@ fi
 PROOF=""; CL_OUT=""
 # journal_early — запись журнала до входа в очередь (каталог может быть ещё не заведён).
 journal_early() { mkdir -p "$DIR" 2>/dev/null; journal "$@"; }
-# cluster_once [профиль] — один опрос: код run.sh --available, его вывод — в CL_OUT.
+# cluster_once [профиль [репозиторий]] — один опрос: код run.sh --available, его вывод —
+# в CL_OUT. Репозиторий — запрос по замеру его прогонов (ws#1195), без него — наибольший.
 # Не ответила за CHECK_S (124) — повтор, всего CHECK_TRIES попыток (ws#1141).
 cluster_once() {
     local out rc try=1
     while :; do
-        out="$(timeout "$CHECK_S" bash "$REMOTE_RUN" --available ${1:+--profile "$1"} 2>&1)"; rc=$?
+        out="$(timeout "$CHECK_S" bash "$REMOTE_RUN" --available ${1:+--profile "$1"} ${1:+${2:+--repo "$2"}} 2>&1)"; rc=$?
         [ "$rc" -eq 124 ] && [ "$try" -lt "$CHECK_TRIES" ] || break
         try=$(( try + 1 ))
     done
@@ -1102,7 +1103,7 @@ cluster_once() {
     CL_OUT="$(printf '%s' "$out" | tr '[:cntrl:]' ' ' | cut -c1-400)"
     return "$rc"
 }
-# cluster_check [профиль] — 0, если кластер принимает прогон. Занят (75) — НЕ
+# cluster_check [профиль [репозиторий]] — 0, если кластер принимает прогон. Занят (75) — НЕ
 # недоступен (решение диспетчера 2026-10-16: «занятость — не недоступность»): место
 # ждётся до --wait N опросом раз в POLL_S, затем выход 74 (ожидания не было) либо 75 —
 # локально команда не идёт. Иной код — недоступен: 1, PROOF — вывод проверки с кодом.
@@ -1110,7 +1111,7 @@ cluster_check() {
     local rc t0
     t0="${EXT_T0:-$(now)}"   # бюджет ожидания общий с внешним входом (ws#1176)
     while :; do
-        cluster_once "${1:-}"; rc=$?
+        cluster_once "${1:-}" "${2:-}"; rc=$?
         [ "$rc" -eq 0 ] && return 0
         [ "$rc" -eq 75 ] || break
         [ $(( $(now) - t0 + POLL_S )) -le "$WAIT_S" ] || busy_exit "$t0"
@@ -1324,7 +1325,7 @@ remote_route() {
     [[ "$TASK" =~ ^[1-9][0-9]*$ ]] ||
         fix="${fix:+$fix; }задай номер задачи: KACHO_TASK=<N> heavy-slot.sh $CLASS -- … (ведущих цифр в имени ветки «$BRANCH» нет)"
     ext_enter
-    cluster_check "$CLASS" || return 1
+    cluster_check "$CLASS" "$repo" || return 1
     [ -n "$known" ] || refuse_external "нагрузка «${PAY_SH:-$PAY}» за обёрткой не опознана как переносимая (go, make, golangci-lint, gosec, govulncheck, ci-local.sh) — дай её словами argv: heavy-slot.sh $CLASS -- go …; слот уведёт её Job-ом"
     [ -n "$fix" ] && refuse_external "$fix"
     if [ -n "$GIT_IDX" ]; then

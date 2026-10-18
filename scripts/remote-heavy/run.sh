@@ -17,12 +17,12 @@
 #          [--workdir <путь в дереве>] [--short <слово>] [--ns <имя>]
 #          [--timeout <с>] [--keep <часы ≤ 12>] [--push-input <вход pre-push>]
 #          -- <команда> [аргументы…]
-#   run.sh --available [--profile <профиль>]
+#   run.sh --available [--profile <профиль> [--repo <kacho|kaname|corelib>]]
 #                           0 — кластер отвечает, ns создавать вправе и pod есть где
 #                           встать; 69 — нет (в том числе открытого узла нет, см.
 #                           РАЗМЕЩЕНИЕ); 75 — идущих тяжёлых прогонов уже предел (см.
 #                           ПРЕДЕЛ) либо места под запрос профиля нет ни на одном узле
-#   run.sh --profiles       профили, их ресурсы и основание
+#   run.sh --profiles       профили, их запросы по репозиториям (ЗАПРОС ПО ЗАМЕРУ) и основание
 #
 # КЛАСТЕР. Кубконфиг берётся из KACHO_REMOTE_KUBECONFIG, иначе из первой строки
 # личного файла ${XDG_CONFIG_HOME:-~/.config}/kacho/remote-kubeconfig. Окружение
@@ -78,8 +78,9 @@
 # privileged, ПРЕДЕЛ и явные запросы и пределы ресурсов pod (числом, PROFILES).
 #
 # СНЯТИЕ. trap на EXIT, INT и TERM снимает ns всегда — на успехе, на падении
-# команды, на обрыве. --keep <ч> оставляет его для разбора с expires = сейчас + ч
-# (≤ 12). kill -9 trap не ловит: такое ns ловит перепись по expires
+# команды, на обрыве. --keep <ч> оставляет его для разбора с expires = сейчас +
+# наибольшая жизнь прогона (--timeout + 1800 + 600 с) + ч (≤ 12): срок ns не истекает
+# раньше срока Job. kill -9 trap не ловит: такое ns ловит перепись по expires
 # (`kubectl get ns -l kacho.io/kind=heavy` и аннотация).
 #
 # ЛОКАЛЬНАЯ УБОРКА. После kill -9 на машине остаются рабочий каталог
@@ -96,14 +97,29 @@
 # «уборка прежних запусков: …».
 #
 # ПРЕДЕЛ. Квота стоит на одно ns, а общего предела в кластере нет (ревью ws#984,
-# F3). Допуск прогона решают запросы профиля и ЗАПАС узла (РАЗМЕЩЕНИЕ); число
-# одновременных тяжёлых прогонов KACHO_REMOTE_HEAVY_MAX (по умолчанию 4) — лишь
+# F3). Допуск прогона решает запрос прогона (ЗАПРОС ПО ЗАМЕРУ, РАЗМЕЩЕНИЕ); число
+# одновременных тяжёлых прогонов KACHO_REMOTE_HEAVY_MAX (по умолчанию 6) — лишь
 # верхняя страховка над ним: прежний счёт штуками (2) держал лёгкие в очереди при
 # месте под них, а размещение сажало прогон до 100 % узла. Идущим считается ns
 # kacho.io/kind=heavy, не снимаемое, со сроком в будущем и без завершённого Job.
 # Перепись — до создания ns (предел достигнут — 75, ns не создаётся) и после него:
 # две гонки, прошедшие первую проверку разом, разрешаются по времени создания —
 # запуск, оказавшийся сверх предела, снимает своё ns и выходит 75.
+#
+# УБОРКА ПРОСРОЧЕННЫХ (ws#1195). Перед переписью идущих run.sh снимает тяжёлые ns
+# (метка kacho.io/kind=heavy, имя t<N>-heavy-…), чей срок kacho.io/expires прошёл,
+# и те, что старше SWEEP_AGE_S (2 ч) без аннотации kacho.io/keep (--keep оставляет ns
+# для разбора до срока); ns с живым Job (не завершён) не снимается НИ по одному
+# признаку — его прогон идёт, а Job кончится сам по activeDeadlineSeconds: kill -9 trap не
+# ловит, а мёртвое ns держит запросы на узле до переписи. Прочие ns вида t<N>-… с
+# прошедшим сроком (стенды задач) — не его: они печатаются перечнем, не снимаются.
+# Строка «уборка просроченных тяжёлых ns: снято N из M …» — когда снято хоть одно;
+# перечень чужих — своей строкой, когда он не пуст.
+#
+# ПИК (ws#1195). Шаг в pod после команды печатает «remote-heavy-peak: <memory.peak
+# байт> <usage_usec за команду> <секунд>» cgroup контейнера run; run.sh печатает пик
+# и пишет строку «remote-peak class=… repo=… run_peak=…MiB req=…MiB cpu_avg=…m …» в
+# журнал слотов — из неё правится PEAKS. dind — свой cgroup, его пик не пишется.
 #
 # ИЗОЛЯЦИЯ. pod — в своём пространстве пользователей (hostUsers: false): root
 # контейнера — непривилегированный uid узла, возможности SYS_ADMIN, NET_ADMIN и
@@ -122,13 +138,17 @@
 # создания ns, в --available и при ожидании планирования run.sh сам переписывает
 # узлы: годный — Ready, не закрыт для планирования, без taint NoSchedule/NoExecute
 # (допусков у pod нет) и с местом: allocatable минус запросы незавершённых pod узла
-# (запрос pod — сумма контейнеров и боковых, но не меньше наибольшего init) минус
-# запрос профиля (run и dind) оставляет на узле не меньше HEADROOM_PCT (20 %)
-# allocatable — и по CPU, и по памяти (ws#1143, предел по профилю: прежде прогон
-# садился до 100 % узла). Открытого узла нет — 69 (heavy-slot идёт локально с
-# причиной); открытые есть, места с запасом нет — 75; pod ждёт, а годного не
-# осталось — выход сразу тем же кодом. --available без --profile судит лишь
-# открытый узел (запроса нет — и запас не судится).
+# (запрос pod — сумма контейнеров и боковых, но не меньше наибольшего init) не
+# меньше запроса прогона (ЗАПРОС ПО ЗАМЕРУ) — и по CPU, и по памяти. Запаса узла
+# сверх запроса нет (ws#1195): запас 20 % allocatable (ws#1143) держал пустыми
+# 3 100m и 6 038 МиБ на узел — больше запроса ci-local kacho (7 680 МиБ) на кластере, —
+# а запас прогона уже в его запросе (p90 пика × 1,2), запас узла под систему и порог
+# выселения — в allocatable. Прогон сверх запроса памяти — до предела run; узлу не
+# хватило памяти — kubelet выселяет pod сверх запроса первым, и это «не
+# выполнилось» (69), а не красное. Открытого узла нет — 69 (heavy-slot идёт локально с
+# причиной); открытые есть, места нет — 75; pod ждёт, а годного не осталось — выход
+# сразу тем же кодом. --available без --profile судит лишь открытый узел; с
+# --profile без --repo — наибольший запрос профиля.
 #
 # ВЫВОД (ws#991). Строки run.sh после выбора ns несут его имя: два прогона в одном
 # потоке различимы. Если stderr или stdout прогона — обычный файл, в который пишет
@@ -340,23 +360,67 @@ WAIT_START_S=1800
 DEFAULT_TIMEOUT_S=5400
 MAX_TIMEOUT_S=14400
 MAX_KEEP_H=12
-MAX_PAR="${KACHO_REMOTE_HEAVY_MAX:-4}"  # страховка над РАЗМЕЩЕНИЕМ: 4 лёгких — его предел на кластере замера
-HEADROOM_PCT=20      # РАЗМЕЩЕНИЕ: запас узла после посадки прогона, % allocatable (CPU и память)
+MAX_PAR="${KACHO_REMOTE_HEAVY_MAX:-6}"  # страховка над РАЗМЕЩЕНИЕМ: на кластере переписи 2026-10-18 оно сажает по 3 ci-local kaname либо integration kacho на узел
 GUARD_TTL_S=30       # СТРАЖ: через сколько секунд узлы переписываются заново
+SWEEP_AGE_S=7200     # УБОРКА ПРОСРОЧЕННЫХ: тяжёлое ns без живого Job старше этого снимается
 
-# профиль|cpu req|cpu lim|mem req|mem lim|ephemeral|dind|основание. Запрос pod с
-# dind: go-race и ci-local — 7 CPU и 12 ГиБ («тяжёлый»), integration и lint — 4 CPU и
-# 6 ГиБ («лёгкий»). Замер 2026-10-17 (get nodes и get pods -A, только чтение): два
-# узла по 15 500m и 30 189 МиБ allocatable, фон без тяжёлых прогонов — 2 265m и
-# 8 436 МиБ на одном, 2 335m и 9 460 МиБ на другом. С запасом 20 % (РАЗМЕЩЕНИЕ) на
-# узел встаёт один тяжёлый либо два лёгких: на кластере — 2 тяжёлых, 1 тяжёлый и 2
-# лёгких либо 4 лёгких; третий тяжёлый — 75. Замер 2026-10-09 (стенд 410m, два
-# go-race на одном узле) снят: фон узлов с тех пор вырос в 3,5–5,5 раза.
-PROFILES='go-race|6|12|11Gi|16Gi|40Gi|1|go test -race по монорепо локально — 13,6 ГиБ (heavy-slot.sh, класс go-race); предел 16 ГиБ — запрос 11 ГиБ держит место двух прогонов на узле
-integration|3|6|5Gi|10Gi|40Gi|1|make test-integration SVC=vpc локально — 1,4 ГиБ; контейнеры testcontainers — в dind, у него свой предел
-lint|4|8|6Gi|12Gi|20Gi|0|golangci-lint run ./... по монорепо, холодный кэш — 4,5 ГиБ (heavy-slot.sh, класс lint)
-ci-local|6|12|11Gi|16Gi|40Gi|1|scripts/ci-local.sh go локально — 5,2 ГиБ; группы вне go требуют инструментов, которых в образе нет'
-DIND_RES='1|2|1Gi|6Gi'
+# ЗАПРОС ПО ЗАМЕРУ (ws#1195). Решение владельца 2026-10-18: «Внешний кластер 16*32 два
+# узла это 4-5 окон». Запрос памяти pod (run и dind вместе) — p90 пика прогонов
+# профиля и репозитория × PEAK_MARGIN_PCT/100, вверх до 256 МиБ; предел памяти run —
+# не ниже наибольшего пика × PEAK_MARGIN_PCT/100 (вверх до ГиБ). Строка репозитория
+# с прогонами меньше PEAK_MIN_N не судит — запрос берётся по строке «*» профиля.
+# Без репозитория (--available без --repo) — наибольший запрос профиля по трём.
+# Запрос CPU pod — по профилю, а не по пику: CPU сжимается, прогон берёт его до
+# предела (замер 2026-10-18: run ci-local 7,7–9,7 ядра при запросе 6 и пределе 12),
+# и запрос — лишь доля при споре; 4 000m — три тяжёлых на узле, где после фона
+# переписи свободно 13 165m (3 × 4 000 = 12 000), 7 000m давали один.
+#
+# PEAKS: профиль|репозиторий|прогонов|p90 пика, МиБ|наибольший пик, МиБ. Замер —
+# журнал слотов машины владельца ($HEAVY_SLOT_DIR/journal.log, строки «leave» с
+# 2026-09-24 по 2026-10-18, прогоны от 60 с): пик = peak + container_peak +
+# escaped_peak (процессы и контейнеры команды), p90 — ранг ⌈0,9·n⌉. Репозиторий —
+# по origin живой копии, иначе по пути; копии, которых больше нет, без kaname и
+# corelib в пути, записаны в kacho. Среди них и прогоны воркспейса, и они p90 kacho
+# ПОНИЖАЮТ: без них ci-local kacho — 549 прогонов, p90 6 418 МиБ, запрос 7 936 МиБ
+# против 7 680 (перемер приёмки ws#1195, круг 1); строка kacho ci-local — поэтому
+# нижняя оценка, предел run (по наибольшему пику) покрывает и её. Замер в кластере
+# пишет сам run.sh (ПИК в шапке) строкой «remote-peak» того же журнала, но run_peak в
+# ней — memory.peak ОДНОГО контейнера run: dind и контейнеры testcontainers в нём не
+# считаны. Для lint (dind нет) строка правится по run_peak; для ci-local, go-race и
+# integration run_peak — лишь нижняя граница пика pod, и правка по нему занизит запрос.
+PEAK_MIN_N=5
+PEAK_MARGIN_PCT=120
+PEAKS='ci-local|kacho|645|6316|9421
+ci-local|kaname|181|3840|6476
+ci-local|corelib|2|2388|2388
+ci-local|*|828|6185|9421
+go-race|kacho|48|11143|13992
+go-race|kaname|45|6843|8124
+go-race|corelib|2|3526|3526
+go-race|*|95|8265|13992
+integration|kacho|38|5105|6982
+integration|kaname|45|5625|6577
+integration|corelib|1|2716|2716
+integration|*|84|5434|6982
+lint|kacho|5|4815|4815
+lint|kaname|6|4298|4298
+lint|corelib|1|55|55
+lint|*|12|4491|4815'
+
+# профиль|cpu pod, m (run и dind)|cpu предел run|память предел run (не ниже пика ×
+# PEAK_MARGIN_PCT)|ephemeral|dind|основание. Запрос памяти — по PEAKS (выше).
+PROFILES='go-race|4000|12|16Gi|40Gi|1|go test -race по монорепо; предел 16 ГиБ — пик kacho 13 992 МиБ × 1,2 поднимает его до 17 ГиБ
+integration|2000|6|10Gi|40Gi|1|make test-integration; контейнеры testcontainers — в dind, у него свой предел
+lint|2000|8|12Gi|20Gi|0|golangci-lint run ./... по монорепо, холодный кэш
+ci-local|4000|12|16Gi|40Gi|1|scripts/ci-local.sh; группы вне go требуют инструментов, которых в образе нет'
+# dind: cpu запрос|cpu предел|память запрос|память предел. Запрос — его собственный
+# расход (замер 2026-10-18: 1m и 23 МиБ в идущем ci-local); память контейнеров
+# testcontainers, которые он держит, входит в запрос pod по PEAKS.
+DIND_RES='100m|2|256Mi|6Gi'
+# pgclient (клиент postgres из образа, ws#1178) — у всех профилей, кроме lint: его
+# запрос тоже входит в запрос pod и вычитается из run.
+PG_REQ_M=10
+PG_REQ_MIB=32
 
 profile_row() {
     local line
@@ -364,6 +428,55 @@ profile_row() {
         [ "${line%%|*}" = "$1" ] && { printf '%s\n' "$line"; return 0; }
     done <<< "$PROFILES"
     return 1
+}
+
+# to_m <cpu> — милли-CPU; to_mib <память> — МиБ (единицы Mi и Gi, как пишет таблица).
+to_m() { case "$1" in *m) printf '%s\n' "${1%m}" ;; *) printf '%s\n' "$(( $1 * 1000 ))" ;; esac; }
+to_mib() { case "$1" in *Gi) printf '%s\n' "$(( ${1%Gi} * 1024 ))" ;; *Mi) printf '%s\n' "${1%Mi}" ;; *) return 1 ;; esac; }
+
+# peak_row <профиль> <репозиторий> — строка PEAKS, которой судится запрос: своя, если
+# прогонов в ней не меньше PEAK_MIN_N, иначе «*» профиля. Код 1 — строки нет.
+peak_row() {
+    awk -F'|' -v p="$1" -v r="$2" -v m="$PEAK_MIN_N" '
+      $1 == p && $2 == r && $3 + 0 >= m { own = $0 }
+      $1 == p && $2 == "*" { all = $0 }
+      END { if (own != "") print own; else if (all != "") print all; else exit 1 }' <<< "$PEAKS"
+}
+
+# sizing <профиль> <репозиторий> — ЗАПРОС ПО ЗАМЕРУ. Ставит NEED_CPU, NEED_MIB (pod:
+# run и dind), RUN_CPU_REQ, RUN_MEM_REQ, RUN_MEM_LIM (m и МиБ), SIZE_WHY. Без
+# репозитория — наибольший запрос памяти профиля по kacho, kaname и corelib.
+sizing() {
+    local row pk n p90 mx podc liml dind dcr dmr r best=0 bestr=""
+    row="$(profile_row "$1")" || return 1
+    IFS='|' read -r _ podc _ liml _ dind _ <<< "$row"
+    if [ -z "${2:-}" ]; then
+        for r in kacho kaname corelib; do
+            sizing "$1" "$r" || return 1
+            [ "$NEED_MIB" -gt "$best" ] && { best="$NEED_MIB"; bestr="$r"; }
+        done
+        sizing "$1" "$bestr" || return 1
+        SIZE_WHY="$SIZE_WHY (репозиторий не назван — наибольший запрос профиля)"
+        return 0
+    fi
+    pk="$(peak_row "$1" "$2")" || return 1
+    IFS='|' read -r _ r n p90 mx <<< "$pk"
+    NEED_CPU="$podc"
+    NEED_MIB=$(( (p90 * PEAK_MARGIN_PCT + 25599) / 25600 )); NEED_MIB=$(( NEED_MIB * 256 ))
+    IFS='|' read -r dcr _ dmr _ <<< "$DIND_RES"
+    if [ "$dind" = 1 ]; then dcr="$(to_m "$dcr")"; dmr="$(to_mib "$dmr")"; else dcr=0; dmr=0; fi
+    RUN_CPU_REQ=$(( NEED_CPU - dcr ))
+    RUN_MEM_REQ=$(( NEED_MIB - dmr ))
+    [ "$1" = lint ] || { RUN_CPU_REQ=$(( RUN_CPU_REQ - PG_REQ_M )); RUN_MEM_REQ=$(( RUN_MEM_REQ - PG_REQ_MIB )); }
+    RUN_MEM_LIM="$(to_mib "$liml")"
+    mx=$(( (mx * PEAK_MARGIN_PCT + 102399) / 102400 )); mx=$(( mx * 1024 ))
+    [ "$mx" -gt "$RUN_MEM_LIM" ] && RUN_MEM_LIM="$mx"
+    [ "$RUN_MEM_LIM" -ge "$RUN_MEM_REQ" ] || RUN_MEM_LIM="$RUN_MEM_REQ"
+    if [ "$r" = "$2" ]; then
+        SIZE_WHY="по замеру: репозиторий $2, прогонов $n, p90 пика $p90 МиБ × $PEAK_MARGIN_PCT %"
+    else
+        SIZE_WHY="по замеру профиля: репозиторий $2 — прогонов меньше $PEAK_MIN_N, строка «*» ($n прогонов, p90 $p90 МиБ × $PEAK_MARGIN_PCT %)"
+    fi
 }
 
 # ── кластер ──────────────────────────────────────────────────────────────────
@@ -477,6 +590,7 @@ red_split() {
                     begin|end) [[ "${w[1]:-}" =~ ^[0-9]+$ ]] && printf '%s\n' "${w[*]}" > "$RP/${w[1]}.${w[0]}" ;;
                     total) printf '%s\n' "${w[*]}" > "$RP/total" ;;
                 esac ;;
+            "remote-heavy-peak: "*) printf '%s\n' "${line#remote-heavy-peak: }" > "$RP/peak" ;;
             "remote-heavy-red: "*|"   ! "*) printf '%s\n' "$line" ;;
             *) [ "${RED_QUIET:-0}" = 1 ] || printf '%s\n' "$line" ;;
         esac
@@ -491,6 +605,20 @@ red_home() {
         printf '%s.red-%s\n' "${f%.log}" "$NSNAME"; return 0
     done
     printf '%s/tmp/remote-heavy-red/%s-%s\n' "$WS" "$NSNAME" "$(date +%Y%m%dT%H%M%S)"
+}
+# peak_note <профиль> <код> — ПИК в шапке: строка «пик run …» в stderr и строка
+# «remote-peak» в журнал слотов ($HEAVY_SLOT_DIR, по умолчанию ~/.cache/heavy-slots),
+# если его каталог есть. Пика нет (строки шага не дошло) — так и пишется, «—».
+peak_note() {
+    local b="—" u="—" sec="—" mib="—" avg="—" d
+    [ -s "$RP/peak" ] && read -r b u sec < "$RP/peak"
+    [[ "$b" =~ ^[0-9]+$ ]] && mib=$(( (b + 1048575) / 1048576 ))
+    [[ "$u" =~ ^[0-9]+$ ]] && [[ "$sec" =~ ^[0-9]+$ ]] && [ "$sec" -gt 0 ] && avg=$(( u / sec / 1000 ))
+    say "пик run: память $mib МиБ при запросе $RUN_MEM_REQ и пределе $RUN_MEM_LIM МиБ, CPU в среднем ${avg}m за ${sec} с (запрос ${RUN_CPU_REQ}m)"
+    d="${HEAVY_SLOT_DIR:-$(getent passwd "$(id -u)" | cut -d: -f6)/.cache/heavy-slots}"
+    [ -d "$d" ] || return 0
+    printf '%s remote-peak class=%s repo=%s rc=%s run_peak=%sMiB req=%sMiB lim=%sMiB cpu_avg=%sm cpu_req=%sm dur=%ss ns=%s\n' \
+        "$(date -Is)" "$1" "$REPO" "$2" "$mib" "$RUN_MEM_REQ" "$RUN_MEM_LIM" "$avg" "$RUN_CPU_REQ" "$sec" "$NSNAME" >> "$d/journal.log" 2>/dev/null
 }
 # red_collect <код команды> — собрать копии красных групп из $RP, сверить, замаскировать,
 # положить в каталог и назвать его. Итога «total» нет — разбор полного лога контейнера.
@@ -622,14 +750,13 @@ busy_heavy() {
 # открытого для планирования, нет; 75 — такой есть, но места под запрос нет; 1 —
 # перепись не прочитана. Причина — в PLACE_WHY, перепись — в PLACE_CENSUS.
 placement() {
-    local nj pj r hr=0
-    { [ "$1" -gt 0 ] || [ "$2" -gt 0 ]; } && hr="$HEADROOM_PCT"
+    local nj pj r
     PLACE_WHY=""; PLACE_CENSUS=""
     nj="$(kc get nodes -o json 2>/dev/null)" || { PLACE_WHY="узлы не прочитаны"; return 1; }
     pj="$(kc get pods -A -o json 2>/dev/null)" || { PLACE_WHY="pod кластера не прочитаны"; return 1; }
     # Перепись pod кластера — сотни КиБ, а строка аргумента ограничена ядром
     # (128 КиБ): вход — файлами, а не --argjson (опыт 2026-10-09 на кластере).
-    r="$(jq -nr --slurpfile N <(printf '%s' "$nj") --slurpfile P <(printf '%s' "$pj") --argjson cpu "$1" --argjson mem "$2" --argjson hr "$hr" '
+    r="$(jq -nr --slurpfile N <(printf '%s' "$nj") --slurpfile P <(printf '%s' "$pj") --argjson cpu "$1" --argjson mem "$2" '
       $N[0] as $n | $P[0] as $p |
       def mcpu: tostring | if endswith("m") then (.[:-1] | tonumber) else (tonumber * 1000) end;
       def mib: tostring | capture("^(?<v>[0-9.]+)(?<u>[A-Za-z]*)$") as $c
@@ -650,35 +777,29 @@ placement() {
             fmem: ((.status.allocatable.memory // "0" | mib) - ([$live[] | select(.spec.nodeName == $nm) | eff("memory")] | add // 0))}] as $ns
       | [($ns | length), ($ns | map(select(.open | not)) | length),
          ($ns | map(select(.open)) | length),
-         ($ns | map(select(.open and .fcpu - $cpu >= .acpu * $hr / 100 and .fmem - $mem >= .amem * $hr / 100)) | length)] | map(tostring) | join(" ")' 2>/dev/null)" \
+         ($ns | map(select(.open and .fcpu >= $cpu and .fmem >= $mem)) | length)] | map(tostring) | join(" ")' 2>/dev/null)" \
         || { PLACE_WHY="перепись узлов не разобрана"; return 1; }
     local all closed open fit
     read -r all closed open fit <<< "$r"
-    PLACE_CENSUS="узлов $all: закрыты для планирования $closed, открыты $open, из них с местом$([ "$hr" -gt 0 ] && echo " и запасом $hr %") $fit"
+    PLACE_CENSUS="узлов $all: закрыты для планирования $closed, открыты $open, из них с местом $fit"
     [ "${all:-0}" -gt 0 ] || { PLACE_WHY="узлов в кластере ноль — переписывать нечего"; return 1; }
     [ "$fit" -gt 0 ] && return 0
     if [ "$open" -eq 0 ]; then
         PLACE_WHY="открытого для планирования узла нет ($PLACE_CENSUS) — pod не встанет"; return 69
     fi
-    PLACE_WHY="места под запрос (cpu $(( $1 / 1000 )), память $(( $2 / 1024 )) ГиБ) с запасом $hr % узла по CPU и памяти нет ни на одном открытом узле ($PLACE_CENSUS)"; return 75
-}
-
-# need_of <профиль> — «mCPU МиБ» запроса pod профиля: run и боковой dind.
-need_of() {
-    local row cr mr d dcr dmr
-    row="$(profile_row "$1")" || return 1
-    IFS='|' read -r _ cr _ mr _ _ d _ <<< "$row"
-    IFS='|' read -r dcr _ dmr _ <<< "$DIND_RES"
-    [ "$d" = 1 ] || { dcr=0; dmr=0Gi; }
-    printf '%s %s\n' "$(( (cr + dcr) * 1000 ))" "$(( (${mr%Gi} + ${dmr%Gi}) * 1024 ))"
+    PLACE_WHY="места под запрос (cpu ${1}m, память $2 МиБ) по CPU и памяти нет ни на одном открытом узле ($PLACE_CENSUS)"; return 75
 }
 
 case "${1:-}" in
     --available)
-        need="0 0"
+        need="0 0"; avw=""
         if [ -n "${2:-}" ]; then
-            [ "$2" = --profile ] && [ "$#" -eq 3 ] || { say "--available [--profile <профиль>], получено «${*:2}»"; exit 64; }
-            need="$(need_of "$3")" || { say "профиля «$3» нет: $(cut -d'|' -f1 <<< "$PROFILES" | tr '\n' ' ')"; exit 64; }
+            { [ "$2" = --profile ] && [ "$#" -eq 3 ]; } || { [ "$2" = --profile ] && [ "$#" -eq 5 ] && [ "$4" = --repo ]; } \
+                || { say "--available [--profile <профиль> [--repo kacho|kaname|corelib]], получено «${*:2}»"; exit 64; }
+            [ "$#" -eq 3 ] || case "$5" in kacho|kaname|corelib) ;; *) say "--repo kacho|kaname|corelib, получено «$5»"; exit 64 ;; esac
+            profile_row "$3" >/dev/null || { say "профиля «$3» нет: $(cut -d'|' -f1 <<< "$PROFILES" | tr '\n' ' ')"; exit 64; }
+            sizing "$3" "${5:-}" || { say "запрос профиля $3 не выведен из PEAKS: строки профиля в таблице нет (не выполнилось)"; exit 69; }
+            need="$NEED_CPU $NEED_MIB"; avw="; запрос pod: cpu ${NEED_CPU}m, память $NEED_MIB МиБ — $SIZE_WHY"
         fi
         valid_max_par || exit 64
         available; arc=$?
@@ -693,10 +814,15 @@ case "${1:-}" in
             1) say "размещение не проверено: $PLACE_WHY"; exit 69 ;;
             *) say "$PLACE_WHY"; exit "$prc" ;;
         esac
-        echo "remote-heavy: кластер отвечает, создавать ns вправе; идущих тяжёлых прогонов $n из $MAX_PAR; $PLACE_CENSUS"; exit 0 ;;
+        echo "remote-heavy: кластер отвечает, создавать ns вправе; идущих тяжёлых прогонов $n из $MAX_PAR; $PLACE_CENSUS$avw"; exit 0 ;;
     --profiles)
-        while IFS='|' read -r n cr cl mr ml eph d basis; do
-            printf '%-12s cpu %s/%s  память %s/%s  диск %s  dind %s\n%-12s основание: %s\n' "$n" "$cr" "$cl" "$mr" "$ml" "$eph" "$([ "$d" = 1 ] && echo да || echo нет)" "" "$basis"
+        while IFS='|' read -r n _ _ _ eph d basis; do
+            for r in kacho kaname corelib; do
+                sizing "$n" "$r" || { say "запрос профиля $n для $r не выведен из PEAKS: строки профиля в таблице нет (не выполнилось)"; exit 69; }
+                printf '%-12s %-8s pod cpu %sm память %s МиБ · run cpu %sm/%s память %s/%s МиБ · диск %s · dind %s\n%-21s %s\n' "$n" "$r" "$NEED_CPU" "$NEED_MIB" \
+                    "$RUN_CPU_REQ" "$(cut -d'|' -f3 <<< "$(profile_row "$n")")" "$RUN_MEM_REQ" "$RUN_MEM_LIM" "$eph" "$([ "$d" = 1 ] && echo да || echo нет)" "" "$SIZE_WHY"
+            done
+            printf '%-21s основание: %s\n' "" "$basis"
         done <<< "$PROFILES"
         exit 0 ;;
     ''|-h|--help) sed -n '/^# ФОРМА/,/^#$/p' "$0" >&2; exit 64 ;;
@@ -728,7 +854,7 @@ CMD=("$@")
 case "$REPO" in kacho|kaname|corelib) ;; *) say "--repo kacho|kaname|corelib, получено «$REPO»"; exit 64 ;; esac
 [ -n "$REF" ] || { say "--ref <ревизия> обязателен"; exit 64; }
 ROW="$(profile_row "$PROFILE")" || { say "профиля «$PROFILE» нет: $(cut -d'|' -f1 <<< "$PROFILES" | tr '\n' ' ')"; exit 64; }
-IFS='|' read -r _ CPU_REQ CPU_LIM MEM_REQ MEM_LIM EPH DIND _ <<< "$ROW"
+IFS='|' read -r _ _ CPU_LIM _ EPH DIND _ <<< "$ROW"
 [[ "$TIMEOUT_S" =~ ^[0-9]+$ ]] && [ "$TIMEOUT_S" -ge 60 ] && [ "$TIMEOUT_S" -le "$MAX_TIMEOUT_S" ] \
     || { say "--timeout — от 60 до $MAX_TIMEOUT_S с, получено «$TIMEOUT_S»"; exit 64; }
 valid_max_par || exit 64
@@ -1000,10 +1126,46 @@ reap_local() {
     fi
 }
 
+# sweep_heavy — УБОРКА ПРОСРОЧЕННЫХ в шапке. Перепись не прочитана — уборка не
+# делается и это говорится строкой: прогон от неё не зависит.
+sweep_heavy() {
+    local nsj jbj plan own="" foreign="" n_ok=0 n_seen x
+    if ! nsj="$(kc get ns -o json 2>/dev/null)" || ! jbj="$(kc get jobs -A -l kacho.io/kind=heavy -o json 2>/dev/null)"; then
+        say "уборка просроченных тяжёлых ns не сделана: перепись ns не прочитана"; return 0
+    fi
+    plan="$(jq -nr --slurpfile N <(printf '%s' "$nsj") --slurpfile J <(printf '%s' "$jbj") \
+        --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --argjson age "$SWEEP_AGE_S" '
+      ($now | fromdate) as $t
+      | [$J[0].items[] | select([.status.conditions[]? | select(.status == "True" and (.type == "Complete" or .type == "Failed"))] | length == 0)
+                       | .metadata.namespace] as $live
+      | [$N[0].items[] | select((.status.phase // "Active") != "Terminating")
+         | select((.metadata.name // "") | test("^t[1-9][0-9]*-"))
+         | {n: .metadata.name, heavy: ((.metadata.labels["kacho.io/kind"] // "") == "heavy" and (.metadata.name | test("^t[1-9][0-9]*-heavy-[a-z0-9-]+$"))),
+            exp: ((.metadata.annotations["kacho.io/expires"] // "") as $e | ($e != "" and $e < $now)),
+            old: (((.metadata.creationTimestamp // $now) | fromdate) < $t - $age),
+            keep: (.metadata.annotations["kacho.io/keep"] != null),
+            live: (.metadata.name as $n | $live | any(. == $n))}] as $all
+      | ($all | map(select(.heavy)) | length) as $seen
+      | ($all[] | select(.heavy and (.live | not) and (.exp or (.old and (.keep | not)))) | "own \(.n)"),
+        ($all[] | select((.heavy | not) and .exp) | "foreign \(.n)"),
+        "seen \($seen)"' 2>/dev/null)" || { say "уборка просроченных тяжёлых ns не сделана: перепись не разобрана"; return 0; }
+    n_seen="$(sed -n 's/^seen //p' <<< "$plan")"
+    while read -r x; do
+        [ -n "$x" ] || continue
+        guard_write "уборка просроченного тяжёлого ns" || exit 69
+        kc delete ns "$x" --wait=false >/dev/null 2>&1 && { n_ok=$((n_ok + 1)); own="$own $x"; }
+    done <<< "$(sed -n 's/^own //p' <<< "$plan")"
+    foreign="$(sed -n 's/^foreign //p' <<< "$plan" | tr '\n' ' ' | sed 's/ $//')"
+    [ "$n_ok" -gt 0 ] && say "уборка просроченных тяжёлых ns: снято $n_ok из ${n_seen:-0} тяжёлых —$own"
+    [ -n "$foreign" ] && say "просроченные ns задач, не тяжёлые (run.sh их не снимает — перечень): $foreign"
+    return 0
+}
+
 # ── кластер и уборка ─────────────────────────────────────────────────────────
 available; arc=$?
 [ "$arc" = 0 ] || { say "$WHY (не выполнилось)"; [ "$arc" = 64 ] && exit 64; exit 69; }
 reap_local
+sweep_heavy
 export REMOTE_HEAVY_OWNER="$OWNER"
 busy="$(busy_heavy)" || { say "перепись идущих тяжёлых ns не прочитана (не выполнилось)"; exit 69; }
 n="$(grep -c . <<< "$busy")"
@@ -1012,7 +1174,8 @@ if [ "$n" -ge "$MAX_PAR" ]; then
 fi
 
 # Размещение — до ns (РАЗМЕЩЕНИЕ в шапке): pod, которому негде встать, ns не заводит.
-read -r NEED_CPU NEED_MIB <<< "$(need_of "$PROFILE")"
+sizing "$PROFILE" "$REPO" || { say "запрос профиля $PROFILE для $REPO не выведен из PEAKS (не выполнилось)"; exit 69; }
+say "запрос pod: cpu ${NEED_CPU}m, память $NEED_MIB МиБ — $SIZE_WHY"
 placement "$NEED_CPU" "$NEED_MIB"; prc=$?
 case "$prc" in
     0) ;;
@@ -1054,16 +1217,19 @@ trap 'on_signal INT 130' INT
 trap 'on_signal TERM 143' TERM
 
 LIFE_S=$(( TIMEOUT_S + WAIT_START_S + 600 ))
-[ -n "$KEEP_H" ] && LIFE_S=$(( KEEP_H * 3600 ))
+# --keep — часы ПОСЛЕ наибольшей жизни прогона, а не от создания: иначе срок ns
+# (--keep 1 — 3 600 с) истекал бы при живом Job (срок Job до 16 200 с), и уборка
+# чужого запуска сняла бы идущий прогон (приёмка ws#1195, круг 1).
+[ -n "$KEEP_H" ] && LIFE_S=$(( LIFE_S + KEEP_H * 3600 ))
 EXPIRES="$(date -u -d "@$(( $(now) + LIFE_S ))" +%Y-%m-%dT%H:%M:%SZ)"
 PSA=baseline; [ "$DIND" = 1 ] && PSA=privileged
 
-jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg repo "$REPO" --arg exp "$EXPIRES" --arg psa "$PSA" --arg owner "$OWNER" '{
+jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg repo "$REPO" --arg exp "$EXPIRES" --arg psa "$PSA" --arg owner "$OWNER" --arg keep "$KEEP_H" '{
   apiVersion: "v1", kind: "Namespace",
   metadata: {name: $ns,
     labels: {"kacho.io/task": $task, "kacho.io/stand": "test", "kacho.io/kind": "heavy", "kacho.io/repo": $repo,
              "pod-security.kubernetes.io/enforce": $psa},
-    annotations: {"kacho.io/expires": $exp, "kacho.io/owner": $owner}}}' > "$BOX/ns.json"
+    annotations: ({"kacho.io/expires": $exp, "kacho.io/owner": $owner} + (if $keep != "" then {"kacho.io/keep": $keep} else {} end))}}' > "$BOX/ns.json"
 # create, а не apply: существующее ns create не трогает, а apply переписал бы его
 # метки, и trap снял бы чужое.
 guard_write "создание ns" || exit 69
@@ -1134,12 +1300,11 @@ DENY_PROBE="$(jq -nr --argjson svc "$(kc get svc -n kacho -o json 2>/dev/null ||
 # Квота — сумма запросов профиля с запасом на init: ns не способно занять больше
 # одного прогона, даже если в нём появится второй pod.
 IFS='|' read -r DCR DCL DMR DML <<< "$DIND_RES"
-[ "$DIND" = 1 ] || { DCR=0; DCL=0; DMR=0Gi; DML=0Gi; }
-gi() { printf '%s' "${1%Gi}"; }
+[ "$DIND" = 1 ] || { DCR=0m; DCL=0; DMR=0Mi; DML=0Mi; }
 jq -n --arg ns "$NSNAME" \
-    --arg rc "$(( CPU_REQ + DCR + 1 ))" --arg lc "$(( CPU_LIM + DCL + 2 ))" \
-    --arg rm "$(( $(gi "$MEM_REQ") + $(gi "$DMR") + 1 ))Gi" --arg lm "$(( $(gi "$MEM_LIM") + $(gi "$DML") + 2 ))Gi" \
-    --arg eph "$EPH" --arg lephq "$(( $(gi "$EPH") + 8 ))Gi" '{apiVersion: "v1", kind: "List", items: [
+    --arg rc "$(( RUN_CPU_REQ + $(to_m "$DCR") + 1000 ))m" --arg lc "$(( CPU_LIM + DCL + 2 ))" \
+    --arg rm "$(( RUN_MEM_REQ + $(to_mib "$DMR") + 1024 ))Mi" --arg lm "$(( RUN_MEM_LIM + $(to_mib "$DML") + 2048 ))Mi" \
+    --arg eph "$EPH" --arg lephq "$(( $(to_mib "$EPH") / 1024 + 8 ))Gi" '{apiVersion: "v1", kind: "List", items: [
   {apiVersion: "v1", kind: "ResourceQuota", metadata: {name: "heavy", namespace: $ns},
    spec: {hard: {pods: "2", "count/jobs.batch": "1", "requests.cpu": $rc, "limits.cpu": $lc,
                  "requests.memory": $rm, "limits.memory": $lm,
@@ -1512,11 +1677,20 @@ heavy_red() {
 # (с exec этого не было — контейнер кончался с командой). tee ждётся не дольше 5 с.
 heavy_cmd() {
   local rc ev="${HEAVY_MEM_EVENTS:-/sys/fs/cgroup/memory.events}" o0 o1 fd tp
+  local cs="${HEAVY_CPU_STAT:-/sys/fs/cgroup/cpu.stat}" c0 c1 t0 pk
   o0="$(awk '$1 == "oom_kill" { print $2 }' "$ev" 2>/dev/null)"
+  c0="$(awk '$1 == "usage_usec" { print $2 }' "$cs" 2>/dev/null)"; t0="$(date +%s)"
   exec {fd}> >(tee /work/heavy-cmd.out); tp=$!
   "$@" >&"$fd" 2>&1; rc=$?
   exec {fd}>&-
   for _ in 1 2 3 4 5 6 7 8 9 10; do kill -0 "$tp" 2>/dev/null || break; sleep 0.5; done
+  # ПИК (ws#1195): память run — memory.peak cgroup контейнера (вся его жизнь, байты),
+  # CPU — usage_usec за время команды. Нечитаемое — «—», строка есть всегда.
+  pk="$(cat "${HEAVY_MEM_PEAK:-/sys/fs/cgroup/memory.peak}" 2>/dev/null)"
+  c1="$(awk '$1 == "usage_usec" { print $2 }' "$cs" 2>/dev/null)"
+  [[ "$pk" =~ ^[0-9]+$ ]] || pk="—"
+  { [[ "$c0" =~ ^[0-9]+$ ]] && [[ "$c1" =~ ^[0-9]+$ ]]; } && c1=$(( c1 - c0 )) || c1="—"
+  echo "remote-heavy-peak: $pk $c1 $(( $(date +%s) - t0 ))"
   o1="$(awk '$1 == "oom_kill" { print $2 }' "$ev" 2>/dev/null)"
   if [[ "$o0" =~ ^[0-9]+$ ]] && [[ "$o1" =~ ^[0-9]+$ ]] && [ "$o1" -gt "$o0" ]; then
     echo "remote-heavy-oom: процесс команды убит пределом памяти (oom_kill $o0 → $o1, код $rc)" | tee /dev/termination-log >&2
@@ -1591,9 +1765,9 @@ mkdir -p /work/bin; echo "remote-heavy: дерево $HEAVY_SHA" >&2'
 jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg goimg "$GO_IMAGE" --arg dimg "$DIND_IMAGE" --arg cimg "$CLI_IMAGE" \
     --arg sha "$SHA" --arg main "$MAIN_SHA" --arg wd "$WORKDIR" --arg prep "$PREP" --arg fetch "$FETCH" \
     --argjson deadline "$(( TIMEOUT_S + WAIT_START_S ))" --argjson dind "$DIND" \
-    --arg cr "$CPU_REQ" --arg cl "$CPU_LIM" --arg mr "$MEM_REQ" --arg ml "$MEM_LIM" --arg eph "$EPH" \
+    --arg cr "${RUN_CPU_REQ}m" --arg cl "$CPU_LIM" --arg mr "${RUN_MEM_REQ}Mi" --arg ml "${RUN_MEM_LIM}Mi" --arg eph "$EPH" \
     --arg dcr "$DCR" --arg dcl "$DCL" --arg dmr "$DMR" --arg dml "$DML" \
-    --arg pgimg "$PG_IMAGE" --arg pgsh "$PG_SH" --argjson pg "$PG" --arg dindsh "$DIND_SH" --arg deny "$DENY_PROBE" --arg helm "$HELM_PIN" --arg node "$NODE_PIN" --arg buf "$BUF_PIN" \
+    --arg pgimg "$PG_IMAGE" --arg pgsh "$PG_SH" --argjson pg "$PG" --arg pgcr "${PG_REQ_M}m" --arg pgmr "${PG_REQ_MIB}Mi" --arg dindsh "$DIND_SH" --arg deny "$DENY_PROBE" --arg helm "$HELM_PIN" --arg node "$NODE_PIN" --arg buf "$BUF_PIN" \
     --arg pushin "$PUSH_INPUT" --arg gname "$GIT_NAME" --arg gemail "$GIT_EMAIL" --argjson cmd "$CMD_JSON" '
 # kubelet раскрывает в command, args и value env контейнера $(ИМЯ) значением env и
 # сворачивает $$ в $ (ws#1142: составной Job потерял переменные и коды осей). Каждый
@@ -1636,7 +1810,7 @@ def kesc_c: (if .command then .command |= map(kesc) else (.) end)
                       + (if $dind == 1 or $pg == 1 then [{name: "tools", mountPath: "/tools"}] else [] end))}]
       + (if $pg == 1 then [
        {name: "pgclient", image: $pgimg, command: ["sh", "-c", $pgsh],
-        resources: {requests: {cpu: "10m", memory: "32Mi"}, limits: {cpu: "1", memory: "512Mi"}},
+        resources: {requests: {cpu: $pgcr, memory: $pgmr}, limits: {cpu: "1", memory: "512Mi"}},
         volumeMounts: [{name: "tools", mountPath: "/tools"}]}]
       else [] end)),
      volumes: ([{name: "work", emptyDir: {}}, {name: "cache", emptyDir: {}}]
@@ -1649,7 +1823,7 @@ kc create -f "$BOX/job.json" >/dev/null || { say "Job не создан (не в
 T0="$(now)"
 REQ_SPEC="$(jq -c '.spec.template.spec' "$BOX/job.json")"
 verify_spec Job "$(kc -n "$NSNAME" get job run -o json 2>/dev/null | jq -c '.spec.template.spec // empty' 2>/dev/null)"
-say "Job создан: образ golang:$GOVER$([ -n "$LINT_PIN" ] && [ "$PROFILE" != go-race ] && [ "$PROFILE" != integration ] && echo ", golangci-lint $LINT_PIN"), cpu $CPU_REQ/$CPU_LIM, память $MEM_REQ/$MEM_LIM$([ "$DIND" = 1 ] && echo ', dind')$([ -n "$HELM_PIN$NODE_PIN$BUF_PIN" ] && echo ", helm ${HELM_PIN:-нет пина}${HELM_SRC:+ ($HELM_SRC)}, node ${NODE_PIN:-нет пина}, buf ${BUF_PIN:-нет пина}")"
+say "Job создан: образ golang:$GOVER$([ -n "$LINT_PIN" ] && [ "$PROFILE" != go-race ] && [ "$PROFILE" != integration ] && echo ", golangci-lint $LINT_PIN"), cpu ${RUN_CPU_REQ}m/$CPU_LIM, память $RUN_MEM_REQ/$RUN_MEM_LIM МиБ$([ "$DIND" = 1 ] && echo ', dind')$([ -n "$HELM_PIN$NODE_PIN$BUF_PIN" ] && echo ", helm ${HELM_PIN:-нет пина}${HELM_SRC:+ ($HELM_SRC)}, node ${NODE_PIN:-нет пина}, buf ${BUF_PIN:-нет пина}")"
 
 # pod_state — «имя|фаза|fetch|run|код run|причина run|сообщение run|ожидание|
 # планирование|отказ userns». Отказ userns — строка «remote-heavy-userns: …» в
@@ -1668,7 +1842,8 @@ pod_state() {
         ([($p.status.initContainerStatuses // [])[], ($p.status.containerStatuses // [])[]]
          | map(.name as $n | ((.state.terminated.message // ""), (.lastState.terminated.message // ""))
                | select(startswith("remote-heavy-userns:")) | "\($n): \(.)")
-         | first // "" | gsub("[|\n]"; " ")) ] | join("|")'
+         | first // "" | gsub("[|\n]"; " ")),
+        (($p.status.reason // "") + (if $p.status.message then ": \($p.status.message)" else "" end) | gsub("[|\n]"; " ")) ] | join("|")'
 }
 
 # wait_bg <pid> — ждать фонового: wait прерывается сигналом, и trap снимает ns сразу.
@@ -1687,7 +1862,7 @@ git -C "$SRC" update-ref -d "$TMPREF"; TMPREF=""
 [ "$brc" -eq 0 ] || { say "bundle ревизии $SHA не собран"; exit 69; }
 POD=""; PLACED_AT=0
 while :; do
-    IFS='|' read -r POD PHASE FETCH_ST RUN_ST _ _ _ WAITR SCHED USERNS <<< "$(pod_state)"
+    IFS='|' read -r POD PHASE FETCH_ST RUN_ST _ _ _ WAITR SCHED USERNS _ <<< "$(pod_state)"
     [ -z "$USERNS" ] || userns_refused "$USERNS"
     [ "$FETCH_ST" = running ] && break
     case "$WAITR" in
@@ -1727,7 +1902,7 @@ say "исходники доставлены: $(( $(stat -c %s "$BOX/src.bundle"
 
 # ── команда ──────────────────────────────────────────────────────────────────
 while :; do
-    IFS='|' read -r POD PHASE FETCH_ST RUN_ST _ _ _ WAITR _ USERNS <<< "$(pod_state)"
+    IFS='|' read -r POD PHASE FETCH_ST RUN_ST _ _ _ WAITR _ USERNS _ <<< "$(pod_state)"
     [ -z "$USERNS" ] || userns_refused "$USERNS"
     [ "$RUN_ST" = running ] || [ "$RUN_ST" = terminated ] && break
     if [ "$PHASE" = Failed ] || [ -z "$POD" ]; then
@@ -1749,7 +1924,7 @@ while :; do
     # публикует позже: без ожидания конец потока читался обрывом, и переподключение
     # повторяло хвост лога (опыт 2026-10-08: 68 строк дважды).
     for _ in 1 2 3 4 5 6; do
-        IFS='|' read -r POD PHASE _ RUN_ST RUN_RC RUN_REASON RUN_MSG _ _ USERNS <<< "$(pod_state)"
+        IFS='|' read -r POD PHASE _ RUN_ST RUN_RC RUN_REASON RUN_MSG _ _ USERNS POD_REASON <<< "$(pod_state)"
         [ "$RUN_ST" = terminated ] && break
         sleep 2 & wait_bg $!
     done
@@ -1760,6 +1935,12 @@ while :; do
     sleep 2 & wait_bg $!
 done
 T2="$(now)"
+# Выселение (ЗАПРОС ПО ЗАМЕРУ, ws#1195): узлу не хватило памяти, и kubelet снял pod,
+# шедший сверх запроса. Код контейнера — след снятия, а не вердикт команды.
+if [[ "${POD_REASON:-}" == Evicted* ]]; then
+    peak_note "$PROFILE" "—"
+    say "pod выселен узлом через $(( T2 - T1 )) с (${POD_REASON}) — команда не досчитана, не выполнилось"; exit 69
+fi
 
 if [ "$RUN_ST" != terminated ]; then
     reason="$(kc -n "$NSNAME" get job run -o json 2>/dev/null | jq -r '[.status.conditions[]? | select(.status == "True") | .reason] | join(",")')"
@@ -1776,10 +1957,12 @@ if [[ "$RUN_MSG" == remote-heavy-prep:* ]]; then
     say "подготовка pod не удалась: ${RUN_MSG#remote-heavy-prep: } — команда не запускалась (не выполнилось)"; exit 69
 fi
 if [ "$RUN_REASON" = OOMKilled ] || [[ "$RUN_MSG" == remote-heavy-oom:* ]]; then
-    say "команда оборвана пределом памяти $MEM_LIM (${RUN_MSG#remote-heavy-oom: }${RUN_MSG:+; }$RUN_REASON) через $(( T2 - T1 )) с — не выполнилось"; exit 76
+    peak_note "$PROFILE" 76
+    say "команда оборвана пределом памяти $RUN_MEM_LIM МиБ (${RUN_MSG#remote-heavy-oom: }${RUN_MSG:+; }$RUN_REASON) через $(( T2 - T1 )) с — не выполнилось"; exit 76
 fi
 [[ "$RUN_RC" =~ ^[0-9]+$ ]] || { say "код команды не прочитан («$RUN_RC») — не выполнилось"; exit 69; }
 red_collect "$RUN_RC"
+peak_note "$PROFILE" "$RUN_RC"
 say "команда завершилась кодом $RUN_RC за $(( T2 - T1 )) с (всего $(( T2 - T0 )) с от создания Job)"
 exit "$RUN_RC"
 }
