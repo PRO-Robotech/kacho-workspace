@@ -1133,10 +1133,13 @@ done
 #   H1* шаг хуков ИСПОЛНЕНИЕМ над клоном-двойником: провязан (check установщика 0);
 #       близнец без шага — check 1 (двойник различает); установщик отказал либо
 #       check после провязки не сверился — 125 с причиной; установщика нет — 0
+# Вторая форма G1 — без подписи «|| pf»: строка-маркер шага («# имя-begin|end|check»),
+# за которой на той же строке «;» — любая команда, дописанная к маркеру.
+G1_MARK='^[[:space:]]*#[[:space:]]*[a-z0-9]+-(begin|end|check)[[:space:]]*;'
 for prof in "${PPROFS[@]}"; do
     pc="$BOX/p8-$prof.cmd"
-    sw="$(grep -c -E '^[[:space:]]*#.*\|\| pf' "$pc")"
-    if [ "$sw" = 0 ] && [ -s "$pc" ]; then ok; else OUT="$pc"; bad "G1-$prof" "строк-комментариев с командой подготовки: $sw — команда ушла в комментарий"; fi
+    sw="$(grep -c -E '^[[:space:]]*#.*\|\| pf' "$pc")"; sm="$(grep -c -E "$G1_MARK" "$pc")"
+    if [ "$sw" = 0 ] && [ "$sm" = 0 ] && [ -s "$pc" ]; then ok; else OUT="$pc"; bad "G1-$prof" "строк-комментариев с командой подготовки: $sw (с «|| pf»), $sm (команда за маркером шага) — команда ушла в комментарий"; fi
     if awk -v pg="$([ "$prof" = lint ] && echo 0 || echo 1)" '/^# pgwait-end$/ { w = NR } /^# expose-begin$/ { b++; x = NR } /^heavy_cmd "\$@"$/ { e = NR } /go install github.com\/golangci/ { g = NR }
            END { exit !(b == 1 && e && x < e && (!pg || (w && w < x)) && (!g || g < x)) }' "$pc"; then ok
     else OUT="$pc"; bad "X0-$prof" "шага видимости нет, он не один либо стоит не после установок и не перед командой"; fi
@@ -1154,6 +1157,13 @@ done
 sed -e '/^# pkgs-end$/{N;s/\n\(echo "remote-heavy: ставлю golangci-lint\)/; \1/}' "$BOX/p8-ci-local.cmd" > "$BOX/g1-mut.cmd"
 if ! cmp -s "$BOX/p8-ci-local.cmd" "$BOX/g1-mut.cmd" && [ "$(grep -c -E '^[[:space:]]*#.*\|\| pf' "$BOX/g1-mut.cmd")" -ge 1 ]; then ok
 else OUT="$BOX/g1-mut.cmd"; bad G1m "мутант «установка в комментарии» не построен либо не найден распознавателем"; fi
+if [ "$(grep -c -E "$G1_MARK" "$BOX/g1-mut.cmd")" -ge 1 ]; then ok; else OUT="$BOX/g1-mut.cmd"; bad G1m "склейка с маркером не найдена второй формой"; fi
+# G1m2 — мутант без подписи «|| pf»: к маркеру дописана голая команда; первая форма её не
+#        видит (это и проверяется), вторая — находит
+sed -e '/^# pkgs-end$/s/$/; echo remote-heavy: склейка без подписи/' "$BOX/p8-ci-local.cmd" > "$BOX/g1-mut2.cmd"
+if ! cmp -s "$BOX/p8-ci-local.cmd" "$BOX/g1-mut2.cmd" && [ "$(grep -c -E '^[[:space:]]*#.*\|\| pf' "$BOX/g1-mut2.cmd")" = 0 ] \
+   && [ "$(grep -c -E "$G1_MARK" "$BOX/g1-mut2.cmd")" = 1 ]; then ok
+else OUT="$BOX/g1-mut2.cmd"; bad G1m2 "склейка без «|| pf» не построена либо не найдена второй формой"; fi
 
 # X1 — шаг видимости исполнением
 XB="$BOX/xb"
@@ -1167,10 +1177,13 @@ x_box() {
     printf 'не исполняемое\n' > "$XB/tools/notes"
     chmod +x "$XB/work/bin/golangci-lint" "$XB/tools/psql"
 }
+# Подмена путей — через заполнители: вставленный $XB сам может нести «/work» (TMPDIR под
+# kacho-workspace), и следующее выражение цепочки правило бы его повторно.
 x_run() {
     OUT="$BOX/$1.out"
     # shellcheck disable=SC2016  # pf раскрывается при исполнении шага
-    { echo 'pf() { echo "remote-heavy-prep: $1" >&2; exit 125; }'; sed -e "s#/usr/local/bin#$XB/ulb#g" -e "s#/work#$XB/work#g" -e "s#/tools#$XB/tools#g" "$2"; } > "$BOX/$1.sh"
+    { echo 'pf() { echo "remote-heavy-prep: $1" >&2; exit 125; }'; sed -e "s#/usr/local/bin#@@RH_ULB@@#g" -e "s#/work#@@RH_WORK@@#g" -e "s#/tools#@@RH_TOOLS@@#g" \
+        -e "s#@@RH_ULB@@#$XB/ulb#g" -e "s#@@RH_WORK@@#$XB/work#g" -e "s#@@RH_TOOLS@@#$XB/tools#g" "$2"; } > "$BOX/$1.sh"
     env -i PATH="$XB/work/bin:/usr/bin:/bin" bash "$BOX/$1.sh" > "$OUT" 2>&1; RC=$?
     cat "$OUT" >> "$ALL_OUT"
     expect_rc "$1" "$3"
