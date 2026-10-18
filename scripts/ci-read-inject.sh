@@ -114,7 +114,9 @@
 #             близнец: cancelled С проверками — судятся они          → 1 CI-FAILED,
 #               cancelled без проверок 0
 #   набор обязательных вызывающему (CI_READ_REQUIRED_OUT, ws#1215): контекст
-#             защиты | пустой без защиты | контекст набора правил   → 0, файл
+#             защиты | пустой без защиты | контекст набора правил   → 0, файл;
+#             наборы правил | защита (502, не «not protected») не
+#             прочитаны                                → 2 VOID, файла нет
 #   живая ведомость: запрос в main каждого ствола (kacho, kaname,
 #             corelib, kacho-workspace) — строка есть             → 0 green
 #   живая ведомость: запрос в базу КАЖДОЙ строки (стволы и эпики,
@@ -179,6 +181,9 @@
 #   displaced-any-cancelled — RUN-DISPLACED и при проверках прогона (близнец краснеет);
 #   required-out-dropped — набор обязательных вызывающему не пишется (ws#1215);
 #   required-out-empty  — вызывающему пишется пустой набор при непустом;
+#   rules-read-tolerated — отказ чтения наборов правил терпим: набор пуст, а не
+#                         «не получен» (M2 check-verifier, ws#1215);
+#   protection-read-tolerated — то же для отказа чтения защиты не вида «not protected»;
 #   no-rule-e           — (е) снято целиком (прежняя форма «последний по имени»);
 #   expect-compare-dropped — сверка числа снята: CHECKS-INCOMPLETE не выносится (ws#1097);
 #   rate-limit-dropped  — проверка лимита до чтения снята (урок 2026-10-16, ws#1110);
@@ -656,6 +661,16 @@ run "защиты нет, наборов правил нет: набор отд�
 mk; : > "$C/reqout"; rm "$C/protection.json"; echo 'gh: Branch not protected (HTTP 404)' > "$C/protection.json.err"
 jq -n --arg n "$AGG_REQ" '[{type: "required_status_checks", parameters: {required_status_checks: [{context: $n}]}}]' > "$C/rules.json"
 run "защиты нет, контекст из набора правил: отдан" 0 "^REQOUT\t\Q$AGG_REQ\E$"
+# не прочитано — не ноль: отказ чтения защиты (не «not protected») либо наборов
+# правил — VOID, и файла набора нет (пустой файл читался бы установленным нулём)
+mk; : > "$C/reqout"; echo 'gh: HTTP 502 Bad Gateway' > "$C/rules.json.err"
+run "наборы правил не прочитаны (HTTP 502) — VOID" 2 '^VOID\tнаборы правил ветки 1266 не прочитаны: '
+mk; : > "$C/reqout"; echo 'gh: HTTP 502 Bad Gateway' > "$C/rules.json.err"
+run "наборы правил не прочитаны — файла набора нет" 2 '^REQOUT-ABSENT$'
+mk; : > "$C/reqout"; rm "$C/protection.json"; echo 'gh: HTTP 502 Bad Gateway' > "$C/protection.json.err"
+run "защита не прочитана (HTTP 502, не «not protected») — VOID" 2 '^VOID\tзащита ветки 1266 не прочитана: '
+mk; : > "$C/reqout"; rm "$C/protection.json"; echo 'gh: HTTP 502 Bad Gateway' > "$C/protection.json.err"
+run "защита не прочитана — файла набора нет" 2 '^REQOUT-ABSENT$'
 
 say "== близнецы — молчат"
 mk; edit check-runs.json '.check_runs = [(.check_runs | sort_by(.name) | .[0]) | .conclusion="failure" | .started_at="2000-01-01T00:00:00Z"] + .check_runs'
@@ -720,9 +735,11 @@ etag-fallback-dropped	/if \[ "\$rc" -ne 0 \]; then EC=""; api "\$p"; return; fi/
 etag-hit-blind	/HTTP\/\*\x27 304\x27\*)/s/HTTP\/\*\x27 304\x27\*)/HTTP\/*)/
 etag-hit-blind-any	/^    if \[ -f "\$f" \] \&\& IFS= read -r e/s/then hdr=(-H "If-None-Match: \$e"); fi/then CONDHIT=$((CONDHIT + 1)); sed 1d "$f"; return 0; fi/
 displaced-dropped	/and .conclusion == "cancelled"$/s/and .conclusion == "cancelled"/and false/
-displaced-any-cancelled	/and (.check_suite_id as $s | $have | index($s) | not))\]'"'"'/s/and (.check_suite_id as $s | $have | index($s) | not))\]/)]/
+displaced-any-cancelled	/and (.check_suite_id as $s | $have | index($s) | not))\]/s/and (.check_suite_id as $s | $have | index($s) | not))\]/)]/
 required-out-dropped	/cp "$W\/req.txt" "$CI_READ_REQUIRED_OUT"/s/cp "$W\/req.txt"/: "$W\/req.txt"/
 required-out-empty	/cp "$W\/req.txt" "$CI_READ_REQUIRED_OUT"/s/cp "$W\/req.txt"/cp \/dev\/null/
+rules-read-tolerated	/void "наборы правил ветки \$BASE не прочитаны/s/void "/: "/
+protection-read-tolerated	/void "защита ветки \$BASE не прочитана/s/void "/: "/
 no-rule-e	/\.drop = (\$pr and/s/\.drop = (\$pr and/.drop = (false and/;/if (\$red | length) > 0/s/if (\$red | length) > 0/if false/
 MUT
 for tr in $TRUNKS; do
