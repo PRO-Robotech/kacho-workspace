@@ -19,7 +19,7 @@
 #   push-chain.sh --copy <копия> --branch <ветка> --sha <sha40> [--detach]
 #                 [--issue <N | владелец/имя#N>]… [--evidence <файл>]
 #                 [--pr <N> [--subject "#M merge #N: …" [--land-arg <довод>]…]]
-#                 [--task <N>] [--out <каталог>] [--head-wait <с>]
+#                 [--task <N>] [--lane-base <ревизия>] [--out <каталог>] [--head-wait <с>]
 #   --detach — сам уходит в отсоединённый прогон (setsid, env --default-signal=PIPE, БЕЗ
 #     nohup) и сразу печатает «идёт: pid …, журнал …, .rc …, срок …»; .rc снят до старта,
 #     имена уникальны (ветка, sha, pid). Без --detach — в переднем плане (так зовут пробы
@@ -30,10 +30,14 @@
 #     --head-wait, по умолчанию 180 с), и лишь затем зовёт `autoland.sh start` (при
 #     --subject). --land-arg — довод autoland дословно (--stand-report, --allow …).
 #   --out — каталог журналов ВНЕ рабочего дерева (по умолчанию ~/.cache/push-chain).
+#   --lane-base — база полосы для статики шага 0б (по умолчанию origin/main).
 #
 # ШАГИ
 #   0. Предусловия: голова копии = --sha, отслеживаемые файлы не правлены (кластер судит
 #      коммит), ветка — не первичная копия воркспейса в чужую ветку (это судит слот).
+#   0б. Статика до хука (урок (о)): копия с `internal/repohygiene/` (kacho), чей дифф от
+#      базы трогает `deploy/` либо `.github/workflows/ci.yaml`, — сперва `go test -short
+#      ./internal/repohygiene/` (секунды против минут хука); красное — код 1 без отправки.
 #   1. `heavy-slot.sh --status` — первая строка и занятые слоты в журнал, счёт занятых — в
 #      .rc (`slots=`): размер пачки отправок — по свободным (урок (з)).
 #   2. Отправка СЛОВАМИ argv из каталога копии: `heavy-slot.sh ci-local -- git push origin
@@ -56,7 +60,7 @@
 #   PR, трекер, демон) · 64 вызов либо предусловие.
 #
 # ВХОД ПОДМЕНЯЕМ ради доказательства (scripts/push-chain-inject.sh): PUSH_CHAIN_SLOT,
-# PUSH_CHAIN_GH, PUSH_CHAIN_AUTOLAND, PUSH_CHAIN_POLL_S. Ручки не снимают ни слота, ни
+# PUSH_CHAIN_GH, PUSH_CHAIN_AUTOLAND, PUSH_CHAIN_POLL_S, PUSH_CHAIN_GO. Ручки не снимают ни слота, ни
 # хука: подменённый слот — та же отправка без слота, что и прямой вызов git.
 set -uo pipefail
 
@@ -70,7 +74,7 @@ POLL_S="${PUSH_CHAIN_POLL_S:-5}"
 say() { printf 'push-chain: %s\n' "$*" >&2; }
 usage() { say "$1"; say "форма: push-chain.sh --copy <копия> --branch <ветка> --sha <sha40> [--detach] [--issue N]… [--pr N [--subject …]] (шапка)"; exit 64; }
 
-COPY="" BRANCH="" SHA="" DETACH=0 PR="" SUBJECT="" EVIDENCE="" TASK="" BASE=""
+COPY="" BRANCH="" SHA="" DETACH=0 PR="" SUBJECT="" EVIDENCE="" TASK="" BASE="" LANE_BASE="origin/main"
 OUT="${XDG_CACHE_HOME:-$HOME/.cache}/push-chain" HEAD_WAIT=180
 ISSUES=() LAND=() ARGS=()
 while [ "$#" -gt 0 ]; do
@@ -92,6 +96,7 @@ while [ "$#" -gt 0 ]; do
         --task) TASK="$2" ;;
         --out) OUT="$2" ;;
         --head-wait) HEAD_WAIT="$2" ;;
+        --lane-base) LANE_BASE="$2" ;;
         *) usage "неизвестный довод «$1»" ;;
     esac
     shift 2
@@ -128,14 +133,14 @@ if [ "$DETACH" = 1 ]; then
 fi
 
 rm -f "$RCF"
-F_SLOTS="?" F_PUSH="—" F_TRIES=0 F_REMOTE="—" F_PRHEAD="skip" F_DOD="skip" F_LAND="skip" F_WHY=""
+F_STATIC="—" F_SLOTS="?" F_PUSH="—" F_TRIES=0 F_REMOTE="—" F_PRHEAD="skip" F_DOD="skip" F_LAND="skip" F_WHY=""
 finish() {
     local rc="$1"
-    printf '%s\nrc=%s push=%s tries=%s slots=%s ls_remote=%s pr_head=%s dod=%s land=%s log=%s%s\n' \
-        "$rc" "$rc" "$F_PUSH" "$F_TRIES" "$F_SLOTS" "$F_REMOTE" "$F_PRHEAD" "$F_DOD" "$F_LAND" "$LOG" "${F_WHY:+ why=$F_WHY}" > "$RCF"
+    printf '%s\nrc=%s static=%s push=%s tries=%s slots=%s ls_remote=%s pr_head=%s dod=%s land=%s log=%s%s\n' \
+        "$rc" "$rc" "$F_STATIC" "$F_PUSH" "$F_TRIES" "$F_SLOTS" "$F_REMOTE" "$F_PRHEAD" "$F_DOD" "$F_LAND" "$LOG" "${F_WHY:+ why=$F_WHY}" > "$RCF"
     case "$rc" in
         0) say "сдано: $SHA → $BRANCH (попыток $F_TRIES)" ;;
-        1) say "красное: хук отправки отказал — возврат автору; DoD-proof не публиковался" ;;
+        1) say "красное: ${F_WHY:-хук отправки отказал} — возврат автору; DoD-proof не публиковался" ;;
         2) say "не выполнилось: $F_WHY; DoD-proof не публиковался итогом" ;;
         *) say "вызов либо предусловие: $F_WHY" ;;
     esac
@@ -161,6 +166,22 @@ for n in kacho kaname corelib; do
     elif [ -d "$WS_MAIN/project/$n/.git" ] || [ -f "$WS_MAIN/project/$n/.git" ]; then HOMES+=("$v=$WS_MAIN/project/$n"); fi
 done
 say "копия $COPY · ветка $BRANCH · голова ${SHA:0:12} · репозиторий $REPO · задача ${TASK:-—} · ${HOMES[*]:-KACHO_HOME_* не заданы}"
+
+# ── 0б. статика до хука: правка deploy/ или ci.yaml kacho → repohygiene ─────
+if [ -d "$COPY/internal/repohygiene" ]; then
+    mb="$(git -C "$COPY" merge-base "$LANE_BASE" HEAD 2>/dev/null)"
+    if [ -z "$mb" ]; then
+        F_STATIC="void:база $LANE_BASE не выведена"; say "статика repohygiene не судилась: база «$LANE_BASE» не найдена (--lane-base)"
+    elif git -C "$COPY" diff --name-only "$mb" HEAD | grep -qE '^(deploy/|\.github/workflows/ci\.yaml$)'; then
+        say "дифф трогает deploy/ либо ci.yaml — go test -short ./internal/repohygiene/ до хука"
+        (cd "$COPY" && "${PUSH_CHAIN_GO:-go}" test -short -count=1 ./internal/repohygiene/) > "$BASE.static.log" 2>&1
+        src=$?
+        F_STATIC="repohygiene:$src"
+        [ "$src" = 0 ] || { tail -n 20 "$BASE.static.log" >&2; F_WHY="статика: go test -short ./internal/repohygiene/ — код $src до отправки ($BASE.static.log)"; finish 1; }
+    else
+        F_STATIC="skip:deploy/ci.yaml не тронуты"
+    fi
+fi
 
 # ── 1. занятость слотов ─────────────────────────────────────────────────────
 st="$(bash "$SLOT" --status 2>&1 | sed -n '1p;/^  [a-z-]* *бюджет/p;/^  ждёт:/p;/^  внешний вход:/p')"

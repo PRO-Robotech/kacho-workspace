@@ -53,6 +53,10 @@ case "$1 $2" in
     *) exit 9 ;;
 esac
 GH
+cat > "$W/bin/go" <<'GO'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$FK/go.argv"; exit "${GO_RC:-0}"
+GO
 cat > "$W/bin/autoland.sh" <<'AL'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$FK/land"; echo "pid 1"; echo "журнал x"; echo "state y"
@@ -72,6 +76,13 @@ SHA="$(git -C "$W/copy" rev-parse HEAD)"
 # подставляется через insteadOf: ls-remote и push идут в тот же голый каталог.
 git -C "$W/copy" config url."$W/origin.git".insteadOf "git@github.com:PRO-Robotech/probe.git"
 git -C "$W/copy" remote set-url origin "git@github.com:PRO-Robotech/probe.git"
+# Копия формы kacho (есть internal/repohygiene/) с правкой deploy/ — для статики (о).
+git clone -q "$W/copy" "$W/copyk"
+git -C "$W/copyk" config url."$W/origin.git".insteadOf "git@github.com:PRO-Robotech/probe.git"
+git -C "$W/copyk" remote set-url origin "git@github.com:PRO-Robotech/probe.git"
+mkdir -p "$W/copyk/internal/repohygiene" "$W/copyk/deploy"; echo k > "$W/copyk/internal/repohygiene/k.go"; echo d > "$W/copyk/deploy/x"
+git -C "$W/copyk" add -A; "${G[@]}" -C "$W/copyk" commit -q -m kacho-form
+SHAK="$(git -C "$W/copyk" rev-parse HEAD)"
 
 # run <метка> <коды попыток> <головы PR> [доводы…] — прогон цепочки в переднем плане, в ТЕКУЩЕЙ
 # оболочке: код — в RC, каталог двойников — в FK.
@@ -82,7 +93,7 @@ run() {
     printf '%s\n' "$heads" | tr ' ' '\n' > "$FK/heads"
     git -C "$W/origin.git" update-ref refs/heads/1185-x "$OLD"
     (cd "$W" && env FK="$FK" KACHO_HOME_KANAME=/fake/kaname PUSH_CHAIN_SLOT="$W/bin/slot.sh" PUSH_CHAIN_GH="$W/bin/gh" \
-        PUSH_CHAIN_AUTOLAND="$W/bin/autoland.sh" PUSH_CHAIN_POLL_S=0 \
+        PUSH_CHAIN_AUTOLAND="$W/bin/autoland.sh" PUSH_CHAIN_POLL_S=0 PUSH_CHAIN_GO="$W/bin/go" GO_RC="${GO_RC:-0}" \
         bash "${CHAIN_OVR:-$CHAIN}" --copy "$W/copy" --branch 1185-x --sha "$SHA" --out "$W/out" "$@" > "$FK/out" 2> "$FK/err")
     RC=$?
 }
@@ -95,7 +106,7 @@ run green 0 "$SHA" --issue 7 --pr 5 --subject '#7 merge #5: x'
 assert "0 1 1 1 1" "$RC $(cnt "$FK/slot.argv" 'git push') $(cnt "$FK/comments" "^DoD-proof @$SHA") $(cnt "$FK/land" "--head $SHA") $(cnt "$FK/slot.homes" '^1$')" \
     "код 0 → одна отправка, DoD-proof @sha, autoland start с той же головой, KACHO_HOME_* донесены до слота"
 assert "1 1" "$(cnt "$FK/comments" '== comment PRO-Robotech/probe#7') $(sed -n 2p "$(rcf)" | grep -c 'slots=2/3')" "задача без репозитория — репозиторий origin; занятость слотов (--status) — в .rc"
-assert "0 1" "$(cnt "$FK/slot.argv" '--local') $(cnt "$FK/err" '--status: потолок')" "близнец: без повтора нет --local; первая строка --status — в журнале"
+assert "0 1 0" "$(cnt "$FK/slot.argv" '--local') $(cnt "$FK/err" '--status: потолок') $(cnt "$FK/go.argv" .)" "близнец: без повтора нет --local; первая строка --status — в журнале; копия без internal/repohygiene — статики нет"
 
 echo "── (к) 74/75 — один повтор --local с билетом; бесконечно — «не выполнилось», итога нет"
 run r75 '75 0' "$SHA" --issue 7
@@ -123,6 +134,14 @@ run lag 0 "$OLD $OLD $SHA" --pr 5 --subject s
 assert "0 3 1" "$RC $(cnt "$FK/pr.calls" x) $(cnt "$FK/land" "--head $SHA")" "голова PR отстаёт два чтения → цепочка ждёт и зовёт демона после совпадения"
 run stale 0 "$OLD" --issue 7 --pr 5 --subject s --head-wait 0
 assert "2 0 0 1" "$RC $(cnt "$FK/land" .) $(cnt "$FK/comments" 'DoD-proof') $(sed -n 2p "$(rcf)" | grep -c 'pr_head=не совпало')" "голова PR не совпала за предел → код 2, ни демона (head-moved не наступил), ни DoD-proof"
+
+echo "── (о) копия kacho: правка deploy/ либо ci.yaml — repohygiene до хука"
+GO_RC=1 run kred 0 "$SHAK" --copy "$W/copyk" --sha "$SHAK" --lane-base "$OLD" --issue 7
+assert "1 1 0 0" "$RC $(cnt "$FK/go.argv" 'test -short -count=1 ./internal/repohygiene/') $(cnt "$FK/slot.argv" 'git push') $(cnt "$FK/comments" 'DoD-proof')" "repohygiene красный → код 1 до отправки: слот не звался, DoD-proof нет"
+run kgreen 0 "$SHAK" --copy "$W/copyk" --sha "$SHAK" --lane-base "$OLD"
+assert "0 1 1 1" "$RC $(cnt "$FK/go.argv" 'repohygiene') $(cnt "$FK/slot.argv" 'git push') $(sed -n 2p "$(rcf)" | grep -c 'static=repohygiene:0')" "repohygiene зелёный → отправка, static=repohygiene:0 в .rc"
+run ktwin 0 "$SHAK" --copy "$W/copyk" --sha "$SHAK" --lane-base "$SHAK"
+assert "0 0 1" "$RC $(cnt "$FK/go.argv" .) $(sed -n 2p "$(rcf)" | grep -c 'static=skip')" "близнец: дифф от базы без deploy/ и ci.yaml — статики нет, skip в .rc"
 
 echo "── предусловия: голова и чистота копии"
 run moved 0 "$SHA" --issue 7 --sha "$OLD"
@@ -170,6 +189,8 @@ PY
 }
 # shellcheck disable=SC2016  # образцы мутантов — текст прибора, не подстановка
 mutant no-retry '    74|75|77|69)' '    never)'
+# shellcheck disable=SC2016
+mutant no-static-gate '[ "$src" = 0 ] || {' 'true || {'
 mutant red-retried '    74|75|77|69)' '    1|74|75|77|69)'
 # shellcheck disable=SC2016
 mutant no-head-wait '        [ "$got" = "$SHA" ] && break' '        break'
