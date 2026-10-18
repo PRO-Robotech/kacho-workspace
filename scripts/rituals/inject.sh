@@ -5,7 +5,7 @@
 # месте (`mutate` требует, чтобы якорь встретился один раз: иначе мутант молча не
 # применился бы, и зелёное контроля читалось бы как доказательство). От самопробы
 # своего ритуала требуется код 1. Контроль — та же копия без мутации — обязан дать 0
-# по всем четырём: иначе красное мутанта пришло бы от соседа, а не от предмета.
+# по всем пяти: иначе красное мутанта пришло бы от соседа, а не от предмета.
 #
 #   M1 pr-body: Closes без доказательства        → check-01 красная
 #   M2 pr-body: предикат атрибуции ослеп          → check-01 красная
@@ -73,8 +73,13 @@
 #   M46 pr-body: номера задач — из всего сообщения, а не из первой строки → check-01
 #   M47 pr-body: задача первой строки в полной форме — голым `#N`       → check-01
 #   M48 pr-body: задача первой строки в полной форме — не задача       → check-01
-#   M49 pr-body: `otherorg/kaname#N` засчитан задачей своего репозитория (прежнее
-#       выражение `issue_refs`, `/` перед именем не отсекался)          → check-01
+#   M49 правило ссылки (ws#1155, одно на `task_ref_re` и `issue_refs`): `/` перед краткой
+#       формой снят — `otherorg/kaname#N` засчитан задачей своего репозитория → check-01
+#   M64–M65 регистр владельца различается (адрес; полная форма)         → check-01
+#   M66 голый номер — и в ведомости чужого репозитория                  → check-01
+#   M67 хвост номера — только «не цифра» (`#5a` — задача 5)              → check-01
+#   M68 issue_refs снова своим выражением, мимо общего правила           → check-01
+#   близнец T3: граница краткой формы записана иным классом — зелен
 #   M50 pr-body: догон базы не распознан — номера строки догона берутся задачами → check-01
 #   M51 pr-body: строка догона в составе — с `#N` базы                   → check-01
 #   M52 pr-body: доказательство засчитано лишь на голове — предок диапазона
@@ -85,6 +90,28 @@
 #   M54 pr-body: достижимость сторонних родителей — от головы, не от базы  → check-01
 #   M55 pr-body: префикс догона отброшен (B1: `head = ""`)                → check-01
 #   M56 pr-body: префикс догона не идёт в задачи (B2)                     → check-01
+#
+# ws#1164: номер первой строки, которого нет в репозитории запроса (404 настоящей формы), —
+# задача другого репозитория владельца из ведомости стволов либо номер без задачи.
+#   M57 pr-body: 404 номера — снова отказ кодом 2 (не ловится)            → check-01
+#   M58 pr-body: задача другого репозитория — голым #N                   → check-01
+#   M59 pr-body: номер нескольких репозиториев — первым кандидатом       → check-01
+#   M60 pr-body: отказ чтения кандидата (не 404) — «нет нигде»           → check-01
+#   M61 pr-body: задача другого репозитория с доказательством — Closes   → check-01
+#   M62 gh: 404 не отличён от отказа (признак слеп)                      → check-01
+#   M63 gh: любой отказ — 404 (признак слеп к статусу)      → check-01
+#   M63b pr-body: номер полной формы своего репозитория — ищется в других → check-01
+#   близнец T1: статус 404 сверен иной записью — check-01 зелен
+#
+# ws#1162: привязка ревизии доказательства к диапазону — одна, `dod_proof_bound` общего
+# `scripts/lib/dod_proof.jq`; три судьи (merge-readiness, landing-precheck (ж), генератор)
+# обязаны на одном PR дать один исход — check-05 гонит их НАСТОЯЩИМИ скриптами копии.
+#   M69 dod_proof.jq: привязка снята — любая ревизия привязана            → check-05, check-01
+#   M70 merge-readiness: судит распознанное, а не привязанное (прежнее)   → check-05
+#   M71 landing-precheck (ж): привязка не спрошена                       → check-05
+#   M72 pr-body: флаг привязки не читается                               → check-05, check-01
+#   M73 dod_proof.jq: привязка — по началу sha ГОЛОВЫ, а не диапазона     → check-05
+#   близнец T2: привязка записана иначе (срез вместо startswith) — check-05 и check-01 зелены
 #
 # Хранилище для check-04 берётся из HEAD настоящего воркспейса (`RITUALS_WS`):
 # копия несёт только код ритуалов и их общие зависимости.
@@ -110,11 +137,12 @@ copy() {
     local d="$tmp/$1"
     mkdir -p "$d/scripts/hooks" "$d/scripts/lib" || return 2
     cp -r "$here" "$d/scripts/rituals" || return 2
-    cp "$ws/scripts/pr-body.sh" "$d/scripts/" || return 2
+    cp "$ws/scripts/pr-body.sh" "$ws/scripts/ci-read-expected.tsv" "$ws/scripts/merge-readiness.sh" \
+        "$ws/scripts/landing-precheck.sh" "$d/scripts/" || return 2
     cp "$ws/scripts/lib/ws-home.sh" "$d/scripts/lib/" || return 2
     cp "$ws/scripts/hooks/attribution-rule.sh" "$d/scripts/hooks/" || return 2
     cp "$ws/scripts/lib/sandbox-git-home.sh" "$ws/scripts/lib/gate_root.py" "$ws/scripts/lib/dod_proof.jq" \
-        "$d/scripts/lib/" || return 2
+        "$ws/scripts/lib/gh-rate.sh" "$d/scripts/lib/" || return 2
     printf '%s' "$d/scripts/rituals"
 }
 
@@ -150,7 +178,8 @@ expect() {
 
 # контроль: копия без мутации зелена по всем самопробам
 d="$(copy control)" || { echo "[VOID] rituals/inject — копия не заведена" >&2; exit 2; }
-for c in check-01-pr-body.py check-02-close-wave.py check-03-approval-event.py check-04-vault-trails.py; do
+for c in check-01-pr-body.py check-02-close-wave.py check-03-approval-event.py check-04-vault-trails.py \
+         check-05-dod-judges-agree.py; do
     out="$(run_check "$d" "$c")"; rc=$?
     expect "контроль $c" 0 "$rc" "$out"
 done
@@ -167,9 +196,22 @@ inject() {
     expect "$label" 1 "$rc" "$out"
 }
 
+# twin <метка> <самопроба> <якорь> <замена> [<файл>] — то же решение другой записью:
+# самопроба обязана остаться зелёной (код 0), иначе она судит запись, а не решение.
+twin() {
+    local label="$1" check="$2" d out rc
+    d="$(copy "t$((ok + bad))")" || { expect "$label: копия" 0 2 ""; return; }
+    if ! mutate "$d/${5:-rituals.py}" "$3" "$4"; then
+        expect "$label: близнец не применён" 0 2 ""
+        return
+    fi
+    out="$(run_check "$d" "$check")"; rc=$?
+    expect "$label" 0 "$rc" "$out"
+}
+
 inject "M1 pr-body: Closes без доказательства" check-01-pr-body.py \
-    '        inside = [(u, r) for u, r in proofs if any(s.startswith(r) for s in range_shas)]' \
-    '        inside = proofs or [("(нет)", "0000000")]'
+    '        inside = [(u, r) for u, r, bound in proofs if bound]' \
+    '        inside = [(u, r) for u, r, _ in proofs] or [("(нет)", "0000000")]'
 inject "M2 pr-body: атрибуция не видна" check-01-pr-body.py \
     'return p.stdout.strip() or "(пустая строка)"' \
     'return None'
@@ -259,8 +301,8 @@ inject "M35 approval-event: ветка из cwd, RITUAL_REPO_DIR пропуще�
     '["git", "-C", os.environ.get("RITUAL_REPO_DIR") or os.getcwd(), "symbolic-ref"' \
     '["git", "-C", os.getcwd(), "symbolic-ref"'
 inject "M36 pr-body: доказательство вне диапазона засчитано" check-01-pr-body.py \
-    ' for u, r in proofs if any(s.startswith(r) for s in range_shas)]' \
-    ' for u, r in proofs]'
+    '        inside = [(u, r) for u, r, bound in proofs if bound]' \
+    '        inside = [(u, r) for u, r, bound in proofs]'
 inject "M37 pr-body: держатель записи долга не судится" check-01-pr-body.py \
     '        holder = debt_holder(repo, n, ledgers)' \
     '        holder = None'
@@ -292,14 +334,31 @@ inject "M46 pr-body: номера из всего сообщения" check-01-p
     'NUM_RE.findall(meta[h][2])}' \
     'NUM_RE.findall(msgs[h])}'
 inject "M47 pr-body: полная форма — голым #N" check-01-pr-body.py \
-    '        return "#%d" % n if n in first else "%s#%d" % (repo, n)' \
+    '        return "#%d" % n if n in first and n not in home else "%s#%d" % (home.get(n, repo), n)' \
     '        return "#%d" % n'
 inject "M48 pr-body: полная форма — не задача" check-01-pr-body.py \
     '    for n in sorted(first | qual):' \
     '    for n in sorted(first):'
-inject "M49 pr-body: чужой владелец засчитан своим" check-01-pr-body.py \
-    'r"(?<![\w./-])(?:%s/)?%s#(\d+)\b"' \
-    'r"(?<![\w.-])(?:%s/)?%s#(\d+)\b"'
+inject "M49 правило ссылки: «/» снят перед краткой формой — чужой владелец засчитан своим" check-01-pr-body.py \
+    'r"(?<![\w./-])(?i:%s)#" % name' \
+    'r"(?<![\w.-])(?i:%s)#" % name'
+inject "M64 правило ссылки: регистр владельца в адресе различается" check-01-pr-body.py \
+    'r"(?<![\w.-])(?i:github\.com/%s/%s)/issues/" % (owner, name)' \
+    'r"(?<![\w.-])(?:github\.com/%s/%s)/issues/" % (owner, name)'
+inject "M65 правило ссылки: регистр полной формы различается" check-01-pr-body.py \
+    'r"(?<![\w.-])(?i:%s/%s)#" % (owner, name)' \
+    'r"(?<![\w.-])(?:%s/%s)#" % (owner, name)'
+inject "M66 правило ссылки: голый номер и в чужой ведомости" check-01-pr-body.py \
+    'return task_ref_pattern(trepo, n, bare=trepo.lower() == lrepo.lower())' \
+    'return task_ref_pattern(trepo, n)'
+inject "M67 правило ссылки: хвост номера — только не цифра" check-01-pr-body.py \
+    'r"(?:%s)(%s)(?!\w)"' 'r"(?:%s)(%s)(?![0-9])"'
+inject "M68 правило ссылки: issue_refs своим выражением (прежнее)" check-01-pr-body.py \
+    '    return {int(m.group(1)) for m in re.finditer(task_ref_pattern(repo), text)}' \
+    '    return {int(m.group(1)) for m in re.finditer(r"(?<![\w/])#(\d+)\b|(?<![\w./-])%s#(\d+)\b" % re.escape(repo.split("/")[1]), text) if m.group(1)}'
+twin "T3 правило ссылки: граница краткой формы — тот же класс иной записью" check-01-pr-body.py \
+    'r"(?<![\w./-])(?i:%s)#" % name' \
+    'r"(?<![\w/.\-])(?i:%s)#" % name'
 inject "M50 pr-body: догон не распознан" check-01-pr-body.py \
     '    return bool(side) and all(is_ancestor(p, base) for p in side)' \
     '    return False'
@@ -319,8 +378,63 @@ inject "M51 pr-body: строка слияния ствола с #N" check-01-pr
     '    return head + no_hash(line[len(head):]), head, head' \
     '    return line, head, head'
 inject "M52 pr-body: доказательство лишь на голове" check-01-pr-body.py \
-    ' for u, r in proofs if any(s.startswith(r) for s in range_shas)]' \
-    ' for u, r in proofs if head_sha.startswith(r)]'
+    '        proofs = dod_proofs(repo, n, range_shas)' \
+    '        proofs = dod_proofs(repo, n, [head_sha])'
+inject "M57 pr-body: 404 номера — снова отказ" check-01-pr-body.py \
+    '            it = issue(repo, n)
+        except NotFound:' \
+    '            it = issue(repo, n)
+        except ZeroDivisionError:'
+inject "M58 pr-body: другой репозиторий — голым #N" check-01-pr-body.py \
+    'return "#%d" % n if n in first and n not in home else' \
+    'return "#%d" % n if n in first else'
+inject "M59 pr-body: несколько репозиториев — первый" check-01-pr-body.py \
+    '            if len(hits) == 1:' '            if hits:'
+inject "M60 pr-body: отказ чтения кандидата — «нет нигде»" check-01-pr-body.py \
+    '                except NotFound:
+                    continue' \
+    '                except Unmet:
+                    continue'
+inject "M61 pr-body: другой репозиторий с доказательством — Closes" check-01-pr-body.py \
+    '                home[n], got = hits[0]
+                refs.append(n)' \
+    '                home[n], got = hits[0]
+                closes.append(n)'
+inject "M62 gh: 404 не отличён" check-01-pr-body.py \
+    'if isinstance(got, dict) and got.get("message") == "Not Found" and str(got.get("status")) == "404":' \
+    'if False:'
+inject "M63 gh: любой отказ — 404" check-01-pr-body.py \
+    'if isinstance(got, dict) and got.get("message") == "Not Found" and str(got.get("status")) == "404":' \
+    'if isinstance(got, dict) or True:'
+inject "M63b pr-body: полная форма своего — ищется в других" check-01-pr-body.py \
+    '            if n in qual:
+                orphans[n]' \
+    '            if False:
+                orphans[n]'
+twin "T1 gh: статус 404 сверен иной записью" check-01-pr-body.py \
+    'str(got.get("status")) == "404":' \
+    'got.get("status") in ("404", 404):'
+inject "M69 dod_proof.jq: привязка снята" check-05-dod-judges-agree.py \
+    'def dod_proof_bound($range): . as $rev | any($range[]; startswith($rev));' \
+    'def dod_proof_bound($range): true;' ../lib/dod_proof.jq
+inject "M69 dod_proof.jq: привязка снята (генератор)" check-01-pr-body.py \
+    'def dod_proof_bound($range): . as $rev | any($range[]; startswith($rev));' \
+    'def dod_proof_bound($range): true;' ../lib/dod_proof.jq
+inject "M70 merge-readiness: распознанное вместо привязанного" check-05-dod-judges-agree.py \
+    "(.body // \"\") | dod_proof_revisions_in(\$range) | length > 0)'" \
+    "(.body // \"\") | dod_proof)'" ../merge-readiness.sh
+inject "M71 landing-precheck (ж): привязка не спрошена" check-05-dod-judges-agree.py \
+    '(dod_proof_bound($range) | tostring)' '("true")' ../landing-precheck.sh
+inject "M72 pr-body: флаг привязки не читается" check-05-dod-judges-agree.py \
+    '        inside = [(u, r) for u, r, bound in proofs if bound]' \
+    '        inside = [(u, r) for u, r, bound in proofs]'
+inject "M73 dod_proof.jq: привязка по голове" check-05-dod-judges-agree.py \
+    'def dod_proof_bound($range): . as $rev | any($range[]; startswith($rev));' \
+    'def dod_proof_bound($range): . as $rev | ($range | last // "") | startswith($rev);' ../lib/dod_proof.jq
+for c in check-05-dod-judges-agree.py check-01-pr-body.py; do
+    twin "T2 dod_proof.jq: привязка срезом ($c)" "$c" \
+        'any($range[]; startswith($rev))' 'any($range[]; .[0:($rev | length)] == $rev)' ../lib/dod_proof.jq
+done
 for c in check-01-pr-body.py check-02-close-wave.py; do
     inject "M26–M27 dod_proof.jq: ревизия из [0-9a-z] ($c)" "$c" \
         '[0-9a-f]{7,40}' '[0-9a-z]{7,40}' ../lib/dod_proof.jq

@@ -453,6 +453,20 @@ printf '#!/usr/bin/env bash\ncase "$2" in */issues/*) echo boom >&2; exit 1 ;; e
 FAKE="$W/case" LANDING_PRECHECK_GH="$W/gh-broken" LANDING_PRECHECK_MERGE_READINESS="$W/mr0" bash "$TOOL" PRO-Robotech/kacho 3036 > "$W/out" 2>&1; echo $? > "$W/code"
 expect 2 $'VOID\tкомментарии PRO-Robotech/kacho#' "комментарии задачи не прочитаны — вердикта нет, а не «доказано»"
 
+# Привязка ревизии к диапазону — общая `dod_proof_bound` (ws#1162). Порча предпроверки,
+# не спрашивающая привязку, обязана засчитать доказательство на базе — то есть проба
+# «DoD-proof на базе» выше её видит: мутант молчит там, где настоящая предпроверка отказывает.
+mkdir -p "$W/mutj"; ln -sfn "$HERE/hooks" "$W/mutj/hooks"; ln -sfn "$HERE/lib" "$W/mutj/lib"
+sed 's/(dod_proof_bound($range) | tostring)/("true")/' "$TOOL" > "$W/mutj/precheck-unbound.sh"
+if cmp -s "$TOOL" "$W/mutj/precheck-unbound.sh"; then
+    echo "  [FAIL] инъекция «(ж) без привязки»: образец не найден в предпроверке" >&2; fail=$((fail + 1))
+else
+    twin; printf '[{"body":"DoD-proof @9b14ae7f01c"}]\n' > "$W/case/comments-2690.json"
+    FAKE="$W/case" LANDING_PRECHECK_GH="$W/gh" LANDING_PRECHECK_MERGE_READINESS="$W/mr0" \
+        bash "$W/mutj/precheck-unbound.sh" PRO-Robotech/kacho 3036 > "$W/out" 2>&1; echo $? > "$W/code"
+    expect 0 - "инъекция: (ж) без привязки засчитывает DoD-proof на базе — проба «на базе» её ловит"
+fi
+
 echo "== (з) отчёт прогона на внешнем кластере (ws#1110)"
 # Отчёт той формы, что пишет шаг mech:stand шаблона; суд — настоящий stand-report.sh.
 # Ожидаемое — форма вывода `stand-report.sh expect` при ready: полный выбор, все задания
@@ -514,8 +528,10 @@ echo "== (д) настоящий merge-readiness из origin/main — вмест
 # mrcase <с lib: 1|0> — близнец + ответы `gh pr view` и защиты + песочница.
 mrcase() {
     twin
-    jq -n --slurpfile p "$W/case/pull.json" --slurpfile c "$W/case/check-runs.json" '
-        $p[0] as $p | {state: "OPEN", baseRefName: $p.base.ref, headRefName: $p.head.ref,
+    # baseRefOid — база диапазона для привязки доказательства (ws#1162): захват `base.sha` не
+    # несёт, им служит первый родитель первого коммита запроса (9b14ae7f01c, «DoD-proof на базе»).
+    jq -n --slurpfile p "$W/case/pull.json" --slurpfile c "$W/case/check-runs.json" --slurpfile k "$W/case/commits.json" '
+        $p[0] as $p | {state: "OPEN", baseRefName: $p.base.ref, baseRefOid: ($p.base.sha // $k[0][0].parents[0].sha), headRefName: $p.head.ref,
           headRefOid: $p.head.sha, mergeStateStatus: "CLEAN", body: $p.body,
           closingIssuesReferences: [],
           statusCheckRollup: [$c[0].check_runs[] | {name, conclusion: (.conclusion | ascii_upcase)}]}' > "$W/case/prview.json"
