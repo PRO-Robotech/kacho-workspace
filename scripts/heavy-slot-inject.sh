@@ -718,6 +718,19 @@ rc="$(RDIR="$W/outside" rslot env FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-loc
 assert "0 1 да" "$rc $(grep -c '^job=1 ' "$HL" 2>/dev/null || echo 0) $(has_ref 1185-m)" "близнец: та же отправка словами argv (git -C <копия>) из того же каталога → хук Job-ом, ссылка дошла"
 rc="$(RDIR="$W/outside" rslot bash "$SLOT" ci-local -- bash -c 'git --version >/dev/null')"
 assert "0 нет" "$rc $(has "$W/err" 'словами argv')" "близнец: строка оболочки без git push — прежний путь, 77 формы argv нет"
+# Формы git с опциями ПЕРЕД push внутри строки (приёмка ws#1185: мутант образца
+# `git[[:space:]]push` их пропускал, пробы выше — нет): -C <копия>, -c ключ=значение, --no-pager.
+n=0
+for form in "git -C '$R' push -q '$W/bare.git' HEAD:refs/heads/1185-o" \
+    "cd '$R'; git -c push.default=current --no-pager push -q '$W/bare.git' HEAD:refs/heads/1185-o"; do
+    n=$((n + 1)); rm -f "$HL"
+    rc="$(RDIR="$W/outside" rslot env FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- bash -c "$form")"
+    assert "77 да нет нет" "$rc $(has "$W/err" 'словами argv') $(has_ref 1185-o) $([ -s "$HL" ] && echo да || echo нет)" "форма $n: bash -c «${form%% push*} push …» из каталога вне копии → 77 с формой argv"
+done
+# shellcheck disable=SC2016  # образец мутанта — текст слота
+sed "s/git\[\[:space:\]\](\[^;&|\]\*\[\[:space:\]\])?push/git[[:space:]]push/" "$SLOT" > "$W/slot-mut-1185l2.sh"
+rm -f "$HL"
+assert "1 0 да" "$(grep -cF "git[[:space:]]push([[:space:]]|\$)'" "$W/slot-mut-1185l2.sh") $(RDIR="$W/outside" rslot env FAKE_EXEC=1 HOOK_LOG="$HL" bash "$W/slot-mut-1185l2.sh" ci-local -- bash -c "git -C '$R' push -q '$W/bare.git' HEAD:refs/heads/1185-p") $(has_ref 1185-p)" "мутант «образец — лишь git push подряд»: форма git -C <копия> push уходит локально (формы 1–2 выше его ловят)"
 git init -q "$W/other"; git -C "$W/other" remote add origin https://github.com/PRO-Robotech/kacho-workspace.git
 echo o > "$W/other/f"; git -C "$W/other" add f; sandbox_git -C "$W/other" commit -q -m o
 assert "0 да" "$(RDIR="$W/other" rslot bash "$SLOT" lint -- go version) $(has "$W/err" 'клон не kacho, kaname или corelib')" "близнец: клон вне трёх репозиториев — прежний отказ внешнего пути тем же текстом"
