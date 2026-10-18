@@ -92,7 +92,7 @@ allowed() {  # allowed <вид> <путь> — 0, если строка пере
 
 empty_tree="$(git mktree < /dev/null)" || void "пустое дерево для --attr-source не записано"
 
-n_commits=0 n_files=0 n_excused=0 bad=() commit=""
+n_new=0 n_commits=0 n_files=0 n_excused=0 bad=() commit=""
 declare -A seen=() mode=() blob=() bin=() sizes=()
 
 # flush — судит добавленные файлы одного коммита (`commit`, `mode`, `blob`, `bin`).
@@ -130,6 +130,9 @@ for t in "${targets[@]}"; do
         --diff-merges=remerge --diff-filter=A --raw --no-abbrev --numstat \
         --format='@%H' "$tc" "${prev[@]}" --not --remotes="$remote" 2>&1)" ||
         void "диапазон «$tc --not --remotes=$remote» не прочитан: ${log%%$'\n'*}"
+    n=$(git rev-list --count "$tc" "${prev[@]}" --not --remotes="$remote" 2>&1) ||
+        void "число новых коммитов «$tc» не прочитано: $n"
+    n_new=$((n_new + n))
     sizes=()
     while read -r b s; do sizes["$b"]="$s"; done < <(
         awk '/^:/ { print $4 }' <<< "$log" | git cat-file --batch-check='%(objectname) %(objectsize)')
@@ -159,7 +162,7 @@ for i in "${!a_glob[@]}"; do
         a_bad+=("${a_kind[i]} ${a_glob[i]} — под шаблон не подпадает ни один файл судимой вершины: исключать нечего")
 done
 
-echo "prepush-added-files: вершин ${#targets[@]}, новых коммитов $n_commits, добавленных файлов $n_files (по перечню $n_excused, отвергнуто ${#bad[@]}); строк перечня ${#a_glob[@]}" >&2
+echo "prepush-added-files: вершин ${#targets[@]}, новых коммитов $n_new (с добавленными файлами $n_commits), добавленных файлов $n_files (по перечню $n_excused, отвергнуто ${#bad[@]}); строк перечня ${#a_glob[@]}" >&2
 rc=0
 if [ "${#a_bad[@]}" -gt 0 ]; then
     echo "prepush-added-files: ОТКАЗ — перечень исключений $ALLOW негоден:" >&2
