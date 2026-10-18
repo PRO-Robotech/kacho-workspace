@@ -997,14 +997,16 @@ if [ -x "$PW/bin/jq" ] && [ "$("$PW/bin/jq" --version)" = jq-1.7.1 ] && [ -f "$P
 #     PYTHONPATH шаг не выставляет и каталога /work/pylib не заводит
 if env -i PATH="$PVENV/bin:/usr/bin:/bin" python3 -c "import yaml" >/dev/null 2>&1 && env -i "$PVENV/bin/python3" -c "import yaml" >/dev/null 2>&1; then ok
 else bad Y1 "после шага yaml не виден подпроцессу env -i python3 -c 'import yaml'"; fi
-if ! grep -v '^[[:space:]]*#' "$BOX/pkgs.raw" | grep -qE 'PYTHONPATH=|\$\{?PYTHONPATH' && [ ! -e "$PW/pylib" ]; then ok; else OUT="$BOX/pkgs.raw"; bad Y1 "шаг пакетов опирается на PYTHONPATH либо заводит /work/pylib"; fi
+grep -v '^[[:space:]]*#' "$BOX/pkgs.raw" > "$BOX/pkgs.code"
+if ! grep -qE 'PYTHONPATH=|\$\{?PYTHONPATH' "$BOX/pkgs.code" && [ ! -e "$PW/pylib" ]; then ok; else OUT="$BOX/pkgs.raw"; bad Y1 "шаг пакетов опирается на PYTHONPATH либо заводит /work/pylib"; fi
 if grep -q 'PyYAML 6.0.2 (без окружения)' "$BOX/P2.out"; then ok; else bad Y1 "строка итога не называет версию yaml, прочитанную без окружения"; fi
 # Y2 — мутант «только PYTHONPATH» (форма до ws#1207): yaml в /work/pylib и экспорт
 #     переменной. Он ставит и импортирует yaml С переменной, но подпроцесс без
 #     окружения его не видит — шаг обязан отказать 125, а не пропустить.
 # shellcheck disable=SC2016  # текст мутанта: раскрывается при его исполнении
 sed 's#^  ys="\$(.*#  ys=/work/pylib; export PYTHONPATH="/work/pylib${PYTHONPATH:+:$PYTHONPATH}"#' "$BOX/pkgs.raw" > "$BOX/pkgs-mut.raw"
-if [ "$(diff "$BOX/pkgs.raw" "$BOX/pkgs-mut.raw" | grep -c '^>')" = 1 ] && grep -q 'export PYTHONPATH="/work/pylib' "$BOX/pkgs-mut.raw"; then ok
+diff "$BOX/pkgs.raw" "$BOX/pkgs-mut.raw" > "$BOX/pkgs-mut.diff"
+if [ "$(grep -c '^>' "$BOX/pkgs-mut.diff")" = 1 ] && grep -q 'export PYTHONPATH="/work/pylib' "$BOX/pkgs-mut.raw"; then ok
 else OUT="$BOX/pkgs-mut.raw"; bad Y2 "мутант не построен (строка выбора каталога не найдена) — проба мимо предмета"; fi
 cp "$BOX/pkgs.sh" "$BOX/pkgs-orig.sh"
 # shellcheck disable=SC2016  # pf раскрывается при исполнении шага
