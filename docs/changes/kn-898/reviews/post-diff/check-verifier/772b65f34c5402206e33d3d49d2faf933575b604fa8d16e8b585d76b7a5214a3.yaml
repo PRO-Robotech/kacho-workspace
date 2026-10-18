@@ -1,0 +1,71 @@
+schema_version: 1
+kind: check_verification
+role: check-verifier
+round: 1
+scope: приёмка работы-проверки опытом — пробы сигналов internal/check (TestRunIntegration*) не зависят от унаследованного игнора сигналов
+subject:
+  repository: PRO-Robotech/kaname
+  task: PRO-Robotech/kaname#898
+  branch: "898"
+  base: origin/746 (892853c45)
+  head: 86972bae0
+  head_on_origin: true (git ls-remote origin refs/heads/898 = 86972bae0f43)
+  digest_predicate: git -C tmp/kn-898 diff --full-index origin/746...HEAD | sha256sum
+  digest: 772b65f34c5402206e33d3d49d2faf933575b604fa8d16e8b585d76b7a5214a3
+mode: приёмка работы-проверки опытом
+isolation: >-
+  git worktree add --detach tmp/cv-898-exp 86972bae0 (опыты) и tmp/cv-898-base origin/746 (посылка);
+  каждая инъекция снята git checkout -- . (status --porcelain 0); обе копии сняты git worktree remove,
+  worktree list | grep -c cv-898 = 0; копия автора tmp/kn-898 не тронута (status --porcelain 0, HEAD 86972bae0)
+runner: go test -count=1 -v -run 'TestRunIntegration' ./internal/check/ (без -race); счёт — строки '--- PASS|FAIL' (тесты и подтесты, всего 12 на голове)
+experiments:
+  premise_base_hup_ignored:
+    command: timeout 55 bash -c "trap '' HUP; go test ..." в копии origin/746 (SigIgn 0x1)
+    result: красная, rc 1 — 4 FAIL-подтеста, текст «прерывание SIGHUP во время go test: код выхода 0, ожидался 129»
+  premise_base_nohup:
+    command: timeout 25 nohup go test ... в копии origin/746
+    result: красная, rc 1, 6 строк FAIL
+  control_head_plain:
+    result: зелёная, rc 0, 12 PASS / 0 FAIL; перепись 8 путей выхода, сигнальные коды 130/143/129
+  head_hup_ignored:
+    command: timeout 55 bash -c "trap '' HUP; go test ..." (SigIgn 0x1)
+    result: зелёная, rc 0, 12 PASS / 0 FAIL
+  head_hup_int_term_ignored:
+    command: timeout 55 bash -c "trap '' HUP INT TERM; go test ..." (SigIgn 0x4003)
+    result: зелёная, rc 0, 12 PASS / 0 FAIL
+  head_nohup:
+    result: зелёная, rc 0, 12 PASS / 0 FAIL
+  inj_1_reset_not_installed:
+    change: runIntegrationDefaultLaunch.reset = nil (сброс диспозиции не ставится), внешнего игнора нет
+    result: >-
+      красная, rc 1 — TestRunIntegrationProbeIgnoresInheritedSignalDisposition с текстом «исход зависит от
+      диспозиции сигналов родителя пробы» и тремя строками SIGINT/SIGTERM/SIGHUP «код выхода 0»; красный
+      подтест «ловушка SIGINT снята, игнор у родителя»; несущая TestRunIntegrationLeavesNoTracesOnAnyExitPath молчит
+  inj_2_hup_not_reset:
+    change: runIntegrationSignals = "INT,TERM"
+    result: красная, rc 1 — новая проба ровно одной строкой «прерывание SIGHUP во время go test: код выхода 0, ожидался 129»
+  inj_4_hup_path_removed:
+    change: строка пути «прерывание SIGHUP во время go test» удалена из runIntegrationPaths
+    result: красная, rc 1 — близнец «диспозиция не сброшена под игнором родителя» (сужение набора сигналов не проходит молча)
+  inj_5_reset_not_executable:
+    change: префикс env --no-such-key=...
+    result: красная с текстом «проверка НЕ ИСПОЛНЯЛАСЬ: сброс диспозиции сигналов [...] здесь не исполним» — предпосылка, а не находка о сценарии
+  twin_no_ignore_no_reset:
+    result: при inj_1 несущая проба без игнора родителя молчит — отсутствие сброса краснит лишь под игнором
+  twin_base_quit_ignored:
+    command: timeout 25 bash -c "trap '' QUIT; go test ..." в копии origin/746 (SigIgn 0x4)
+    result: зелёная, rc 0, 9 PASS / 0 FAIL — игнор непробуемого сигнала исход не меняет
+  outside_plan_script_hup_trap_removed:
+    change: строка trap 'exit 129' HUP снята из .github/scripts/run-integration.sh
+    result: зелёная, 12 PASS, перепись SIGHUP «код 129 · следов после 0» — слепая зона, названная автором в комментарии инъекций; дефекта нет (ловушка EXIT исполняется и без неё)
+  static:
+    result: gofmt -l internal/check/ пусто; go vet ./internal/check/ rc 0
+measurement_note: >-
+  первый прогон посылки как bash -c "trap '' HUP; timeout 55 go test" дал зелёное на базе — timeout ставит
+  свои обработчики и снимает игнор; посылка перемерена с timeout снаружи (SigIgn печатается в журнале)
+not_run:
+  - -race и полный хук отправки — вне предмета роли; GNU env на исполнителях CI не мерен (локально uutils env 0.8.0, ключ поддержан)
+blocking: []
+non_blocking:
+  - набор сигналов сброса и игнора записан литералом ("HUP,INT,TERM" и trap '' HUP INT TERM), а не выведен из runIntegrationPaths; новый сигнальный путь вне литерала новой пробой не судится
+  - под //go:build unix на системах, где env без --default-signal (BSD/macOS), пробы падают предпосылкой «НЕ ИСПОЛНЯЛАСЬ»; заданий CI на них нет

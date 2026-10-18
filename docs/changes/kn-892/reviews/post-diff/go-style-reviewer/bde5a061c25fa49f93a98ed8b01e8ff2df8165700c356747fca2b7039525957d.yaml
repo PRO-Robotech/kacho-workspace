@@ -1,0 +1,53 @@
+# Пост-дифф ревью Go-кода продукта — роль go-style-reviewer, первый прогон.
+# Имя файла — content_digest; запись не правится (change-graph §2).
+schema_version: 1
+change_id: kn-892
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+run: 1
+subject: >-
+  kaname#892 (волна 12, identity-own-2) — ожидание места вычисления
+  проверяющего прерывается контекстом вызывающего; оговорка о хешере
+  (чеканка идёт мимо мест вычисления) в шапках capacity.go и ceremony.go.
+
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: '892'
+  worktree: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/kn-892
+  base: 60398adb1182d9a28bb29322a56e49787c4d9061   # origin/882 = merge-base
+  head: 94c728fe800f47bfdcf0f6d526576d62ebac40c3
+content_digest: sha256:bde5a061c25fa49f93a98ed8b01e8ff2df8165700c356747fca2b7039525957d
+digest_command: >-
+  git -C /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/kn-892
+  diff --full-index origin/882...HEAD | sha256sum
+diff_size: 27 файлов, +678 −122
+
+verdict: approved            # ✅ принято
+blocks_landing: false
+timestamp: '2026-10-18T00:00:00Z'
+
+counts:
+  fresh_deferral_markers: 0          # grep TODO|FIXME|XXX|t.Skip по добавленным строкам
+  probes_in_same_pr: true            # processor_gate_context_test.go, client_secrets_queue_test.go, call_ended_before_check_test.go
+  security_comments_contradicting_code: 0
+
+checked:
+  - ctx — первый аргумент Verify/VerifyPresented/SetCandidate/compute/acquire; прокинут из use-case и порта церемонии; новых context.Background в прод-коде нет (в добавленных строках — только пробы).
+  - ошибки — ceremonyport и envelope оборачивают %w; ошибка контекста доходит до края через тот же путь, что прочие отказы портов.
+  - паники в рабочем пути нет; журналирования в новом коде нет, PII не пишется.
+  - processorGate.acquire — проверка ctx.Err() до select (иначе select случаем выбирал бы ветвь), освобождение ёмкости — defer до очереди.
+  - use-case — исход отмены сведён к ветви исчерпания ёмкости (login, change_password, step_up, sf_present) — попыткой не считается, наружу тот же отказ.
+  - доказательство оговорки о хешере — internal/passwordverify/hasher.go не обращается ни к processor, ни к capacity (grep).
+  - сборка — go vet ./... модуля на голове, rc=0 (меток сборки у затронутых проб нет).
+
+non_blocking:
+  - place: internal/passwordverify/capacity.go:143
+    note: '`if err := ctx.Err()` затеняет именованный результат err — работает, но читается хуже; `if ctx.Err() != nil { return nil, ctx.Err() }`.'
+  - place: internal/apps/kaname/api/humansession/login.go:302
+    note: 'отмена вызывающим считается в счётчик LoginOutcomeCapacity — счётчик исчерпания ёмкости начинает включать ушедших клиентов; отдельный исход сделал бы его различимым. Корректности ответа не касается.'
+  - place: internal/apps/kaname/api/humansession/call_ended_before_check_test.go
+    note: 'в пробах context.Background вместо t.Context() — стиль.'
+
+blocking: []
+foundation_candidates: []
+next: сбор пост-дифф записей — convergence-reviewer либо landing-reviewer
