@@ -926,6 +926,116 @@ assert "1 0 да" "$(dl a) $(mrc a "$W/wsr" origin мутант-a) $(bref мут
 assert "1 64 нет" "$(dl b) $(mrc b "$W/kcl" bare мутант-b) $(bref мутант-b)" "мутант «судит любую первичную копию»: корень чужого репозитория отказан — близнец выше его ловит"
 assert "1 64 нет" "$(dl c) $(mrc c "$W/wsr-lane" origin мутант-c) $(bref мутант-c)" "мутант «связанная копия — тоже корень»: копия задачи отказана — близнец выше его ловит"
 
+echo "── внешний путь: свои билеты --enqueue идут по одному, а не вытесняют друг друга (ws#1176)"
+# Замер полосы волны 10: несколько своих билетов подряд срабатывают в одну секунду и уходят в
+# run.sh разом — стадия запуска (перепись, размещение, создание ns) соседа не терпит, и
+# младший выходит 75: три из трёх. Двойник run.sh воспроизводит это: запуск внутри стадии
+# запуска другого — 75; строка «ns … создано» — конец стадии, как у настоящего run.sh.
+cat > "$W/fake-run-gate.sh" <<'GATE'
+#!/usr/bin/env bash
+if [ "${1:-}" = --available ]; then
+    [ -n "${GATE_BUSY:-}" ] && [ -e "$GATE_BUSY" ] && { echo "remote-heavy: кластер занят: идущих тяжёлых прогонов 4 при пределе 4" >&2; exit 75; }
+    exit 0
+fi
+label="${*: -1}"
+mkdir "$GATE_DIR/starting" 2>/dev/null || { echo "remote-heavy: кластер занят: прогон 2-й по времени создания при пределе 1 — снимаю своё ns (не выполнилось)" >&2; exit 75; }
+sleep "${GATE_START_S:-0.7}"
+rmdir "$GATE_DIR/starting"
+[ -n "${GATE_NOMARK:-}" ] || echo "remote-heavy: ns t1176-$label создано: задача 1176" >&2
+echo "$label" >> "$GATE_DIR/order"
+[ -z "${GATE_TRAP:-}" ] || trap 'touch "$GATE_DIR/term"; exit 143' TERM
+sleep "${GATE_RUN_S:-0.3}" & wait $!
+exit 0
+GATE
+mkdir -p "$W/gate" "$W/enq2" "$R/sub"
+# genq <каталог> <метка> [ENV=…] — поставить lint с go version <метка> из каталога; в RB — база журнала.
+genq() {
+    local d="$1" label="$2"; shift 2
+    (cd "$d" && env -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_REMOTE_RUN="$W/fake-run-gate.sh" GATE_DIR="$W/gate" HEAVY_SLOT_ENQ_S=60 "$@" bash "${GSLOT:-$SLOT}" --enqueue "$W/enq2" lint -- go version "$label" 2> "$W/err" > "$W/out"); echo $?
+}
+gorder() { cat "$W/gate/order" 2>/dev/null | tr '\n' ' ' | sed 's/ $//'; }
+# tord — метки в порядке номеров билетов внешнего входа (из журнала).
+JMARK=0
+tord() { tail -n +$((JMARK + 1)) "$JL" | sed -n 's/.* ext-enter ticket=\([0-9]*\) .* \([A-Z][A-Z0-9]*\) *$/\1 \2/p' | sort -n | awk '{ printf "%s ", $2 }' | sed 's/ $//'; }
+rm -rf "$W/gate"; mkdir -p "$W/gate"; JMARK="$(wc -l < "$JL")"
+r1="$(genq "$R" A)"; RA="$(rcof)"; r2="$(genq "$R" B)"; RBB="$(rcof)"; r3="$(genq "$R" C)"; RCC="$(rcof)"
+ca="$(await_rc "$RA")"; cb="$(await_rc "$RBB")"; cc="$(await_rc "$RCC")"
+assert "0/0/0 0/0/0 да" "$r1/$r2/$r3 $ca/$cb/$cc $([ -n "$(tord)" ] && [ "$(gorder)" = "$(tord)" ] && echo да || echo "нет(старт «$(gorder)», билеты «$(tord)»)")" "три своих --enqueue подряд в одну секунду: коды 0 у трёх из трёх, без 75, порядок запуска = порядок номеров билетов"
+rm -rf "$W/gate"; mkdir -p "$W/gate"; JMARK="$(wc -l < "$JL")"
+r1="$(genq "$R" A)"; RA="$(rcof)"; sleep 0.4; r2="$(genq "$R/sub" X)"; RX="$(rcof)"; sleep 0.4; r3="$(genq "$R" B)"; RBB="$(rcof)"
+ca="$(await_rc "$RA")"; cx="$(await_rc "$RX")"; cb="$(await_rc "$RBB")"
+assert "0/0/0 0/0/0 A X B да" "$r1/$r2/$r3 $ca/$cx/$cb $(gorder) $([ "$(gorder)" = "$(tord)" ] && echo да || echo "нет(билеты «$(tord)»)")" "близнец: свой, чужой (другой каталог — иной владелец) и свой — строго по билетам, чужой не обгоняется и никого не обгоняет"
+rm -rf "$W/gate"; mkdir -p "$W/gate"
+r1="$(genq "$R" A GATE_START_S=2.5)"; RA="$(rcof)"
+for _ in $(seq 1 20); do [ -d "$W/gate/starting" ] && break; sleep 0.2; done
+t0="$(date +%s%N)"; rl="$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=64 bash "$SLOT" docker -- touch "$W/gl1")"; ms=$(( ($(date +%s%N) - t0) / 1000000 ))
+assert "0 да да" "$rl $([ -e "$W/gl1" ] && echo да || echo нет) $([ "$ms" -lt 2000 ] && echo да || echo "нет(${ms}мс)")" "близнец: пока внешний билет в стадии запуска, локальный слот памяти входит сразу — внешний вход очередь памяти не держит"
+await_rc "$RA" >/dev/null
+# Повтор --enqueue при ещё ждущем своём билете не плодит второго и называет первый.
+rm -rf "$W/gate"; mkdir -p "$W/gate"; touch "$W/gate-busy"
+r1="$(genq "$R" A GATE_BUSY="$W/gate-busy")"; RA="$(rcof)"
+for _ in $(seq 1 20); do ls "$HEAVY_SLOT_DIR"/ext/* >/dev/null 2>&1 && break; sleep 0.2; done
+r2="$(genq "$R" A GATE_BUSY="$W/gate-busy")"; RA2="$(rcof)"
+assert "0 0 да да" "$r1 $r2 $([ -n "$RA" ] && [ "$RA" = "$RA2" ] && echo да || echo "нет($RA2)") $(has "$W/err" 'уже стоит')" "повторный --enqueue той же команды при ждущем своём билете: код 0, назван ПЕРВЫЙ (тот же .rc), «уже стоит» сказано"
+assert "1" "$(ls "$HEAVY_SLOT_DIR"/ext/* 2>/dev/null | wc -l)" "...и второго билета нет"
+r3="$(genq "$R" B GATE_BUSY="$W/gate-busy")"; RBB="$(rcof)"
+assert "0 да" "$r3 $([ -n "$RBB" ] && [ "$RBB" != "$RA" ] && echo да || echo нет)" "близнец: другая команда — свой билет"
+rm -f "$W/gate-busy"; await_rc "$RA" >/dev/null; await_rc "$RBB" >/dev/null
+rm -rf "$W/gate"; mkdir -p "$W/gate"
+r1="$(genq "$R" A GATE_RUN_S=3)"; RA="$(rcof)"
+for _ in $(seq 1 40); do [ -s "$W/gate/order" ] && break; sleep 0.2; done
+r2="$(genq "$R" A GATE_RUN_S=0.2)"; RA2="$(rcof)"
+assert "0 0 да" "$r1 $r2 $([ -n "$RA2" ] && [ "$RA" != "$RA2" ] && echo да || echo нет)" "близнец: первый уже ИСПОЛНЯЕТСЯ (не ждёт) — та же команда ставится вновь, это не повтор"
+await_rc "$RA" >/dev/null; await_rc "$RA2" >/dev/null
+# Мутанты: «входа по одному нет» и «повтор не распознаётся».
+sed 's/^EXT_GATE=1$/EXT_GATE=0/' "$SLOT" > "$W/slot-mut-1176a.sh"; sed 's/^ENQ_DEDUP=1$/ENQ_DEDUP=0/' "$SLOT" > "$W/slot-mut-1176b.sh"
+rm -rf "$W/gate"; mkdir -p "$W/gate"; GSLOT="$W/slot-mut-1176a.sh"
+r1="$(genq "$R" A)"; RA="$(rcof)"; r2="$(genq "$R" B)"; RBB="$(rcof)"; r3="$(genq "$R" C)"; RCC="$(rcof)"
+ca="$(await_rc "$RA")"; cb="$(await_rc "$RBB")"; cc="$(await_rc "$RCC")"
+assert "1 да" "$(diff "$SLOT" "$W/slot-mut-1176a.sh" | grep -c '^<') $(case "$ca/$cb/$cc" in *75*) echo да ;; *) echo "нет($ca/$cb/$cc)" ;; esac)" "мутант «входа по одному нет»: те же три билета — хотя бы один 75 (проба выше его ловит)"
+rm -rf "$W/gate"; mkdir -p "$W/gate"; touch "$W/gate-busy"; GSLOT="$W/slot-mut-1176b.sh"
+r1="$(genq "$R" A GATE_BUSY="$W/gate-busy")"; RA="$(rcof)"
+for _ in $(seq 1 20); do ls "$HEAVY_SLOT_DIR"/ext/* >/dev/null 2>&1 && break; sleep 0.2; done
+r2="$(genq "$R" A GATE_BUSY="$W/gate-busy")"; RA2="$(rcof)"
+assert "1 да" "$(diff "$SLOT" "$W/slot-mut-1176b.sh" | grep -c '^<') $([ "$RA" != "$RA2" ] && echo да || echo нет)" "мутант «повтор не распознаётся»: второй билет заведён — проба выше его ловит"
+rm -f "$W/gate-busy"; await_rc "$RA" >/dev/null; await_rc "$RA2" >/dev/null; GSLOT=""
+
+# Связка с настоящим run.sh: вход отпускается по строке «ns … создано:», и она там есть.
+assert "1 да" "$(grep -c 'say "ns $NSNAME создано:' "$HERE/remote-heavy/run.sh") $(printf '%s\n' 'remote-heavy: ns t1176-x создано: задача 1' | grep -qF 'ns ' && echo да || echo нет)" "связка с run.sh: строка «ns … создано:», по которой отпускается вход, в run.sh на месте и одна"
+# Вход отпускается на строке «ns … создано», а не на выходе run.sh: B стартует, пока A ещё исполняется.
+rm -rf "$W/gate"; mkdir -p "$W/gate"
+r1="$(genq "$R" A GATE_RUN_S=5)"; RA="$(rcof)"; r2="$(genq "$R" B GATE_RUN_S=5)"; RBB="$(rcof)"
+for _ in $(seq 1 40); do [ "$(gorder)" = "A B" ] && break; sleep 0.2; done
+assert "A B нет" "$(gorder) $([ -e "$RA" ] && echo да || echo нет)" "вход отпущен строкой «ns … создано»: второй стартовал (A B), пока первый ещё исполняется (его .rc нет)"
+await_rc "$RA" >/dev/null; await_rc "$RBB" >/dev/null
+sed 's/\*"ns "\*" создано:"\*) \[ -z "$EXT_T" \]/*"ns "*" НЕТ-ТАКОЙ:"*) [ -z "$EXT_T" ]/' "$SLOT" > "$W/slot-mut-1176c.sh"
+rm -rf "$W/gate"; mkdir -p "$W/gate"; GSLOT="$W/slot-mut-1176c.sh"
+r1="$(genq "$R" A GATE_RUN_S=3)"; RA="$(rcof)"; r2="$(genq "$R" B GATE_RUN_S=0.2)"; RBB="$(rcof)"
+sleep 2.2
+assert "1 A" "$(diff "$SLOT" "$W/slot-mut-1176c.sh" | grep -c '^<') $(gorder)" "мутант «фильтр не отпускает»: второй ждёт выхода первого (в порядке лишь A) — проба выше его ловит"
+await_rc "$RA" >/dev/null; await_rc "$RBB" >/dev/null; GSLOT=""
+# Страховка: run.sh без строки «ns … создано» вход держит не дольше EXT_HOLD_S (ручка проб).
+rm -rf "$W/gate"; mkdir -p "$W/gate"
+r1="$(genq "$R" A GATE_RUN_S=6 GATE_NOMARK=1 HEAVY_SLOT_EXT_HOLD_S=2)"; RA="$(rcof)"; r2="$(genq "$R" B GATE_RUN_S=6 GATE_NOMARK=1 HEAVY_SLOT_EXT_HOLD_S=2)"; RBB="$(rcof)"
+for _ in $(seq 1 40); do [ "$(gorder)" = "A B" ] && break; sleep 0.2; done
+assert "A B нет да" "$(gorder) $([ -e "$RA" ] && echo да || echo нет) $(grep -c 'ext-reap .*стадия запуска дольше 2s' "$JL" | sed 's/^[1-9][0-9]*$/да/;s/^0$/нет/')" "без строки «ns … создано» вход отпущен по сроку EXT_HOLD_S: второй стартовал (A B), пока первый исполняется, причина в журнале"
+await_rc "$RA" >/dev/null; await_rc "$RBB" >/dev/null
+rm -rf "$W/gate"; mkdir -p "$W/gate"
+r1="$(genq "$R" A GATE_RUN_S=4 GATE_NOMARK=1)"; RA="$(rcof)"; r2="$(genq "$R" B GATE_RUN_S=0.2 GATE_NOMARK=1)"; RBB="$(rcof)"
+sleep 2.5
+assert "A" "$(gorder)" "близнец: срок по умолчанию (120 с) — второй ждёт выхода первого, раньше не стартует"
+await_rc "$RA" >/dev/null; await_rc "$RBB" >/dev/null
+# Сигнал слоту доходит до run.sh: ребёнок, а не exec — TERM пересылается, ns снимает сам run.sh.
+rm -rf "$W/gate"; mkdir -p "$W/gate"
+r1="$(genq "$R" A GATE_RUN_S=30 GATE_TRAP=1)"; RA="$(rcof)"
+for _ in $(seq 1 40); do [ -s "$W/gate/order" ] && break; sleep 0.2; done
+wp="$(cat "${RA%.rc}.pid" 2>/dev/null)"; sp="$(pgrep -P "${wp:-0}" -f heavy-slot 2>/dev/null | head -n 1)"
+[ -n "$sp" ] && kill -TERM "$sp"
+ca="$(await_rc "$RA")"
+for _ in $(seq 1 20); do [ -e "$W/gate/term" ] && break; sleep 0.2; done
+assert "143 да да" "$ca $([ -e "$W/gate/term" ] && echo да || echo нет) $([ -n "$sp" ] && echo да || echo нет)" "TERM слоту во внешнем запуске: run.sh получил сигнал (снимает своё ns), слот вышел 143"
+assert "0" "$(ls "$HEAVY_SLOT_DIR"/ext-*.fifo 2>/dev/null | wc -l)" "...и канал фильтра не остался"
+
 echo "[CENSUS] heavy-slot: утверждений $((pass + fail)), сошлось $pass, разошлось $fail; граница (не ловится, заявлено в шапке) $bound; не построено частей $void"
 [ "$fail" -eq 0 ] || exit 1
 [ "$void" -eq 0 ] || exit 2
