@@ -67,7 +67,7 @@ at-executors-dont-launch-executors): корпус сам не грузится (
 задачах корректировать флоу. Расширь цель добитием флоу, что бы компакция не убила контекст».
 Флоу «конвейер доказательств» вводится СРАЗУ, по частям: готовая часть заменяет старый шаг на
 ближайшей настоящей задаче и правится по её уроку; «дождаться всего флоу» — не исход. Цель — три
-стрима И доводка флоу; токенов и времени — минимум, качество не ниже; части 1–7 — база диспетчера §0а.
+стрима И доводка флоу; токенов и времени — минимум, качество не ниже; части 1–8 — база диспетчера §0а.
 
 ## Если ты исполнитель (сабагент)
 
@@ -118,18 +118,19 @@ AI-оснастка — **одна**, в `.claude/` воркспейса: ни �
 - Потолок сессии ставит хук SessionStart (`scripts/session-memcap.sh`); сессию с ним запускают
   `$WS/scripts/session-memcap.sh --launch -- claude`: scope терминала (OOMPolicy=stop) его снял бы.
 - Стенд: `cd project/kacho/deploy && $WS/scripts/heavy-slot.sh stand -- make stand-ns-up NS=t<N>-<коротко>` / `stand-ns-down`; `make dev-up` — лишь при недоступном
-- Перезапуск: `… stand -- make reload-svc SVC=<vpc|compute|iam>` · `make logs-svc SVC=…` · `make psql SVC=…`
+- Перезапуск: `… stand -- make reload-svc|logs-svc|psql SVC=<vpc|compute|iam>`
 - Рабочие копии: `./sync-all.sh`
 
 ## Permissions и хуки
 
 `.claude/settings.json` — `agent`, `claudeMdExcludes` и хуки: `stall-signal` (`UserPromptSubmit`, `Stop`),
-`class-guard`, `docfresh`, `change-graph-reminder` (`PostToolUse`, и в сабагентах), `heavy-guard`
-(`PreToolUse` Bash, Monitor), `no-wait-guard`, `gh-api-guard` (Bash), `session-memcap` (`SessionStart`).
+`lessons-signal` (`Stop`), `class-guard`, `docfresh`, `change-graph-reminder` (`PostToolUse`, и в
+сабагентах), `heavy-guard` (`PreToolUse` Bash, Monitor), `no-wait-guard`, `gh-api-guard` (Bash),
+`session-memcap` (`SessionStart`).
 Пути — `$CLAUDE_PROJECT_DIR`; в продукте файла нет. Хранилище ведётся лишь в `lessons/`, `runbooks/`.
 
 Режима без подтверждений из дерева **нет** (`ai-tooling.md#at-bypass-not-from-repo-layer`):
 его дают лишь личный `~/.claude/settings.json`, policy или флаг.
 
-Хуки запроса и хода печатают **диспетчеру** (что каким агентом закрывается — таблица сигналов
-`.claude/agents/dispatcher.md`), хуки записи и команд — вызвавшему исполнителю.
+Хуки запроса и хода печатают **диспетчеру** (маршрут — таблица сигналов `.claude/agents/dispatcher.md`),
+хуки записи и команд — вызвавшему исполнителю.
