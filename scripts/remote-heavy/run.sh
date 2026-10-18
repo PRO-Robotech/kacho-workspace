@@ -235,6 +235,13 @@
 #     Это сеть pod до github.com и files.pythonhosted.org, а не до зеркала Debian: из
 #     них github.com pod и так зовёт для buf. Сеть pod остаётся предпосылкой подготовки
 #     (proxy.golang.org, сборка модулей), отказ — «remote-heavy-prep:», то есть 69.
+#   • ВИДИМОСТЬ БЕЗ ОКРУЖЕНИЯ (ws#1207, регрессия ws#1188): пробы и хук зовут
+#     подпроцессы с окружением, собранным заново, и переменные подготовки до них не
+#     доходят. Поэтому PyYAML лежит в site-packages самого интерпретатора, а не в
+#     PYTHONPATH, а всё исполняемое из /work/bin и /tools получает ссылку в
+#     /usr/local/bin (стандартный PATH образа); обе вещи сверяются подпроцессом
+#     `env -i`. Хуки клона ci-local провязывает установщик дерева (`install.sh
+#     install`, затем `check`): хук corelib без провязки отказывает до проверок.
 # До команды pod печатает «подготовка pod до команды — N с» (от старта контейнера run):
 # это число до/после для правок подготовки.
 #
@@ -1466,7 +1473,7 @@ echo "remote-heavy: сеть pod — DNS и мир есть, управлени�
 PKGS_SH="$(cat <<'PKGS'
 # pkgs-begin
 pk_dl() { curl -fsSL --retry 4 --retry-all-errors --retry-delay 3 --connect-timeout 10 --max-time 180 -o "$2" "$1" && echo "$3  $2" | sha256sum -c --quiet -; }
-mkdir -p /work/dl/pk /work/bin /work/pylib || pf "каталог загрузки не создан"
+mkdir -p /work/dl/pk /work/bin || pf "каталог загрузки не создан"
 if ! command -v jq >/dev/null 2>&1; then
   case "$(uname -m)" in
     x86_64) ja=amd64; js=5942c9b0934e510ee61eb3e30273f1b3fe2590df93933a93d7c58b81d19c8ff5 ;;
@@ -1477,18 +1484,24 @@ if ! command -v jq >/dev/null 2>&1; then
   pk_dl "https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-$ja" /work/dl/pk/jq "$js" \
     && install -m 0755 /work/dl/pk/jq /work/bin/jq || pf "jq 1.7.1 не поставлен"
 fi
-if ! python3 -c "import yaml" >/dev/null 2>&1; then
-  echo "remote-heavy: ставлю PyYAML 6.0.2" >&2
-  pk_dl "https://files.pythonhosted.org/packages/source/p/pyyaml/pyyaml-6.0.2.tar.gz" /work/dl/pk/pyyaml.tgz d584d9ec91ad65861cc08d42e834324ef890a082e591037abe114850ff7bbc3e \
-    && tar -xzf /work/dl/pk/pyyaml.tgz -C /work/pylib --strip-components=2 pyyaml-6.0.2/lib/yaml || pf "PyYAML 6.0.2 не поставлен"
+# PyYAML — в site-packages САМОГО интерпретатора, а не в PYTHONPATH (ws#1207): пробы
+# и хук зовут подпроцессы с окружением, собранным заново (`cmd.Env = {PATH, HOME, …}`),
+# и переменная до них не доходит — 19 проб deploy kacho падали «No module named 'yaml'»
+# при зелёной строке этого шага. Каталог называет сам интерпретатор (site), и он же
+# находит его без единой переменной; судится это подпроцессом с ПУСТЫМ окружением.
+py="$(command -v python3)" || pf "python3 в образе нет"
+if ! env -i "$py" -c "import yaml" >/dev/null 2>&1; then
+  ys="$("$py" -c 'import site; print(site.getsitepackages()[0])' 2>/dev/null)" && [ -n "$ys" ] || pf "PyYAML: каталог site-packages интерпретатора $py не назван"
+  echo "remote-heavy: ставлю PyYAML 6.0.2 в $ys" >&2
+  mkdir -p "$ys" && pk_dl "https://files.pythonhosted.org/packages/source/p/pyyaml/pyyaml-6.0.2.tar.gz" /work/dl/pk/pyyaml.tgz d584d9ec91ad65861cc08d42e834324ef890a082e591037abe114850ff7bbc3e \
+    && tar -xzf /work/dl/pk/pyyaml.tgz -C "$ys" --strip-components=2 pyyaml-6.0.2/lib/yaml || pf "PyYAML 6.0.2 не поставлен"
 fi
-export PYTHONPATH="/work/pylib${PYTHONPATH:+:$PYTHONPATH}"
 rm -rf /work/dl/pk
 # Установленное — ИСПОЛНЕНИЕМ: бинарь, не исполняющийся в образе (ABI, чужая архитектура),
 # отказывает здесь, а не красной пробой команды.
 jq --version >/dev/null 2>&1 || pf "jq не исполняется в образе"
-python3 -c "import yaml" >/dev/null 2>&1 || pf "PyYAML не импортируется"
-echo "remote-heavy: инструменты без пакетного менеджера — $(jq --version), PyYAML $(python3 -c 'import yaml; print(yaml.__version__)')" >&2
+env -i "$py" -c "import yaml" >/dev/null 2>&1 || pf "PyYAML не виден подпроцессу с пустым окружением ($py): ставится в site-packages интерпретатора, а не в PYTHONPATH"
+echo "remote-heavy: инструменты без пакетного менеджера — $(jq --version), PyYAML $(env -i "$py" -c 'import yaml; print(yaml.__version__)') (без окружения)" >&2
 # pkgs-end
 PKGS
 )"
@@ -1514,10 +1527,15 @@ echo "remote-heavy: клиент postgres — $(psql --version), ждал $pgw �
 # pgwait-end
 PGWAIT
 )"
+# Добавка — СВОЕЙ строкой (ws#1207): шаг пакетов выше кончается строкой-маркером
+# «# pkgs-end», и «; go install …» встал бы в комментарий — golangci-lint и gosec не
+# ставились, хук писал «golangci-lint (не установлен)» при Job «golangci-lint vX».
 [ "$PROFILE" = lint ] || [ "$PROFILE" = ci-local ] && [ -n "$LINT_PIN" ] && \
-    PREP="$PREP; echo \"remote-heavy: ставлю golangci-lint $LINT_PIN\" >&2; GOBIN=/work/bin go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$LINT_PIN || pf \"golangci-lint $LINT_PIN не поставлен\""
+    PREP="$PREP
+echo \"remote-heavy: ставлю golangci-lint $LINT_PIN\" >&2; GOBIN=/work/bin go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$LINT_PIN || pf \"golangci-lint $LINT_PIN не поставлен\""
 [ "$PROFILE" = ci-local ] && [ -n "$GOSEC_PIN" ] && \
-    PREP="$PREP; echo \"remote-heavy: ставлю gosec $GOSEC_PIN\" >&2; GOBIN=/work/bin go install github.com/securego/gosec/v2/cmd/gosec@$GOSEC_PIN || pf \"gosec $GOSEC_PIN не поставлен\""
+    PREP="$PREP
+echo \"remote-heavy: ставлю gosec $GOSEC_PIN\" >&2; GOBIN=/work/bin go install github.com/securego/gosec/v2/cmd/gosec@$GOSEC_PIN || pf \"gosec $GOSEC_PIN не поставлен\""
 # СРЕДА: helm, node и buf — версий пина конвейера ревизии, в /work/bin, с проверкой
 # контрольной суммы, опубликованной рядом с архивом. Отказ — «remote-heavy-prep:»,
 # то есть 69, а не красное.
@@ -1671,10 +1689,51 @@ fi
 # gitid-end
 GITID
 )"
+# ХУКИ КЛОНА (ws#1207): ci-local гонит хук отправки в клоне pod, а клон из bundle
+# хуками не провязан. Хук corelib спрашивает `install.sh check` ДО проверок и
+# отказывает на непровязанном клоне («не провязаны: commit-msg pre-push»); хуки
+# kacho и kaname этой предпосылки не судят — потому там отказа не было. Провязка —
+# тем же установщиком дерева, что у разработчика, и сверкой его же `check`.
+# shellcheck disable=SC2016  # раскрывается в pod, не здесь
+HOOKS_SH="$(cat <<'HOOKS'
+# hooks-begin
+if [ -f /work/src/scripts/hooks/install.sh ]; then
+  hw="$(cd /work/src && bash scripts/hooks/install.sh install 2>&1)" \
+    || pf "хуки клона: install.sh install отказал — $(printf '%s\n' "$hw" | grep -v '^$' | tail -n 2 | tr '\n' ' ')"
+  hw="$(cd /work/src && bash scripts/hooks/install.sh check 2>&1)" \
+    || pf "хуки клона: install.sh check после провязки не сверился — $(printf '%s\n' "$hw" | grep -v '^$' | tail -n 2 | tr '\n' ' ')"
+  echo "remote-heavy: хуки клона провязаны — install.sh install и check, код 0" >&2
+else
+  echo "remote-heavy: хуки клона — установщика scripts/hooks/install.sh в дереве нет, провязывать нечего" >&2
+fi
+# hooks-end
+HOOKS
+)"
+# ВИДИМОСТЬ ИНСТРУМЕНТОВ (ws#1207) — последним шагом подготовки, после всех установок:
+# всё исполняемое из /work/bin и /tools получает ссылку в /usr/local/bin — каталог
+# стандартного PATH образа. Подпроцесс, собравший окружение заново либо очистивший его,
+# находит инструмент без PATH подготовки. Сверка — подпроцессом `env -i` с PATH образа.
+# shellcheck disable=SC2016  # раскрывается в pod, не здесь
+EXPOSE_SH="$(cat <<'EXPOSE'
+# expose-begin
+sp=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; xn=0
+for f in /work/bin/* /tools/*; do
+  [ -f "$f" ] && [ -x "$f" ] || continue
+  b="${f##*/}"
+  ln -sf "$f" "/usr/local/bin/$b" || pf "ссылка $b в /usr/local/bin не создана"
+  [ "$(env -i PATH="$sp" bash -c "command -v $b")" = "/usr/local/bin/$b" ] \
+    || pf "$b: подпроцесс с пустым окружением (PATH образа) находит «$(env -i PATH="$sp" bash -c "command -v $b")», а не /usr/local/bin/$b"
+  xn=$((xn + 1))
+done
+echo "remote-heavy: инструментов подготовки в стандартном PATH образа (/usr/local/bin) — $xn" >&2
+# expose-end
+EXPOSE
+)"
 PREP="$PREP
 $MODDL_SH"
 [ "$PROFILE" = ci-local ] && PREP="$PREP
-$GITID_SH"
+$GITID_SH
+$HOOKS_SH"
 [ "$PROFILE" = lint ] || PREP="$PREP
 $INSTALL_SH
 $TOOLS_SH"
@@ -1682,6 +1741,8 @@ $TOOLS_SH"
 $NPMCI_SH"
 [ "$PROFILE" = lint ] || PREP="$PREP
 $PGWAIT_SH"
+PREP="$PREP
+$EXPOSE_SH"
 # КРАСНЫЕ ГРУППЫ (шапка) — команда с копией вывода, затем дайджест и доставка
 # журналов красных групп потоком лога. Маркеры — граница, по которой inject.sh
 # исполняет шаг над синтетическим прогоном.
