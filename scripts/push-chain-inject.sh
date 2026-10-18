@@ -63,7 +63,11 @@ printf '%s\n' "$*" >> "$FK/land"; echo "pid 1"; echo "журнал x"; echo "sta
 AL
 chmod +x "$W/bin/"*
 
-G=(git -c user.name=probe -c user.email=probe@example.invalid -c commit.gpgsign=false)
+# Подпись коммитов песочницы — из корневого gitconfig в её HOME (tooling-gate check-16).
+# shellcheck source=lib/sandbox-git-home.sh
+. "$HERE/lib/sandbox-git-home.sh"
+sandbox_git_home "$W/ghome" || { echo "push-chain-inject: VOID — корневой подписи нет" >&2; exit 2; }
+G=(sandbox_git)
 git init -q --bare "$W/origin.git"
 git init -q -b 1185-x "$W/copy"
 git -C "$W/copy" remote add origin "$W/origin.git"
