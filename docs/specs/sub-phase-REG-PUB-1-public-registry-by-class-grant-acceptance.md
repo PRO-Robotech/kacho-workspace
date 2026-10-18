@@ -1,4 +1,4 @@
-# Sub-phase REG-PUB-1 (публичный реестр выдачей классу) — Acceptance
+# Sub-phase REG-PUB-1 (публичное чтение реестра выдачей роли классу) — Acceptance
 
 > **Статус:** DRAFT
 > **Статическая форма:** DRAFT; действующий вердикт выводится из внешнего события и записи ревью,
@@ -34,124 +34,121 @@
 >   полям `children[0]` (публичный край отдаёт пустые ключи); оговорка «пока `kaname#879` не
 >   влит» в «Дано» 01; пометка ревизии `5f6f29902` в DoD S1. Вердикт о редакции 8 на эту
 >   редакцию не переносится
-> **Дата:** 2026-10-17 · **редакция:** 9. Редакция 6 — форма роли `registry.public.read`
-> приведена к вложенному правилу (`kaname#874`, PR `kaname#879`); пин kaname S1 — не ниже
-> ревизии вливания `kaname#879` в `main`. Прочие сценарии, производители и объём не менялись. Редакция 2 — решения диспетчера Д1–Д8 по вопросам
-> В1–В8 редакции 1. Редакция 3 — уточнение к Д5: ручку kaname делает `kaname#495`, значения в
-> профилях стенда — производитель стадии S6. Редакция 4 закрывает блокирующие B1–B5 и
-> неблокирующие замечания круга 1 (раздел «Редакция 4: что закрыто»); добавлены Д9 (решение
-> диспетчера по B1), сценарии 18, 29, 45; посев «Дано» прогнан, числа — раздел «Посев «Дано»:
-> прогон». Редакция 5 — решение диспетчера по Д9: вариант (б), правка судьи формы в kaname
-> (`kaname#872`); S1 ждёт пин kaname с этой правкой. Вердикт круга 1 относится
-> к редакции 3 и на эту редакцию не переносится. Открытых вопросов нет
+> - 2026-10-17 · проверка исполнения редакции 9 · APPROVED · `0482a061c4f2497d00b1193769cf0671636b6124a172a3875d268a16f48dbccb` ·
+>   `docs/specs/reviews/sub-phase-REG-PUB-1-public-registry-by-class-grant-acceptance/0482a061c4f2497d00b1193769cf0671636b6124a172a3875d268a16f48dbccb.yaml`
+>   (строка дописана в редакции 10: запись существовала, строки в истории не было)
+> - 2026-10-18 · правка ПОСЛЕ вердикта `0482a061…` · редакция 10: объём сужен решением владельца
+>   2026-10-18 — признака «публичный» у реестра нет, доступ задаёт только выдача роли. Сняты
+>   `Registry.visibility`, его вывод и консоль (Р2, Р4–Р6, Д1–Д4, Д8 прежних редакций,
+>   сценарии 15, 16, 40–45); стадии перенумерованы; S1 — это `kacho#3251` (PR `kacho#3279`).
+>   Вердикт `0482a061…` относится к редакции 9 и на эту редакцию не переносится. Что
+>   изменено — раздел «Редакция 10: что изменено»
+> **Дата:** 2026-10-18 · **редакция:** 10. Прежние редакции, их разделы «что закрыто» и
+> решения Д1–Д9 — в истории git этого файла; отпечатки — в строках истории выше
 > **Задача:** `PRO-Robotech/kacho#3274` (родитель `#3172`, ветка эпика `3172-identity-own-2`)
-> **Механизм (не переоткрывается):** `PRO-Robotech/kaname#856` (влит, слияние `422d1bc6f`),
-> `PRO-Robotech/kaname#857` (влит, `20a8bc67d`), `PRO-Robotech/kaname#872` (влит, `5b46992db`),
-> `PRO-Robotech/kaname#874` — вложенное правило роли (PR `kaname#879`, ветка `874`, голова
-> `5f6f29902`; на ревизии замера не влит). Приёмки kaname (ветка `874` @`5f6f29902`):
-> `docs/engineering/acceptance/anonymous-and-authenticated-are-subject-classes.md`,
-> редакция 12, SHA-256 `bd6325e384a1e03e2acceee8841ac2ee23b589ad5fbdff6a8df0674e79b67fd6`
-> (APPROVED, событие `kaname#874`), стадия S5, SC-60…73, решения Р9 (п. 4 — форма роли) и
-> Р10, посев П6; `docs/engineering/acceptance/nested-rule-reaches-descendants-of-a-named-container.md`,
-> редакция 2, SHA-256 `f12395ae242f85e1120346123286318b3027d87e53f6973f4b8a21ac1bd6d9f6`
-> (APPROVED, событие `kaname#874`), Р5, ND-03, ND-07 (б). Редакция 10 первой приёмки
-> (`198db838…`, @`422d1bc6f`) — прежняя опора, её форма роли заменена
-> **Ревизии замера:** kacho `e9ce4ffbd` (голова `origin/3172-identity-own-2`), kacho `a95248464`
-> (`origin/main`); kaname `422d1bc6f` (ствол на редакции 5), kaname `b1b4543c4` (голова PR
-> `kaname#871`); редакция 6 — kaname `067e4ca3e` (`origin/main`), kaname `5f6f29902` (голова
-> ветки `874`); посев редакции 8 — копия kacho `e9ce4ffbd` с пином kaname `5f6f29902`
+> **Механизм (не переоткрывается):** kaname `#856`, `#857`, `#872` (влиты), `#874` — вложенное
+> правило роли (PR `kaname#879`, влит, слияние `efac3adf7`), `#495` — ручка анонимного токена
+> реестра (PR `kaname#871`, влит, слияние `0b6b21cc9`)
+> **Ревизии замера:** kacho `5e4facc5f` (голова `origin/3172-identity-own-2`), kacho `636bd5435`
+> (голова PR `kacho#3279`, ветка `3251-registry-public-read`), kacho `81b719b11` (локальная ветка
+> `3274` с RED-пробами прежнего объёма); kaname `db8bcb7e8` (`origin/main`)
+
+## Решение владельца, которым сужен объём
+
+Решение владельца 2026-10-18, дословно (комментарий в `kacho#3274`):
+
+> для нашего продукта на данный момент не нужен класс паблик, все характеризуется ролевкой,
+> какую поставишь такой вид и будет
+
+Следствие (решение диспетчера, там же): признака «публичный» у реестра нет — ни поля
+`visibility: PUBLIC`, ни его вычисления вопросом к kaname, ни показа в консоли. Чтение реестра
+и его репозиториев без входа даёт только выдача роли `registry.public.read` (форма `children`)
+классу субъектов с целью «реестр X».
 
 ## Обзор
 
-Реестр становится публичным одной выдачей роли `registry.public.read` (id
-`rolb1325b011aa17211d`) классу `system_class:anonymous` на этот реестр. После неё аноним читает
-реестр и все его репозитории, включая созданные позже. Отзыв этой выдачи снимает чтение со
-всех репозиториев сразу. Механизм принадлежит kaname и уже влит. Эта под-фаза делает его
-доступным в kacho: манифест registry объявляет контейнер публичного чтения и роль, пин и образ
-kaname поднимаются, реестр показывает видимость (`Registry.visibility`, только на выход,
-выводится из выдачи), консоль включает и выключает публичность. Аноним получает pull, перечень
-и отказ на запись через плоскость данных, в том числе обычным `docker pull` без учётки.
+Реестр X становится читаемым без входа одной выдачей роли `registry.public.read` (id
+`rolb1325b011aa17211d`) классу `system_class:anonymous` с целью X. После неё аноним тянет образы
+X и всех его репозиториев, включая созданные позже, и видит их в каталоге плоскости данных;
+вошедший без прав в аккаунте читает X и через API-край. Выдача тому же классу
+`authenticated` открывает то же только вошедшим. Отзыв выдачи снимает чтение со всех
+репозиториев разом. Соседний реестр Y без выдачи не отличается от несуществующего.
+
+Под-фаза доставляет роль в каталог (манифест registry, пин и образ kaname — S1), подключает
+анонимный токен плоскости данных на стенде (чарты, значения, второй подъём пина — S3, S4) и
+закрепляет поведение пробами края, плоскости данных и настоящим клиентом `docker`. Своего
+поля, столбца, метода или флага публичности у registry нет: что выдано, то и видно.
 
 ## Что НЕ входит
 
-1. **Механизм kaname.** Наследование `public_reader`, ворота выдачи классу, сужение по цели,
-   переходный приём прежней редакции (Р9, Р10, SC-60…73 приёмки kaname). Здесь эти решения
-   только используются.
-2. **Чтение реестра анонимом через API-край** (`/registry/v1/...`). Все 15 методов
-   `RegistryService` объявляют пол `required_acr_min = "1"`. Пол «0» вместе с полосой
-   `scope_filtered` сборка каталога отвергает (Р6 и SC-35 приёмки kaname). Открыть
-   control-plane анониму значит сменить контракт полосы. Это отдельная приёмка с названным
-   методом (там же, «Что НЕ входит» п. 1). Здесь закрепляется только сегодняшний отказ
-   (REG-PUB-1-30).
-3. **Значение видимости «только вошедшим».** Выдача классу `authenticated` работает (SC-69
-   приёмки kaname), но `Registry.visibility` её не описывает (Р4, Д3).
-4. **Снятие перевода `user:*` → `system_class` в манифесте registry** — `kacho#3251`; порядок с
-   этой задачей — Р8. Примечание `before: v_get` ресурса `repositories` («absent that tuple
-   `user:*` has no access → uniform 404») после этой под-фазы неверно для публичного реестра,
-   но переносится в канон kaname побайтово (SC-70 (г) kaname): его правка здесь сломала бы
-   равенство блоков. Это примечание переписывает `kacho#3251`: её DoD требует ноль вхождений
-   `user:*` в манифестах, включая комментарии, и правит канон вместе с kaname.
-5. **Снятие приёма прежней редакции в kaname** — `kaname#858`. Её условие старта — манифест этой
-   под-фазы в стволе kacho и на стендах.
-6. **Отзыв выдачи при удалении реестра.** Каскада через границу службы нет (ban #4), и Р7
-   объясняет, почему это безопасно.
-7. **Поле видимости в потоке изменений реестра.** Событие журнала его не несёт (Р6).
+1. **Признак публичности реестра** — поле `Registry.visibility`, его вычисление вопросом к
+   kaname на `Get`/`List`, его отказ `UNAVAILABLE`, отказ пути маски `visibility`, событие
+   потока о нём. Сняты решением владельца 2026-10-18. Контракт `registry.proto` не меняется
+   (кроме комментариев, DoD S2); утверждение F1 приёмки REG-1 «у `Registry` нет верхнеуровневого
+   `visibility`» остаётся верным и не пересматривается.
+2. **Консоль.** Отдельного элемента публичности у реестра нет — ни метки, ни переключателя,
+   ни пометки «через реестр» у репозитория. Выдачу заводят общей формой прав: она уже знает
+   субъект `system_class` и цель-ресурс (`ui-future/iam/src/components/organisms/iam/AccessBindingCreateForm/AccessBindingCreateForm.tsx`,
+   `SUBJECT_TYPES`, арм `resources`; `kacho#3238`). Новых проб консоли эта под-фаза не заводит.
+3. **Механизм kaname.** Наследование `public_reader`, ворота выдачи классу, вложенное правило
+   роли, ручка анонимного токена (Р9, Р10, SC-39, SC-60…73 приёмки kaname; Р5 приёмки
+   `kaname#874`) только используются.
+4. **Чтение реестра анонимом через API-край** (`/registry/v1/...`): у всех 15 методов
+   `RegistryService` пол `required_acr_min = "1"`. Открыть control-plane анониму — смена
+   контракта полосы, отдельная приёмка. Здесь закреплён только сегодняшний отказ (REG-PUB-1-30).
+5. **Проза `user:*` в примечаниях манифеста registry.** Четыре строки (`manifest.yaml`, блок
+   `notes` ресурса `repositories`) переносятся в канон kaname побайтово; их правка — парой
+   «канон kaname + манифест kacho», остаток `kacho#3251` (его `DoD-proof`
+   https://github.com/PRO-Robotech/kacho/issues/3251#issuecomment-6218949303).
+6. **Снятие приёма прежней редакции в kaname** — `kaname#858`.
+7. **Отзыв выдачи при удалении реестра** — каскада через границу службы нет (ban #4), Р7.
+8. **Поштучная публикация репозитория** (`Repository.visibility`, RG-1 D-7) и
+   `defaultRepositoryVisibility` не меняются (инвариант 1, REG-PUB-1-27).
 
 ## Опора: одобренные соседи
 
 | сосед | отпечаток (`sha256sum` на ревизии этой редакции) | что закреплено | как эта под-фаза с ним стыкуется |
 |---|---|---|---|
-| kaname `docs/engineering/acceptance/anonymous-and-authenticated-are-subject-classes.md` @`5f6f29902` (ветка `874`), ред. 12 | `bd6325e384a1e03e2acceee8841ac2ee23b589ad5fbdff6a8df0674e79b67fd6` | Р9: одна выдача классу на `registry_registry:<id>` даёт `v_get`, `v_list` на реестр и наследуемое чтение репозиториев; Р9 п. 4 (ред. 11): правило роли `registry.public.read` — `[get, list]` над `registry.registries` с вложенным правилом `[get, list]` над `registry.repositories`; «Сужение по цели»: `public_reader` пишется, только если у правила над типом контейнера есть вложенное правило над прямым ребёнком; SC-73: без него потомки классу не открываются; Р10: сначала kaname, затем kacho; SC-70 (б): манифест новой редакции даёт блоки, равные канону побайтово | раздел `resources` манифеста равен фикстуре П6 kaname `internal/manifest/testdata/registry.public-read-fixture.yaml` в ветке `874` (ревизия вливания `kaname#879` в `main`), раздел `roles` — ровно роль `registry.public.read` этой фикстуры, раздел `seed` — прежний (Р1, REG-PUB-1-01); видимость выводится из выдачи (У3) |
-| kaname `docs/engineering/acceptance/nested-rule-reaches-descendants-of-a-named-container.md` @`5f6f29902` (ветка `874`), ред. 2 | `f12395ae242f85e1120346123286318b3027d87e53f6973f4b8a21ac1bd6d9f6` | Р5: классу вложенное правило даёт потомков только через `public_reader`, при трёх условиях (прямой ребёнок контейнера, ровно `get` и `list`, без сужения); ND-03: аноним с `registry.public.read` на X читает X и его репозитории; ND-07 (б): роль прежней формы (одно правило над двумя типами) даёт классу только реестр, кортежа `public_reader` нет | роль Р1 п. 1 выполняет три условия Р5; REG-PUB-1-11 держится ND-03, REG-PUB-1-13 — SC-73; ND-07 (б) — следствие, если манифест доставит прежнюю форму роли (Р1 п. 1) |
-| `docs/specs/sub-phase-REG-1-registry-repository-acceptance.md` (APPROVED 2026-07-20) | `6847687bbd99ee62a158bb09cafcbd0ac911b344b49cdedb8fc218d8c8c8dc11` | F1 и REG-1-02: у `Registry` нет верхнеуровневого `visibility`, авторитетный гейт видимости — `Repository.visibility` | **пересматривается частично** (Д2): появляется `Registry.visibility` только на выход. Авторитет — выдача в kaname, второго источника правды нет. Проверка REG-1-02 «поля `visibility` нет» заменяется проверкой «у нового реестра `visibility = PRIVATE`»; утверждения REG-1-02 об отсутствии `globalSlug`, `displayName` и инфра-полей остаются |
-| `docs/specs/sub-phase-RG-1-registry-repository-overlay-acceptance.md` (APPROVED, редакция 2) | `429461ed56738dc22d71829fce7a99279dbfd04cdc3b6ca03a6a43a87a49423a` | D-6: любой путь, которым принципал САМ приводит репозиторий к PUBLIC, требует `admin` на реестре; D-7: поштучная публикация репозитория | поштучная публикация и `defaultRepositoryVisibility` не меняются (REG-PUB-1-27). Публичность реестра — выдача, и её гейт — право выдать в kaname (Р3), а не D-6. Тексты дерева, утверждающие «любой путь к PUBLIC — admin-gated» и «единственный рычаг публичности», переписываются (DoD S2) |
-
-Если редакция соседа сменилась к ревизии ревью, опора перепроверяется до вердикта (fa-b7).
+| kaname `docs/engineering/acceptance/anonymous-and-authenticated-are-subject-classes.md` @`db8bcb7e8` (`origin/main`), ред. 13 | `dfbe47bfe7b2bb1f047d6462df60019e3b32401f6f93d589cf66b698f6cdb97c` (APPROVED, событие в `kaname#495`) | Р9: выдача классу на `registry_registry:<id>` даёт `v_get`, `v_list` на реестр и наследуемое чтение репозиториев; Р9 п. 4: роль `registry.public.read` — `[get, list]` над `registry.registries` с вложенным правилом `[get, list]` над `registry.repositories`; SC-73: без вложенного правила потомки классу не открываются; Р2: говорящий с личностью несёт класс `anonymous`; Р10: сначала kaname, затем kacho; SC-39 (ред. 13): анонимный поток токена включается ручкой `api-server.registry-token.anonymous-client-id`, умолчание пусто, форма значения закрыта (`^[a-z][a-z0-9]*(-[a-z0-9]+)+$`, ≤ 63 знаков, не форма порождаемого id) | S1 доставляет роль Р9 п. 4; S3–S4 включают поток SC-39 значением закрытой формы (Р9 п. 3). Опора сменилась с ред. 12 (`bd6325e3…`): изменён только SC-39 (диф `5f6f29902..origin/main` — строки SC-39, таблица производителей, DoD S1, S3); Р9, SC-60…73 не тронуты — перепроверено (fa-b7) |
+| kaname `docs/engineering/acceptance/nested-rule-reaches-descendants-of-a-named-container.md` @`db8bcb7e8`, ред. 2 | `f12395ae242f85e1120346123286318b3027d87e53f6973f4b8a21ac1bd6d9f6` (APPROVED, событие `kaname#874`) | Р5: классу вложенное правило даёт потомков только через `public_reader` при трёх условиях; ND-03: аноним с `registry.public.read` на X читает X и его репозитории; ND-07 (б): роль прежней формы даёт классу только реестр | REG-PUB-1-20 держится ND-03, REG-PUB-1-13 — ND-07 (б) и SC-73 |
+| `docs/specs/sub-phase-REG-1-registry-repository-acceptance.md` (APPROVED 2026-07-20) | `6847687bbd99ee62a158bb09cafcbd0ac911b344b49cdedb8fc218d8c8c8dc11` | F1, REG-1-02: у `Registry` нет верхнеуровневого `visibility` | **не пересматривается** (в редакциях 2–9 пересматривался частично, Д2 снято) |
+| `docs/specs/sub-phase-RG-1-registry-repository-overlay-acceptance.md` (APPROVED, ред. 2) | `429461ed56738dc22d71829fce7a99279dbfd04cdc3b6ca03a6a43a87a49423a` | D-6: путь, которым принципал САМ приводит репозиторий к PUBLIC, требует `admin` на реестре; D-7: поштучная публикация | D-6 и D-7 не меняются. Чтение без входа через выдачу роли — путь, гейт которого — право выдать в kaname (Р3), а не D-6. Тексты дерева «единственный рычаг публичности» и «любой путь к PUBLIC — admin-gated» с доставкой роли становятся ложными и переписываются (DoD S2) |
 
 ## Перепись производителей (до сценариев)
 
-Команды выполнены на ревизиях из шапки; вывод приведён дословно или числом.
+Команды выполнены на ревизиях из шапки; вывод — дословно или числом.
 
 | что уже есть или чего нет | координата | чем измерено |
 |---|---|---|
-| в манифесте registry ветки эпика нет ни ключа `publicReadToChildren`, ни раздела `roles` | `services/registry/manifest.yaml` | `git grep -c "^roles:" e9ce4ffbd -- services/registry/manifest.yaml` → нет попаданий (rc 1); `git diff --stat a95248464 e9ce4ffbd -- services/registry/manifest.yaml` → пусто (на эпике манифест равен стволу) |
-| манифест эпика по-прежнему пишет `user:*` (`kacho#3251` не сделан) | там же | `git grep -c "user:\*" e9ce4ffbd -- services/registry/manifest.yaml` → `5` (одна строка действия и четыре строки примечаний) |
-| целевая редакция манифеста — фикстура kaname: две правки к разделам `resources` и `roles`, без правки строки `subjects` | kaname `internal/manifest/testdata/registry.public-read-fixture.yaml` | `diff` фикстуры прежней редакции и фикстуры П6 @`422d1bc6f` → ровно `+publicReadToChildren: true` и `+roles: … registry.public.read`. Тело ствола kacho без комментариев и пустых строк отличается от прежней фикстуры ровно разделом `seed` (9 строк: учётка `kacho-registry` и вступление в `module-relation-writers`, #914), которого в фикстурах kaname нет; разделы `resources` совпадают |
-| редакция 6: в ветке `874` фикстура П6 несёт роль `registry.public.read` в форме вложенного правила и ещё 4 пробные роли, которых `kacho#3274` не вносит; раздел `resources` не меняется; `kaname#874` новых методов и аннотаций прав не вводит | kaname `internal/manifest/testdata/registry.public-read-fixture.yaml`, `proto/kaname/cloud/iam/v1/role.proto` | `git diff 422d1bc6f origin/874 -- internal/manifest/testdata/registry.public-read-fixture.yaml` → правки только в комментарии шапки и в разделе `roles`; `yq '.roles \| length'` фикстуры @`5f6f29902` → `5` (`registry.public.read`, `registry.reader`, `registry.viewer`, `registry.reader_get`, `registry.reader_named`); `yq '.roles[] \| select(.id=="registry.public.read") \| .rules'` → одно правило `module: registry`, `resources: [registries]`, `classes: [get, list]`, `children: [{resources: [repositories], classes: [get, list]}]`; `git diff origin/main...origin/874 -- proto \| grep -c '^+ *rpc '` → `0`, строк аннотаций прав → `0` (в `role.proto` прибавлены поля `children`) |
-| край транскодирует `RoleService` kaname и собирает свою долю каталога прав из дерева контрактов kaname, взятого ПО ПИНУ | kacho `gateway/internal/restmux/mux.go:135, :802` (`iampb` из `github.com/PRO-Robotech/kaname/pkg/api/…`); `gateway/scripts/lib/stage-proto-tree.sh:95, :117` (`KACHO_PROTO_ROOT_MODULES=(kaname=github.com/PRO-Robotech/kaname)`, каталог модуля — `go list -m -f '{{.Dir}}'`) | прочитано @`e9ce4ffbd` |
-| канон kaname в стволе несёт `public_reader` | kaname `proto/kaname/cloud/iam/v1/fga_model.fga` строки 1307–1361 | прочитано @`422d1bc6f`: `define public_reader: [system_class]` у `registry_registry`; `… or public_reader from parent` в `v_get`, `v_list` у `registry_repository`. На пине `5f6f29902` то же объявление — `fga_model.fga:1315` (вывод `TestConsumerOwnedStructuralRelationsHaveProducers` в посеве редакции 8) |
-| пин kaname в kacho и тег образа kaname на стендах — до #856, и поднимаются только вместе | `go.mod:120`; `tag: 746-b20866a6` в 5 профилях umbrella (`values.yaml:127`, `values.a8f60d.yaml:624`, `values.fe3455.yaml:194`, `values.fe3455-prod.yaml:294`, `values.prorobotech.yaml:106`); согласие держит `deploy/outsourced_image_pin_agrees_with_module_pin_test.go` | `github.com/PRO-Robotech/kaname v0.4.1-0.20261015230631-b20866a67bb5` @`e9ce4ffbd`; `git grep -n "tag: 746-b20866a6" e9ce4ffbd -- deploy` → 5 строк; образ `docker.io/prorobotech/kaname:main-422d1bc6` опубликован (перечень тегов реестра образов, 228 тегов, есть `main-422d1bc6`) |
-| сверка манифестов с каноном из пина | `internal/repohygiene/modelcanonpin_test.go:40` | `git grep -n "func TestModelCanonAgreesWithPlatformManifests" e9ce4ffbd -- internal/repohygiene` → 1 строка |
-| судья формы манифеста читает каталог прав, **встроенный в kaname из пина**, а не каталог края kacho | kaname `internal/manifestcheckrun/run.go:176` (`seed.LoadPermissionRegistry`), `internal/apps/kaname/seed/permissions.go:121` (`//go:embed embedded/permission_catalog.json`) | прочитано @`422d1bc6f`; подтверждено опытом E1 (посев ниже): строки, добавленные в `gateway/internal/middleware/embed/permission_catalog.json` kacho, вердикт не меняют |
-| привязка записи каталога к ресурсу выводит ресурс из ИМЕНИ СЛУЖБЫ; методы репозитория живут в `RegistryService` и приписываются ресурсу `registries`; kaname объявляет `registry.repositories` ресурсом без собственной службы | kaname `internal/manifest/roleexport/attribution.go` (`splitFQN`), `internal/authzmap/catalog_resource_spelling.go` (`catalogResourcesWithoutOwnService`: «службы `RepositoryService` в контрактах нет»); все 9 методов репозитория в каталоге — `scope_filtered`, `required_relation` пуст | прочитано @`422d1bc6f`; `grep -B2 -A12 '"kacho.cloud.registry.v1.RegistryService/GetRepository"'` встроенного каталога → `"required_relation": ""`, `"scope_filtered": true` |
-| действие без отношения (`scope_filtered`) судья освобождает от гейта и классом роли не считает | kaname `internal/manifest/roleexport/producibility.go:156` (`Covers`: `a.Exempt() || a.Internal → continue`) | прочитано; опыт E2 |
-| гейт дерева kacho требует производителя у каждого структурного отношения типов потребителей; `system_class` не числится вершиной субъекта | `internal/repohygiene/modelrelationproducer_test.go` (`subjectUsersets`: `user`, `service_account`, `group#member`, `user:*`) | прочитано @`e9ce4ffbd`; с пином `422d1bc6f` гейт красный: `registry_registry#public_reader` «объявлено, но НИ ОДНА точка эмиссии его не пишет» (посев) |
-| у `Registry` нет поля `visibility`; есть только `defaultRepositoryVisibility` и `Repository.visibility` | `proto/kacho/cloud/registry/v1/registry.proto` | `git grep -n "Visibility visibility\|Visibility default_repository_visibility" e9ce4ffbd -- proto/kacho/cloud/registry/v1/registry.proto` → `:59`, `:172` |
-| держатели и тексты «у реестра нет верхнеуровневого `visibility`» | 12 строк в 7 файлах, из них 2 порождённых | `git grep -n "top-level visibility\|top-level \`visibility" e9ce4ffbd` → 12 строк: `proto/kacho/cloud/registry/v1/registry.proto:55`; `pkg/api/kacho/cloud/registry/v1/registry.pb.go:330` (порождён); `services/registry/internal/apps/kacho/api/registry/f5_default_visibility_test.go:37, :40`; `services/registry/tests/newman/cases/registry-redesign.py:15, :282, :289`; `services/registry/tests/newman/collections/registry-redesign.postman_collection.json:584, :628` (порождён `gen.py`); `services/registry/tests/newman/docs/CASES-INDEX.md` — 2 строки (описание набора и строка кейса `REG-RD-F1-FIELD-ABSENCE`); `ui-future/registry/src/api/types.ts:37` |
-| тексты «единственный рычаг публичности» и «любой путь к PUBLIC — admin-gated», которые изменение делает ложными | 8 строк в 6 файлах, из них 1 порождённый | `git grep -n -i "ЕДИНСТВЕННЫЙ рычаг\|Единственный registry-level\|любой путь к PUBLIC\|Единственный рычаг публичности" e9ce4ffbd` → `internal/repohygiene/clienttruth_registry_apisurface.go:17`; `proto/kacho/cloud/registry/v1/registry.proto:54, :56`; `pkg/api/kacho/cloud/registry/v1/registry.pb.go:329, :331` (порождён); `services/registry/docs/content/api/repository.mdx:101`; `ui-future/shared/src/lib/resource-registry.tsx:5194`; `ui-future/shared/src/test/console-ops-match-contract.test.ts:28`. Третий текст того же рода — комментарий `enum Visibility`, `registry.proto:102-108` («ЛЮБОЙ путь, где принципал сам приводит ресурс к PUBLIC … требует registry admin») — прочитан |
-| маска `UpdateRegistry`: известные пути и тексты неизменяемых | `services/registry/internal/apps/kacho/api/registry/validate.go` (`knownUpdateFields`, `immutableUpdateFields`); образец отказа поля только на выход — `lifecycle is read-only (system-managed)` у репозитория | прочитано @`e9ce4ffbd` |
-| у всех методов `RegistryService` пол «1» | `registry_service.proto` | `git grep -c 'required_acr_min) = "1"' e9ce4ffbd -- …/registry_service.proto` → `15`; `git grep -c '  rpc ' …` → `15`; `"0"` → `0` |
-| плоскость данных: без Bearer — `401` с `WWW-Authenticate`; отказ чтения — `404 NAME_UNKNOWN`; отказ записи — `403 DENIED`; `DELETE` — `405`; `_catalog` фильтрует каждое имя вопросом `v_list` | `services/registry/internal/dataplane/handler.go` (`ServeHTTP`, `challenge`, `servePullOnly`, `serveCatalog`, `servePush`, `check`, `writeNotFound`, `writeDenied`) | прочитано @`e9ce4ffbd` |
-| плоскость данных переводит анонимный `sub` в `system_class:anonymous`, только если задана ручка; пробы этого уже есть | `dataplane/authz.go` (`fgaSubject`), `config.go:429` `KACHO_REGISTRY_ANONYMOUS_SUBJECT_ID` (умолчание пусто); пробы `TestSystemClass_SC39_RegistryAsksAsTheAnonymousClass`, `TestDataplane_RG1_AnonDisabled_TokenResolvesAsOrdinaryPrincipal`, `TestDataplane_RG1_B03_AnonPullPublic_200`, `…_B04B05_AnonPullPrivateOrAbsent_Uniform404`, `…_B07_AnonPushNoToken_401`, `…_B14_AnonTokenPushPublic_403Denied`, `…_B14_AnonTokenPushNewRepo_403Denied` | `git grep -c KACHO_REGISTRY_ANONYMOUS_SUBJECT_ID e9ce4ffbd -- services/registry/deploy deploy` → нет попаданий: ни один чарт и ни один профиль ручку не задаёт; пробы — посев ниже |
-| kaname выпускает анонимный токен, только если задан `AnonymousClientID`; в стволе ручки нет, её вносит `kaname#495` | kaname `internal/registrytokenwire/build.go:41`; `cmd/kaname/serve.go:1218` | `git grep -n AnonymousClientID 422d1bc6f -- cmd internal/config` → нет попаданий (`hard-missing-knob-vs-unseeded`: дефект продукта, а не недосев). `kaname#495` (OPEN), PR `kaname#871` (OPEN, ветка `495`, голова `b1b4543c4`): ключ `api-server.registry-token.anonymous-client-id`, умолчание пусто (`internal/apps/kaname/config/defaults.go:70`), значение чарта `apiServer.registryToken.anonymousClientId: ""` (`deploy/values.yaml:276`), провязка (`cmd/kaname/serve.go:2381`) — `git grep -n "anonymous-client-id\|anonymousClientId" b1b4543c4` |
-| стенд kacho ставит kaname СВОИМ вложенным чартом; его конфиг рендерит `registry-token` только с `issuer` и `service` | `deploy/helm/umbrella/charts/kaname/templates/configmap.yaml:95-112` (`$rt := .Values.config.apiServer.registryToken`; `registry-token:` — строка 105); путь значения в umbrella — `kaname.config.apiServer.registryToken.*` | прочитано @`e9ce4ffbd`; `git grep -c "anonymous-client-id\|anonymousClientId" e9ce4ffbd -- deploy services/registry/deploy` → нет попаданий |
-| кэш положительных вердиктов registry — 2 с | `config.go:154` `KACHO_REGISTRY_AUTHZ_CACHE_TTL` (умолчание `2s`) | прочитано |
-| удаление реестра требует пустого пространства имён и снимает кортежи реестра; удаление репозитория снимает кортежи репозитория | `services/registry/internal/apps/kacho/api/registry/delete.go` (`NamespaceEmpty` до `DELETING` и в работнике; `UnregisterIntentForDelete`); `DeleteRepository` — «unregister FGA repo-tuples» (`registry_service.proto`) | прочитано @`e9ce4ffbd` |
-| консоль: карточка реестра показывает `defaultRepositoryVisibility`, репозитория — `visibility`; форма выдачи уже знает `system_class` | `ui-future/registry/src/registerExtensions.tsx:63, :87`; `ui-future/iam/src/components/organisms/iam/AccessBindingCreateForm/AccessBindingCreateForm.tsx:124` | прочитано @`e9ce4ffbd` |
-| фикстуры консольных проб: арендатор с проектом, подъём уровня до «2» | `ui-future/e2e/specs/fixtures.ts` (`tenantWithProject`, `scopeIsReady`), `ui-future/e2e/specs/assurance.ts` (`raiseAssurance`), образцы — `system-class-subject.spec.ts`, `registry-tags.spec.ts` | прочитано |
-| принципалы сквозных наборов | `tests/authz-fixtures/prodseed_matrix.py`: `jwtAccountAdminA` (администратор аккаунта A), `jwtProjectEditorA` (editor на проекте A1), `jwtStranger` (учётка без выдач); все — токены сервисных учёток, изъятые из пола уровня | прочитано @`e9ce4ffbd`, строки 919–933 |
-| сквозной набор registry достаёт до плоскости данных и ручки токена | `services/registry/tests/newman/cases/registry-docker-facade-lane.py`; `deploy/e2e-shards.json` (`registryDataPlaneBaseUrl`) | прочитано |
-| повтор активной выдачи — `ALREADY_EXISTS` в исходе операции | kaname `access_bindings_active_grant_uniq`, `create.go` (перевод нарушения уникальности в `codes.AlreadyExists` работником); SC-06 kaname | прочитано @`422d1bc6f` |
+| в стволе эпика роль не доставлена: раздела `roles` и ключа `publicReadToChildren` в манифесте registry нет; строка `subjects` уже на `system_class` (`kacho#3251`, первая часть, влита) | `services/registry/manifest.yaml` @`5e4facc5f` | `git show 5e4facc5f:services/registry/manifest.yaml \| grep -v '^ *#' \| grep -c -E '^roles:\|publicReadToChildren'` → `0`; строка `- {name: get, subjects: [system_class, user, service_account, 'group#member'], from: [owner, super_admin]}` — есть |
+| PR `kacho#3279` (OPEN, ветка `3251-registry-public-read`, голова `636bd5435`, база — ветка эпика) несёт S1 целиком: манифест Р1 п. 1, пин kaname на слияние `kaname#879`, тег образа, `system_class` в `subjectUsersets`, гейт края подстановочных отношений, тип `Rule.children` консоли | 13 файлов: `git diff --stat origin/3172-identity-own-2...636bd5435` | `yq '.roles\|length'` → `1`; `yq -o=json -I=0 '.roles[0]'` → `{"id":"registry.public.read",…,"tier":{"tierType":"iam.cluster","tierId":"cluster_root"},"rules":[{"module":"registry","resources":["registries"],"classes":["get","list"],"children":[{"resources":["repositories"],"classes":["get","list"]}]}]}`; `publicReadToChildren` у `registries` → `true`; `diff` раздела `seed` со стволом эпика — пусто; `go.mod:120` → `github.com/PRO-Robotech/kaname v0.4.1-0.20261017225750-efac3adf7891`; `deploy/helm/umbrella/values.yaml:128` → `tag: main-efac3adf`; `docker manifest inspect docker.io/prorobotech/kaname:main-efac3adf` → код `0` |
+| гейты S1 зелёные на голове PR `kacho#3279` | временная копия kacho @`636bd5435` | `GOWORK=off go test ./internal/repohygiene/ -run '<7 проб сценария 01>' -count=1 -v` → код `0`, 7 из 7 PASS; `блоков сверено 27 из 27 · байт сверено 80556`; `перепись: осмотрено путей 7142 · манифестов прочитано 5 · находок 0 (манифестов в индексе 5)`; `GOWORK=off go test ./deploy/ -run 'TestOutsourcedImagePinAgreesWithItsModulePin$' -count=1` → `ok` |
+| слияние `kaname#879` (`efac3adf7`) лежит на стволе kaname; слияние `kaname#871` (`0b6b21cc9`, ручка анонимного токена) — позже и в пин PR `kacho#3279` НЕ входит | клон kaname | `git merge-base --is-ancestor efac3adf7891 origin/main` → `0`; `git merge-base --is-ancestor 0b6b21cc9 efac3adf7891` → `1`; `git merge-base --is-ancestor efac3adf7891 0b6b21cc9` → `0`; образы `main-0b6b21cc`, `main-db8bcb7e` — `docker manifest inspect` код `0` |
+| ручка kaname есть на стволе kaname: ключ, умолчание пусто, значение чарта | kaname `internal/apps/kaname/config/defaults.go:70`, `cmd/kaname/serve.go:2410`, `deploy/values.yaml:276` (`anonymousClientId: ""`) | `git grep -n -i 'anonymous-client-id\|AnonymousClientID' origin/main -- internal cmd deploy/values.yaml` @`db8bcb7e8` |
+| в kacho ни один чарт и ни один профиль не задаёт ни ручку registry `KACHO_REGISTRY_ANONYMOUS_SUBJECT_ID`, ни `anonymous-client-id` вложенного kaname; вложенный чарт kaname рендерит `registry-token` только с `issuer` и `service` | `deploy/helm/umbrella/charts/kaname/templates/configmap.yaml:95-112`; `services/registry/internal/apps/kacho/config/config.go:429` (ручка процесса, умолчание пусто) | `git grep -c -i 'anonymousSubjectId\|ANONYMOUS_SUBJECT_ID\|anonymousClientId\|anonymous-client-id' <рев> -- deploy services/registry/deploy` на `5e4facc5f`, `636bd5435`, `81b719b11` → нет попаданий |
+| канон kaname: `public_reader: [system_class]` у реестра; `v_get`, `v_list` реестра принимают `system_class` напрямую; у репозитория `v_get` — `[system_class, …] … or public_reader from parent`, `v_list` — `[user, service_account, group#member] … or public_reader from parent` (поштучная публикация даёт только `v_get`) | kaname `proto/kaname/cloud/iam/v1/fga_model.fga:1315`, `:1357`, `:1358` | прочитано @`db8bcb7e8` |
+| id роли `rolb1325b011aa17211d` — тот же в kaname и в пробах ветки `3274` | kaname `internal/apps/kaname/api/access_binding/nested_rule_world_integration_test.go`; kacho `services/registry/tests/newman/cases/registry-public-by-class.py` @`81b719b11` | `git grep -l rolb1325b011aa17211d` |
+| у всех методов `RegistryService` пол «1» | `proto/kacho/cloud/registry/v1/registry_service.proto` | `git grep -c 'required_acr_min) = "1"' 5e4facc5f -- …` → `15`; `git grep -c '  rpc ' …` → `15` |
+| плоскость данных: без Bearer — `401` с `WWW-Authenticate`; отказ чтения — `404 NAME_UNKNOWN`; отказ записи — `403 DENIED`; `_catalog` фильтрует имена вопросом `v_list`; анонимный `sub` переводится в `system_class:anonymous`, только если задана ручка | `services/registry/internal/dataplane/handler.go` (`servePullOnly`, `servePush`, `serveCatalog`, `challenge`, `writeNotFound`, `writeDenied`); `dataplane/authz.go` (`fgaSubject`) | прочитано @`5e4facc5f` |
+| пробы анонима плоскости данных уже есть | `dataplane/system_class_anon_subject_test.go` (`TestSystemClass_SC39_RegistryAsksAsTheAnonymousClass`), `dataplane/handler_anon_test.go` (`TestDataplane_RG1_B03_AnonPullPublic_200`, `TestDataplane_RG1_AnonDisabled_TokenResolvesAsOrdinaryPrincipal` и др.) | `git grep -n 'func Test…' 5e4facc5f -- services/registry` |
+| кэш положительных вердиктов registry — 2 с | `config.go:154` `KACHO_REGISTRY_AUTHZ_CACHE_TTL` | прочитано |
+| принципалы сквозных наборов | `tests/authz-fixtures/prodseed_matrix.py`: `jwtAccountAdminA`, `jwtProjectEditorA`, `jwtStranger` | прочитано @`5e4facc5f`, строки 918–929 |
+| сквозной набор registry достаёт до плоскости данных | `services/registry/tests/newman/cases/registry-docker-facade-lane.py`; `deploy/e2e-shards.json` (`registryDataPlaneBaseUrl`) | `git grep -c registryDataPlaneBaseUrl 5e4facc5f -- deploy/e2e-shards.json` → `1` |
+| ветка `3274` (локальная, на origin нет) несёт RED-пробы прежнего объёма: newman `registry-public-by-class.py` (кейсы 10–18, 30, 31, 45 с утверждениями о `visibility`), unit маски `regpub1_visibility_mask_test.go` (15), integration `registry_visibility_regpub1_integration_test.go`, playwright `registry-public-visibility.spec.ts` и jest `RegistryPage.public-visibility.test.tsx` (40–45), проба `regpub1_anonymous_subject_test.go` (28) | `git diff --stat origin/3172-identity-own-2...3274` → 9 файлов, `+7238` | `git ls-remote origin 'refs/heads/*3274*'` → пусто; `grep -o 'REG-PUB-1-[0-9]*'` по кейсам → 10, 11, 12, 13, 14, 15, 16, 17, 18, 30, 31, 45 |
+| тексты, которые доставка роли делает ложными («единственный рычаг публичности», «любой путь к PUBLIC — admin-gated») | 8 строк в 6 файлах, из них 1 порождённый | `git grep -n -i "ЕДИНСТВЕННЫЙ рычаг\|Единственный registry-level\|любой путь к PUBLIC\|Единственный рычаг публичности" 636bd5435` → `internal/repohygiene/clienttruth_registry_apisurface.go:17`; `pkg/api/kacho/cloud/registry/v1/registry.pb.go:329, :331` (порождён); `proto/kacho/cloud/registry/v1/registry.proto:54, :56`; `services/registry/docs/content/api/repository.mdx:101`; `ui-future/shared/src/lib/resource-registry.tsx:5194`; `ui-future/shared/src/test/console-ops-match-contract.test.ts:28`. Третий текст того же рода — комментарий `enum Visibility`, `registry.proto:102-108` — прочитан |
+| консоль: форма выдачи знает класс и цель-ресурс | `AccessBindingCreateForm.tsx:115`, `:124` (`SubjectType` с `system_class`), `:735` (арм `resources`) | прочитано @`5e4facc5f` |
+| повтор активной выдачи — `ALREADY_EXISTS`; право выдать — `requireGrantAuthority` | kaname `access_bindings_active_grant_uniq`; `internal/apps/kaname/api/access_binding/helpers.go` | прочитано (SC-06, SC-20 kaname) |
 
 ## Решения
 
-**Р1. Манифест, пины и гейты S1 — одно изменение.** Тем же коммитом:
+Номера решений прежних редакций сохранены для трассировки; снятые (Р4–Р6, Р8, Д1–Д9) не
+переиспользуются.
 
-1. `services/registry/manifest.yaml`: ровно две правки фикстуры П6 kaname в разделах `resources`
-   и `roles` — `publicReadToChildren: true` на ресурсе `registries` и раздел `roles` с ОДНОЙ
-   ролью `registry.public.read` (id `rolb1325b011aa17211d`, функция имени; описание; ярус
-   `{tierType: iam.cluster, tierId: cluster_root}`). Правило роли — над реестром, с вложенным
-   правилом над репозиториями (Р9 п. 4 kaname ред. 12; Р5 приёмки `kaname#874`):
+**Р1. S1 — это `kacho#3251`, PR `kacho#3279`.** Тем же изменением, что уже собрано в PR:
+
+1. `services/registry/manifest.yaml`: `publicReadToChildren: true` на ресурсе `registries` и раздел
+   `roles` с ОДНОЙ ролью `registry.public.read` (id `rolb1325b011aa17211d`, ярус
+   `{tierType: iam.cluster, tierId: cluster_root}`):
 
    ```yaml
    rules:
@@ -163,243 +160,145 @@ kaname поднимаются, реестр показывает видимос�
            classes: [get, list]
    ```
 
-   Это форма, утверждённая владельцем, в написании схемы манифеста kaname: ключ роли — `id`,
-   ресурс правила — список `resources`, `module` — только у правила верхнего уровня
-   (вложенное берёт модуль правила-владельца). Вложенное правило выполняет все три условия Р5
-   приёмки `kaname#874`: `repositories` — прямой ребёнок `registries`, объявленных контейнером;
-   ровно `get` и `list`; без `resourceNames` и `matchLabels`. Поэтому разворачивание выдачи
-   классу пишет `public_reader` на названном реестре. Прежняя форма — одно правило
-   `resources: [registries, repositories]` — даёт классу только реестр, кортежа
-   `public_reader` нет (ND-07 (б), SC-73 kaname). С ней сценарии, которым нужно чтение
-   репозиториев классом, — REG-PUB-1-11 и 20–26 на стенде, — исполниться не могут.
-   Пробные роли фикстуры (`registry.reader`, `registry.viewer`, `registry.reader_get`,
-   `registry.reader_named`) в манифест не вносятся.
-   Раздел `seed` (учётка `kacho-registry`, вступление в `module-relation-writers`, #914) не
-   трогается. Шапка манифеста утверждает: «Раздела `roles` здесь нет… живых системных ролей у
-   модуля НОЛЬ». Это утверждение переписывается, иначе оно становится ложью (doc-truthfulness);
-2. пин kaname в `go.mod` и `go.sum` — не ниже ревизии вливания `kaname#879` в `main` kaname: в
-   ней и правка судьи формы `kaname#872` (Д9, `5b46992db` — предок ветки `874`), и вложенные
-   правила `kaname#874`. До `kaname#874` схема манифеста ключа `children` не знает
-   (`git grep -c 'yaml:"children"' origin/main -- internal/manifest` @`067e4ca3e` → нет
-   попаданий; разбор строгий, `KnownFields(true)`, `internal/manifest/manifest.go:5`), и
-   манифест Р1 п. 1 отвергается при разборе (`field children not found in type manifest.Rule`
-   на `067e4ca3e`, замер рецензента круга редакции 7). Посев П0 редакции 8 мерен на голове
-   ветки `874` `5f6f29902` (`v0.4.1-0.20261017200022-5f6f299026b6`): `kaname#879` ещё не влит;
-   посадка — на ревизии вливания;
-3. тег образа kaname в 5 профилях umbrella (перепись) — до той же ревизии
-   (`main-<sha8>`; в посеве П0 — строка `main-5f6f2990`: проба согласия сверяет только
-   ревизию в теге, а образ головы ветки не публикуется — `docker manifest inspect
-   docker.io/prorobotech/kaname:main-5f6f2990` → отказ; в посадке тег — ревизии вливания, и
-   образ опубликован, DoD S1), с правкой комментария «Ревизия ветки службы …» у `values.yaml:124`. Без
-   этого `TestOutsourcedImagePinAgreesWithItsModulePin` даёт 7 находок (запись круга 1).
-   Каталог прав края и таблица маршрутов, которые край собирает из дерева контрактов kaname по
-   пину, сверяются на новом пине тем же изменением; поле `children` роли край отдаёт через
-   REST, только транскодируя `RoleService` по новому пину (`api-edge-rebuild`);
-4. `internal/repohygiene/modelrelationproducer_test.go`: `system_class` добавляется в
-   `subjectUsersets`. Отношение, чей состав — только вершины субъекта, есть выдача; её пишет
-   разворачивание привязок kaname, и точки эмиссии в дереве kacho у неё нет by construction.
-   Это тот же довод, по которому там уже стоит `user:*`;
-5. гейт формы манифеста зеленеет правкой судьи в kaname по Д9; в дереве kacho для этого ничего не
-   заводится.
+   Вложенное правило выполняет три условия Р5 приёмки `kaname#874`, поэтому выдача классу
+   пишет `public_reader` на названном реестре. Раздел `seed` не тронут. Шапка манифеста
+   «живых системных ролей у модуля НОЛЬ» переписывается (doc-truthfulness);
+2. пин kaname — не ниже слияния `kaname#879` (`efac3adf7`), тег образа `main-<sha8>` той же
+   ревизии в 5 профилях umbrella; каталог прав края и таблица маршрутов сверены на этом пине;
+3. `internal/repohygiene/modelrelationproducer_test.go`: `system_class` в `subjectUsersets` —
+   отношение из одних вершин субъекта есть выдача, её пишет kaname;
+4. гейт края подстановочных отношений отличает подстановку от явной выдачи классу.
 
-Порядок выкатки — Р10 kaname: kaname образом ревизии пина Р1 п. 2 (не ниже вливания `kaname#879`, с `kaname#874`) на стенде раньше kacho с этим манифестом. Kaname без `kaname#874` манифест Р1 п. 1 не разберёт, а роль прежней формы классу репозиториев не откроет (ND-07 (б)).
+Порядок выкатки — Р10 kaname: kaname образом ревизии пина на стенде раньше kacho с этим
+манифестом.
 
-**Р2. `Registry.visibility` — поле только на выход, выведенное из выдачи.** Новое поле
-`Visibility visibility = 13` в `message Registry`. Перечисление `Visibility` прежнее,
-`PRIVATE`/`PUBLIC`. Определение, которое заносится в комментарий поля:
+**Р2. Публичность — только выдача роли; у registry её представления нет.** Чтение реестра X
+без входа есть ровно тогда, когда у класса `anonymous` есть выдача роли с вложенным правилом
+над репозиториями и целью X. У registry нет ни поля, ни столбца, ни метода, ни вычисления
+этого признака. Узнать, открыт ли реестр, можно перечнем выдач (`GET
+/iam/v1/accessBindings:listByScope`) или чтением от имени класса. Любая роль, удовлетворяющая
+воротам выдачи классу (только `get` и `list`, SC-21 kaname), даёт ровно то, что в ней написано:
+роль без вложенного правила открывает классу метаданные реестра, но не его репозитории
+(REG-PUB-1-13).
 
-- `PUBLIC` — у класса `anonymous` есть публичное чтение этого реестра как контейнера
-  (отношение `public_reader` на `registry_registry:<id>`, Р9 kaname). Значит, без входа
-  читаются реестр и каждый его репозиторий, включая будущие;
-- `PRIVATE` — такого чтения у класса `anonymous` нет.
+**Р3. Кто вправе открыть реестр — тот, кто вправе выдать.** Гейты выдачи принадлежат kaname и
+не меняются: право выдать (владелец аккаунта либо `admin` на области, SC-20), уровень сессии
+«2» (SC-26), свежесть для выдачи классу (SC-25, SC-66); сервисная учётка с правом выдаёт без
+уровня и окна (SC-27). `admin` только на объекте реестра без права выдать на области реестр не
+открывает: ворота выдачи строже ворот D-6 RG-1 (REG-PUB-1-18).
 
-Своего столбца у поля нет. Значение спрашивается у kaname на каждом чтении `Get` и `List`. Это
-и есть «видимость выводится из выдачи» (`kacho#3274`, У3 kaname): выдача, заведённая или
-снятая напрямую через API привязок, видна в реестре так же, как выдача из консоли. Пересмотр
-F1 записан решением Д2.
+**Р7. Удаление реестра выдачу не отзывает.** Каскада через границу службы нет (ban #4). id
+реестра неизменяем и повторно не выдаётся (ban #15), поэтому выдача на удалённый
+`registry_registry:<id>` ничего не открывает; снять её можно глаголом отзыва (REG-PUB-1-17, 29).
 
-**Р3. Кто вправе сделать реестр публичным — тот, кто вправе выдать.** Сделать реестр публичным
-значит создать выдачу. Её гейты принадлежат kaname и не меняются: право выдать (владелец
-аккаунта либо `admin` на области, SC-20), уровень сессии «2» (SC-26), свежесть не старше
-15 минут для выдачи классу (SC-25, SC-66); сервисная учётка с правом выдаёт без уровня и
-окна (SC-27). Отличие от D-6 RG-1 называется прямо. `admin` только на объекте реестра без права
-выдать на области реестр публичным не делает: ворота выдачи строже ворот D-6, и это сужение, а
-не расширение. Путь установки — Д1: установка и снятие идут глаголами `AccessBindingService` с
-удостоверением самого вызывающего; консоль составляет запрос сама; своего пишущего метода у
-registry нет (REG-PUB-1-18).
+**Р9. Анонимный токен плоскости данных на стенде: звенья и порядок.**
 
-**Р4. Видимость описывает «без входа».** Выдача классу `authenticated` при недоступном
-`anonymous` оставляет `visibility = PRIVATE`. Без входа реестр не читается, и значение верно
-по определению Р2. Перечень выдач (страница прав) показывает выдачу вошедшим отдельно (Д3).
-
-**Р5. Отказ в выводе видимости — отказ чтения.** Если kaname не ответил на вопрос о видимости,
-`Get` и `List` отвечают `UNAVAILABLE` с фиксированным текстом и страницы не отдают.
-`PRIVATE` наугад — ложь пустым значением (`api-empty-means-empty`), поэтому fail-closed.
-Цена (ban18-q-perf) — один вопрос к kaname на `Get` и ⌈N/100⌉ пакетных вопросов на страницу
-`List` из N реестров (пакет — до 100 объектов, `sec-page-then-check`). Время замеряется в DoD S2.
-
-**Р6. Поток изменений реестра видимости не несёт.** Нагрузка события журнала — столбцы строки
-реестра (`subscriptionjournal/journal.go`), а у видимости столбца нет. Смена выдачи строку
-реестра не трогает, поэтому события нет. Комментарий поля называет, какие чтения его
-заполняют: `Get` и `List`. В событии потока значение — `VISIBILITY_UNSPECIFIED` («это чтение
-поле не вычисляет»). Консоль после своей операции перечитывает реестр (REG-PUB-1-40, 45).
-
-**Р7. Удаление реестра выдачу не отзывает.** Каскада через границу службы нет (ban #4).
-Идентификатор реестра неизменяем и повторно не выдаётся (ban #15), поэтому оставшаяся выдача
-на удалённый `registry_registry:<id>` ничего не открывает. Перечень выдач показывает её
-висячей, снять её можно глаголом отзыва (REG-PUB-1-17, REG-PUB-1-29).
-
-**Р8. С `kacho#3251` эта задача не связана побайтово.** Перевод слова `user:*` в сборщике kaname
-временный (`internal/modelrender/render.go`, `subjectWords`). Рендер строки `subjects` с `user:*`
-и с `system_class` одинаков. Значит, блоки, порождённые манифестом этой под-фазы, равны канону
-при любом порядке двух задач. Эта задача строку `subjects` не правит; какая из двух задач
-влита второй, та перебазируется. Предикат — REG-PUB-1-01 в обоих порядках.
-
-**Р9. Сквозной `docker pull` без учётки: звенья и порядок.**
-
-1. kaname: ручка службы `api-server.registry-token.anonymous-client-id` (страж формы при старте,
-   умолчание пусто — поток выключен). Её делает `kaname#495`, PR `kaname#871` (Д5); это правка
-   kaname вне этой задачи;
+1. kaname: ручка `api-server.registry-token.anonymous-client-id` — `kaname#495`, влита
+   (`0b6b21cc9`), страж формы при старте, умолчание пусто;
 2. **S3, чарты kacho:**
    - чарт registry выводит `KACHO_REGISTRY_ANONYMOUS_SUBJECT_ID` из значения
      `anonymousSubjectId` (умолчание пусто);
-   - вложенный чарт kaname стенда kacho
-     (`deploy/helm/umbrella/charts/kaname/templates/configmap.yaml`, блок `registry-token:` у
-     строки 105) выводит `anonymous-client-id` из
+   - вложенный чарт kaname стенда (`deploy/helm/umbrella/charts/kaname/templates/configmap.yaml`,
+     блок `registry-token:`) выводит `anonymous-client-id` из
      `kaname.config.apiServer.registryToken.anonymousClientId` (умолчание пусто);
    - рендер umbrella отказывает, если оба значения заданы и различаются, — по образцу
-     `kaname.laneServiceAud` (`charts/kaname/templates/_helpers.tpl:130-132`): у полосы две
-     стороны и одно значение;
-3. **S6, значения и пины:**
-   - пин kaname в `go.mod` и тег образа kaname в профилях umbrella поднимаются ВТОРОЙ раз — до
-     ревизии ствола kaname, в которую влит `kaname#495`; поднимаются вместе по Р1 п. 3;
-   - профили стенда kacho задают оба значения звена 2 одним и тем же зарезервированным
-     идентификатором, которого нет ни у одного принципала. Производитель — стадия S6 задачи
-     `kacho#3274`, а не kaname;
-4. **S6, проба:** сквозная проба настоящим клиентом.
+     `kaname.laneServiceAud` (`charts/kaname/templates/_helpers.tpl`);
+3. **S4, значения и пин:**
+   - пин kaname в `go.mod` и тег образа в 5 профилях поднимаются ВТОРОЙ раз — до ревизии ствола
+     kaname, в которую влит `kaname#871` (не ниже `0b6b21cc9`; она — потомок `efac3adf7`, так
+     что Р1 п. 2 сохраняется), вместе, по Р1 п. 2;
+   - профили стенда задают оба значения звена 2 одним идентификатором закрытой формы SC-39
+     (`^[a-z][a-z0-9]*(-[a-z0-9]+)+$`, ≤ 63 знаков, не форма порождаемого id), которого нет ни
+     у одного принципала. Производитель — S4 этой задачи;
+4. **S4, проба:** сквозная проба настоящим клиентом `docker`.
 
-**Порядок исполнения:** S1 ждёт пин kaname с правкой судьи формы (`kaname#872`,
-Д9) и с вложенными правилами (`kaname#874`, вливание `kaname#879`; Р1 п. 2). Затем S3 (чарты) → S6 (значения и пины) → S3 (newman 20–27, 29 на стенде) →
-S6 (`docker`, 50, 51). S2, S4, S5 и integration-часть S3 (REG-PUB-1-28) от звеньев 1–3 не
-зависят. Расширение поверхности (ban18-q-security) названо: включённые ручки дают любому без
-учётки токен только чтения, и он читает только то, что выдано классу `anonymous`. Без такой
-выдачи всё отвечает `404` (REG-PUB-1-21).
+**Порядок исполнения:** S1 (влить PR `kacho#3279`) → S3 (чарты) → S4 (значения и пин) → S2
+и S3 (newman на стенде) → S4 (`docker`, 50, 51). Unit/integration S3 (28) и тексты S2 от звеньев
+не зависят. Расширение поверхности (ban18-q-security) названо: включённые ручки дают любому
+без учётки токен только чтения, и он читает только то, что выдано классу `anonymous`. Без
+такой выдачи всё отвечает `404` (REG-PUB-1-21).
 
-**Р10. Вошедший без прав в аккаунте читает публичный реестр и через API-край.** Говорящий с
-личностью несёт класс `anonymous` (Р2 kaname). Поэтому `GET /registry/v1/registries/{id}` и
-`…/repositories` для такого вызывающего проходят и Check края (`v_get` на реестр), и сужение
-строк в обработчике (`v_list`). Ему видны метаданные реестра: `projectId`, `name`,
-`description`, `labels`, `regionId`, `endpoint`, `repositoryCount`. `ListRegistries` с
-`projectId` чужого проекта показывает ему публичные реестры этого проекта: обработчик сужает
-страницу только вопросом `v_list` (`services/registry/internal/handler/public.go:85-104`). Это
-следствие выдачи анониму, и оно названо здесь (ban18-q-security). Консоль предупреждает о нём
-в диалоге включения (REG-PUB-1-40).
+**Р10. Вошедший без прав в аккаунте читает открытый реестр и через API-край.** Говорящий с
+личностью несёт класс `anonymous` (Р2 kaname), поэтому `GET /registry/v1/registries/{id}` и
+`…/repositories` проходят и Check края (`v_get` на реестр), и сужение строк (`v_list`). Ему
+видны метаданные реестра: `projectId`, `name`, `description`, `labels`, `regionId`, `endpoint`,
+`repositoryCount`. `ListRegistries` с `projectId` чужого проекта показывает ему открытые
+реестры этого проекта. Это следствие выдачи анониму, и оно названо здесь (ban18-q-security).
 
-**Соответствие рынку (ban18-q-market-recognition).** Публичный реестр образов, который тянется
-без учётки, — общепринятое свойство реестров. Наше отличие: публичность не флаг реестра, а
-обычная выдача роли классу. Она заводится, отзывается и пишется в журнал аудита теми же
-глаголами, что любая выдача, и видна в перечне прав.
+**Соответствие рынку (ban18-q-market-recognition).** Реестр образов, который тянется без
+учётки, — общепринятое свойство реестров. Наше отличие: открытость — не флаг реестра, а обычная
+выдача роли классу; она заводится, отзывается и пишется в журнал аудита теми же глаголами, что
+любая выдача, и видна в перечне прав. Что выдано, то и видно — второго источника правды нет.
 
 ## Как строится «Дано»
 
 Все «Дано» строит посев. Ручной правки базы нет.
 
-- **П0 — дерево kacho для S1** (проверено прогоном, раздел «Посев «Дано»: прогон»): временная
-  копия `e9ce4ffbd`; манифест Р1 п. 1; пин kaname `GOWORK=off go get
-  github.com/PRO-Robotech/kaname@<R879>` — ревизия вливания `kaname#879` в `main` (в ней
-  `kaname#872` и `kaname#874`); пока `kaname#879` не влит — голова ветки `874` (в посеве
-  редакции 8 — `5f6f29902`); тег образа `main-<sha8>` той же ревизии в 5 профилях; правка Р1
-  п. 4. Судья формы (Д9) собирается из модуля kaname по пину
-  `GOWORK=off go build github.com/PRO-Robotech/kaname/tools/modulemanifestcheck` и наводится
-  на корень копии kacho (`-root=`), как его зовёт `TestModuleManifestFormIsJudgedByTheOneExecutor`.
-- **П1 — integration registry** (`testcontainers`, Postgres 16, миграции registry ствола и этого
-  изменения). Два реестра в `prj-A` создаются вызовом use-case `Create`; X и Y здесь — **метки**,
-  id выдаёт `ids.NewID`, и сценарии ссылаются на значения, захваченные из ответа. Дублёр
-  решения о доступе — порт клиента проверки registry (`internal/check`): записывает вопросы и
-  отвечает заданной ему таблицей. Он выполняет контракт настоящего тем же кодом разбора ответа
-  (`double-must-honor-real-contract`). «Публичное чтение X есть» значит: дублёр отвечает «да»
-  на вопрос о публичном чтении класса `anonymous` на X. Форму вопроса выбирает замысел.
-  Плоскость данных в П1 собирается `dataplane.New` с поддельным проверяющим токена, как в
-  пробах пакета `dataplane`.
-- **П2 — стенд** (своё пространство имён `make -C deploy stand-ns-up`, сквозной набор registry). В стенд
-  выкачены kaname образом ревизии пина Р1 п. 2 (не ниже вливания `kaname#879`, с
-  `kaname#874`) и kacho с этим изменением. Для стендовой части S3 и для S6 — ещё
-  kaname с `kaname#495` и значения ручек из профиля (Р9 п. 3). Посев набора (своё
-  пространство на прогон, имена с `{{runId}}`):
-  - принципалы — из `tests/authz-fixtures/prodseed_matrix.py`: **выдающий**
-    `jwtAccountAdminA` (администратор аккаунта A: право выдать на проекте A1; токен сервисной
-    учётки, уровень и окно свежести к нему не применяются, SC-27); **редактор**
+- **П0 — дерево kacho для S1:** голова PR `kacho#3279` (на ревизии замера `636bd5435`) либо
+  ревизия её вливания в ветку эпика. Судья формы собирается из модуля kaname по пину, как его
+  зовёт `TestModuleManifestFormIsJudgedByTheOneExecutor`.
+- **П1 — integration registry:** плоскость данных собирается `dataplane.New` с поддельным
+  проверяющим токена и дублёром решения о доступе (порт `internal/check`), как в пробах пакета
+  `dataplane`; X — метка, id из ответа.
+- **П2 — стенд** (своё пространство имён `make -C deploy stand-ns-up NS=t3274-<коротко>`,
+  сквозной набор registry). Выкачены kaname образом ревизии пина и kacho с этим изменением; для
+  сценариев плоскости данных (13, 14, 20–27, 29, 50, 51) — пин и значения S4. Посев набора
+  (имена с `{{runId}}`):
+  - принципалы `tests/authz-fixtures/prodseed_matrix.py`: **выдающий** `jwtAccountAdminA`
+    (право выдать на проекте A1; токен сервисной учётки, SC-27); **редактор**
     `jwtProjectEditorA` (editor на A1, без права выдать); **посторонний** `jwtStranger`
     (вошедший без выдач в аккаунте A);
-  - реестры X и Y в проекте A1, созданные выдающим через `POST /registry/v1/registries`;
-    `Operation` доведена до `done=true` без `error`;
+  - реестры X и Y в проекте A1 через `POST /registry/v1/registries`, `Operation` — `done=true`
+    без `error`;
   - репозитории `X/app` и `Y/app`, запушенные через плоскость данных до любой выдачи
-    удостоверением вида SECRET выдающего (`SAKeyService.Issue`, как `dataplane-e2e.sh`);
-    репозиторий `Y/pub`, созданный `CreateRepository` с `visibility=PUBLIC` (поштучная
-    публикация, D-7);
-  - роли `rol-reg-get` (`[get, list]` над `registry.registries`, без вложенного правила, без
-    имён и меток; тело `RoleService.Create` — `"rules":[{"module":"registry","resources":["registries"],"verbs":["get","list"]}]`) и
-    `rol-reg-edit` (`[get, list, update]` над `registry.registries`), обе заведены
+    удостоверением вида SECRET выдающего (`SAKeyService.Issue`); репозиторий `Y/pub`,
+    созданный `CreateRepository` с `visibility=PUBLIC` (поштучная публикация, D-7);
+  - роли `rol-reg-get` (`"rules":[{"module":"registry","resources":["registries"],"verbs":["get","list"]}]`,
+    без вложенного правила) и `rol-reg-edit` (`[get, list, update]` над `registry.registries`) —
     `RoleService.Create` в аккаунте A от имени выдающего;
   - **выдача ПЧ** — тело
     `{"subjects":[{"type":"SUBJECT_TYPE_SYSTEM_CLASS","id":"anonymous"}],"roleId":"rolb1325b011aa17211d","scopeType":"iam.project","scopeId":"{{existingProjectId}}","target":{"resources":{"resources":[{"type":"registry.registries","id":"{{registryX}}"}]}}}`,
     отправитель — выдающий;
   - **анонимный токен** — `GET <realm>?service=<service>&scope=repository:<X>/app:pull` без
     `Authorization`; `realm` и `service` берутся из `WWW-Authenticate` первого ответа `401`
-    плоскости данных, а не вписываются литералом.
+    плоскости данных.
 
-  «Материализовано» значит: опрос раз в 200 мс с пределом 30 с (окно SC-13 kaname) плюс окно
-  кэша `KACHO_REGISTRY_AUTHZ_CACHE_TTL` дошёл до ожидаемого ответа. Уборка заводится до
-  создания: выдачи, реестры, роли снимаются тем же прогоном и на падении.
-- **П3 — консоль на стенде П2.** Человек входит фикстурой `tenantWithProject` (владелец
-  своего аккаунта), уровень поднимается `raiseAssurance`, область готова — `scopeIsReady`.
-  Реестры X и Z в его проекте создаются через API. Репозиторий `X/app` создаётся
-  `CreateRepository` (`POST /registry/v1/registries/{X}/repositories`, тело
-  `{"repository":"app"}`; `visibility` не задана, наследуется `PRIVATE`). Оба шага — так же, как
-  в `registry-tags.spec.ts`.
+  «Материализовано» — опрос раз в 200 мс с пределом 30 с (окно SC-13 kaname) плюс окно
+  `KACHO_REGISTRY_AUTHZ_CACHE_TTL` дошёл до ожидаемого ответа. Уборка заводится до создания:
+  выдачи, реестры, роли снимаются тем же прогоном и на падении.
 
 ## Посев «Дано»: прогон
 
-Редакция 8 перемерила П0 и П1. Временная копия kacho `e9ce4ffbd` в `kacho-workspace/tmp`,
-пин kaname — голова ветки `874` `5f6f29902` (`go get …@5f6f299026b6cb5bf7dbd4e9a8324374341bc9e5`),
-манифест Р1 п. 1, тег `main-5f6f2990` в 5 профилях; после прогона копия снята (`git worktree
-remove`). Стенд П2/П3 и integration-часть П1 с `testcontainers` не поднимались. Строки E0–E3 —
-опыт редакции 4 на kaname `422d1bc6f`, до `kaname#872`: основание Д9, на этом пине не
-повторялись.
+Редакция 10 прогнала П0: временная копия kacho на голове PR `kacho#3279` `636bd5435`, после
+прогона снята.
 
 | «Дано» | команда | исход |
 |---|---|---|
-| П0 без Р1 п. 4 | `GOWORK=off go test ./internal/repohygiene/ -run TestConsumerOwnedStructuralRelationsHaveProducers -count=1` | FAIL: `` kaname/cloud/iam/v1/fga_model.fga:1315 — `registry_registry#public_reader` объявлено, но НИ ОДНА точка эмиссии его не пишет `` |
-| П0 целиком (с Р1 п. 4): сценарий 01 | команды «Когда» и «И» REG-PUB-1-01 | 7 из 7 PASS, `ok`: `TestModelCanonAgreesWithPlatformManifests` (`блоков сверено 27 из 27`), `TestModuleManifestFormIsJudgedByTheOneExecutor` (`перепись: осмотрено путей 7112 · манифестов прочитано 5 · находок 0 (манифестов в индексе 5)`), `TestManifestFormCensusFollowsTheTree`, `TestModuleManifestsOfThePlatformAreReadable`, `TestManifestIsNotASecondDeclarationOfARight`, `TestManifestNamedPredicateIsRunnableInThisTree`, `TestConsumerOwnedStructuralRelationsHaveProducers`; `./deploy/ -run 'TestOutsourcedImagePinAgreesWithItsModulePin$'` — `ok` |
-| П0 целиком (с Р1 п. 4): пакеты | `GOWORK=off go test ./internal/repohygiene/ ./deploy/ -count=1 -v` | код 0; `repohygiene` — `ok`, верхнеуровневых PASS 2638, FAIL 0, SKIP 2 («не выполнилось», не зелёные: `TestFoundationNamesNoMovingPackageOutsideAnImport`, `TestFoundationProdCodeNamesNoForeignTreePath`); `deploy` — `ok`, PASS 488, FAIL 0 |
-| близнец 01: ключ на `repositories` | тот же `-run TestModelCanonAgreesWithPlatformManifests` | FAIL; в выводе `resources[1].publicReadToChildren: на тип registry_repository не указывает ни один ресурс модуля registry — объявление без следствия`, `блоков сверено 25 из 27` |
-| E4 — судья формы с пина на П0 | `GOWORK=off go build github.com/PRO-Robotech/kaname/tools/modulemanifestcheck` и `modulemanifestcheck -root=<копия kacho>` | код 0; `манифестов прочитано 5 · находок 0`; `права ролей services/registry/manifest.yaml: … отказов 0` |
-| предикаты манифеста DoD S1 | `diff` разделов с фикстурой @`5f6f29902` (только роль `registry.public.read`); `diff` раздела `seed` со стволом `a95248464`; `yq '.roles \| length'`; `yq -o=json -I=0 '.roles[0].rules[0].children[0].resources'` | оба `diff` пусты; `1`; `["repositories"]` |
-| каталог прав края на пине `5f6f29902` | `make -C gateway permission-catalog-check rest-route-table-check catalog-splice-check` | код 0; `permission catalog is complete` (359 записей), `REST route table is complete and in sync with proto` (317 маршрутов), `check-catalog-splice: OK` |
-| П1, плоскость данных | `GOWORK=off go test ./services/registry/internal/dataplane/ -count=1 -v` | `ok`, PASS 115, FAIL 0; в том числе 7 проб анонима из переписи (REG-PUB-1-28 и integration-половины 20, 21, 24, 25) |
-| E0 — судья kaname без правок на П0 | `modulemanifestcheck -root=<копия kacho>` | код 1; `каталог прав: записей 359 · привязано действий 356`; у registry `правила ролей: … пар (ресурс, класс) 2 · находок 1` — находка B1 |
-| E1 — две строки `kacho.cloud.registry.v1.RepositoryService/{Get,List}` с `v_get`/`v_list` на `registry_repository` добавлены только в каталог края kacho | тот же | код 1, та же находка: каталог kacho судья не читает |
-| E2 — те же две строки в каталоге, встроенном в kaname, вида `scope_filtered` (без отношения), плюс запись написания `registry.repository → registry.repositories` | судья, собранный из правленой копии kaname | код 1; две находки «класс "get"/"list" на ресурсе "repositories" … не покрывает ни одного пригодного действия. Все 2 действий ресурса освобождены от гейта» |
-| E3 — как E2, но строки несут `required_relation` `v_get`/`v_list` и `scope_extractor.object_type` `registry_repository` | тот же | код 0; у registry `пар (ресурс, класс) 4 · находок 0` |
+| П0: сценарий 01 | `GOWORK=off go test ./internal/repohygiene/ -run 'TestModelCanonAgreesWithPlatformManifests\|TestModuleManifestFormIsJudgedByTheOneExecutor\|TestManifestFormCensusFollowsTheTree\|TestModuleManifestsOfThePlatformAreReadable\|TestManifestIsNotASecondDeclarationOfARight\|TestManifestNamedPredicateIsRunnableInThisTree\|TestConsumerOwnedStructuralRelationsHaveProducers' -count=1 -v` | код `0`, 7 из 7 PASS, `ok`; `блоков сверено 27 из 27 · байт сверено 80556`; `перепись: осмотрено путей 7142 · манифестов прочитано 5 · находок 0 (манифестов в индексе 5)` |
+| П0: согласие пина и образа | `GOWORK=off go test ./deploy/ -run 'TestOutsourcedImagePinAgreesWithItsModulePin$' -count=1` | код `0`, `ok` |
+| П0: предикаты манифеста DoD S1 | `yq '.roles\|length'`; `yq -o=json -I=0 '.roles[0].rules[0].children[0].resources'`; `diff` раздела `seed` со стволом эпика | `1`; `["repositories"]`; пусто |
+| П1 | не перепрогонялось в редакции 10; пробы 28 — те же, что в посеве редакции 8 (`ok`, PASS 115 пакета `dataplane` на `e9ce4ffbd`) | — |
+| П2 | стенд не поднимался | — |
+
+Близнец 01 (ключ на `repositories`) мерен в редакции 8 на пине `5f6f29902`: FAIL с находкой
+`resources[1].publicReadToChildren: на тип registry_repository не указывает ни один ресурс модуля registry — объявление без следствия`.
 
 ## Сценарии
 
-### S1. Манифест, пины и гейты (kacho)
+### S1. Манифест, пины и гейты (kacho; `kacho#3251`, PR `kacho#3279`)
 
 #### Сценарий 01: манифест новой редакции даёт блоки, равные канону, и проходит гейты формы
 
 **ID:** REG-PUB-1-01
-**Given** П0: пин kaname не ниже ревизии вливания `kaname#879` (в ней `kaname#872`, Д9, и `kaname#874`); пока PR `kaname#879` не влит — голова ветки `874`
+**Given** П0
 **When** `GOWORK=off go test ./internal/repohygiene/ -run TestModelCanonAgreesWithPlatformManifests -count=1 -v`
 **Then** `ok`; в выводе `блоков сверено 27 из 27`
 **And** `GOWORK=off go test ./internal/repohygiene/ -run 'TestModuleManifestFormIsJudgedByTheOneExecutor|TestManifestFormCensusFollowsTheTree|TestModuleManifestsOfThePlatformAreReadable|TestManifestIsNotASecondDeclarationOfARight|TestManifestNamedPredicateIsRunnableInThisTree|TestConsumerOwnedStructuralRelationsHaveProducers' -count=1 -v` — `ok`; в выводе `TestModuleManifestFormIsJudgedByTheOneExecutor` строка `перепись: осмотрено путей … · манифестов прочитано 5 · находок 0`
 **And** `GOWORK=off go test ./deploy/ -run 'TestOutsourcedImagePinAgreesWithItsModulePin$' -count=1` — `ok`
-**And** тот же прогон с манифестом, где строка `subjects` переведена на `system_class` (содержимое
-`kacho#3251`), — `ok` (Р8)
-**Близнец (отрицательный):** манифест Р1, в котором ключ стоит на `repositories` вместо
-`registries`. `TestModelCanonAgreesWithPlatformManifests` красный, и в выводе находка
-`resources[1].publicReadToChildren: на тип registry_repository не указывает ни один ресурс модуля registry — объявление без следствия`
-(SC-70 (в), SC-71 (б) kaname). Отличие — одно поле: ресурс, на котором стоит ключ.
+**Близнец (отрицательный):** манифест, в котором ключ `publicReadToChildren` стоит на
+`repositories` вместо `registries`: `TestModelCanonAgreesWithPlatformManifests` красный, в выводе
+`resources[1].publicReadToChildren: на тип registry_repository не указывает ни один ресурс модуля registry — объявление без следствия`.
+Отличие — одно поле: ресурс, на котором стоит ключ.
 
 #### Сценарий 02: роль доставлена — выдача ПЧ принимается
 
@@ -410,8 +309,7 @@ remove`). Стенд П2/П3 и integration-часть П1 с `testcontainers` �
 **And** `GET /iam/v1/accessBindings/{id}` → `roleId = "rolb1325b011aa17211d"`, субъект
 `{"type":"SUBJECT_TYPE_SYSTEM_CLASS","id":"anonymous"}`
 **Близнец (отрицательный):** то же тело с `"roleId":"rolb0000000000000000"` (форма id верна, роли
-с таким id нет) → синхронно `FAILED_PRECONDITION` (HTTP 400), текст
-`Role rolb0000000000000000 not found`. Тот же отказ даёт kaname без манифеста Р1 (SC-70 (а)).
+нет) → синхронно `FAILED_PRECONDITION` (HTTP 400), текст `Role rolb0000000000000000 not found`.
 Отличие — один факт: существует ли роль.
 
 #### Сценарий 03: роль даёт только чтение
@@ -419,133 +317,123 @@ remove`). Стенд П2/П3 и integration-часть П1 с `testcontainers` �
 **ID:** REG-PUB-1-03
 **Given** П2
 **When** `GET /iam/v1/roles/rolb1325b011aa17211d` от выдающего
-**Then** `200`; через край (REST транскодирует `RoleService` по пину Р1 п. 2–3) в теле:
-`rules` — длины 1; `rules[0].module = "registry"`, `rules[0].resources = ["registries"]`,
-`rules[0].verbs = ["get","list"]`; `rules[0].children` — длины 1;
-`children[0].resources = ["repositories"]`, `children[0].verbs = ["get","list"]`; прочие
-ключи `children[0]` (`module`, `children`, `resourceNames`, `matchLabels`) пусты. Утверждения
-— поштучно по полям, не равенством объекту: публичный край сериализует с
-`EmitUnpopulated=true` (`gateway/internal/restmux/mux.go:17`) и отдаёт пустые ключи (форма —
-ND-02 приёмки `kaname#874`)
-**Близнец (отрицательный, форма):** те же утверждения о `GET /iam/v1/roles/{{rolRegGet}}`
-(роль П2 `[get, list]` над `registries` без вложенного правила) — проба красная:
-`rules[0].children` пуст. Отличие — один факт: вложенное правило.
+**Then** `200`; в теле: `rules` — длины 1; `rules[0].module = "registry"`,
+`rules[0].resources = ["registries"]`, `rules[0].verbs = ["get","list"]`; `rules[0].children` —
+длины 1; `children[0].resources = ["repositories"]`, `children[0].verbs = ["get","list"]`; ключи
+`children[0]` `module`, `children`, `resourceNames`, `matchLabels` пусты. Утверждения — поштучно
+по полям: край сериализует с `EmitUnpopulated=true` и отдаёт пустые ключи (ND-02 приёмки
+`kaname#874`)
+**Близнец (отрицательный, форма):** те же утверждения о `GET /iam/v1/roles/{{rolRegGet}}` — проба
+красная: `rules[0].children` пуст. Отличие — один факт: вложенное правило.
 **Близнец (отрицательный, выдача):** тело «выдача ПЧ» с `"roleId":"{{rolRegEdit}}"` → синхронно
 `FAILED_PRECONDITION`, текст SC-21 kaname
 `Role <id> grants verbs beyond get and list; a system class subject accepts read-only roles`.
 Отличие — один факт: глаголы роли.
 
-### S2. Видимость реестра в API (registry)
+### S2. API-край: чтение открытого реестра вошедшим (registry, gateway)
 
-#### Сценарий 10: новый реестр — приватный
+#### Сценарий 10: до выдачи посторонний реестра не видит
 
 **ID:** REG-PUB-1-10
 **Given** П2, выдач классам на X нет
-**When** `GET /registry/v1/registries/{X}` и `GET /registry/v1/registries?projectId={{existingProjectId}}` от выдающего
-**Then** `200`; у X `visibility = "PRIVATE"` в обоих ответах; `defaultRepositoryVisibility = "PRIVATE"`
+**When** посторонний: `GET /registry/v1/registries/{X}`
+**Then** `404`, `code` 5 (`NOT_FOUND`): отказ чтения не отличает закрытый реестр от несуществующего
 **Близнец:** REG-PUB-1-11 — отличие одно: выдача ПЧ.
 
-#### Сценарий 11: выдача ПЧ делает реестр публичным
+#### Сценарий 11: выдача ПЧ открывает реестр и его репозитории постороннему
 
 **ID:** REG-PUB-1-11
 **Given** П2; выдача ПЧ создана (REG-PUB-1-02) и материализована
-**When** `GET /registry/v1/registries/{X}` и `GET /registry/v1/registries?projectId={{existingProjectId}}` от выдающего
-**Then** у X `visibility = "PUBLIC"` в обоих ответах; у Y `visibility = "PRIVATE"`. Выдача
-сужена целью X (SC-68 kaname)
-**And** `GET …/registries/{X}/operations` не содержит операции после `Create`: выдача мутацией
-реестра не является
-**Близнец (отрицательный):** REG-PUB-1-10 — то же без выдачи → `PRIVATE`.
+**When** посторонний: `GET /registry/v1/registries/{X}`; `GET /registry/v1/registries/{X}/repositories`;
+`GET /registry/v1/registries?projectId={{existingProjectId}}`
+**Then** `200`, `id = X`; `200`, в странице репозиторий `app`; `200`, в странице ровно X (Y нет) (Р10)
+**And** тело ответа `GET …/registries/{X}` не содержит ключа `visibility` (поля нет, Р2)
+**Близнец (отрицательный):** REG-PUB-1-10 — то же без выдачи → `404`.
 
-#### Сценарий 12: отзыв выдачи возвращает приватность
+#### Сценарий 12: отзыв выдачи закрывает реестр
 
 **ID:** REG-PUB-1-12
 **Given** REG-PUB-1-11
 **When** выдающий шлёт `DELETE /iam/v1/accessBindings/{id}` выдачи ПЧ; `Operation` доходит до `done=true`
-**Then** опрос `GET /registry/v1/registries/{X}` доходит до `visibility = "PRIVATE"` в пределах окна П2
-**Близнец:** REG-PUB-1-11 — тот же реестр до отзыва: `PUBLIC`.
-
-#### Сценарий 13: роль без вложенного правила над репозиториями реестр публичным не делает
-
-**ID:** REG-PUB-1-13
-**Given** П2; выдающий выдаёт классу `anonymous` роль `rol-reg-get` на A1 с целью X (тело
-«выдача ПЧ» с `"roleId":"{{rolRegGet}}"`); выдача материализована
-**When** `GET /registry/v1/registries/{X}` от выдающего
-**Then** `visibility = "PRIVATE"`: у правила роли над `registry.registries` нет вложенного
-правила (`children`) над `registry.repositories`, поэтому `public_reader` не пишется, и класс
-читает метаданные реестра, но не его репозитории (SC-73 kaname, Р5 `kaname#874`)
-**Близнец:** REG-PUB-1-11 — та же цель и тот же класс, роль `registry.public.read` →
-`PUBLIC`. Правило верхнего уровня у ролей одно и то же — `[get, list]` над
-`registry.registries` (П2); отличие — один факт: вложенное правило `[get, list]` над
-`registry.repositories`. `public_reader` пишется по вложенному правилу («Сужение по цели»
-kaname ред. 12): репозитории роль `registry.public.read` покрывает вложенным правилом, а не
-правилом верхнего уровня.
-
-#### Сценарий 14: выдача вошедшим видимость «без входа» не меняет
-
-**ID:** REG-PUB-1-14
-**Given** П2; тело «выдача ПЧ» с субъектом
-`{"type":"SUBJECT_TYPE_SYSTEM_CLASS","id":"authenticated"}` принято и материализовано
-**When** `GET /registry/v1/registries/{X}` от выдающего
-**Then** `visibility = "PRIVATE"` (Р4)
-**And** `GET /registry/v1/registries/{X}/repositories` от постороннего → `200`, в странице `app`
-(выдача действует: контроль живости, SC-69 kaname)
-**Близнец:** REG-PUB-1-11 — субъект `anonymous` → `PUBLIC`. Отличие — один факт: класс субъекта.
-
-#### Сценарий 15: видимость нельзя задать правкой реестра
-
-**ID:** REG-PUB-1-15
-**Given** П2, X приватный
-**When** `PATCH /registry/v1/registries/{X}` от выдающего с телом
-`{"visibility":"PUBLIC","updateMask":"visibility"}`
-**Then** синхронно `INVALID_ARGUMENT` (HTTP 400, `code` 3), текст
-`visibility is read-only (derived from access bindings)`; `Operation` не создана; выдачи нет
-**And** тело `{"description":"d-{{runId}}","visibility":"PUBLIC"}` с пустой маской → `Operation`,
-`done=true` без `error`; `description` применён; `visibility` осталось `PRIVATE`. Ключ
-`visibility` в запросе правки неизвестен, и REST-край отбрасывает его так же, как любой
-неизвестный ключ тела (Д8)
-**Близнец:** маска `description` с тем же телом → `Operation`, `done=true`, `description`
-применён. Отличие — одно: путь маски.
-
-#### Сценарий 16: kaname недоступен — чтение реестра отказывает, а не лжёт
-
-**ID:** REG-PUB-1-16
-**Given** П1; дублёр решения о доступе отвечает «доступ есть» на вопрос о чтении X
-вызывающим и ошибкой транспорта `Unavailable` на вопрос о публичном чтении
-**When** `Get(X)` и `List(prj-A)` через обработчик registry
-**Then** оба → `UNAVAILABLE`, текст фиксирован и не содержит текста ошибки транспорта
-(`hard-no-err-echo`); `List` не отдаёт ни одной строки
-**Близнец:** дублёр отвечает «нет» на вопрос о публичном чтении → `Get` `200`,
-`visibility = PRIVATE`. Отличие — один факт: ответил ли kaname.
+**Then** опрос `GET /registry/v1/registries/{X}` от постороннего доходит до `404`, `code` 5, в
+пределах окна П2
+**Близнец:** REG-PUB-1-11 — до отзыва `200`.
 
 #### Сценарий 17: удаление реестра выдачу не отзывает
 
 **ID:** REG-PUB-1-17
 **Given** REG-PUB-1-11; X опустошён и удалён выдающим: теги `X/app` сняты `DeleteTag`,
-репозиторий снят `DeleteRepository`, затем `DELETE /registry/v1/registries/{X}`; каждая
-`Operation` — `done=true` без `error` (удаление реестра требует пустого пространства имён,
-`delete.go`)
+репозиторий — `DeleteRepository`, затем `DELETE /registry/v1/registries/{X}`; каждая `Operation`
+— `done=true` без `error`
 **When** `GET /iam/v1/accessBindings/{id}` выдачи ПЧ от выдающего
 **Then** `200`; выдача существует, цель — прежний id X (Р7)
 **And** `DELETE /iam/v1/accessBindings/{id}` → `Operation`, `done=true` без `error`
 **Близнец:** REG-PUB-1-12 — отзыв той же выдачи при живом X проходит так же. Отличие — один
-факт: существует ли реестр. Что видит аноним после удаления — REG-PUB-1-29 (S3).
+факт: существует ли реестр. Что видит аноним после удаления — REG-PUB-1-29.
 
-#### Сценарий 18: редактор проекта реестр публичным не делает
+#### Сценарий 18: редактор проекта реестр не открывает
 
 **ID:** REG-PUB-1-18
-**Given** П2, X приватный
+**Given** П2, выдач классам на X нет
 **When** редактор шлёт `POST /iam/v1/accessBindings` с телом «выдача ПЧ»
 **Then** синхронно `PERMISSION_DENIED` (HTTP 403, `code` 7), тот же текст, что у выдачи
-человеку без права (SC-20 kaname); `Operation` не создана; `GET /registry/v1/registries/{X}` →
-`visibility = "PRIVATE"`
+человеку без права (SC-20 kaname); `Operation` не создана; `GET /registry/v1/registries/{X}` от
+постороннего → `404` (REG-PUB-1-10)
 **Близнец:** REG-PUB-1-02 — то же тело от выдающего принято. Отличие — один факт: право выдать.
 
-### S3. Плоскость данных: что видит аноним (registry)
+#### Сценарий 30: аноним на API-крае отвергается до решения
 
-Стендовая часть S3 (20–27, 29) исполняется после S3 (чарты) и S6 (значения и пины) — порядок
-Р9. Аноним предъявляет анонимный токен П2. Ответы — плоскость данных `/v2/...`.
+**ID:** REG-PUB-1-30
+**Given** REG-PUB-1-11
+**When** `GET /registry/v1/registries/{X}` и `GET /registry/v1/registries/{X}/repositories` без
+`Authorization`
+**Then** оба → `401`, `code` 16 (`UNAUTHENTICATED`), тело побайтово равно ответу на тот же путь
+для закрытого Y (Р7 kaname: выдача классу не меняет отказ на методе с полом «1»)
+**Близнец:** REG-PUB-1-11 — тот же путь с удостоверением постороннего → `200`. Отличие — один
+факт: удостоверение.
 
-#### Сценарий 20: аноним тянет образ публичного реестра, включая репозиторий, созданный после выдачи
+#### Сценарий 31: выдача ПЧ не даёт правки и не открывает соседний реестр
+
+**ID:** REG-PUB-1-31
+**Given** REG-PUB-1-11
+**When** посторонний: `PATCH /registry/v1/registries/{X}` с телом `{"description":"d-{{runId}}","updateMask":"description"}`;
+`GET /registry/v1/registries/{Y}`
+**Then** `PATCH` → `404`, `code` 5 (`hide_existence` на отказе правки), `description` X не изменился
+(`GET` от выдающего); `GET Y` → `404`, `code` 5
+**Близнец (правка):** тот же `PATCH` от выдающего → `Operation`, `done=true`, `description`
+применён. Отличие — один факт: вызывающий.
+**Близнец (соседний реестр):** REG-PUB-1-11, `GET X` → `200`. Отличие — один факт: реестр в цели выдачи.
+
+### S3. Плоскость данных: что видит аноним (registry; чарты)
+
+Стендовая часть S3 (13, 14, 20–27, 29) исполняется после S3 (чарты) и S4 (значения и пин) —
+порядок Р9. Аноним предъявляет анонимный токен П2. Ответы — плоскость данных `/v2/...`.
+
+#### Сценарий 13: роль без вложенного правила открывает реестр, но не репозитории
+
+**ID:** REG-PUB-1-13
+**Given** П2; выдающий выдаёт классу `anonymous` роль `rol-reg-get` с целью X (тело «выдача ПЧ» с
+`"roleId":"{{rolRegGet}}"`); выдача материализована
+**When** посторонний `GET /registry/v1/registries/{X}`; аноним `GET /v2/{X}/app/manifests/latest`
+**Then** `GET X` → `200` (у класса `v_get` на реестр); `GET /v2/{X}/app/manifests/latest` → `404`,
+`errors[0].code = "NAME_UNKNOWN"`: вложенного правила над `registry.repositories` нет,
+`public_reader` не пишется (SC-73 kaname, ND-07 (б), Р5 `kaname#874`)
+**Близнец:** REG-PUB-1-20 — та же цель и тот же класс, роль `registry.public.read` → `200`.
+Правило верхнего уровня у ролей одно и то же; отличие — один факт: вложенное правило
+`[get, list]` над `registry.repositories`.
+
+#### Сценарий 14: выдача классу «вошедшие» не открывает анониму
+
+**ID:** REG-PUB-1-14
+**Given** П2; тело «выдача ПЧ» с субъектом `{"type":"SUBJECT_TYPE_SYSTEM_CLASS","id":"authenticated"}`
+принято и материализовано
+**When** посторонний `GET /registry/v1/registries/{X}/repositories`; аноним
+`GET /v2/{X}/app/manifests/latest`
+**Then** посторонний → `200`, в странице `app` (выдача действует, SC-69 kaname); аноним → `404
+NAME_UNKNOWN`
+**Близнец:** REG-PUB-1-20 — субъект `anonymous` → аноним `200`. Отличие — один факт: класс субъекта.
+
+#### Сценарий 20: аноним тянет образ открытого реестра, включая репозиторий, созданный после выдачи
 
 **ID:** REG-PUB-1-20
 **Given** REG-PUB-1-11; затем выдающий пушит репозиторий `X/late`
@@ -554,7 +442,7 @@ kaname ред. 12): репозитории роль `registry.public.read` по�
 **Then** все четыре → `200`; дайджест тела манифеста равен дайджесту, который вернул push
 **Близнец (отрицательный):** REG-PUB-1-21.
 
-#### Сценарий 21: приватный реестр аноним не отличает от несуществующего
+#### Сценарий 21: закрытый реестр аноним не отличает от несуществующего
 
 **ID:** REG-PUB-1-21
 **Given** П2 без выдачи ПЧ
@@ -562,24 +450,23 @@ kaname ред. 12): репозитории роль `registry.public.read` по�
 **Then** оба → `404`, тела побайтово равны, `errors[0].code = "NAME_UNKNOWN"`
 **Близнец:** REG-PUB-1-20 — отличие одно: выдача ПЧ.
 
-#### Сценарий 22: аноним перечисляет теги публичного репозитория
+#### Сценарий 22: аноним перечисляет теги открытого репозитория, а не чужого
 
 **ID:** REG-PUB-1-22
 **Given** REG-PUB-1-20
 **When** аноним `GET /v2/{X}/app/tags/list`
 **Then** `200`, `tags` содержит `latest`
-**Близнец (отрицательный):** тот же запрос к `Y/app` (Y приватный) → `404 NAME_UNKNOWN`.
-Отличие — один факт: реестр в цели выдачи.
+**Близнец (отрицательный):** тот же запрос к `Y/app` → `404 NAME_UNKNOWN`. Отличие — один факт:
+реестр в цели выдачи.
 
-#### Сценарий 23: каталог анонима — репозитории публичных реестров и только они
+#### Сценарий 23: каталог анонима — репозитории открытых реестров и только они
 
 **ID:** REG-PUB-1-23
 **Given** REG-PUB-1-20
 **When** аноним `GET /v2/_catalog?n=1000`, по ссылкам `Link: rel="next"` до конца
 **Then** собранный перечень содержит `{X}/app` и `{X}/late`; не содержит `{Y}/app` и `{Y}/pub`.
-Поштучная публикация даёт только `v_get`, не `v_list` (SC-67 kaname)
-**Близнец:** тот же обход от выдающего → перечень содержит `{Y}/app`. Отличие — один факт:
-вызывающий.
+Поштучная публикация даёт только `v_get`, не `v_list` (SC-67 kaname, `fga_model.fga:1358`)
+**Близнец:** тот же обход от выдающего → перечень содержит `{Y}/app`. Отличие — один факт: вызывающий.
 
 #### Сценарий 24: аноним не пишет — ни в существующий, ни в новый репозиторий
 
@@ -587,10 +474,10 @@ kaname ред. 12): репозитории роль `registry.public.read` по�
 **Given** REG-PUB-1-11
 **When** аноним `POST /v2/{X}/app/blobs/uploads/` и `POST /v2/{X}/new-{{runId}}/blobs/uploads/`;
 `PUT /v2/{X}/app/manifests/anon-{{runId}}` с телом существующего манифеста
-**Then** каждый → `403`, `errors[0].code = "DENIED"`, текст
-`requested access to the resource is denied`; после этого `GET /v2/{X}/app/tags/list` от
-выдающего тега `anon-{{runId}}` не содержит, а `_catalog` не содержит `{X}/new-{{runId}}`
-**And** аноним `DELETE /v2/{X}/app/manifests/latest` → `405` (снято на плоскости данных для всех)
+**Then** каждый → `403`, `errors[0].code = "DENIED"`, текст `requested access to the resource is denied`;
+после этого `GET /v2/{X}/app/tags/list` от выдающего тега `anon-{{runId}}` не содержит, а
+`_catalog` не содержит `{X}/new-{{runId}}`
+**And** аноним `DELETE /v2/{X}/app/manifests/latest` → `405`
 **Близнец:** `POST /v2/{X}/app/blobs/uploads/` от выдающего → `202`. Отличие — один факт: вызывающий.
 
 #### Сценарий 25: без токена — вызов на вход, а не анонимное чтение
@@ -608,166 +495,62 @@ kaname ред. 12): репозитории роль `registry.public.read` по�
 
 **ID:** REG-PUB-1-26
 **Given** REG-PUB-1-20
-**When** выдача ПЧ отозвана (REG-PUB-1-12)
-**Then** опрос `GET /v2/{X}/app/manifests/latest` и `GET /v2/{X}/late/manifests/latest`
-анонимом доходит до `404 NAME_UNKNOWN` по обоим в пределах окна П2
-**And** `GET /v2/{X}/app/manifests/latest` от выдающего → `200` (отозвана только выдача классу)
+**When** выдача ПЧ отозвана (как в REG-PUB-1-12)
+**Then** опрос `GET /v2/{X}/app/manifests/latest` и `GET /v2/{X}/late/manifests/latest` анонимом
+доходит до `404 NAME_UNKNOWN` по обоим в пределах окна П2
+**And** `GET /v2/{X}/app/manifests/latest` от выдающего → `200`
 **Близнец:** REG-PUB-1-20 — до отзыва `200`.
 
-#### Сценарий 27: поштучная публикация в приватном реестре работает как прежде
+#### Сценарий 27: поштучная публикация в закрытом реестре работает как прежде
 
 **ID:** REG-PUB-1-27
 **Given** П2 без выдачи ПЧ; `Y/pub` опубликован поштучно
-**When** аноним `GET /v2/{Y}/pub/manifests/<тег посева>`; `GET /v2/{Y}/pub/tags/list`;
-`GET /registry/v1/registries/{Y}` от выдающего
-**Then** манифест → `200`; `tags/list` → `404 NAME_UNKNOWN` (публикация даёт только `v_get`);
-у Y `visibility = "PRIVATE"`
-**Близнец:** аноним `GET /v2/{Y}/app/manifests/<тег>` (не опубликован) → `404`. Отличие — один факт:
-поштучная публикация.
+**When** аноним `GET /v2/{Y}/pub/manifests/<тег посева>`; `GET /v2/{Y}/pub/tags/list`
+**Then** манифест → `200`; `tags/list` → `404 NAME_UNKNOWN` (публикация даёт только `v_get`)
+**Близнец:** аноним `GET /v2/{Y}/app/manifests/<тег>` (не опубликован) → `404`. Отличие — один
+факт: поштучная публикация.
 
 #### Сценарий 28: integration — анонимный субъект спрашивается классом
 
 **ID:** REG-PUB-1-28
-**Given** П1; плоскость данных собрана с `WithAnonymousSubject("<зарезервированный id>")`;
-проверяющий токена отдаёт `sub` = этот id
+**Given** П1; плоскость данных собрана с `WithAnonymousSubject("<идентификатор закрытой формы>")`;
+проверяющий токена отдаёт `sub` = этот идентификатор
 **When** `GET /v2/{X}/app/manifests/latest`
-**Then** дублёр решения о доступе получил ровно один вопрос: субъект
-`system_class:anonymous`, отношение `v_get`, объект `registry_repository:{X}/app`
-**Близнец:** та же сборка с пустым `WithAnonymousSubject("")` — субъект вопроса не
-`system_class:anonymous` (анонимный поток выключен, secure-by-default). Отличие — одна ручка.
+**Then** дублёр решения о доступе получил ровно один вопрос: субъект `system_class:anonymous`,
+отношение `v_get`, объект `registry_repository:{X}/app`
+**Близнец:** та же сборка с `WithAnonymousSubject("")` — субъект вопроса не
+`system_class:anonymous` (поток выключен). Отличие — одна ручка.
 
 #### Сценарий 29: после удаления реестра аноним получает отказ чтения
 
 **ID:** REG-PUB-1-29
 **Given** REG-PUB-1-17 до отзыва выдачи: X удалён, выдача ПЧ на прежний id X существует
 **When** аноним `GET /v2/{X}/app/manifests/latest`
-**Then** опрос доходит до `404` с телом, побайтово равным телу REG-PUB-1-21. Отказ даёт
-`servePullOnly` → `writeNotFound`: кортежи репозитория сняты `DeleteRepository`, кортежи
-реестра — работником удаления (`UnregisterIntentForDelete`), поэтому `public_reader from parent`
-ничего не находит и Check анонима — «нет». До материализации снятия ответ может прийти от
-движка (репозитория в нём уже нет, удаление реестра требует пустоты). Поэтому сценарий
-утверждает условие, к которому сходится опрос в окне П2, а не первый ответ
+**Then** опрос доходит до `404` с телом, побайтово равным телу REG-PUB-1-21: кортежи репозитория
+сняты `DeleteRepository`, кортежи реестра — работником удаления, `public_reader from parent`
+ничего не находит. Сценарий утверждает условие, к которому сходится опрос в окне П2
 **Близнец:** REG-PUB-1-20 — тот же запрос при живом X → `200`. Отличие — один факт: существует ли реестр.
 
-### S4. API-край (gateway, registry)
+### S4. Значения стенда и сквозной `docker pull` (стенд)
 
-#### Сценарий 30: аноним на API-крае отвергается до решения
-
-**ID:** REG-PUB-1-30
-**Given** REG-PUB-1-11
-**When** `GET /registry/v1/registries/{X}` и `GET /registry/v1/registries/{X}/repositories` без
-`Authorization`
-**Then** оба → `401`, `code` 16 (`UNAUTHENTICATED`), тело побайтово равно ответу на тот же
-путь для приватного Y (Р7 kaname: публичность не меняет отказ на методе с полом «1»)
-**Близнец:** REG-PUB-1-31 — тот же путь с удостоверением постороннего → `200`. Отличие — один
-факт: удостоверение.
-
-#### Сценарий 31: посторонний вошедший читает публичный реестр и не читает приватный
-
-**ID:** REG-PUB-1-31
-**Given** REG-PUB-1-11
-**When** от постороннего: `GET /registry/v1/registries/{X}`; `GET /registry/v1/registries/{X}/repositories`;
-`GET /registry/v1/registries?projectId={{existingProjectId}}`
-**Then** `200`, `visibility = "PUBLIC"`; `200`, в странице `app`; `200`, в странице ровно X (Р10)
-**And** `PATCH /registry/v1/registries/{X}` от постороннего (маска `description`) → `404`,
-`code` 5: правки у класса нет, существование при отказе правки скрыто (`hide_existence`)
-**Близнец (отрицательный):** `GET /registry/v1/registries/{Y}` от постороннего → `404`, `code` 5.
-Отличие — один факт: выдача на реестр.
-
-### S5. Консоль (kacho `ui-future`)
-
-#### Сценарий 40: включение публичности из карточки реестра
-
-**ID:** REG-PUB-1-40
-**Given** П3; реестр X приватный
-**When** человек открывает `/projects/{projectId}/registry/registries/{X}`
-**Then** в обзоре строка «Видимость» с меткой `Приватный` и переключатель «Публичный доступ»
-в положении «выключено»
-**And** человек включает переключатель → диалог с текстом
-`Любой, кто обратится без входа, сможет скачивать образы всех репозиториев этого реестра, включая созданные позже, и видеть его название, описание и метки. Запись и удаление остаются только у вас.`
-и кнопками «Сделать публичным» и «Отмена»
-**And** после «Сделать публичным» консоль шлёт ровно один `POST /iam/v1/accessBindings` с
-телом «выдача ПЧ» (`scopeId` — проект реестра, цель — X), доводит `Operation` до `done=true` и
-перечитывает реестр. Строка «Видимость» доходит до `Публичный`, переключатель включён
-**Близнец:** «Отмена» в диалоге — запросов `POST /iam/v1/accessBindings` ноль, метка
-`Приватный`. Отличие — одно действие.
-
-#### Сценарий 41: выключение публичности снимает выдачу
-
-**ID:** REG-PUB-1-41
-**Given** REG-PUB-1-40
-**When** человек выключает переключатель и подтверждает диалог «Сделать приватным»
-**Then** консоль шлёт `DELETE /iam/v1/accessBindings/{id}` ровно той выдачи, что делает X
-публичным; `Operation` → `done=true`; метка доходит до `Приватный`
-**Близнец:** REG-PUB-1-40 — до выключения метка `Публичный`.
-
-#### Сценарий 42: отказ сервера показан текстом сервера
-
-**ID:** REG-PUB-1-42
-**Given** П3, но без `raiseAssurance` (сессия уровня «1»)
-**When** человек включает переключатель и подтверждает диалог
-**Then** у переключателя показан текст отказа сервера дословно (`permission denied`, форма
-SC-26 kaname); переключатель возвращается в «выключено»; метка `Приватный`; выдачи нет
-**Близнец:** REG-PUB-1-40 — сессия уровня «2» → выдача создана. Отличие — один факт: уровень сессии.
-
-#### Сценарий 43: публичность, данная не переключателем, показывается и не снимается молча
-
-**ID:** REG-PUB-1-43
-**Given** П3; через API создана выдача классу `anonymous` роли `registry.public.read` с целью
-`[X, Z]` (два реестра проекта), материализована
-**When** человек открывает карточку X
-**Then** метка `Публичный`, переключатель включён и недоступен для выключения; под ним текст
-`Публичность дана выдачей <id>, которая открывает ещё 1 реестр. Снимите её на странице прав.`
-со ссылкой на `/iam/access-bindings/<id>`
-**Близнец:** REG-PUB-1-41 — выдача с одной целью X, сделанная переключателем: выключение
-доступно и снимает её. Отличие — один факт: число целей выдачи.
-
-#### Сценарий 44: репозиторий публичного реестра помечен как публичный через реестр
-
-**ID:** REG-PUB-1-44
-**Given** REG-PUB-1-40; у репозитория `X/app` (П3) собственная `visibility = PRIVATE`
-**When** человек открывает карточку репозитория `X/app`
-**Then** строка «Видимость» показывает `Публичный (через реестр)`
-**Близнец:** тот же репозиторий после REG-PUB-1-41 → `Приватный`. Отличие — один факт: видимость реестра.
-
-#### Сценарий 45: одновременное включение — вторая попытка не показывается как сбой
-
-**ID:** REG-PUB-1-45
-**Given** П3; карточка X открыта с меткой `Приватный`; затем через API той же учётной записью
-создана выдача ПЧ на X и материализована. Карточка об этом не знает: события потока нет (Р6)
-**When** человек включает переключатель и подтверждает диалог
-**Then** `Operation` выдачи доходит до `done=true` с `error.code = ALREADY_EXISTS` (SC-06 kaname);
-консоль показывает у переключателя текст `Реестр уже сделан публичным.`, перечитывает реестр,
-метка доходит до `Публичный`, переключатель включён; текста отказа сервера и красной метки
-ошибки нет; второй выдачи нет (`GET /iam/v1/accessBindings:listByScope` по проекту — ровно одна
-выдача классу `anonymous` с целью X)
-**Близнец:** REG-PUB-1-40 — выдачи до включения не было → `done=true` без `error`, текста
-`Реестр уже сделан публичным.` нет. Отличие — один факт: существовала ли выдача.
-
-### S6. Значения стенда и сквозной `docker pull` (стенд)
-
-Значения и пины S6 (Р9 п. 3) — производитель этой стадии; проба 50, 51 исполняется последней
-(порядок Р9).
-
-#### Сценарий 50: `docker pull` публичного образа без входа
+#### Сценарий 50: `docker pull` открытого образа без входа
 
 **ID:** REG-PUB-1-50
-**Given** П2; REG-PUB-1-11; у клиента нет сохранённых учётных данных к хосту плоскости
-данных (чистый `DOCKER_CONFIG` во временном каталоге)
+**Given** П2; REG-PUB-1-11; у клиента нет сохранённых учётных данных к хосту плоскости данных
+(чистый `DOCKER_CONFIG` во временном каталоге)
 **When** `docker pull <хост плоскости данных>/{X}/app:latest`
 **Then** код возврата `0`; `docker image inspect` → дайджест репозитория равен дайджесту push
 **Близнец (отрицательный):** REG-PUB-1-51.
 
-#### Сценарий 51: `docker pull` приватного образа без входа и `docker push` анонимом отвергаются
+#### Сценарий 51: `docker pull` закрытого образа без входа и `docker push` анонимом отвергаются
 
 **ID:** REG-PUB-1-51
 **Given** П2 без выдачи ПЧ; тот же чистый `DOCKER_CONFIG`
 **When** `docker pull <хост>/{X}/app:latest`; затем выдача ПЧ создана и материализована, и
 `docker push <хост>/{X}/app:anon-{{runId}}`
-**Then** pull — код возврата не `0`, `docker image inspect <хост>/{X}/app:latest` — код
-возврата не `0` (образа локально нет). Push — код возврата не `0`, вывод содержит текст
-сервера `requested access to the resource is denied`; тега `anon-{{runId}}` в `tags/list` от
-выдающего нет
+**Then** pull — код возврата не `0`, `docker image inspect <хост>/{X}/app:latest` — код не `0`.
+Push — код не `0`, вывод содержит `requested access to the resource is denied`; тега
+`anon-{{runId}}` в `tags/list` от выдающего нет
 **Близнец:** REG-PUB-1-50 — отличие одно: выдача ПЧ (для pull).
 
 ## Сценарий → производитель
@@ -777,27 +560,15 @@ SC-26 kaname); переключатель возвращается в «выкл
 
 | ID | что производит «Тогда» | координата | чем измерено |
 |---|---|---|---|
-| 01 | побайтовая сверка с каноном; находка ключа на ребёнке; судья формы и перепись манифестов; производитель структурного отношения; согласие пина и образа | исполнители из пина kaname: `tools/modelcanoncheck`, `tools/modulemanifestcheck` (зовутся `internal/repohygiene/modelcanonpin_test.go:40`, `modulemanifestformpin_test.go`) — уже производят. **Заказаны:** в kaname — правка судьи формы, `kaname#872` (Д9): правило роли над ресурсом, объявленным «без собственной службы», судится по глаголам модели; в kaname — вложенные правила роли, `kaname#874` (PR `kaname#879`, не влит): схема манифеста и судья формы знают ключ `children`, без него манифест Р1 п. 1 при разборе отвергается; в kacho (S1) — манифест Р1 п. 1, пин и тег Р1 п. 2–3, `subjectUsersets` Р1 п. 4 | посев: канон — 27 из 27; судья на `422d1bc6f` красный — находка B1 (E0, E1); глаголы модели у `registry_repository` — `v_get`, `v_list` (kaname `internal/authzmap/tables_gen.go:51`); `TestConsumerOwnedStructuralRelationsHaveProducers` PASS после Р1 п. 4; `TestOutsourcedImagePinAgreesWithItsModulePin` PASS при `main-422d1bc6`; на пине `5f6f29902` (посев редакции 8) — 7 из 7 PASS, судья `находок 0`, согласие пина PASS при `main-5f6f2990`; `yaml:"children"` в `internal/manifest` kaname: `main` — 0 файлов, ветка `874` — 1 |
-| 02, 03 | создание выдачи, отказ «роль не найдена», отказ пишущей роли | kaname `internal/apps/kaname/api/access_binding/create.go`, ворота класса `system_class_gates.go` @`422d1bc6f` — уже производят; роль в каталоге — доставка манифеста Р1, **заказана** (S1); тело роли с `children` через край (03) — транскодирование `RoleService` по пину Р1 п. 2–3, **заказано** (S1), поле `children` — `kaname#874` (PR `kaname#879`) | прочитано; SC-21, SC-70 (а) kaname; ND-02 `kaname#874` |
-| 10–14 | `Registry.visibility` в `Get` и `List` | поле `registry.proto` и вывод в обработчике (`services/registry/internal/handler/public.go`, проекция `internal/apps/kacho/api/registry/mapping.go`) — **заказаны** (S2). Ответ о публичном чтении — kaname `relverdict` через `InternalIAMService.Check` — уже производит (#856, #857); запись `public_reader` по вложенному правилу роли при выдаче классу — kaname `kaname#874` (PR `kaname#879`, не влит) — **заказана** | перепись: поля нет; SC-60, SC-68, SC-69, SC-73 kaname; Р5, ND-03 приёмки `kaname#874` |
-| 15 | отказ пути маски `visibility` | `validate.go` — строка `visibility` в таблице путей только на выход, проверка до `corevalidate.UpdateMask` — **заказана** (S2); отбрасывание неизвестного ключа тела — REST-край (`DiscardUnknown`) — уже производит | прочитано `validate.go` |
-| 16 | `UNAVAILABLE` при отказе вывода | обработчик registry — **заказан** (S2); образец фиксированного текста — `errAuthzUnavailable` в `services/registry/internal/handler/listauthz.go` — уже производит | прочитано |
-| 17 | выдача переживает реестр; отзыв проходит | kaname: выдача не каскадится, `Get` и `Delete` привязки — уже производят; удаление реестра и репозитория — `delete.go`, `DeleteRepository`, `DeleteTag` — уже производят | прочитано |
-| 18 | отказ в праве выдать | kaname `requireGrantAuthority` (`internal/apps/kaname/api/access_binding/helpers.go:155`) — уже производит; SC-20 kaname | прочитано @`422d1bc6f` |
-| 20–24, 26, 27 | `200`, `404 NAME_UNKNOWN`, `403 DENIED`, `405`, фильтр `_catalog` | `services/registry/internal/dataplane/handler.go` (`servePullOnly`, `serveBlob`, `serveCatalog`, `servePush`, `check`, ветвь `DELETE` в `ServeHTTP`) — уже производит; решение о `v_get`, `v_list`, `v_create`, `v_update` класса — kaname — уже производит; чтение репозиториев классом через `public_reader`, записанный по вложенному правилу роли, — `kaname#874` (PR `kaname#879`, не влит) — **заказано**. Анонимный токен на стенде: ручка kaname — `kaname#495` (PR `kaname#871`); ручка чарта registry и вывод `anonymous-client-id` вложенным чартом kaname стенда — **заказаны** (S3, Р9 п. 2); второй подъём пина и тега и значения профилей — **заказаны** (S6, Р9 п. 3); кейсы набора — **заказаны** (S3) | перепись; integration-половины — 7 проб анонима, PASS (посев); ND-03 приёмки `kaname#874` |
-| 25 | `401` с вызовом; `invalid_token` | `handler.go` (`authenticate`, `challenge`) — уже производит; `TestDataplane_RG1_B07_AnonPushNoToken_401` | посев |
-| 28 | субъект `system_class:anonymous`; выключенный поток | `dataplane/authz.go` (`fgaSubject`), `WithAnonymousSubject` — уже производит; пробы `TestSystemClass_SC39_RegistryAsksAsTheAnonymousClass`, `TestDataplane_RG1_AnonDisabled_TokenResolvesAsOrdinaryPrincipal` — уже есть | посев: PASS |
-| 29 | `404` после удаления реестра | `DeleteRepository` (снятие кортежей репозитория), работник удаления реестра (`UnregisterIntentForDelete`), `servePullOnly` → `writeNotFound` — уже производят; стендовые звенья — как у 20–27 | прочитано `delete.go`, `handler.go` |
-| 30 | `401` до решения на методе с полом «1» | kacho `gateway/internal/middleware/auth.go` — уже производит; пол «1» у 15 из 15 методов | перепись |
-| 31 | чтение постороннего; `404` на правку и на приватный | Check края по каталогу (`v_get` на `registry_registry`), сужение строк `ListRepositories` и `List` (`listauthz.go`, `public.go:85-104`), `hide_existence` у `Update` — уже производят; Р2 kaname — уже производит | прочитано |
-| 40–45 | строка «Видимость», переключатель, диалог, отказ текстом сервера, пометка репозитория, повтор включения | `ui-future/registry/src/registerExtensions.tsx` (обзор реестра и репозитория), клиент `ui-future/registry/src/api/iam.ts` — **заказаны** (S5); выбор выдач реестра — `GET /iam/v1/accessBindings:listByScope` kaname — уже производит; `ALREADY_EXISTS` повтора — kaname `access_bindings_active_grant_uniq` — уже производит; консольная проба — **заказана** (S5), фикстуры `fixtures.ts`, `assurance.ts` — уже есть | прочитано |
-| 50, 51 | сквозной `docker pull`, `docker push` | ручка kaname — `kaname#495`; чарты — **заказаны** (S3); значения и пины — **заказаны** (S6); шаг сквозного прогона с настоящим клиентом — **заказан** (S6) | перепись |
+| 01 | сверка с каноном, судья формы, производитель структурного отношения, согласие пина и образа | исполнители из пина kaname (`tools/modelcanoncheck`, `tools/modulemanifestcheck`), зовутся `internal/repohygiene/modelcanonpin_test.go`, `modulemanifestformpin_test.go` — уже производят; манифест, пин, тег, `subjectUsersets` — PR `kacho#3279` (OPEN), **заказано вливание** в ветку эпика | посев редакции 10: 7 из 7 PASS на `636bd5435`; близнец — посев редакции 8 |
+| 02, 03 | выдача, отказ «роль не найдена», отказ пишущей роли, тело роли с `children` через край | kaname `access_binding/create.go`, `system_class_gates.go` — уже производят; роль в каталоге и транскодирование `RoleService` по пину — PR `kacho#3279`, **заказано вливание**; newman-кейсы 02, 03 — **заказаны** (в `registry-public-by-class.py` ветки `3274` их нет) | перепись |
+| 10–12, 17, 18, 30, 31 | `200`/`404` чтения постороннего, `401` анонима на крае, `403` редактору, выдача переживает реестр | Check края по каталогу (`v_get` на `registry_registry`, канон `fga_model.fga` реестра принимает `system_class`), сужение строк `ListRepositories` и `List`, `hide_existence` у `Update`, kaname Р2 (класс у говорящего с личностью), `requireGrantAuthority`, `auth.go` края — уже производят; роль — PR `kacho#3279`; newman-кейсы — **заказана переделка** кейсов ветки `3274` без утверждений о `visibility` | перепись; кейсы ветки `3274` |
+| 13, 14, 20–27, 29 | `200`, `404 NAME_UNKNOWN`, `403 DENIED`, `405`, фильтр `_catalog` | `services/registry/internal/dataplane/handler.go` — уже производит; решения о `v_get`, `v_list` класса и `public_reader` по вложенному правилу — kaname (`kaname#874` влит) — уже производят; анонимный токен на стенде: ручка kaname — `kaname#495` (влит); ручка чарта registry, вывод `anonymous-client-id` вложенным чартом, отказ рендера — **заказаны** (S3); второй подъём пина и тега, значения профилей — **заказаны** (S4); newman-кейсы — **заказаны** (S3) | перепись: ручек в `deploy` — 0 |
+| 28 | субъект `system_class:anonymous`; выключенный поток | `dataplane/authz.go` (`fgaSubject`), `WithAnonymousSubject` — уже производит; пробы `TestSystemClass_SC39_RegistryAsksAsTheAnonymousClass`, `TestDataplane_RG1_AnonDisabled_TokenResolvesAsOrdinaryPrincipal` — уже есть | перепись |
+| 50, 51 | сквозной `docker pull`, `docker push` | чарты — **заказаны** (S3); значения и пин — **заказаны** (S4); шаг сквозного прогона с настоящим клиентом — **заказан** (S4) | перепись |
 
 Сценариев без производителя, чей производитель не заказан стадией или задачей, — 0. Вне kacho
-три производителя: ручка kaname `api-server.registry-token.anonymous-client-id` (`kaname#495`;
-под ней 20–27, 29 на стенде и 50, 51), правка судьи формы — `kaname#872` (Д9;
-под ней «И» сценария 01) и вложенные правила роли — `kaname#874`, PR `kaname#879` (под ним
-разбор манифеста в 01, `public_reader` в 10–14 и чтение репозиториев классом в 20–24).
+производителей, которых нет, — 0: `kaname#872`, `#874` (`#879`), `#495` (`#871`) влиты.
 
 ## Инварианты, которые изменение не вправе тронуть
 
@@ -805,251 +576,80 @@ SC-26 kaname); переключатель возвращается в «выкл
    (REG-PUB-1-27).
 2. Отказ чтения на плоскости данных не отличает закрытое от несуществующего (REG-PUB-1-21).
 3. На API-крае пол «1» не снимается ни у одного метода registry (REG-PUB-1-30).
-4. Класс ничего не пишет ни одним путём (REG-PUB-1-24, REG-PUB-1-03).
-5. У видимости ровно один источник — выдача. Столбца, флага, кэша вне окна П2 нет (Р2).
-6. Раздел `seed` манифеста registry (#914) не меняется (Р1 п. 1).
+4. Класс ничего не пишет ни одним путём (REG-PUB-1-24, 31, 03).
+5. У открытости реестра один источник — выдача в kaname; у registry нет ни поля, ни столбца,
+   ни флага, ни метода о ней (Р2). Предикат: `git diff <база>...<голова> -- proto/kacho/cloud/registry`
+   не прибавляет полей и методов (`buf breaking` — находок 0, `grep -c '^+ *rpc '` → `0`).
+6. Раздел `seed` манифеста registry (#914) не меняется.
 
 ## DoD
 
-**S1 (манифест, пины, гейты)** — 01, 02, 03:
-- манифест: раздел `resources` равен фикстуре П6 kaname, раздел `roles` — ровно роль
-  `registry.public.read` фикстуры (форма Р1 п. 1, вложенное правило), раздел `seed` равен стволу.
-  Эталон — фикстура на ревизии вливания `kaname#879` в `main` kaname (`<R879>` ниже); пока
-  `kaname#879` не влит — голова ветки `874` (на редакциях 6–9 — `5f6f29902`, на ней мерен посев редакции 8). Предикаты:
-  `diff <(yq '{"resources": .resources, "roles": .roles}' services/registry/manifest.yaml) <(git -C <клон kaname> show <R879>:internal/manifest/testdata/registry.public-read-fixture.yaml | yq '{"resources": .resources, "roles": (.roles | map(select(.id == "registry.public.read")))}')` — пусто;
-  `yq '.roles | length' services/registry/manifest.yaml` → `1`;
-  `yq -o=json -I=0 '.roles[0].rules[0].children[0].resources' services/registry/manifest.yaml` → `["repositories"]`;
-  `diff <(yq '.seed' services/registry/manifest.yaml) <(git show a95248464:services/registry/manifest.yaml | yq '.seed')` — пусто; шапка манифеста о разделе `roles` переписана;
-- `go.mod`, `go.sum`: пин kaname — не ниже ревизии вливания `kaname#879` в `main` kaname (в ней
-  и `kaname#872`). Ревизия берётся из трекера в момент посадки, а не вписывается заранее:
-  `R879=$(gh pr view 879 -R PRO-Robotech/kaname --json state,mergeCommit -q 'select(.state=="MERGED") | .mergeCommit.oid')` —
-  непусто; `PIN=$(GOWORK=off go list -m -f '{{.Version}}' github.com/PRO-Robotech/kaname | sed 's/.*-//')`;
-  `git -C <клон kaname> merge-base --is-ancestor "$R879" "$PIN"` → код `0`;
-  `git -C <клон kaname> merge-base --is-ancestor "$PIN" origin/main` → код `0` (пин — на стволе
-  kaname, не на ветке). Тег `main-<sha8>` ревизии пина — в 5 профилях umbrella, и образ с
-  этим тегом опубликован: `docker manifest inspect docker.io/prorobotech/kaname:main-<sha8>` →
-  код `0`; комментарий `values.yaml:124`; `GOWORK=off go build ./...` зелёный;
-  `replace` нет. Эталон фикстуры и пин — одна ревизия kaname либо пин — её потомок;
-- каталог прав края и таблица маршрутов сверены с новым пином: `make -C gateway
-  permission-catalog-check rest-route-table-check catalog-splice-check` — код `0`. Если
-  подъём пина меняет долю kaname (ревизии kaname между прежним пином и `<R879>`), регенерат —
-  `permission-catalog-apply` и та же правка таблицы маршрутов — входит в это же изменение; сам
-  `kaname#874` методов и аннотаций прав не прибавляет (перепись);
-- `modelrelationproducer_test.go`: `system_class` в `subjectUsersets`; инъекция — без него
-  `TestConsumerOwnedStructuralRelationsHaveProducers` красный с находкой
-  `registry_registry#public_reader`, с ним — зелёный;
-- Д9 — пин на ревизии kaname с правкой судьи; REG-PUB-1-01 — все команды сценария `ok`, вывод в `DoD-proof`;
-  инъекция близнеца (ключ на `repositories`) — красный с находкой дословно;
+**S1 (манифест, пины, гейты)** — 01, 02, 03; исполнитель — `kacho#3251`, PR `kacho#3279`:
+- PR `kacho#3279` влит в ветку эпика `3172-identity-own-2`; на ревизии вливания: `yq '.roles | length'
+  services/registry/manifest.yaml` → `1`; `yq -o=json -I=0 '.roles[0].rules[0].children[0].resources'`
+  → `["repositories"]`; `diff` раздела `seed` со стволом — пусто; шапка манифеста о разделе
+  `roles` переписана;
+- пин kaname — потомок `efac3adf7` и на стволе kaname (`git merge-base --is-ancestor efac3adf7891 "$PIN"`
+  и `git merge-base --is-ancestor "$PIN" origin/main` → `0`); тег `main-<sha8>` той же ревизии
+  в 5 профилях, образ опубликован (`docker manifest inspect` → `0`);
+- REG-PUB-1-01 — все команды сценария `ok`, вывод в `DoD-proof`; близнец — красный с находкой дословно;
+- `make -C gateway permission-catalog-check rest-route-table-check catalog-splice-check` — код `0`;
 - REG-PUB-1-02, 03 — newman-кейсы набора registry на стенде П2.
 
-**S2 (видимость в API)** — 10–18:
-- `registry.proto`: `Visibility visibility = 13` у `Registry`, комментарий поля несёт
-  определение Р2, перечень чтений, которые его заполняют (Р6), и указание «только на выход»;
-  `buf lint` и `buf breaking` против `origin/main` — находок 0; `pkg/api` перегенерирован;
-- integration (П1, `testcontainers`): REG-PUB-1-16 и его близнец; `Get` и `List` при «да» и «нет»
-  дублёра; в `List` на странице из 250 реестров число вопросов о публичном чтении — 3 (⌈250/100⌉);
-- проба маски REG-PUB-1-15 — unit на `validate.go`, обе стороны;
-- **держатели F1 заменены, а не сняты (Д2).** Предикат по написанию —
-  `git grep -n "top-level visibility\|top-level \`visibility" <голова>`: до изменения 12 строк в
-  7 файлах (перепись), после — 0 строк, утверждающих отсутствие поля. Проверки «поля нет» в
-  `f5_default_visibility_test.go:40` и в кейсе `REG-RD-F1-FIELD-ABSENCE`
-  (`registry-redesign.py:289`) переписаны на «у нового реестра `visibility = "PRIVATE"`».
-  Утверждения того же кейса о `globalSlug`, `displayName` и инфра-полях не тронуты. Коллекция
-  перегенерирована `gen.py`, `pb.go` — `buf generate`. Тексты `registry.proto:55`,
-  `registry-redesign.py:15, :282`, две строки `CASES-INDEX.md` из переписи, `types.ts:37` переписаны;
-- **тексты, которые изменение делает ложными, переписаны тем же изменением.** Предикат —
+**S2 (API-край и тексты)** — 10, 11, 12, 17, 18, 30, 31:
+- newman на стенде П2: кейсы ветки `3274` (`registry-public-by-class.py`) переписаны без
+  утверждений о `visibility`; кейсы 15, 16, 45 сняты; ≥ 1 happy и ≥ 1 negative на метод
+  (`testing-newman.md#qa-classes-per-method`); коллекция перегенерирована `gen.py`; новая
+  коллекция — с записью ведомости производителя, гейтом набора и назначением шарду;
+- **тексты, которые доставка роли делает ложными, переписаны.** Предикат —
   `git grep -n -i "ЕДИНСТВЕННЫЙ рычаг\|Единственный registry-level\|любой путь к PUBLIC\|Единственный рычаг публичности" <голова>`:
-  до — 8 строк в 6 файлах, после — 0. Переписываются:
-  - `services/registry/docs/content/api/repository.mdx:101` (публичная страница): «Единственный
-    рычаг публичности образа» → поле описывает собственную публикацию репозитория, публичность
-    реестра (`Registry.visibility`) открывает чтение поверх неё;
-  - `ui-future/shared/src/lib/resource-registry.tsx:5194`;
-  - `ui-future/shared/src/test/console-ops-match-contract.test.ts:28`;
-  - `internal/repohygiene/clienttruth_registry_apisurface.go:17`;
-  - `proto/kacho/cloud/registry/v1/registry.proto:54-57` («Единственный registry-level рычаг»,
-    «D-6: любой путь к PUBLIC — admin-gated»): у реестра два пути к публичности —
-    `defaultRepositoryVisibility` под D-6 и выдача классу под гейтами kaname (Р3);
-  - `registry.proto:102-108` (комментарий `enum Visibility`): перечень путей к PUBLIC дополнен
-    публичностью реестра;
-  - `registry.proto`, комментарий `Repository.visibility` (у `:169-172`) — по Д4;
-- newman: 10–15, 17, 18; ≥ 1 happy и ≥ 1 negative на метод (`testing-newman.md#qa-classes-per-method`);
-  новая коллекция — с записью ведомости производителя, гейтом набора и назначением шарду
-  (`new-suite-four-things`);
-- замер цены Р5 на стенде П2: `GET /registry/v1/registries?projectId=…&pageSize=50`, по 100
-  вызовов до и после изменения, p50 и p95 в мс, ревизия и стенд — в `DoD-proof`;
-- страница API реестра сайта документации (`services/registry/docs/content/api/registry.mdx`):
-  поле `visibility`, Р2, Р4, Р6.
+  до — 8 строк в 6 файлах (перепись), после — 0. Переписываются `repository.mdx:101` (поле
+  описывает собственную публикацию репозитория; чтение без входа даёт и выдача роли
+  `registry.public.read` классу на реестр), `resource-registry.tsx:5194`,
+  `console-ops-match-contract.test.ts:28`, `clienttruth_registry_apisurface.go:17`,
+  `registry.proto:54-57` и `:102-108` (комментарии; у реестра два пути к чтению без входа —
+  поштучная публикация под D-6/D-7 и выдача роли классу под гейтами kaname, Р3), `pb.go` —
+  `buf generate`; `buf breaking` против базы — находок 0;
+- страница сайта документации registry (`services/registry/docs/content/api/registry.mdx` или
+  `getting-started.mdx`): как открыть реестр выдачей роли `registry.public.read` классу, Р2, Р3, Р10.
 
-**S3 (плоскость данных)** — 20–29:
-- чарты (Р9 п. 2): ручка чарта registry с пустым умолчанием; вложенный чарт kaname стенда
-  выводит `anonymous-client-id`; отказ рендера umbrella при двух разных заданных значениях.
-  Проба рендера: оба пусто — ключей нет; оба заданы одинаково — оба в рендере; разные — `helm
+**S3 (плоскость данных и чарты)** — 13, 14, 20–29:
+- чарты (Р9 п. 2): ручка чарта registry с пустым умолчанием; вложенный чарт kaname выводит
+  `anonymous-client-id`; отказ рендера umbrella при двух разных заданных значениях. Проба
+  рендера: оба пусто — ключей нет; оба заданы одинаково — оба в рендере; разные — `helm
   template` с отказом и текстом, называющим обе ручки;
-- REG-PUB-1-28 — integration пакета `dataplane`, обе стороны (пробы уже есть, посев);
-- newman 20–27, 29 на стенде П2 — после S6 (значения и пины), порядок Р9;
+- REG-PUB-1-28 — integration пакета `dataplane`, обе стороны (пробы уже есть);
+- newman 13, 14, 20–27, 29 на стенде П2 — после S4 (значения и пин), порядок Р9;
 - `deploy/e2e-shards.json`: набор, ходящий в плоскость данных, — на шарде с компонентом registry
   (`assert-shard-coverage.py` зелёный).
 
-**S4 (API-край)** — 30, 31: newman на стенде П2.
-
-**S5 (консоль)** — 40–45: компонент — jest-пробы `registerExtensions` (метка, переключатель,
-диалог, текст отказа, пометка репозитория, исход `ALREADY_EXISTS`); playwright 40–43, 45 на
-стенде П3; тексты — дословно из сценариев.
-
-**S6 (значения стенда и сквозной `docker pull`)** — 50, 51:
-- второй подъём пина kaname в `go.mod` и тега образа в 5 профилях — до ревизии ствола kaname
-  с влитым `kaname#495`; `TestOutsourcedImagePinAgreesWithItsModulePin` зелёный;
-- профили стенда kacho задают оба значения Р9 п. 2 одним зарезервированным идентификатором;
+**S4 (значения стенда и сквозной `docker pull`)** — 50, 51:
+- второй подъём пина kaname и тега образа в 5 профилях — до ревизии ствола kaname с влитым
+  `kaname#871` (`git merge-base --is-ancestor 0b6b21cc9 "$PIN"` → `0`);
+  `TestOutsourcedImagePinAgreesWithItsModulePin` зелёный;
+- профили стенда задают оба значения Р9 п. 2 одним идентификатором закрытой формы SC-39;
   равенство держат отказ рендера (S3) и REG-PUB-1-20;
-- шаг сквозного прогона на стенде П2 с настоящим клиентом `docker`, чистый `DOCKER_CONFIG`
-  во временном каталоге, снятие образов и каталога в `trap`; вердикт — код возврата шага, не
-  текст.
+- шаг сквозного прогона на стенде П2 с настоящим клиентом `docker`, чистый `DOCKER_CONFIG` во
+  временном каталоге, снятие образов и каталога в `trap`; вердикт — код возврата шага.
+
+**Снятие прежнего объёма (тем же изменением, что S2):** с ветки `3274` сняты пробы, утверждающие
+снятое — `regpub1_visibility_mask_test.go`, `registry_visibility_regpub1_integration_test.go`,
+`registry-public-visibility.spec.ts`, `RegistryPage.public-visibility.test.tsx`; предикат —
+`git grep -n -i 'visibility' <голова> -- 'services/registry/tests/newman/cases/registry-public-by-class.py'`
+не находит утверждений о `Registry.visibility` (допустимы только `Repository.visibility` посева `Y/pub`).
 
 **Все стадии:** `census.sh` до и после прогона стенда → 0; пары RED→GREEN по каждой стадии в
 `DoD-proof @<sha>` задачи `kacho#3274`.
 
-## Решения диспетчера (2026-10-17)
-
-Вопросы В1–В8 редакции 1 решены диспетчером 2026-10-17 по рекомендации автора; Д9 — решение
-диспетчера по блокирующему B1 круга 1. Открытых вопросов нет. Варианты, которые не выбраны,
-названы вместе с ценой: так видно, от чего отказались.
-
-**Д1 (В1). Путь установки PUBLIC — выдача от имени человека, запрос составляет консоль.**
-Установка и снятие — глаголы `AccessBindingService` (`POST /iam/v1/accessBindings`,
-`DELETE /iam/v1/accessBindings/{id}`) с удостоверением самого вызывающего. API-клиент делает
-реестр публичным тем же вызовом. Пишущего метода видимости у registry нет (Р3). Отвергнуты:
-метод registry от имени вызывающего — registry стал бы доверенным пересыльщиком личности к
-kaname, это новое ребро и новая поверхность; метод registry, создающий выдачу своей учёткой
-после проверки D-6, — учётке нужно право выдавать на области каждого арендатора, и гейты
-уровня и свежести kaname обходятся (ban18-q-security).
-
-**Д2 (В2). `Registry.visibility` — только на выход; F1 REG-1 пересмотрен частично.**
-Пересмотр записан здесь, а не правкой одобренного документа REG-1: правка изменила бы его
-отпечаток, и прежний вердикт к нему бы больше не относился.
-
-- **Что пересмотрено.** В F1 «НЕТ … top-level `visibility`» и одна проверка REG-1-02 —
-  отсутствие ключа `visibility` в теле `Get`. С этой под-фазы у `Registry` есть
-  `visibility = 13`, только на выход, по определению Р2.
-- **Что не пересмотрено.** Всё прочее в F1 и REG-1-02 действует: `id` неизменяем и
-  единственный адрес, `:rename`, `globalSlug` и `displayName` отсутствуют, инфра-полей в
-  публичном ответе нет. Остаётся в силе и довод F1 «у реестра нет своего рычага видимости»:
-  поле не пишется ни одним методом registry (REG-PUB-1-15), а источник — выдача в kaname.
-- **Держатели и тексты.** Перепись по написанию — 12 строк в 7 файлах; проверки «поля нет»
-  заменяются проверкой «у нового реестра `visibility = PRIVATE`», тексты переписываются (DoD
-  S2). Проверка не снимается и не ослабляется: она утверждает новое свойство того же
-  предмета (`probe-replaced-not-weakened`).
-
-Отвергнуто: поля нет, консоль выводит публичность сама из `ListByScope`. Тогда видимость не
-наблюдаема через API registry, и предикат задачи «видимость, которую показывает реестр» не
-исполняется.
-
-**Д3 (В3). Выдача только вошедшим — `PRIVATE`.** Поле описывает «без входа» (Р4).
-Отвергнуто значение `AUTHENTICATED = 3`: перечисление `Visibility` общее с
-`Repository.visibility`, где это значение пришлось бы отвергать.
-
-**Д4 (В4). `Repository.visibility` сохраняет смысл, консоль ставит пометку «через реестр».**
-Поле по-прежнему означает собственную публикацию репозитория. Его комментарий дополняется:
-публичность реестра открывает чтение поверх неё. Проводного изменения нет. Консоль показывает
-`Публичный (через реестр)` (REG-PUB-1-44). Отвергнуто второе поле действующей видимости: два
-поля об одном факте и N вопросов о публичности на страницу `ListRepositories`.
-
-**Д5 (В5). Ручку анонимного токена делает `kaname#495`; новой задачи в kaname нет.** Ручка
-делается в `kaname#495`, PR `kaname#871`, ветка `495`. Ключ —
-`api-server.registry-token.anonymous-client-id`, значение чарта kaname —
-`apiServer.registryToken.anonymousClientId` с пустым умолчанием, при старте стоит страж формы
-(перепись, @`b1b4543c4`). Раскладка производителей и порядок — Р9: ручка и страж —
-`kaname#495`; чарты kacho (ручка registry и вывод `anonymous-client-id` вложенным чартом kaname
-стенда) — S3; второй подъём пина и тега и значения профилей — S6.
-
-**Д6 (В6). При удалении реестра выдачу не отзываем** (Р7, REG-PUB-1-17, 29). Отвергнут отзыв из
-процесса удаления registry: учётке registry понадобилось бы право отзыва на области арендатора,
-то есть та же поверхность, что у отвергнутого варианта Д1.
-
-**Д7 (В7). Порядок относительно `kacho#3251` не важен** (Р8). Какая из двух задач влита второй,
-та перебазируется. REG-PUB-1-01 держит равенство канону в обоих порядках.
-
-**Д8 (В8). Ключ `visibility` в теле правки или создания реестра без маски отбрасывается
-REST-краем, как любой неизвестный ключ.** Допущение принято. Путь маски `visibility`
-отвергается именованным отказом (REG-PUB-1-15). Поля в `UpdateRegistryRequest` и
-`CreateRegistryRequest` ради отказа не заводятся.
-
-**Д9 (по B1 круга 1). Правка судьи формы манифеста в kaname — вариант (б).** Решение
-диспетчера 2026-10-17, по замеру E0–E3 (раздел «Посев «Дано»: прогон»).
-
-**Что меняется.** Правило роли над ресурсом, который kaname объявляет ресурсом «без собственной
-службы» (`catalogResourcesWithoutOwnService`, `internal/authzmap/catalog_resource_spelling.go`),
-судья формы (`internal/manifest/roleexport`) судит по глаголам модели этого типа, а не по
-действиям каталога. У `registry_repository` глаголы модели — `v_get`, `v_list`, `v_update`,
-`v_delete` (`internal/authzmap/tables_gen.go:51`); классы правила роли `registry.public.read` —
-`get` и `list`, поэтому они покрыты `v_get` и `v_list`. Ресурс без объявления «без собственной
-службы» судится, как сегодня.
-
-**Производитель:** `kaname#872` (влит, `5b46992db`), полоса размера S; заводит `git-operator`.
-Контракт kacho не меняется, в дереве kacho записей каталога не заводится.
-
-**Предикат:** REG-PUB-1-01 «И» на пине kaname с этой правкой — в выводе
-`TestModuleManifestFormIsJudgedByTheOneExecutor` строка `… манифестов прочитано 5 · находок 0`,
-у прямого запуска судьи — `права ролей services/registry/manifest.yaml: … отказов 0` (посев
-редакции 8, E4);
-`TestModuleManifestFormIsJudgedByTheOneExecutor` и `TestManifestFormCensusFollowsTheTree` —
-`ok`. Близнец: то же правило роли с классом, которого у типа нет среди глаголов модели, —
-находка остаётся.
-
-**Порядок:** S1 ждёт пин kaname с этой правкой (Р1 п. 2, порядок Р9).
-
-**Поверхность (ban18-q-security):** доступ не меняется. Правится проверка формы манифеста при
-сборке, а не решение о доступе. Право роли по-прежнему материализуется в `v_get`/`v_list` на
-`registry_repository`.
-
-## Редакция 4: что закрыто
-
-| замечание круга 1 | где закрыто |
-|---|---|
-| B1 CONSTRUCTIBILITY — «И» сценария 01, производитель гейта формы | Д9 (вариант (б): правка судьи формы в kaname, решение диспетчера по замеру E0–E3); Р1 п. 4 — производитель второго гейта, найденного посевом (`TestConsumerOwnedStructuralRelationsHaveProducers`); сценарий 01 — полный перечень гейтов |
-| B2 DoD — сравнение с фикстурой, раздел `seed` | Р1 п. 1, инвариант 6, DoD S1 п. 1 (сравнение разделов `resources` и `roles`, `seed` — со стволом); строка переписи о разнице исправлена (9 строк `seed`) |
-| B3 PRODUCER — чарт вложенного kaname, тег образа, второй подъём | Р1 п. 3 (тег вместе с пином в S1); Р9 п. 2 (вложенный чарт, `configmap.yaml:105`, путь `kaname.config.apiServer.registryToken.*`), п. 3 (второй подъём до kaname с #495), порядок S3 → S6 → S3 → S6; таблица производителей 20–27, 29, 50, 51; DoD S1, S3, S6 |
-| B4 CONSTRUCTIBILITY — сценарий 17 | анонимная половина — новый сценарий 29 в стендовой части S3 с названным производителем; 17 — только выдача и её отзыв; фраза о независимости в Р9 исправлена (S2 от звеньев не зависит, потому что анонимного шага в S2 нет) |
-| B5 DoD — предикат переписи и ложные тексты | перепись: исправленный предикат — 12 строк в 7 файлах, включая `registry.proto:55`; второй предикат — 8 строк в 6 файлах; DoD S2 — оба предиката «до/после» и перечень правок, включая `repository.mdx:101`, `resource-registry.tsx:5194`, `console-ops-match-contract.test.ts:28`, `clienttruth_registry_apisurface.go:17`, `registry.proto:54-57` и `:102-108` |
-| отпечатки соседей | таблица опоры, колонка «отпечаток» |
-| П3 не сеет `X/app` | П3 — `CreateRepository` |
-| П2 — кто вызывает `RoleService.Create`; `sva-edit` | П2 — принципалы `prodseed_matrix.py`; роли создаёт выдающий (`jwtAccountAdminA`); редактор используется в сценарии 18 |
-| П1 — id | П1 — X, Y названы метками, id из ответа |
-| одновременное включение | сценарий 45 |
-| сценарий 21 — два «Дано» | одно: П2 без выдачи ПЧ |
-| сценарий 17 — производитель `404` | сценарий 29, производитель назван |
-
-## Редакция 6: что изменено
-
-Правка одобренной редакции 5 (`649e13bc…`) под новый контракт kaname: `kaname#874` ввёл
-вложенные правила роли, и по приёмке kaname ред. 12 (Р9 п. 4, «Сужение по цели», SC-73)
-`public_reader` пишется только по вложенному правилу. Прочие сценарии, производители «Тогда» и
-объём не менялись. Пробы ветки `kacho#3274` зовут роль по id `rolb1325b011aa17211d`, и он не
-меняется.
+## Редакция 10: что изменено
 
 | что | где |
 |---|---|
-| опора — приёмка kaname ред. 12 (`bd6325e3…`) и приёмка `kaname#874` ред. 2 (`f12395ae…`), обе APPROVED; ред. 10 названа прежней | шапка «Механизм», «Ревизии замера»; таблица «Опора» — строка kaname ред. 12 и новая строка `kaname#874` |
-| роль `registry.public.read` — правило над `registries` с вложенным правилом над `repositories`; почему прежняя форма неверна (ND-07 (б), SC-73); пробные роли фикстуры не вносятся | Р1 п. 1 |
-| пин kaname — не ниже ревизии вливания `kaname#879` в `main`; до `kaname#874` схема ключа `children` не знает | Р1 п. 2; Р9 «Порядок исполнения» |
-| каталог прав края и таблица маршрутов на новом пине | Р1 п. 3; DoD S1 |
-| перепись: фикстура ветки `874` (5 ролей, раздел `resources` прежний), ноль новых методов и аннотаций прав, край берёт контракты kaname по пину | «Перепись производителей» — две строки |
-| сценарий 13: отличие от близнеца — вложенное правило над `registry.repositories`; оба различия ролей названы | REG-PUB-1-13 |
-| эталон сравнения — фикстура на ревизии вливания `kaname#879` (пока не влит — голова `874`), `roles` сравнивается только по роли `registry.public.read`; пин — предок-проверкой от ревизии вливания, взятой из трекера | DoD S1 |
-
-## Редакция 8: что изменено
-
-Закрыт возврат круга редакции 7 (`37d6429a…`): B1–B3 и важные замечания. Объём не менялся.
-
-| замечание | где закрыто |
-|---|---|
-| B1 CONSTRUCTIBILITY — предусловия на kaname без `kaname#874` | Р1 п. 2–3 (пин и тег; отказ разбора на `067e4ca3e`); Р1 «Порядок выкатки»; П0; П2; «Дано» 01; посев перемерен на пине `5f6f29902` (7 из 7 PASS, `блоков сверено 27 из 27`, пакеты `repohygiene` 2638 PASS и `deploy` 488 PASS, судья E4 `находок 0`, предикаты DoD S1, каталог края); строка канона в переписи; строка производителя 01; Д9 — `kaname#872` влит. E0–E3 оставлены как основание Д9 на `422d1bc6f` с пометкой |
-| B2 TWIN — сценарий 13 | П2: `rol-reg-get` — `[get, list]` над `registry.registries` без вложенного правила; близнец 13 — отличие одно: вложенное правило |
-| B3 FORMAT — «Тогда» 03 | тело роли через край: `rules` длины 1, `rules[0]` и `children[0]` дословно; близнец формы — роль без `children` даёт красный; строка производителя 02, 03 — транскодирование края по пину |
-| команда публикации образа | DoD S1: `docker manifest inspect docker.io/prorobotech/kaname:main-<sha8>` |
-| `yq` вывода `children[0].resources` | DoD S1: `-o=json -I=0` → `["repositories"]` |
-| строка вывода судьи | «И» 01 и предикат Д9 — `… манифестов прочитано 5 · находок 0` (реальный вывод) |
-| B4 FORMAT (проверка редакции 8) — «Тогда» 03 равенством объекту `children[0]` | редакция 9: поштучно по полям, пустые ключи названы |
-
-Места, где `422d1bc6f`, `#856`, `#872` остались: история шапки (только дописывается);
-«Механизм» (ревизии вливания `#856`, `#872`); перепись и производители с пометкой «прочитано
-@`422d1bc6f`» — замеры своей ревизии, не предусловия; E0–E3 — основание Д9.
+| решение владельца 2026-10-18 и следствие для объёма | раздел «Решение владельца, которым сужен объём»; «Что НЕ входит» пп. 1, 2 |
+| сняты `Registry.visibility` и его вывод (прежние Р2, Р4, Р5, Р6, Д1–Д4, Д8), консоль (S5, сценарии 40–45), сценарии 15, 16; F1 REG-1 больше не пересматривается | «Опора», «Решения», «Сценарии» |
+| Р2 переписан: открытость — только выдача роли, представления у registry нет; инвариант 5 — с предикатом | «Решения», «Инварианты» |
+| S1 — это `kacho#3251`, PR `kacho#3279`; гейты S1 перемерены на его голове `636bd5435` | Р1, «Перепись», «Посев», DoD S1 |
+| стадии: S2 — API-край и тексты (прежние S2 и S4), S3 — плоскость данных и чарты, S4 — значения стенда и `docker` (прежняя S6) | «Сценарии», DoD |
+| сценарии 10–14, 18, 27, 31 переформулированы через чтение от имени постороннего и анонима вместо `visibility`; 13 и 14 перенесены в S3 | «Сценарии» |
+| `kaname#871` влит (`0b6b21cc9`); второй подъём пина — не ниже его; форма значения ручки — закрытая форма SC-39 ред. 13 | Р9, DoD S4; «Опора» — соседняя приёмка kaname сменилась (ред. 13, `dfbe47bf…`), перепроверено |
+| снятие RED-проб ветки `3274` прежнего объёма | DoD, «Снятие прежнего объёма» |
