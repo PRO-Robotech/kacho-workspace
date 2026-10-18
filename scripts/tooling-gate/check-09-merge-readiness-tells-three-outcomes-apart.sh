@@ -85,7 +85,19 @@
 # репозитория с тем же номером — код 1; вверх в родителя, вверх в ствол, голова `tmp/*`,
 # ветка задачи синхронизации в форме каждого репозитория — код 0; задача не прочитана,
 # номер ветки — запрос, родитель не прочитан — код 2. Голова прочих случаев — задача
-# без дочерних (`issue@788`, её кладёт `mkcase`).
+# без дочерних (`issue@788`, её кладёт `mkcase`). Номера головы в репозитории PR нет —
+# 404 «Not Found» настоящей формы (ws#1164, голова `3274-reg-pub-acceptance` PR воркспейса
+# приёмки kacho#3274): CL-FOREIGN — упоминание, не уровень, код 0; законный близнец
+# CL-ISSUE-410 — отказ той же формы с другим статусом («issues disabled»): по-прежнему
+# НЕ УСТАНОВЛЕН, код 2. Строка закрытия номера, которого в репозитории нет (PF-ABSENT), —
+# упоминание: закрывать нечего, код 0 и число таких в переписи; PF-UNREAD — близнец.
+#
+# ДОКАЗАТЕЛЬСТВО — НА КОММИТЕ ДИАПАЗОНА PR (ws#1162). Диапазон — `compare/<baseRefOid>...
+# <headRefOid>` (фикстура `compare`, у PF-* — коммит доказательства `0123abcd…` и голова).
+# PF-OUTSIDE — `DoD-proof @deadbeef1`, ревизии нет в диапазоне: «нельзя», названа как
+# «не коммит диапазона» (прежде засчитывалась — замер ws#1162); PF-PROOF — законный близнец
+# (ревизия — коммит диапазона, не голова). PF-RANGE-UNREAD — compare не прочитан, PF-RANGE-SHORT
+# — прочитано меньше объявленного: код 2, а не «можно» и не «нельзя».
 #
 # ПОДСКАЗКА ОБЯЗАНА БЫТЬ ИСПОЛНИМОЙ В РЕПОЗИТОРИИ PR (ws#910). Прежняя называла
 # `tmp/sync-…`, а kaname такую голову отвергает (`branch-rule.sh`: ветка — `^[0-9]+$`,
@@ -230,6 +242,8 @@ mk_protection() {  # <файл> <контекст>...
 }
 
 HEAD_SHA="1111111111111111111111111111111111111111"
+BASE_SHA="3333333333333333333333333333333333333333"
+PROOF_SHA="0123abcd00000000000000000000000000000000"
 OLD_SHA="2222222222222222222222222222222222222222"
 
 # База PR — `MR_BASE` (по умолчанию `main`): для случаев ветки линии задаётся
@@ -241,8 +255,8 @@ mk_pr() {  # <файл> <состояние> <состояние-слияния>
         rollup="$(printf '%s\n' "$@" | jq -R '{name: ., conclusion: "SUCCESS"}' | jq -s .)"
     fi
     jq -n --arg st "$st" --arg ms "$ms" --arg h "$HEAD_SHA" --arg b "${MR_BASE:-main}" --argjson r "$rollup" \
-        --arg hd "${MR_HEAD:-788}" --arg bd "${MR_BODY:-}" --argjson ci "${MR_CLOSING:-[]}" \
-        '{state:$st, baseRefName:$b, headRefName:$hd, headRefOid:$h,
+        --arg hd "${MR_HEAD:-788}" --arg bd "${MR_BODY:-}" --argjson ci "${MR_CLOSING:-[]}" --arg bo "$BASE_SHA" \
+        '{state:$st, baseRefName:$b, baseRefOid:$bo, headRefName:$hd, headRefOid:$h,
           mergeStateStatus:$ms, statusCheckRollup:$r, body:$bd, closingIssuesReferences:$ci}' > "$f"
 }
 
@@ -603,6 +617,15 @@ printf '1\n' > "$d/issue@296.rc"
 # CL-ISSUE-PR — номер ветки головы — запрос, а не задача.
 d="$(cl_case CL-ISSUE-PR 296 535)"
 jq -n '{number: 296, labels: [], pull_request: {url: "x"}}' > "$d/issue@296.json"
+# CL-FOREIGN — номера головы в репозитории PR нет (404 настоящей формы, ws#1164).
+NOT_FOUND='{"message":"Not Found","documentation_url":"https://docs.github.com/rest/issues/issues#get-an-issue","status":"404"}'
+d="$(cl_case CL-FOREIGN 3274-reg-pub-acceptance 535)"
+printf '%s' "$NOT_FOUND" > "$d/issue@3274.json"; printf 'gh: Not Found (HTTP 404)\n' > "$d/issue@3274.stderr"
+printf '1\n' > "$d/issue@3274.rc"
+# CL-ISSUE-410 — близнец CL-FOREIGN: отказ той же формы, иной статус — не «номера нет».
+d="$(cl_case CL-ISSUE-410 3274-reg-pub-acceptance 535)"
+printf '%s' '{"message":"Issues are disabled for this repo","status":"410"}' > "$d/issue@3274.json"
+printf '1\n' > "$d/issue@3274.rc"
 # CL-PARENT-403 — уровень, база-линия, родитель не прочитан.
 d="$(cl_case CL-PARENT-403 535 296)"; mk_issue "$d" 535 23
 printf '%s\n' '{"message":"Resource not accessible by integration","status":"403"}' > "$d/parent@535.json"
@@ -767,6 +790,8 @@ printf '{"total_count":0,"check_runs":[]}\n' > "$X/checkruns.json"
 PROOF_OK=$'DoD-proof @0123abcd\nкоманда: bash scripts/x/run-all.sh; echo $?\nитог: пройдено 9 из 9\nкод возврата: 0'
 pf_case() {  # <имя> <тело PR> [<closingIssuesReferences JSON>]
     local d; d="$(mkcase "PF-$1")"
+    # Диапазон PR (ws#1162): коммит доказательства `@0123abcd` и голова.
+    jq -n --arg p "$PROOF_SHA" --arg h "$HEAD_SHA" '{total_commits: 2, commits: [{sha: $p}, {sha: $h}]}' > "$d/compare.json"
     mk_protection "$d/protection@main.json" "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
     MR_BODY="$2" MR_CLOSING="${3:-[]}" mk_pr "$d/pr.json" OPEN CLEAN "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
     printf '%s' "$d"
@@ -821,6 +846,19 @@ mk_comments "$d" PRO-Robotech/kacho 600 "готово"
 # Близнец: одна задача и в теле, и у хостинга — судится один раз, доказана.
 d="$(pf_case HOSTPROOF $'Closes #500' "[$(host_ref PRO-Robotech kacho 500)]")"
 mk_comments "$d" PRO-Robotech/kacho 500 "$PROOF_OK"
+# Номера строки закрытия в репозитории нет (404 настоящей формы, ws#1164) — упоминание.
+d="$(pf_case ABSENT $'Closes #3274')"
+printf '%s' "$NOT_FOUND" > "$d/comments@PRO-Robotech~kacho#3274.json"; printf '1\n' > "$d/comments@PRO-Robotech~kacho#3274.rc"
+# Ревизия доказательства — не коммит диапазона (ws#1162): прежде засчитывалась.
+d="$(pf_case OUTSIDE $'Closes #500')"
+mk_comments "$d" PRO-Robotech/kacho 500 "${PROOF_OK/#DoD-proof @0123abcd/DoD-proof @deadbeef1}"
+# Диапазон не прочитан либо прочитан не весь — вердикта нет.
+d="$(pf_case RANGE-UNREAD $'Closes #500')"
+mk_comments "$d" PRO-Robotech/kacho 500 "$PROOF_OK"
+: > "$d/compare.unavailable"
+d="$(pf_case RANGE-SHORT $'Closes #500')"
+mk_comments "$d" PRO-Robotech/kacho 500 "$PROOF_OK"
+jq '.total_commits = 3' "$d/compare.json" > "$d/compare.new" && mv "$d/compare.new" "$d/compare.json"
 # Поле хостинга не массив — разбор сломан, а не «закрывать нечего».
 d="$(pf_case HOSTBROKEN $'Refs #500' 'null')"
 
@@ -1079,6 +1117,10 @@ probe "$PRODUCT_REPO" "$TMP/case-CL-ISSUE-403" 2 "задача ветки гол
     "уровень каскада головы '296' НЕ УСТАНОВЛЕН"
 probe "$PRODUCT_REPO" "$TMP/case-CL-ISSUE-PR" 2 "номер ветки головы — запрос — уровень НЕ УСТАНОВЛЕН" \
     "уровень каскада головы '296' НЕ УСТАНОВЛЕН" "запрос, а не задача"
+probe "$PRODUCT_REPO" "$TMP/case-CL-FOREIGN" 0 "номера головы в репозитории PR нет (404) — упоминание, не уровень, «сливать можно»" \
+    "номера 3274 в PRO-Robotech/kacho нет (404 Not Found)" "можно сливать"
+probe "$PRODUCT_REPO" "$TMP/case-CL-ISSUE-410" 2 "отказ чтения задачи головы со статусом 410 — НЕ УСТАНОВЛЕН, а не «номера нет»" \
+    "уровень каскада головы '3274-reg-pub-acceptance' НЕ УСТАНОВЛЕН"
 probe "$PRODUCT_REPO" "$TMP/case-CL-PARENT-403" 2 "родитель задачи-уровня не прочитан — НЕ УСТАНОВЛЕН, а не «нельзя»" \
     "родитель задачи PRO-Robotech/kacho#535 НЕ ПРОЧИТАН"
 
@@ -1203,6 +1245,14 @@ probe "$PRODUCT_REPO" "$TMP/case-PF-HOST" 1 "закрытие объявил х�
     "СЛИВАТЬ НЕЛЬЗЯ — Closes без доказательства DoD" "PRO-Robotech/kacho#600"
 probe "$PRODUCT_REPO" "$TMP/case-PF-HOSTPROOF" 0 "задача и в теле, и у хостинга — судится один раз, доказана" \
     "можно сливать" "задач, закрываемых PR (хостинг и тело): 1 · с доказательством DoD: 1 · без: 0"
+probe "$PRODUCT_REPO" "$TMP/case-PF-ABSENT" 0 "строка закрытия номера, которого в репозитории нет (404), — упоминание, «сливать можно»" \
+    "можно сливать" "не задач репозитория (404): 1" "PRO-Robotech/kacho#3274"
+probe "$PRODUCT_REPO" "$TMP/case-PF-OUTSIDE" 1 "доказательство не на коммите диапазона PR (@deadbeef1) — «нельзя», а не «можно»" \
+    "СЛИВАТЬ НЕЛЬЗЯ — Closes без доказательства DoD" "ревизия — не коммит диапазона: PRO-Robotech/kacho#500"
+probe "$PRODUCT_REPO" "$TMP/case-PF-RANGE-UNREAD" 2 "диапазон PR не прочитан — привязки нет, вердикта нет" \
+    "диапазон PR (compare, страница 1) НЕ ПРОЧИТАН"
+probe "$PRODUCT_REPO" "$TMP/case-PF-RANGE-SHORT" 2 "диапазон PR прочитан не весь — разбор сломан, а не «можно»" \
+    "РАЗБОР СЛОМАН — диапазон PR: compare объявил коммитов 3, прочитано различных 2"
 probe "$PRODUCT_REPO" "$TMP/case-PF-HOSTBROKEN" 2 "поле хостинга не массив — разбор сломан, а не «закрывать нечего»" \
     "РАЗБОР СЛОМАН — поле closingIssuesReferences"
 
@@ -1222,4 +1272,4 @@ if [ "$findings" -gt 0 ]; then
     exit 1
 fi
 
-tooling_gate_pass "$NAME" "инструмент различает все три исхода у обоих источников: вердикт печатается, отказ разбора и «не выполнилось» приходят кодом 2, имена контекстов не схлопываются, зелёный — только SUCCESS, код gh api судится — не защищена и не прочитана различены, ветка линии продукта судится набором ствола, база без контекстов со строкой ведомости — ci-read числом и исходами, источник выбирает защита базы тем же чтением, ручной прогон судится на голове, голова-уровень каскада сливается только вверх, задача закрытия — из ответа хостинга и тела PR, включая форму-адрес, и только с доказательством DoD"
+tooling_gate_pass "$NAME" "инструмент различает все три исхода у обоих источников: вердикт печатается, отказ разбора и «не выполнилось» приходят кодом 2, имена контекстов не схлопываются, зелёный — только SUCCESS, код gh api судится — не защищена и не прочитана различены, ветка линии продукта судится набором ствола, база без контекстов со строкой ведомости — ci-read числом и исходами, источник выбирает защита базы тем же чтением, ручной прогон судится на голове, голова-уровень каскада сливается только вверх, задача закрытия — из ответа хостинга и тела PR, включая форму-адрес, и только с доказательством DoD на коммите диапазона PR"

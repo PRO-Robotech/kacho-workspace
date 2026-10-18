@@ -29,7 +29,8 @@
 # ГРАНИЦА. Скрипт отвечает на вопрос «готов ли PR к слиянию по проверкам» и на
 # два вопроса до них: не снимет ли вливание ветку уровня каскада, стоящую головой
 # PR (ws#909, раздел «ГОЛОВА PR — УРОВЕНЬ КАСКАДА?» ниже), и есть ли у каждой
-# задачи строки закрытия в теле PR комментарий-доказательство DoD (ws#918, раздел
+# задачи строки закрытия в теле PR комментарий-доказательство DoD на коммите
+# диапазона PR (ws#918, ws#1162, раздел
 # «CLOSES — ТОЛЬКО ПО ДОКАЗАТЕЛЬСТВУ» ниже). Он НЕ судит о
 # содержании изменения, НЕ заменяет обзор и НЕ знает про требования, живущие
 # вне своего источника вердикта (правила наборов — rulesets — не читаются:
@@ -207,7 +208,7 @@ merge_state_verdict() {
   esac
 }
 
-pr_json=$(gh pr view "$PR" -R "$REPO" --json state,baseRefName,headRefName,headRefOid,mergeStateStatus,statusCheckRollup,body,closingIssuesReferences 2>/dev/null) || {
+pr_json=$(gh pr view "$PR" -R "$REPO" --json state,baseRefName,baseRefOid,headRefName,headRefOid,mergeStateStatus,statusCheckRollup,body,closingIssuesReferences 2>/dev/null) || {
   echo "merge-readiness: PR $REPO#$PR недоступен" >&2; exit 2; }
 
 # Ответ соседа проверяется на разбираемость ДО первого чтения поля. Без этого
@@ -268,6 +269,13 @@ LINE_BRANCH_RE='^[0-9]+(-[^/]*)?$'
 # Исходы: не уровень либо вверх — путь идёт дальше, к проверкам; вниз — код 1;
 # задача или родитель не прочитаны, номер ветки — запрос — код 2, уровень НЕ УСТАНОВЛЕН:
 # непрочитанный трекер не выдаётся ни за «не уровень», ни за «вниз».
+#
+# НОМЕРА В РЕПОЗИТОРИИ PR НЕТ (ws#1164) — трекер ответил 404 «Not Found» настоящей формы
+# (`not_found`): ветка названа номером задачи ДРУГОГО репозитория (kacho-workspace PR приёмки
+# kacho#3274, голова `3274-reg-pub-acceptance` — прежде код 2 «НЕ УСТАНОВЛЕН» на каждом
+# проходе демона). Номер — упоминание: уровнем каскада ЭТОГО репозитория ветка быть не
+# может, задачи такой в нём нет; PR, раз он прочитан, читается и трекер, и 404 — ответ, а
+# не отказ. Прочие отказы (403, 410, сеть) — по-прежнему НЕ УСТАНОВЛЕН.
 head_ref=$(jq -r '.headRefName // ""' <<<"$pr_json")
 # sync_head_form <номер источника> <база> — имя ветки синхронизации, которое пропустит
 # правило имени ветки РЕПОЗИТОРИЯ PR (ws#910): `tmp/*` kaname отвергает.
@@ -280,18 +288,28 @@ sync_head_form() {
     *) printf '<N>-sync-%s-into-%s' "$1" "${2%%-*}" ;;
   esac
 }
+# not_found <файл ответа> — отказ gh есть 404 «Not Found» настоящей формы: тело в stdout
+# (gh 2.100.0, замер 2026-10-18 `gh api repos/PRO-Robotech/kacho-workspace/issues/3274`).
+not_found() {
+  jq -e 'type == "object" and .message == "Not Found" and ((.status // "") | tostring) == "404"' >/dev/null 2>&1 <"$1"
+}
 cascade_unknown() {  # <что не установлено> <файл отказа>
   echo "merge-readiness: уровень каскада головы '$head_ref' НЕ УСТАНОВЛЕН — $1"
   [ -s "$2" ] && head -c 300 "$2" | sed 's/^/                 /'
   echo "                 вердикта нет; это НЕ «сливать нельзя»."
   exit 2
 }
+head_num=""; rc=0
+issue_file="$workdir/head-issue.json"
+if [[ "$head_ref" =~ $LINE_BRANCH_RE ]]; then
+  head_num="${head_ref%%-*}"
+  gh api "repos/$REPO/issues/$head_num" >"$issue_file" 2>"$workdir/api.err" && rc=0 || rc=$?
+fi
 if [[ ! "$head_ref" =~ $LINE_BRANCH_RE ]]; then
   echo "голова PR: '$head_ref' — не формы ветки задачи, уровнем каскада не бывает"
+elif [ "$rc" -ne 0 ] && not_found "$issue_file"; then
+  echo "голова PR: '$head_ref' — номера $head_num в $REPO нет (404 Not Found): упоминание задачи другого репозитория, уровнем каскада $REPO не бывает"
 else
-  head_num="${head_ref%%-*}"
-  issue_file="$workdir/head-issue.json"
-  gh api "repos/$REPO/issues/$head_num" >"$issue_file" 2>"$workdir/api.err" && rc=0 || rc=$?
   [ "$rc" -eq 0 ] || cascade_unknown "задача $REPO#$head_num не прочитана (код gh $rc)" "$issue_file"
   jq -e 'type == "object"' >/dev/null 2>&1 <"$issue_file" \
     || parse_broken "ответ о задаче $REPO#$head_num не разбирается как объект JSON"
@@ -347,8 +365,15 @@ fi
 # Замер релиза kacho#1266, волны 1–3: Closes без доказательства — возврат
 # посадочного и новый круг (kacho#2741, #2878, #2885, #2879, #2886, #2909).
 #
-# ЧТО СУДИТСЯ — НАЛИЧИЕ комментария с маркером, а не его содержание: правдивость
-# команды и итога сверяет посадочный. Исходы: у всех строк закрытия доказательство
+# ЧТО СУДИТСЯ — комментарий с маркером, чья ревизия — КОММИТ ДИАПАЗОНА PR (ws#1162), а не
+# его содержание: правдивость команды и итога сверяет посадочный. Привязка — общая
+# `dod_proof_bound` распознавателя (`lib/dod_proof.jq`), та же, что у landing-precheck (ж)
+# и генератора тела: до ws#1162 здесь засчитывалась любая ревизия (`@deadbeef1` тоже), и
+# два гейта демона вливания давали на одном PR разные исходы. Диапазон — коммиты
+# `compare/<baseRefOid>...<headRefOid>` постранично (запрос `--json commits` отдаёт не больше
+# 100, замер 2026-10-18 на kacho#3158: 100 из 414); полнота — различных sha столько, сколько
+# объявлено `total_commits`, и голова среди них, иначе код 2. Читается, только когда есть
+# строки закрытия. Исходы: у всех строк закрытия доказательство
 # есть либо строк нет — путь идёт дальше; хоть у одной нет — код 1 с номерами;
 # комментарии хоть одной задачи не прочитаны — код 2 (находка рядом с ним — 1).
 #
@@ -360,6 +385,10 @@ fi
 # строка его тела переезжает в запрос эпика. Разбор одного тела форму-адрес не
 # видел (возврат check-verifier, ws#920: код 0 и «строк 0»). Поле не массив —
 # разбор сломан (код 2), а не «закрывать нечего».
+#
+# НОМЕРА НЕТ В РЕПОЗИТОРИИ СТРОКИ (ws#1164): комментарии задачи — 404 «Not Found» настоящей
+# формы. Строка закрытия ничего не закроет — это упоминание, а не Closes без доказательства;
+# число таких печатается («не задач репозитория (404)»). Прочие отказы чтения — код 2.
 pr_body=$(jq -r '.body // ""' <<<"$pr_json")
 jq -e '.closingIssuesReferences | type == "array"' >/dev/null 2>&1 <<<"$pr_json" \
   || parse_broken "поле closingIssuesReferences ответа о PR $REPO#$PR не массив" \
@@ -374,27 +403,71 @@ if [ -z "$closes_refs" ]; then
 else
   proof_missing=()
   proof_unread=()
+  proof_absent=()
+  proof_outside=()
   proof_ok=0
+  # Диапазон PR — для привязки ревизии доказательства (шапка раздела).
+  range_base=$(jq -r '.baseRefOid // ""' <<<"$pr_json")
+  range_head=$(jq -r '.headRefOid // ""' <<<"$pr_json")
+  [[ "$range_base" =~ ^[0-9a-f]{40}$ && "$range_head" =~ ^[0-9a-f]{40}$ ]] \
+    || parse_broken "у PR $REPO#$PR в ответе нет baseRefOid и headRefOid формы sha" \
+                    "без них диапазон для привязки доказательства DoD не прочитать."
+  : >"$workdir/range.txt"
+  range_page=1
+  range_total=""
+  while :; do
+    range_file="$workdir/range-$range_page.json"
+    if ! gh api "repos/$REPO/compare/$range_base...$range_head?per_page=100&page=$range_page" >"$range_file" 2>"$workdir/api.err"; then
+      echo "merge-readiness: диапазон PR (compare, страница $range_page) НЕ ПРОЧИТАН — $(head -c 200 "$workdir/api.err" | tr '\n' ' ')"
+      echo "                 привязка доказательства DoD не сверена; вердикта нет, это НЕ «сливать нельзя»."
+      exit 2
+    fi
+    jq -e 'type == "object" and (.commits | type == "array") and (.total_commits | type == "number")' >/dev/null 2>&1 <"$range_file" \
+      || parse_broken "ответ compare (страница $range_page) не объект с commits и total_commits"
+    [ -n "$range_total" ] || range_total=$(jq '.total_commits' <"$range_file")
+    jq -r '.commits[].sha // empty' <"$range_file" >>"$workdir/range.txt"
+    [ "$(jq '.commits | length' <"$range_file")" -eq 100 ] || break
+    range_page=$((range_page + 1))
+    [ "$range_page" -le 200 ] || parse_broken "диапазон PR длиннее 200 страниц compare — предел обхода"
+  done
+  range_got=$(LC_ALL=C sort -u "$workdir/range.txt" | grep -c . || true)
+  [ "$range_got" -eq "$range_total" ] \
+    || parse_broken "диапазон PR: compare объявил коммитов $range_total, прочитано различных $range_got"
+  grep -qxF "$range_head" "$workdir/range.txt" \
+    || parse_broken "голова $range_head не среди коммитов диапазона compare"
+  range_json=$(jq -R . <"$workdir/range.txt" | jq -sc .)
   while IFS= read -r ref; do
     ref_repo="${ref%%#*}"; ref_num="${ref##*#}"
     cfile="$workdir/comments-${ref_repo//\//_}-$ref_num.json"
     if ! gh api "repos/$ref_repo/issues/$ref_num/comments?per_page=100" --paginate >"$cfile" 2>"$workdir/api.err"; then
-      proof_unread+=("$ref_repo#$ref_num")
+      if not_found "$cfile"; then
+        proof_absent+=("$ref_repo#$ref_num")
+      else
+        proof_unread+=("$ref_repo#$ref_num")
+      fi
       continue
     fi
     jq -e -s 'all(.[]; type == "array")' >/dev/null 2>&1 <"$cfile" \
       || parse_broken "ответ о комментариях задачи $ref_repo#$ref_num не разбирается как список"
-    if jq -L "$dod_lib" -e -s 'include "dod_proof"; add // [] | any(.[]; (.body // "") | dod_proof)' >/dev/null <"$cfile"; then
+    if jq -L "$dod_lib" -e -s --argjson range "$range_json" \
+        'include "dod_proof"; add // [] | any(.[]; (.body // "") | dod_proof_revisions_in($range) | length > 0)' >/dev/null <"$cfile"; then
       proof_ok=$((proof_ok + 1))
+    elif jq -L "$dod_lib" -e -s 'include "dod_proof"; add // [] | any(.[]; (.body // "") | dod_proof)' >/dev/null <"$cfile"; then
+      proof_missing+=("$ref_repo#$ref_num")
+      proof_outside+=("$ref_repo#$ref_num")
     else
       proof_missing+=("$ref_repo#$ref_num")
     fi
   done <<<"$closes_refs"
-  echo "задач, закрываемых PR (хостинг и тело): $(grep -c . <<<"$closes_refs") · с доказательством DoD: $proof_ok · без: ${#proof_missing[@]} · не прочитано: ${#proof_unread[@]}"
+  echo "диапазон PR для привязки доказательства: коммитов $range_got (compare ${range_base:0:12}...${range_head:0:12})"
+  echo "задач, закрываемых PR (хостинг и тело): $(grep -c . <<<"$closes_refs") · с доказательством DoD: $proof_ok · без: ${#proof_missing[@]} · не прочитано: ${#proof_unread[@]} · не задач репозитория (404): ${#proof_absent[@]}"
+  [ "${#proof_absent[@]}" -eq 0 ] || echo "  номера без задачи — упоминание, строка закрытия их не закроет: $(printf '%s ' "${proof_absent[@]}")"
   if [ "${#proof_missing[@]}" -gt 0 ]; then
     echo
-    echo "  Closes без комментария-доказательства DoD (строка «DoD-proof @<ревизия>»):"
+    echo "  Closes без комментария-доказательства DoD на коммите диапазона PR (строка «DoD-proof @<ревизия>»):"
     printf '    %s\n' "${proof_missing[@]}"
+    [ "${#proof_outside[@]}" -eq 0 ] \
+      || echo "  из них доказательство есть, но ревизия — не коммит диапазона: $(printf '%s ' "${proof_outside[@]}")"
     echo "  исполнитель публикует доказательство в задаче, либо строка закрытия заменяется на Refs"
     echo
     echo "merge-readiness: СЛИВАТЬ НЕЛЬЗЯ — Closes без доказательства DoD"

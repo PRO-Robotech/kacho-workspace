@@ -53,6 +53,15 @@ class Unmet(Exception):
     """Вход не прочитан либо предпосылки нет — вердикта нет."""
 
 
+class NotFound(Unmet):
+    """Трекер ответил 404 «Not Found»: предмета по адресу нет — исход, а не «не прочитано».
+
+    Форма — настоящая, gh 2.100.0 (замер 2026-10-18): тело `{"message":"Not Found",…,
+    "status":"404"}` в stdout и код 1. Прочие отказы (403, 410, сеть, лимит) — `Unmet`:
+    непрочитанный ответ за «номера нет» не выдаётся. Кто 404 не ждёт, ловит его как `Unmet`.
+    """
+
+
 class Refused(Exception):
     """Отказ: причина названа."""
 
@@ -75,7 +84,14 @@ def gh(method: str, path: str, body: dict | None = None):
     except OSError as e:
         raise Unmet("трекер не вызывается (%s): %s" % (cmd[0], e))
     if p.returncode != 0:
-        raise Unmet("трекер: %s %s — код %d: %s" % (method, path, p.returncode, (p.stderr or p.stdout).strip()[:300]))
+        why = "трекер: %s %s — код %d: %s" % (method, path, p.returncode, (p.stderr or p.stdout).strip()[:300])
+        try:
+            got = json.loads(p.stdout)
+        except ValueError:
+            got = None
+        if isinstance(got, dict) and got.get("message") == "Not Found" and str(got.get("status")) == "404":
+            raise NotFound(why)
+        raise Unmet(why)
     try:
         return json.loads(p.stdout) if p.stdout.strip() else None
     except ValueError:
@@ -106,14 +122,18 @@ _DOD_COMMENTS = ('include "dod_proof"; [.[] | {url: (.html_url // ""), revs: ((.
                  ' | select(.revs | length > 0)]')
 
 
-def _dod_query(repo: str, n: int, tail: str):
-    """Комментарии задачи через общий распознаватель `scripts/lib/dod_proof.jq` и хвост `tail`."""
+def _dod_query(repo: str, n: int, tail: str, rng: list | None = None):
+    """Комментарии задачи через общий распознаватель `scripts/lib/dod_proof.jq` и хвост `tail`.
+
+    `rng` — полные sha диапазона запроса (`$range` хвоста, привязка `dod_proof_bound`).
+    """
     comments = gh_list("repos/%s/issues/%d/comments" % (repo, n))
     if not os.path.isfile(os.path.join(DOD_LIB, "dod_proof.jq")):
         raise Unmet("распознавателя доказательства DoD нет (%s) — судить нечем"
                     % os.path.normpath(os.path.join(DOD_LIB, "dod_proof.jq")))
     try:
-        p = subprocess.run(["jq", "-L", DOD_LIB, "-c", _DOD_COMMENTS + tail], input=json.dumps(comments),
+        p = subprocess.run(["jq", "-L", DOD_LIB, "-c", "--argjson", "range", json.dumps(rng or []),
+                            _DOD_COMMENTS + tail], input=json.dumps(comments),
                            capture_output=True, text=True)
     except OSError as e:
         raise Unmet("jq не вызывается: %s — доказательство DoD судить нечем" % e)
@@ -132,9 +152,14 @@ def dod_proof(repo: str, n: int):
     return tuple(got) if got else None
 
 
-def dod_proofs(repo: str, n: int) -> list:
-    """Все доказательства DoD задачи по порядку: [(адрес комментария, ревизия)], каждая строка-доказательство."""
-    return [tuple(x) for x in _dod_query(repo, n, ' | [.[] | .url as $u | .revs[] | [$u, .]]') or []]
+def dod_proofs(repo: str, n: int, rng: list) -> list:
+    """Все доказательства DoD задачи по порядку: [(адрес комментария, ревизия, привязана ли к диапазону)].
+
+    Привязка — общая `dod_proof_bound` (`scripts/lib/dod_proof.jq`), та же, что у
+    merge-readiness и landing-precheck (ws#1162); своей сверки с диапазоном здесь нет.
+    """
+    return [tuple(x) for x in _dod_query(repo, n, ' | [.[] | .url as $u | .revs[] | [$u, ., dod_proof_bound($range)]]',
+                                         rng) or []]
 
 
 # ── атрибуция ───────────────────────────────────────────────────────────────
@@ -164,6 +189,29 @@ def git(*args: str, check: bool = True) -> str:
     if check and p.returncode != 0:
         raise Unmet("git %s: %s" % (" ".join(args), (p.stderr.strip() or "код %d" % p.returncode)[:300]))
     return p.stdout
+
+
+# РЕПОЗИТОРИИ ВЛАДЕЛЬЦА, где ищется номер первой строки, которого нет в репозитории
+# запроса (ws#1164): строки ведомости стволов `scripts/ci-read-expected.tsv` — тех, чьи
+# запросы оснастка судит. Перечень выводится из неё, а не пишется здесь: задача ствола,
+# заведённого без строки, разрешится в упоминание (без закрытия), а не в чужое Closes.
+TRUNKS = os.path.join(HERE, "..", "ci-read-expected.tsv")
+
+
+def sibling_repos(repo: str) -> list[str]:
+    """Прочие репозитории владельца `repo` из ведомости стволов; ни одного — код 2."""
+    path = os.path.normpath(TRUNKS)
+    try:
+        rows = open(path, encoding="utf-8").read().splitlines()
+    except OSError as e:
+        raise Unmet("ведомость стволов %s не читается (%s) — номер другого репозитория разрешить не в чем" % (path, e))
+    owner = repo.split("/", 1)[0].lower()
+    got = sorted({r.split("\t", 1)[0].strip() for r in rows if r.strip() and not r.lstrip().startswith("#")})
+    out = [r for r in got if REPO_RE.match(r) and r.split("/", 1)[0].lower() == owner and r.lower() != repo.lower()]
+    if not out:
+        raise Unmet("в ведомости стволов %s нет репозиториев владельца %s, кроме %s — номер другого репозитория "
+                    "разрешить не в чем" % (path, owner, repo))
+    return out
 
 
 def need_repo(repo: str) -> str:
@@ -216,14 +264,36 @@ DEBT_LEDGERS = (
 )
 
 
+# ССЫЛКА НА ЗАДАЧУ — ОДНО правило на ритуалы (ws#1155): им ищутся и номера задач своего
+# репозитория в тексте (`issue_refs`), и держатель записи долга (`task_ref_re`). До ws#1155
+# правил было два, и они разошлись: `task_ref_re` засчитывал `OtherOrg/kacho#5` своей
+# задачей (перед краткой формой не отсекался `/`), а `issue_refs` — нет; адрес с владельцем в
+# нижнем регистре не засчитывал ни один, краткую форму в нижнем регистре — первый.
+#
+# Ссылка на задачу `<владелец>/<имя>#N` — одна из форм: полная `<владелец>/<имя>#N`, краткая
+# `<имя>#N`, адрес `github.com/<владелец>/<имя>/issues/N` и голый `#N` (только где текст —
+# свой репозиторий). Границы — по КЛАССУ знака, не по перечню чужих владельцев:
+#   * перед владельцем полной формы и перед `github.com` — не знак имени (буква, цифра, `_`,
+#     `.`, `-`): `xPRO-Robotech/…`, `x.github.com/…` — не ссылка;
+#   * перед краткой — ещё и не `/`: `<любой владелец>/<имя>#N` — либо полная форма своего
+#     владельца, либо задача ЧУЖОГО, и `<имя>#N` внутри неё своей не засчитывается;
+#   * перед голым `#N` — не знак имени, не `/` и не `#` (как `NUM_RE` и `NUM` landing-precheck);
+#   * после номера — не знак слова: `kacho#55`, `#5a` — не задача 5;
+#   * владелец и имя — без регистра во ВСЕХ формах: трекер их регистр не различает.
+def task_ref_pattern(trepo: str, n: int | None = None, bare: bool = True) -> str:
+    """Выражение ссылки на задачу репозитория `trepo` (номер — группа 1); `n` — только этот номер."""
+    owner, name = (re.escape(x) for x in trepo.split("/", 1))
+    lead = [r"(?<![\w.-])(?i:%s/%s)#" % (owner, name),
+            r"(?<![\w./-])(?i:%s)#" % name,
+            r"(?<![\w.-])(?i:github\.com/%s/%s)/issues/" % (owner, name)]
+    if bare:
+        lead.append(r"(?<![\w/#])#")
+    return r"(?:%s)(%s)(?!\w)" % ("|".join(lead), r"[0-9]+" if n is None else str(n))
+
+
 def task_ref_re(trepo: str, n: int, lrepo: str) -> str:
-    """Ссылка на задачу `trepo#n` в тексте ведомости репозитория `lrepo` — все законные формы."""
-    name = trepo.split("/", 1)[1]
-    alts = [re.escape(trepo) + "#%d" % n, r"(?<![\w.-])" + re.escape(name) + "#%d" % n,
-            r"github\.com/" + re.escape(trepo) + "/issues/%d" % n]
-    if trepo == lrepo:
-        alts.append(r"(?<![\w/#])#%d" % n)
-    return "(?:%s)(?![0-9])" % "|".join(alts)
+    """Ссылка на задачу `trepo#n` в тексте ведомости репозитория `lrepo`: голый `#n` — только в своём."""
+    return task_ref_pattern(trepo, n, bare=trepo.lower() == lrepo.lower())
 
 
 def ledger_source(lrepo: str, trepo: str, head: str):
@@ -288,23 +358,8 @@ def debt_holder(trepo: str, n: int, ledgers) -> str | None:
 
 
 def issue_refs(repo: str, text: str) -> set[int]:
-    """Номера задач ЭТОГО репозитория, названные в тексте в любой законной форме.
-
-    Формы: `#N` (не после буквы, цифры и `/`), `<владелец>/<имя>#N`, `<имя>#N` и адрес
-    `https://github.com/<владелец>/<имя>/issues/N` — три последние только своего репозитория:
-    владелец — ровно владелец запроса, `<имя>#N` после `/` (чужой владелец) не своё.
-    """
-    nums: set[int] = set()
-    for m in re.finditer(r"(?<![\w/])#(\d+)\b", text):
-        nums.add(int(m.group(1)))
-    name = re.escape(repo.split("/", 1)[1])
-    # Перед именем — ни буквы, ни `.`, `-`, ни `/`: `otherorg/kaname#77` — задача ЧУЖОГО
-    # владельца, и короткая форма `kaname#77` внутри неё своей не засчитывается.
-    for m in re.finditer(r"(?<![\w./-])(?:%s/)?%s#(\d+)\b" % (re.escape(repo.split("/", 1)[0]), name), text):
-        nums.add(int(m.group(1)))
-    for m in re.finditer(r"https://github\.com/%s/issues/(\d+)\b" % re.escape(repo), text):
-        nums.add(int(m.group(1)))
-    return nums
+    """Номера задач ЭТОГО репозитория, названные в тексте любой законной формой (`task_ref_pattern`)."""
+    return {int(m.group(1)) for m in re.finditer(task_ref_pattern(repo), text)}
 
 
 def first_line(msg: str) -> str:
@@ -457,14 +512,47 @@ def pr_body(argv: list[str]) -> int:
         mentioned |= issue_refs(repo, meta[h][3])
     mentioned -= first | qual
 
+    home: dict[int, str] = {}      # номер первой строки → репозиторий задачи, когда он не `repo`
+    orphans: dict[int, str] = {}   # номер первой строки без задачи ни в одном репозитории → почему
+
     def label(n: int) -> str:
-        return "#%d" % n if n in first else "%s#%d" % (repo, n)
+        return "#%d" % n if n in first and n not in home else "%s#%d" % (home.get(n, repo), n)
 
     ledgers, census = read_ledgers(repo, head_sha)
     range_shas = list(meta)
     closes, refs, pulls, rows = [], [], [], []
     for n in sorted(first | qual):
-        it = issue(repo, n)
+        try:
+            it = issue(repo, n)
+        except NotFound:
+            # Номера в репозитории запроса нет (404). Голый `#N` первой строки — ссылка на
+            # задачу другого репозитория владельца (kacho-workspace PR приёмки kacho#3274):
+            # он ищется в прочих стволах ведомости. Задача ровно одного — `Refs` полной формой:
+            # закрывает её каскад своего репозитория, а не запрос чужого. Нигде либо в
+            # нескольких — номер без задачи, без `#` и без закрытия. Отказ чтения кандидата
+            # (не 404) — код 2: непрочитанное за «нет нигде» не выдаётся.
+            if n in qual:
+                orphans[n] = "в %s номера нет, а назван он полной формой этого репозитория" % repo
+                continue
+            cands = sibling_repos(repo)
+            hits = []
+            for c in cands:
+                try:
+                    got = issue(c, n)
+                except NotFound:
+                    continue
+                if not got.get("pull_request"):
+                    hits.append((c, got))
+            if len(hits) == 1:
+                home[n], got = hits[0]
+                refs.append(n)
+                rows.append("- %s «%s» — задача %s, не %s: `Refs`, закрывает её каскад своего репозитория"
+                            % (label(n), no_hash(got.get("title") or ""), home[n], repo))
+            elif hits:
+                orphans[n] = "в нескольких: %s" % ", ".join(c for c, _ in hits)
+            else:
+                orphans[n] = "ни в одном из %s" % ", ".join([repo] + cands)
+            continue
         if it.get("pull_request"):
             pulls.append(n)
             continue
@@ -478,8 +566,8 @@ def pr_body(argv: list[str]) -> int:
             refs.append(n)
             rows.append("- %s «%s» — держит запись долга `%s`: `Refs`, не `Closes`" % (label(n), title, holder))
             continue
-        proofs = dod_proofs(repo, n)
-        inside = [(u, r) for u, r in proofs if any(s.startswith(r) for s in range_shas)]
+        proofs = dod_proofs(repo, n, range_shas)
+        inside = [(u, r) for u, r, bound in proofs if bound]
         if inside:
             url, rev = inside[-1]
             closes.append(n)
@@ -496,6 +584,9 @@ def pr_body(argv: list[str]) -> int:
     lines += rows or ["- в первых строках коммитов номеров задач нет"]
     if pulls:
         lines += ["", "Запросы в первых строках (не задачи): %s" % ", ".join(label(n) for n in pulls)]
+    if orphans:
+        lines += ["", "Номера первых строк без задачи (без закрытия): %s"
+                  % "; ".join("%d — %s" % (n, orphans[n]) for n in sorted(orphans))]
     if mentioned:
         lines += ["", "Упомянуты вне первых строк (без закрытия): %s" % ", ".join(str(n) for n in sorted(mentioned))]
     tail = ["Refs %s" % label(n) for n in refs] + ["Closes %s" % label(n) for n in closes]
@@ -510,9 +601,9 @@ def pr_body(argv: list[str]) -> int:
     for c in census:
         say("pr-body: " + c)
     say("pr-body: коммитов %d (полос %d, вне полос %d), номеров первых строк %d — задач %d: Closes %d, Refs %d, "
-        "из них полной формой %d; запросов %d; упомянуто без # %d"
+        "из них полной формой %d; другого репозитория %d, без задачи %d; запросов %d; упомянуто без # %d"
         % (len(meta), len(merges), len(direct), len(first), len(rows), len(closes), len(refs),
-           len(qual), len(pulls), len(mentioned)))
+           len(qual), len(home), len(orphans), len(pulls), len(mentioned)))
     return OK
 
 
