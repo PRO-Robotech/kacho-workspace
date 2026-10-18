@@ -16,10 +16,13 @@
 #   heavy-slot.sh --enqueue <каталог> [--local "<причина>"] <класс> -- <команда> …   (поставить ОДИН раз, ниже)
 #   heavy-slot.sh --classes     классы, бюджеты и основание каждого
 #   heavy-slot.sh --budget <класс>  бюджет класса в МиБ (читает session-memcap.sh)
-#   heavy-slot.sh --status      занятые слоты, память машины, хвост журнала
+#   heavy-slot.sh --book <класс> -- <команда>  бронь, которую слот поставит этой команде из этого каталога
+#   heavy-slot.sh --status      занятые слоты, билеты очереди и внешнего входа, память машины, хвост журнала
+#   heavy-slot.sh --cancel <билет>  снять СВОЮ заявку (ждущую, отложенную, внешнего входа) и её --enqueue
 #   heavy-slot.sh --prune-tmp   снять TMPDIR копий класса ci-local, не тронутые > 7 суток
 #
-# ВХОД — строгая очередь по билету под flock на каталоге слотов, ОДНОМ на машину;
+# ВХОД — очередь по билету под flock на каталоге слотов, ОДНОМ на машину (малый билет
+# обгоняет ждущего БОЛЬШЕГО, которому места сейчас нет, — не более BYPASS_MAX раз, ws#1161 д);
 # условий четыре, все разом:
 #   (MemTotal − MemAvailable) + недобранное занятыми + бюджет ≤ потолок 70 ГиБ;
 #   MemAvailable − недобранное ≥ 15 ГиБ (свободные до старта);
@@ -40,7 +43,9 @@
 # Ждать дольше 300 с — `--enqueue <каталог>`: слот сам уходит в отсоединённый прогон
 # (setsid, env --default-signal=PIPE) и ждёт ОДНИМ билетом до 2 ч, вызов сразу печатает
 # строку ENQUEUED с pid, журналом и .rc — имена уникальны (класс, время, pid), .rc
-# снимается до запуска; исход дочитывает короткий шаг. Повтор без билета ставит в КОНЕЦ
+# снимается до запуска; исход дочитывает короткий шаг. Каталог — ВНЕ рабочего дерева git:
+# файлы слота в копии делают её «грязной» (kacho#3251), и такой каталог — отказ 64 до
+# постановки (ws#1181; законен каталог, где git игнорирует все четыре файла слота). Повтор без билета ставит в КОНЕЦ
 # очереди: 2026-10-16 так пять попыток newman за час слота не получили (урок ws#1110).
 # Поэтому 74 и 75 ОТКЛАДЫВАЮТ билет на 120 с и называют его: повтор `--resume <билет>`
 # того же класса встаёт на прежнее место — впереди вставших позже (ws#1115). Отложенный
@@ -50,6 +55,10 @@
 # MemAvailable) − память слотов + бюджет ≤ потолок билета. Прочий ждёт памяти не
 # от слотов — её очередь не освободит, и держать за ним соседей незачем (опыт ws#832,
 # круг 3: потолок 1 ГиБ на 99999 с стоял головой строгой очереди).
+# Заявку снимает `--cancel <билет>` (ws#1156): СВОЮ — ждущую, отложенную либо внешнего входа —
+# вместе с её отсоединённым ожиданием; номера билетов показывает --status, а ENQUEUED связан с
+# билетом полем enq записи. Чужую (иной «ветка@каталог») не снимает: отказ 64 с названным
+# владельцем; неизвестный билет — 69, «не выполнилось». Строка cancel — в журнал.
 # Потолок — в ГиБ, в тех единицах, что печатает `free -g` (MemTotal здесь 92,2).
 #
 # ГРАНИЦА: предел держит cgroup слота, а из неё уводит перенос процесса в другой
@@ -65,6 +74,17 @@
 # kubectl, helm или go рецепта, слот не видит — судится дерево клона, а не дело его
 # коммита. BASH_ENV вызова исполняет сама оболочка heavy-slot.sh при старте, до
 # любого суждения слота, — для всякого класса.
+#
+# БРОНЬ ci-local ПО ПРЕДМЕТУ ОТПРАВКИ (ws#1161 д): единые 10 ГиБ класса держали малые отправки
+# позади go-race (16 ГиБ), а пик отправки воркспейса — 394–790 МиБ, kaname — до 4,2 ГиБ (журнал
+# слотов, строки leave, перемер 2026-10-18). Для `git push` предмет — корень git отправляемой копии
+# (с учётом -C): воркспейс (в корне отслеживается сам слот) — 1536 МиБ, kaname (origin) — 6656 МиБ
+# (пик × 1,5, вверх до 512); kacho (до 7,5 ГиБ) и всякая иная нагрузка — прежние 10240. Таблица —
+# SUBJECT_BUDGETS, число каждой строки — с основанием; `--book <класс> -- <команда>` печатает
+# бронь, не занимая слот. Обгон малым: ждущий билет с бюджетом строго выше моего и без места
+# сейчас (иначе он на пороге входа) пропускает меня не более BYPASS_MAX = 3 раз; затем его
+# голова держит — большой не голодает. Каждый обгон — строка bypass в журнале; число обгонов
+# (bypassed) переживает 75 и повтор `--resume`: предел — на жизнь билета, а не на попытку.
 #
 # ИСПОЛНЕНИЕ
 #   · systemd-run --user --scope -p MemoryMax=<бюджет> -p MemorySwapMax=0 — предел
@@ -118,6 +138,17 @@
 # с причиной (bypass-local, «локально по флагу» в --status); условия — у блока
 # «внешний кластер» ниже.
 #
+# ВХОД ВО ВНЕШНИЙ КЛАСТЕР ПО ОДНОМУ (ws#1176): ожидающие билеты (--enqueue, --wait N) идут туда
+# по одному, в порядке номеров. Прежде они срабатывали разом на освободившееся место, и
+# стадия запуска run.sh (перепись, размещение, создание ns) соседа не терпит: младший выходил 75
+# (замер полосы волны 10 — три из трёх). Теперь билет внешнего входа — файл $DIR/ext/<номер>
+# (номер общий с очередью памяти, замок свой — ext.lock, очередь памяти его не держит);
+# голова проверяет кластер и запускает run.sh ДОЧЕРНИМ, а вход следующему отпускает строка
+# «ns … создано:» его stderr (либо выход run.sh, либо EXT_HOLD_S с). Сигнал слоту пересылается
+# run.sh. Повтор --enqueue той же команды из того же каталога и ветки, пока первый билет ещё
+# ждёт, не ставит второго и называет первый (ENQUEUED с его журналом и .rc, код 0). Запуск без
+# ожидания (WAIT_S=0) входа не берёт — как прежде. --status показывает билеты и внешний вход.
+#
 # ХУК ОТПРАВКИ (ws#1106, ws#1115): `git push` классом ci-local в клоне продукта при
 # принимающем кластере идёт без слота машины: git звано с core.hooksPath на переходник,
 # чей pre-push отдаёт вход git (строки отправки) настоящему хуку клона
@@ -128,6 +159,24 @@
 # хуки клона переходник берёт ссылками. Отправка не головы копии (иная вершина, их
 # несколько) переходник отклоняет кодом 78, и слот гонит ту же команду локально с
 # причиной; Job не состоялся (69, 75) — тот код, «не выполнилось».
+#
+# ОТКУДА ИДЁТ ОТПРАВКА (ws#1182): для `git … push` (любой класс, обёртки перед git, -C) слот ДО
+# постановки печатает каталог, корень git, origin (без учётных данных), ветку, голову и
+# отправляемые ссылки, и пишет то же строкой push-where. `--enqueue` каталога команды не
+# меняет, и дважды за сутки отправка ушла из корня воркспейса вместо копии задачи (ветка
+# чужой задачи легла в этот репозиторий). Первичная копия воркспейса (git-dir = common-dir, и
+# в ней отслеживается сам слот) с назначением в иную ветку, чем текущая, — отказ 64 (функция
+# push_where). Связанная копия, клон другого репозитория, -C <копия> и назначение в текущую
+# ветку не судятся. Опции после имени удалённого репозитория (`--force-with-lease`, `-o …`,
+# `--delete`) refspec не считаются: судится лишь refspec, чей ИСТОЧНИК — HEAD, @ либо текущая
+# ветка, а ветка назначения иная; отправка ветки по имени и удаление отказа не дают и названы
+# в печати («по имени:», «удалить:»). Не видно: смену каталога внутри `bash -c '…'`.
+# Класс ci-local, отправка из копии воркспейса (ws#1183): слот сам выставляет KACHO_HOME_KACHO,
+# KACHO_HOME_KANAME, KACHO_HOME_CORELIB на project/<имя> ОСНОВНОГО клона, если вызывающий их не
+# задал, и называет выставленное (клона нет — называет переменную). Без них change-graph-gate и
+# docs-gate уходили в [VOID] («клон corelib не найден», «копия kaname рядом не найдена»), а имена
+# переменных узнавали из текста [VOID] после отправки. Хук во внешнем кластере — Job: окружение
+# слота в него не попадает (граница).
 #
 # ЖУРНАЛ: $HEAVY_SLOT_DIR/journal.log — вход, ожидание (занято слотов, свободно), уход
 # во внешний кластер (remote … до запуска Job), выход с пиком памяти, обрыв. Пик —
@@ -150,6 +199,29 @@ FREE_MIN_MIB=15360  # старт при свободных ≥ 15 ГБ (2026-10-
 PROBE_MIB=512  # потолок бюджета в режиме проб: пробы берут ≤ 301 МиБ
 # Рабочие величины; ручки HEAVY_SLOT_* их меняют только в режиме проб (ниже).
 RESUME_TTL_S=120  # срок отложенного билета 74/75 (ws#1115)
+# Внешний вход по одному (ws#1176): ожидающие билеты (--enqueue, --wait) идут во внешний кластер
+# по одному — следующий стартует, когда у предыдущего run.sh создал ns («ns … создано»), а не
+# разом на освободившееся место: стадия запуска run.sh (перепись, размещение, создание ns)
+# соседа не терпит, и младший выходил 75 (замер полосы волны 10: три из трёх). Держит вход не
+# дольше EXT_HOLD_S с стадии запуска (run.sh до ns — секунды; предел — страховка от зависшего).
+EXT_GATE=1
+EXT_HOLD_S=120
+# Повтор --enqueue той же команды из того же каталога и ветки при ещё ждущем своём билете не
+# плодит второго, а называет первый (ws#1176): ждущий билет держит место, второй стоял бы в хвосте.
+ENQ_DEDUP=1
+# Обгон в очереди (ws#1161 д): малый билет проходит, пока ждёт БОЛЬШИЙ (его бюджет строго выше), если
+# тому места сейчас нет, — но не более BYPASS_MAX раз на ждущего; дальше большой держит голову, и малые
+# встают за ним. Равный бюджет очереди по билету не обгоняет. Предел — число обгонов, а не время:
+# отправка ci-local воркспейса идёт в среднем ~90 с (журнал слотов), три обгона — до ~4,5 мин сверх
+# того, что большой ждёт и так, и не голодает дольше.
+BYPASS_MAX=3
+# Бронь ci-local по ПРЕДМЕТУ отправки (`git push`: корень git отправляемой копии, с учётом -C), а не единые
+# 10240 МиБ класса: имя|МиБ|основание. Измерено по журналу слотов (строки leave класса ci-local,
+# 2026-10-16…17, перемер 2026-10-18; предмет — origin каталога отправки): воркспейс — пик 394–790 МиБ,
+# kaname — peak + container_peak + escaped_peak ≤ 4228 МиБ (36 строк); бронь = пик × 1,5 вверх до
+# 512 МиБ. kacho (до 7595 МиБ, 23 строки) и всё неопознанное — прежний бюджет класса.
+SUBJECT_BUDGETS='workspace|1536|отправка воркспейса: пик 394–790 МиБ × 1,5, вверх до 512
+kaname|6656|отправка kaname: peak + container_peak + escaped_peak ≤ 4228 МиБ × 1,5, вверх до 512'
 # Проверка внешнего кластера (ws#1141): `run.sh --available` — шесть обращений к API
 # подряд (can-i, узлы стража, ns и Job тяжёлых, узлы и pod размещения). Замер
 # 2026-10-17, 22 опроса: 3,3–5,3 с, медиана 3,5 с; диспетчер видел до 12,6 с. При
@@ -170,7 +242,7 @@ CGROOT=/sys/fs/cgroup
 # раз в 2 с, и последние ≤ 2 с до выхода не видны.
 CLASSES='go-race|16384|go test -race; make test, test-unit, test-service, test-service-short|go test -race -short ./... по монорепо (288 пакетов) в golang:1.26.8, -p 32, холодный кэш — 13,6 ГиБ; свои пакеты services/vpc (49) — 3,5 ГиБ
 integration|8192|go test -tags=integration (testcontainers); make test-integration, test-pg-outside-selection|форма make test-integration SVC=vpc (-race, -p 1, холодный кэш) — 1,2 ГиБ тестов + 0,2 ГиБ Postgres; запас — на -p по умолчанию своего сервиса
-ci-local|10240|scripts/ci-local.sh; git push в клон, чей pre-push зовёт ci-local|scripts/ci-local.sh go (23 проверки: build, vet, go test -short ./..., golangci-lint, gosec; кэш сборки тёплый, линтера холодный) — 5,2 ГиБ; прочие группы идут после неё по одной, не замерены
+ci-local|10240|scripts/ci-local.sh; git push в клон, чей pre-push зовёт ci-local (бронь отправки воркспейса и kaname — по предмету, ниже)|scripts/ci-local.sh go (23 проверки: build, vet, go test -short ./..., golangci-lint, gosec; кэш сборки тёплый, линтера холодный) — 5,2 ГиБ; прочие группы идут после неё по одной, не замерены
 lint|8192|golangci-lint run, govulncheck, gosec, make lint|golangci-lint run ./... по монорепо, холодный кэш линтера — 4,5 ГиБ
 docker|4096|docker run/create/start/build, docker compose up/run/build|общий класс — предел, а не прогноз: docker run получает --memory=бюджет
 stand|8192|kind create cluster; make dev-up, reload-svc*, stand-ns-run; helm install/upgrade (stand-ns-up, -down, -census — без слота, ws#1143)|узел kind — до 2,9 ГиБ (9 показаний docker stats в журналах сессий); сборка образов dev-up последовательная, её память в BuildKit не замерена
@@ -304,6 +376,10 @@ print_classes() {
         basis="${rest##*|}"; covers="${rest%|*}"
         printf '%-12s %8s  %s\n%-12s %8s  основание: %s\n' "$name" "$(mib "$budget")" "$covers" "" "" "$basis"
     done <<< "$CLASSES"
+    while IFS= read -r line; do
+        name="${line%%|*}"; rest="${line#*|}"
+        printf '%-12s %8s  бронь ci-local по предмету отправки; %s\n' "  └ $name" "$(mib "${rest%%|*}")" "${rest#*|}"
+    done <<< "$SUBJECT_BUDGETS"
 }
 
 # used_mib [meminfo] — (MemTotal − MemAvailable) в MiB; пусто, если не прочитать.
@@ -379,6 +455,29 @@ journal() {
     printf '%s %s\n' "$(date -Is)" "$*" >> "$DIR/journal.log" 2>/dev/null
 }
 
+# Замок очереди: общий на машину, под ним заводятся и снимаются билеты (очередь памяти и внешний вход).
+lock() {
+    exec {LK}>>"$DIR/lock"
+    flock -w 120 "$LK" && return 0
+    say "замок $DIR/lock не взят за 120 с — кто-то держит его вне формы (не выполнилось)"; exit 69
+}
+unlock() { flock -u "$LK"; exec {LK}>&-; }
+
+# Внешний вход и повтор --enqueue берут СВОЙ замок ext.lock, а не замок очереди памяти: закрытый
+# соседом замок очереди внешний запуск не держит (ws#1115: хук отправки замка слотов не берёт).
+# Номер билета — общий с очередью памяти (--cancel <номер>), и выдаётся под ещё одним, мгновенным
+# замком ticket.lock: ни один из двух замков не держит выдачу номера.
+elock() {
+    exec {EK}>>"$DIR/ext.lock"
+    flock -w 20 "$EK" && return 0
+    say "замок $DIR/ext.lock не взят за 20 с — кто-то держит его вне формы (не выполнилось)"; exit 69
+}
+eunlock() { flock -u "$EK"; exec {EK}>&-; }
+ticket_next() {
+    ( flock -w 10 9 || exit 1
+      n=$(( $(cat "$DIR/ticket" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$DIR/ticket"; echo "$n" ) 9>>"$DIR/ticket.lock"
+}
+
 # reap — снять записи слотов, чей держатель умер (SIGKILL не даёт trap).
 reap() {
     local f
@@ -409,6 +508,29 @@ reserved_mib() {
         [ "${b:-0}" -gt "$cur" ] && sum=$(( sum + b - cur ))
     done
     echo "$sum"
+}
+
+# fits_now <бюджет> <класс> <потолок билета> — влез бы билет СЕЙЧАС: четыре условия входа
+# и исключительность (used, resv, free, nocc, socc, held — те же, что считает цикл входа).
+fits_now() {
+    local b="$1" c="$2" lim="${3:-$LIMIT_MIB}"
+    [ "$nocc" -lt "$SLOTS_MAX" ] && [ $(( socc + b )) -le "$SLOTS_SUM_MIB" ] && [ "$free" -ge "$FREE_MIN_MIB" ] && [ $(( used + resv + b )) -le "$lim" ] || return 1
+    if is_exclusive "$c" && [ -n "$held" ]; then return 1; fi
+    return 0
+}
+# bypassable <файл билета> — можно ли его обогнать: его бюджет строго выше моего, обгонов ещё
+# меньше BYPASS_MAX, и места ему сейчас нет (иначе он на пороге входа, и ему не мешают).
+bypassable() {
+    local fb bp
+    [ "$BYPASS_MAX" -gt 0 ] || return 1
+    fb="$(field "$1" budget)"; bp="$(field "$1" bypassed)"
+    { [ "$fb" -gt "$BUDGET" ] && [ "${bp:-0}" -lt "$BYPASS_MAX" ]; } || return 1
+    fits_now "$fb" "$(field "$1" class)" "$(field "$1" limit)" && return 1
+    return 0
+}
+bump_bypass() {
+    local n; n="$(field "$1" bypassed)"
+    sed -i '/^bypassed=/d' "$1" && printf 'bypassed=%s\n' $(( ${n:-0} + 1 )) >> "$1"
 }
 
 # Класс lint — по одному на машину: общий кэш и замок линтера (второй ждёт или падает
@@ -467,7 +589,11 @@ print_status() {
             printf '  отложен: %-8s билет %s до %s (--resume)  %s\n' "$(field "$f" class)" "$((10#${f##*/}))" "$(date -d "@$(field "$f" resume_until)" +%H:%M:%S)" "$(field "$f" who)"
             continue
         fi
-        printf '  ждёт: %-11s бюджет %-9s pid %-8s %s\n' "$(field "$f" class)" "$(mib "$(field "$f" budget)")" "$(field "$f" pid)" "$(field "$f" who)"
+        printf '  ждёт: %-11s билет %-6s бюджет %-9s pid %-8s %s\n' "$(field "$f" class)" "$((10#${f##*/}))" "$(mib "$(field "$f" budget)")" "$(field "$f" pid)" "$(field "$f" who)"
+    done
+    for f in "$DIR"/ext/*; do
+        [ -e "$f" ] || continue
+        printf '  внешний вход: %-8s билет %-6s pid %-8s %s%s\n' "$(field "$f" class)" "$((10#${f##*/}))" "$(field "$f" pid)" "$(field "$f" who)" "$( [ -n "$(field "$f" run_at)" ] && echo ' — идёт запуск' )"
     done
     if [ -f "$DIR/journal.log" ]; then
         # Обходы внешнего кластера флагом видны отдельно: в хвосте из 10 строк их
@@ -504,6 +630,219 @@ prune_tmp() {
         rm -rf -- "$d" "$d.copy"
         journal "prune-tmp dir=$d keep=${TMP_KEEP_D}d"
     done
+}
+
+# enq_dir_in_tree <каталог> <класс> — 0 и ENQ_TOP, если файлы слота --enqueue (hs-<класс>-…
+# .log .pid .rc .rc.tmp) в этом каталоге попадут в `git status` рабочего дерева: каталог в
+# дереве git и git игнорирует НЕ все четыре. Кончилось плохо 2026-10-18 (kacho#3251, ws#1181):
+# «грязную» копию хук отправки судил как временную без node_modules, проверки консоли ушли в
+# «НЕ выполнено». Каталог вне git и каталог с игнорируемыми файлами слота законны.
+enq_dir_in_tree() {
+    local d n
+    d="$(cd "$1" 2>/dev/null && pwd -P)" || return 1
+    [ "$(git -C "$d" rev-parse --is-inside-work-tree 2>/dev/null)" = true ] || return 1
+    ENQ_TOP="$(git -C "$d" rev-parse --show-toplevel 2>/dev/null)"
+    for n in log pid rc rc.tmp; do
+        git -C "$d" check-ignore -q --no-index -- "$d/hs-$2-00000000T000000-0.$n" 2>/dev/null || return 0
+    done
+    return 1
+}
+
+# git_push_form — команда — `git … push` с хуком (без --no-verify); GIT_IDX — индекс
+# слова git, GDIR — каталог клона с учётом -C. --git-dir и --work-tree не разбираются:
+# такая отправка идёт локально.
+git_push_form() {
+    local i=0 n=${#CMD_R[@]} w sub=""
+    GDIR="$PWD"; GIT_IDX=""; PUSH_AT=""
+    while [ "$i" -lt "$n" ] && [ "$(basename -- "${CMD_R[$i]}")" != git ]; do i=$(( i + 1 )); done
+    [ "$i" -lt "$n" ] || return 1
+    local gi="$i"; i=$(( i + 1 ))
+    while [ "$i" -lt "$n" ]; do
+        w="${CMD_R[$i]}"
+        case "$w" in
+            -C) GDIR="$(cd "$GDIR" 2>/dev/null && cd "${CMD_R[$(( i + 1 ))]:-}" 2>/dev/null && pwd)" || return 1; i=$(( i + 2 )) ;;
+            -c) i=$(( i + 2 )) ;;
+            --git-dir|--git-dir=*|--work-tree|--work-tree=*) return 1 ;;
+            -*) i=$(( i + 1 )) ;;
+            *) sub="$w"; break ;;
+        esac
+    done
+    [ "$sub" = push ] || return 1
+    PUSH_AT="$i"   # слово push — и у отправки с --no-verify: суждение «откуда» ей тоже нужно
+    for w in "${CMD_R[@]:$(( i + 1 ))}"; do [ "$w" = --no-verify ] && return 1; done
+    GIT_IDX="$gi"
+}
+
+# push_homes <корень git> — ci-local, отправка из копии ВОРКСПЕЙСА: наборам хука (change-graph-gate,
+# docs-gate) нужны клоны kacho, kaname и corelib, а они лежат только в project/ ОСНОВНОГО клона
+# воркспейса, не в копии под <корень>/tmp/…. Без переменных оба набора уходили в [VOID] («клон
+# corelib не найден», «копия kaname рядом не найдена»), вершина уезжала не проверенной ими, а имена
+# переменных нигде не назывались — их узнавали из текста [VOID] после отправки. Слот выставляет
+# KACHO_HOME_<ИМЯ> на project/<имя> основного клона, если вызывающий их не задал (заданное сильнее),
+# и называет выставленное; клона нет — называет переменную, которую выставить не из чего.
+# ГРАНИЦА: хук во внешнем кластере идёт Job-ом, окружение слота в него не попадает.
+push_homes() {
+    local top="$1" root name var d set=() lacks=()
+    git -C "$top" ls-files --error-unmatch scripts/heavy-slot.sh >/dev/null 2>&1 || return 0
+    root="$(dirname "$(git -C "$top" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)")"
+    for name in kacho kaname corelib; do
+        var="KACHO_HOME_$(printf '%s' "$name" | tr 'a-z' 'A-Z')"
+        [ -z "${!var:-}" ] || continue
+        d="$root/project/$name"
+        if [ -e "$d/.git" ]; then
+            export "$var=$d"; set+=("$var=$d")
+        else
+            lacks+=("$var (клона нет: $d)")
+        fi
+    done
+    [ "${#set[@]}" -eq 0 ] || say "клоны для наборов хука отправки выставлены из основного клона воркспейса: ${set[*]} (заданную вами переменную слот не трогает)"
+    [ "${#lacks[@]}" -eq 0 ] || say "НЕ выставлено — наборы хука уйдут в [VOID]: ${lacks[*]}"
+    return 0
+}
+# push_where — для команды `git … push` (любой класс, обёртки перед git, -C) печатает, откуда и
+# куда идёт отправка, и отказывает 64 до постановки в очередь, когда она кладёт голову ПЕРВИЧНОЙ
+# копии воркспейса в иную ветку (ws#1182). Дважды за сутки (2026-10-17…18) `--enqueue` не менял
+# рабочий каталог, отправка ушла из корня воркспейса, а не из копии задачи, и в чужом
+# репозитории легла ветка с номером чужой задачи. Узнаватель — класс, а не перечень каталогов:
+# корень git — первичная копия (git-dir совпадает с common-dir) того репозитория, где
+# отслеживается сам слот, и ветка назначения не совпадает с текущей. Связанная копия
+# (`git worktree`), клон другого репозитория и отправка в текущую ветку не судятся.
+# ГРАНИЦА: `bash -c 'cd … && git push'` — смену каталога внутри строки оболочки слот не видит.
+push_where() {
+    local top url br head i n w rem="" bad="" specs=() shown=()
+    CMD_R=("$@"); n=${#CMD_R[@]}
+    git_push_form; [ -n "$PUSH_AT" ] || { GIT_IDX=""; GDIR="$PWD"; return 0; }
+    top="$(git -C "$GDIR" rev-parse --show-toplevel 2>/dev/null)" || { GIT_IDX=""; GDIR="$PWD"; return 0; }
+    url="$(git -C "$top" remote get-url origin 2>/dev/null | sed 's|//[^/@]*@|//|')"
+    br="$(git -C "$GDIR" branch --show-current 2>/dev/null)"; head="$(git -C "$top" rev-parse --short=8 HEAD 2>/dev/null)"
+    # Слова после push: опции (с значением отдельным словом: --repo, -o, --push-option, --receive-pack,
+    # --exec; прочие — без него или через «=») и позиционные: первый — удалённый репозиторий, остальные —
+    # refspec. Опции встают и после refspec (`git push origin main --force-with-lease`). --delete/-d
+    # превращает refspec в имена удаляемых веток. Заменяющее суждение — только о refspec, кладущем
+    # ГОЛОВУ копии (HEAD, @ либо имя её текущей ветки в роли источника) в иную ветку: прочее — отправка
+    # названной ветки по имени (`origin 1182-lane`) либо удаление — голову корня никуда не кладёт.
+    local del="" pos=() kind src dsta
+    i=$(( PUSH_AT + 1 ))
+    while [ "$i" -lt "$n" ]; do
+        w="${CMD_R[$i]}"
+        case "$w" in
+            --repo|-o|--push-option|--receive-pack|--exec) [ "$w" != --repo ] || rem="${CMD_R[$(( i + 1 ))]:-}"; i=$(( i + 2 )) ;;
+            --repo=*) rem="${w#*=}"; i=$(( i + 1 )) ;;
+            --delete|-d) del=1; i=$(( i + 1 )) ;;
+            --) pos+=("${CMD_R[@]:$(( i + 1 ))}"); break ;;
+            -*) i=$(( i + 1 )) ;;
+            *) pos+=("$w"); i=$(( i + 1 )) ;;
+        esac
+    done
+    if [ "${#pos[@]}" -gt 0 ]; then
+        if [ -z "$rem" ]; then rem="${pos[0]}"; specs=("${pos[@]:1}"); else specs=("${pos[@]}"); fi
+    fi
+    for w in "${specs[@]+"${specs[@]}"}"; do
+        w="$(printf '%s' "$w" | sed 's|//[^/@]*@|//|')"
+        if [ -n "$del" ]; then shown+=("удалить:$w"); continue; fi
+        src="${w#+}"; dsta="$src"
+        case "$src" in *:*) dsta="${src#*:}"; src="${src%%:*}" ;; *) { [ "$src" != HEAD ] && [ "$src" != @ ]; } || dsta="$br" ;; esac
+        dsta="${dsta#refs/heads/}"
+        case "$src" in
+            HEAD|@) kind="HEAD→$dsta" ;;
+            "$br") kind="${br:+ветка $br→$dsta}"; [ -n "$br" ] || kind="по имени:$src" ;;
+            *) kind="по имени:$src" ;;
+        esac
+        shown+=("$kind")
+        case "$dsta" in ''|refs/*) continue ;; esac
+        { [ "$src" = HEAD ] || [ "$src" = @ ] || { [ -n "$br" ] && [ "$src" = "$br" ] && [[ "${w#+}" == *:* ]]; }; } || continue
+        [ "$dsta" = "$br" ] || bad="${bad:+$bad }$dsta"
+    done
+    say "git push: каталог $PWD · корень git $top · origin ${url:-—} · ветка ${br:-отсоединённая} · голова ${head:-—} · отправляется: ${rem:+$(printf '%s' "$rem" | sed 's|//[^/@]*@|//|') }${shown[*]:-по настройкам git}"
+    mkdir -p "$DIR" 2>/dev/null
+    journal "push-where class=$CLASS top=$top origin=${url:-—} branch=${br:-detached} head=${head:-—} remote=${rem:+$(printf '%s' "$rem" | sed 's|//[^/@]*@|//|')} refs=${shown[*]:-—} cwd=$PWD"
+    if [ -n "$bad" ] && push_to_foreign_branch "$top"; then
+        say "git push из первичной копии воркспейса ($top) кладёт её голову в ветку «$bad» при текущей «${br:-отсоединённая}»: ветки, которой здесь нет, — а ветка задачи живёт в КОПИИ задачи (ws#1182: так ветка чужого репозитория легла в этот). Из копии: cd <копия> && heavy-slot.sh … либо git -C <копия> push …. Команда не запускалась"
+        exit 64
+    fi
+    [ "$CLASS" != ci-local ] || push_homes "$top"
+    GIT_IDX=""; GDIR="$PWD"
+}
+# push_to_foreign_branch <корень git> — 0, если корень — первичная копия воркспейса.
+push_to_foreign_branch() {
+    local top="$1" gdir cdir
+    # если корень — первичная копия воркспейса: не связанная копия (git-dir ≠ common-dir)…
+    gdir="$(cd "$top" && cd "$(git rev-parse --absolute-git-dir)" 2>/dev/null && pwd -P)"
+    cdir="$(cd "$top" && cd "$(git rev-parse --path-format=absolute --git-common-dir)" 2>/dev/null && pwd -P)"
+    [ -n "$gdir" ] && [ "$gdir" = "$cdir" ] || return 1
+    # …и тот репозиторий, где отслеживается сам слот.
+    git -C "$top" ls-files --error-unmatch scripts/heavy-slot.sh >/dev/null 2>&1 || return 1
+    return 0
+}
+
+# cancel_ticket <номер> — снять СВОЮ заявку очереди по билету (ws#1156): ждущую, отложенную (74/75)
+# или внешнего входа, и её отсоединённое ожидание --enqueue (процесс слота получает TERM, его .rc
+# запишет обёртка). Билет чужой — «who» (ветка@каталог) не совпал с вызвавшим — не снимается:
+# отказ 64 с названным владельцем. Неизвестный билет — 69 «не выполнилось», а не успех. Запись
+# cancel — в журнал. Билет ВОШЕДШЕГО в слот снять нечем: его уже нет в очереди (слот снимает сигнал).
+cancel_ticket() {
+    local n="${1:-}" k f="" kind="" me who pid st cls what
+    [[ "$n" =~ ^[0-9]{1,12}$ ]] || { say "--cancel «$n» — номер билета (целое); билеты и их владельцев показывает --status"; return 64; }
+    n=$((10#$n)); k="$(printf '%012d' "$n")"
+    mkdir -p "$DIR/queue" "$DIR/ext" 2>/dev/null
+    me="$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD"
+    elock
+    if [ -e "$DIR/ext/$k" ]; then f="$DIR/ext/$k"; kind=ext; else eunlock; lock; [ ! -e "$DIR/queue/$k" ] || { f="$DIR/queue/$k"; kind=queue; }; fi
+    if [ -z "$f" ]; then
+        unlock
+        say "билета $n в очереди нет: снят, исполнился либо не выдавался — не выполнилось"; return 69
+    fi
+    who="$(field "$f" who)"; cls="$(field "$f" class)"; pid="$(field "$f" pid)"; st="$(field "$f" pid_start)"
+    if [ "$who" != "$me" ]; then
+        if [ "$kind" = ext ]; then eunlock; else unlock; fi
+        say "билет $n чужой: владелец «$who», вызвал «$me» — снимает только владелец, из своего каталога и ветки"; return 64
+    fi
+    what="ждал"; [ "$kind" = ext ] && what="внешний вход"; [ -z "$(field "$f" resume_until)" ] || what="отложенный"
+    if [ -n "$pid" ] && [ "$(pid_start "$pid")" = "$st" ]; then kill -TERM "$pid" 2>/dev/null; what="$what, ожидание pid $pid снято"; fi
+    rm -f "$f"
+    journal "cancel ticket=$n kind=$kind class=$cls who=$who waiter_pid=${pid:-—}"
+    if [ "$kind" = ext ]; then eunlock; else unlock; fi
+    say "снято: билет $n ($cls: $what)"
+    return 0
+}
+
+# subject_of <корень git> — предмет отправки: workspace (в корне отслеживается сам слот) либо kaname
+# (origin PRO-Robotech/kaname); иное — предмета нет, бронь класса.
+subject_of() {
+    local url
+    if git -C "$1" ls-files --error-unmatch scripts/heavy-slot.sh >/dev/null 2>&1; then echo workspace; return 0; fi
+    url="$(git -C "$1" remote get-url origin 2>/dev/null)"
+    case "$url" in *PRO-Robotech/kaname|*PRO-Robotech/kaname.git) echo kaname; return 0 ;; esac
+    return 1
+}
+# subject_book <корень git> — «МиБ|предмет|основание» из SUBJECT_BUDGETS; нет предмета — 1.
+subject_book() {
+    local name line sb_budget
+    name="$(subject_of "$1")" || return 1
+    while IFS= read -r line; do
+        [ "${line%%|*}" = "$name" ] || continue
+        line="${line#*|}"
+        sb_budget="${line%%|*}"
+        printf '%s|%s|%s\n' "$sb_budget" "$name" "${line#*|}"
+        return 0
+    done <<< "$SUBJECT_BUDGETS"
+    return 1
+}
+# book_cmd --book <класс> -- <команда…> — бронь, которую слот поставит этой команде из этого каталога
+# (число на stdout, основание в stderr), ничего не занимая.
+book_cmd() {
+    local cls="${2:-}" b top sb rest
+    b="$(class_budget "$cls")" || { say "класса «$cls» нет"; return 64; }
+    { [ "${3:-}" = -- ] && [ "$#" -ge 4 ]; } || { say "форма вызова: heavy-slot.sh --book <класс> -- <команда> [аргументы…]"; return 64; }
+    shift 3
+    CMD_R=("$@"); git_push_form || true
+    if [ "$cls" = ci-local ] && [ -n "$PUSH_AT" ] && top="$(git -C "$GDIR" rev-parse --show-toplevel 2>/dev/null)" && sb="$(subject_book "$top")"; then
+        b="${sb%%|*}"; rest="${sb#*|}"
+        say "бронь ci-local по предмету отправки «${rest%%|*}»: $(mib "$b") — ${rest#*|}"
+    else
+        say "бронь $cls: $(mib "$b") — бюджет класса (предмета отправки нет)"
+    fi
+    printf '%s\n' "$b"
 }
 
 # ── разбор вызова ────────────────────────────────────────────────────────────
@@ -552,12 +891,14 @@ case "${1:-}" in
     --classes) print_classes; exit 0 ;;
     --budget)  class_budget "${2:-}" || { say "класса «${2:-}» нет"; exit 64; }; exit 0 ;;
     --status)  mkdir -p "$DIR/active" 2>/dev/null; print_status; exit 0 ;;
+    --cancel)  cancel_ticket "${2:-}"; exit $? ;;
+    --book)    book_cmd "$@"; exit $? ;;
     --prune-tmp)
         { mkdir -p "$DIR/active" && touch "$DIR/lock"; } 2>/dev/null || { say "каталог слотов $DIR недоступен на запись"; exit 69; }
         exec {LK}>>"$DIR/lock"; flock -w 120 "$LK" || { say "замок $DIR/lock не взят за 120 с"; exit 69; }
         prune_tmp; exit 0 ;;
     ''|-h|--help)
-        sed -n '14,19p' "$0" >&2; exit 64 ;;
+        sed -n '/^# ФОРМА/,/^#$/p' "$0" | sed '$d' >&2; exit 64 ;;
 esac
 
 CLASS="$1"; shift
@@ -572,6 +913,20 @@ if [ "${1:-}" != "--" ] || [ "$#" -lt 2 ]; then
 fi
 shift
 
+# Бронь по предмету отправки (ws#1161 д) — ДО проверок ручек и потолка: они судят уже её число.
+# Чистое суждение (журнала и вывода нет): отказ ручки не оставляет следа. Ручка бюджета проб
+# (HEAVY_SLOT_BUDGET_MIB) сильнее; таблицу проб подменяет HEAVY_SLOT_SUBJECTS (только над
+# синтетическим meminfo — над настоящей это ручка, 64 ниже).
+SUBJ_BOOK=""
+if [ "$CLASS" = ci-local ] && [ -z "${HEAVY_SLOT_BUDGET_MIB:-}" ]; then
+    [ "$MEMINFO" = /proc/meminfo ] || SUBJECT_BUDGETS="${HEAVY_SLOT_SUBJECTS:-$SUBJECT_BUDGETS}"
+    CMD_R=("$@"); GIT_IDX=""; GDIR="$PWD"
+    if git_push_form || [ -n "$PUSH_AT" ]; then
+        _top="$(git -C "$GDIR" rev-parse --show-toplevel 2>/dev/null)" && SUBJ_BOOK="$(subject_book "$_top")" && BUDGET="${SUBJ_BOOK%%|*}" || SUBJ_BOOK=""
+    fi
+    GIT_IDX=""; GDIR="$PWD"; PUSH_AT=""
+fi
+
 # Отправка слотом ci-local (урок 2026-10-16, ws#1110): git push открывает ssh ДО хука
 # отправки, хук идёт минутами, и простаивающее соединение площадка снимает — push
 # умирал PIPE кодом 141 уже после зелёного хука (журнал слотов: 26 из 26 таких выходов
@@ -583,7 +938,7 @@ if [ "$CLASS" = ci-local ] && [ -z "${GIT_SSH_COMMAND:-}" ] && [ -z "${GIT_SSH:-
 fi
 
 # Ручки — до первой записи: отказ не оставляет следа в общем каталоге.
-KNOBS="HEAVY_SLOT_LIMIT_GIB HEAVY_SLOT_LIMIT_MIB HEAVY_SLOT_WAIT_S HEAVY_SLOT_ENQ_S HEAVY_SLOT_POLL_S HEAVY_SLOT_BUDGET_MIB HEAVY_SLOT_LIMITER HEAVY_SLOT_GUARD_S HEAVY_SLOT_GUARD_GRACE_S HEAVY_SLOT_REMOTE_RUN HEAVY_SLOT_SLOTS_SUM_MIB HEAVY_SLOT_CHECK_S"
+KNOBS="HEAVY_SLOT_SUBJECTS HEAVY_SLOT_EXT_HOLD_S HEAVY_SLOT_LIMIT_GIB HEAVY_SLOT_LIMIT_MIB HEAVY_SLOT_WAIT_S HEAVY_SLOT_ENQ_S HEAVY_SLOT_POLL_S HEAVY_SLOT_BUDGET_MIB HEAVY_SLOT_LIMITER HEAVY_SLOT_GUARD_S HEAVY_SLOT_GUARD_GRACE_S HEAVY_SLOT_REMOTE_RUN HEAVY_SLOT_SLOTS_SUM_MIB HEAVY_SLOT_CHECK_S"
 if [ "$MEMINFO" = /proc/meminfo ]; then
     knob=""
     [ "$DIR" = "$SHARED" ] || [ "$DIR" -ef "$SHARED" ] || knob="свой каталог слотов $DIR — отдельная очередь, соседей общей он не видит"
@@ -600,7 +955,7 @@ else
         exit 64
     fi
     for v in $KNOBS; do
-        [ "$v" = HEAVY_SLOT_LIMITER ] || [ "$v" = HEAVY_SLOT_REMOTE_RUN ] || [ -z "${!v+x}" ] || [[ "${!v}" =~ ^[0-9]+$ ]] || { say "$v=«${!v}» — не число"; exit 64; }
+        [ "$v" = HEAVY_SLOT_LIMITER ] || [ "$v" = HEAVY_SLOT_REMOTE_RUN ] || [ "$v" = HEAVY_SLOT_SUBJECTS ] || [ -z "${!v+x}" ] || [[ "${!v}" =~ ^[0-9]+$ ]] || { say "$v=«${!v}» — не число"; exit 64; }
     done
     LIMIT_MIB="${HEAVY_SLOT_LIMIT_MIB:-$(( ${HEAVY_SLOT_LIMIT_GIB:-$(( CAP_MIB / 1024 ))} * 1024 ))}"
     POLL_S="${HEAVY_SLOT_POLL_S:-$POLL_S}"; WAIT_S="${HEAVY_SLOT_WAIT_S:-$WAIT_S}"; ENQ_MAX_S="${HEAVY_SLOT_ENQ_S:-$ENQ_MAX_S}"
@@ -608,7 +963,7 @@ else
     GUARD_S="${HEAVY_SLOT_GUARD_S:-$GUARD_S}"; GRACE_S="${HEAVY_SLOT_GUARD_GRACE_S:-$GRACE_S}"
     LIMITER="${HEAVY_SLOT_LIMITER:-$LIMITER}"
     SLOTS_SUM_MIB="${HEAVY_SLOT_SLOTS_SUM_MIB:-$SLOTS_SUM_MIB}"
-    CHECK_S="${HEAVY_SLOT_CHECK_S:-$CHECK_S}"
+    CHECK_S="${HEAVY_SLOT_CHECK_S:-$CHECK_S}"; EXT_HOLD_S="${HEAVY_SLOT_EXT_HOLD_S:-$EXT_HOLD_S}"; SUBJECT_BUDGETS="${HEAVY_SLOT_SUBJECTS:-$SUBJECT_BUDGETS}"
     [ "$CHECK_S" -ge 1 ] || { say "HEAVY_SLOT_CHECK_S=0 — timeout 0 срок снимает: проверка висела бы без предела"; exit 64; }
     if [ "$BUDGET" -gt "$PROBE_MIB" ] || ! [[ "$GUARD_S" =~ ^[12]$ ]]; then
         say "синтетический HEAVY_SLOT_MEMINFO — режим проб: бюджет ≤ $(mib "$PROBE_MIB") (здесь $(mib "$BUDGET")), сторож раз в 1–2 с (здесь «$GUARD_S»). Настоящий прогон — без HEAVY_SLOT_MEMINFO и ручек"
@@ -632,6 +987,19 @@ for a in "$@"; do
     fi
 done
 
+# ── откуда идёт отправка (ws#1182; push_where) — до постановки в очередь ────────
+push_where "$@"
+# Бронь ci-local по предмету отправки поставлена рано (SUBJ_BOOK, ниже «Бронь по предмету»): здесь — её слово.
+if [ -n "$SUBJ_BOOK" ]; then
+    say "бронь ci-local по предмету отправки «$(cut -d'|' -f2 <<< "$SUBJ_BOOK")»: $(mib "$BUDGET") вместо $(mib "$(class_budget ci-local)") класса — $(cut -d'|' -f3- <<< "$SUBJ_BOOK")"
+fi
+# Ключ повтора --enqueue: класс, владелец (ветка@каталог), причина --local и сама команда.
+ENQ_KEY="$(printf '%s\0' "$CLASS" "$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD" "$LOCAL_WHY" "$@" | sha256sum | cut -c1-16)"
+CLAIM=""; [ -z "$QUEUED" ] || CLAIM="$DIR/enq-claims/$ENQ_KEY"
+# claim_drop — ребёнок --enqueue перестал ждать (идёт во внешний кластер либо вошёл в слот):
+# повтор той же команды после этого — новое задание, а не повтор.
+claim_drop() { [ -z "$CLAIM" ] || [ "$(field "$CLAIM" base)" != "$QUEUED" ] || rm -f "$CLAIM"; return 0; }
+
 # ── постановка одним билетом (урок 2026-10-16, ws#1110; шапка) ──────────────────
 if [ -n "$ENQ_DIR" ] && { [ -n "$WAIT_ARG" ] || [ -n "$QUEUED" ]; }; then
     say "--enqueue ждёт сам до $(( ENQ_MAX_S / 60 )) мин — --wait и --queued с ним не ставятся"
@@ -646,9 +1014,28 @@ if [ -n "$QUEUED" ]; then
     WAIT_S="$ENQ_MAX_S"
 fi
 if [ -n "$ENQ_DIR" ]; then
+    if enq_dir_in_tree "$ENQ_DIR" "$CLASS"; then
+        say "--enqueue «$ENQ_DIR» лежит в рабочем дереве git ($ENQ_TOP): файлы слота hs-$CLASS-*.{log,pid,rc} сделают копию «грязной», хук отправки засудит временную копию без node_modules (kacho#3251, ws#1181). Каталог журналов — ВНЕ копии: mkdir -p $DIR/enq && heavy-slot.sh --enqueue $DIR/enq …"
+        exit 64
+    fi
     SELF="$(readlink -f -- "${BASH_SOURCE[0]}")"
     EB="$(cd "$ENQ_DIR" && pwd -P)/hs-$CLASS-$(date +%Y%m%dT%H%M%S)-$$"
     rm -f -- "$EB.rc" "$EB.rc.tmp" "$EB.pid"
+    if [ "$ENQ_DEDUP" = 1 ]; then
+        mkdir -p "$DIR/enq-claims" "$DIR/queue" "$DIR/ext" 2>/dev/null
+        elock
+        cb="$(field "$DIR/enq-claims/$ENQ_KEY" base)"; ct="$(field "$DIR/enq-claims/$ENQ_KEY" t)"
+        if [ -n "$cb" ] && [ ! -e "$cb.rc" ] && { { [ -s "$cb.pid" ] && kill -0 "$(cat "$cb.pid")" 2>/dev/null; } || { [ ! -e "$cb.pid" ] && [ $(( $(now) - ${ct:-0} )) -lt 10 ]; }; }; then
+            ctk="$(grep -l "^enq=$cb\$" "$DIR"/queue/* "$DIR"/ext/* 2>/dev/null | head -n 1)"
+            eunlock
+            printf 'ENQUEUED\tlog=%s\trc=%s\tpid=%s\tdeadline=%s\n' "$cb.log" "$cb.rc" "$cb.pid" "$(date -d "@$(field "$DIR/enq-claims/$ENQ_KEY" deadline)" +%H:%M)"
+            say "уже стоит: та же команда из того же каталога и ветки ждёт своим билетом${ctk:+ $((10#${ctk##*/}))} — второго не ставлю; журнал $cb.log, исход — $cb.rc (ws#1176)"
+            exit 0
+        fi
+        find "$DIR/enq-claims" -type f -mmin +1440 -delete 2>/dev/null
+        printf 'base=%s\nt=%s\ndeadline=%s\n' "$EB" "$(now)" "$(( $(now) + ENQ_MAX_S ))" > "$DIR/enq-claims/$ENQ_KEY"
+        eunlock
+    fi
     fwd=(); [ -n "$LOCAL_SET" ] && fwd=(--local "$LOCAL_WHY")
     [ -n "$RESUME" ] && fwd+=(--resume "$RESUME")
     # shellcheck disable=SC2016  # строка дочерней оболочки, $1… раскрывает она
@@ -657,7 +1044,7 @@ if [ -n "$ENQ_DIR" ]; then
     setsid -f env --default-signal=PIPE KACHO_DETACHED_UNTIL="$(( $(now) + ENQ_MAX_S ))" bash -c 'echo $$ > "$2.pid"; bash "$1" --queued "$2" "${@:3}"; rc=$?; printf "%s
 " "$rc" > "$2.rc.tmp" && mv -f "$2.rc.tmp" "$2.rc"' \
         heavy-slot "$SELF" "$EB" "${fwd[@]+"${fwd[@]}"}" "$CLASS" -- "$@" > "$EB.log" 2>&1 < /dev/null ||
-        { say "отсоединённый прогон не запущен (setsid) — не выполнилось"; exit 69; }
+        { rm -f "$DIR/enq-claims/$ENQ_KEY"; say "отсоединённый прогон не запущен (setsid) — не выполнилось"; exit 69; }
     printf 'ENQUEUED\tlog=%s\trc=%s\tpid=%s\tdeadline=%s\n' "$EB.log" "$EB.rc" "$EB.pid" "$(date -d "@$(( $(now) + ENQ_MAX_S ))" +%H:%M)"
     say "идёт: «$CLASS» поставлен в очередь ОДНИМ билетом до $(( ENQ_MAX_S / 60 )) мин; исход — код в $EB.rc (появится по выходу), журнал $EB.log. Дочитывает короткий шаг; повторно не ставить"
     exit 0
@@ -721,7 +1108,7 @@ cluster_once() {
 # локально команда не идёт. Иной код — недоступен: 1, PROOF — вывод проверки с кодом.
 cluster_check() {
     local rc t0
-    t0="$(now)"
+    t0="${EXT_T0:-$(now)}"   # бюджет ожидания общий с внешним входом (ws#1176)
     while :; do
         cluster_once "${1:-}"; rc=$?
         [ "$rc" -eq 0 ] && return 0
@@ -834,6 +1221,84 @@ stand_route() {
     [ -n "$mk" ] || refuse_external "строку оболочки «${PAY_SH:-$PAY}» слот не судит (цель стенда может прийти переменной) — дай команду словами argv; стенд — в deploy/ продукта make stand-ns-up NS=t$TASK-<коротко>"
     refuse_external "в deploy/ продукта make stand-ns-up NS=t$TASK-<коротко> (либо stand-ns-run NS=… CMD='…' — снятие само), снятие — make stand-ns-down NS=… этой же задачей, после — stand-ns-census и residue-census 0"
 }
+# ── внешний вход по одному (ws#1176; шапка у EXT_GATE) ──────────────────────────
+# Билет внешнего входа — файл $DIR/ext/<номер> (номер общий с очередью памяти); голова — младший
+# живой. Голова проверяет кластер и запускает run.sh ДОЧЕРНИМ: фильтр его stderr отпускает вход
+# на строке «ns … создано:» (run.sh создал ns — следующая перепись его уже видит), по выходу
+# дочернего либо по EXT_HOLD_S с стадии запуска. Без ожидания (WAIT_S=0) входа нет — как прежде.
+EXT_T=""; EXT_T0=""
+ext_reap() {  # под замком: снять билеты умерших владельцев и застрявших в стадии запуска
+    local f h
+    for f in "$DIR"/ext/*; do
+        [ -e "$f" ] || continue
+        if [ "$(pid_start "$(field "$f" pid)")" != "$(field "$f" pid_start)" ]; then
+            journal "ext-reap ticket=$((10#${f##*/})) why=владелец умер"; rm -f "$f"; continue
+        fi
+        h="$(field "$f" run_at)"
+        if [ -n "$h" ] && [ $(( $(now) - h )) -ge "$EXT_HOLD_S" ]; then
+            journal "ext-reap ticket=$((10#${f##*/})) why=стадия запуска дольше ${EXT_HOLD_S}s, вход отпущен"; rm -f "$f"
+        fi
+    done
+}
+ext_leave() { [ -z "$EXT_T" ] || rm -f "$EXT_T"; EXT_T=""; }
+ext_enter() {
+    [ "$EXT_GATE" = 1 ] && [ "$WAIT_S" -gt 0 ] || return 0
+    local etk first f w=0
+    EXT_T0="$(now)"
+    mkdir -p "$DIR/ext" 2>/dev/null
+    etk="$(ticket_next)"; [ -n "$etk" ] || { say "номер билета не выдан (ticket.lock) — не выполнилось"; exit 69; }
+    elock
+    EXT_T="$DIR/ext/$(printf '%012d' "$etk")"
+    printf 'pid=%s\npid_start=%s\nclass=%s\nwho=%s\nsince=%s\n' "$$" "$(pid_start $$)" "$CLASS" "$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD" "$EXT_T0" > "$EXT_T"
+    [ -z "$QUEUED" ] || printf 'enq=%s\n' "$QUEUED" >> "$EXT_T"
+    journal "ext-enter ticket=$etk class=$CLASS who=$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD cmd=$(printf '%q ' "${CMD_R[@]}")"
+    eunlock
+    trap ext_leave EXIT
+    while :; do
+        elock; ext_reap
+        first=""; for f in "$DIR"/ext/*; do [ -e "$f" ] && { first="$f"; break; }; done
+        eunlock
+        [ "$first" = "$EXT_T" ] && break
+        [ -e "$EXT_T" ] || { say "билет внешнего входа снят (--cancel либо перепись) — не выполнилось"; exit 75; }
+        w=$(( $(now) - EXT_T0 ))
+        if [ "$w" -ge "$WAIT_S" ]; then
+            journal_early "busy-external-gate class=$CLASS waited=${w}s ticket=$etk head=$((10#${first##*/}))"
+            say "внешний вход занят своими билетами (впереди билет $((10#${first##*/})), идёт его запуск) — команда НЕ запускалась ни там, ни локально (код 75, не выполнилось, не красное)"
+            exit 75
+        fi
+        sleep "$(( POLL_S < 2 ? POLL_S : 2 ))"
+    done
+    [ "$w" -gt 0 ] && journal "ext-go ticket=$etk class=$CLASS waited=${w}s"
+    return 0
+}
+ext_filter() {
+    local l
+    while IFS= read -r l || [ -n "$l" ]; do
+        printf '%s\n' "$l" >&2
+        case "$l" in *"ns "*" создано:"*) [ -z "$EXT_T" ] || rm -f "$EXT_T" ;; esac
+    done
+}
+# ext_run <команда…> — запуск во внешний кластер: с билетом входа — дочерним (stderr через
+# фильтр, сигналы пересылаются), без него — как есть. Код — код команды.
+ext_run() {
+    if [ -z "$EXT_T" ]; then "$@"; return $?; fi
+    local fifo="$DIR/ext-$$.fifo" fp ch rc
+    printf 'run_at=%s\n' "$(now)" >> "$EXT_T"
+    if ! mkfifo "$fifo" 2>/dev/null; then "$@"; rc=$?; ext_leave; return "$rc"; fi
+    ext_filter < "$fifo" & fp=$!
+    "$@" 2> "$fifo" 0<&0 & ch=$!
+    trap 'kill -TERM "$ch" 2>/dev/null' INT TERM HUP
+    wait "$ch"; rc=$?
+    while kill -0 "$ch" 2>/dev/null; do wait "$ch"; rc=$?; done
+    # Фильтр дочитывает хвост недолго: внуки команды (фоновый kubectl, sleep) могут держать
+    # stderr открытым, и вечное ожидание подвесило бы слот после выхода run.sh.
+    for _ in 1 2 3 4 5 6 7 8 9 10; do kill -0 "$fp" 2>/dev/null || break; sleep 0.5; done
+    kill "$fp" 2>/dev/null; wait "$fp" 2>/dev/null
+    trap - INT TERM HUP
+    rm -f "$fifo"; ext_leave
+    return "$rc"
+}
+
 remote_route() {
     local top url repo rel fix="" known=""
     case "$CLASS" in go-race|integration|lint|ci-local) ;; stand) stand_route; return 1 ;; *) WHY_LOCAL="класс «$CLASS» внешнего пути не имеет"; return 1 ;; esac
@@ -858,6 +1323,7 @@ remote_route() {
     task_of
     [[ "$TASK" =~ ^[1-9][0-9]*$ ]] ||
         fix="${fix:+$fix; }задай номер задачи: KACHO_TASK=<N> heavy-slot.sh $CLASS -- … (ведущих цифр в имени ветки «$BRANCH» нет)"
+    ext_enter
     cluster_check "$CLASS" || return 1
     [ -n "$known" ] || refuse_external "нагрузка «${PAY_SH:-$PAY}» за обёрткой не опознана как переносимая (go, make, golangci-lint, gosec, govulncheck, ci-local.sh) — дай её словами argv: heavy-slot.sh $CLASS -- go …; слот уведёт её Job-ом"
     [ -n "$fix" ] && refuse_external "$fix"
@@ -872,29 +1338,6 @@ remote_route() {
     rel="$(realpath --relative-to="$top" "$PWD")"
     ROUTE=(bash "$REMOTE_RUN" --task "$TASK" --repo "$repo" --ref "$(git -C "$top" rev-parse HEAD)" --src "$top" --workdir "$rel" --profile "$CLASS" --)
     return 0
-}
-# git_push_form — команда — `git … push` с хуком (без --no-verify); GIT_IDX — индекс
-# слова git, GDIR — каталог клона с учётом -C. --git-dir и --work-tree не разбираются:
-# такая отправка идёт локально.
-git_push_form() {
-    local i=0 n=${#CMD_R[@]} w sub=""
-    GDIR="$PWD"; GIT_IDX=""
-    while [ "$i" -lt "$n" ] && [ "$(basename -- "${CMD_R[$i]}")" != git ]; do i=$(( i + 1 )); done
-    [ "$i" -lt "$n" ] || return 1
-    local gi="$i"; i=$(( i + 1 ))
-    while [ "$i" -lt "$n" ]; do
-        w="${CMD_R[$i]}"
-        case "$w" in
-            -C) GDIR="$(cd "$GDIR" 2>/dev/null && cd "${CMD_R[$(( i + 1 ))]:-}" 2>/dev/null && pwd)" || return 1; i=$(( i + 2 )) ;;
-            -c) i=$(( i + 2 )) ;;
-            --git-dir|--git-dir=*|--work-tree|--work-tree=*) return 1 ;;
-            -*) i=$(( i + 1 )) ;;
-            *) sub="$w"; break ;;
-        esac
-    done
-    [ "$sub" = push ] || return 1
-    for w in "${CMD_R[@]:$(( i + 1 ))}"; do [ "$w" = --no-verify ] && return 1; done
-    GIT_IDX="$gi"
 }
 # push_remote — отправка с хуком Job-ом (шапка, «ХУК ОТПРАВКИ»). Возвращает 0, если
 # переходник отклонил отправку кодом 78 (не голова копии) — тогда слот идёт локально;
@@ -919,7 +1362,7 @@ push_remote() {
     journal_early "remote class=$CLASS route=push task=$TASK repo=$PUSH_REPO ref=$PUSH_HEAD who=$(git -C "$PUSH_TOP" branch --show-current 2>/dev/null)@$PWD cmd=$(printf '%q ' "${CMD_R[@]}")"
     say "хук отправки уходит во внешний кластер Job-ом (задача $TASK, $PUSH_REPO @${PUSH_HEAD:0:8}); локально — лишь отправка, слот машины не занимается"
     t0="$(now)"
-    env HS_ORIG="$HOOKS_ORIG/pre-push" HS_HEAD="$PUSH_HEAD" HS_RC="$rcf" HS_RUN="$REMOTE_RUN" HS_TASK="$TASK" \
+    ext_run env HS_ORIG="$HOOKS_ORIG/pre-push" HS_HEAD="$PUSH_HEAD" HS_RC="$rcf" HS_RUN="$REMOTE_RUN" HS_TASK="$TASK" \
         HS_REPO="$PUSH_REPO" HS_TOP="$PUSH_TOP" "${cmd[@]}"
     rc=$?; hrc="$(cat "$rcf" 2>/dev/null)"; rm -rf -- "$sh"
     journal_early "remote-done class=$CLASS route=push rc=$rc hook_rc=${hrc:-—} dur=$(( $(now) - t0 ))s"
@@ -1012,14 +1455,17 @@ if [ -n "$LOCAL_SET" ]; then
     say "локально по флагу --local: $LOCAL_WHY — маршрут во внешний кластер не судился"
 elif [ "$REMOTE_ON" = 1 ]; then
     if remote_route; then
+        claim_drop
         if [ -n "$GIT_IDX" ]; then
             push_remote
         else
             journal_early "remote class=$CLASS route=job task=$TASK repo=$(printf '%s' "${ROUTE[@]:5:1}") ref=$(printf '%s' "${ROUTE[@]:7:1}") who=$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD cmd=$(printf '%q ' "${CMD_R[@]}")"
             say "класс «$CLASS» уходит во внешний кластер: $(printf '%q ' "${ROUTE[@]:3:6}")— слот машины не занимается"
+            if [ -n "$EXT_T" ]; then ext_run "${ROUTE[@]}" "$@"; exit $?; fi
             exec "${ROUTE[@]}" "$@"
         fi
     fi
+    ext_leave
     case "$CLASS" in go-race|integration|lint|ci-local|stand) say "локально — $WHY_LOCAL" ;; esac
 else
     WHY_LOCAL="режим проб без двойника run.sh — маршрут не судился"
@@ -1071,14 +1517,9 @@ if [ "$CLASS" = ci-local ] && [ -z "${TMPDIR:-}" ]; then
 fi
 
 # ── вход ─────────────────────────────────────────────────────────────────────
-# Очередь строгая, по билету: малый слот не обгоняет ждущий большой. С обгоном
-# поток мелких прогонов держал бы большой в ожидании до кода 75 — голодание.
-lock() {
-    exec {LK}>>"$DIR/lock"
-    flock -w 120 "$LK" && return 0
-    say "замок $DIR/lock не взят за 120 с — кто-то держит его вне формы (не выполнилось)"; exit 69
-}
-unlock() { flock -u "$LK"; exec {LK}>&-; }
+# Очередь по билету. Малый билет обгоняет ждущего БОЛЬШЕГО, которому места сейчас нет, — не более
+# BYPASS_MAX раз на ждущего (ws#1161 д): прежняя строгость держала малые отправки позади go-race
+# в 16 ГиБ при свободном месте; без предела поток мелких держал бы большой до кода 75 — голодание.
 mkdir -p "$DIR/queue"
 lock
 tk=""
@@ -1094,16 +1535,22 @@ if [ -n "$RESUME" ]; then
         journal "resume-miss ticket=$RESUME class=$CLASS why=$miss who=$WHO"
     fi
 fi
-[ -n "$tk" ] || { tk=$(( $(cat "$DIR/ticket" 2>/dev/null || echo 0) + 1 )); echo "$tk" > "$DIR/ticket"; }
+[ -n "$tk" ] || { tk="$(ticket_next)"; [ -n "$tk" ] || { unlock; say "номер билета не выдан (ticket.lock) — не выполнилось"; exit 69; }; }
 TICKET="$DIR/queue/$(printf '%012d' "$tk")"
-printf 'pid=%s\npid_start=%s\nclass=%s\nbudget=%s\nlimit=%s\nmeminfo=%s\nwho=%s\n' "$$" "$(pid_start $$)" "$CLASS" "$BUDGET" "$LIMIT_MIB" "$MEMINFO" "$WHO" > "$TICKET"
+# Число обгонов ждущего (bypassed) переживает перезапись билета — повтор --resume не обнуляет предел (ws#1161 д).
+BPK="$(field "$TICKET" bypassed)"
+printf 'pid=%s\npid_start=%s\nclass=%s\nbudget=%s\nlimit=%s\nmeminfo=%s\nwho=%s\n%s' "$$" "$(pid_start $$)" "$CLASS" "$BUDGET" "$LIMIT_MIB" "$MEMINFO" "$WHO" "${QUEUED:+enq=$QUEUED
+}" > "$TICKET"
+[ -z "$BPK" ] || printf 'bypassed=%s\n' "$BPK" >> "$TICKET"
 unlock
 KEEP_TICKET=""
 trap '[ -n "$KEEP_TICKET" ] || rm -f "$TICKET"' EXIT
 # defer_ticket — отказ 74/75: билет откладывается на RESUME_TTL_S, владелец снят (шапка).
 defer_ticket() {
     lock
-    printf 'class=%s\nbudget=%s\nlimit=%s\nmeminfo=%s\nwho=%s\nresume_until=%s\n' "$CLASS" "$BUDGET" "$LIMIT_MIB" "$MEMINFO" "$WHO" "$(( $(now) + RESUME_TTL_S ))" > "$TICKET.tmp" &&
+    BPK="$(field "$TICKET" bypassed)"
+    printf 'class=%s\nbudget=%s\nlimit=%s\nmeminfo=%s\nwho=%s\nresume_until=%s\n%s' "$CLASS" "$BUDGET" "$LIMIT_MIB" "$MEMINFO" "$WHO" "$(( $(now) + RESUME_TTL_S ))" "${BPK:+bypassed=$BPK
+}" > "$TICKET.tmp" &&
         mv -f "$TICKET.tmp" "$TICKET" && KEEP_TICKET=1
     unlock
 }
@@ -1113,7 +1560,9 @@ while :; do
     lock
     reap
     held="$(exclusive_holder)"
-    ahead=0; aside=0; smib="$(slots_mib)"
+    ahead=0; aside=0; smib="$(slots_mib)"; byp=()
+    used="$(used_mib)"; resv="$(reserved_mib)"; free=$(( $(avail_mib) - resv ))
+    read -r nocc socc <<< "$(occupied)"
     for f in "$DIR"/queue/*; do
         [ -e "$f" ] || continue
         # Отложенный билет (74/75, ждёт --resume) голову не держит; просроченный снимается.
@@ -1135,10 +1584,9 @@ while :; do
         if [ -z "$tu" ] || [ $(( tb + $(field "$f" budget) )) -gt "$(field "$f" limit)" ]; then
             aside=$(( aside + 1 )); continue
         fi
+        if bypassable "$f"; then byp+=("$f"); continue; fi
         ahead=$(( ahead + 1 ))
     done
-    used="$(used_mib)"; resv="$(reserved_mib)"; free=$(( $(avail_mib) - resv ))
-    read -r nocc socc <<< "$(occupied)"
     blocked=""; full=""
     is_exclusive "$CLASS" && [ -n "$held" ] && blocked="$held"
     [ "$nocc" -ge "$SLOTS_MAX" ] && full="занято слотов $nocc из $SLOTS_MAX"
@@ -1146,7 +1594,10 @@ while :; do
         full="бюджеты занятых $(mib "$socc") + $(mib "$BUDGET") > $(mib "$SLOTS_SUM_MIB")"
     [ "$free" -lt "$FREE_MIN_MIB" ] && full="${full:+$full; }свободно $(mib "$free") < $(mib "$FREE_MIN_MIB") до старта"
     if [ "$ahead" -eq 0 ] && [ -z "$blocked" ] && [ -z "$full" ] && [ $(( used + resv + BUDGET )) -le "$LIMIT_MIB" ]; then
-        rm -f "$TICKET"
+        rm -f "$TICKET"; claim_drop
+        for f in "${byp[@]+"${byp[@]}"}"; do
+            bump_bypass "$f"; journal "bypass ticket=$((10#${f##*/})) by=$ID class=$CLASS budget=${BUDGET}MiB over=$(field "$f" budget)MiB"
+        done
         seq=$(( $(cat "$DIR/seq" 2>/dev/null || echo 0) + 1 )); echo "$seq" > "$DIR/seq"
         if [ "$(stat -c %s "$DIR/journal.log" 2>/dev/null || echo 0)" -gt 4194304 ]; then
             tail -n 10000 "$DIR/journal.log" > "$DIR/journal.log.new" && mv "$DIR/journal.log.new" "$DIR/journal.log"
@@ -1160,7 +1611,7 @@ while :; do
         # Уборка старых TMPDIR копий — шагом входа под замком, а не выходом слота:
         # каталог переживает прогон, снимается лишь неиспользуемый дольше срока.
         prune_tmp
-        journal "enter id=$ID class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB free=${free}MiB slots=$nocc waited=${waited}s who=$WHO cmd=$CMDLINE"
+        journal "enter id=$ID class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB free=${free}MiB slots=$nocc waited=${waited}s bypass=${#byp[@]} who=$WHO cmd=$CMDLINE"
         unlock
         break
     fi
