@@ -100,6 +100,19 @@
 #             между чтениями сменились ветка базы | commit status |
 #             черновик — кэш смену не прячет                       → 4 | 1 | 3;
 #             заглушка без `-i` (check-09) — чтение без условия     → 0 green
+#   вытеснение в группе concurrency (ws#1216): вход — захват kacho#3296 @5a586e18
+#             (scripts/ci-read-fixtures/kacho-3296, снят 2026-10-19): последний прогон
+#             production-posture cancelled, check-run его check_suite нет, 71 различных
+#             при строке main = 68; файл workflow на голове урезан до jobs.*.{name,
+#             strategy.matrix}:
+#             как есть (сводный вердикт failure рядом)              → 1 RUN-DISPLACED,
+#               три непоявившихся имени (матрица раскрыта)
+#             сводный вердикт success — ОДИН факт: старый счёт «71 ≥ 68»
+#               читал голову зелёной                               → 1 RUN-DISPLACED
+#             файла workflow нет — причина та же, имена «не выведены» → 1
+#             близнец: прогон с исходом, его три проверки есть       → 0 green
+#             близнец: cancelled С проверками — судятся они          → 1 CI-FAILED,
+#               cancelled без проверок 0
 #   набор обязательных вызывающему (CI_READ_REQUIRED_OUT, ws#1215): контекст
 #             защиты | пустой без защиты | контекст набора правил   → 0, файл
 #   живая ведомость: запрос в main каждого ствола (kacho, kaname,
@@ -162,6 +175,8 @@
 #   red-not-first       — (е2) снято: судится последняя по started_at, ранний красный
 #                         другого check_suite закрыт поздним success;
 #   null-suite-ignored  — check-run с check_suite null выпал из суда;
+#   displaced-dropped   — (ж) снято: cancelled без проверок не судится, счёт суммой (ws#1216);
+#   displaced-any-cancelled — RUN-DISPLACED и при проверках прогона (близнец краснеет);
 #   required-out-dropped — набор обязательных вызывающему не пишется (ws#1215);
 #   required-out-empty  — вызывающему пишется пустой набор при непустом;
 #   no-rule-e           — (е) снято целиком (прежняя форма «последний по имени»);
@@ -610,6 +625,29 @@ run "между чтениями запрос стал черновиком — 
 mk; : > "$C/noinc"
 run "заглушка без -i (форма check-09): отказ на -i — чтение без условия, зелёное" 0 '^VERDICT\tgreen\t.*проверок 68 из 68'
 
+say "== вытеснение в группе concurrency (ws#1216; захват kacho#3296 @5a586e18)"
+FX6="$HERE/ci-read-fixtures/kacho-3296"
+L6="$T/ledger.3296.tsv"; printf 'PRO-Robotech/kacho\tmain\t68\tстрока ствола на 2026-10-19\n' > "$L6"
+PP_SUITE=106089981440; PP_RUN=39149502546
+mk6() { NC=$((NC + 1)); C="$CASES/$(printf '%03d' "$NC")"; mkdir -p "$C"; cp "$FX6"/*.json "$C/"; cp -r "$FX6/wf" "$C/wf"; }
+# одна строка сводного вердикта success — нехватка видна только причиной (ж)
+agg_green() { edit check-runs.json '.check_runs |= map(if .name == "сводный вердикт (все проверки завершились и зелены)" then .conclusion = "success" end)'; edit runs.json '.workflow_runs |= map(if .name == "сводный вердикт" then .conclusion = "success" end)'; }
+# три проверки прогона production-posture с исходом <c> (имена — из файла workflow)
+pp_checks() {
+    edit runs.json ".workflow_runs |= map(if .id == $PP_RUN then .conclusion = \"$1\" end)"
+    edit check-runs.json "(.check_runs | max_by(.id).id) as \$m | .check_runs += [range(3) as \$i | {id: (\$m + 1 + \$i), name: ([\"выбор затронутого (posture)\", \"stack dev-prod boots (kind, production posture)\", \"stack own boots (kind, production posture)\"][\$i]), status: \"completed\", conclusion: (if \$i == 2 then \"$1\" else \"success\" end), started_at: \"2026-10-18T17:30:00Z\", completed_at: \"2026-10-18T17:40:00Z\", check_suite: {id: $PP_SUITE}}] | .total_count = (.check_runs | length)"
+}
+mk6
+run "как есть: production-posture вытеснен, три имени не появились" 1 '^REASON\tRUN-DISPLACED\tproduction-posture \(\.github/workflows/production-posture\.yml, pull_request, run 39149502546, check_suite 106089981440\): cancelled без единой проверки.*не появились 3 из 3: выбор затронутого \(posture\); stack dev-prod boots \(kind, production posture\); stack own boots \(kind, production posture\)' "$L6"
+mk6; agg_green
+run "один факт: сводный вердикт success — 71 из 68 не зелёное, причина (ж)" 1 '^VERDICT\tred\tкод 1; причин 1; проверок 71 из 68' "$L6"
+mk6; agg_green; rm -r "$C/wf"
+run "файла workflow на голове нет — причина та же, имена не выведены" 1 '^REASON\tRUN-DISPLACED\tproduction-posture .*не выведены: файл \.github/workflows/production-posture\.yml на голове не прочитан' "$L6"
+mk6; agg_green; pp_checks success
+run "близнец: прогон с исходом, его проверки есть — зелёное" 0 '^VERDICT\tgreen\t.*проверок 74 из 68' "$L6"
+mk6; agg_green; pp_checks cancelled
+run "близнец: cancelled С проверками — судятся они, не (ж)" 1 '^CENSUS\tworkflow runs на голове: 8; .*cancelled без проверок 0$' "$L6"
+
 say "== набор обязательных — вызывающему (ws#1215: merge-readiness, путь базы без контекстов)"
 mk; : > "$C/reqout"
 run "набор отдан: обязательный контекст защиты базы" 0 "^REQOUT\t\Q$AGG_REQ\E$"
@@ -681,6 +719,8 @@ both-forms-checkrun-wins	/| if (\$bad | length) > 0 then \$bad\[0\] elif/s/if (\
 etag-fallback-dropped	/if \[ "\$rc" -ne 0 \]; then EC=""; api "\$p"; return; fi/s/then EC=""; api "\$p"; return; fi/then return "$rc"; fi/
 etag-hit-blind	/HTTP\/\*\x27 304\x27\*)/s/HTTP\/\*\x27 304\x27\*)/HTTP\/*)/
 etag-hit-blind-any	/^    if \[ -f "\$f" \] \&\& IFS= read -r e/s/then hdr=(-H "If-None-Match: \$e"); fi/then CONDHIT=$((CONDHIT + 1)); sed 1d "$f"; return 0; fi/
+displaced-dropped	/and .conclusion == "cancelled"$/s/and .conclusion == "cancelled"/and false/
+displaced-any-cancelled	/and (.check_suite_id as $s | $have | index($s) | not))\]'"'"'/s/and (.check_suite_id as $s | $have | index($s) | not))\]/)]/
 required-out-dropped	/cp "$W\/req.txt" "$CI_READ_REQUIRED_OUT"/s/cp "$W\/req.txt"/: "$W\/req.txt"/
 required-out-empty	/cp "$W\/req.txt" "$CI_READ_REQUIRED_OUT"/s/cp "$W\/req.txt"/cp \/dev\/null/
 no-rule-e	/\.drop = (\$pr and/s/\.drop = (\$pr and/.drop = (false and/;/if (\$red | length) > 0/s/if (\$red | length) > 0/if false/
