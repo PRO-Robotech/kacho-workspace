@@ -51,6 +51,21 @@
 #                  судимой головы нет → void;
 #   prune-origin-ahead — ветка на origin ушла вперёд после вливания → не снимается;
 #   prune-not-in-base  — хостинг сказал merged, а влитой головы в базе нет → ничего не снято;
+#   ff           — PR в main воркспейса влит: голова основного клона равна origin/main,
+#                  локальная правка вне входящих и неотслеживаемый файл целы (ws#1200);
+#                  ff-overlap: локальная правка пересекает входящий файл — отказ ff с
+#                  именем файла в журнале и исходе, исход merged, голова и правка на месте;
+#                  ff-worktree: AUTOLAND_WS — копия, не основной клон — не догоняется;
+#                  ff-foreign: origin клона — другой репозиторий — клон не тронут;
+#                  ff-hang: сеть fetch висит — merged и «ff отказ — fetch …» в пределе;
+#                  ff-epic: запрос в ветку эпика, origin/main впереди — клон не тронут;
+#   lag          — main-clone-lag.sh: отставания нет — молчит (0); на N — строка с N (1),
+#                  из копии судится основной клон, не клон — «не установлено» (2); хук
+#                  SessionStart (session-memcap.sh --hook) несёт строку, после догона — нет;
+#                  хук — КОПИЯ рядом с текущей (мутируемой) main-clone-lag.sh;
+#   lag-nofetch  — fetch не прошёл: известное отставание 0 — код 2, больше 0 — код 1 с
+#                  «fetch не прошёл»; lag-hang: сеть висит — хук укладывается в бюджет
+#                  SessionStart из settings.json и несёт «не установлено»;
 #   status       — коды status для каждого исхода (4, 5, 6 — тоже) и для слова вне перечня;
 #   census       — перепись процессов судит СВОЁ по метке AUTOLAND_PROBE_ID: свой процесс
 #                  с иным порядком доводов виден, чужой с «--pr N --head» — нет; reap снимает
@@ -67,7 +82,12 @@
 # сверки --subject, без FIFO, лимит площадки как VOID, пустой код допущен, голова
 # landing-precheck не сверяется, строка его головы не требуется, origin-ветка снимается
 # ушедшей вперёд, снятие без проверки «влитая — предок базы», status 4/5/6 как 0,
-# ожидание FIFO без timeout, без ожидания вовсе, кэш — настоящий (CI_STATE_DIR не читается).
+# ожидание FIFO без timeout, без ожидания вовсе, кэш — настоящий (CI_STATE_DIR не читается),
+# шаг ff выключен, отказ ff как red, пересечение не названо, копия как основной клон,
+# чужой репозиторий как свой, fetch догона без предела, база запроса не судится; у
+# main-clone-lag.sh — ноль говорит, число не печатается, копия как клон, «не
+# установлено» молчит, неудачный fetch при нуле молчит и при числе не назван, fetch без предела.
+# Обход git заперт GIT_CEILING_DIRECTORIES над $T: проба зелена и при TMPDIR внутри клона.
 #
 # СЛЕДОВ НЕТ (testing.md#no-residue). Песочница — на всю пробу: кэш (XDG_CACHE_HOME,
 # CI_STATE_DIR), gh, гейты, клоны, замок — экспортом до первой сцены, поэтому и демон,
@@ -91,9 +111,14 @@ done
 [ -r "$AL_REAL" ] || { echo "VOID: нет $AL_REAL" >&2; exit 2; }
 [ -r "$GUARD" ] || { echo "VOID: нет стража $GUARD" >&2; exit 2; }
 LP_REAL="$(cd "$HERE/.." && pwd)/landing-precheck.sh"
+LAG_REAL="$(cd "$HERE/.." && pwd)/main-clone-lag.sh"; LAG="$LAG_REAL"   # нет файла — сцена lag красная, не VOID
+MEMCAP="$(cd "$HERE/.." && pwd)/session-memcap.sh"
 [ -r "$LP_REAL" ] || { echo "VOID: нет $LP_REAL (метки рецепта «ЗАПУСК»)" >&2; exit 2; }
 
 T="$(mktemp -d "${TMPDIR:-/tmp}/autoland-inject.XXXXXX")" || exit 2
+# Обход git не выходит из песочницы: при TMPDIR внутри клона каталог «не клон» иначе
+# нашёл бы настоящий клон и сделал бы в нём fetch (ws#1200, круг 1).
+GIT_CEILING_DIRECTORIES="$(dirname "$T")"; export GIT_CEILING_DIRECTORIES
 PIDS=(); FOREIGN=()
 # СВОЁ — по метке AUTOLAND_PROBE_ID=$T в окружении процесса (её экспортирует проба
 # ниже, наследует всё, что проба порождает), а не по написанию доводов: образец
@@ -208,8 +233,9 @@ mkdir -p "$T/ws0"
 
 pull() {  # <голова> <state> <merged>
     jq -n --arg h "$1" --arg s "$2" --argjson m "$3" --arg ms "$MSHA" --arg b "$BASE" --arg ref "${PULL_REF:-4000-probe}" \
+        --arg base "${PULL_BASE:-main}" \
         '{state: $s, merged: $m, merge_commit_sha: (if $m then $ms else null end), draft: false,
-          head: {sha: $h, ref: $ref}, base: {ref: "main", sha: $b}}' > "$FX/pull.json"
+          head: {sha: $h, ref: $ref}, base: {ref: $base, sha: $b}}' > "$FX/pull.json"
 }
 new_fx() {  # <сцена>
     FX="$T/fx.$1.$RANDOM"; mkdir -p "$FX"
@@ -507,6 +533,123 @@ s_prune_remote() {
     new_fx prune-remote; mk_git keep-remote; run_al
     ok prune-remote "ветку на origin демон снял сам" eval 'st_is merged && remote_empty && st_has "origin/4000-probe"'
 }
+# ── основной клон воркспейса догоняется после вливания (ws#1200) ──────────────
+mk_ws_main() {  # [<имя репозитория origin>] — origin …/PRO-Robotech/<имя>.git, основной клон ws на main; G, OLD_MAIN
+    G="$FX/wsm"; local o="$G/PRO-Robotech/${1:-kacho-workspace}.git"
+    ORIGIN_DIR="$o"; mkdir -p "$G/PRO-Robotech"
+    git init -q --bare -b main "$o"
+    git clone -q "$o" "$G/ws" 2>/dev/null; git -C "$G/ws" symbolic-ref HEAD refs/heads/main
+    echo base > "$G/ws/incoming.txt"; echo keep > "$G/ws/local.txt"; git -C "$G/ws" add incoming.txt local.txt
+    sandbox_run git -C "$G/ws" commit -qm base; git -C "$G/ws" push -q origin main
+    git clone -q "$o" "$G/dev" 2>/dev/null; git -C "$G/dev" checkout -qb 4000-probe
+    echo task > "$G/dev/incoming.txt"; git -C "$G/dev" add incoming.txt
+    sandbox_run git -C "$G/dev" commit -qm '#4000 предмет'; git -C "$G/dev" push -q origin 4000-probe
+    HEAD_P="$(git -C "$G/dev" rev-parse HEAD)"; OLD_MAIN="$(git -C "$G/ws" rev-parse HEAD)"
+    git clone -q "$o" "$G/merger" 2>/dev/null
+    { printf 'set -e; m=%q; export HOME=%q XDG_CONFIG_HOME=%q\n' "$G/merger" "$SANDBOX_GIT_HOME" "$SANDBOX_GIT_HOME/.config"
+      echo 'git -C "$m" fetch -q origin; git -C "$m" checkout -q main; git -C "$m" reset -q --hard origin/main'
+      echo 'git -C "$m" merge -q --no-ff origin/4000-probe -m "#4000 merge #4242: проба"'
+      echo 'git -C "$m" push -q origin main; git -C "$m" push -q origin --delete 4000-probe'; } > "$FX/merged.hook"
+    pull "$HEAD_P" open false; RUN_HEAD="$HEAD_P"; CLONES=""
+}
+origin_main() { git -C "$ORIGIN_DIR" rev-parse main; }
+head_of() { git -C "$1" rev-parse HEAD; }
+s_ff() {
+    new_fx ff; mk_ws_main; echo changed > "$G/ws/local.txt"; echo u > "$G/ws/untracked.txt"
+    WS0="$G/ws" run_al; unset WS0
+    ok ff "merged, код 0" eval '[ "$RC" -eq 0 ] && st_is merged && st_has "$MSHA"'
+    ok ff "после merged голова основного клона равна origin/main" eval '[ "$(origin_main)" != "$OLD_MAIN" ] && [ "$(head_of "$G/ws")" = "$(origin_main)" ]'
+    ok ff "исход называет догон «основной клон: <было> → <стало>»" st_has "основной клон: ${OLD_MAIN:0:12} → "
+    ok ff "локальная правка вне входящих и неотслеживаемый файл целы" eval '[ "$(cat "$G/ws/local.txt")" = changed ] && [ -f "$G/ws/untracked.txt" ]'
+}
+s_ff_overlap() {
+    new_fx ff-overlap; mk_ws_main; echo mine > "$G/ws/incoming.txt"
+    WS0="$G/ws" run_al; unset WS0
+    ok ff-overlap "отказ ff исход не портит: merged <sha>, код 0" eval '[ "$RC" -eq 0 ] && st_is merged && st_has "$MSHA"'
+    ok ff-overlap "исход называет отказ ff и перечень пересечения" st_has "основной клон: ff отказ — пересекаются с локальной правкой: incoming.txt;"
+    ok ff-overlap "журнал демона называет отказ ff и перечень пересечения" grep -qF "основной клон: ff отказ — пересекаются с локальной правкой: incoming.txt;" "$FX/out"
+    ok ff-overlap "голова не сдвинута, правка цела, stash пуст" eval '[ "$(head_of "$G/ws")" = "$OLD_MAIN" ] && [ "$(cat "$G/ws/incoming.txt")" = mine ] && [ -z "$(git -C "$G/ws" stash list)" ]'
+}
+s_ff_worktree() {
+    new_fx ff-worktree; mk_ws_main; git -C "$G/ws" worktree add -q --detach "$G/wt" 2>/dev/null
+    WS0="$G/wt" run_al; unset WS0
+    ok ff-worktree "merged; копия — не основной клон, причина названа" eval '[ "$RC" -eq 0 ] && st_is merged && st_has "не основной клон"'
+    ok ff-worktree "ни копия, ни основной клон не сдвинуты" eval '[ "$(head_of "$G/wt")" = "$OLD_MAIN" ] && [ "$(head_of "$G/ws")" = "$OLD_MAIN" ]'
+}
+s_ff_foreign() {
+    new_fx ff-foreign; mk_ws_main kacho
+    WS0="$G/ws" run_al; unset WS0
+    ok ff-foreign "запрос не в репозиторий клона — merged, клон не тронут" eval '[ "$RC" -eq 0 ] && st_is merged && ! st_has "основной клон" && [ "$(head_of "$G/ws")" = "$OLD_MAIN" ]'
+}
+HANG_URL="ssh://hang.invalid/PRO-Robotech/kacho-workspace.git"   # с GIT_SSH_COMMAND «sleep N #» — сеть висит
+s_ff_hang() {
+    local t0 dt
+    new_fx ff-hang; mk_ws_main; git -C "$G/ws" remote set-url origin "$HANG_URL"
+    export GIT_SSH_COMMAND="sleep 300 #"
+    t0=$(date +%s); WS0="$G/ws" RUN_LIMIT=40 run_al; dt=$(( $(date +%s) - t0 )); unset WS0 GIT_SSH_COMMAND
+    ok ff-hang "сеть висит — исход merged <sha>, код 0, за $dt с (предел пробы 40)" eval '[ "$RC" -eq 0 ] && st_is merged && st_has "$MSHA"'
+    ok ff-hang "исход называет отказ fetch догона" st_has "основной клон: ff отказ — fetch origin main"
+    ok ff-hang "голова основного клона не сдвинута" eval '[ "$(head_of "$G/ws")" = "$OLD_MAIN" ]'
+}
+s_ff_epic() {
+    new_fx ff-epic; mk_ws_main; PULL_BASE=1266-epic pull "$HEAD_P" open false
+    WS0="$G/ws" run_al; unset WS0
+    ok ff-epic "запрос в ветку эпика — merged, origin/main впереди, основной клон не тронут" eval '[ "$RC" -eq 0 ] && st_is merged && ! st_has "основной клон" && [ "$(origin_main)" != "$OLD_MAIN" ] && [ "$(head_of "$G/ws")" = "$OLD_MAIN" ]'
+}
+hook_copy() {  # копия хука SessionStart рядом с ТЕКУЩЕЙ (возможно мутантом) main-clone-lag.sh → путь session-memcap.sh
+    local d="$FX/hook/scripts"; mkdir -p "$d"
+    cp "$MEMCAP" "$d/session-memcap.sh"; cp "$HERE/../heavy-slot.sh" "$d/heavy-slot.sh"; cp "$LAG" "$d/main-clone-lag.sh"
+    printf 'MemTotal: 62914560 kB\nMemAvailable: 52428800 kB\n' > "$FX/meminfo"
+    printf '%s\n' "$d/session-memcap.sh"
+}
+lag_ctx() {  # вывод хука SessionStart → additionalContext (пусто — хук молчал)
+    python3 -c 'import json,sys
+t = sys.stdin.read().strip()
+print(json.loads(t)["hookSpecificOutput"]["additionalContext"] if t else "")'
+}
+s_lag() {
+    local out rc n ctx hk
+    new_fx lag; mk_ws_main; ST="сигнал SessionStart"; RC=-
+    out="$(bash "$LAG" "$G/ws" 2>&1)"; rc=$?
+    ok lag "отставания нет — молчит, код 0 (код $rc, вывод «$out»)" eval '[ "$rc" -eq 0 ] && [ -z "$out" ]'
+    bash "$FX/merged.hook" > /dev/null 2>&1
+    n="$(git -C "$ORIGIN_DIR" rev-list --count "$OLD_MAIN..main")"
+    out="$(bash "$LAG" "$G/ws" 2>&1)"; rc=$?
+    ok lag "отстаёт на $n — строка с числом, код 1 (код $rc)" eval '[ "$rc" -eq 1 ] && [ "$n" -gt 0 ] && grep -qF "отстаёт от origin/main на $n " <<< "$out"'
+    git -C "$G/ws" worktree add -q --detach "$G/wt" 2>/dev/null
+    out="$(bash "$LAG" "$G/wt" 2>&1)"; rc=$?
+    ok lag "из копии судится основной клон (код $rc)" eval '[ "$rc" -eq 1 ] && grep -qF "клон $G/ws " <<< "$out" && ! grep -qF "$G/wt" <<< "$out"'
+    mkdir -p "$FX/plain"; out="$(bash "$LAG" "$FX/plain" 2>&1)"; rc=$?
+    ok lag "не клон — «не установлено» строкой, код 2 (код $rc)" eval '[ "$rc" -eq 2 ] && grep -qF "не установлено" <<< "$out"'
+    hk="$(hook_copy)"
+    ctx="$(SESSION_MEMCAP_MEMINFO="$FX/meminfo" CLAUDE_PROJECT_DIR="$G/wt" bash "$hk" --hook 2>/dev/null | lag_ctx)"
+    ok lag "хук SessionStart (session-memcap --hook) несёт строку отставания на $n" eval 'grep -qF "MAIN-CLONE-LAG: основной клон $G/ws " <<< "$ctx" && grep -qF "на $n " <<< "$ctx"'
+    git -C "$G/ws" merge -q --ff-only origin/main
+    ctx="$(SESSION_MEMCAP_MEMINFO="$FX/meminfo" CLAUDE_PROJECT_DIR="$G/wt" bash "$hk" --hook 2>/dev/null | lag_ctx)"
+    ok lag "после догона хук строки отставания не несёт" eval '! grep -qF MAIN-CLONE-LAG <<< "$ctx"'
+}
+s_lag_nofetch() {
+    local out rc absent="$FX/absent/PRO-Robotech/kacho-workspace.git"
+    new_fx lag-nofetch; mk_ws_main; ST="сигнал при неудачном fetch"; RC=-
+    git -C "$G/ws" remote set-url origin "$absent"
+    out="$(bash "$LAG" "$G/ws" 2>&1)"; rc=$?
+    ok lag-nofetch "fetch не прошёл, известное отставание 0 — «не установлено», код 2 (код $rc)" eval '[ "$rc" -eq 2 ] && grep -qF "MAIN-CLONE-LAG: отставание не установлено" <<< "$out"'
+    git -C "$G/ws" remote set-url origin "$ORIGIN_DIR"; bash "$FX/merged.hook" > /dev/null 2>&1; git -C "$G/ws" fetch -q origin
+    git -C "$G/ws" remote set-url origin "$absent"
+    out="$(bash "$LAG" "$G/ws" 2>&1)"; rc=$?
+    ok lag-nofetch "fetch не прошёл, известное отставание > 0 — строка с «fetch не прошёл», код 1 (код $rc)" eval '[ "$rc" -eq 1 ] && grep -qF "отстаёт от origin/main на " <<< "$out" && grep -qF "fetch не прошёл" <<< "$out"'
+}
+s_lag_hang() {
+    local hk t0 dt ctx budget
+    new_fx lag-hang; mk_ws_main; ST="хук SessionStart, сеть висит"; RC=-
+    budget="$(jq -r '[.hooks.SessionStart[].hooks[] | select(.command | test("session-memcap.sh")) | .timeout] | first // empty' "$HERE/../../.claude/settings.json" 2>/dev/null)"
+    git -C "$G/ws" remote set-url origin "$HANG_URL"; hk="$(hook_copy)"
+    t0=$(date +%s)
+    ctx="$(GIT_SSH_COMMAND="sleep 45 #" SESSION_MEMCAP_MEMINFO="$FX/meminfo" CLAUDE_PROJECT_DIR="$G/ws" timeout 35 bash "$hk" --hook 2>/dev/null | lag_ctx 2>/dev/null)"
+    dt=$(( $(date +%s) - t0 ))
+    ok lag-hang "сеть висит — хук за $dt с, бюджет SessionStart «${budget:-не прочитан}» с (settings.json), несёт «не установлено»" \
+        eval '[[ "$budget" =~ ^[0-9]+$ ]] && [ "$dt" -lt "$budget" ] && grep -qF "MAIN-CLONE-LAG: отставание не установлено" <<< "$ctx"'
+}
 guard_rc() {  # <команда> — код стража
     python3 -c 'import json,sys; print(json.dumps({"tool_name":"Bash","tool_input":{"command":sys.argv[1]},"agent_type":"git-operator"}))' "$1" \
         | python3 "$GUARD" >/dev/null 2>&1
@@ -575,13 +718,14 @@ s_static() {
     ST="статика"; RC=-
     ok static "нет форсирующих флагов и обхода хуков" eval '! grep -qE -- "(^|[[:space:]])(--force|--force-with-lease|--admin|--no-verify|--auto|--squash|--rebase)([[:space:]]|$|\")" <<< "$code"'
     ok static "git push без -f" eval '! grep -qE -- "push[^|;]*[[:space:]]-f([[:space:]]|$)" <<< "$code"'
-    ok static "базу не догоняет: нет git merge/rebase/pull" eval '! grep -qE -- "git( -C \"[^\"]*\")? (merge|rebase|pull)([[:space:]]|$)" <<< "$code"'
+    ok static "базу не догоняет: нет git rebase/pull, merge — лишь ff основного клона до origin/main" eval '! grep -qP -- "git( -C \"[^\"]*\")? (rebase|pull|merge(?! --ff-only -q origin/main))([[:space:]]|$)" <<< "$code"'
     ok static "gh api только GET" eval '! grep -E -- "GH\" api" <<< "$code" | grep -qE -- "(-X|--method|[[:space:]]-[fF][[:space:]])"' 
 }
 
 ALL=(s_green s_red s_moved_start s_moved_gates s_moved_merge s_allow_ok s_allow_bad s_stale s_mr_red s_timeout
      s_void s_void_twin s_ratelimit s_pr_unread s_draft s_closed s_already s_fifo s_fifo_nowriter s_args s_detach s_recipe
      s_prune s_prune_dirty s_prune_ahead s_prune_remote s_prune_origin_ahead s_prune_not_in_base
+     s_ff s_ff_overlap s_ff_worktree s_ff_foreign s_ff_hang s_ff_epic s_lag s_lag_nofetch s_lag_hang
      s_status s_empty_code s_lp_head s_census s_guard s_static)
 
 AL="$AL_REAL"
@@ -592,9 +736,9 @@ echo "== контроль: провалов $control_fails"
 
 # ── мутанты: <имя> <сцены через запятую> <было> <стало> ───────────────────────
 mutants=0; survived=0; voidm=0
-mutant() {
-    local name="$1" scenes="$2" from="$3" to="$4" m="$T/mut.$RANDOM.sh" s
-    python3 - "$AL_REAL" "$m" "$from" "$to" <<'PY' || { echo "  [VOID] мутант $name: правка не легла в текст"; voidm=$((voidm + 1)); return; }
+mutant() {  # … [<исходник: autoland.sh по умолчанию либо main-clone-lag.sh>]
+    local name="$1" scenes="$2" from="$3" to="$4" src="${5:-$AL_REAL}" m="$T/mut.$RANDOM.sh" s
+    python3 - "$src" "$m" "$from" "$to" <<'PY' || { echo "  [VOID] мутант $name: правка не легла в текст"; voidm=$((voidm + 1)); return; }
 import sys
 src, dst, a, b = sys.argv[1:5]
 t = open(src, encoding="utf-8").read()
@@ -604,11 +748,11 @@ open(dst, "w", encoding="utf-8").write(t.replace(a, b))
 PY
     mutants=$((mutants + 1))
     local saved=$fails
-    AL="$m"
+    if [ "$src" = "$LAG_REAL" ]; then LAG="$m"; else AL="$m"; fi
     IFS=, read -ra list <<< "$scenes"
     : > "$T/mut.out"
     for s in "${list[@]}"; do "$s" >> "$T/mut.out"; done
-    AL="$AL_REAL"
+    AL="$AL_REAL"; LAG="$LAG_REAL"
     if [ "$fails" -gt "$saved" ]; then echo "  [убит] $name — $(grep -m1 -F '[FAIL]' "$T/mut.out" | sed 's/^ *\[FAIL\] //' | cut -c1-200)"
     else echo "  [ВЫЖИЛ] $name — сцены ${scenes} зелёные на дефекте"; survived=$((survived + 1)); fi
     fails=$saved
@@ -639,6 +783,21 @@ mutant fifo-wait-without-timeout s_fifo_nowriter 'timeout "$t" head -n1 "$fifo"'
 mutant fifo-wait-dropped s_fifo_nowriter 'timeout "$t" head -n1 "$fifo" > "$W/fifo.line" 2>/dev/null & BG=$!; wait "$BG"; BG=""' 'true'
 mutant cache-is-real s_fifo 'CI_STATE="${CI_STATE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/kacho-ci-state}"' 'CI_STATE="${XDG_CACHE_HOME:-$HOME/.cache}/kacho-ci-state"'
 mutant ratelimit-as-void s_ratelimit "if grep -qP '^REASON\\tRATE-LIMIT\\t'" 'if false'
+mutant ff-step-dropped s_ff 'prune "$PR_REF" "$PR_BASE"; sync_main_clone' 'prune "$PR_REF" "$PR_BASE"'
+mutant ff-refusal-is-red s_ff_overlap 'log "$SYNC"; return 0  # отказ ff' 'finish red "$SYNC"'
+mutant ff-overlap-unnamed s_ff_overlap 'пересекаются с локальной правкой: ${both:-—}' 'пересекаются с локальной правкой: —'
+mutant ff-main-clone-unchecked s_ff_worktree 'if [ "$common" != "$top/.git" ]; then' 'if false; then'
+mutant ff-not-fast-forward s_static 'merge --ff-only -q origin/main >' 'merge -q origin/main >'
+mutant ff-repo-unchecked s_ff_foreign '[ "$PR_BASE" = main ] && origin_is_repo "$WS" || return 0' '[ "$PR_BASE" = main ] || return 0'
+mutant ff-fetch-unbounded s_ff_hang 'timeout "$FF_FETCH_TIMEOUT" git -C "$WS" fetch' 'git -C "$WS" fetch'
+mutant ff-base-unchecked s_ff_epic '[ "$PR_BASE" = main ] && origin_is_repo "$WS" || return 0' 'origin_is_repo "$WS" || return 0'
+mutant lag-nofetch-silent s_lag_nofetch 'if [ "$fetched" -eq 0 ] && [ "$n" -eq 0 ]; then' 'if false; then' "$LAG_REAL"
+mutant lag-nofetch-unannotated s_lag_nofetch "\"\$([ \"\$fetched\" -eq 1 ] || echo ' (fetch не прошёл — по известному origin/main)')\"" '""' "$LAG_REAL"
+mutant lag-fetch-unbounded s_lag_hang 'timeout "${MAIN_CLONE_LAG_FETCH_TIMEOUT:-8}" git' 'git' "$LAG_REAL"
+mutant lag-zero-speaks s_lag '[ "$n" -gt 0 ] || exit 0' 'true' "$LAG_REAL"
+mutant lag-count-dropped s_lag '"$main" "$br" "$n"' '"$main" "$br" "?"' "$LAG_REAL"
+mutant lag-worktree-as-clone s_lag 'rev-parse --path-format=absolute --git-common-dir' 'rev-parse --absolute-git-dir' "$LAG_REAL"
+mutant lag-unknown-is-silent s_lag 'unknown() { printf' 'unknown() { exit 0; printf' "$LAG_REAL"
 
 reap
 for _ in 1 2 3 4 5 6 7 8 9 10; do [ "$(probe_procs)" -eq 0 ] && break; sleep 0.3; done
