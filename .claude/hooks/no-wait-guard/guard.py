@@ -31,7 +31,10 @@
                   строка запуска, владелец, терминал, файл или порт, «все процессы uid») —
                   `pkill -f x`, `pkill newman`, `killall node`, `killall5`, `skill`, `fuser -k`,
                   `kill -9 -1`, `kill <имя>`, `kill $(pgrep …)`, `pgrep … | xargs kill`,
-                  `pgrep … | while read p; do kill $p; done`, `for p in $(pidof …); do kill $p; done`;
+                  `pgrep … | while read p; do kill $p; done`, `for p in $(pidof …); do kill $p; done`,
+                  вход xargs/read/цикла от выборщика (`xargs kill < <(pgrep x)`, `… done < <(pgrep x)`,
+                  `xargs kill <<< "$(pgrep x)"`), id-значение от выборщика (`pkill -P $(pgrep x)`);
+                  число — по ЗНАЧЕНИЮ (`kill -9 -01` = `-1`, `pkill -P 01` = `-P 1`);
                   отказ — и в фоне, и под timeout, и с меткой ci-watcher: снятие чужого не
                   зависит от того, ждут ли его. Классы строятся от двух ролей (ВЫБОРЩИК, ДОСТАВКА —
                   комментарий у PID_MATCHERS), а не перечнем строк.
@@ -78,7 +81,12 @@ make (страж судит строку, а не текст файла); `wait 
 судится лишь звено прямо перед `read`), `echo 900 | xargs sleep` (argv собирает xargs из
 входа), `python3 -c "import time; time.sleep(900)"` (и любой иной интерпретатор:
 страж судит команды оболочки, а не текст программы на другом языке).
-Снятие: адресат, переданный через переменную из ДРУГОЙ команды (`p=$(pgrep x); kill $p` —
+Снятие — страховка кооперативного агента, не граница безопасности (решение диспетчера,
+приёмка ws#1159): не разбираются запуск под другим пользователем и в другом окружении —
+`su -c`, `doas`, `runuser`, `nsenter`, `unshare`, `systemd-run`, `script -qc`, `strace`
+(не обёртки этого разбора: их команда — слово, а не argv); `find -exec`, `env -S` (команда
+собирается из довода); `eval`, переменная-команда (`K=pkill; $K -f x`). Также: адресат,
+переданный через переменную из ДРУГОЙ команды (`p=$(pgrep x); kill $p` —
 поток значений между командами не прослеживается), через файл (`pgrep x > f; kill $(cat f)`),
 `eval`, скрипт и иной интерпретатор (`python3 -c "os.kill(…)"`).
 """
@@ -105,6 +113,11 @@ CLOSERS = {"done": ("while", "until", "for", "select"), "fi": ("if",), "}": ("{"
 BUSY_DEV = {"/dev/zero", "/dev/urandom", "/dev/random"}  # чтение из них не кончается
 TRANSPARENT = {"do", "then", "else", "elif", "!", "in"}
 SUDO_ARG = {"-u", "-g", "-p", "-C", "-D", "-r", "-t", "-T", "-U", "-R", "-h"}  # флаги sudo со значением
+# флаги обёрток СО значением отдельным словом; прочие флаги — без значения
+WRAP_VAL = {"nice": ("-n", "--adjustment"), "ionice": ("-c", "-n", "-p", "-P", "-u", "--class",
+            "--classdata", "--pid", "--pgid", "--uid"), "stdbuf": ("-i", "-o", "-e"),
+            "time": ("-o", "--output", "-f", "--format"), "exec": ("-a",), "command": (),
+            "builtin": (), "nohup": (), "chrt": (), "taskset": ()}
 # ── снятие процессов (ws#1159) ──
 # КЛАСС: сигнал, чьи адресаты ВЫЧИСЛЕНЫ сопоставлением по машине (имя, строка запуска,
 # владелец, терминал, файл или порт, «все процессы uid»), а не названы pid, группой или
@@ -297,6 +310,7 @@ class Node:
         self.bg = False
         self.substs = []
         self.redir = None         # хвост перенаправлений группы (`done < f`)
+        self.redir_substs = []    # подстановки в этом хвосте (`done < <(pgrep x)`)
         self.feed = None          # предыдущее звено конвейера `a | b`
 
 
@@ -309,10 +323,16 @@ class Parser:
         return self.t[self.i] if self.i < len(self.t) else (None, None)
 
     def skip_redirs(self):
-        """`done > журнал`, `) 2>&1` — хвост перенаправлений группы, не команда."""
+        """`done > журнал`, `) 2>&1`, `done < <(…)` — хвост перенаправлений группы, не
+        команда: (текст, подстановки хвоста) либо (None, [])."""
+        j0, substs = self.i, []
+        while self.peek()[0] == "subst":  # лексер кладёт подстановку до текста
+            substs.append(self.peek()[1])
+            self.i += 1
         k, v = self.peek()
         if k != "cmd":
-            return None
+            self.i = j0
+            return None, []
         ws, j = v.split(), 0
         while j < len(ws):
             if hg.REDIR_OP.match(ws[j]):
@@ -320,14 +340,23 @@ class Parser:
             elif hg.REDIR_WORD.match(ws[j]):
                 j += 1
             else:
-                return None
+                self.i = j0
+                return None, []
         self.i += 1
-        return v
+        return v, substs
+
+    def past_substs(self):
+        """Лексема после подряд идущих подстановок: `done < <(…)` лексер отдаёт как
+        подстановку ДО `done` — она принадлежит хвосту закрывающего слова."""
+        j = self.i
+        while j < len(self.t) and self.t[j][0] == "subst":
+            j += 1
+        return self.t[j] if j < len(self.t) else (None, None)
 
     def parse_list(self, stop):
         items = []
         while self.i < len(self.t):
-            k, v = self.peek()
+            k, v = self.past_substs()
             if (k == "kw" and v in stop) or (k == "op" and v in stop):
                 break
             if k == "op" and v in (";", "\n", ";;"):
@@ -382,13 +411,14 @@ class Parser:
         if k == "op" and v == "(":
             self.i += 1
             kids = self.parse_list({")"})
-            redir = None
+            redir, rsub = None, []
             if self.peek() == ("op", ")"):
                 self.i += 1
-                redir = self.skip_redirs()
+                redir, rsub = self.skip_redirs()
             node = Node("group", kids=kids)
             node.substs = substs
             node.redir = redir
+            node.redir_substs = rsub
             return node
         if k == "kw" and v in OPENERS:
             self.i += 1
@@ -407,13 +437,20 @@ class Parser:
                     self.i += 1
             else:
                 kids = self.parse_list({closer})
-            redir = None
+            redir, rsub, pre = None, [], []
+            while self.peek()[0] == "subst" and self.past_substs() == ("kw", closer):
+                pre.append(self.peek()[1])
+                self.i += 1
             if self.peek() == ("kw", closer):
                 self.i += 1
-                redir = self.skip_redirs()
+                redir, rsub = self.skip_redirs()
+                rsub = pre + rsub
+            elif pre:
+                substs = substs + pre
             node = Node("group", kids=kids, loop=v if v in ("while", "until", "for", "select") else None)
             node.substs = substs
             node.redir = redir
+            node.redir_substs = rsub
             return node
         if k == "kw" and v in TRANSPARENT:
             self.i += 1
@@ -443,9 +480,15 @@ def head(argv):
             i += 1
             continue
         if base in ("nohup", "nice", "ionice", "stdbuf", "time", "command", "exec", "builtin", "chrt", "taskset"):
+            # флаги СО значением — у каждой обёртки свои (ws#1159: `time -p`, `command -p` —
+            # флаги без значения; прежний общий перечень съедал следующее слово — команду)
+            vals = WRAP_VAL.get(base, ())
             i += 1
-            while i < len(argv) and argv[i].startswith("-"):
-                i += 2 if argv[i] in ("-n", "-c", "-p", "-o", "-e", "-i") else 1
+            while i < len(argv) and argv[i].startswith("-") and argv[i] != "-":
+                if argv[i] == "--":
+                    i += 1
+                    break
+                i += 2 if argv[i] in vals else 1
             if base in ("chrt", "taskset") and i < len(argv):
                 i += 1
             continue
@@ -501,7 +544,23 @@ def opt_value(args, k, a, long_names, short_names):
     return None
 
 
-def pg_by_pattern(args):
+def num_is(v, n):
+    """Слово — целое n по ЗНАЧЕНИЮ (`-01`, `-0001` = -1; `01` = 1), а не по написанию."""
+    return re.match(r"^-?\d+$", v or "") is not None and int(v) == n
+
+
+def stdin_selects(text, substs):
+    """Источник входа команды или хвоста группы (`< <(…)`, `<<< "$(…)"`, `<<< $(…)`,
+    `0< <(…)`) — подстановка, печатающая pid выборщика. Подстановка берётся ПО МЕСТУ:
+    n-е `__SUBST__` текста — n-я подстановка узла."""
+    for m in re.finditer(r"(?<![<\w])0?(<<<|<>|<)(?!<)\s*[\"']?([^\s\"']*__SUBST__)", text or ""):
+        k = (text or "")[:m.start(2)].count("__SUBST__") + m.group(2).count("__SUBST__") - 1
+        if 0 <= k < len(substs) and text_selects(substs[k]):
+            return True
+    return False
+
+
+def pg_by_pattern(args, sub_sel=False, var_sel=False):
     """pgrep/pkill: (выбор по признаку, сигнал 0). Законен выбор ТОЛЬКО по идентичности:
     -P/--parent (кроме 1 — это все переподчинённые), -g/--pgroup, -s/--session, -F/--pidfile."""
     longs = set(PG_ID_OPTS.values()) | {o for o in PG_ATTR_OPTS | PG_VAL_OPTS if o.startswith("--")}
@@ -524,6 +583,9 @@ def pg_by_pattern(args):
             name, val, eaten = got
             if name in PG_ID_OPTS or name in PG_ID_OPTS.values():
                 ids.append((name, val))
+                # id-значение от выборщика — `-P $(pgrep x)`, `-g $(pgrep -f x)` (ws#1159)
+                if ("__SUBST__" in val and sub_sel) or (("$" in val or hg.SQ in val or hg.DQ in val) and var_sel):
+                    attr = True
             elif name in PG_ATTR_OPTS:
                 attr = True
             elif name == "--signal":
@@ -532,7 +594,7 @@ def pg_by_pattern(args):
             continue
         pattern = True  # позиционное — образец
         k += 1
-    parent_all = any(n in ("-P", "--parent") and "1" in v.split(",") for n, v in ids)
+    parent_all = any(n in ("-P", "--parent") and any(num_is(x, 1) for x in v.split(",")) for n, v in ids)
     return (pattern or attr or parent_all or not ids), zero
 
 
@@ -558,13 +620,13 @@ def ps_by_pattern(args):
     return True
 
 
-def selects_by_pattern(argv):
+def selects_by_pattern(argv, substs=()):
     """argv (после head) — ВЫБОРЩИК: печатает или снимает pid по признаку, а не по id."""
     if not argv:
         return False
     base, args = os.path.basename(argv[0]), argv[1:]
     if base in PID_MATCHERS:
-        return pg_by_pattern(args)[0]
+        return pg_by_pattern(args, any(text_selects(x) for x in substs))[0]
     if base in KILL_BY_MATCH or base in ("pidof", "lsof", "fuser"):
         return True
     if base == "ps":
@@ -582,7 +644,7 @@ def text_selects(text, depth=0):
         stack.extend(n.kids)
         if any(text_selects(x, depth + 1) for x in n.substs):
             return True
-        if n.kind == "simple" and selects_by_pattern(head(hg.words(n.text))[0]):
+        if n.kind == "simple" and selects_by_pattern(head(hg.words(n.text))[0], n.substs):
             return True
     return False
 
@@ -597,7 +659,7 @@ def node_selects(n):
         stack.extend(x.kids)
         if any(text_selects(t) for t in x.substs):
             return True
-        if x.kind == "simple" and selects_by_pattern(head(hg.words(x.text))[0]):
+        if x.kind == "simple" and selects_by_pattern(head(hg.words(x.text))[0], x.substs):
             return True
     return False
 
@@ -624,7 +686,7 @@ def kill_parse(args):
             return True, []          # список сигналов, печать pid — ничего не шлёт
         if a in ("-s", "-n", "--signal") or a.startswith("--signal="):
             v = a.split("=", 1)[1] if "=" in a else (args[k + 1] if k + 1 < len(args) else "")
-            zero, sig = v.upper() in ("0", "SIG0"), True
+            zero, sig = num_is(v, 0) or v.upper() == "SIG0", True
             k += 1 if "=" in a else 2
             continue
         if a in ("-q", "--queue"):
@@ -637,7 +699,7 @@ def kill_parse(args):
             k += 1
             continue
         if not sig and not targets and re.match(r"^-(\d+|[A-Za-z][A-Za-z0-9+-]*)$", a):
-            zero, sig = a in ("-0", "-SIG0"), True   # первый `-N`/`-NAME` — сигнал
+            zero, sig = num_is(a, 0) or a == "-SIG0", True   # первый `-N`/`-NAME` — сигнал
             k += 1
             continue
         targets.append(a)
@@ -736,7 +798,12 @@ class Judge:
             self.text(s, dict(ctx, bg=ctx["bg"]))
         # адресаты от выборщика (ws#1159): конвейер `pgrep … | xargs kill`,
         # `pgrep … | while read p; do kill $p; done`, `for p in $(pgrep …); do kill $p; done`
-        if feed_selects(n) or (n.loop == "for" and any(text_selects(x) for x in n.substs)):
+        # класс: вход xargs/read/цикла — выборщик, каким бы путём он ни пришёл (конвейер,
+        # `< <(…)`, `<<< "$(…)"`), либо заголовок for — его подстановка
+        own_in = stdin_selects(n.redir, n.redir_substs) if n.kind == "group" else stdin_selects(n.text, n.substs)
+        head_in = n.kind == "group" and n.loop and n.kids and n.kids[0].kind == "simple" \
+            and stdin_selects(n.kids[0].text, n.kids[0].substs)
+        if feed_selects(n) or own_in or head_in or (n.loop == "for" and any(text_selects(x) for x in n.substs)):
             ctx = dict(ctx, sel=True)
         elif n.feed is not None:
             ctx = dict(ctx, sel=False)
@@ -764,7 +831,7 @@ class Judge:
             self.add("pattern-kill", shown, None)
             return True
         if base == "pkill":
-            pattern, zero = pg_by_pattern(args)
+            pattern, zero = pg_by_pattern(args, any(text_selects(x) for x in substs), ctx.get("sel"))
             if pattern and not zero:
                 self.add("pattern-kill", shown, None)
             return True
@@ -778,7 +845,7 @@ class Judge:
                 return True
             from_sel = any(text_selects(x) for x in substs)
             for t in targets:
-                bad = (t == "-1"                                         # все процессы uid
+                bad = (num_is(t, -1)                                     # все процессы uid (-01 = -1)
                        or ("__SUBST__" in t and from_sel)                 # kill $(pgrep …)
                        or (("$" in t or hg.SQ in t or hg.DQ in t) and ctx.get("sel"))
                        or not re.match(r"^(-?\d+|%.*|-?\$.*|-?[\ue000\ue001].*|-?.*__SUBST__.*)$", t))

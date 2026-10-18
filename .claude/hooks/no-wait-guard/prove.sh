@@ -238,6 +238,19 @@ kills 'setsid -f pkill x'
 kills 'pkill -f x > /dev/null 2>&1 &'
 kills 'timeout 5 pkill -f x'
 kills 'cd /tmp && pkill -f x || true'
+# приёмка ws#1159, круг 1: класс «вход xargs/read/цикла — выборщик», число по значению,
+# подстановка в id-значении, флаги обёрток без значения
+kills 'xargs kill < <(pgrep x)'
+kills 'while read p; do kill $p; done < <(pgrep x)'
+kills 'xargs kill <<< "$(pgrep x)"'
+kills 'xargs kill <<< $(pgrep x)'
+kills 'kill -9 -01'
+kills 'kill -s KILL -01'
+kills 'pkill -P 01'
+kills 'pkill -P $(pgrep x)'
+kills 'pkill -g $(pgrep -f x)'
+kills 'time -p pkill -f x'
+kills 'command -p pkill -f x'
 rc="$(run 'timeout 500 pkill -f x # no-wait-exempt ci-watcher 9m')"
 assert "2 да" "$rc $(grep -qF 'отказ — снятие процессов по шаблону' "$WORK/out" && echo да || echo нет)" "снятие — метка ci-watcher его не снимает"
 AGENT=ci-watcher
@@ -274,6 +287,22 @@ passes 'ps -o pid,args -p 4242'
 passes 'fuser 8080/tcp'
 passes 'echo "pkill -f x"; grep -n killall f'
 passes 'git commit -m "pkill -f x и killall node — запрещены"'
+# законные близнецы форм приёмки — та же запись, источник или значение по id
+passes 'kill 12345'
+passes 'kill -0 $pid'
+passes 'pkill -F run.pid'
+passes 'pgrep -F f | xargs kill'
+passes 'xargs kill < run.pid'
+passes 'while read p; do kill $p; done < run.pid'
+passes 'xargs kill <<< "$(cat run.pid)"'
+passes 'xargs kill <<< $(cat run.pid)'
+passes 'kill -9 -0101'
+passes 'kill -s KILL -0101'
+passes 'pkill -P 0101'
+passes 'pkill -P $(cat run.pid)'
+passes 'pkill -g $(cat run.pgid)'
+passes 'time -p kill 12345'
+passes 'command -p kill 12345'
 
 echo "== граница (BOUNDARY шапки guard.py) — известно, не ловится"
 boundary "ожидание внутри скрипта"     'bash ./wait-for-ci.sh'
@@ -287,6 +316,18 @@ boundary "поток через фильтр"         'yes | grep y | read x'
 boundary "снятие: адресат через переменную другой команды" 'p=$(pgrep x); kill $p'
 boundary "снятие: адресат через файл"  'pgrep x > f; kill $(cat f)'
 boundary "снятие: иной интерпретатор"  'python3 -c "import os; os.kill(1, 9)"'
+boundary "снятие: eval"                'eval "pkill -f x"'
+boundary "снятие: переменная-команда"  'K=pkill; $K -f x'
+boundary "снятие: su -c"               "su -c 'pkill -f x' dk"
+boundary "снятие: doas"                'doas pkill -f x'
+boundary "снятие: runuser"             'runuser -u dk -- pkill -f x'
+boundary "снятие: nsenter"             'nsenter -t 1 -m pkill -f x'
+boundary "снятие: unshare"             'unshare -r pkill -f x'
+boundary "снятие: systemd-run"         'systemd-run --user pkill -f x'
+boundary "снятие: script -qc"          "script -qc 'pkill -f x' /dev/null"
+boundary "снятие: strace"              'strace -f pkill -f x'
+boundary "снятие: find -exec"          'find /proc -maxdepth 1 -name 1 -exec kill {} \;'
+boundary "снятие: env -S"              "env -S 'pkill -f x'"
 
 echo "== поломка стража — пропуск со словом «СЛОМАН», а не отказ"
 mkdir -p "$WORK/broken/no-wait-guard"
@@ -361,11 +402,11 @@ mutant "страж пропускает killall"   '        if base in KILL_BY_M
 mutant "pkill -f снят из отказа"     '        if base == "pkill":' '        if False:' 'pkill -f x'
 mutant "образец при id-выборе пропущен" '    return (pattern or attr or parent_all or not ids), zero' '    return (attr or parent_all or not ids), zero' 'pkill -P 4242 -f x'
 mutant "pkill: id-выбор — тоже отказ" '    return (pattern or attr or parent_all or not ids), zero' '    return True, zero' 'pkill -F /tmp/run.pid'
-mutant "pkill -P 1 законен"          '    parent_all = any(n in ("-P", "--parent") and "1" in v.split(",") for n, v in ids)' '    parent_all = False' 'pkill -P 1'
+mutant "pkill -P 1 законен"          '    parent_all = any(n in ("-P", "--parent") and any(num_is(x, 1) for x in v.split(",")) for n, v in ids)' '    parent_all = False' 'pkill -P 1'
 mutant "kill \$(pgrep) не судится"   '                       or ("__SUBST__" in t and from_sel)                 # kill $(pgrep …)' '' 'kill $(pgrep -f newman)'
-mutant "kill -1 законен"             '                bad = (t == "-1"                                         # все процессы uid' '                bad = (False' 'kill -9 -1'
+mutant "kill -1 законен"             '                bad = (num_is(t, -1)                                     # все процессы uid (-01 = -1)' '                bad = (False' 'kill -9 -1'
 mutant "xargs не передаёт адресаты"  '            if not targets and ctx.get("xargs") and ctx.get("sel"):   # pgrep … | xargs kill' '            if False:' 'pgrep -f x | xargs kill'
-mutant "конвейер не несёт выборщик"  '        if feed_selects(n) or (n.loop == "for" and any(text_selects(x) for x in n.substs)):' '        if False:' 'pgrep x | while read p; do kill "$p"; done'
+mutant "конвейер не несёт выборщик"  '        if feed_selects(n) or own_in or head_in' '        if own_in or head_in' 'pgrep x | while read p; do kill "$p"; done'
 mutant "ps без id — не выборщик"     '    if base == "ps":
         return ps_by_pattern(args)' '    if base == "ps":
         return False' "ps aux | grep newman | awk '{print \$2}' | xargs kill"
@@ -378,6 +419,17 @@ mutant "сигнал 0 доставляет"         '            if zero:
 mutant "fuser -k пропущен"           '        if base == "fuser":' '        if False:' 'fuser -k 8080/tcp'
 mutant "метка снимает снятие"        '    kills = [f for f in j.found if f.cls in KILL_CLASSES]' '    kills = []' 'timeout 500 pkill -f x # no-wait-exempt ci-watcher 9m'
 mutant "фон снимает снятие"          '        if self.kill_form(base, args, substs, ctx, shown):' '        if not bg and self.kill_form(base, args, substs, ctx, shown):' 'pkill -f x > /dev/null 2>&1 &'
+mutant "вход < <(…) не судится"     '        own_in = stdin_selects(n.redir, n.redir_substs) if n.kind == "group" else stdin_selects(n.text, n.substs)' '        own_in = False' 'xargs kill < <(pgrep x)'
+mutant "хвост цикла < <(…) потерян"   '            while self.peek()[0] == "subst" and self.past_substs() == ("kw", closer):' '            while False:' 'while read p; do kill $p; done < <(pgrep x)'
+mutant "here-string не источник"     '0?(<<<|<>|<)(?!<)' '0?(<>|<)(?!<)' 'xargs kill <<< "$(pgrep x)"'
+mutant "here-string без кавычек не источник" $'\']?([^' $'\']([^' 'xargs kill <<< $(pgrep x)'
+mutant "kill: -01 по написанию"     '                bad = (num_is(t, -1)' '                bad = (t == "-1"' 'kill -9 -01'
+mutant "kill -s: -01 по написанию"  '                bad = (num_is(t, -1)' '                bad = (t == "-1"' 'kill -s KILL -01'
+mutant "pkill -P 01 по написанию"   'and any(num_is(x, 1) for x in v.split(","))' 'and "1" in v.split(",")' 'pkill -P 01'
+mutant "-P \$(pgrep) — id"           '                if ("__SUBST__" in val and sub_sel) or' '                if False or' 'pkill -P $(pgrep x)'
+mutant "-g \$(pgrep) — id"           '                if ("__SUBST__" in val and sub_sel) or' '                if False or' 'pkill -g $(pgrep -f x)'
+mutant "time -p съедает команду"    '"time": ("-o", "--output", "-f", "--format")' '"time": ("-o", "--output", "-f", "--format", "-p")' 'time -p pkill -f x'
+mutant "command -p съедает команду" '"command": ()' '"command": ("-p",)' 'command -p pkill -f x'
 mutant "nohup отсоединяет"          '        if base in ("nohup", "nice",' '        if base == "nohup":
             detached = True
         if base in ("nohup", "nice",' 'nohup timeout 3600 go test ./... > l 2>&1'
