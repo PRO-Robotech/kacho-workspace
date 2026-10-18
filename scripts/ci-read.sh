@@ -142,6 +142,9 @@
 #                      условного чтения; пробы дают свой);
 #   CI_READ_GH_CONDITIONAL=1 — подставной gh знает `-i` и If-None-Match (двойник
 #                      scripts/ci-read-fixtures/gh-twin.sh); без него — чтение без условия.
+#   CI_READ_REQUIRED_OUT — файл, куда пишется набор обязательных контекстов базы
+#                      (защита и наборы правил, по строке на имя; пустой — ноль
+#                      прочитан), которым судится (б); берёт merge-readiness.sh.
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -434,6 +437,12 @@ else
 fi
 sort -u -o "$W/req.txt" "$W/req.txt"
 REQN="$(grep -c . "$W/req.txt")"
+# Набор, которым судится (б), — вызывающему (merge-readiness.sh, путь базы без
+# контекстов; ws#1215): пустой набор, прочитанный из защиты и наборов правил, —
+# установленный ноль, а не «не получено». Пишется до правки черновика.
+if [ -n "${CI_READ_REQUIRED_OUT:-}" ]; then
+    cp "$W/req.txt" "$CI_READ_REQUIRED_OUT" || void "набор обязательных не записан в $CI_READ_REQUIRED_OUT"
+fi
 # неполный набор — тоже «ещё идёт»: недостающий обязательный контекст мог не стартовать
 PENDING_ANY="$(grep -cP '^REASON\t(CI-PENDING|RUNS-PENDING|CHECKS-INCOMPLETE)\t' "$R")"
 [ "$DRAFT" != true ] || : > "$W/req.txt"   # черновик: обязательные не судятся (см. (г))

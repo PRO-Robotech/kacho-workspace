@@ -100,6 +100,8 @@
 #             между чтениями сменились ветка базы | commit status |
 #             черновик — кэш смену не прячет                       → 4 | 1 | 3;
 #             заглушка без `-i` (check-09) — чтение без условия     → 0 green
+#   набор обязательных вызывающему (CI_READ_REQUIRED_OUT, ws#1215): контекст
+#             защиты | пустой без защиты | контекст набора правил   → 0, файл
 #   живая ведомость: запрос в main каждого ствола (kacho, kaname,
 #             corelib, kacho-workspace) — строка есть             → 0 green
 #   живая ведомость: запрос в базу КАЖДОЙ строки (стволы и эпики,
@@ -160,6 +162,8 @@
 #   red-not-first       — (е2) снято: судится последняя по started_at, ранний красный
 #                         другого check_suite закрыт поздним success;
 #   null-suite-ignored  — check-run с check_suite null выпал из суда;
+#   required-out-dropped — набор обязательных вызывающему не пишется (ws#1215);
+#   required-out-empty  — вызывающему пишется пустой набор при непустом;
 #   no-rule-e           — (е) снято целиком (прежняя форма «последний по имени»);
 #   expect-compare-dropped — сверка числа снята: CHECKS-INCOMPLETE не выносится (ws#1097);
 #   rate-limit-dropped  — проверка лимита до чтения снята (урок 2026-10-16, ws#1110);
@@ -240,11 +244,18 @@ fi
 # кэш условного чтения — свой у клетки: клетки идут параллельно и судят разные ответы;
 # noinc — двойник в форме заглушки без `-i`
 if [ -f "$C/noinc" ]; then export GH_TWIN_NO_INCLUDE=1; fi
+# reqout — случай судит набор обязательных, отданный вызывающему (ws#1215): строка
+# REQOUT с именами через «|» либо REQOUT-ABSENT, если файла нет
+if [ -f "$C/reqout" ]; then rm -f "$O.req"; export CI_READ_REQUIRED_OUT="$O.req"; fi
 out="$(CI_STATE_DIR="$O.state" CI_READ_GH_CONDITIONAL=1 CI_READ_GH="$GHX" CI_READ_FX="$C" CI_READ_EXPECTED="$L" bash "$S" "$(cat "$C/repo")" 3140 $(cat "$C/args" 2>/dev/null) 2>&1)"; code=$?
 if [ -d "$C/2" ]; then  # второе чтение тем же кэшем условного чтения по ответам $C/2: судится оно
     out="$(CI_STATE_DIR="$O.state" CI_READ_GH_CONDITIONAL=1 CI_READ_GH="$GHX" CI_READ_FX="$C/2" CI_READ_EXPECTED="$L" bash "$S" "$(cat "$C/repo")" 3140 2>&1)"; code=$?
 fi
 rm -rf "$O.state"
+if [ -f "$C/reqout" ]; then
+    if [ -f "$O.req" ]; then out="$out"$'\n'"REQOUT"$'\t'"$(paste -sd'|' "$O.req")"; else out="$out"$'\n'"REQOUT-ABSENT"; fi
+    rm -f "$O.req"
+fi
 pat="$(cat "$C/pat")"
 if [ "$code" -eq "$(cat "$C/code")" ] && { [ -z "$pat" ] || grep -qP "$pat" <<<"$out"; } && grep -qP "^VERDICT\t" <<<"$out"; then
     printf 'OK\t%s\n' "$code" > "$O"
@@ -599,6 +610,15 @@ run "между чтениями запрос стал черновиком — 
 mk; : > "$C/noinc"
 run "заглушка без -i (форма check-09): отказ на -i — чтение без условия, зелёное" 0 '^VERDICT\tgreen\t.*проверок 68 из 68'
 
+say "== набор обязательных — вызывающему (ws#1215: merge-readiness, путь базы без контекстов)"
+mk; : > "$C/reqout"
+run "набор отдан: обязательный контекст защиты базы" 0 "^REQOUT\t\Q$AGG_REQ\E$"
+mk; : > "$C/reqout"; rm "$C/protection.json"; echo 'gh: Branch not protected (HTTP 404)' > "$C/protection.json.err"
+run "защиты нет, наборов правил нет: набор отдан пустым — установленный ноль" 0 '^REQOUT\t$'
+mk; : > "$C/reqout"; rm "$C/protection.json"; echo 'gh: Branch not protected (HTTP 404)' > "$C/protection.json.err"
+jq -n --arg n "$AGG_REQ" '[{type: "required_status_checks", parameters: {required_status_checks: [{context: $n}]}}]' > "$C/rules.json"
+run "защиты нет, контекст из набора правил: отдан" 0 "^REQOUT\t\Q$AGG_REQ\E$"
+
 say "== близнецы — молчат"
 mk; edit check-runs.json '.check_runs = [(.check_runs | sort_by(.name) | .[0]) | .conclusion="failure" | .started_at="2000-01-01T00:00:00Z"] + .check_runs'
 run "прежний failure первым в ответе, последний success" 0 '^VERDICT\tgreen\t'
@@ -661,6 +681,8 @@ both-forms-checkrun-wins	/| if (\$bad | length) > 0 then \$bad\[0\] elif/s/if (\
 etag-fallback-dropped	/if \[ "\$rc" -ne 0 \]; then EC=""; api "\$p"; return; fi/s/then EC=""; api "\$p"; return; fi/then return "$rc"; fi/
 etag-hit-blind	/HTTP\/\*\x27 304\x27\*)/s/HTTP\/\*\x27 304\x27\*)/HTTP\/*)/
 etag-hit-blind-any	/^    if \[ -f "\$f" \] \&\& IFS= read -r e/s/then hdr=(-H "If-None-Match: \$e"); fi/then CONDHIT=$((CONDHIT + 1)); sed 1d "$f"; return 0; fi/
+required-out-dropped	/cp "$W\/req.txt" "$CI_READ_REQUIRED_OUT"/s/cp "$W\/req.txt"/: "$W\/req.txt"/
+required-out-empty	/cp "$W\/req.txt" "$CI_READ_REQUIRED_OUT"/s/cp "$W\/req.txt"/cp \/dev\/null/
 no-rule-e	/\.drop = (\$pr and/s/\.drop = (\$pr and/.drop = (false and/;/if (\$red | length) > 0/s/if (\$red | length) > 0/if false/
 MUT
 for tr in $TRUNKS; do

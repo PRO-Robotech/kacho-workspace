@@ -72,6 +72,8 @@ fi
 [ "$1" = api ] || { echo "fake gh: только api и pr view" >&2; exit 64; }
 case "$2" in
     */branches/*/protection)
+        # База без защиты (ветка эпика, kaname#900): ответ площадки — 404 «Branch not protected».
+        if [ -f "$FAKE/protection-404" ]; then echo '{"message":"Branch not protected","status":"404"}'; exit 1; fi
         [ -f "$FAKE/protection.json" ] || { echo "fake gh: защиты в случае нет" >&2; exit 64; }
         cat "$FAKE/protection.json" ;;
     */issues/*/comments\?per_page=100)
@@ -116,9 +118,10 @@ esac
 GH
 chmod +x "$W/gh"
 # Заглушка отдаёт набор обязательных так же, как настоящий merge-readiness: файлом
-# MERGE_READINESS_REQUIRED_OUT; набор случая — $FAKE/required (нет файла — набора нет).
+# MERGE_READINESS_REQUIRED_OUT; набор случая — $FAKE/required (нет файла — набора нет),
+# основание — $FAKE/required.basis (ws#1215: пустой набор с ним — установленный ноль).
 # shellcheck disable=SC2016  # тело заглушки — текст скрипта, подстановка — в нём
-for c in 0 1 2; do printf '#!/usr/bin/env bash\n[ -z "${MERGE_READINESS_REQUIRED_OUT:-}" ] || [ ! -f "$FAKE/required" ] || cp "$FAKE/required" "$MERGE_READINESS_REQUIRED_OUT"\necho "merge-readiness stub: код %s"\nexit %s\n' "$c" "$c" > "$W/mr$c"; done
+for c in 0 1 2; do printf '#!/usr/bin/env bash\n[ -z "${MERGE_READINESS_REQUIRED_OUT:-}" ] || [ ! -f "$FAKE/required" ] || cp "$FAKE/required" "$MERGE_READINESS_REQUIRED_OUT"\n[ -z "${MERGE_READINESS_REQUIRED_OUT:-}" ] || [ ! -f "$FAKE/required.basis" ] || cp "$FAKE/required.basis" "$MERGE_READINESS_REQUIRED_OUT.basis"\necho "merge-readiness stub: код %s"\nexit %s\n' "$c" "$c" > "$W/mr$c"; done
 
 # twin — свежий близнец в $W/case: захват + две названные правки.
 twin() {
@@ -318,6 +321,33 @@ twin; addskip; rm "$W/case/required"; run 0
 expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (набор обязательных' "набор от merge-readiness не получен — skipped не снимается"
 twin; addskip; : > "$W/case/required"; run 0
 expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (набор обязательных' "пустой набор — не «всё необязательно»"
+# ws#1215 (kaname#900 @78e68ecc): запрос в ветку эпика без защиты — набор судит ci-read по
+# ведомости, обязательных 0 прочитано из защиты и наборов правил базы; merge-readiness
+# отдаёт пустой набор С основанием. Установленный ноль снимает skipped лишь при
+# невыполнимом if (условия 2 и 3 те же); тот же skipped в наборе — причина.
+basis() { echo "ci-read: защита и наборы правил базы 1266, строка ведомости 74" > "$W/case/required.basis"; }
+twin; addskip; : > "$W/case/required"; basis; run 0
+expect 0 - "(ws#1215) пустой набор с основанием — установленный ноль: skipped по if push-в-main ×4 не причина"
+if grep -q $'^CENSUS\tci: .*skipped по невыполнимому if 4; набор обязательных 0 — установленный ноль (ci-read: ' "$W/out"; then
+    echo "  [OK]   перепись называет набор 0 и его основание"; pass=$((pass + 1))
+else echo "  [FAIL] перепись не называет «набор обязательных 0 — установленный ноль (основание)»:" >&2; sed 's/^/           /' "$W/out" >&2; fail=$((fail + 1)); fi
+twin; addskip; echo "$TRUNKJOB" > "$W/case/required"; basis; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (контекст обязательный)' "(ws#1215) близнец: skipped обязательной при наборе с основанием — причина"
+twin; addskip; : > "$W/case/required"; basis; setif del; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (.github/workflows/' "(ws#1215) установленный ноль не снимает skipped без условия if"
+# Мутант предпроверки: основание не читается — проба «установленный ноль» обязана упасть.
+sed 's|    if not required and not req_basis:|    if not required:|' "$TOOL" > "$W/mut/precheck-nobasis.sh"
+if cmp -s "$TOOL" "$W/mut/precheck-nobasis.sh"; then
+    echo "  [FAIL] мутант «основание не читается»: образец не найден" >&2; fail=$((fail + 1))
+else
+    twin; addskip; : > "$W/case/required"; basis
+    FAKE="$W/case" LANDING_PRECHECK_GH="$W/gh" LANDING_PRECHECK_MERGE_READINESS="$W/mr0" \
+        bash "$W/mut/precheck-nobasis.sh" PRO-Robotech/kacho 3036 > "$W/out" 2>&1
+    mcode=$?
+    if [ "$mcode" = 1 ] && grep -q $'^REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (набор обязательных' "$W/out"; then
+        echo "  [OK]   мутант «основание не читается» пойман: код 1 там, где установленный ноль"; pass=$((pass + 1))
+    else echo "  [FAIL] мутант «основание не читается» не пойман: код $mcode" >&2; sed 's/^/           /' "$W/out" >&2; fail=$((fail + 1)); fi
+fi
 twin; addskip
 # shellcheck disable=SC2016  # $n — переменная jq
 edit check-runs.json --arg n "$TRUNKJOB" '(.check_runs[] | select(.name == $n) | .conclusion) |= "neutral"'; run 0
@@ -588,6 +618,41 @@ else
     runreal
     expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (набор обязательных' "инъекция: merge-readiness не отдаёт набор — skipped остаётся причиной"
 fi
+# ws#1215 — путь базы без контекстов (kaname#900): защиты нет (404), строка ведомости
+# kacho/1266 есть, вердикт выносит ci-read. Здесь ci-read песочницы — заглушка кода 0,
+# отдающая набор CI_READ_REQUIRED_OUT (пустой либо с заданием), как настоящий (его
+# собственная запись набора — ci-read-inject.sh, раздел «набор обязательных»). Настоящий
+# merge-readiness обязан передать набор с основанием; без основания — skipped причина.
+mrledger() {  # mrledger [имя обязательного] — набор, который отдаёт заглушка ci-read
+    mrskip
+    rm -f "$W/case/protection.json"; : > "$W/case/protection-404"
+    : > "$W/case/ci-required"; [ -z "${1:-}" ] || printf '%s\n' "$1" > "$W/case/ci-required"
+    cat > "$W/ws/scripts/ci-read.sh" <<'STUB'
+#!/usr/bin/env bash
+[ -z "${CI_READ_REQUIRED_OUT:-}" ] || cp "$FAKE/ci-required" "$CI_READ_REQUIRED_OUT"
+printf 'VERDICT\tgreen\tкод 0 (заглушка ci-read)\n'
+STUB
+    sandbox_git -C "$W/ws" commit -qam ci-read-stub; sandbox_git -C "$W/ws" update-ref refs/remotes/origin/main HEAD
+}
+mrledger; runreal
+expect 0 - "(ws#1215) база без защиты, вердикт ci-read: настоящий merge-readiness отдал набор 0 с основанием — skipped по if ×4 не причина"
+if grep -q $'^CENSUS\tci: .*skipped по невыполнимому if 4; набор обязательных 0 — установленный ноль (ci-read: защита и наборы правил базы 1266' "$W/out"; then
+    echo "  [OK]   перепись: набор 0 — от ci-read, основание названо"; pass=$((pass + 1))
+else echo "  [FAIL] перепись не называет основание набора 0:" >&2; sed 's/^/           /' "$W/out" >&2; fail=$((fail + 1)); fi
+mrledger "$TRUNKJOB"; runreal
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (контекст обязательный)' "(ws#1215) близнец: ci-read назвал задание обязательным — skipped причина"
+# Инъекция (форма origin/main до правки): путь ci-read набора не передаёт.
+mrledger
+# shellcheck disable=SC2016  # образец — текст скрипта
+sed -i 's|if \[ -n "${MERGE_READINESS_REQUIRED_OUT:-}" \] && \[ -f "$workdir/ci-required" \]; then|if false; then|' "$W/ws/scripts/merge-readiness.sh"
+if cmp -s "$HERE/merge-readiness.sh" "$W/ws/scripts/merge-readiness.sh"; then
+    echo "  [FAIL] инъекция «путь ci-read не отдаёт набор»: образец не найден" >&2; fail=$((fail + 1))
+else
+    sandbox_git -C "$W/ws" commit -qam mutant-ledger; sandbox_git -C "$W/ws" update-ref refs/remotes/origin/main HEAD
+    runreal
+    expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (набор обязательных' "(ws#1215) инъекция: путь ci-read не передаёт набор — skipped остаётся причиной"
+fi
+rm -f "$W/case/protection-404"
 mrcase 1; rm "$W/case/comments-2690.json"; runreal
 expect 1 $'REASON\tMERGE-READINESS\tкод 1' "Closes #2690 без DoD-proof — merge-readiness судит по существу (код 1)" many
 mrcase 0; runreal

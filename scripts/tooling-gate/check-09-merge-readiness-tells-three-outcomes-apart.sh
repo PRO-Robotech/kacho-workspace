@@ -562,6 +562,10 @@ lg_case LG-GREEN 5 "${LG5[@]}" >/dev/null
 lg_case LG-RED 5 "${LG5[@]:0:4}" "проба-5=failure" >/dev/null
 lg_case LG-SHORT 5 "${LG5[@]:0:4}" >/dev/null
 d="$(lg_case LG-VOID 5 "${LG5[@]}")"; rm "$d/compare.json"
+# LG-RULES — защиты нет, контекст требует набор правил базы: ci-read судит его и отдаёт
+# набором вызывающему (ws#1215; суд — ниже, «набор пути ci-read»).
+d="$(lg_case LG-RULES 5 "${LG5[@]}")"
+jq -n --arg n "$CTX_LAT" '[{type:"required_status_checks", parameters:{required_status_checks:[{context:$n}]}}]' > "$d/rules.json"
 d="$(lg_case LG-NOLEDGER 5 "${LG5[@]}")"; rm "$d/ledger.tsv"; : > "$d/ledger.missing"
 # LG-STALE — база ушла вперёд: merge-base головы ≠ голове базы; ci-read код 4.
 d="$(lg_case LG-STALE 5 "${LG5[@]}")"
@@ -1258,6 +1262,29 @@ probe "$PRODUCT_REPO" "$TMP/case-PF-HOSTBROKEN" 2 "поле хостинга н�
     "РАЗБОР СЛОМАН — поле closingIssuesReferences"
 
 judge_probes
+
+# ── НАБОР ПУТИ ci-read — ВЫЗЫВАЮЩЕМУ (ws#1215, kaname#900) ──────────────────────
+# База без контекстов со строкой ведомости: набор обязательных выводит НАСТОЯЩИЙ ci-read
+# (защита и наборы правил базы), merge-readiness отдаёт его файлом
+# MERGE_READINESS_REQUIRED_OUT с основанием `<файл>.basis`. Пустой набор с основанием —
+# установленный ноль (landing-precheck снимает по нему skipped с невыполнимым if);
+# без файла предпроверка считает любой skipped причиной.
+req_e2e() {  # req_e2e <случай> <ожидаемый набор, строка или пусто> <имя>
+    local d="$TMP/case-$1" o="$TMP/req-$1" rc got
+    probes=$((probes + 1)); by_code[0]=$(( ${by_code[0]:-0} + 1 )); by_repo[$PRODUCT_REPO]=$(( ${by_repo[$PRODUCT_REPO]:-0} + 1 ))
+    rm -f "$o" "$o.basis"
+    PATH="$STUB:$PATH" MR_FIXTURE="$d" CI_READ_GH="" CI_READ_EXPECTED="$d/ledger.tsv" MERGE_READINESS_REQUIRED_OUT="$o" \
+        bash "$WS/$TOOL_REL" "$PRODUCT_REPO" 1 > "$o.out" 2>&1 && rc=0 || rc=$?
+    got="$(cat "$o" 2>/dev/null)"
+    if [ "$rc" = 0 ] && [ -f "$o" ] && [ "$got" = "$2" ] && grep -q '^ci-read: защита и наборы правил базы '"$LG_BASE"', строка ведомости 5$' "$o.basis" 2>/dev/null; then
+        tooling_gate_census "$NAME: [$1] $3 — код 0, набор «$got», основание «$(cat "$o.basis")»"
+    else
+        tooling_gate_fail "$NAME" "[$1] $3 — код $rc, набор «$got» (ждали «$2»), основание «$(cat "$o.basis" 2>/dev/null)»: $(tail -n 3 "$o.out" | tr '\n' ' ')"
+        findings=$((findings + 1))
+    fi
+}
+req_e2e LG-GREEN "" "защиты и наборов правил нет — набор отдан пустым с основанием"
+req_e2e LG-RULES "$CTX_LAT" "контекст набора правил — отдан набором с основанием"
 
 tooling_gate_census "$NAME: проб исполнено $probes над $TOOL_REL; источников вердикта два — контексты (продукт, проб ${by_repo[$PRODUCT_REPO]:-0}) и ручной прогон либо контексты воркспейса по защите базы (проб ${by_repo[$WS_REPO]:-0}); по исходам: 0 — ${by_code[0]:-0}, 1 — ${by_code[1]:-0}, 2 — ${by_code[2]:-0}"
 tooling_gate_census "$NAME: $locale_note"
