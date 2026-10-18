@@ -78,6 +78,14 @@
 #                одного процесса живого снимка — код 2 (не «чисто»).
 #   UNREACTED-WF workflow завершён дольше STALL_REACT_MIN (10) мин назад, а у
 #                главного потока после этого нет ни одной записи assistant.
+#   Остановленный харнессом (ws#1033) — последнее событие агента в ГЛАВНОМ журнале есть
+#                терминальное `<task-notification>` (status completed | failed | killed |
+#                stopped): оно не старше последней записи агента более чем на 3 с, а
+#                возобновления (`SendMessage` отвечает `resumedAgentId`) после него нет.
+#                Убитый `TaskStop` или прерванный посреди хода агент не исполняется, а его
+#                журнал кончается записью user («ответ модели на сообщение») — по хвосту
+#                журнала он неотличим от стоящего. Не судится ни STALL-AGENT, ни STALL-POLL;
+#                счёт — «остановленных харнессом». Главный журнал читается только при находке.
 #
 # Окно — STALL_HORIZON_MIN (360) мин: брошенный журнал убитой сессии старше окна
 # не судится, иначе строка печаталась бы вечно и перестала бы читаться.
@@ -359,9 +367,66 @@ def last_message(path):
     return t, 'result', 'ответ модели на сообщение'
 
 
+TS_RE = re.compile(rb'"timestamp":\s*"(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)')
+
+
+def harness_stopped(aid, t):
+    """Харнесс агента НЕ исполняет: последним событием жизни агента в главном журнале
+    стоит терминальное уведомление `<task-notification>` (status completed | failed |
+    killed | stopped), а не возобновление. Журнал самого агента этого не знает: убитый
+    посреди хода (TaskStop, прерывание) он кончается записью user, и по хвосту такой
+    агент неотличим от стоящего (ws#1033).
+
+    Остановлен, когда уведомление N есть, N не старше последней записи агента t более
+    чем на 3 с (иначе агент дописывал журнал после него — возобновлён способом, которого
+    главный журнал не видит) и после N нет возобновления R (`SendMessage` отвечает
+    `resumedAgentId`). Метки — секунды, как у `ts`; равенство N и R — не остановлен.
+    Окно чтения растёт (4 МиБ → ×4 → весь файл), пока не накроет t - 5 с: главный журнал
+    у сессии — сотни МБ, читать его весь на каждый ход хука нельзя. Строки отбираются по
+    id до разбора. Читается только при находке — исправный прогон главный журнал не трогает.
+    """
+    if not aid or t is None:
+        return False
+    ab = aid.encode()
+    note = re.compile(rb'<task-id>' + re.escape(ab) + rb'</task-id>(?:(?!</task-notification>).)*?<status>([a-z_]+)</status>', re.S)
+    resumed = re.compile(rb'resumedAgentId\\*"\s*:\s*\\*"' + re.escape(ab))
+    n_last = r_last = None
+    size, total = 4 << 20, os.path.getsize(main)
+    while True:
+        lines = tail_lines(main, size)
+        covered = None
+        for l in lines:
+            m = TS_RE.search(l)
+            if m:
+                covered = ts(m.group(1).decode())
+                break
+        n_last = r_last = None
+        for l in lines:
+            if ab not in l:
+                continue
+            try:
+                r = json.loads(l)
+            except Exception:
+                continue
+            if not isinstance(r, dict) or (r.get('type') == 'queue-operation' and r.get('operation') != 'enqueue'):
+                continue
+            at = ts(str(r.get('timestamp', '')))
+            if at is None:
+                continue
+            if note.search(l):
+                n_last = at if n_last is None else max(n_last, at)
+            if resumed.search(l):
+                r_last = at if r_last is None else max(r_last, at)
+        if size >= total or (covered is not None and covered <= t - 5):
+            break
+        size = min(size * 4, total)
+    return n_last is not None and n_last >= t - 3 and (r_last is None or r_last < n_last)
+
+
 # ── Агенты: workflow живые и агенты верхнего уровня ─────────────────────
 agents_seen = 0
 done_seen = 0  # завершённые (вид 'final'): не судятся
+stopped_seen = 0  # остановленные харнессом (harness_stopped): не судятся
 unread = []  # журналы агентов старше порога без единой разобранной записи
 wf_live = 0
 state_dir = os.path.join(session, 'workflows')
@@ -429,7 +494,12 @@ try:
             continue
         agents_seen += 1
         n, span, last = poll_run(apath)
+        aid = os.path.basename(apath)[len('agent-'):-len('.jsonl')]
+        tt = t if t is not None else int(os.path.getmtime(apath))
         if n >= 2 and span >= POLL_MIN:
+            if harness_stopped(aid, tt):
+                stopped_seen += 1
+                continue
             findings.append('STALL-POLL %s — ожидание вместо работы: %d вызовов подряд за %d мин; последний: %s' % (os.path.basename(apath)[:-6], n, span, last))
             continue
         if age_file < AGENT_MIN * 60:
@@ -441,6 +511,9 @@ try:
             continue
         idle = (now - t) / 60
         if idle >= AGENT_MIN:
+            if harness_stopped(aid, t):
+                stopped_seen += 1
+                continue
             findings.append('STALL-AGENT %s — без нового вызова %d мин; последний: %s' % (os.path.basename(apath)[:-6], idle, what))
 except OSError as e:
     void('журналы агентов не читаются: %s' % e)
@@ -653,8 +726,8 @@ if verbose:
     for x in implausible:
         proc_notes.append('STALL-PROC: возраст неправдоподобен — не судится: %s' % x)
 
-print('CENSUS stall-census: сессия %s%s; workflow живых %d, завершённых в окне %d; агентов осмотрено %d, из них без единой разобранной записи %d; завершённых (не судятся) %d; своя сессия %s (claude %s); фоновых оболочек агентов %d из процессов %d: своих %d, чужих %d, не судимо %d, неправдоподобного возраста %d; отсоединённых (окружение прочитано у %d процессов, меченых %d): корней %d — своих %d (claude жив %d, в объявленном сроке %d), чужих %d, неправдоподобного возраста %d; пороги агент %d мин, опрос %d мин, завершённый %d мин, процесс %d мин, реакция %d мин, окно %d мин'
-      % (os.path.basename(session), sess_note, wf_live, wf_done, agents_seen, len(unread), done_seen, own_sid or 'не определена', own_pid or '?', shells, len(procs), mine, foreign, len(unjudged), len(implausible) - det_implausible, env_read, len(marked), det_roots, det_mine, det_live, det_term, det_foreign, det_implausible, AGENT_MIN, POLL_MIN, DONE_MIN, PROC_MIN, REACT_MIN, HORIZON_MIN))
+print('CENSUS stall-census: сессия %s%s; workflow живых %d, завершённых в окне %d; агентов осмотрено %d, из них без единой разобранной записи %d; завершённых (не судятся) %d, остановленных харнессом (не судятся) %d; своя сессия %s (claude %s); фоновых оболочек агентов %d из процессов %d: своих %d, чужих %d, не судимо %d, неправдоподобного возраста %d; отсоединённых (окружение прочитано у %d процессов, меченых %d): корней %d — своих %d (claude жив %d, в объявленном сроке %d), чужих %d, неправдоподобного возраста %d; пороги агент %d мин, опрос %d мин, завершённый %d мин, процесс %d мин, реакция %d мин, окно %d мин'
+      % (os.path.basename(session), sess_note, wf_live, wf_done, agents_seen, len(unread), done_seen, stopped_seen, own_sid or 'не определена', own_pid or '?', shells, len(procs), mine, foreign, len(unjudged), len(implausible) - det_implausible, env_read, len(marked), det_roots, det_mine, det_live, det_term, det_foreign, det_implausible, AGENT_MIN, POLL_MIN, DONE_MIN, PROC_MIN, REACT_MIN, HORIZON_MIN))
 for f in findings:
     print(f)
 for n in proc_notes:

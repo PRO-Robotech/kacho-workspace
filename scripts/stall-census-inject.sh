@@ -18,6 +18,10 @@
 # Отсоединённые процессы (ws#1154) — пробы Д1–Д9 и их мутанты: отбор по метке окружения,
 # живой близнец, законный срок, чужая сессия, переиспользованный pid, «не судимо».
 #
+# Остановленный харнессом агент (ws#1033) — пробы `stop_cases` и их мутанты: уведомление
+# `<task-notification>` главного журнала после последней записи агента, возобновление после
+# него, снятие уведомления из очереди, чужой id в тексте, уведомление глубже хвоста 4 МиБ.
+#
 # Коды: 0 — все пробы сошлись; 1 — нет; 2 — нет python3: вердикта нет.
 set -uo pipefail
 
@@ -158,8 +162,8 @@ finish_cases() {
     probe 1 "инъекция: два опроса без итога, вызов не закрыт — STALL-POLL" "STALL-POLL agent-t1" --session "$s" --ps "$T/ps"
 }
 finish_cases
-# fmutant <имя> <было> <стало>: копия прибора с одной правкой; пробы
-# finish_cases обязаны разойтись хоть в одной.
+# fmutant <имя> <было> <стало> [пробы]: копия прибора с одной правкой; пробы
+# (по умолчанию finish_cases) обязаны разойтись хоть в одной.
 fmutant() {
     local MD="$T/fmut/scripts" p0="$pass" f0="$fail" mp mf C0="$C"
     rm -rf "$T/fmut"; mkdir -p "$MD/lib"; cp "$HERE/lib/ws-home.sh" "$MD/lib/"
@@ -173,7 +177,7 @@ open(dst, 'w').write(s.replace(was, now))
 MUTPY
     then echo "  [FAIL] мутант «$1»: образец не найден в приборе — не лёг" >&2; fail=$((fail + 1)); return; fi
     failed=""; quiet=1; C="$MD/stall-census.sh"
-    finish_cases
+    "${4:-finish_cases}"
     C="$C0"; quiet=""; mp=$((pass - p0)); mf=$((fail - f0)); pass="$p0"; fail="$f0"
     if [ "$mf" -gt 0 ]; then
         echo "  [OK]   мутант «$1» красный: разошлось $mf из $((mp + mf)): ${failed#; }"; pass=$((pass + 1))
@@ -189,6 +193,71 @@ fmutant "tool_use — завершение" "FINAL_STOP = ('end_turn', 'stop_seq
 fmutant "завершение — любой непустой stop_reason" "sr in FINAL_STOP or" "sr or"
 fmutant "завершённый в workflow не пропускается" $'                if age_file < DONE_MIN * 60:\n                    agents_seen += 1\n                continue' $'                if age_file < DONE_MIN * 60:\n                    agents_seen += 1'
 fmutant "давность не различается" $'\n            if age_file < DONE_MIN * 60:\n                agents_seen += 1\n            continue' $'\n            agents_seen += 1\n            continue'
+
+echo "== агент, остановленный харнессом не судится (ws#1033: убитый TaskStop числился застоем, журнал кончался записью user)"
+# note <главный журнал> <минут назад> <id> <статус> [операция [текст]> — терминальное
+# уведомление харнесса; resume — ответ SendMessage о возобновлении (формы живого журнала).
+note() { printf '{"type":"queue-operation","operation":"%s","timestamp":"%s","sessionId":"x","content":"<task-notification>\\n<task-id>%s</task-id>\\n<status>%s</status>\\n<summary>Agent stopped</summary>\\n<result>%s</result>\\n</task-notification>"}\n' "${5:-enqueue}" "$(iso "$2")" "$3" "$4" "${6:-итог}" >> "$1"; }
+resume() { printf '{"type":"user","timestamp":"%s","message":{"role":"user","content":[{"type":"tool_result","content":"{\\"success\\":true,\\"message\\":\\"Resuming agent %s\\",\\"resumedAgentId\\":\\"%s\\"}"}]}}\n' "$(iso "$2")" "$3" "$3" >> "$1"; }
+# stop_cases — пробы остановки; их же гонят мутанты ниже.
+stop_cases() {
+    local s a st
+    rm -rf "$T"/stop-*  # прогон мутанта начинает с чистых журналов: rec и note дописывают
+    for st in killed completed failed stopped; do
+        s="$(session stop-$st)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+        rec "$a" 60 tool; rec "$a" 40 ask
+        note "$s.jsonl" 40 t1 "$st"
+        absent="STALL-AGENT" probe 0 "близнец: харнесс остановил агента ($st), журнал кончается записью user — не застой" "остановленных харнессом (не судятся) 1" --session "$s" --ps "$T/ps"
+    done
+    s="$(session stop-result)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    rec "$a" 60 tool; rec "$a" 40 result
+    note "$s.jsonl" 40 t1 killed
+    absent="STALL-AGENT" probe 0 "близнец: остановлен, журнал кончается результатом инструмента — не застой" "остановленных харнессом (не судятся) 1" --session "$s" --ps "$T/ps"
+    s="$(session stop-live)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    rec "$a" 60 tool; rec "$a" 40 ask
+    probe 1 "инъекция: тот же журнал без уведомления харнесса — агент жив и стоит, STALL-AGENT" "STALL-AGENT agent-t1" --session "$s" --ps "$T/ps"
+    s="$(session stop-resumed-worked)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    rec "$a" 70 tool; rec "$a" 60 ask; rec "$a" 50 ask; rec "$a" 40 tool "go test ./..."
+    note "$s.jsonl" 60 t1 killed; resume "$s.jsonl" 50 t1
+    probe 1 "инъекция: остановлен, возобновлён, работал и снова стоит 40 мин — STALL-AGENT" "STALL-AGENT agent-t1" --session "$s" --ps "$T/ps"
+    s="$(session stop-resumed-unseen)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    rec "$a" 70 tool; rec "$a" 60 ask; rec "$a" 50 ask; rec "$a" 40 tool "go test ./..."
+    note "$s.jsonl" 60 t1 killed
+    probe 1 "инъекция: после остановки агент дописал журнал, возобновления в главном журнале нет — жив, STALL-AGENT" "STALL-AGENT agent-t1" --session "$s" --ps "$T/ps"
+    s="$(session stop-resumed-silent)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    rec "$a" 60 tool; rec "$a" 40 ask
+    note "$s.jsonl" 40 t1 killed; resume "$s.jsonl" 39 t1
+    probe 1 "инъекция: возобновление после остановки, журнал молчит — харнесс исполняет, STALL-AGENT" "STALL-AGENT agent-t1" --session "$s" --ps "$T/ps"
+    s="$(session stop-dequeue)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    rec "$a" 60 tool; rec "$a" 40 ask
+    note "$s.jsonl" 40 t1 killed; resume "$s.jsonl" 39 t1; note "$s.jsonl" 38 t1 killed remove
+    probe 1 "инъекция: снятие уведомления из очереди позже возобновления — не новая остановка, STALL-AGENT" "STALL-AGENT agent-t1" --session "$s" --ps "$T/ps"
+    s="$(session stop-other)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    rec "$a" 60 tool; rec "$a" 40 ask
+    note "$s.jsonl" 40 t2 killed enqueue "итог ждёт t1"
+    probe 1 "инъекция: остановлен другой агент, t1 назван лишь в тексте — STALL-AGENT" "STALL-AGENT agent-t1" --session "$s" --ps "$T/ps"
+    s="$(session stop-big)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    rec "$a" 60 tool; rec "$a" 40 ask
+    note "$s.jsonl" 40 t1 killed
+    local pad; pad="$(head -c 1000000 /dev/zero | tr '\0' 'x')"
+    for _ in 1 2 3 4 5; do printf '{"type":"attachment","timestamp":"%s","pad":"%s"}\n' "$(iso 30)" "$pad" >> "$s.jsonl"; done
+    absent="STALL-AGENT" probe 0 "близнец: уведомление глубже хвоста 4 МиБ главного журнала — окно растёт, не застой" "остановленных харнессом (не судятся) 1" --session "$s" --ps "$T/ps"
+    s="$(session stop-poll)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    rec "$a" 45 tool "until grep -q rc= run.log; do sleep 60; done"; rec "$a" 44 tool "timeout 30 gh pr checks 1119"; rec "$a" 40 ask
+    probe 1 "инъекция: два опроса и тишина, уведомления нет — STALL-POLL" "STALL-POLL agent-t1" --session "$s" --ps "$T/ps"
+    note "$s.jsonl" 40 t1 killed
+    absent="STALL-POLL" probe 0 "близнец: те же опросы, агент остановлен харнессом — не STALL-POLL" "остановленных харнессом (не судятся) 1" --session "$s" --ps "$T/ps"
+}
+stop_cases
+fmutant "остановка харнессом не читается" "    return n_last is not None and n_last >= t - 3 and (r_last is None or r_last < n_last)" "    return False" stop_cases
+fmutant "возобновление после остановки не учитывается" "(r_last is None or r_last < n_last)" "True" stop_cases
+fmutant "возобновление не разбирается" "            if resumed.search(l):" "            if False:" stop_cases
+fmutant "уведомление старше записей агента принимается" " and n_last >= t - 3" "" stop_cases
+fmutant "снятие из очереди — уведомление" "(r.get('type') == 'queue-operation' and r.get('operation') != 'enqueue')" "False" stop_cases
+fmutant "любой id в уведомлении" "rb'<task-id>' + re.escape(ab) + rb'</task-id>(?:" "rb'<task-id>[0-9a-z]+</task-id>(?:" stop_cases
+fmutant "окно чтения не растёт" "        size = min(size * 4, total)" "        break" stop_cases
+fmutant "STALL-POLL без проверки остановки" "            if harness_stopped(aid, tt):" "            if False:" stop_cases
+fmutant "STALL-AGENT без проверки остановки" "            if harness_stopped(aid, t):" "            if False:" stop_cases
 
 echo "== workflow без реакции"
 s="$(session unreacted)"
