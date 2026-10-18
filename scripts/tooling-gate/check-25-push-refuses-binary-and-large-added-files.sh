@@ -20,7 +20,11 @@
 #     текст больше 1 МБ вне перечня; бинарь, добавленный и снятый следующим
 #     коммитом; бинарь, внесённый руками в слияние; бинарь под строкой
 #     `*.bin diff` в `.gitattributes`; бинарь в черновике `wip/*`; бинарь при
-#     KACHO_SKIP_PREPUSH=1; законный файл рядом с бинарём (антимаска);
+#     KACHO_SKIP_PREPUSH=1; законный файл рядом с бинарём (антимаска) —
+#     ELF первой и последней из двух ссылок, первой, средней и последней из
+#     трёх; путь глубже шаблона перечня (`*` не пересекает `/`): бинарь в
+#     подкаталоге под `cert-manager-*.tgz`, коллекция в подкаталогах под
+#     `services/*/…`; строка, чей предмет лежит лишь глубже каталогом;
 #     строка перечня без предмета; строка перечня без довода; ELF и крупный
 #     текст, переименованные с правкой (и при `diff.renames=copies`);
 #     опубликованный текст, перезаписанный ELF либо раздутый за порог; ELF в
@@ -31,7 +35,8 @@
 #     близнец); исполняемый текстовый скрипт; текст ровно 1 МБ; бинарь, уже
 #     опубликованный на удалённом; снятие ветки; `git mv` крупного текста без
 #     правки и его копия (нового blob'а нет — при любой `diff.renames`); правка
-#     текста меньше порога; запись строки перечня с предметом;
+#     текста меньше порога; запись строки перечня с предметом; законные
+#     строки перечня (`*` в имени, `**` через каталоги);
 #   не судимо: ссылка удалённого битая — страж выходит 2, хук — 1; стража нет
 #     рядом с хуком — хук отказывает кодом 1 и называет причину.
 #
@@ -186,9 +191,26 @@ branch 1189-elf2; cp "$ELF" "$box/edge"; commit "#1189 бинарь" edge
 expect_refuse edge "черновик wip/* с бинарём" \
     "refs/heads/wip/x $(head_sha) refs/heads/wip/x $ZERO"
 expect_refuse edge "бинарь при KACHO_SKIP_PREPUSH=1" "$(create 1189-elf2)" KACHO_SKIP_PREPUSH=1
-expect_refuse edge "законная ветка рядом с бинарём (антимаска)" \
-    "refs/heads/1189-lawful $(pgit -C "$box" rev-parse 1189-lawful) refs/heads/1189-lawful $ZERO
-$(create 1189-elf2)"
+# Антимаска: судится КАЖДАЯ ссылка отправки на любой позиции входа — мутант
+# «лишь последняя ссылка» молчал, пока законная шла первой, а ELF последним (ws#1194).
+branch 1189-lawful3; printf 'т3\n' > "$box/n3.md"; commit "#1189 текст" n3.md
+pgit -C "$box" checkout -q -f 1189-elf2
+LA="refs/heads/1189-lawful $(pgit -C "$box" rev-parse 1189-lawful) refs/heads/1189-lawful $ZERO"
+LB="refs/heads/1189-lawful3 $(pgit -C "$box" rev-parse 1189-lawful3) refs/heads/1189-lawful3 $ZERO"
+EL="$(create 1189-elf2)"
+expect_refuse edge "законная ветка первой, бинарь последним (антимаска)" "$LA
+$EL"
+expect_refuse edge "бинарь первым, законная ветка второй (антимаска)" "$EL
+$LA"
+expect_refuse edge "три ссылки: бинарь первым (антимаска)" "$EL
+$LA
+$LB"
+expect_refuse edge "три ссылки: бинарь посередине (антимаска)" "$LA
+$EL
+$LB"
+expect_refuse edge "три ссылки: бинарь последним (антимаска)" "$LA
+$LB
+$EL"
 
 # Предмет — новый blob при любом статусе (приёмка r1): правка, переименование с
 # правкой, перезапись опубликованного файла ELF, рост за порог; ELF в первом
@@ -245,6 +267,29 @@ expect_pass "коллекция newman больше 1 МБ по строке п�
 branch 1189-newman2; text "$COLL/b.json" 1500000; commit "#1189 не коллекция" "$COLL/b.json"
 expect_refuse "$COLL/b.json" "тот же текст мимо шаблона перечня — отказ (перечень, а не каталог)" "$(create 1189-newman2)"
 
+# Шаблон перечня — посегментно: `*` не пересекает `/`, `**` — любое число каталогов (ws#1194).
+CH="deploy/helm/umbrella/charts"
+chart() { mkdir -p "$(dirname "$box/$1")"; printf 'TGZ\0%s\n' "$1" > "$box/$1"; }
+CHART_LINE="binary $CH/cert-manager-*.tgz вендоренный чарт песочницы"
+branch 1189-globok; chart "$CH/cert-manager-v1.tgz"; commit "#1189 чарт" "$CH/cert-manager-v1.tgz"
+printf '%s\n' "$CHART_LINE" >> "$ALLOW"
+expect_pass "чарт cert-manager-v1.tgz под строкой cert-manager-*.tgz — законная строка перечня" "$(create 1189-globok)"
+printf 'binary deploy/*.tgz архив чарта\n' >> "$ALLOW"
+expect_refuse "deploy/*.tgz" "строка deploy/*.tgz, чей предмет лишь глубже каталогом, — без предмета" "$(create 1189-globok)"
+branch 1189-globch; chart "$CH/cert-manager-v1.tgz"; chart "$CH/cert-manager-x/evil.tgz"
+commit "#1189 чарт и подкаталог" "$CH/cert-manager-v1.tgz" "$CH/cert-manager-x/evil.tgz"
+printf '%s\n' "$CHART_LINE" >> "$ALLOW"
+expect_refuse "$CH/cert-manager-x/evil.tgz" "бинарь в подкаталоге cert-manager-x/ под cert-manager-*.tgz — «*» не пересекает «/»" "$(create 1189-globch)"
+branch 1189-globnm; mkdir -p "$box/services/a/b/tests/newman/collections/c"; text "services/a/b/tests/newman/collections/c/d.postman_collection.json" 1500000
+commit "#1189 коллекция в подкаталогах" services/a/b/tests/newman/collections/c/d.postman_collection.json
+expect_refuse "services/a/b/tests/newman/collections/c/d.postman_collection.json" \
+    "крупный текст в подкаталогах под services/*/…/collections/*.postman_collection.json — «*» не пересекает «/»" "$(create 1189-globnm)"
+branch 1189-globdeep; mkdir -p "$box/docs/a/b"; text docs/a/b/c.big.txt 1500000; text docs/top.big.txt 1500000
+commit "#1189 крупный текст под **" docs/a/b/c.big.txt docs/top.big.txt
+printf 'size docs/**/*.big.txt крупный текст песочницы\n' >> "$ALLOW"
+expect_pass "строка docs/**/*.big.txt: «**» — любое число каталогов, и ни одного" "$(create 1189-globdeep)"
+cp "$TMP/allow" "$ALLOW"
+
 branch 1189-script; printf '#!/usr/bin/env bash\necho ok\n' > "$box/run.sh"; chmod +x "$box/run.sh"; commit "#1189 скрипт" run.sh
 expect_pass "исполняемый текстовый скрипт" "$(create 1189-script)"
 
@@ -261,7 +306,18 @@ expect_pass "снятие ветки" "(delete) $ZERO refs/heads/1189-pub $(pgit
 
 # ── Не судимо ────────────────────────────────────────────────────────────────
 branch 1189-void; printf 'в\n' > "$box/v.md"; commit "#1189 текст" v.md
-printf 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef\n' > "$box/.git/refs/remotes/origin/broken"
+# Битая ссылка ставится git'ом, а не файлом в refs/: ссылки могут лежать
+# упакованными (каталога refs/remotes/origin нет), а хранилище reftable файлов
+# ссылок не читает. Ссылка ведёт на настоящий коммит, затем его свободный
+# объект снимается — условие не зависит от того, как хранятся ссылки.
+bsha="$(pgit -C "$box" commit-tree "$(pgit -C "$box" rev-parse 'HEAD^{tree}')" -m "#1189 битая ссылка")" &&
+    pgit -C "$box" update-ref refs/remotes/origin/broken "$bsha" &&
+    rm -f "$box/.git/objects/${bsha:0:2}/${bsha:2}" || bsha=""
+if [ -z "$bsha" ] || pgit -C "$box" cat-file -e "$bsha" 2>/dev/null ||
+    [ "$(pgit -C "$box" rev-parse -q --verify refs/remotes/origin/broken)" != "$bsha" ]; then
+    tooling_gate_void "$NAME" "битая ссылка удалённого не создана (объект $bsha жив либо ссылки нет)"
+    exit 2
+fi
 examined=$((examined + 1)); unlawful=$((unlawful + 1))
 code=0
 (cd "$box" && HOME="$SANDBOX_GIT_HOME" bash scripts/hooks/prepush-added-files.sh origin < /dev/null > "$TMP/void.out" 2>&1) || code=$?
@@ -269,7 +325,7 @@ code=0
     fail "битая ссылка удалённого: страж вышел $code вместо 2 — пустой обход прошёл бы зелёным: $(tr '\n' ' ' < "$TMP/void.out")"
 res="$(push "$(create 1189-void)")"
 [ "$(head -1 <<< "$res")" -eq 1 ] || fail "битая ссылка удалённого: хук вышел $(head -1 <<< "$res") вместо 1"
-rm -f "$box/.git/refs/remotes/origin/broken"
+pgit -C "$box" update-ref -d refs/remotes/origin/broken
 
 mv "$box/scripts/hooks/prepush-added-files.sh" "$TMP/guard.away"
 expect_refuse "стража добавленных файлов нет" "стража нет рядом с хуком" "$(create 1189-void)"

@@ -3558,6 +3558,14 @@ if mr_patch "$b/$G25" "s/^(\s*)allow_bad\.append\(a\[0\] \+ ' ' \+ a\[1\] .*\$/\
     run_says 1 "$b" "мутант: строка перечня без предмета молчит — краснеет" "$C25" "строка перечня без предмета"
 fi
 b="$(mksandbox)"
+if mr_patch "$b/$G25" "s/^rng = tcs \+ prev/tcs = tcs[-1:]\nrng = tcs + prev/m" "судится лишь последняя ссылка отправки"; then
+    run_says 1 "$b" "мутант: судится лишь последняя ссылка отправки — краснеет (ws#1194)" "$C25" "бинарь первым, законная ветка второй"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$G25" "s/^(\s*)return seg\(path\.split\('\/'\), pat\.split\('\/'\)\)\$/\$1return fnmatch.fnmatchcase(path, pat)/m" "«*» шаблона перечня пересекает «/»"; then
+    run_says 1 "$b" "мутант: «*» шаблона перечня пересекает «/» — краснеет (ws#1194)" "$C25" "cert-manager-x/ под cert-manager-*.tgz"
+fi
+b="$(mksandbox)"
 if mr_patch "$b/$G25" 's/stdin=req, stdout=subprocess\.PIPE\)/stdin=subprocess.PIPE, stdout=subprocess.PIPE)\n    p.stdin.write(req.read())\n    p.stdin.close()/' \
     "вход cat-file трубой до чтения вывода"; then
     run_says 1 "$b" "мутант: вход cat-file трубой — страж встаёт насмерть, краснеет" "$C25" "встал насмерть"
