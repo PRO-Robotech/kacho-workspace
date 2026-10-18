@@ -9,10 +9,14 @@
 # gate-after-894.sh …), и одни и те же уроки повторялись по полосам (ws#1185):
 #   (в) DoD-proof публиковался итогом при коде 75 — «не выполнилось» выдавалось за итог;
 #   (к) на 74/75 цепочка не повторяла отправку и кончалась «не выполнилось»;
+#   повтор локально (`--local`) — обход внешнего кластера: «занят — 74/75, локально не идёт;
+#   77 — во внешний кластер» (testing-verdict.md#external-cluster-first), поэтому повтор — по
+#   внешнему маршруту, а `--local` — лишь доводом вызывающего;
 #   (м) обёртка `bash -c "cd … && git push"` давала 77 и читалась как красное;
 #   (н) `autoland start` сразу после отправки видел старую голову PR — head-moved (5);
 #   (з) пачка отправок вставала в занятые чужими слоты вслепую;
-#   SIGHUP kaname#882/#894 — `nohup` глушит сигнал завершения у детей (ws#1046).
+#   SIGHUP kaname#882/#894 — `nohup` глушит сигнал завершения у детей (ws#1046); тот же игнор
+#   наследуется и от вызывающего с `trap '' HUP` — отсоединение сбрасывает ВСЕ сигналы.
 # Здесь каждый из них — код, а не фраза в задании.
 #
 # ИСПОЛЬЗОВАНИЕ
@@ -20,8 +24,9 @@
 #                 [--issue <N | владелец/имя#N>]… [--evidence <файл>]
 #                 [--pr <N> [--subject "#M merge #N: …" [--land-arg <довод>]…]]
 #                 [--task <N>] [--lane-base <ревизия>] [--out <каталог>] [--head-wait <с>]
-#   --detach — сам уходит в отсоединённый прогон (setsid, env --default-signal=PIPE, БЕЗ
-#     nohup) и сразу печатает «идёт: pid …, журнал …, .rc …, срок …»; .rc снят до старта,
+#                 [--local "<причина>"]
+#   --detach — сам уходит в отсоединённый прогон (setsid, env --default-signal — все сигналы
+#     по умолчанию, в том числе HUP, проигнорированный вызывающим; БЕЗ nohup) и сразу печатает «идёт: pid …, журнал …, .rc …, срок …»; .rc снят до старта,
 #     имена уникальны (ветка, sha, pid). Без --detach — в переднем плане (так зовут пробы
 #     и уже отсоединённый вызывающий).
 #   --issue — задачи, в которые идёт комментарий `DoD-proof @<sha>`; без репозитория —
@@ -31,6 +36,10 @@
 #     --subject). --land-arg — довод autoland дословно (--stand-report, --allow …).
 #   --out — каталог журналов ВНЕ рабочего дерева (по умолчанию ~/.cache/push-chain).
 #   --lane-base — база полосы для статики шага 0б (по умолчанию origin/main).
+#   --local — обход внешнего кластера на КАЖДОЙ попытке, причина ≥ 12 знаков — довод
+#     диспетчера (например «Job не несёт соседний клон kacho», ws#1196). Сама цепочка его
+#     не выводит: недоступный кластер слот узнаёт сам и идёт локально с доказательством
+#     (proof=), а 74/75/77/69 — «занят» или «не опознано», не «недоступен».
 #
 # ШАГИ
 #   0. Предусловия: голова копии = --sha, отслеживаемые файлы не правлены (кластер судит
@@ -44,9 +53,13 @@
 #      HEAD:refs/heads/<ветка>` с явными KACHO_HOME_KACHO/KANAME/CORELIB (клоны project/*
 #      основного клона воркспейса; ws#1183) и KACHO_TASK. Слова, а не `bash -c`: строку
 #      оболочки слот не разбирает и судит каталог вызова (урок (л), (м)).
-#   3. Код 74, 75, 77 или 69 — «не выполнилось», не красное: ОДИН повтор `--local
-#      "<причина с кодом>" --wait 300` (и `--resume <билет>`, если слот его назвал).
-#      Код 1 — хук отказал: красное, повтора нет, возврат автору. 141 после хука — ssh,
+#   3. Код 74, 75, 77 или 69 — «не выполнилось», не красное; повтор ОДИН и по внешнему
+#      маршруту (без `--local`, если его не дал вызывающий):
+#      74/75 — `--enqueue <каталог журналов вне копии>` (и `--resume <билет>`, если слот его
+#        назвал): ожидающий билет идёт во внешний кластер по одному; цепочка дочитывает его
+#        .rc (предел PUSH_CHAIN_ENQ_WAIT_S, по умолчанию 7800 с — срок билета слота 2 ч);
+#      77 и 69 — тот же вызов словами argv ещё раз.
+#      Код — хук отказал: красное, повтора нет, возврат автору. 141 после хука — ssh,
 #      снятый простоем: исход решает сверка шага 4.
 #   4. `git ls-remote origin refs/heads/<ветка>` = --sha — иначе «не выполнилось».
 #   5. С --pr: headRefOid запроса = --sha (опрос раз в 5 с, предел --head-wait); не
@@ -60,7 +73,7 @@
 #   PR, трекер, демон) · 64 вызов либо предусловие.
 #
 # ВХОД ПОДМЕНЯЕМ ради доказательства (scripts/push-chain-inject.sh): PUSH_CHAIN_SLOT,
-# PUSH_CHAIN_GH, PUSH_CHAIN_AUTOLAND, PUSH_CHAIN_POLL_S, PUSH_CHAIN_GO. Ручки не снимают ни слота, ни
+# PUSH_CHAIN_GH, PUSH_CHAIN_AUTOLAND, PUSH_CHAIN_POLL_S, PUSH_CHAIN_GO, PUSH_CHAIN_ENQ_WAIT_S. Ручки не снимают ни слота, ни
 # хука: подменённый слот — та же отправка без слота, что и прямой вызов git.
 set -uo pipefail
 
@@ -70,11 +83,12 @@ SLOT="${PUSH_CHAIN_SLOT:-$HERE/heavy-slot.sh}"
 GH="${PUSH_CHAIN_GH:-gh}"
 AUTOLAND="${PUSH_CHAIN_AUTOLAND:-$HERE/autoland/autoland.sh}"
 POLL_S="${PUSH_CHAIN_POLL_S:-5}"
+ENQ_WAIT_S="${PUSH_CHAIN_ENQ_WAIT_S:-7800}"
 
 say() { printf 'push-chain: %s\n' "$*" >&2; }
 usage() { say "$1"; say "форма: push-chain.sh --copy <копия> --branch <ветка> --sha <sha40> [--detach] [--issue N]… [--pr N [--subject …]] (шапка)"; exit 64; }
 
-COPY="" BRANCH="" SHA="" DETACH=0 PR="" SUBJECT="" EVIDENCE="" TASK="" BASE="" LANE_BASE="origin/main"
+COPY="" BRANCH="" SHA="" DETACH=0 PR="" SUBJECT="" EVIDENCE="" TASK="" BASE="" LANE_BASE="origin/main" LOCAL_WHY=""
 OUT="${XDG_CACHE_HOME:-$HOME/.cache}/push-chain" HEAD_WAIT=180
 ISSUES=() LAND=() ARGS=()
 while [ "$#" -gt 0 ]; do
@@ -97,6 +111,7 @@ while [ "$#" -gt 0 ]; do
         --out) OUT="$2" ;;
         --head-wait) HEAD_WAIT="$2" ;;
         --lane-base) LANE_BASE="$2" ;;
+        --local) LOCAL_WHY="$2" ;;
         *) usage "неизвестный довод «$1»" ;;
     esac
     shift 2
@@ -107,6 +122,7 @@ done
 [ -z "$PR" ] || [[ "$PR" =~ ^[0-9]+$ ]] || usage "--pr «$PR» — номер запроса"
 [ -z "$SUBJECT" ] || [ -n "$PR" ] || usage "--subject без --pr: демону вливания нечего вливать"
 [ -z "$EVIDENCE" ] || [ -r "$EVIDENCE" ] || usage "--evidence «$EVIDENCE» не читается"
+[[ "$ENQ_WAIT_S" =~ ^[0-9]+$ ]] || usage "PUSH_CHAIN_ENQ_WAIT_S «$ENQ_WAIT_S» — секунды (целое)"
 COPY="$(cd "$COPY" 2>/dev/null && pwd)" || usage "копии «$COPY» нет"
 
 if [ -z "$BASE" ]; then
@@ -122,10 +138,11 @@ LOG="$BASE.log" RCF="$BASE.rc"
 if [ "$DETACH" = 1 ]; then
     rm -f "$RCF" "$BASE.pid"
     # Без nohup (ws#1046, kaname#882/#894): игнор SIGHUP наследуют дети, и пробы сигналов
-    # краснеют ложно. setsid уводит из сеанса вызывающего, env --default-signal=PIPE
-    # возвращает SIGPIPE по умолчанию.
+    # краснеют ложно. setsid уводит из сеанса вызывающего; env --default-signal без списка
+    # возвращает по умолчанию ВСЕ сигналы — и HUP, проигнорированный вызывающим (`trap ''
+    # HUP`): `=PIPE` сбрасывал лишь PIPE (ребёнок с SigIgn 0x5, приёмка ws#1185).
     # shellcheck disable=SC2016  # строка дочерней оболочки, $1… раскрывает она
-    setsid -f env --default-signal=PIPE bash -c 'echo $$ > "$1.pid"; exec bash "$2" --base "$1" "${@:3}"' _ "$BASE" "$SELF" "${ARGS[@]}" > "$LOG" 2>&1 < /dev/null
+    setsid -f env --default-signal bash -c 'echo $$ > "$1.pid"; exec bash "$2" --base "$1" "${@:3}"' _ "$BASE" "$SELF" "${ARGS[@]}" > "$LOG" 2>&1 < /dev/null
     for _ in 1 2 3 4 5 6 7 8 9 10; do [ -s "$BASE.pid" ] && break; sleep 0.2; done
     printf 'идёт: pid %s, журнал %s, .rc %s, срок — до %s (хук ≤ 20 мин, голова PR ≤ %s с)\n' \
         "$(cat "$BASE.pid" 2>/dev/null || echo '?')" "$LOG" "$RCF" "$(date -d "+$(( 25 + HEAD_WAIT / 60 )) min" +%H:%M)" "$HEAD_WAIT"
@@ -170,16 +187,22 @@ say "копия $COPY · ветка $BRANCH · голова ${SHA:0:12} · ре�
 # ── 0б. статика до хука: правка deploy/ или ci.yaml kacho → repohygiene ─────
 if [ -d "$COPY/internal/repohygiene" ]; then
     mb="$(git -C "$COPY" merge-base "$LANE_BASE" HEAD 2>/dev/null)"
+    # Без трубы в grep -q: под pipefail ранний выход grep даёт git SIGPIPE (141), и правка
+    # deploy/ на большом диффе читалась «не тронуто» (приёмка ws#1185). diff --quiet: 0 — не
+    # тронуто, 1 — тронуто, иное — не судилось.
+    drc=128; [ -z "$mb" ] || { git -C "$COPY" diff --quiet "$mb" HEAD -- deploy/ .github/workflows/ci.yaml; drc=$?; }
     if [ -z "$mb" ]; then
         F_STATIC="void:база $LANE_BASE не выведена"; say "статика repohygiene не судилась: база «$LANE_BASE» не найдена (--lane-base)"
-    elif git -C "$COPY" diff --name-only "$mb" HEAD | grep -qE '^(deploy/|\.github/workflows/ci\.yaml$)'; then
+    elif [ "$drc" = 1 ]; then
         say "дифф трогает deploy/ либо ci.yaml — go test -short ./internal/repohygiene/ до хука"
         (cd "$COPY" && "${PUSH_CHAIN_GO:-go}" test -short -count=1 ./internal/repohygiene/) > "$BASE.static.log" 2>&1
         src=$?
         F_STATIC="repohygiene:$src"
         [ "$src" = 0 ] || { tail -n 20 "$BASE.static.log" >&2; F_WHY="статика: go test -short ./internal/repohygiene/ — код $src до отправки ($BASE.static.log)"; finish 1; }
-    else
+    elif [ "$drc" = 0 ]; then
         F_STATIC="skip:deploy/ci.yaml не тронуты"
+    else
+        F_STATIC="void:git diff — код $drc"; say "статика repohygiene не судилась: git diff — код $drc"
     fi
 fi
 
@@ -191,23 +214,47 @@ F_SLOTS="$(printf '%s\n' "$st" | sed -nE '1s/.*: ([0-9]+) из ([0-9]+),.*/\1\/\
 
 # ── 2–3. отправка словами argv, один повтор ─────────────────────────────────
 PUSH_LOG="$BASE.push.log"; : > "$PUSH_LOG"
+LOCAL_ARGS=(); [ -z "$LOCAL_WHY" ] || LOCAL_ARGS=(--local "$LOCAL_WHY")
 push_once() {
     F_TRIES=$(( F_TRIES + 1 ))
     printf '== попытка %s %s: %s\n' "$F_TRIES" "$(date -Is)" "$*" >> "$PUSH_LOG"
-    (cd "$COPY" && env "${HOMES[@]}" ${TASK:+KACHO_TASK="$TASK"} bash "$SLOT" "$@" ci-local -- git push origin "HEAD:refs/heads/$BRANCH") >> "$PUSH_LOG" 2>&1
+    (cd "$COPY" && env "${HOMES[@]}" ${TASK:+KACHO_TASK="$TASK"} bash "$SLOT" "$@" "${LOCAL_ARGS[@]}" ci-local -- git push origin "HEAD:refs/heads/$BRANCH") >> "$PUSH_LOG" 2>&1
     local rc=$?
     printf '== попытка %s код %s\n' "$F_TRIES" "$rc" >> "$PUSH_LOG"
     return "$rc"
 }
+# enqueue_once [--resume N] — повтор после 74/75: ОДИН раз --enqueue в каталог вне копии,
+# исход — код из .rc билета (строка ENQUEUED слота), его журнал — в журнал отправки.
+enqueue_once() {
+    local eq="$BASE.enq" line erc elog t0
+    mkdir -p "$eq" || { echo "== каталог $eq не создан" >> "$PUSH_LOG"; return 69; }
+    push_once --enqueue "$eq" "$@"; local qrc=$?
+    [ "$qrc" = 0 ] || return "$qrc"
+    line="$(grep -E $'^ENQUEUED\t' "$PUSH_LOG" | tail -n 1)"
+    erc="$(printf '%s' "$line" | tr '\t' '\n' | sed -n 's/^rc=//p')"
+    elog="$(printf '%s' "$line" | tr '\t' '\n' | sed -n 's/^log=//p')"
+    [ -n "$erc" ] || { echo "== строки ENQUEUED нет — билет не поставлен" >> "$PUSH_LOG"; return 69; }
+    say "отправка: билет в очереди, исход — $erc (не дольше $ENQ_WAIT_S с)"
+    t0="$(date +%s)"
+    until [ -s "$erc" ]; do
+        [ $(( $(date +%s) - t0 )) -ge "$ENQ_WAIT_S" ] && { echo "== .rc билета нет за $ENQ_WAIT_S с: $erc" >> "$PUSH_LOG"; return 75; }
+        sleep "$POLL_S"
+    done
+    [ -r "$elog" ] && { echo "== журнал билета $elog"; cat "$elog"; } >> "$PUSH_LOG"
+    qrc="$(head -n 1 "$erc")"; [[ "$qrc" =~ ^[0-9]+$ ]] || qrc=69
+    printf '== билет: код %s\n' "$qrc" >> "$PUSH_LOG"
+    return "$qrc"
+}
 push_once; prc=$?
 case "$prc" in
-    74|75|77|69)
+    74|75)
         tk="$(grep -oE -- '--resume [0-9]+' "$PUSH_LOG" | tail -n 1 | cut -d' ' -f2)"
-        first="$(grep -m1 -E '^heavy-slot: (во внешний кластер|слот|кластер|билет)' "$PUSH_LOG")"
-        first="${first#heavy-slot: }"; first="${first:0:120}"
-        why="цепочка отправки: попытка 1 — код $prc (${first:-не выполнилось}), один повтор"
-        say "отправка: код $prc — не выполнилось; ОДИН повтор --local${tk:+ --resume $tk}"
-        push_once --wait 300 ${tk:+--resume "$tk"} --local "$why"; prc=$?
+        say "отправка: код $prc — слот занят (не выполнилось); ОДИН повтор --enqueue по внешнему маршруту${tk:+ --resume $tk}"
+        enqueue_once ${tk:+--resume "$tk"}; prc=$?
+        ;;
+    77|69)
+        say "отправка: код $prc — не выполнилось; ОДИН повтор словами argv по внешнему маршруту"
+        push_once; prc=$?
         ;;
 esac
 F_PUSH="$prc"
