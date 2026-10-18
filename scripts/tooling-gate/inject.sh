@@ -42,7 +42,8 @@ WS="$(cd "$HERE/../.." && pwd)"
 proof_own_environment
 
 TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
+# shellcheck disable=SC2154
+trap '_rc=$?; rm -rf "$TMP" 2>/dev/null || rm -rf "$TMP" || echo "ПРЕДУПРЕЖДЕНИЕ: временный каталог $TMP не снят; код проверки $_rc сохранён" >&2; exit $_rc' EXIT
 
 # ОБРАЗЕЦ ПЕСОЧНИЦ. Рабочие файлы — `$TPL`, индекс и объекты — `$TPL_GIT`
 # отдельно от них: копия образца не несёт чужого `.git`, а объекты песочница
@@ -3576,6 +3577,166 @@ if mr_patch "$b/scripts/hooks/pre-push" 's/^added_rc=\$\?$/added_rc=0/m' "хук
 fi
 b="$(mksandbox "$G25")"
 run 2 "$b" "предпосылка: стража нет в дереве — VOID, а не успех" "$C25"
+
+echo "== check-26: ловушка снятия временного каталога не решает исход проверки (ws#1189) =="
+C26=check-26-cleanup-trap-keeps-the-verdict.sh
+b="$(mksandbox)"; run 0 "$b" "чистое дерево — молчит" "$C26"
+# Мутанты ловушки: каждый возвращает одно решение прежней формы и обязан
+# покраснеть СВОЕЙ пробой и назвать файл.
+b="$(mksandbox)"
+if mr_patch "$b/scripts/tooling-gate/$C25" \
+    's{_rc=\$\?; rm -rf "\$TMP" 2>/dev/null \|\| rm -rf "\$TMP" \|\| echo "[^"]*" >&2; exit \$_rc}{rm -rf "\$TMP"}' \
+    "ловушка check-25 возвращена к голой форме"; then
+    run_says 1 "$b" "мутант: ловушка check-25 голая — краснеет, файл назван" "$C26" \
+        "check-25-push-refuses-binary-and-large-added-files.sh:"
+    run_says 1 "$b" "мутант: ловушка check-25 голая — названа зависимость исхода от уборки" "$C26" \
+        "исход зависит от уборки"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/scripts/tooling-gate/check-15-attribution-hooks-refuse-the-trailer.sh" \
+    's{\|\| echo "ПРЕДУПРЕЖДЕНИЕ[^"]*" >&2; exit}{|| true; exit}' "сбой снятия молчит"; then
+    run_says 1 "$b" "мутант: сбой снятия молчит — краснеет" "$C26" "предупреждения с путём каталога"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/scripts/lane-tier-inject.sh" 's{exit \$_rc\x27 EXIT}{exit 1\x27 EXIT}' "ловушка всегда отдаёт 1"; then
+    run_says 1 "$b" "мутант: ловушка отдаёт 1 при любом исходе — краснеет" "$C26" \
+        "scripts/lane-tier-inject.sh:"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/scripts/lib/sandbox-git-home.sh" 's/"gc\.auto 0" //' "песочница git не гасит автоматический gc"; then
+    run_says 1 "$b" "мутант: gc.auto не погашен в песочнице git — краснеет" "$C26" \
+        "песочница git не гасит фоновое обслуживание: gc.auto"
+    run 0 "$b" "тот же мутант у соседа check-16 (подпись) — молчит" check-16-signature-from-root-gitconfig-only.sh
+fi
+# Законный близнец: та же голая форма в КОММЕНТАРИИ — не ловушка, не судится.
+b="$(mksandbox)"
+printf '%s\n' '# прежняя форма: trap '"'"'rm -rf "$W"'"'"' EXIT — заменена' >> "$b/scripts/lane-tier-inject.sh"
+run 0 "$b" "близнец: голая ловушка в комментарии — молчит" "$C26"
+# Предпосылка: ловушек в объёме нет — VOID, а не успех.
+b="$(mksandbox)"
+for f in "$b"/scripts/tooling-gate/*.sh "$b"/scripts/*-inject.sh; do
+    perl -pi -e 's/^(\s*)trap \x27.*rm -rf.*$/$1:/' "$f"
+done
+run 2 "$b" "предпосылка: ловушек снятия в объёме нет — VOID, а не успех" "$C26"
+
+# Формы записи ловушки (ws#1193, приёмка опытом): ловушка живёт в `lane-tier-inject.sh`,
+# переменная `W`. swap_trap подменяет её строку формой из словаря; законная форма и
+# её дефектный близнец отличаются ровно одним решением (код и предупреждение).
+swap_trap() {
+    local box="$1" variant="$2" file="$1/scripts/lane-tier-inject.sh"
+    if python3 - "$file" "$variant" <<'PYEOF'
+import re, sys
+path, variant = sys.argv[1], sys.argv[2]
+good = ('_rc=$?; rm -rf "$W" 2>/dev/null || rm -rf "$W" || '
+        'echo "ПРЕДУПРЕЖДЕНИЕ: временный каталог $W не снят; код проверки $_rc сохранён" >&2; exit $_rc')
+body = ('    _rc=$?\n    rm -rf "$W" 2>/dev/null || rm -rf "$W" || \\\n'
+        '        echo "ПРЕДУПРЕЖДЕНИЕ: временный каталог $W не снят; код проверки $_rc сохранён" >&2\n    exit $_rc\n')
+forms = {
+    'multi-bare':  "trap '\n    rm -rf \"$W\"\n' EXIT",
+    'multi-good':  "trap '\n" + body + "' EXIT",
+    'func-bare':   'cleanup() { rm -rf "$W"; }\ntrap cleanup EXIT',
+    'func-good':   "cleanup() {\n" + body + "}\ntrap cleanup EXIT",
+    'func-quoted': "cleanup() {\n" + body + "}\ntrap 'cleanup' EXIT",
+    'func-gone':   'trap cleanup_gone EXIT',
+    'signals':     "trap '" + good + "' EXIT INT TERM",
+    'unquoted':    "trap 'rm -rf $W' EXIT",
+    'no-path':     "trap '" + good.replace('ПРЕДУПРЕЖДЕНИЕ: временный каталог $W не снят; код проверки $_rc сохранён', 'ПРЕДУПРЕЖДЕНИЕ') + "' EXIT",
+    'heredoc':     None,
+    'dash-bare':   "trap -- 'rm -rf \"$W\"' EXIT",
+    'lower-bare':  "trap 'rm -rf \"$W\"' exit",
+    'chain-bare':  'wipe(){ rm -rf "$W"; }; cleanup(){ wipe; }; trap cleanup EXIT',
+    'subshell-bare': "( trap 'rm -rf \"$W\"' EXIT )",
+    'semi-bare':   ":; trap 'rm -rf \"$W\"' EXIT",
+    'and-bare':    "true && trap 'rm -rf \"$W\"' EXIT",
+    'dash-good':   "trap -- '" + good + "' EXIT",
+    'lower-good':  "trap '" + good + "' exit",
+    'semi-good':   ":; trap '" + good + "' EXIT",
+    'chain-good':  ('wipe() {\n    rm -rf "$W" 2>/dev/null || rm -rf "$W" || \\\n'
+                    '        echo "ПРЕДУПРЕЖДЕНИЕ: временный каталог $W не снят" >&2\n}\n'
+                    'cleanup() {\n    _rc=$?\n    wipe\n    exit $_rc\n}\ntrap cleanup EXIT'),
+    'foreign':     "trap 'touch \"$W/x\"' EXIT",
+    'dq':          'trap "rm -rf \\"$W\\"" EXIT',
+}
+text = open(path, encoding='utf-8').read()
+if variant == 'heredoc':
+    new = text + "\ncat <<'FIXTURE' > /dev/null\ntrap 'rm -rf \"$W\"' EXIT\nFIXTURE\n"
+else:
+    new, n = re.subn(r"^trap '_rc=.*' EXIT$", lambda m: forms[variant], text, count=1, flags=re.M)
+    if n != 1:
+        sys.exit(3)
+open(path, 'w', encoding='utf-8').write(new)
+PYEOF
+    then return 0; fi
+    probes=$((probes + 1)); failed=$((failed + 1))
+    echo "  ПРОВАЛ инъекция НЕ ВНЕСЕНА (форма ловушки $variant) — строки ловушки в образце нет;" >&2
+    return 1
+}
+b="$(mksandbox)"
+if swap_trap "$b" multi-bare; then
+    run_says 1 "$b" "форма (а): многострочная голая ловушка — краснеет, файл:строка названы" "$C26" "scripts/lane-tier-inject.sh:23"
+fi
+b="$(mksandbox)"
+if swap_trap "$b" multi-good; then
+    run 0 "$b" "близнец (а): многострочная ловушка с кодом и предупреждением — молчит" "$C26"
+fi
+b="$(mksandbox)"
+if swap_trap "$b" func-bare; then
+    run_says 1 "$b" "форма (б): функция уборки голая + trap cleanup EXIT — краснеет" "$C26" "исход зависит от уборки"
+fi
+b="$(mksandbox)"
+if swap_trap "$b" func-good; then
+    run 0 "$b" "близнец (б): функция уборки с кодом и предупреждением — молчит" "$C26"
+fi
+b="$(mksandbox)"
+if swap_trap "$b" func-quoted; then
+    run 0 "$b" "близнец (б): trap 'cleanup' EXIT в кавычках — та же функция, молчит" "$C26"
+fi
+b="$(mksandbox)"
+if swap_trap "$b" func-gone; then
+    run_says 1 "$b" "форма: функции уборки в файле нет — не в форме, а не молчание" "$C26" "функция уборки не найдена"
+fi
+b="$(mksandbox)"
+if swap_trap "$b" unquoted; then
+    run_says 1 "$b" "форма: rm -rf без кавычек у переменной — не в форме" "$C26" "не в форме"
+fi
+b="$(mksandbox)"
+if swap_trap "$b" no-path; then
+    run_says 1 "$b" "предупреждение без пути каталога (голое слово) — краснеет" "$C26" "не называет каталог"
+fi
+b="$(mksandbox)"
+if swap_trap "$b" signals; then
+    run 0 "$b" "близнец: законная ловушка на EXIT INT TERM — молчит" "$C26"
+fi
+b="$(mksandbox)"
+if swap_trap "$b" heredoc; then
+    run 0 "$b" "близнец: голая ловушка как текст heredoc-фикстуры — молчит" "$C26"
+fi
+# Белый список (ws#1193, второй круг приёмки): любая ловушка на выходе — прямо или
+# через функции файла — либо шаблон уборки, либо находка. Шесть форм проверяющего
+# красны с файлом:строкой; канон в тех же написаниях молчит.
+for v in "dash-bare:ловушка после --" "lower-bare:сигнал строчными (exit)" \
+         "chain-bare:функция вызывает функцию (wipe → cleanup)" \
+         "subshell-bare:ловушка в подоболочке" "semi-bare:ловушка после ;" "and-bare:ловушка после &&"; do
+    b="$(mksandbox)"
+    if swap_trap "$b" "${v%%:*}"; then
+        run_says 1 "$b" "белый список: ${v#*:}, голая — краснеет, файл:строка названы" "$C26" "scripts/lane-tier-inject.sh:23"
+    fi
+done
+for v in "dash-good:канон после --" "lower-good:канон, сигнал строчными" "semi-good:канон после ;" \
+         "chain-good:канон через wipe → cleanup (транзитивно)"; do
+    b="$(mksandbox)"
+    if swap_trap "$b" "${v%%:*}"; then
+        run 0 "$b" "близнец: ${v#*:} — молчит" "$C26"
+    fi
+done
+b="$(mksandbox)"
+if swap_trap "$b" foreign; then
+    run_says 1 "$b" "белый список: EXIT-ловушка вне шаблона (не уборка) — не в форме, а не молчание" "$C26" "не сводится к шаблону уборки"
+fi
+b="$(mksandbox)"
+if swap_trap "$b" dq; then
+    run_says 1 "$b" "белый список: действие в двойных кавычках с подстановкой — не в форме" "$C26" "собирается подстановкой"
+fi
 
 echo
 # Мутация образца последней пробой вердиктов уже не меняет, но это запись вне

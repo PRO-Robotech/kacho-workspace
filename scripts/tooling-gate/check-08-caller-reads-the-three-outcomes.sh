@@ -58,7 +58,8 @@ if [ "${#CALLERS[@]}" -eq 0 ]; then
 fi
 
 TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
+# shellcheck disable=SC2154
+trap '_rc=$?; rm -rf "$TMP" 2>/dev/null || rm -rf "$TMP" || echo "ПРЕДУПРЕЖДЕНИЕ: временный каталог $TMP не снят; код проверки $_rc сохранён" >&2; exit $_rc' EXIT
 if ! sandbox_git_home "$TMP/home"; then
     tooling_gate_void "$NAME" "корневой подписи нет — коммит песочницы не родится, вызывающего судить не на чем"
     exit 2

@@ -155,7 +155,8 @@ command -v node > /dev/null 2>&1 || { echo "wave-template-inject: VOID — не�
 command -v jq > /dev/null 2>&1 || { echo "wave-template-inject: VOID — нет jq" >&2; exit 2; }
 [ -r "$TPL" ] || { echo "wave-template-inject: VOID — шаблона нет: $TPL" >&2; exit 2; }
 W="$(mktemp -d)"
-trap 'rm -rf "$W"' EXIT
+# shellcheck disable=SC2154
+trap '_rc=$?; rm -rf "$W" 2>/dev/null || rm -rf "$W" || echo "ПРЕДУПРЕЖДЕНИЕ: временный каталог $W не снят; код проверки $_rc сохранён" >&2; exit $_rc' EXIT
 # Репозиторий диапазона L11 (ws#1078): main = «L11-A», ветка w = «L11-B»; подпись — песочницы.
 # shellcheck source=lib/sandbox-git-home.sh
 . "$HERE/lib/sandbox-git-home.sh"
