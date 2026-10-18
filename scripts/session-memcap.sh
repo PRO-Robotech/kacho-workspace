@@ -13,7 +13,7 @@
 # ФОРМА
 #   session-memcap.sh                   потолок и omit на scope, где исполняется (/proc/self/cgroup)
 #   session-memcap.sh --show            посчитать и напечатать, ничего не меняя
-#   session-memcap.sh --hook            SessionStart: поставить; отказ — строкой диспетчеру
+#   session-memcap.sh --hook            SessionStart: поставить; отказ и отставание клона — диспетчеру
 #   session-memcap.sh --launch -- <команда…>   запустить команду (claude) в новом scope,
 #                                       где потолок ставится: OOMPolicy=continue
 #
@@ -71,6 +71,8 @@
 # 64 — вызов неверен; 69 — механизм недоступен, в том числе метка omit не сверилась
 # чтением. --hook всегда 0: сессию он не роняет, отказ —
 # additionalContext «SESSION-MEMCAP: …». Журнал — journal.log каталога слотов.
+# --hook несёт и строку main-clone-lag.sh (ws#1200): основной клон воркспейса отстаёт от
+# origin/main на N либо отставание не установлено; отставания нет — строки нет.
 {
 set -uo pipefail
 
@@ -99,8 +101,11 @@ esac
 
 if [ "$MODE" = hook ]; then
     out="$(bash "$SELF" 2>&1)"; rc=$?
-    [ "$rc" -eq 0 ] && exit 0
-    msg="SESSION-MEMCAP: потолок памяти сессии НЕ поставлен (код $rc) — $(printf '%s' "$out" | sed 's/^session-memcap: //' | tr '\n' ' ')Тяжёлое — только слотом (scripts/heavy-slot.sh); ОТКАЗ по OOMPolicy снимается перезапуском сессии: scripts/session-memcap.sh --launch -- claude; иное — tooling-maintainer."
+    lag="$(bash "$HERE/main-clone-lag.sh" "${CLAUDE_PROJECT_DIR:-$HERE/..}" 2>/dev/null)"
+    [ "$rc" -eq 0 ] && [ -z "$lag" ] && exit 0
+    msg=""
+    [ "$rc" -eq 0 ] || msg="SESSION-MEMCAP: потолок памяти сессии НЕ поставлен (код $rc) — $(printf '%s' "$out" | sed 's/^session-memcap: //' | tr '\n' ' ')Тяжёлое — только слотом (scripts/heavy-slot.sh); ОТКАЗ по OOMPolicy снимается перезапуском сессии: scripts/session-memcap.sh --launch -- claude; иное — tooling-maintainer."
+    nl=$'\n'; msg="$msg${msg:+${lag:+$nl}}$lag"
     if command -v python3 >/dev/null; then
         python3 -c 'import json,sys; print(json.dumps({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": sys.argv[1]}}, ensure_ascii=False))' "$msg"
     else
