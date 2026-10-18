@@ -21,7 +21,9 @@
 #   K4b признак «remote-heavy-oom:» шага   → 76 (команду убил предел, контейнер
 #      вышел её кодом); близнец K4c 137 без признака → 137
 #   K6 подготовка pod не удалась            → 69; ns снято; близнец K6b — код 125 команды
-#   K5 --keep 2                            → код команды; ns НЕ снято; срок ≈ +2 ч
+#   K5 --keep 2                            → код команды; ns НЕ снято; срок ≈ жизнь
+#      прогона (срок Job + 600 с) + 2 ч; K5b --timeout 14400 --keep 1 → срок ns позже
+#      срока Job + 1 ч
 #   R1 NS=kacho                            → 64; к кластеру ни одного обращения
 #   R2 --ns kacho                          → 64; к кластеру ни одного обращения
 #   R3 --ns вне формы t<задача>-heavy-…    → 64; к кластеру ни одного обращения
@@ -91,9 +93,15 @@
 #      самого run.sh, седьмой — 75; порча «константа 7/12» краснит QW-3, возврат
 #      запаса 20 % — QW-5 (mutants.py)
 #   QB место на самой границе, без запаса сверх запроса: lint kaname (2 000m, 5 376 МиБ),
-#      фон CPU 13 500m → 0, 13 501m → 75; памяти 24 813 МиБ → 0, 24 814 МиБ → 75
+#      фон CPU 13 500m → 0, 13 501m → 75; памяти 24 813 МиБ → 0, 24 814 МиБ → 75;
+#      QB-dind — ci-local kacho (run, dind, pgclient): место ровно под запрос pod → 0,
+#      на 1m либо 1 МиБ меньше → 75, в --available и на пути прогона
+#   QL предел памяти run ≥ ⌈наибольший пик строки PEAKS × 1,2 / 1 024⌉ × 1 024 по
+#      каждому профилю и репозиторию (--profiles) и в Job; QE пустой PEAKS → 69 с
+#      причиной в --available и --profiles, близнец — профиля нет → 64
 #   SW уборка просроченных (ws#1195): тяжёлое ns с прошедшим сроком и старое без
-#      живого Job — сняты; --keep, живой Job, молодое — нет; стенд задачи с прошедшим
+#      живого Job — сняты; --keep, живой Job (и при прошедшем сроке), молодое — нет;
+#      близнец «срок прошёл, Job завершён» — снят; стенд задачи с прошедшим
 #      сроком — перечнем, не снят; повтор — уборки нет (перепись после = 0)
 #   PK пик run (ws#1195): шаг ИСПОЛНЕНИЕМ печатает memory.peak и CPU за команду, без
 #      cgroup — «—»; run.sh пишет «remote-peak» в журнал слотов с репозиторием и
@@ -1638,7 +1646,7 @@ fresh
 go_run k6b env FAKE_EXIT=125 "${B[@]}" --short k6b -- true
 expect_rc K6b 125
 
-# K5 — --keep 2: ns остаётся, срок ≈ +2 ч, метки на месте
+# K5 — --keep 2: ns остаётся, срок ≈ наибольшая жизнь прогона (срок Job + 600 с) + 2 ч, метки на месте
 fresh
 t0=$(date +%s)
 go_run k5 env FAKE_EXIT=0 "${B[@]}" --short k5 --keep 2 -- true
@@ -1647,14 +1655,25 @@ f="$BOX/state/ns/t1-heavy-k5"
 if [ -f "$f" ]; then
     ok
     exp="$(jq -r '.metadata.annotations["kacho.io/expires"]' "$f")"
-    d=$(( $(date -u -d "$exp" +%s) - t0 - 7200 )); [ "$d" -lt 0 ] && d=$(( -d ))
-    if [ "$d" -le 60 ]; then ok; else bad K5 "kacho.io/expires=$exp, ждали ≈ +2 ч"; fi
+    d=$(( $(date -u -d "$exp" +%s) - t0 - 5400 - 1800 - 600 - 7200 )); [ "$d" -lt 0 ] && d=$(( -d ))
+    if [ "$d" -le 60 ]; then ok; else bad K5 "kacho.io/expires=$exp, ждали ≈ +5400 + 1800 + 600 с + 2 ч"; fi
     labels="$(jq -r '.metadata.labels | "\(.["kacho.io/task"]) \(.["kacho.io/stand"]) \(.["kacho.io/kind"])"' "$f")"
     if [ "$labels" = "1 test heavy" ]; then ok; else bad K5 "метки «$labels», ждали «1 test heavy»"; fi
 else
     bad K5 "ns с --keep снято"
 fi
 if [ -e "$BOX/state/deleted" ]; then bad K5 "delete ns звался при --keep"; else ok; fi
+# K5b — --timeout 14400 --keep 1 (наибольший срок Job при наименьшем --keep): срок ns
+# позже конца активного срока Job — уборка чужого запуска не застанет его живым с
+# истёкшим сроком (приёмка ws#1195, круг 1)
+fresh
+t0=$(date +%s)
+go_run k5b env FAKE_EXIT=0 "${B[@]}" --short k5b --timeout 14400 --keep 1 -- true
+expect_rc K5b 0
+k5b_exp="$(jq -r '.metadata.annotations["kacho.io/expires"] // ""' "$BOX/state/ns/t1-heavy-k5b" 2>/dev/null)"
+k5b_dl="$(jq -r '.spec.activeDeadlineSeconds // ""' "$BOX/state/job.json" 2>/dev/null)"
+if [ -n "$k5b_exp" ] && [[ "$k5b_dl" =~ ^[0-9]+$ ]] && [ $(( $(date -u -d "$k5b_exp" +%s) - t0 )) -gt $(( k5b_dl + 3600 )) ]; then ok
+else bad K5b "срок ns $k5b_exp не позже срока Job ($k5b_dl с) + 1 ч --keep"; fi
 
 # R1, R2, R3 — отказ до кластера
 fresh
@@ -1862,6 +1881,54 @@ if [ "$(( ${j_run%Mi} + ${j_dind%Mi} + ${j_pg%Mi} ))" = "$w_cn" ] 2>/dev/null; t
 if [ "${j_lim%Mi}" -ge "${j_run%Mi}" ] 2>/dev/null; then ok; else bad QR-job-lim "предел run $j_lim ниже запроса $j_run"; fi
 qq="$(jq -r '.items[] | select(.kind == "ResourceQuota") | .spec.hard["requests.memory"]' "$BOX/state/applied.json" 2>/dev/null)"
 if [ "$qq" = "$(( ${j_run%Mi} + ${j_dind%Mi} + 1024 ))Mi" ]; then ok; else bad QR-quota "квота requests.memory «$qq» не run + dind + 1 ГиБ"; fi
+# QL — предел памяти run не ниже наибольшего пика × 1,2 вверх до ГиБ: ⌈max × 6 / 5120⌉ × 1024
+# МиБ, max — из строки PEAKS, которой судится запрос (своя при прогонах ≥ PEAK_MIN_N,
+# иначе «*»). Ожидание выводится ПРОБОЙ из таблицы, предел — из вывода run.sh --profiles
+# по каждому профилю и репозиторию и из Job (ci-local kaname). Предпосылка QL-premise:
+# хоть у одной строки норма выше предела таблицы PROFILES — иначе снятый подъём
+# по максимуму неотличим от таблицы.
+PROFILES_TXT="$(sed -n "/^PROFILES='/,/'\$/p" "$RUN" | sed -e "s/^PROFILES='//" -e "s/'\$//")"
+ql_want() {  # ql_want <профиль> <репозиторий> — наименьший законный предел run, МиБ
+    awk -F'|' -v p="$1" -v r="$2" -v m="$PEAK_MIN" '
+      $1 == p && $2 == r && $3 >= m { own = $5 } $1 == p && $2 == "*" { all = $5 }
+      END { x = (own != "" ? own : all); if (x == "") exit 1; printf "%d\n", int((x * 6 + 5119) / 5120) * 1024 }' <<< "$PEAKS_TXT"
+}
+fresh
+go_run ql bash "$RUN" --profiles
+expect_rc QL 0
+ql_n=0; ql_raise=0
+while IFS='|' read -r qp _ _ qlim _; do
+    [ -n "$qp" ] || continue
+    case "$qlim" in *Gi) qlim=$(( ${qlim%Gi} * 1024 )) ;; *Mi) qlim="${qlim%Mi}" ;; esac
+    for qrp in kacho kaname corelib; do
+        qw_="$(ql_want "$qp" "$qrp")" || { bad "QL-$qp-$qrp" "строки PEAKS для $qp нет — норму вывести не из чего"; continue; }
+        [ "$qw_" -gt "$qlim" ] && ql_raise=$((ql_raise + 1))
+        qg="$(awk -v p="$qp" -v r="$qrp" '$1 == p && $2 == r { for (i = 1; i <= NF; i++) if ($i == "память" && $(i+1) ~ /\//) { split($(i+1), a, "/"); print a[2] } }' "$OUT" | head -n 1)"
+        ql_n=$((ql_n + 1))
+        if [[ "$qg" =~ ^[0-9]+$ ]] && [ "$qg" -ge "$qw_" ]; then ok; else bad "QL-$qp-$qrp" "предел run «$qg» МиБ ниже ⌈наибольший пик × 1,2⌉ = $qw_ МиБ"; fi
+    done
+done <<< "$PROFILES_TXT"
+if [ "$ql_n" -ge 12 ]; then ok; else bad QL-census "судимых пар профиль × репозиторий $ql_n, ждали ≥ 12"; fi
+if [ "$ql_raise" -gt 0 ]; then ok; else bad QL-premise "ни у одной пары норма не выше предела PROFILES — подъём по максимуму не судим"; fi
+ql_job="$(ql_want ci-local kaname)"
+if [ "${j_lim%Mi}" -ge "$ql_job" ] 2>/dev/null; then ok; else bad QL-job "предел run в Job $j_lim ниже ⌈наибольший пик × 1,2⌉ = $ql_job МиБ"; fi
+# QE — пустой PEAKS: запроса нет — «не выполнилось» (69) с причиной, а не «профиля нет»
+# (64) и не нулевой запрос; близнец QE-prof — профиля и правда нет → 64
+QE_RUN="$BOX/run-empty-peaks.sh"
+awk 'BEGIN { skip = 0 } /^PEAKS=\x27/ { print "PEAKS=\x27\x27"; skip = ($0 !~ /\x27$/ || $0 == "PEAKS=\x27") ? 1 : 0; next }
+     skip { if ($0 ~ /\x27$/) skip = 0; next } { print }' "$RUN" > "$QE_RUN"
+if grep -qx "PEAKS=''" "$QE_RUN" && ! grep -q '^ci-local|kacho|' "$QE_RUN"; then ok; else bad QE-premise "копия run.sh с пустым PEAKS не собрана"; fi
+fresh
+go_run qe-av bash "$QE_RUN" --available --profile ci-local --repo kacho
+expect_rc QE-av 69
+if grep -q 'не выведен из PEAKS' "$OUT" && ! grep -q 'профиля «ci-local» нет' "$OUT"; then ok; else bad QE-av "причина «не выведен из PEAKS» не названа либо сказано «профиля нет»"; fi
+fresh
+go_run qe-pr bash "$QE_RUN" --profiles
+expect_rc QE-pr 69
+if grep -q 'не выведен из PEAKS' "$OUT"; then ok; else bad QE-pr "--profiles на пустом PEAKS вышел без причины"; fi
+fresh
+go_run qe-prof bash "$RUN" --available --profile nosuch --repo kacho
+expect_rc QE-prof 64
 
 # QW — 4–5 окон (решение владельца 2026-10-18 «Внешний кластер 16*32 два узла это 4-5
 # окон»). Узлы и фон — перепись 2026-10-18: два узла по 15 500m и 30 189 МиБ, фон без
@@ -1908,6 +1975,32 @@ qb mem-in 100m 24813Mi 0
 qb mem-out 100m 24814Mi 75
 qb both-in 13500m 24813Mi 0
 qb both-out 13501m 24814Mi 75
+# QB-dind — граница на профиле с НАИБОЛЬШИМ числом контейнеров (ci-local kacho: run,
+# dind, pgclient), иначе учёт боковых неотличим от запроса run (приёмка ws#1195, круг
+# 1: у lint RUN = NEED). Место — ровно под запрос pod (cpu из PROFILES, память —
+# qr_want), а не под запрос run: фон CPU 15 500m − NEED, памяти — 30 913 596 КиБ −
+# NEED × 1 024 оставляют ровно NEED (0); на 1m либо 1 МиБ меньше — 75. И в --available,
+# и на пути прогона (ns не создаётся).
+qbd_cpu="$(awk -F'|' '$1 == "ci-local" { print $2 }' <<< "$PROFILES_TXT")"
+read -r qbd_mib _ <<< "$(qr_want ci-local kacho)"
+if [[ "$qbd_cpu" =~ ^[0-9]+$ ]] && [[ "$qbd_mib" =~ ^[0-9]+$ ]] && [ "$(awk -F'|' '$1 == "ci-local" { print $6 }' <<< "$PROFILES_TXT")" = 1 ]; then ok
+else bad QB-dind-premise "запрос ci-local kacho не выведен ($qbd_cpu m, $qbd_mib МиБ) либо у ci-local нет dind"; fi
+qbd() {  # qbd <случай> <меньше по cpu, m> <меньше по памяти, МиБ> <код>
+    local c=$(( 15500 - qbd_cpu + $2 )) m=$(( 30913596 - qbd_mib * 1024 + $3 * 1024 ))
+    fresh
+    go_run "qbd-$1" env FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$(pod_j sys n1 Running "${c}m" "${m}Ki" | items)" \
+        bash "$RUN" --available --profile ci-local --repo kacho
+    expect_rc "QB-dind-$1" "$4"
+    fresh
+    go_run "qbdr-$1" env FAKE_EXIT=0 FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$(pod_j sys n1 Running "${c}m" "${m}Ki" | items)" \
+        bash "$RUN" --task 1 --repo kacho --ref HEAD --src "$SRC" --profile ci-local --short "qbd$1" -- true
+    expect_rc "QB-dind-run-$1" "$4"
+    if [ "$4" = 0 ]; then [ "$(created)" = да ] && ok || bad "QB-dind-run-$1" "ns не создано при месте ровно под запрос pod"
+    else [ "$(created)" = нет ] && ok || bad "QB-dind-run-$1" "ns создано без места под запрос pod"; fi
+}
+qbd exact 0 0 0
+qbd mem-out 0 1 75
+qbd cpu-out 1 0 75
 # Q3 — единственный узел не готов / закрыт / с taint NoSchedule → 69; прогон 69 без ns
 for q in "0 0 :не-готов" "1 1 :закрыт" "1 0 NoSchedule:taint"; do
     read -r rdy cord rest <<< "$q"; eff="${rest%%:*}"; nm="${rest#*:}"
@@ -2366,15 +2459,19 @@ seed_at t5-heavy-kept '-3 hours' '+5 hours' 1 2; seed_done_job t5-heavy-kept # -
 seed_at t5-heavy-live '-3 hours' '+1 hour' 1; seed_live_job t5-heavy-live   # живой Job → оставить
 seed_at t5-heavy-young '-30 minutes' '+1 hour' 1         # моложе 2 ч → оставить
 seed_at t3258-w9 '-30 hours' '-20 hours' 0               # стенд задачи → перечень
+# срок прошёл, Job живой (--keep 1 прежней редакции: срок ns 3 600 с, Job — до 16 200 с) →
+# оставить; близнец — тот же срок, Job завершён → снять (приёмка ws#1195, круг 1)
+seed_at t5-heavy-keep1 '-70 minutes' '-10 minutes' 1 1; seed_live_job t5-heavy-keep1
+seed_at t5-heavy-keep1dead '-70 minutes' '-10 minutes' 1 1; seed_done_job t5-heavy-keep1dead
 go_run sw1 env FAKE_EXIT=0 "${B[@]}" --short sw1 -- true
 expect_rc SW1 0
-for x in expired dead fin; do
+for x in expired dead fin keep1dead; do
     if grep -qx "t5-heavy-$x" "$BOX/state/deleted" 2>/dev/null; then ok; else bad "SW1-$x" "тяжёлое ns t5-heavy-$x не снято"; fi
 done
-for x in t5-heavy-kept t5-heavy-live t5-heavy-young t3258-w9; do
+for x in t5-heavy-kept t5-heavy-live t5-heavy-young t5-heavy-keep1 t3258-w9; do
     if grep -qx "$x" "$BOX/state/deleted" 2>/dev/null; then bad "SW1-keep-$x" "снято ns $x"; else ok; fi
 done
-if grep -q 'уборка просроченных тяжёлых ns: снято 3 из 6 тяжёлых' "$OUT"; then ok; else bad SW1-census "строка уборки без «снято 3 из 6»"; fi
+if grep -q 'уборка просроченных тяжёлых ns: снято 4 из 8 тяжёлых' "$OUT"; then ok; else bad SW1-census "строка уборки без «снято 4 из 8»"; fi
 if grep -q 'не тяжёлые (run.sh их не снимает — перечень): t3258-w9' "$OUT"; then ok; else bad SW1-foreign "просроченный стенд задачи не назван перечнем"; fi
 # SW2 — перепись после = 0: повтор на том же кластере (те же ns и Job) уборки не делает
 rm -rf "$BOX/sw-keep"; mkdir -p "$BOX/sw-keep"; cp -r "$BOX/state/ns" "$BOX/state/jobs" "$BOX/sw-keep/"

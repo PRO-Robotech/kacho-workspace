@@ -78,8 +78,9 @@
 # privileged, ПРЕДЕЛ и явные запросы и пределы ресурсов pod (числом, PROFILES).
 #
 # СНЯТИЕ. trap на EXIT, INT и TERM снимает ns всегда — на успехе, на падении
-# команды, на обрыве. --keep <ч> оставляет его для разбора с expires = сейчас + ч
-# (≤ 12). kill -9 trap не ловит: такое ns ловит перепись по expires
+# команды, на обрыве. --keep <ч> оставляет его для разбора с expires = сейчас +
+# наибольшая жизнь прогона (--timeout + 1800 + 600 с) + ч (≤ 12): срок ns не истекает
+# раньше срока Job. kill -9 trap не ловит: такое ns ловит перепись по expires
 # (`kubectl get ns -l kacho.io/kind=heavy` и аннотация).
 #
 # ЛОКАЛЬНАЯ УБОРКА. После kill -9 на машине остаются рабочий каталог
@@ -107,8 +108,9 @@
 #
 # УБОРКА ПРОСРОЧЕННЫХ (ws#1195). Перед переписью идущих run.sh снимает тяжёлые ns
 # (метка kacho.io/kind=heavy, имя t<N>-heavy-…), чей срок kacho.io/expires прошёл,
-# и те, что старше SWEEP_AGE_S (2 ч) без живого Job (Job нет либо он завершён) и без
-# аннотации kacho.io/keep (--keep оставляет ns для разбора до срока): kill -9 trap не
+# и те, что старше SWEEP_AGE_S (2 ч) без аннотации kacho.io/keep (--keep оставляет ns
+# для разбора до срока); ns с живым Job (не завершён) не снимается НИ по одному
+# признаку — его прогон идёт, а Job кончится сам по activeDeadlineSeconds: kill -9 trap не
 # ловит, а мёртвое ns держит запросы на узле до переписи. Прочие ns вида t<N>-… с
 # прошедшим сроком (стенды задач) — не его: они печатаются перечнем, не снимаются.
 # Строка «уборка просроченных тяжёлых ns: снято N из M …» — когда снято хоть одно;
@@ -378,9 +380,14 @@ SWEEP_AGE_S=7200     # УБОРКА ПРОСРОЧЕННЫХ: тяжёлое ns 
 # 2026-09-24 по 2026-10-18, прогоны от 60 с): пик = peak + container_peak +
 # escaped_peak (процессы и контейнеры команды), p90 — ранг ⌈0,9·n⌉. Репозиторий —
 # по origin живой копии, иначе по пути; копии, которых больше нет, без kaname и
-# corelib в пути, записаны в kacho (среди них и прогоны воркспейса — p90 kacho от
-# этого не ниже: у воркспейса он 4 082 МиБ против 6 316). Замер в кластере пишет сам
-# run.sh (ПИК в шапке) — строкой «remote-peak» того же журнала; таблица правится по ней.
+# corelib в пути, записаны в kacho. Среди них и прогоны воркспейса, и они p90 kacho
+# ПОНИЖАЮТ: без них ci-local kacho — 549 прогонов, p90 6 418 МиБ, запрос 7 936 МиБ
+# против 7 680 (перемер приёмки ws#1195, круг 1); строка kacho ci-local — поэтому
+# нижняя оценка, предел run (по наибольшему пику) покрывает и её. Замер в кластере
+# пишет сам run.sh (ПИК в шапке) строкой «remote-peak» того же журнала, но run_peak в
+# ней — memory.peak ОДНОГО контейнера run: dind и контейнеры testcontainers в нём не
+# считаны. Для lint (dind нет) строка правится по run_peak; для ci-local, go-race и
+# integration run_peak — лишь нижняя граница пика pod, и правка по нему занизит запрос.
 PEAK_MIN_N=5
 PEAK_MARGIN_PCT=120
 PEAKS='ci-local|kacho|645|6316|9421
@@ -790,7 +797,8 @@ case "${1:-}" in
             { [ "$2" = --profile ] && [ "$#" -eq 3 ]; } || { [ "$2" = --profile ] && [ "$#" -eq 5 ] && [ "$4" = --repo ]; } \
                 || { say "--available [--profile <профиль> [--repo kacho|kaname|corelib]], получено «${*:2}»"; exit 64; }
             [ "$#" -eq 3 ] || case "$5" in kacho|kaname|corelib) ;; *) say "--repo kacho|kaname|corelib, получено «$5»"; exit 64 ;; esac
-            sizing "$3" "${5:-}" || { say "профиля «$3» нет: $(cut -d'|' -f1 <<< "$PROFILES" | tr '\n' ' ')"; exit 64; }
+            profile_row "$3" >/dev/null || { say "профиля «$3» нет: $(cut -d'|' -f1 <<< "$PROFILES" | tr '\n' ' ')"; exit 64; }
+            sizing "$3" "${5:-}" || { say "запрос профиля $3 не выведен из PEAKS: строки профиля в таблице нет (не выполнилось)"; exit 69; }
             need="$NEED_CPU $NEED_MIB"; avw="; запрос pod: cpu ${NEED_CPU}m, память $NEED_MIB МиБ — $SIZE_WHY"
         fi
         valid_max_par || exit 64
@@ -810,7 +818,7 @@ case "${1:-}" in
     --profiles)
         while IFS='|' read -r n _ _ _ eph d basis; do
             for r in kacho kaname corelib; do
-                sizing "$n" "$r" || exit 69
+                sizing "$n" "$r" || { say "запрос профиля $n для $r не выведен из PEAKS: строки профиля в таблице нет (не выполнилось)"; exit 69; }
                 printf '%-12s %-8s pod cpu %sm память %s МиБ · run cpu %sm/%s память %s/%s МиБ · диск %s · dind %s\n%-21s %s\n' "$n" "$r" "$NEED_CPU" "$NEED_MIB" \
                     "$RUN_CPU_REQ" "$(cut -d'|' -f3 <<< "$(profile_row "$n")")" "$RUN_MEM_REQ" "$RUN_MEM_LIM" "$eph" "$([ "$d" = 1 ] && echo да || echo нет)" "" "$SIZE_WHY"
             done
@@ -1138,7 +1146,7 @@ sweep_heavy() {
             keep: (.metadata.annotations["kacho.io/keep"] != null),
             live: (.metadata.name as $n | $live | any(. == $n))}] as $all
       | ($all | map(select(.heavy)) | length) as $seen
-      | ($all[] | select(.heavy and (.exp or (.old and (.live | not) and (.keep | not)))) | "own \(.n)"),
+      | ($all[] | select(.heavy and (.live | not) and (.exp or (.old and (.keep | not)))) | "own \(.n)"),
         ($all[] | select((.heavy | not) and .exp) | "foreign \(.n)"),
         "seen \($seen)"' 2>/dev/null)" || { say "уборка просроченных тяжёлых ns не сделана: перепись не разобрана"; return 0; }
     n_seen="$(sed -n 's/^seen //p' <<< "$plan")"
@@ -1209,7 +1217,10 @@ trap 'on_signal INT 130' INT
 trap 'on_signal TERM 143' TERM
 
 LIFE_S=$(( TIMEOUT_S + WAIT_START_S + 600 ))
-[ -n "$KEEP_H" ] && LIFE_S=$(( KEEP_H * 3600 ))
+# --keep — часы ПОСЛЕ наибольшей жизни прогона, а не от создания: иначе срок ns
+# (--keep 1 — 3 600 с) истекал бы при живом Job (срок Job до 16 200 с), и уборка
+# чужого запуска сняла бы идущий прогон (приёмка ws#1195, круг 1).
+[ -n "$KEEP_H" ] && LIFE_S=$(( LIFE_S + KEEP_H * 3600 ))
 EXPIRES="$(date -u -d "@$(( $(now) + LIFE_S ))" +%Y-%m-%dT%H:%M:%SZ)"
 PSA=baseline; [ "$DIND" = 1 ] && PSA=privileged
 
