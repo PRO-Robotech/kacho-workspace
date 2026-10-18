@@ -76,16 +76,29 @@
 #   C5 гонка при --keep                    → 75, ns всё равно снято
 #   V2 --available при занятом кластере    → 75; близнец V2b → 0
 #   M1 KACHO_REMOTE_HEAVY_MAX=0            → 64
-#   M2 предел по умолчанию 4 — страховка над размещением: 4 идущих → 75;
-#      близнец M2b 3 идущих → 0 (C1–C5, V2 судят предел явным 2)
+#   M2 предел по умолчанию 6 — страховка над размещением: 6 идущих → 75;
+#      близнец M2b 5 идущих → 0 (C1–C5, V2 судят предел явным 2)
 #   Q1 стенд (pod ns kacho) на всех узлах, место есть → --available 0 и прогон 0
-#      (стенд узел не запирает); Q1d второй go-race на ОДНОМ узле со стендом
-#      оставил бы меньше 20 % CPU → 75, запас назван (ws#1143)
-#   QH допуск по запросам профиля и запасу 20 %: узлы и фон замера 2026-10-17 —
-#      помещаются 4 лёгких, 1 тяжёлый и 2 лёгких, 2 тяжёлых; следующий — 75 с
-#      названным запасом (ws#1143); порча «запас 0 %» — mutants.py headroom-0
-#   QB запас на самой границе: остаток CPU 3 100m → 0, 3 099m → 75; фон памяти
-#      18 007 МиБ → 0, 18 008 МиБ → 75; порча порога hr-0.1 с прежним текстом — по коду
+#      (стенд узел не запирает)
+#   QR запрос по замеру (ws#1195): память pod — p90 пика строки PEAKS профиля и
+#      репозитория × 1,2 вверх до 256 МиБ (ожидание выводится пробой из таблицы
+#      своим расчётом); kacho и kaname ci-local различны; corelib (прогонов < 5) —
+#      строка «*»; без --repo — наибольший; Job несёт запрос run = pod − dind − pgclient,
+#      квота — run + dind + 1 ГиБ; --repo вне трёх → 64
+#   QW 4–5 окон (решение владельца 2026-10-18): два узла 15 500m и 30 189 МиБ, фон
+#      переписи 2026-10-18 (2 265m/8 436 МиБ и 2 335m/9 460 МиБ); подряд ложатся 6
+#      ci-local (kacho, kacho, kaname, kaname, kaname, kacho) — запросы берутся из Job
+#      самого run.sh, седьмой — 75; порча «константа 7/12» краснит QW-3, возврат
+#      запаса 20 % — QW-5 (mutants.py)
+#   QB место на самой границе, без запаса сверх запроса: lint kaname (2 000m, 5 376 МиБ),
+#      фон CPU 13 500m → 0, 13 501m → 75; памяти 24 813 МиБ → 0, 24 814 МиБ → 75
+#   SW уборка просроченных (ws#1195): тяжёлое ns с прошедшим сроком и старое без
+#      живого Job — сняты; --keep, живой Job, молодое — нет; стенд задачи с прошедшим
+#      сроком — перечнем, не снят; повтор — уборки нет (перепись после = 0)
+#   PK пик run (ws#1195): шаг ИСПОЛНЕНИЕМ печатает memory.peak и CPU за команду, без
+#      cgroup — «—»; run.sh пишет «remote-peak» в журнал слотов с репозиторием и
+#      запросом; каталога журнала нет — не создаёт
+#   EV pod выселен узлом → 69 (не код контейнера); близнец K4c — 137 без выселения
 #   Q3 единственный узел не готов / закрыт / taint NoSchedule → 69; прогон 69 без ns
 #   Q2 места под go-race нет ни на одном узле → 75 и прогон 75 без ns; близнец Q2b
 #      тот же кластер, профиль lint → 0 и прогон 0; Q2c профиля нет → 64
@@ -390,9 +403,11 @@ case "$1 ${2:-}" in
             exit 0
         fi
         reason=Completed; [ "${FAKE_OOM:-0}" = 1 ] && reason=OOMKilled
-        pods "$(jq -nc --argjson rc "${FAKE_EXIT:-0}" --arg r "$reason" --arg m "${FAKE_MSG:-}" '{phase:(if $rc == 0 then "Succeeded" else "Failed" end),
+        # FAKE_EVICT — узлу не хватило памяти: pod выселен, контейнер снят (ws#1195).
+        pods "$(jq -nc --argjson rc "${FAKE_EXIT:-0}" --arg r "$reason" --arg m "${FAKE_MSG:-}" --arg ev "${FAKE_EVICT:-0}" '{phase:(if $rc == 0 then "Succeeded" else "Failed" end),
             initContainerStatuses:[{name:"fetch",state:{terminated:{exitCode:0}}}],
-            containerStatuses:[{name:"run",state:{terminated:{exitCode:$rc,reason:$r,message:$m}}}]}')" ;;
+            containerStatuses:[{name:"run",state:{terminated:{exitCode:$rc,reason:$r,message:$m}}}]}
+            + (if $ev == "1" then {reason: "Evicted", message: "The node was low on resource: memory."} else {} end)')" ;;
     "exec -i") cat > "$S/bundle"; touch "$S/delivered" ;;
     "logs -f")
         echo "строка лога команды: pod $FAKE_POD_IP, dind $FAKE_POD_IP6"
@@ -638,7 +653,7 @@ go_run() {
     OUT="$BOX/$name.out"
     # Срок — чтобы дефект, на котором run.sh ждёт свои 1800 с, краснел, а не висел.
     timeout 90 env PATH="$BOX/bin:$PATH" FAKE_STATE="$BOX/state" FAKE_HOST="$SERVER_HOST" FAKE_IP="$SERVER_IP" \
-        KACHO_REMOTE_KUBECONFIG="$BOX/kubeconfig" TMPDIR="$BOX" "$@" > "$OUT" 2>&1
+        KACHO_REMOTE_KUBECONFIG="$BOX/kubeconfig" TMPDIR="$BOX" HEAVY_SLOT_DIR="$BOX/slots" "$@" > "$OUT" 2>&1
     RC=$?
     cat "$OUT" >> "$ALL_OUT"
 }
@@ -1758,13 +1773,13 @@ expect_rc V2 75
 fresh; seed_ns t7-heavy-a '+1 hour'
 go_run v2b env KACHO_REMOTE_HEAVY_MAX=2 bash "$RUN" --available
 expect_rc V2b 0
-# M2 — предел по умолчанию — 4, страховка над размещением (ws#1143): 4 идущих → 75 с
-# пределом в причине; близнец — 3 идущих → 0
-fresh; for x in a b c d; do seed_ns "t7-heavy-$x" '+1 hour'; done
+# M2 — предел по умолчанию — 6, страховка над размещением (ws#1143, ws#1195): 6 идущих
+# → 75 с пределом в причине; близнец — 5 идущих → 0
+fresh; for x in a b c d e f; do seed_ns "t7-heavy-$x" '+1 hour'; done
 go_run m2 bash "$RUN" --available
 expect_rc M2 75
-if grep -q 'идущих тяжёлых прогонов 4 при пределе 4' "$OUT"; then ok; else bad M2-why "предел по умолчанию не 4 либо не назван"; fi
-fresh; for x in a b c; do seed_ns "t7-heavy-$x" '+1 hour'; done
+if grep -q 'идущих тяжёлых прогонов 6 при пределе 6' "$OUT"; then ok; else bad M2-why "предел по умолчанию не 6 либо не назван"; fi
+fresh; for x in a b c d e; do seed_ns "t7-heavy-$x" '+1 hour'; done
 go_run m2b bash "$RUN" --available
 expect_rc M2b 0
 # M1 — предел вне 1..8 → 64
@@ -1801,69 +1816,95 @@ go_run q1r env FAKE_EXIT=0 FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$STAND_ALL" 
 expect_rc Q1r 0
 if [ "$(created)" = да ]; then ok; else bad Q1r "ns не создавалось при стенде на всех узлах и месте под профиль"; fi
 expect_ns_gone Q1r t1-heavy-q1r
-# Q1d — запас 20 % (ws#1143): единственный узел со стендом и одним идущим go-race —
-# второй go-race на нём оставил бы узлу меньше 20 % по CPU → 75, запас назван
-IFS='|' read -r _ gcpu _ gmib _ <<< "$(sed -n "s/^PROFILES='\\(go-race|.*\\)/\\1/p" "$RUN")"
-IFS='|' read -r dind_cpu _ dind_gi _ <<< "$(sed -n "s/^DIND_RES='\\(.*\\)'$/\\1/p" "$RUN")"
-dind_gi="${dind_gi%Gi}"
-if [ -n "$gcpu" ] && [ -n "$dind_cpu" ] && [ -n "$dind_gi" ]; then
-    one_run="$(pod_j t9-heavy-a n1 Running "$(( gcpu + dind_cpu ))" "$(( ${gmib%Gi} + dind_gi ))Gi")"
-    fresh
-    go_run q1d env FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$( { pod_j kacho n1 Running 450m 2756Mi; echo "$one_run"; } | items)" bash "$RUN" --available --profile go-race
-    expect_rc Q1d 75
-    if grep -q 'с запасом 20 % узла' "$OUT"; then ok; else bad Q1d-why "причина без запаса"; fi
-else bad Q1d "запрос go-race и dind не прочитаны из run.sh"; fi
-# QH — допуск по запросам профиля и запасу 20 % (ws#1143). Узлы и фон — замер
-# 2026-10-17 (get nodes и get pods -A): два узла по 15 500m и 30 189 МиБ, фон
-# 2 265m/8 436 МиБ и 2 335m/9 460 МиБ. Тяжёлый (go-race, ci-local) — 7 CPU и 12 ГиБ,
-# лёгкий (integration, lint) — 4 CPU и 6 ГиБ (запросы PROFILES с dind). Уже идущие
-# прогоны — pod на узлах; число идущих ns ноль: решает размещение, а не счёт штуками.
-# Помещаются 4 лёгких, или 1 тяжёлый и 2 лёгких, или 2 тяжёлых; следующий — 75.
-BG="$(pod_j sys n1 Running 2265m 8436Mi) $(pod_j sys n2 Running 2335m 9460Mi)"
-qh() {  # qh <случай> <профиль> <код> <узлы идущих: h1 l2 …>
-    local id="$1" prof="$2" want="$3" pods="$BG" r; shift 3
-    for r in "$@"; do
-        case "$r" in
-            h*) pods="$pods $(pod_j t9-heavy-h n"${r#h}" Running 7 12Gi)" ;;
-            l*) pods="$pods $(pod_j t9-heavy-l n"${r#l}" Running 4 6Gi)" ;;
-        esac
-    done
-    fresh
-    go_run "qh-$id" env FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$(printf '%s\n' "$pods" | items)" bash "$RUN" --available --profile "$prof"
-    expect_rc "QH-$id" "$want"
-    if [ "$want" = 75 ]; then
-        if grep -q 'с запасом 20 % узла по CPU и памяти нет' "$OUT"; then ok; else bad "QH-$id-why" "причина 75 не называет запас"; fi
-    fi
+# QR — запрос по замеру (ws#1195). Ожидание выводится ПРОБОЙ из таблицы PEAKS run.sh
+# своим расчётом: строка репозитория при прогонах ≥ PEAK_MIN_N, иначе «*»; память pod —
+# ⌈p90 × 1,2 / 256⌉ × 256 МиБ. Таблица — данные замера, формула и выбор строки — норма.
+PEAKS_TXT="$(sed -n "/^PEAKS='/,/'\$/p" "$RUN" | sed -e "s/^PEAKS='//" -e "s/'\$//")"
+PEAK_MIN="$(sed -n 's/^PEAK_MIN_N=\([0-9]*\)$/\1/p' "$RUN")"
+qr_want() {  # qr_want <профиль> <репозиторий> — «МиБ строка»
+    awk -F'|' -v p="$1" -v r="$2" -v m="$PEAK_MIN" '
+      $1 == p && $2 == r && $3 >= m { own = $4 " " $2 } $1 == p && $2 == "*" { all = $4 " *" }
+      END { split((own != "" ? own : all), a, " "); if (a[1] == "") exit 1;
+            printf "%d %s\n", int((a[1] * 6 + 1279) / 1280) * 256, a[2] }' <<< "$PEAKS_TXT"
 }
-qh light-0 lint 0
-qh light-1 integration 0 l1
-qh light-2 lint 0 l1 l2
-qh light-3 integration 0 l1 l1 l2
-qh light-4 lint 75 l1 l1 l2 l2
-qh mix-0 go-race 0
-qh mix-1 lint 0 h1
-qh mix-2 integration 0 h1 l2
-qh mix-3 lint 75 h1 l2 l2
-qh mix-3h go-race 75 h1 l2 l2
-qh heavy-1 ci-local 0 h1
-qh heavy-2 go-race 75 h1 h2
-qh heavy-2c ci-local 75 h2 h1
-# QB — запас на самой границе (приёмка ws#1143): один узел 15 500m и 30 913 596 КиБ,
-# профиль lint (4 000m и 6 ГиБ), фон — один pod. Запас 20 % — 3 100m и 6 037,8 МиБ:
-# фон 8 400m оставляет после посадки ровно 3 100m (0), 8 401m — 3 099m (75); фон
-# 18 007 МиБ оставляет 6 038,06 МиБ (0), 18 008 МиБ — 6 037,06 МиБ (75). Судится КОДОМ:
-# id случая стоит лишь у expect_rc, порча порога с прежним текстом причины краснеет им.
+if [ -n "$PEAKS_TXT" ] && [ -n "$PEAK_MIN" ]; then ok; else bad QR-table "PEAKS или PEAK_MIN_N в run.sh не прочитаны — судить нечем"; fi
+qr() {  # qr <случай> <профиль> <репозиторий|""> <ждём МиБ> <признак строки>
+    fresh
+    go_run "qr-$1" env FAKE_NODES="$NODES12" bash "$RUN" --available --profile "$2" ${3:+--repo "$3"}
+    expect_rc "QR-$1" 0
+    if grep -q "запрос pod: cpu [0-9]*m, память $4 МиБ — .*$5" "$OUT"; then ok; else bad "QR-$1" "запрос pod не $4 МиБ либо без признака «$5»"; fi
+}
+read -r w_ck _ <<< "$(qr_want ci-local kacho)"; read -r w_cn _ <<< "$(qr_want ci-local kaname)"
+read -r w_cc s_cc <<< "$(qr_want ci-local corelib)"
+qr ci-kacho ci-local kacho "$w_ck" 'репозиторий kacho, прогонов'
+qr ci-kaname ci-local kaname "$w_cn" 'репозиторий kaname, прогонов'
+if [ "$s_cc" = '*' ]; then ok; else bad QR-corelib-premise "строка corelib ci-local набрала прогонов ≥ $PEAK_MIN — случай «мало прогонов» пуст"; fi
+qr ci-corelib ci-local corelib "$w_cc" 'прогонов меньше'
+if [ -n "$w_ck" ] && [ "$w_ck" != "$w_cn" ]; then ok; else bad QR-repo "запрос ci-local kacho ($w_ck) и kaname ($w_cn) не различаются — репозиторий не судит"; fi
+w_max="$(for r in kacho kaname corelib; do qr_want ci-local "$r" | cut -d' ' -f1; done | sort -n | tail -n 1)"
+qr ci-any ci-local "" "$w_max" 'репозиторий не назван'
+fresh
+go_run qr-badrepo bash "$RUN" --available --profile ci-local --repo other
+expect_rc QR-badrepo 64
+# QR-job — Job несёт запрос: run = pod − dind − pgclient, dind 100m/256Mi, предел run не
+# ниже запроса, квота — run + dind + 1 ГиБ (ci-local kaname, как GI2b)
+fresh
+go_run qr-job env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref HEAD --src "$SRC" --profile ci-local --short qrj -- true
+expect_rc QR-job 0
+qj="$(jq -r '.spec.template.spec as $s | [($s.containers[] | select(.name == "run") | .resources.requests.memory, .resources.limits.memory),
+             ($s.initContainers[] | select(.name == "dind") | .resources.requests.memory),
+             ($s.containers[] | select(.name == "pgclient") | .resources.requests.memory)] | join(" ")' "$BOX/state/job.json" 2>/dev/null)"
+read -r j_run j_lim j_dind j_pg <<< "$qj"
+if [ "$(( ${j_run%Mi} + ${j_dind%Mi} + ${j_pg%Mi} ))" = "$w_cn" ] 2>/dev/null; then ok; else bad QR-job "run $j_run + dind $j_dind + pgclient $j_pg ≠ запросу pod $w_cn МиБ"; fi
+if [ "${j_lim%Mi}" -ge "${j_run%Mi}" ] 2>/dev/null; then ok; else bad QR-job-lim "предел run $j_lim ниже запроса $j_run"; fi
+qq="$(jq -r '.items[] | select(.kind == "ResourceQuota") | .spec.hard["requests.memory"]' "$BOX/state/applied.json" 2>/dev/null)"
+if [ "$qq" = "$(( ${j_run%Mi} + ${j_dind%Mi} + 1024 ))Mi" ]; then ok; else bad QR-quota "квота requests.memory «$qq» не run + dind + 1 ГиБ"; fi
+
+# QW — 4–5 окон (решение владельца 2026-10-18 «Внешний кластер 16*32 два узла это 4-5
+# окон»). Узлы и фон — перепись 2026-10-18: два узла по 15 500m и 30 189 МиБ, фон без
+# тяжёлых — 2 265m/8 436 МиБ и 2 335m/9 460 МиБ (стенды и выкатка). Прогоны ci-local
+# садятся подряд; уже севший — pod с запросами из Job, который создал сам run.sh.
+# Ложатся шесть (kacho, kacho, kaname, kaname, kaname, kacho), седьмой — 75. Константа
+# 7/12 краснит третий, запас 20 % сверх запроса — пятый (mutants.py).
+BG="$(pod_j sys n1 Running 2265m 8436Mi) $(pod_j sys n2 Running 2335m 9460Mi)"
+pod_from_job() {  # pod_from_job <ns> <узел> — pod последнего Job пробы, лишь запросы
+    jq -c --arg ns "$1" --arg n "$NODE_PFX$2" '.spec.template.spec as $s | {metadata: {namespace: $ns, name: "run-x"},
+      spec: {nodeName: $n, containers: [$s.containers[] | {name, resources}],
+             initContainers: [($s.initContainers // [])[] | {name, resources} + (if .restartPolicy then {restartPolicy} else {} end)]},
+      status: {phase: "Running"}}' "$BOX/state/job.json"
+}
+QW_PODS="$BG"
+qw() {  # qw <шаг> <репозиторий> <узел, куда сел> <код>
+    fresh
+    go_run "qw-$1" env FAKE_EXIT=0 FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$(printf '%s\n' "$QW_PODS" | items)" \
+        bash "$RUN" --task 1 --repo "$2" --ref HEAD --src "$SRC" --profile ci-local --short "qw$1" -- true
+    expect_rc "QW-$1" "$4"
+    if [ "$4" = 0 ]; then
+        QW_PODS="$QW_PODS $(pod_from_job "t1-heavy-qw$1" "$3")"
+    elif grep -q 'места под запрос' "$OUT"; then ok; else bad "QW-$1-why" "причина 75 не названа"; fi
+}
+qw 1 kacho n1 0
+qw 2 kacho n2 0
+qw 3 kaname n1 0
+qw 4 kaname n2 0
+qw 5 kaname n1 0
+qw 6 kacho n2 0
+qw 7 kaname - 75
+# QB — место на самой границе, сверх запроса запаса нет (ws#1195): один узел 15 500m
+# и 30 913 596 КиБ (30 189,06 МиБ), lint kaname — 2 000m и 5 376 МиБ. Фон CPU 13 500m
+# оставляет ровно 2 000m (0), 13 501m — 1 999m (75); фон памяти 24 813 МиБ оставляет
+# 5 376,06 МиБ (0), 24 814 МиБ — 5 375,06 (75). Судится КОДОМ.
 qb() {  # qb <случай> <фон cpu> <фон память> <код>
     fresh
-    go_run "qb-$1" env FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$(pod_j sys n1 Running "$2" "$3" | items)" bash "$RUN" --available --profile lint
+    go_run "qb-$1" env FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$(pod_j sys n1 Running "$2" "$3" | items)" bash "$RUN" --available --profile lint --repo kaname
     expect_rc "QB-$1" "$4"
 }
-qb cpu-in 8400m 1000Mi 0
-qb cpu-out 8401m 1000Mi 75
-qb mem-in 100m 18007Mi 0
-qb mem-out 100m 18008Mi 75
-qb both-in 8400m 18007Mi 0
-qb both-out 8401m 18008Mi 75
+qb cpu-in 13500m 1000Mi 0
+qb cpu-out 13501m 1000Mi 75
+qb mem-in 100m 24813Mi 0
+qb mem-out 100m 24814Mi 75
+qb both-in 13500m 24813Mi 0
+qb both-out 13501m 24814Mi 75
 # Q3 — единственный узел не готов / закрыт / с taint NoSchedule → 69; прогон 69 без ns
 for q in "0 0 :не-готов" "1 1 :закрыт" "1 0 NoSchedule:taint"; do
     read -r rdy cord rest <<< "$q"; eff="${rest%%:*}"; nm="${rest#*:}"
@@ -1876,9 +1917,9 @@ fresh
 go_run q3r env FAKE_EXIT=0 FAKE_NODES="$(node_j n1 1 1 "" | items)" "${B[@]}" --short q3r -- true
 expect_rc Q3r 69
 if [ "$(created)" = нет ]; then ok; else bad Q3r "ns создавалось без открытого узла"; fi
-# Q2 — оба узла заняты: 16 ГиБ запрошено чужими pod → go-race (12 ГиБ) с запасом
-# 20 % не встаёт → 75 до ns
-BUSY="$( { pod_j kacho n1 Running 450m 2756Mi; pod_j other n1 Running 2 16Gi; pod_j other n2 Running 2 16Gi; } | items)"
+# Q2 — оба узла заняты: 22 ГиБ запрошено чужими pod → go-race (наибольший 13 568 МиБ,
+# kaname 8 448 МиБ) не встаёт → 75 до ns
+BUSY="$( { pod_j kacho n1 Running 450m 2756Mi; pod_j other n1 Running 2 22Gi; pod_j other n2 Running 2 22Gi; } | items)"
 fresh
 go_run q2 env FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$BUSY" bash "$RUN" --available --profile go-race
 expect_rc Q2 75
@@ -1887,9 +1928,9 @@ fresh
 go_run q2r env FAKE_EXIT=0 FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$BUSY" bash "$RUN" --task 1 --repo kaname --ref HEAD --src "$SRC" --profile go-race --short q2r -- true
 expect_rc Q2r 75
 if [ "$(created)" = нет ]; then ok; else bad Q2r "ns создавалось без места под профиль"; fi
-# Q2b — близнец: тот же кластер, профиль lint (6 ГиБ) встаёт → 0 и прогон исполняется
+# Q2b — близнец: тот же кластер, профиль lint kaname (5 376 МиБ) встаёт → 0 и прогон исполняется
 fresh
-go_run q2b env FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$BUSY" bash "$RUN" --available --profile lint
+go_run q2b env FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$BUSY" bash "$RUN" --available --profile lint --repo kaname
 expect_rc Q2b 0
 fresh
 go_run q2br env FAKE_EXIT=0 FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$BUSY" "${B[@]}" --short q2br -- true
@@ -2305,6 +2346,76 @@ fresh
 go_run rg6b env FAKE_EXIT=1 FAKE_LOG_FILE="$BOX/rg5.stream" "${B[@]}" --short rg6b -- true
 expect_rc RG6b 1
 if [ "$(red_dirs rg6b)" -eq 0 ] && grep -q 'журналы красных групп НЕ получены' "$OUT"; then ok; else bad RG6b "отсутствие итога не названо"; fi
+
+# SW — уборка просроченных (ws#1195). seed_at <имя> <создано> <срок> <heavy 1|0> [keep]
+seed_at() {
+    jq -n --arg n "$1" --arg t "$(date -u -d "$2" +%Y-%m-%dT%H:%M:%SZ)" --arg e "$(date -u -d "$3" +%Y-%m-%dT%H:%M:%SZ)" --arg h "$4" --arg k "${5:-}" \
+        '{kind: "Namespace", metadata: {name: $n, creationTimestamp: $t,
+          labels: (if $h == "1" then {"kacho.io/kind": "heavy"} else {stand: "test"} end),
+          annotations: ({"kacho.io/expires": $e} + (if $k != "" then {"kacho.io/keep": $k} else {} end))}, status: {phase: "Active"}}' > "$BOX/state/ns/$1"
+}
+seed_live_job() { mkdir -p "$BOX/state/jobs"; jq -n --arg n "$1" '{metadata: {namespace: $n, name: "run"}, status: {active: 1}}' > "$BOX/state/jobs/$1"; }
+fresh
+seed_at t5-heavy-expired '-5 hours' '-1 hour' 1          # срок прошёл → снять
+seed_at t5-heavy-dead '-3 hours' '+1 hour' 1             # старше 2 ч, Job нет → снять
+seed_at t5-heavy-fin '-3 hours' '+1 hour' 1; seed_done_job t5-heavy-fin     # Job завершён → снять
+seed_at t5-heavy-kept '-3 hours' '+5 hours' 1 2; seed_done_job t5-heavy-kept # --keep → оставить
+seed_at t5-heavy-live '-3 hours' '+1 hour' 1; seed_live_job t5-heavy-live   # живой Job → оставить
+seed_at t5-heavy-young '-30 minutes' '+1 hour' 1         # моложе 2 ч → оставить
+seed_at t3258-w9 '-30 hours' '-20 hours' 0               # стенд задачи → перечень
+go_run sw1 env FAKE_EXIT=0 "${B[@]}" --short sw1 -- true
+expect_rc SW1 0
+for x in expired dead fin; do
+    if grep -qx "t5-heavy-$x" "$BOX/state/deleted" 2>/dev/null; then ok; else bad "SW1-$x" "тяжёлое ns t5-heavy-$x не снято"; fi
+done
+for x in t5-heavy-kept t5-heavy-live t5-heavy-young t3258-w9; do
+    if grep -qx "$x" "$BOX/state/deleted" 2>/dev/null; then bad "SW1-keep-$x" "снято ns $x"; else ok; fi
+done
+if grep -q 'уборка просроченных тяжёлых ns: снято 3 из 6 тяжёлых' "$OUT"; then ok; else bad SW1-census "строка уборки без «снято 3 из 6»"; fi
+if grep -q 'не тяжёлые (run.sh их не снимает — перечень): t3258-w9' "$OUT"; then ok; else bad SW1-foreign "просроченный стенд задачи не назван перечнем"; fi
+# SW2 — перепись после = 0: повтор на том же кластере (те же ns и Job) уборки не делает
+rm -rf "$BOX/sw-keep"; mkdir -p "$BOX/sw-keep"; cp -r "$BOX/state/ns" "$BOX/state/jobs" "$BOX/sw-keep/"
+fresh; rm -rf "$BOX/state/ns"; cp -r "$BOX/sw-keep/ns" "$BOX/sw-keep/jobs" "$BOX/state/"
+go_run sw2 env FAKE_EXIT=0 "${B[@]}" --short sw2 -- true
+expect_rc SW2 0
+if grep -q 'уборка просроченных тяжёлых ns: снято' "$OUT"; then bad SW2 "повтор снова снимает — уборка не досчитала"; else ok; fi
+if grep -qx 't1-heavy-sw2' "$BOX/state/deleted" 2>/dev/null && [ "$(grep -c . "$BOX/state/deleted")" -eq 1 ]; then ok; else bad SW2-own "снято не одно своё ns прогона: $(tr '\n' ' ' < "$BOX/state/deleted" 2>/dev/null)"; fi
+# SW3 — --keep пишет аннотацию kacho.io/keep (по ней уборка его щадит)
+fresh
+go_run sw3 env FAKE_EXIT=0 "${B[@]}" --short sw3 --keep 2 -- true
+expect_rc SW3 0
+if [ "$(jq -r '.metadata.annotations["kacho.io/keep"] // ""' "$BOX/state/ns/t1-heavy-sw3" 2>/dev/null)" = 2 ]; then ok; else bad SW3 "ns --keep без аннотации kacho.io/keep"; fi
+
+# PK — пик run (ws#1195). PK1 — исполнением шага: memory.peak и usage_usec за команду.
+if [ -s "$BOX/redlog-oom.sh" ]; then
+    echo 3221225472 > "$RW/mpeak"; printf 'usage_usec 1000000\nuser_usec 1\n' > "$RW/cstat"
+    ( cd "$RW" && HEAVY_MEM_EVENTS="$RW/mev" HEAVY_MEM_PEAK="$RW/mpeak" HEAVY_CPU_STAT="$RW/cstat" bash "$BOX/redlog-oom.sh" \
+        bash -c 'printf "usage_usec 9000000\n" > "$1"' x "$RW/cstat" ) > "$BOX/pk1.out" 2>&1; RC=$?; OUT="$BOX/pk1.out"
+    expect_rc PK1 0
+    if grep -qE '^remote-heavy-peak: 3221225472 8000000 [0-9]+$' "$OUT"; then ok; else bad PK1 "строки пика с памятью и CPU за команду нет"; fi
+    ( cd "$RW" && HEAVY_MEM_EVENTS="$RW/mev" HEAVY_MEM_PEAK="$RW/nope" HEAVY_CPU_STAT="$RW/nope" bash "$BOX/redlog-oom.sh" true ) > "$BOX/pk1b.out" 2>&1; OUT="$BOX/pk1b.out"
+    if grep -qE '^remote-heavy-peak: — — [0-9]+$' "$OUT"; then ok; else bad PK1b "без cgroup строки пика «— —» нет"; fi
+else OUT=""; bad PK1 "шага в pod нет — пик исполнять нечего"; fi
+# PK2 — поток несёт пик → строка «пик run» и «remote-peak» в журнале слотов
+printf '%s\n' 'remote-heavy-peak: 2147483648 120000000 60' 'remote-heavy-redlog: total 0 0' > "$BOX/pk2.stream"
+fresh; rm -rf "$BOX/slots"; mkdir -p "$BOX/slots"
+go_run pk2 env FAKE_EXIT=0 FAKE_LOG_FILE="$BOX/pk2.stream" "${B[@]}" --short pk2 -- true
+expect_rc PK2 0
+if grep -q 'пик run: память 2048 МиБ при запросе .*CPU в среднем 2000m за 60 с' "$OUT"; then ok; else bad PK2 "пик run не напечатан"; fi
+if grep -qE ' remote-peak class=lint repo=kaname rc=0 run_peak=2048MiB req=[0-9]+MiB lim=[0-9]+MiB cpu_avg=2000m cpu_req=[0-9]+m dur=60s ns=t1-heavy-pk2$' "$BOX/slots/journal.log" 2>/dev/null; then ok; else OUT="$BOX/slots/journal.log"; bad PK2-journal "строки remote-peak в журнале слотов нет"; fi
+if grep -q 'remote-heavy-peak' "$BOX/pk2.out"; then OUT="$BOX/pk2.out"; bad PK2-raw "сырая строка пика дошла до вывода"; else ok; fi
+# PK3 — каталога журнала нет → run.sh его не заводит
+fresh; rm -rf "$BOX/slots"
+go_run pk3 env FAKE_EXIT=0 FAKE_LOG_FILE="$BOX/pk2.stream" "${B[@]}" --short pk3 -- true
+expect_rc PK3 0
+if [ -e "$BOX/slots" ]; then bad PK3 "каталог журнала слотов заведён run.sh"; else ok; fi
+
+# EV — pod выселен узлом (память узла) → 69 «не выполнилось», а не код контейнера 137
+fresh
+go_run ev1 env FAKE_EXIT=137 FAKE_EVICT=1 "${B[@]}" --short ev1 -- true
+expect_rc EV1 69
+if grep -q 'pod выселен узлом' "$OUT"; then ok; else bad EV1 "выселение не названо"; fi
+expect_ns_gone EV1 t1-heavy-ev1
 
 # V1 — кластер не отвечает
 fresh
