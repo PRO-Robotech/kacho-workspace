@@ -644,6 +644,10 @@ ns_left() { find "$BOX/state/ns" -type f | wc -l; }
 expect_ns_gone() {
     if [ "$(ns_left)" -eq 0 ] && grep -qx "$2" "$BOX/state/deleted" 2>/dev/null; then ok; else bad "$1" "ns $2 не снято (осталось $(ns_left))"; fi
 }
+# no_cluster_call <случай> — отказ до любого создания: к двойнику ни одного обращения.
+no_cluster_call() {
+    if [ -s "$BOX/state/calls" ]; then bad "$1" "к кластеру обращались: $(head -n 1 "$BOX/state/calls")"; else ok; fi
+}
 
 mapfile -t B < <(base)
 
@@ -1599,10 +1603,6 @@ fi
 if [ -e "$BOX/state/deleted" ]; then bad K5 "delete ns звался при --keep"; else ok; fi
 
 # R1, R2, R3 — отказ до кластера
-# no_cluster_call <случай> — отказ до любого создания: к двойнику ни одного обращения.
-no_cluster_call() {
-    if [ -s "$BOX/state/calls" ]; then bad "$1" "к кластеру обращались: $(head -n 1 "$BOX/state/calls")"; else ok; fi
-}
 fresh
 go_run r1 env NS=kacho "${B[@]}" -- true
 expect_rc R1 64
