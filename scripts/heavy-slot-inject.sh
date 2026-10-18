@@ -867,6 +867,27 @@ assert "да" "$(has "$W/status" 'локально по флагу: проба �
 wait "$LP"
 git -C "$R" checkout -q -- f
 
+echo "── --enqueue: каталог журналов внутри рабочего дерева git — 64 до постановки, файлы слота копию грязной не делают (ws#1181, kacho#3251)"
+# 2026-10-18 на kacho#3251 файлы hs-*.{log,pid,rc} лежали в копии git, хук отправки судил
+# «грязную» временную копию без node_modules, и проверки консоли ушли в «НЕ выполнено».
+# Законен каталог вне git и каталог в дереве, где git игнорирует ВСЕ четыре файла слота.
+git init -q "$W/er" && mkdir -p "$W/er/logs" "$W/er/ign" "$W/er/part" "$W/outside"
+printf 'ign/\n' > "$W/er/.gitignore"; printf '*.log\n' > "$W/er/part/.gitignore"
+rm -f "$W/e1" "$W/e2" "$W/e3" "$W/e4" "$W/e5"
+rc="$(slot bash "$SLOT" --enqueue "$W/er/logs" docker -- touch "$W/e1")"
+assert "64 да да 0 0 нет" "$rc $(has "$W/err" 'в рабочем дереве git') $(has "$W/err" "$HEAVY_SLOT_DIR/enq") $(ls -A "$W/er/logs" | wc -l) $(qlen) $([ -e "$W/e1" ] && echo да || echo нет)" "каталог в дереве git, файлы слота не игнорируются → 64 до постановки: причина и каталог вне копии названы, в каталоге пусто, билета нет, команда не запускалась"
+rc="$(slot bash "$SLOT" --enqueue "$W/er/ign" docker -- touch "$W/e2")"; RE2="$(rcof)"
+assert "0 0 да" "$rc $(await_rc "$RE2") $([ -e "$W/e2" ] && echo да || echo нет)" "близнец: каталог в дереве, но git игнорирует все файлы слота → поставлен и исполнен"
+assert "" "$(git -C "$W/er" status --porcelain --untracked-files=all -- ign)" "...и копия чиста: в git status файлов слота нет"
+rc="$(slot bash "$SLOT" --enqueue "$W/outside" docker -- touch "$W/e3")"; RE3="$(rcof)"
+assert "0 0 да" "$rc $(await_rc "$RE3") $([ -e "$W/e3" ] && echo да || echo нет)" "близнец: каталог вне любого git → поставлен и исполнен"
+rc="$(slot bash "$SLOT" --enqueue "$W/er/part" docker -- touch "$W/e4")"
+assert "64 да нет" "$rc $(has "$W/err" 'в рабочем дереве git') $([ -e "$W/e4" ] && echo да || echo нет)" "игнорируется лишь *.log, .pid и .rc — нет → 64: судится КАЖДЫЙ из четырёх файлов слота, не один"
+n_at="$(grep -c 'if enq_dir_in_tree ' "$SLOT")"
+sed 's/if enq_dir_in_tree /if false \&\& enq_dir_in_tree /' "$SLOT" > "$W/slot-mut-1181.sh"
+rc="$(slot bash "$W/slot-mut-1181.sh" --enqueue "$W/er/logs" docker -- touch "$W/e5")"; RE5="$(rcof)"; await_rc "$RE5" >/dev/null
+assert "1 0 да" "$n_at $rc $([ -n "$(git -C "$W/er" status --porcelain --untracked-files=all -- logs)" ] && echo да || echo нет)" "мутант «проверки каталога нет»: тот же вызов ставится, и копия становится грязной — проба выше его ловит"
+
 echo "[CENSUS] heavy-slot: утверждений $((pass + fail)), сошлось $pass, разошлось $fail; граница (не ловится, заявлено в шапке) $bound; не построено частей $void"
 [ "$fail" -eq 0 ] || exit 1
 [ "$void" -eq 0 ] || exit 2
