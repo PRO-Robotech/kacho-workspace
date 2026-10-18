@@ -218,7 +218,6 @@ BYPASS_MAX=3
 # 512 МиБ. kacho (до 7595 МиБ, 23 строки) и всё неопознанное — прежний бюджет класса.
 SUBJECT_BUDGETS='workspace|1536|отправка воркспейса: пик 394–790 МиБ × 1,5, вверх до 512
 kaname|6656|отправка kaname: peak + container_peak + escaped_peak ≤ 4228 МиБ × 1,5, вверх до 512'
-SUBJ_TOP=""
 # Проверка внешнего кластера (ws#1141): `run.sh --available` — шесть обращений к API
 # подряд (can-i, узлы стража, ns и Job тяжёлых, узлы и pod размещения). Замер
 # 2026-10-17, 22 опроса: 3,3–5,3 с, медиана 3,5 с; диспетчер видел до 12,6 с. При
@@ -679,7 +678,7 @@ git_push_form() {
 # и называет выставленное; клона нет — называет переменную, которую выставить не из чего.
 # ГРАНИЦА: хук во внешнем кластере идёт Job-ом, окружение слота в него не попадает.
 push_homes() {
-    local top="$1" root name var d set=() miss=()
+    local top="$1" root name var d set=() lacks=()
     git -C "$top" ls-files --error-unmatch scripts/heavy-slot.sh >/dev/null 2>&1 || return 0
     root="$(dirname "$(git -C "$top" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)")"
     for name in kacho kaname corelib; do
@@ -689,11 +688,11 @@ push_homes() {
         if [ -e "$d/.git" ]; then
             export "$var=$d"; set+=("$var=$d")
         else
-            miss+=("$var (клона нет: $d)")
+            lacks+=("$var (клона нет: $d)")
         fi
     done
     [ "${#set[@]}" -eq 0 ] || say "клоны для наборов хука отправки выставлены из основного клона воркспейса: ${set[*]} (заданную вами переменную слот не трогает)"
-    [ "${#miss[@]}" -eq 0 ] || say "НЕ выставлено — наборы хука уйдут в [VOID]: ${miss[*]}"
+    [ "${#lacks[@]}" -eq 0 ] || say "НЕ выставлено — наборы хука уйдут в [VOID]: ${lacks[*]}"
     return 0
 }
 # push_where — для команды `git … push` (любой класс, обёртки перед git, -C) печатает, откуда и
@@ -707,11 +706,10 @@ push_homes() {
 # ГРАНИЦА: `bash -c 'cd … && git push'` — смену каталога внутри строки оболочки слот не видит.
 push_where() {
     local top url br head i n w rem="" dst bad="" specs=() shown=()
-    SUBJ_TOP=""; CMD_R=("$@"); n=${#CMD_R[@]}
+    CMD_R=("$@"); n=${#CMD_R[@]}
     git_push_form; [ -n "$PUSH_AT" ] || { GIT_IDX=""; GDIR="$PWD"; return 0; }
     top="$(git -C "$GDIR" rev-parse --show-toplevel 2>/dev/null)" || { GIT_IDX=""; GDIR="$PWD"; return 0; }
     url="$(git -C "$top" remote get-url origin 2>/dev/null | sed 's|//[^/@]*@|//|')"
-    SUBJ_TOP="$top"
     br="$(git -C "$GDIR" branch --show-current 2>/dev/null)"; head="$(git -C "$top" rev-parse --short=8 HEAD 2>/dev/null)"
     i=$(( PUSH_AT + 1 ))
     while [ "$i" -lt "$n" ]; do

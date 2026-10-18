@@ -1188,7 +1188,7 @@ assert "3" "$(fld "$gt" bypassed)" "у ждущего большого запи�
 # shellcheck disable=SC2016
 HEAVY_SLOT_WAIT_S=60 HEAVY_SLOT_BUDGET_MIB=40 bash "$SLOT" docker -- sh -c 'echo "$1" >> "$0"' "$W/bp-order" S4 2>"$W/errS4" & S4=$!
 for _ in $(seq 1 50); do [ "$(qlen)" -ge 2 ] && break; sleep 0.2; done
-bpend; rg=$?; wait "$S4"; r4=$?
+bpend; wait "$S4"; r4=$?
 assert "0 S1 S2 S3 G S4" "$r4 $(tr '\n' ' ' < "$W/bp-order" | sed 's/ $//')" "четвёртый малый обгонять уже не может: большой не голодает, входит РАНЬШЕ S4"
 assert "да" "$(has "$W/errS4" 'в очереди впереди 1')" "...и причина ожидания S4 названа"
 # Большому, которому места уже хватает, ждать нечего: он на пороге входа, его не обгоняют.
