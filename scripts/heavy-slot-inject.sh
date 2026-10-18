@@ -122,7 +122,9 @@ echo "── над настоящей памятью ручек нет: пот�
 # ручка получает 64 ДО первой записи (опыт ws#832, круги 2–3).
 REAL=(-u HEAVY_SLOT_DIR -u HEAVY_SLOT_MEMINFO -u HEAVY_SLOT_LIMIT_MIB -u HEAVY_SLOT_GUARD_S -u HEAVY_SLOT_GUARD_GRACE_S -u HEAVY_SLOT_BUDGET_MIB -u HEAVY_SLOT_POLL_S -u HEAVY_SLOT_WAIT_S)
 SHARED="$(getent passwd "$(id -u)" | cut -d: -f6)/.cache/heavy-slots"
-seen() { stat -c %s:%Y "$SHARED/journal.log" 2>/dev/null || echo нет; }
+# Общий журнал пишут и соседние полосы машины: сравнение размера и времени (stat) краснело от чужой
+# строки (2026-10-18, нагрузка 100+). Судится наше: строки журнала с путём этой пробы ($W/).
+seen() { local n; n="$(grep -cF -- "$W/" "$SHARED/journal.log" 2>/dev/null)"; echo "${n:-0}"; }
 before="$(seen)"
 assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_LIMIT_GIB=46 bash "$SLOT" docker -- touch "$W/k1") $(has "$W/err" 'HEAVY_SLOT_LIMIT_GIB=46')" "потолок 46 ГиБ — 64, ручка названа"
 assert "64 да нет" "$(slot "${REAL[@]}" HEAVY_SLOT_DIR="$W/own" bash "$SLOT" docker -- touch "$W/k2") $(has "$W/err" 'отдельная очередь') $([ -e "$W/own" ] && echo да || echo нет)" "свой каталог — 64, каталог не заведён"
@@ -172,15 +174,26 @@ assert 75 "$(slot HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" docker -- true)" "1000 
 wait "$A"
 assert 0 "$(slot HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" docker -- true)" "близнец: первый вышел — второй входит"
 
-echo "── очередь строгая: малый не обгоняет ждущий большой"
-HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" docker -- sleep 4 2>/dev/null & A=$!
-for _ in 1 2 3 4 5 6 7 8 9 10; do ls "$HEAVY_SLOT_DIR"/active/*.slot >/dev/null 2>&1 && break; sleep 0.2; done
-HEAVY_SLOT_WAIT_S=10 HEAVY_SLOT_BUDGET_MIB=250 bash "$SLOT" docker -- true 2>/dev/null & B=$!
-for _ in $(seq 1 25); do [ "$(qlen)" -ge 1 ] && break; sleep 0.2; done
-assert "75 да" "$(slot HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" docker -- true) $(has "$W/err" 'в очереди впереди 1')" "малый (50) влез бы по памяти, но большой (250) впереди — ждёт, и причина названа"
-wait "$B"; rc_b=$?; wait "$A"
-assert 0 "$rc_b" "большой дождался выхода первого и вошёл"
+echo "── очередь по билету: малый ОБГОНЯЕТ ждущего большего, которому места нет (ws#1161 д)"
+# Прежняя редакция («малый не обгоняет ждущий большой») держала малые отправки позади go-race в
+# 16 ГиБ при свободном месте. Обгон ограничен: BYPASS_MAX раз на ждущего, и не у того, кому места
+# уже хватает. Держатель ждёт по событию (файл), а не по сну: под нагрузкой машины сон не успевал.
+export HEAVY_SLOT_LIMIT_MIB=1300
+# bphold <файл> — держатель слота (бюджет 200), живёт до появления файла.
+# shellcheck disable=SC2016  # строка дочерней оболочки
+bphold() { HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" docker -- sh -c 'for _ in $(seq 1 900); do [ -e "$0" ] && break; sleep 0.1; done' "$1" 2>/dev/null & BPH=$!
+           for _ in $(seq 1 50); do [ "$(nslots)" -ge 1 ] && break; sleep 0.2; done; }
+rm -f "$W/hold-q" "$W/ov1"
+bphold "$W/hold-q"
+HEAVY_SLOT_WAIT_S=20 HEAVY_SLOT_BUDGET_MIB=250 bash "$SLOT" docker -- true 2>/dev/null & B=$!
+for _ in $(seq 1 50); do [ "$(qlen)" -ge 1 ] && break; sleep 0.2; done
+assert "0 да" "$(slot HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" docker -- touch "$W/ov1") $([ -e "$W/ov1" ] && echo да || echo нет)" "малый (50) влезает по памяти, большой (250) впереди ждёт и сам не влезает → малый проходит"
+gb250="$(grep -l '^budget=250$' "$HEAVY_SLOT_DIR"/queue/* | head -n 1)"; bp0="$(sed -n 's/^bypassed=//p' "$gb250")"
+assert "75 да да" "$(slot HEAVY_SLOT_BUDGET_MIB=150 bash "$SLOT" docker -- true) $(has "$W/err" 'потолка') $([ "$(sed -n 's/^bypassed=//p' "$gb250")" = "$bp0" ] && echo да || echo нет)" "близнец: малый (150), которому в оставшееся место не уместиться, не проходит (ждёт памяти, причина названа) и обгоном не засчитан"
+touch "$W/hold-q"; wait "$B"; rc_b=$?; wait "$BPH"
+assert 0 "$rc_b" "большой дождался выхода держателя и вошёл"
 assert 0 "$(slot HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" docker -- true)" "близнец: очередь пуста — малый входит"
+export HEAVY_SLOT_LIMIT_MIB=100000
 
 echo "── голову очереди держит лишь билет, влезающий под свой потолок при пустых слотах"
 # B3 круга 3: билет с потолком ниже занятого ждал до конца своего ожидания, и
@@ -1129,6 +1142,70 @@ assert "" "$(henv)" "близнец: отправка из клона друго
 sed 's/^\( *\)export "$var=$d"; set+=("$var=$d")/\1set+=("$var=$d")/' "$SLOT" > "$W/slot-mut-homes.sh"
 rm -f "$W/henv"; (cd "$W/wsr-lane" && slot -u KACHO_HOME_KACHO -u KACHO_HOME_KANAME -u KACHO_HOME_CORELIB HOOK_ENV="$W/henv" bash "$W/slot-mut-homes.sh" ci-local -- git push -q origin HEAD:refs/heads/h6) >/dev/null
 assert "1 " "$(diff "$SLOT" "$W/slot-mut-homes.sh" | grep -c '^<') $(henv)" "мутант «переменные не выставлены»: хук их не видит — проба выше его ловит"
+
+echo "── ci-local: бронь по предмету отправки, а не единые 10 ГиБ; обгон малым ограничен (ws#1161 д)"
+# Измерено по журналу слотов (строки leave класса ci-local, перемер 2026-10-18; предмет — origin
+# каталога отправки): воркспейс — пик 394–790 МиБ (не считая отказов до хука), kaname —
+# peak + container_peak + escaped_peak ≤ 4228 МиБ (36 строк), kacho — до 7595 МиБ (23 строки).
+# Бронь = максимум пика × 1,5, вверх до 512 МиБ: воркспейс 1536, kaname 6656; kacho и всё
+# неопознанное — прежние 10240. Число ставит предмет отправки (git push; -C), не имя класса.
+git init -q -b main "$W/kn" && echo k > "$W/kn/f" && git -C "$W/kn" add f && sandbox_git -C "$W/kn" commit -q -m k
+git -C "$W/kn" remote add origin "https://github.com/PRO-Robotech/kaname.git" && git -C "$W/kn" remote add bare "$W/wsr.git"
+git init -q -b main "$W/kc" && echo k > "$W/kc/f" && git -C "$W/kc" add f && sandbox_git -C "$W/kc" commit -q -m k
+git -C "$W/kc" remote add origin "https://github.com/PRO-Robotech/kacho.git"
+# book <каталог> <класс> <команда…> — бронь слота, число на stdout, основание на stderr.
+book() { local d="$1" c="$2"; shift 2; (cd "$d" && env "${REAL[@]}" bash "$SLOT" --book "$c" -- "$@" 2> "$W/err" || true); }
+assert "1536 да" "$(book "$W/wsr-lane" ci-local git push origin HEAD:refs/heads/b1) $(has "$W/err" 'воркспейс')" "отправка воркспейса: бронь 1536 МиБ (пик 394–790 × 1,5, вверх до 512), основание названо"
+assert "6656 да" "$(book "$W/kn" ci-local git push bare HEAD:refs/heads/b2) $(has "$W/err" 'kaname')" "отправка kaname: бронь 6656 МиБ (пик 4228 × 1,5, вверх до 512), основание названо"
+assert "10240" "$(book "$W/kc" ci-local git push origin HEAD:refs/heads/b3)" "отправка kacho (пик до 7595): прежняя бронь 10240 МиБ — урезать нечем"
+assert "6656" "$(book "$W/wsr" ci-local git -C "$W/kn" push bare HEAD:refs/heads/b4)" "из корня воркспейса отправка клона kaname через -C: предмет — клон, бронь 6656"
+assert "10240" "$(book "$W/wsr-lane" ci-local go version)" "ci-local не отправка (прогон набора): предмета нет, прежняя бронь 10240"
+assert "4096" "$(book "$W/wsr-lane" docker git push origin HEAD:refs/heads/b5)" "класс не ci-local — бронь класса, как была (docker 4096)"
+assert "10240" "$(env "${REAL[@]}" bash "$SLOT" --budget ci-local 2>/dev/null)" "--budget ci-local — прежние 10240 (его читает session-memcap.sh)"
+# Бронь РЕАЛЬНО ставится слотом (журнал enter, запись слота), а не только печатается: таблицу проб
+# подменяет ручка HEAVY_SLOT_SUBJECTS (в режиме проб бюджет ≤ 512, настоящие числа не влезли бы).
+SUBJ=$'workspace|96|проба\nkaname|160|проба'
+bj() { local d="$1" ref="$2" rem="$3"; (cd "$d" && slot -u HEAVY_SLOT_BUDGET_MIB HEAVY_SLOT_SUBJECTS="$SUBJ" bash "$SLOT" ci-local -- git push -q "$rem" HEAD:refs/heads/"$ref") >/dev/null; grep " enter id=.*class=ci-local .*refs/heads/$ref" "$JL" | sed -n 's/.* budget=\([0-9]*\)MiB .*/\1/p' | tail -n 1; }
+assert "96 160" "$(bj "$W/wsr-lane" b6 origin) $(bj "$W/kn" b7 bare)" "слот ставит бронь по предмету: воркспейс 96, kaname 160 (журнал enter) — брони разные"
+sed 's/^\( *\)sb_budget="${line%%|\*}"$/\1sb_budget="$(class_budget ci-local)"/' "$SLOT" > "$W/slot-mut-book.sh"
+assert "1 10240" "$(diff "$SLOT" "$W/slot-mut-book.sh" | grep -c '^<') $(cd "$W/wsr-lane" && env "${REAL[@]}" bash "$W/slot-mut-book.sh" --book ci-local -- git push origin HEAD:refs/heads/b8 2>/dev/null)" "мутант «единая бронь»: воркспейс получает 10240 — проба выше его ловит"
+# Обгон: большой (300) ждёт — ему места сейчас нет, а под свой потолок он влезает; малые (40)
+# проходят не более BYPASS_MAX = 3 раз, четвёртый стоит за ним. Держатель — по событию (файл).
+export HEAVY_SLOT_LIMIT_MIB=1300
+fld() { sed -n "s/^$2=//p" "$1" 2>/dev/null | head -n 1; }
+bpnew() { rm -f "$W/hold-bp" "$W/bp-order"; bphold "$W/hold-bp"
+          # shellcheck disable=SC2016
+          HEAVY_SLOT_WAIT_S=60 HEAVY_SLOT_BUDGET_MIB=300 bash "$SLOT" docker -- sh -c 'echo G >> "$0"' "$W/bp-order" 2>/dev/null & GB=$!
+          for _ in $(seq 1 50); do [ "$(qlen)" -ge 1 ] && break; sleep 0.2; done; }
+bpsmall() { # shellcheck disable=SC2016
+            slot HEAVY_SLOT_BUDGET_MIB=40 bash "${2:-$SLOT}" docker -- sh -c 'echo "$1" >> "$0"' "$W/bp-order" "$1"; }
+bpend() { touch "$W/hold-bp"; wait "$BPH"; wait "$GB"; }
+bpnew
+r=""; for i in 1 2 3; do r="$r $(bpsmall "S$i")"; done
+assert "0 0 0 S1 S2 S3" "$(echo $r) $(tr '\n' ' ' < "$W/bp-order" | sed 's/ $//')" "малые S1–S3 (40) проходят за ждущим большим (300), которому места нет"
+gt="$(grep -l '^budget=300$' "$HEAVY_SLOT_DIR"/queue/* | head -n 1)"
+assert "3" "$(fld "$gt" bypassed)" "у ждущего большого записано число обгонов — 3"
+# shellcheck disable=SC2016
+HEAVY_SLOT_WAIT_S=60 HEAVY_SLOT_BUDGET_MIB=40 bash "$SLOT" docker -- sh -c 'echo "$1" >> "$0"' "$W/bp-order" S4 2>"$W/errS4" & S4=$!
+for _ in $(seq 1 50); do [ "$(qlen)" -ge 2 ] && break; sleep 0.2; done
+bpend; rg=$?; wait "$S4"; r4=$?
+assert "0 S1 S2 S3 G S4" "$r4 $(tr '\n' ' ' < "$W/bp-order" | sed 's/ $//')" "четвёртый малый обгонять уже не может: большой не голодает, входит РАНЬШЕ S4"
+assert "да" "$(has "$W/errS4" 'в очереди впереди 1')" "...и причина ожидания S4 названа"
+# Большому, которому места уже хватает, ждать нечего: он на пороге входа, его не обгоняют.
+sleep 30 & SL=$!
+tk="$(( $(cat "$HEAVY_SLOT_DIR/ticket") + 1 ))"; echo "$tk" > "$HEAVY_SLOT_DIR/ticket"
+printf 'pid=%s\npid_start=%s\nclass=docker\nbudget=500\nlimit=100000\nmeminfo=%s\nwho=проба\n' "$SL" "$(awk '{ print $22 }' /proc/$SL/stat)" "$HEAVY_SLOT_MEMINFO" > "$HEAVY_SLOT_DIR/queue/$(printf '%012d' "$tk")"
+assert "75 да" "$(slot HEAVY_SLOT_BUDGET_MIB=40 bash "$SLOT" docker -- true) $(has "$W/err" 'в очереди впереди 1')" "близнец: большой, которому места хватает (память свободна), на пороге входа — малый его не обгоняет"
+sed 's/^BYPASS_MAX=3$/BYPASS_MAX=0/' "$SLOT" > "$W/slot-mut-bp0.sh"; sed 's/^BYPASS_MAX=3$/BYPASS_MAX=999/' "$SLOT" > "$W/slot-mut-bpinf.sh"
+sed 's/^\( *\)fits_now "\$fb".*&& return 1$/\1true/' "$SLOT" > "$W/slot-mut-bpfit.sh"
+assert "1 0" "$(diff "$SLOT" "$W/slot-mut-bpfit.sh" | grep -c '^<') $(slot HEAVY_SLOT_BUDGET_MIB=40 bash "$W/slot-mut-bpfit.sh" docker -- true)" "мутант «обгоняют и того, кому места хватает»: малый проходит за готовым к входу — проба выше его ловит"
+kill "$SL" 2>/dev/null; rm -f "$HEAVY_SLOT_DIR/queue/$(printf '%012d' "$tk")"
+bpnew
+assert "1 75" "$(diff "$SLOT" "$W/slot-mut-bp0.sh" | grep -c '^<') $(bpsmall M0 "$W/slot-mut-bp0.sh")" "мутант «обгона нет»: малый стоит за большим — проба выше его ловит"
+for i in 1 2 3; do bpsmall "S$i" >/dev/null; done
+assert "1 0" "$(diff "$SLOT" "$W/slot-mut-bpinf.sh" | grep -c '^<') $(bpsmall M4 "$W/slot-mut-bpinf.sh")" "мутант «обгон без предела»: четвёртый малый тоже проходит — проба выше его ловит"
+bpend
+export HEAVY_SLOT_LIMIT_MIB=100000
 
 echo "[CENSUS] heavy-slot: утверждений $((pass + fail)), сошлось $pass, разошлось $fail; граница (не ловится, заявлено в шапке) $bound; не построено частей $void"
 [ "$fail" -eq 0 ] || exit 1
