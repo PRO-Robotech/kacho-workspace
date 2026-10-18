@@ -437,6 +437,19 @@ sweep_heavy
     ("prep-timing", "P5", "времени подготовки до команды не печатается",
      'echo \\"remote-heavy: подготовка pod до команды — \\$(( \\$(date +%s) - PT0 )) с\\" >&2\n',
      ''),
+    # ws#1210: ответ кластера и склеенная команда — словом argv jq (предел 128 КиБ).
+    ("argv-busy", "AL1", "перепись идущих тяжёлых ns снова словом argv",
+     '''--slurpfile NS <(printf '%s' "$nsj") --slurpfile JB <(printf '%s' "$jbj")''',
+     '''--argjson NS "[$nsj]" --argjson JB "[$jbj]"'''),
+    ("argv-deny", "AL3", "перепись служб ns kacho снова словом argv",
+     '''--slurpfile SV <(kc get svc -n kacho -o json 2>/dev/null || echo '{"items":[]}')''',
+     '''--argjson SV "[$(kc get svc -n kacho -o json 2>/dev/null || echo '{"items":[]}')]"'''),
+    ("argv-cmd", "AL4", "склеенная команда снова словом argv",
+     '''--slurpfile cmdv <(printf '%s' "$CMD_JSON")''',
+     '''--argjson cmdv "[$CMD_JSON]"'''),
+    ("defect-as-down", "AL5", "отказ разбора прочитанной переписи — снова 69 «недоступен»",
+     '''2) defect "перепись идущих тяжёлых ns прочитана, а разбор её отказал${1:-}" ;;''',
+     '''2) say "перепись идущих тяжёлых ns не прочитана${1:-}"; exit 69 ;;'''),
 ]
 
 

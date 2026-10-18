@@ -78,6 +78,12 @@
 #   C5 гонка при --keep                    → 75, ns всё равно снято
 #   V2 --available при занятом кластере    → 75; близнец V2b → 0
 #   M1 KACHO_REMOTE_HEAVY_MAX=0            → 64
+#   AL перепись длиннее слова argv (128 КиБ, ws#1210): AL0 — предпосылка (ответ
+#      двойника длиннее); AL1 --available при 1000 тяжёлых ns с завершёнными Job → 0,
+#      близнец AL1b (3 ns) → 0; AL2 прогон → 0, Job создан; AL3 службы ns kacho
+#      длиннее слова → проба закрытости svc-a, как P1; AL4 команда, склеенная длиннее
+#      слова, доходит до Job целиком (близнец K1); AL5 перепись прочитана, разбор
+#      отказал → 70 «дефект обёртки», не 69 (близнец V1)
 #   M2 предел по умолчанию 6 — страховка над размещением: 6 идущих → 75;
 #      близнец M2b 5 идущих → 0 (C1–C5, V2 судят предел явным 2)
 #   Q1 стенд (pod ns kacho) на всех узлах, место есть → --available 0 и прогон 0
@@ -311,7 +317,8 @@ spec_of() {
         else . end' "$S/job.json"
 }
 # pods <status> — список из одного pod со spec «сервера».
-pods() { jq -nc --argjson sp "$(spec_of pod)" --argjson st "$1" '{items: [{metadata: {name: "run-x"}, spec: $sp, status: $st}]}'; }
+# spec — файлом, как в run.sh (ws#1210): spec с большой командой длиннее слова argv.
+pods() { jq -nc --slurpfile sp <(spec_of pod) --argjson st "$1" '{items: [{metadata: {name: "run-x"}, spec: $sp[0], status: $st}]}'; }
 # Без --context kubectl берёт current-context файла; контекст не -client ведёт себя
 # как infra 2026-10-09: изменяющий запрос отклоняет политика допуска.
 [ -n "$ctx" ] || [ -z "$kcfg" ] || ctx="$(jq -r '."current-context"' "$kcfg")"
@@ -357,6 +364,8 @@ case "$1 ${2:-}" in
             [ -f "$S/ns/$3" ] || { echo "Error from server (NotFound): namespaces \"$3\" not found" >&2; exit 1; }
             cat "$S/ns/$3"
         else
+            # FAKE_NS_GARBAGE — ответ прочитан (код 0), а JSON в нём нет: разбор отказывает (ws#1210).
+            if [ "${FAKE_NS_GARBAGE:-0}" = 1 ]; then echo 'not json {'; exit 0; fi
             find "$S/ns" -type f -exec cat {} + 2>/dev/null | jq -s --arg sel "$sel" '{items: [.[] | select(($sel == "") or (.metadata.labels["kacho.io/kind"] == "heavy"))]}'
         fi ;;
     "get jobs") find "$S/jobs" -type f -exec cat {} + 2>/dev/null | jq -s '{items: .}' ;;
@@ -364,6 +373,7 @@ case "$1 ${2:-}" in
         if [ "$all" = 1 ]; then
             echo '{"items":[{"metadata":{"namespace":"dns-sys","name":"dns"},"spec":{"selector":{"k8s-app":"dns"},"ports":[{"port":53,"protocol":"UDP"},{"port":53,"protocol":"TCP"}]}},
                             {"metadata":{"namespace":"dns-sys","name":"dns-metrics"},"spec":{"selector":{"k8s-app":"dns"},"ports":[{"port":9153,"protocol":"TCP"}]}}]}'
+        elif [ -n "${FAKE_KACHO_SVC_FILE:-}" ]; then cat "$FAKE_KACHO_SVC_FILE"
         else
             echo '{"items":[{"metadata":{"name":"edge"},"spec":{"type":"ClusterIP","clusterIP":"10.96.0.20","selector":{"app":"edge"},"ports":[{"port":8080}]}},
                             {"metadata":{"name":"svc-a"},"spec":{"type":"ClusterIP","clusterIP":"10.96.0.21","selector":{"app":"svc-a"},"ports":[{"port":9090}]}}]}'
@@ -432,7 +442,7 @@ case "$1 ${2:-}" in
     "delete ns") rm -f "$S/ns/$3"; echo "$3" >> "$S/deleted" ;;
     "get job")
         [ -e "$S/job.json" ] || { echo "Error from server (NotFound): jobs.batch \"run\" not found" >&2; exit 1; }
-        jq -c --argjson sp "$(spec_of job)" '.spec.template.spec = $sp | .status = {}' "$S/job.json" ;;
+        jq -c --slurpfile sp <(spec_of job) '.spec.template.spec = $sp[0] | .status = {}' "$S/job.json" ;;
     *) echo "двойник: вызов «$*» не знаком" >&2; exit 9 ;;
 esac
 FAKE
@@ -1805,6 +1815,66 @@ expect_rc M2b 0
 fresh
 go_run m1 env KACHO_REMOTE_HEAVY_MAX=0 "${B[@]}" -- true
 expect_rc M1 64
+
+# ── перепись длиннее слова argv (ws#1210) ───────────────────────────────────
+# Слово argv ядро ограничивает MAX_ARG_STRLEN (32 страницы, 128 КиБ): перепись,
+# переданная jq словом (--argjson), на большом кластере роняла jq с «Argument list too
+# long», и heavy-slot читал это как «кластер недоступен». Перепись — настоящий ответ
+# двойника; AL0 — предпосылка: ответ двойника длиннее слова, иначе AL1–AL4 пусты.
+ARGW=$(( 32 * $(getconf PAGESIZE) ))
+# seed_idle <число> — тяжёлые ns с завершёнными Job: в переписи есть, идущих ноль.
+seed_idle() {
+    local i n t e
+    t="$(date -u -d '-10 minutes' +%Y-%m-%dT%H:%M:%SZ)"; e="$(date -u -d '+1 hour' +%Y-%m-%dT%H:%M:%SZ)"
+    mkdir -p "$BOX/state/ns" "$BOX/state/jobs"
+    for i in $(seq 1 "$1"); do
+        printf -v n 't7-heavy-idle%05d' "$i"
+        printf '{"kind":"Namespace","metadata":{"name":"%s","creationTimestamp":"%s","labels":{"kacho.io/kind":"heavy"},"annotations":{"kacho.io/expires":"%s"}},"status":{"phase":"Active"}}\n' "$n" "$t" "$e" > "$BOX/state/ns/$n"
+        printf '{"metadata":{"namespace":"%s","name":"run","labels":{"kacho.io/kind":"heavy"}},"status":{"conditions":[{"type":"Complete","status":"True"}]}}\n' "$n" > "$BOX/state/jobs/$n"
+    done
+}
+dbl() { env FAKE_STATE="$BOX/state" FAKE_HOST="$SERVER_HOST" FAKE_IP="$SERVER_IP" "$BOX/bin/kubectl" "$@" 2>/dev/null; }
+fresh; seed_idle 1000
+al_ns="$(dbl get ns -l kacho.io/kind=heavy -o json | wc -c)"; al_jb="$(dbl get jobs -A -l kacho.io/kind=heavy -o json | wc -c)"
+if [ "$al_ns" -gt "$ARGW" ] && [ "$al_jb" -gt "$ARGW" ]; then ok
+else bad AL0 "перепись двойника не длиннее слова argv ($ARGW Б): ns $al_ns Б, Job $al_jb Б — AL1–AL2 пусты"; fi
+# AL1 — --available при переписи ns и Job длиннее слова → 0, идущих 0; близнец AL1b — малая
+go_run al1 bash "$RUN" --available
+expect_rc AL1 0
+if grep -q 'идущих тяжёлых прогонов 0 из' "$OUT" && ! grep -q 'Argument list too long' "$OUT"; then ok; else bad AL1 "перепись длиннее слова не разобрана"; fi
+fresh; seed_idle 3
+go_run al1b bash "$RUN" --available
+expect_rc AL1b 0
+# AL2 — прогон при той же переписи → код команды, Job создан
+fresh; seed_idle 1000
+go_run al2 env FAKE_EXIT=0 "${B[@]}" --short al2 -- true
+expect_rc AL2 0
+if [ -e "$BOX/state/job.json" ]; then ok; else bad AL2 "Job не создан при большой переписи"; fi
+# AL3 — перепись служб ns kacho длиннее слова → проба закрытости выбрана, как на малой (P1)
+{ printf '{"items":['
+  for i in $(seq 1 1500); do printf '{"metadata":{"name":"pad-%05d"},"spec":{"type":"ClusterIP","clusterIP":"10.96.1.1","selector":{"app":"edge"},"ports":[{"port":8080}]}},' "$i"; done
+  printf '{"metadata":{"name":"svc-a"},"spec":{"type":"ClusterIP","clusterIP":"10.96.0.21","selector":{"app":"svc-a"},"ports":[{"port":9090}]}}]}\n'; } > "$BOX/al3-svc.json"
+if [ "$(wc -c < "$BOX/al3-svc.json")" -gt "$ARGW" ]; then ok; else bad AL3-premise "перепись служб не длиннее слова argv — AL3 пуста"; fi
+fresh
+go_run al3 env FAKE_EXIT=0 FAKE_KACHO_SVC_FILE="$BOX/al3-svc.json" "${B[@]}" --short al3 -- true
+expect_rc AL3-run 0
+if [ "$(jq -r '.spec.template.spec.containers[0].env[] | select(.name == "HEAVY_DENY_PROBE") | .value' "$BOX/state/job.json" 2>/dev/null)" = "svc-a.kacho.svc:9090" ]; then ok
+else bad AL3 "HEAVY_DENY_PROBE при большой переписи служб не svc-a.kacho.svc:9090"; fi
+# AL4 — команда: слова порознь короче слова argv, склеенные — длиннее; доходит до Job
+# целиком (сверка spec тоже читает её). Близнец — K1 (команда из одного слова).
+ALW=(); for i in $(seq 1 3000); do ALW+=("w$(printf '%05d' "$i")-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"); done
+fresh
+go_run al4 env FAKE_EXIT=0 "${B[@]}" --short al4 -- echo "${ALW[@]}"
+expect_rc AL4 0
+mapfile -d '' -t ALGOT < <(kx argv "$BOX/state/job.json" run)
+if [ "${#ALGOT[@]}" -eq $(( ${#ALW[@]} + 5 )) ] && [ "${ALGOT[$(( ${#ALGOT[@]} - 1 ))]:-}" = "${ALW[$(( ${#ALW[@]} - 1 ))]}" ]; then ok
+else bad AL4 "команда длиннее слова argv не дошла до Job: элементов ${#ALGOT[@]}, ждали $(( ${#ALW[@]} + 5 ))"; fi
+# AL5 — ответ кластера прочитан, а разбор отказал → 70 «дефект обёртки», а не 69
+# «недоступен» (heavy-slot по 69 ушёл бы локально); близнец — V1 (сеть, 69)
+fresh
+go_run al5 env FAKE_NS_GARBAGE=1 bash "$RUN" --available
+expect_rc AL5 70
+if grep -q 'дефект обёртки run.sh: перепись идущих тяжёлых ns прочитана' "$OUT"; then ok; else bad AL5-why "дефект обёртки не назван"; fi
 
 # ── размещение: место под профиль, без условия по стенду (ws#991) ─────────
 # node_j <имя> <готов 1|0> <закрыт 1|0> <taint-эффект|""> — узел 15,5 CPU и 29,5 ГиБ;
