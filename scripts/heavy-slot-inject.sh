@@ -1103,6 +1103,33 @@ assert "1 0" "$(diff "$SLOT" "$W/slot-mut-1156.sh" | grep -c '^<') $rc" "мут�
 wait "$HA"
 export HEAVY_SLOT_LIMIT_MIB=100000
 
+echo "── ci-local, git push из копии воркспейса: клоны для наборов хука выставляются сами (KACHO_HOME_<ИМЯ>)"
+# Отправка из копии, где переменных клонов нет, проходила, но change-graph-gate («клон corelib не
+# найден») и docs-gate («копия kaname рядом не найдена») уходили в [VOID]: имена переменных
+# нигде не названы. Копия лежит в <корень>/tmp/…, а project/<имя> — только у основного клона.
+mkdir -p "$W/wsr/project/kacho" "$W/wsr/project/kaname" "$W/wsr/project/corelib"
+for _n in kacho kaname corelib; do git init -q "$W/wsr/project/$_n"; done
+printf '#!/usr/bin/env bash\ncat >/dev/null\nenv | grep "^KACHO_HOME_" | sort > "$HOOK_ENV"\nexit 0\n' > "$W/wsr/.git/hooks/pre-push"; chmod +x "$W/wsr/.git/hooks/pre-push"
+hslot() { local d="$1" cls="$2" ref="$3"; shift 3; rm -f "$W/henv"; (cd "$d" && slot "$@" HOOK_ENV="$W/henv" bash "$SLOT" "$cls" -- git push -q origin HEAD:refs/heads/"$ref"); }
+henv() { tr '\n' ' ' < "$W/henv" 2>/dev/null | sed 's/ $//'; }
+want="KACHO_HOME_CORELIB=$W/wsr/project/corelib KACHO_HOME_KACHO=$W/wsr/project/kacho KACHO_HOME_KANAME=$W/wsr/project/kaname"
+rc="$(hslot "$W/wsr-lane" ci-local h1 -u KACHO_HOME_KACHO -u KACHO_HOME_KANAME -u KACHO_HOME_CORELIB)"
+assert "0 $want да" "$rc $(henv) $(has "$W/err" 'KACHO_HOME_KANAME=')" "ci-local, git push из связанной копии без переменных: хук видит клоны основного клона (project/*), и слот назвал их"
+rc="$(hslot "$W/wsr-lane" ci-local h2 -u KACHO_HOME_KACHO -u KACHO_HOME_CORELIB KACHO_HOME_KANAME=/свой/kaname)"
+assert "0 KACHO_HOME_CORELIB=$W/wsr/project/corelib KACHO_HOME_KACHO=$W/wsr/project/kacho KACHO_HOME_KANAME=/свой/kaname" "$rc $(henv)" "близнец: заданная вызывающим переменная сильнее, остальные выставлены"
+rc="$(hslot "$W/wsr-lane" docker h3 -u KACHO_HOME_KACHO -u KACHO_HOME_KANAME -u KACHO_HOME_CORELIB)"
+assert "0 " "$rc $(henv)" "близнец: класс не ci-local — переменных слот не ставит"
+rm -rf "$W/wsr/project/corelib"
+rc="$(hslot "$W/wsr-lane" ci-local h4 -u KACHO_HOME_KACHO -u KACHO_HOME_KANAME -u KACHO_HOME_CORELIB)"
+assert "0 да да" "$rc $(has "$W/err" 'KACHO_HOME_CORELIB') $(has "$W/err" 'клона нет')" "клона нет → не выставлено, и это названо по имени переменной: узнают до отправки, а не из [VOID]"
+git init -q "$W/wsr/project/corelib"
+printf '#!/usr/bin/env bash\ncat >/dev/null\nenv | grep "^KACHO_HOME_" | sort > "$HOOK_ENV"\nexit 0\n' > "$W/kcl/.git/hooks/pre-push"; chmod +x "$W/kcl/.git/hooks/pre-push"
+rm -f "$W/henv"; (cd "$W/kcl" && slot -u KACHO_HOME_KACHO -u KACHO_HOME_KANAME -u KACHO_HOME_CORELIB HOOK_ENV="$W/henv" bash "$SLOT" ci-local -- git push -q bare HEAD:refs/heads/h5) >/dev/null
+assert "" "$(henv)" "близнец: отправка из клона другого репозитория — переменных воркспейса нет"
+sed 's/^\( *\)export "$var=$d"; set+=("$var=$d")/\1set+=("$var=$d")/' "$SLOT" > "$W/slot-mut-homes.sh"
+rm -f "$W/henv"; (cd "$W/wsr-lane" && slot -u KACHO_HOME_KACHO -u KACHO_HOME_KANAME -u KACHO_HOME_CORELIB HOOK_ENV="$W/henv" bash "$W/slot-mut-homes.sh" ci-local -- git push -q origin HEAD:refs/heads/h6) >/dev/null
+assert "1 " "$(diff "$SLOT" "$W/slot-mut-homes.sh" | grep -c '^<') $(henv)" "мутант «переменные не выставлены»: хук их не видит — проба выше его ловит"
+
 echo "[CENSUS] heavy-slot: утверждений $((pass + fail)), сошлось $pass, разошлось $fail; граница (не ловится, заявлено в шапке) $bound; не построено частей $void"
 [ "$fail" -eq 0 ] || exit 1
 [ "$void" -eq 0 ] || exit 2
