@@ -69,7 +69,7 @@ bad() { tooling_gate_fail "$NAME" "$1"; findings=$((findings + 1)); }
 okp() { probes=$((probes + 1)); }
 badp() { probes=$((probes + 1)); bad "$1"; }
 
-KIT=(commit-msg attribution-rule.sh prepush-attribution.sh pre-push install.sh)
+KIT=(commit-msg attribution-rule.sh prepush-attribution.sh prepush-added-files.sh pre-push install.sh)
 tracked_n="$(git -C "$WS" ls-files 2>/dev/null | wc -l)"
 if [ "$tracked_n" -eq 0 ]; then
     tooling_gate_void "$NAME" "в индексе дерева $WS файлов 0 — дерево пусто, существование файлов правила спрашивать не в чем"

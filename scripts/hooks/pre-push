@@ -61,6 +61,30 @@ if [ "$attribution_rc" -ne 0 ]; then
     exit 1
 fi
 
+# ── ДОБАВЛЕННЫЕ ФАЙЛЫ — ВТОРЫМ, ТОЖЕ ДО ОБХОДА И ДО ЧЕРНОВИКОВ (ws#1189) ──────
+#
+# Бинарь и файл больше 1 МБ среди добавленных новыми коммитами отправки — отказ
+# с именем файла (scripts/hooks/prepush-added-files.sh, перечень исключений —
+# prepush-added-files.allow). Класс тот же, что у атрибуции: опубликованное не
+# отзывается, черновик публичен, обход снимает наборы, а не правило. Стража нет
+# либо он не смог судить — ОТКАЗ. Держит это
+# scripts/tooling-gate/check-25-push-refuses-binary-and-large-added-files.sh.
+added_guard="$hooks_dir/prepush-added-files.sh"
+if [ ! -f "$added_guard" ]; then
+    echo "pre-push: ОТКАЗ — стража добавленных файлов нет ($added_guard): судить нечем, отправка остановлена." >&2
+    exit 1
+fi
+if [ -n "$push_input" ]; then
+    bash "$added_guard" "${1:-origin}" <<< "$push_input" >&2
+else
+    bash "$added_guard" "${1:-origin}" < /dev/null >&2
+fi
+added_rc=$?
+if [ "$added_rc" -ne 0 ]; then
+    echo "pre-push: ОТКАЗ — добавленные файлы отвергнуты либо не судимы (код стража $added_rc): отправка остановлена до наборов и до обхода." >&2
+    exit 1
+fi
+
 if [ "${KACHO_SKIP_PREPUSH:-0}" = "1" ]; then
     echo "pre-push: пропущен по KACHO_SKIP_PREPUSH=1 — наборы НЕ выполнялись (страж атрибуции исполнен выше)" >&2
     exit 0

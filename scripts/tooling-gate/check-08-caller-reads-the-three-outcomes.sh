@@ -83,9 +83,11 @@ probe() {
     mkdir -p "$dir/scripts/hooks"
     cp "$WS/$caller" "$dir/scripts/hooks/pre-push"
     chmod +x "$dir/scripts/hooks/pre-push"
-    # Страж атрибуции едет рядом с хуком (ws#861): без него хук отказывает
+    # Стражи атрибуции и добавленных файлов едут рядом с хуком (ws#861,
+    # ws#1189): без них хук отказывает
     # всякой отправке, и проба судила бы отказ стража, а не свой предмет.
     cp "$WS/scripts/hooks/attribution-rule.sh" "$WS/scripts/hooks/prepush-attribution.sh" \
+        "$WS/scripts/hooks/prepush-added-files.sh" \
         "$dir/scripts/hooks/" 2>/dev/null
     for rc in "$@"; do
         mkdir -p "$dir/scripts/stub-$i"
