@@ -92,6 +92,13 @@
 # НЕ УСТАНОВЛЕН, код 2. Строка закрытия номера, которого в репозитории нет (PF-ABSENT), —
 # упоминание: закрывать нечего, код 0 и число таких в переписи; PF-UNREAD — близнец.
 #
+# ДОКАЗАТЕЛЬСТВО — НА КОММИТЕ ДИАПАЗОНА PR (ws#1162). Диапазон — `compare/<baseRefOid>...
+# <headRefOid>` (фикстура `compare`, у PF-* — коммит доказательства `0123abcd…` и голова).
+# PF-OUTSIDE — `DoD-proof @deadbeef1`, ревизии нет в диапазоне: «нельзя», названа как
+# «не коммит диапазона» (прежде засчитывалась — замер ws#1162); PF-PROOF — законный близнец
+# (ревизия — коммит диапазона, не голова). PF-RANGE-UNREAD — compare не прочитан, PF-RANGE-SHORT
+# — прочитано меньше объявленного: код 2, а не «можно» и не «нельзя».
+#
 # ПОДСКАЗКА ОБЯЗАНА БЫТЬ ИСПОЛНИМОЙ В РЕПОЗИТОРИИ PR (ws#910). Прежняя называла
 # `tmp/sync-…`, а kaname такую голову отвергает (`branch-rule.sh`: ветка — `^[0-9]+$`,
 # исключение `main`): норма была невыполнима, и догон `296` → `536` прошёл веткой задачи
@@ -235,6 +242,8 @@ mk_protection() {  # <файл> <контекст>...
 }
 
 HEAD_SHA="1111111111111111111111111111111111111111"
+BASE_SHA="3333333333333333333333333333333333333333"
+PROOF_SHA="0123abcd00000000000000000000000000000000"
 OLD_SHA="2222222222222222222222222222222222222222"
 
 # База PR — `MR_BASE` (по умолчанию `main`): для случаев ветки линии задаётся
@@ -246,8 +255,8 @@ mk_pr() {  # <файл> <состояние> <состояние-слияния>
         rollup="$(printf '%s\n' "$@" | jq -R '{name: ., conclusion: "SUCCESS"}' | jq -s .)"
     fi
     jq -n --arg st "$st" --arg ms "$ms" --arg h "$HEAD_SHA" --arg b "${MR_BASE:-main}" --argjson r "$rollup" \
-        --arg hd "${MR_HEAD:-788}" --arg bd "${MR_BODY:-}" --argjson ci "${MR_CLOSING:-[]}" \
-        '{state:$st, baseRefName:$b, headRefName:$hd, headRefOid:$h,
+        --arg hd "${MR_HEAD:-788}" --arg bd "${MR_BODY:-}" --argjson ci "${MR_CLOSING:-[]}" --arg bo "$BASE_SHA" \
+        '{state:$st, baseRefName:$b, baseRefOid:$bo, headRefName:$hd, headRefOid:$h,
           mergeStateStatus:$ms, statusCheckRollup:$r, body:$bd, closingIssuesReferences:$ci}' > "$f"
 }
 
@@ -781,6 +790,8 @@ printf '{"total_count":0,"check_runs":[]}\n' > "$X/checkruns.json"
 PROOF_OK=$'DoD-proof @0123abcd\nкоманда: bash scripts/x/run-all.sh; echo $?\nитог: пройдено 9 из 9\nкод возврата: 0'
 pf_case() {  # <имя> <тело PR> [<closingIssuesReferences JSON>]
     local d; d="$(mkcase "PF-$1")"
+    # Диапазон PR (ws#1162): коммит доказательства `@0123abcd` и голова.
+    jq -n --arg p "$PROOF_SHA" --arg h "$HEAD_SHA" '{total_commits: 2, commits: [{sha: $p}, {sha: $h}]}' > "$d/compare.json"
     mk_protection "$d/protection@main.json" "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
     MR_BODY="$2" MR_CLOSING="${3:-[]}" mk_pr "$d/pr.json" OPEN CLEAN "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
     printf '%s' "$d"
@@ -838,6 +849,16 @@ mk_comments "$d" PRO-Robotech/kacho 500 "$PROOF_OK"
 # Номера строки закрытия в репозитории нет (404 настоящей формы, ws#1164) — упоминание.
 d="$(pf_case ABSENT $'Closes #3274')"
 printf '%s' "$NOT_FOUND" > "$d/comments@PRO-Robotech~kacho#3274.json"; printf '1\n' > "$d/comments@PRO-Robotech~kacho#3274.rc"
+# Ревизия доказательства — не коммит диапазона (ws#1162): прежде засчитывалась.
+d="$(pf_case OUTSIDE $'Closes #500')"
+mk_comments "$d" PRO-Robotech/kacho 500 "${PROOF_OK/#DoD-proof @0123abcd/DoD-proof @deadbeef1}"
+# Диапазон не прочитан либо прочитан не весь — вердикта нет.
+d="$(pf_case RANGE-UNREAD $'Closes #500')"
+mk_comments "$d" PRO-Robotech/kacho 500 "$PROOF_OK"
+: > "$d/compare.unavailable"
+d="$(pf_case RANGE-SHORT $'Closes #500')"
+mk_comments "$d" PRO-Robotech/kacho 500 "$PROOF_OK"
+jq '.total_commits = 3' "$d/compare.json" > "$d/compare.new" && mv "$d/compare.new" "$d/compare.json"
 # Поле хостинга не массив — разбор сломан, а не «закрывать нечего».
 d="$(pf_case HOSTBROKEN $'Refs #500' 'null')"
 
@@ -1226,6 +1247,12 @@ probe "$PRODUCT_REPO" "$TMP/case-PF-HOSTPROOF" 0 "задача и в теле, �
     "можно сливать" "задач, закрываемых PR (хостинг и тело): 1 · с доказательством DoD: 1 · без: 0"
 probe "$PRODUCT_REPO" "$TMP/case-PF-ABSENT" 0 "строка закрытия номера, которого в репозитории нет (404), — упоминание, «сливать можно»" \
     "можно сливать" "не задач репозитория (404): 1" "PRO-Robotech/kacho#3274"
+probe "$PRODUCT_REPO" "$TMP/case-PF-OUTSIDE" 1 "доказательство не на коммите диапазона PR (@deadbeef1) — «нельзя», а не «можно»" \
+    "СЛИВАТЬ НЕЛЬЗЯ — Closes без доказательства DoD" "ревизия — не коммит диапазона: PRO-Robotech/kacho#500"
+probe "$PRODUCT_REPO" "$TMP/case-PF-RANGE-UNREAD" 2 "диапазон PR не прочитан — привязки нет, вердикта нет" \
+    "диапазон PR (compare, страница 1) НЕ ПРОЧИТАН"
+probe "$PRODUCT_REPO" "$TMP/case-PF-RANGE-SHORT" 2 "диапазон PR прочитан не весь — разбор сломан, а не «можно»" \
+    "РАЗБОР СЛОМАН — диапазон PR: compare объявил коммитов 3, прочитано различных 2"
 probe "$PRODUCT_REPO" "$TMP/case-PF-HOSTBROKEN" 2 "поле хостинга не массив — разбор сломан, а не «закрывать нечего»" \
     "РАЗБОР СЛОМАН — поле closingIssuesReferences"
 
@@ -1245,4 +1272,4 @@ if [ "$findings" -gt 0 ]; then
     exit 1
 fi
 
-tooling_gate_pass "$NAME" "инструмент различает все три исхода у обоих источников: вердикт печатается, отказ разбора и «не выполнилось» приходят кодом 2, имена контекстов не схлопываются, зелёный — только SUCCESS, код gh api судится — не защищена и не прочитана различены, ветка линии продукта судится набором ствола, база без контекстов со строкой ведомости — ci-read числом и исходами, источник выбирает защита базы тем же чтением, ручной прогон судится на голове, голова-уровень каскада сливается только вверх, задача закрытия — из ответа хостинга и тела PR, включая форму-адрес, и только с доказательством DoD"
+tooling_gate_pass "$NAME" "инструмент различает все три исхода у обоих источников: вердикт печатается, отказ разбора и «не выполнилось» приходят кодом 2, имена контекстов не схлопываются, зелёный — только SUCCESS, код gh api судится — не защищена и не прочитана различены, ветка линии продукта судится набором ствола, база без контекстов со строкой ведомости — ci-read числом и исходами, источник выбирает защита базы тем же чтением, ручной прогон судится на голове, голова-уровень каскада сливается только вверх, задача закрытия — из ответа хостинга и тела PR, включая форму-адрес, и только с доказательством DoD на коммите диапазона PR"

@@ -5,7 +5,7 @@
 # месте (`mutate` требует, чтобы якорь встретился один раз: иначе мутант молча не
 # применился бы, и зелёное контроля читалось бы как доказательство). От самопробы
 # своего ритуала требуется код 1. Контроль — та же копия без мутации — обязан дать 0
-# по всем четырём: иначе красное мутанта пришло бы от соседа, а не от предмета.
+# по всем пяти: иначе красное мутанта пришло бы от соседа, а не от предмета.
 #
 #   M1 pr-body: Closes без доказательства        → check-01 красная
 #   M2 pr-body: предикат атрибуции ослеп          → check-01 красная
@@ -103,6 +103,16 @@
 #   M63b pr-body: номер полной формы своего репозитория — ищется в других → check-01
 #   близнец T1: статус 404 сверен иной записью — check-01 зелен
 #
+# ws#1162: привязка ревизии доказательства к диапазону — одна, `dod_proof_bound` общего
+# `scripts/lib/dod_proof.jq`; три судьи (merge-readiness, landing-precheck (ж), генератор)
+# обязаны на одном PR дать один исход — check-05 гонит их НАСТОЯЩИМИ скриптами копии.
+#   M69 dod_proof.jq: привязка снята — любая ревизия привязана            → check-05, check-01
+#   M70 merge-readiness: судит распознанное, а не привязанное (прежнее)   → check-05
+#   M71 landing-precheck (ж): привязка не спрошена                       → check-05
+#   M72 pr-body: флаг привязки не читается                               → check-05, check-01
+#   M73 dod_proof.jq: привязка — по началу sha ГОЛОВЫ, а не диапазона     → check-05
+#   близнец T2: привязка записана иначе (срез вместо startswith) — check-05 и check-01 зелены
+#
 # Хранилище для check-04 берётся из HEAD настоящего воркспейса (`RITUALS_WS`):
 # копия несёт только код ритуалов и их общие зависимости.
 # Коды: 0 — все доказательства прошли; 1 — хоть одно нет; 2 — копию не завести.
@@ -127,11 +137,12 @@ copy() {
     local d="$tmp/$1"
     mkdir -p "$d/scripts/hooks" "$d/scripts/lib" || return 2
     cp -r "$here" "$d/scripts/rituals" || return 2
-    cp "$ws/scripts/pr-body.sh" "$ws/scripts/ci-read-expected.tsv" "$d/scripts/" || return 2
+    cp "$ws/scripts/pr-body.sh" "$ws/scripts/ci-read-expected.tsv" "$ws/scripts/merge-readiness.sh" \
+        "$ws/scripts/landing-precheck.sh" "$d/scripts/" || return 2
     cp "$ws/scripts/lib/ws-home.sh" "$d/scripts/lib/" || return 2
     cp "$ws/scripts/hooks/attribution-rule.sh" "$d/scripts/hooks/" || return 2
     cp "$ws/scripts/lib/sandbox-git-home.sh" "$ws/scripts/lib/gate_root.py" "$ws/scripts/lib/dod_proof.jq" \
-        "$d/scripts/lib/" || return 2
+        "$ws/scripts/lib/gh-rate.sh" "$d/scripts/lib/" || return 2
     printf '%s' "$d/scripts/rituals"
 }
 
@@ -167,7 +178,8 @@ expect() {
 
 # контроль: копия без мутации зелена по всем самопробам
 d="$(copy control)" || { echo "[VOID] rituals/inject — копия не заведена" >&2; exit 2; }
-for c in check-01-pr-body.py check-02-close-wave.py check-03-approval-event.py check-04-vault-trails.py; do
+for c in check-01-pr-body.py check-02-close-wave.py check-03-approval-event.py check-04-vault-trails.py \
+         check-05-dod-judges-agree.py; do
     out="$(run_check "$d" "$c")"; rc=$?
     expect "контроль $c" 0 "$rc" "$out"
 done
@@ -198,8 +210,8 @@ twin() {
 }
 
 inject "M1 pr-body: Closes без доказательства" check-01-pr-body.py \
-    '        inside = [(u, r) for u, r in proofs if any(s.startswith(r) for s in range_shas)]' \
-    '        inside = proofs or [("(нет)", "0000000")]'
+    '        inside = [(u, r) for u, r, bound in proofs if bound]' \
+    '        inside = [(u, r) for u, r, _ in proofs] or [("(нет)", "0000000")]'
 inject "M2 pr-body: атрибуция не видна" check-01-pr-body.py \
     'return p.stdout.strip() or "(пустая строка)"' \
     'return None'
@@ -289,8 +301,8 @@ inject "M35 approval-event: ветка из cwd, RITUAL_REPO_DIR пропуще�
     '["git", "-C", os.environ.get("RITUAL_REPO_DIR") or os.getcwd(), "symbolic-ref"' \
     '["git", "-C", os.getcwd(), "symbolic-ref"'
 inject "M36 pr-body: доказательство вне диапазона засчитано" check-01-pr-body.py \
-    ' for u, r in proofs if any(s.startswith(r) for s in range_shas)]' \
-    ' for u, r in proofs]'
+    '        inside = [(u, r) for u, r, bound in proofs if bound]' \
+    '        inside = [(u, r) for u, r, bound in proofs]'
 inject "M37 pr-body: держатель записи долга не судится" check-01-pr-body.py \
     '        holder = debt_holder(repo, n, ledgers)' \
     '        holder = None'
@@ -366,8 +378,8 @@ inject "M51 pr-body: строка слияния ствола с #N" check-01-pr
     '    return head + no_hash(line[len(head):]), head, head' \
     '    return line, head, head'
 inject "M52 pr-body: доказательство лишь на голове" check-01-pr-body.py \
-    ' for u, r in proofs if any(s.startswith(r) for s in range_shas)]' \
-    ' for u, r in proofs if head_sha.startswith(r)]'
+    '        proofs = dod_proofs(repo, n, range_shas)' \
+    '        proofs = dod_proofs(repo, n, [head_sha])'
 inject "M57 pr-body: 404 номера — снова отказ" check-01-pr-body.py \
     '            it = issue(repo, n)
         except NotFound:' \
@@ -402,6 +414,27 @@ inject "M63b pr-body: полная форма своего — ищется в �
 twin "T1 gh: статус 404 сверен иной записью" check-01-pr-body.py \
     'str(got.get("status")) == "404":' \
     'got.get("status") in ("404", 404):'
+inject "M69 dod_proof.jq: привязка снята" check-05-dod-judges-agree.py \
+    'def dod_proof_bound($range): . as $rev | any($range[]; startswith($rev));' \
+    'def dod_proof_bound($range): true;' ../lib/dod_proof.jq
+inject "M69 dod_proof.jq: привязка снята (генератор)" check-01-pr-body.py \
+    'def dod_proof_bound($range): . as $rev | any($range[]; startswith($rev));' \
+    'def dod_proof_bound($range): true;' ../lib/dod_proof.jq
+inject "M70 merge-readiness: распознанное вместо привязанного" check-05-dod-judges-agree.py \
+    "(.body // \"\") | dod_proof_revisions_in(\$range) | length > 0)'" \
+    "(.body // \"\") | dod_proof)'" ../merge-readiness.sh
+inject "M71 landing-precheck (ж): привязка не спрошена" check-05-dod-judges-agree.py \
+    '(dod_proof_bound($range) | tostring)' '("true")' ../landing-precheck.sh
+inject "M72 pr-body: флаг привязки не читается" check-05-dod-judges-agree.py \
+    '        inside = [(u, r) for u, r, bound in proofs if bound]' \
+    '        inside = [(u, r) for u, r, bound in proofs]'
+inject "M73 dod_proof.jq: привязка по голове" check-05-dod-judges-agree.py \
+    'def dod_proof_bound($range): . as $rev | any($range[]; startswith($rev));' \
+    'def dod_proof_bound($range): . as $rev | ($range | last // "") | startswith($rev);' ../lib/dod_proof.jq
+for c in check-05-dod-judges-agree.py check-01-pr-body.py; do
+    twin "T2 dod_proof.jq: привязка срезом ($c)" "$c" \
+        'any($range[]; startswith($rev))' 'any($range[]; .[0:($rev | length)] == $rev)' ../lib/dod_proof.jq
+done
 for c in check-01-pr-body.py check-02-close-wave.py; do
     inject "M26–M27 dod_proof.jq: ревизия из [0-9a-z] ($c)" "$c" \
         '[0-9a-f]{7,40}' '[0-9a-z]{7,40}' ../lib/dod_proof.jq

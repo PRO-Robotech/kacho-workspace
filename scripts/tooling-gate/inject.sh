@@ -1661,6 +1661,36 @@ if mr_patch "$b/$MR_REL" 's/\(\(\.status \/\/ ""\) \| tostring\) == "404"/(.stat
     run 0 "$b" "близнец: статус 404 сверен без запасного значения — молчит" "$C09"
 fi
 
+# ── ДОКАЗАТЕЛЬСТВО — НА КОММИТЕ ДИАПАЗОНА PR (ws#1162) ──────────────────────────
+# Прежний merge-readiness засчитывал распознанную ревизию без привязки: порча возвращает
+# его (PF-OUTSIDE), снимает привязку в общем распознавателе (PF-OUTSIDE), выдаёт
+# непрочитанный диапазон за прочитанный (PF-RANGE-UNREAD) и неполный — за полный
+# (PF-RANGE-SHORT); близнец пишет привязку срезом.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" 's/dod_proof_revisions_in\(\$range\) \| length > 0\)/dod_proof)/' \
+    "распознанное вместо привязанного"; then
+    run_c09_red "$b" "инъекция: merge-readiness засчитывает ревизию вне диапазона — краснеет" PF-OUTSIDE
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$DOD_REL" 's/any\(\$range\[\]; startswith\(\$rev\)\)/true/' "привязка в распознавателе снята"; then
+    run_c09_red "$b" "инъекция: общая привязка снята — ревизия вне диапазона засчитана — краснеет" PF-OUTSIDE
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" 's/(НЕ ПРОЧИТАН — \$\(head -c 200 .*\n.*\n)      exit 2\n/$1      break\n/' \
+    "непрочитанный диапазон — дальше"; then
+    run_c09_red "$b" "инъекция: непрочитанный диапазон выдан за прочитанный — краснеет" PF-RANGE-UNREAD
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" 's/^  \[ "\$range_got" -eq "\$range_total" \] \\$/  true \\/m' \
+    "полнота диапазона не сверяется"; then
+    run_c09_red "$b" "инъекция: неполный диапазон выдан за полный — краснеет" PF-RANGE-SHORT
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$DOD_REL" 's/any\(\$range\[\]; startswith\(\$rev\)\)/any(\$range[]; .[0:(\$rev | length)] == \$rev)/' \
+    "привязка срезом"; then
+    run 0 "$b" "близнец: привязка записана срезом — молчит" "$C09"
+fi
+
 b="$(mksandbox scripts/merge-readiness.sh)"
 run 2 "$b" "предпосылка: инструмента нет — VOID, а не успех" "$C09"
 

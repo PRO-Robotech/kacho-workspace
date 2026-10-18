@@ -122,14 +122,18 @@ _DOD_COMMENTS = ('include "dod_proof"; [.[] | {url: (.html_url // ""), revs: ((.
                  ' | select(.revs | length > 0)]')
 
 
-def _dod_query(repo: str, n: int, tail: str):
-    """Комментарии задачи через общий распознаватель `scripts/lib/dod_proof.jq` и хвост `tail`."""
+def _dod_query(repo: str, n: int, tail: str, rng: list | None = None):
+    """Комментарии задачи через общий распознаватель `scripts/lib/dod_proof.jq` и хвост `tail`.
+
+    `rng` — полные sha диапазона запроса (`$range` хвоста, привязка `dod_proof_bound`).
+    """
     comments = gh_list("repos/%s/issues/%d/comments" % (repo, n))
     if not os.path.isfile(os.path.join(DOD_LIB, "dod_proof.jq")):
         raise Unmet("распознавателя доказательства DoD нет (%s) — судить нечем"
                     % os.path.normpath(os.path.join(DOD_LIB, "dod_proof.jq")))
     try:
-        p = subprocess.run(["jq", "-L", DOD_LIB, "-c", _DOD_COMMENTS + tail], input=json.dumps(comments),
+        p = subprocess.run(["jq", "-L", DOD_LIB, "-c", "--argjson", "range", json.dumps(rng or []),
+                            _DOD_COMMENTS + tail], input=json.dumps(comments),
                            capture_output=True, text=True)
     except OSError as e:
         raise Unmet("jq не вызывается: %s — доказательство DoD судить нечем" % e)
@@ -148,9 +152,14 @@ def dod_proof(repo: str, n: int):
     return tuple(got) if got else None
 
 
-def dod_proofs(repo: str, n: int) -> list:
-    """Все доказательства DoD задачи по порядку: [(адрес комментария, ревизия)], каждая строка-доказательство."""
-    return [tuple(x) for x in _dod_query(repo, n, ' | [.[] | .url as $u | .revs[] | [$u, .]]') or []]
+def dod_proofs(repo: str, n: int, rng: list) -> list:
+    """Все доказательства DoD задачи по порядку: [(адрес комментария, ревизия, привязана ли к диапазону)].
+
+    Привязка — общая `dod_proof_bound` (`scripts/lib/dod_proof.jq`), та же, что у
+    merge-readiness и landing-precheck (ws#1162); своей сверки с диапазоном здесь нет.
+    """
+    return [tuple(x) for x in _dod_query(repo, n, ' | [.[] | .url as $u | .revs[] | [$u, ., dod_proof_bound($range)]]',
+                                         rng) or []]
 
 
 # ── атрибуция ───────────────────────────────────────────────────────────────
@@ -557,8 +566,8 @@ def pr_body(argv: list[str]) -> int:
             refs.append(n)
             rows.append("- %s «%s» — держит запись долга `%s`: `Refs`, не `Closes`" % (label(n), title, holder))
             continue
-        proofs = dod_proofs(repo, n)
-        inside = [(u, r) for u, r in proofs if any(s.startswith(r) for s in range_shas)]
+        proofs = dod_proofs(repo, n, range_shas)
+        inside = [(u, r) for u, r, bound in proofs if bound]
         if inside:
             url, rev = inside[-1]
             closes.append(n)

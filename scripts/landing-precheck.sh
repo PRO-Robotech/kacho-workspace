@@ -796,17 +796,21 @@ import subprocess
 CLOSE = re.compile(r"(?i)(?<![\w-])(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s*:?\s+((?:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#[0-9]+)\b")
 # Распознаватель доказательства — общий `lib/dod_proof.jq` рядом со скриптом (ws#1140):
 # своя копия выражения здесь отказывала `## DoD-proof @<sha>`, который судит иначе
-# merge-readiness, и Closes менялся на Refs вручную.
+# merge-readiness, и Closes менялся на Refs вручную. Привязка ревизии к диапазону — его же
+# `dod_proof_bound` (ws#1162): своя сверка `startswith` здесь, у merge-readiness и у
+# генератора тела давала демону вливания на одном PR разные исходы.
 DOD_LIB = os.environ["DOD_LIB"]
+range_shas = [c.get("sha", "") for c in commits if c.get("sha")]
 def proof_revs(r, n, items):
+    """[(ревизия, привязана ли к диапазону запроса)] строк-доказательств комментариев."""
     if not os.path.isfile(os.path.join(DOD_LIB, "dod_proof.jq")):
         void(f"распознавателя доказательства DoD нет: {DOD_LIB}/dod_proof.jq — скрипт запущен не из каталога scripts/ целиком (рецепт — шапка, «ЗАПУСК»)")
-    q = subprocess.run(["jq", "-L", DOD_LIB, "-r", 'include "dod_proof"; .[] | (.body // "") | dod_proof_revisions[]'],
+    q = subprocess.run(["jq", "-L", DOD_LIB, "-r", "--argjson", "range", json.dumps(range_shas),
+                        'include "dod_proof"; .[] | (.body // "") | dod_proof_revisions[] | [., (dod_proof_bound($range) | tostring)] | @tsv'],
                        input=json.dumps([it or {} for it in items]), capture_output=True, text=True)
     if q.returncode != 0:
         void(f"комментарии {r}#{n}: распознаватель доказательства DoD вышел кодом {q.returncode}: {q.stderr.strip()[:200]}")
-    return q.stdout.split()
-range_shas = [c.get("sha", "") for c in commits if c.get("sha")]
+    return [tuple(l.split("\t")) for l in q.stdout.splitlines() if l]
 closes = []
 for ref in CLOSE.findall(body):
     r, n = ref.split("#")
@@ -831,10 +835,10 @@ for r, n in closes:
         if len(items) < 100:
             break
         page += 1
-    if any(any(full.startswith(s) for full in range_shas) for s in shas):
+    if any(bound == "true" for _, bound in shas):
         proven += 1
     elif shas:
-        reason("CLOSES-WITHOUT-PROOF", f"{r}#{n}: DoD-proof есть ({', '.join(s[:12] for s in shas)}), но ни один sha не коммит запроса — Refs, а не Closes")
+        reason("CLOSES-WITHOUT-PROOF", f"{r}#{n}: DoD-proof есть ({', '.join(s[:12] for s, _ in shas)}), но ни один sha не коммит запроса — Refs, а не Closes")
     else:
         reason("CLOSES-WITHOUT-PROOF", f"{r}#{n}: комментария «DoD-proof @<sha>» нет — Refs, а не Closes")
 census.append(f"закрытие: Closes {len(closes)}, с доказательством {proven}")
