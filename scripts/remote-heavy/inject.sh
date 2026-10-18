@@ -1995,8 +1995,11 @@ qbd() {  # qbd <случай> <меньше по cpu, m> <меньше по па
     go_run "qbdr-$1" env FAKE_EXIT=0 FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$(pod_j sys n1 Running "${c}m" "${m}Ki" | items)" \
         bash "$RUN" --task 1 --repo kacho --ref HEAD --src "$SRC" --profile ci-local --short "qbd$1" -- true
     expect_rc "QB-dind-run-$1" "$4"
-    if [ "$4" = 0 ]; then [ "$(created)" = да ] && ok || bad "QB-dind-run-$1" "ns не создано при месте ровно под запрос pod"
-    else [ "$(created)" = нет ] && ok || bad "QB-dind-run-$1" "ns создано без места под запрос pod"; fi
+    if [ "$4" = 0 ]; then
+        if [ "$(created)" = да ]; then ok; else bad "QB-dind-run-$1" "ns не создано при месте ровно под запрос pod"; fi
+    else
+        if [ "$(created)" = нет ]; then ok; else bad "QB-dind-run-$1" "ns создано без места под запрос pod"; fi
+    fi
 }
 qbd exact 0 0 0
 qbd mem-out 0 1 75
