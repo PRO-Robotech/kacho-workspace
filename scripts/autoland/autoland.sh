@@ -67,7 +67,8 @@
 #      --delete` под замком interim; перепись `branch-audit.sh` до и после — в журнал;
 #   7. догон основного клона (ws#1200): запрос в `main` репозитория, чей origin у
 #      основного клона воркспейса (каталог, чей `.git` = `git rev-parse --git-common-dir`),
-#      влит — `git fetch origin main` и `git merge --ff-only -q origin/main` в нём;
+#      влит — `git fetch origin main` (предел AUTOLAND_FF_FETCH_TIMEOUT, без запросов
+#      пароля и ssh) и `git merge --ff-only -q origin/main` в нём;
 #      исполнители берут $WS/scripts оттуда. Отказ ff (пересечение с локальной правкой —
 #      перечнем файлов, свои коммиты, выписана не main) — строкой в журнал и в исход
 #      merged, ошибкой вливания не считается; ни stash, ни reset.
@@ -101,6 +102,7 @@
 #   AUTOLAND_DIR     — каталог .state, журналов и замков (по умолчанию $WS/tmp/autoland);
 #   AUTOLAND_CLONES  — клоны для снятия через «:» (заданная пустой — ни одного);
 #   AUTOLAND_GATE_TIMEOUT — предел одного гейта, с (по умолчанию 900);
+#   AUTOLAND_FF_FETCH_TIMEOUT — предел fetch догона основного клона, с (по умолчанию 8);
 #   AUTOLAND_INTERIM_LOCK — замок отправок (по умолчанию ~/.cache/heavy-slots/interim.lock);
 #   CI_STATE_DIR     — каталог демона состояния (его FIFO), как у ci-read.sh.
 set -uo pipefail
@@ -108,6 +110,7 @@ set -uo pipefail
 SELF="$(readlink -f "${BASH_SOURCE[0]}")"
 GH="${AUTOLAND_GH:-gh}"
 GATE_TIMEOUT="${AUTOLAND_GATE_TIMEOUT:-900}"
+FF_FETCH_TIMEOUT="${AUTOLAND_FF_FETCH_TIMEOUT:-8}"
 INTERIM_LOCK="${AUTOLAND_INTERIM_LOCK:-$HOME/.cache/heavy-slots/interim.lock}"
 
 die() { printf 'autoland: ОТКАЗ — %s\n' "$1" >&2; exit "${2:-2}"; }
@@ -421,8 +424,10 @@ sync_main_clone() {  # запрос в main репозитория основн�
         SYNC="основной клон: ff отказ — выписана не main ($(git -C "$WS" symbolic-ref -q --short HEAD || echo отделённая голова))"
         log "$SYNC"; return 0
     fi
-    if ! git -C "$WS" fetch -q origin main 2> "$W/sync.err"; then
-        SYNC="основной клон: ff отказ — fetch origin main: $(head -c 200 "$W/sync.err" | tr '\n' ' ')"; log "$SYNC"; return 0
+    # Сеть не держит исход: предел и неинтерактивность — как у main-clone-lag.sh; влитое не становится void.
+    if ! GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh -o BatchMode=yes}" \
+        timeout "$FF_FETCH_TIMEOUT" git -C "$WS" fetch -q origin main 2> "$W/sync.err"; then
+        SYNC="основной клон: ff отказ — fetch origin main (предел $FF_FETCH_TIMEOUT с): $(head -c 200 "$W/sync.err" | tr '\n' ' ')"; log "$SYNC"; return 0
     fi
     old="$(git -C "$WS" rev-parse HEAD)"; new="$(git -C "$WS" rev-parse refs/remotes/origin/main)"
     if [ "$old" = "$new" ]; then SYNC="основной клон: на origin/main ${new:0:12}"; log "$SYNC"; return 0; fi

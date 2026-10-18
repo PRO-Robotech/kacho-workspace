@@ -57,9 +57,15 @@
 #                  именем файла в журнале и исходе, исход merged, голова и правка на месте;
 #                  ff-worktree: AUTOLAND_WS — копия, не основной клон — не догоняется;
 #                  ff-foreign: origin клона — другой репозиторий — клон не тронут;
+#                  ff-hang: сеть fetch висит — merged и «ff отказ — fetch …» в пределе;
+#                  ff-epic: запрос в ветку эпика, origin/main впереди — клон не тронут;
 #   lag          — main-clone-lag.sh: отставания нет — молчит (0); на N — строка с N (1),
 #                  из копии судится основной клон, не клон — «не установлено» (2); хук
 #                  SessionStart (session-memcap.sh --hook) несёт строку, после догона — нет;
+#                  хук — КОПИЯ рядом с текущей (мутируемой) main-clone-lag.sh;
+#   lag-nofetch  — fetch не прошёл: известное отставание 0 — код 2, больше 0 — код 1 с
+#                  «fetch не прошёл»; lag-hang: сеть висит — хук укладывается в бюджет
+#                  SessionStart из settings.json и несёт «не установлено»;
 #   status       — коды status для каждого исхода (4, 5, 6 — тоже) и для слова вне перечня;
 #   census       — перепись процессов судит СВОЁ по метке AUTOLAND_PROBE_ID: свой процесс
 #                  с иным порядком доводов виден, чужой с «--pr N --head» — нет; reap снимает
@@ -78,8 +84,10 @@
 # ушедшей вперёд, снятие без проверки «влитая — предок базы», status 4/5/6 как 0,
 # ожидание FIFO без timeout, без ожидания вовсе, кэш — настоящий (CI_STATE_DIR не читается),
 # шаг ff выключен, отказ ff как red, пересечение не названо, копия как основной клон,
-# чужой репозиторий как свой; у main-clone-lag.sh — ноль говорит, число не печатается,
-# копия как клон, «не установлено» молчит.
+# чужой репозиторий как свой, fetch догона без предела, база запроса не судится; у
+# main-clone-lag.sh — ноль говорит, число не печатается, копия как клон, «не
+# установлено» молчит, неудачный fetch при нуле молчит и при числе не назван, fetch без предела.
+# Обход git заперт GIT_CEILING_DIRECTORIES над $T: проба зелена и при TMPDIR внутри клона.
 #
 # СЛЕДОВ НЕТ (testing.md#no-residue). Песочница — на всю пробу: кэш (XDG_CACHE_HOME,
 # CI_STATE_DIR), gh, гейты, клоны, замок — экспортом до первой сцены, поэтому и демон,
@@ -108,6 +116,9 @@ MEMCAP="$(cd "$HERE/.." && pwd)/session-memcap.sh"
 [ -r "$LP_REAL" ] || { echo "VOID: нет $LP_REAL (метки рецепта «ЗАПУСК»)" >&2; exit 2; }
 
 T="$(mktemp -d "${TMPDIR:-/tmp}/autoland-inject.XXXXXX")" || exit 2
+# Обход git не выходит из песочницы: при TMPDIR внутри клона каталог «не клон» иначе
+# нашёл бы настоящий клон и сделал бы в нём fetch (ws#1200, круг 1).
+GIT_CEILING_DIRECTORIES="$(dirname "$T")"; export GIT_CEILING_DIRECTORIES
 PIDS=(); FOREIGN=()
 # СВОЁ — по метке AUTOLAND_PROBE_ID=$T в окружении процесса (её экспортирует проба
 # ниже, наследует всё, что проба порождает), а не по написанию доводов: образец
@@ -222,8 +233,9 @@ mkdir -p "$T/ws0"
 
 pull() {  # <голова> <state> <merged>
     jq -n --arg h "$1" --arg s "$2" --argjson m "$3" --arg ms "$MSHA" --arg b "$BASE" --arg ref "${PULL_REF:-4000-probe}" \
+        --arg base "${PULL_BASE:-main}" \
         '{state: $s, merged: $m, merge_commit_sha: (if $m then $ms else null end), draft: false,
-          head: {sha: $h, ref: $ref}, base: {ref: "main", sha: $b}}' > "$FX/pull.json"
+          head: {sha: $h, ref: $ref}, base: {ref: $base, sha: $b}}' > "$FX/pull.json"
 }
 new_fx() {  # <сцена>
     FX="$T/fx.$1.$RANDOM"; mkdir -p "$FX"
@@ -569,13 +581,34 @@ s_ff_foreign() {
     WS0="$G/ws" run_al; unset WS0
     ok ff-foreign "запрос не в репозиторий клона — merged, клон не тронут" eval '[ "$RC" -eq 0 ] && st_is merged && ! st_has "основной клон" && [ "$(head_of "$G/ws")" = "$OLD_MAIN" ]'
 }
+HANG_URL="ssh://hang.invalid/PRO-Robotech/kacho-workspace.git"   # с GIT_SSH_COMMAND «sleep N #» — сеть висит
+s_ff_hang() {
+    local t0 dt
+    new_fx ff-hang; mk_ws_main; git -C "$G/ws" remote set-url origin "$HANG_URL"
+    export GIT_SSH_COMMAND="sleep 300 #"
+    t0=$(date +%s); WS0="$G/ws" RUN_LIMIT=40 run_al; dt=$(( $(date +%s) - t0 )); unset WS0 GIT_SSH_COMMAND
+    ok ff-hang "сеть висит — исход merged <sha>, код 0, за $dt с (предел пробы 40)" eval '[ "$RC" -eq 0 ] && st_is merged && st_has "$MSHA"'
+    ok ff-hang "исход называет отказ fetch догона" st_has "основной клон: ff отказ — fetch origin main"
+    ok ff-hang "голова основного клона не сдвинута" eval '[ "$(head_of "$G/ws")" = "$OLD_MAIN" ]'
+}
+s_ff_epic() {
+    new_fx ff-epic; mk_ws_main; PULL_BASE=1266-epic pull "$HEAD_P" open false
+    WS0="$G/ws" run_al; unset WS0
+    ok ff-epic "запрос в ветку эпика — merged, origin/main впереди, основной клон не тронут" eval '[ "$RC" -eq 0 ] && st_is merged && ! st_has "основной клон" && [ "$(origin_main)" != "$OLD_MAIN" ] && [ "$(head_of "$G/ws")" = "$OLD_MAIN" ]'
+}
+hook_copy() {  # копия хука SessionStart рядом с ТЕКУЩЕЙ (возможно мутантом) main-clone-lag.sh → путь session-memcap.sh
+    local d="$FX/hook/scripts"; mkdir -p "$d"
+    cp "$MEMCAP" "$d/session-memcap.sh"; cp "$HERE/../heavy-slot.sh" "$d/heavy-slot.sh"; cp "$LAG" "$d/main-clone-lag.sh"
+    printf 'MemTotal: 62914560 kB\nMemAvailable: 52428800 kB\n' > "$FX/meminfo"
+    printf '%s\n' "$d/session-memcap.sh"
+}
 lag_ctx() {  # вывод хука SessionStart → additionalContext (пусто — хук молчал)
     python3 -c 'import json,sys
 t = sys.stdin.read().strip()
 print(json.loads(t)["hookSpecificOutput"]["additionalContext"] if t else "")'
 }
 s_lag() {
-    local out rc n ctx
+    local out rc n ctx hk
     new_fx lag; mk_ws_main; ST="сигнал SessionStart"; RC=-
     out="$(bash "$LAG" "$G/ws" 2>&1)"; rc=$?
     ok lag "отставания нет — молчит, код 0 (код $rc, вывод «$out»)" eval '[ "$rc" -eq 0 ] && [ -z "$out" ]'
@@ -588,12 +621,34 @@ s_lag() {
     ok lag "из копии судится основной клон (код $rc)" eval '[ "$rc" -eq 1 ] && grep -qF "клон $G/ws " <<< "$out" && ! grep -qF "$G/wt" <<< "$out"'
     mkdir -p "$FX/plain"; out="$(bash "$LAG" "$FX/plain" 2>&1)"; rc=$?
     ok lag "не клон — «не установлено» строкой, код 2 (код $rc)" eval '[ "$rc" -eq 2 ] && grep -qF "не установлено" <<< "$out"'
-    printf 'MemTotal: 62914560 kB\nMemAvailable: 52428800 kB\n' > "$FX/meminfo"
-    ctx="$(SESSION_MEMCAP_MEMINFO="$FX/meminfo" CLAUDE_PROJECT_DIR="$G/wt" bash "$MEMCAP" --hook 2>/dev/null | lag_ctx)"
+    hk="$(hook_copy)"
+    ctx="$(SESSION_MEMCAP_MEMINFO="$FX/meminfo" CLAUDE_PROJECT_DIR="$G/wt" bash "$hk" --hook 2>/dev/null | lag_ctx)"
     ok lag "хук SessionStart (session-memcap --hook) несёт строку отставания на $n" eval 'grep -qF "MAIN-CLONE-LAG: основной клон $G/ws " <<< "$ctx" && grep -qF "на $n " <<< "$ctx"'
     git -C "$G/ws" merge -q --ff-only origin/main
-    ctx="$(SESSION_MEMCAP_MEMINFO="$FX/meminfo" CLAUDE_PROJECT_DIR="$G/wt" bash "$MEMCAP" --hook 2>/dev/null | lag_ctx)"
+    ctx="$(SESSION_MEMCAP_MEMINFO="$FX/meminfo" CLAUDE_PROJECT_DIR="$G/wt" bash "$hk" --hook 2>/dev/null | lag_ctx)"
     ok lag "после догона хук строки отставания не несёт" eval '! grep -qF MAIN-CLONE-LAG <<< "$ctx"'
+}
+s_lag_nofetch() {
+    local out rc absent="$FX/absent/PRO-Robotech/kacho-workspace.git"
+    new_fx lag-nofetch; mk_ws_main; ST="сигнал при неудачном fetch"; RC=-
+    git -C "$G/ws" remote set-url origin "$absent"
+    out="$(bash "$LAG" "$G/ws" 2>&1)"; rc=$?
+    ok lag-nofetch "fetch не прошёл, известное отставание 0 — «не установлено», код 2 (код $rc)" eval '[ "$rc" -eq 2 ] && grep -qF "MAIN-CLONE-LAG: отставание не установлено" <<< "$out"'
+    git -C "$G/ws" remote set-url origin "$ORIGIN_DIR"; bash "$FX/merged.hook" > /dev/null 2>&1; git -C "$G/ws" fetch -q origin
+    git -C "$G/ws" remote set-url origin "$absent"
+    out="$(bash "$LAG" "$G/ws" 2>&1)"; rc=$?
+    ok lag-nofetch "fetch не прошёл, известное отставание > 0 — строка с «fetch не прошёл», код 1 (код $rc)" eval '[ "$rc" -eq 1 ] && grep -qF "отстаёт от origin/main на " <<< "$out" && grep -qF "fetch не прошёл" <<< "$out"'
+}
+s_lag_hang() {
+    local hk t0 dt ctx budget
+    new_fx lag-hang; mk_ws_main; ST="хук SessionStart, сеть висит"; RC=-
+    budget="$(jq -r '[.hooks.SessionStart[].hooks[] | select(.command | test("session-memcap.sh")) | .timeout] | first // empty' "$HERE/../../.claude/settings.json" 2>/dev/null)"
+    git -C "$G/ws" remote set-url origin "$HANG_URL"; hk="$(hook_copy)"
+    t0=$(date +%s)
+    ctx="$(GIT_SSH_COMMAND="sleep 45 #" SESSION_MEMCAP_MEMINFO="$FX/meminfo" CLAUDE_PROJECT_DIR="$G/ws" timeout 35 bash "$hk" --hook 2>/dev/null | lag_ctx 2>/dev/null)"
+    dt=$(( $(date +%s) - t0 ))
+    ok lag-hang "сеть висит — хук за $dt с, бюджет SessionStart «${budget:-не прочитан}» с (settings.json), несёт «не установлено»" \
+        eval '[[ "$budget" =~ ^[0-9]+$ ]] && [ "$dt" -lt "$budget" ] && grep -qF "MAIN-CLONE-LAG: отставание не установлено" <<< "$ctx"'
 }
 guard_rc() {  # <команда> — код стража
     python3 -c 'import json,sys; print(json.dumps({"tool_name":"Bash","tool_input":{"command":sys.argv[1]},"agent_type":"git-operator"}))' "$1" \
@@ -670,7 +725,7 @@ s_static() {
 ALL=(s_green s_red s_moved_start s_moved_gates s_moved_merge s_allow_ok s_allow_bad s_stale s_mr_red s_timeout
      s_void s_void_twin s_ratelimit s_pr_unread s_draft s_closed s_already s_fifo s_fifo_nowriter s_args s_detach s_recipe
      s_prune s_prune_dirty s_prune_ahead s_prune_remote s_prune_origin_ahead s_prune_not_in_base
-     s_ff s_ff_overlap s_ff_worktree s_ff_foreign s_lag
+     s_ff s_ff_overlap s_ff_worktree s_ff_foreign s_ff_hang s_ff_epic s_lag s_lag_nofetch s_lag_hang
      s_status s_empty_code s_lp_head s_census s_guard s_static)
 
 AL="$AL_REAL"
@@ -734,6 +789,11 @@ mutant ff-overlap-unnamed s_ff_overlap 'пересекаются с локаль
 mutant ff-main-clone-unchecked s_ff_worktree 'if [ "$common" != "$top/.git" ]; then' 'if false; then'
 mutant ff-not-fast-forward s_static 'merge --ff-only -q origin/main >' 'merge -q origin/main >'
 mutant ff-repo-unchecked s_ff_foreign '[ "$PR_BASE" = main ] && origin_is_repo "$WS" || return 0' '[ "$PR_BASE" = main ] || return 0'
+mutant ff-fetch-unbounded s_ff_hang 'timeout "$FF_FETCH_TIMEOUT" git -C "$WS" fetch' 'git -C "$WS" fetch'
+mutant ff-base-unchecked s_ff_epic '[ "$PR_BASE" = main ] && origin_is_repo "$WS" || return 0' 'origin_is_repo "$WS" || return 0'
+mutant lag-nofetch-silent s_lag_nofetch 'if [ "$fetched" -eq 0 ] && [ "$n" -eq 0 ]; then' 'if false; then' "$LAG_REAL"
+mutant lag-nofetch-unannotated s_lag_nofetch "\"\$([ \"\$fetched\" -eq 1 ] || echo ' (fetch не прошёл — по известному origin/main)')\"" '""' "$LAG_REAL"
+mutant lag-fetch-unbounded s_lag_hang 'timeout "${MAIN_CLONE_LAG_FETCH_TIMEOUT:-8}" git' 'git' "$LAG_REAL"
 mutant lag-zero-speaks s_lag '[ "$n" -gt 0 ] || exit 0' 'true' "$LAG_REAL"
 mutant lag-count-dropped s_lag '"$main" "$br" "$n"' '"$main" "$br" "?"' "$LAG_REAL"
 mutant lag-worktree-as-clone s_lag 'rev-parse --path-format=absolute --git-common-dir' 'rev-parse --absolute-git-dir' "$LAG_REAL"
