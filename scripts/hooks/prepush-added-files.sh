@@ -2,25 +2,31 @@
 # Copyright (c) PRO-Robotech
 # SPDX-License-Identifier: BUSL-1.1
 #
-# Страж ДОБАВЛЕННЫХ ФАЙЛОВ для отправки (kacho-workspace#1189). Зовёт его
+# Страж НОВЫХ BLOB'ОВ отправки (kacho-workspace#1189). Зовёт его
 # scripts/hooks/pre-push вторым, после стража атрибуции, — до обхода
 # KACHO_SKIP_PREPUSH и до пропуска черновиков. Проба —
 # scripts/tooling-gate/check-25-push-refuses-binary-and-large-added-files.sh.
 #
 # Признак: в kacho#3284 коммит ветки нёс собранный ELF края на 39 МБ со вшитыми
-# путями машины; поймало его ревью, не хук. Репозитории публичны, и файл в
+# путями машины; поймало его ревью, не хук. Репозитории публичны, и blob в
 # опубликованной истории не отзывается без её переписи.
 #
-# ПЕРЕПИСЬ — то, что уезжает: коммиты отправляемой вершины, недостижимые ни с
-# одной ссылки удалённого и с прежней вершины этой ссылки, и в каждом —
-# добавленные файлы (`--diff-filter=A`). Покоммитно, а не нетто-диффом базы:
-# файл, добавленный и снятый следующим коммитом, в истории остаётся. Слияние
-# судится `--diff-merges=remerge` — против автоматического результата, то есть
-# только внесённое руками. Ссылок удалённого нет — судится вся история вершины:
-# перепись становится шире, а не пустой. Признаки — из одного `git log`: режим и
-# блоб (`--raw`), бинарность (`--numstat` «-»; атрибуты сняты `--attr-source`
-# пустым деревом — строка `*.bin diff` в `.gitattributes` бинарь в текст не
-# перекрашивает), размер — одним `git cat-file --batch-check` на вершину.
+# ПРЕДМЕТ — новый blob в публичной истории, а не статус файла: судится КАЖДЫЙ
+# blob, достижимый из коммитов отправки и недостижимый со ссылок удалённого и
+# с прежней вершины ссылки (`git rev-list --objects --filter=object:type=blob`).
+# Добавление, правка, переименование с правкой, смена типа, файл, добавленный и
+# снятый следующим коммитом, внесённое руками в слияние, корневой коммит — всё
+# это новые blob'ы. Переименование и копия БЕЗ правки нового blob'а не вносят
+# (содержимое уже опубликовано) и не судятся — одинаково при любой настройке
+# `diff.renames`. Ссылок удалённого нет — судится вся история вершины.
+#
+# НЕЗАВИСИМОСТЬ ОТ НАСТРОЕК ПОЛЬЗОВАТЕЛЯ. Перепись — плюмбинг `rev-list`, его не
+# трогают `log.*` и `diff.*`. Бинарность — НУЛЕВОЙ байт в первых 8000 байтах
+# содержимого, прочитанного `git cat-file --batch`: ни атрибуты дерева, ни
+# `.git/info/attributes`, ни `core.attributesFile` её не перекрашивают. Размер —
+# из того же заголовка. Режим (исполняемый) и коммит для текста отказа — из
+# `git log --raw -z --root --no-renames --diff-merges=first-parent`; они лишь
+# называют находку и вердикт не решают.
 #
 # Отказ называет файл: бинарный (исполняемый — режим 100755; вид — `file`) либо
 # больше 1 МБ. Исключение — только строкой перечня `prepush-added-files.allow`
@@ -31,151 +37,181 @@
 # Вход — строки git `<local_ref> <local_sha> <remote_ref> <remote_sha>` на stdin;
 # $1 — имя удалённого (по умолчанию origin). Пустой вход — судится HEAD.
 # ИСХОДЫ: 0 — отвергнутых нет (перепись напечатана); 1 — отвергнутые файлы либо
-# негодный перечень, у каждого имя; 2 — судить не смог (вершина не сводится к
-# коммиту, диапазон не прочитан): пустой обход зелёным не бывает.
+# негодный перечень, у каждого имя; 2 — судить не смог (нет python3, вершина не
+# сводится к коммиту, git не прочитал диапазон): пустой обход зелёным не бывает.
 set -uo pipefail
 
-LIMIT=1048576
 here="${BASH_SOURCE[0]%/*}"
 [ "$here" != "${BASH_SOURCE[0]}" ] || here=.
-ALLOW="$here/prepush-added-files.allow"
-remote="${1:-origin}"
-
-void() {
-    echo "prepush-added-files: НЕ СУДИМО — $1. Пустой обход зелёным не бывает." >&2
-    exit 2
-}
-
-targets=() prev=()
 input=""
 [ -t 0 ] || input="$(cat)"
-if [ -n "$input" ]; then
-    while read -r _lref lsha _rref rsha || [ -n "${lsha:-}" ]; do
-        [ -n "${lsha:-}" ] || continue
-        case "$lsha" in *[!0]*) targets+=("$lsha") ;; *) continue ;; esac
-        # Прежняя вершина ссылки на удалённом — уже опубликованное.
-        case "${rsha:-}" in
-            *[!0]*) git cat-file -e "$rsha^{commit}" 2>/dev/null && prev+=("^$rsha") ;;
-        esac
-    done <<< "$input"
-    if [ "${#targets[@]}" -eq 0 ]; then
-        echo "prepush-added-files: только снятие ссылок — коммитов не везёт, судить нечего" >&2
-        exit 0
-    fi
-else
-    targets+=(HEAD)
-    echo "prepush-added-files: вход пуст — судится HEAD" >&2
+if ! command -v python3 > /dev/null 2>&1; then
+    echo "prepush-added-files: НЕ СУДИМО — нет python3. Пустой обход зелёным не бывает." >&2
+    exit 2
 fi
+PREPUSH_INPUT="$input" exec python3 - "${1:-origin}" "$here/prepush-added-files.allow" <<'PY'
+import fnmatch, os, subprocess, sys, tempfile
+
+remote, allow_path = sys.argv[1], sys.argv[2]
+LIMIT = 1048576
+PROBE = 8000
+
+
+def say(m):
+    print('prepush-added-files: ' + m, file=sys.stderr)
+
+
+def void(m):
+    say('НЕ СУДИМО — ' + m + '. Пустой обход зелёным не бывает.')
+    sys.exit(2)
+
+
+def git(args, inp=None):
+    r = subprocess.run(['git', '-c', 'core.quotePath=false'] + args, input=inp, capture_output=True)
+    if r.returncode != 0:
+        err = r.stderr.decode('utf-8', 'replace').strip().split('\n')[0]
+        void('git ' + ' '.join(args[:2]) + ' вышел ' + str(r.returncode) + ': ' + err)
+    return r.stdout
+
+
+targets, prev = [], []
+inp = os.environ.get('PREPUSH_INPUT', '')
+if inp.strip():
+    for line in inp.splitlines():
+        f = line.split()
+        if len(f) < 2 or not f[1].strip('0'):
+            continue
+        targets.append(f[1])
+        # Прежняя вершина ссылки на удалённом — уже опубликованное.
+        if len(f) > 3 and f[3].strip('0') and subprocess.run(
+                ['git', 'cat-file', '-e', f[3] + '^{commit}'], capture_output=True).returncode == 0:
+            prev.append('^' + f[3])
+    if not targets:
+        say('только снятие ссылок — коммитов не везёт, судить нечего')
+        sys.exit(0)
+else:
+    targets = ['HEAD']
+    say('вход пуст — судится HEAD')
+tcs = []
+for t in targets:
+    r = subprocess.run(['git', 'rev-parse', '--verify', '-q', t + '^{commit}'], capture_output=True, text=True)
+    if r.returncode != 0:
+        void('вершина «' + t + '» не сводится к коммиту')
+    tcs.append(r.stdout.strip())
+rng = tcs + prev + ['--not', '--remotes=' + remote]
+
+n_new = len(git(['rev-list'] + rng).split())
+# Новые blob'ы: sha → первый путь, под которым rev-list его встретил.
+new = {}
+for line in git(['rev-list', '--objects', '--filter=object:type=blob'] + rng).decode('utf-8', 'surrogateescape').splitlines():
+    sha, _, path = line.partition(' ')
+    if path:
+        new.setdefault(sha, path)
+# Имя, режим и коммит находки — из записей коммитов, где blob появился.
+cands = {}
+cur = ''
+toks = git(['log', '--no-color', '--no-renames', '--root', '--no-ext-diff', '--no-textconv',
+            '--no-relative', '--raw', '--no-abbrev', '-z', '--diff-merges=first-parent',
+            '--format=@%H'] + rng).decode('utf-8', 'surrogateescape').split('\0')
+i = 0
+while i < len(toks):
+    t = toks[i].lstrip('\n')
+    if t.startswith('@'):
+        cur = t[1:]
+    elif t.startswith(':') and i + 1 < len(toks):
+        meta = t[1:].split()
+        mode, blob, path = meta[1], meta[3], toks[i + 1]
+        i += 1
+        if blob in new:
+            cands.setdefault((blob, path), (mode, cur))
+    i += 1
+seen = {b for b, _ in cands}
+for blob, path in new.items():
+    if blob not in seen:
+        cands[(blob, path)] = ('', '')
+
+# Содержимое — одним `cat-file --batch`: размер из заголовка, бинарность — NUL в начале.
+blobs = sorted({b for b, _ in cands})
+info = {}
+if blobs:
+    # Вход — файлом, а не трубой: запись в трубу при непрочитанном выводе встала бы
+    # насмерть, как только вывод заполнит буфер (тысячи blob'ов без ссылок удалённого).
+    req = tempfile.TemporaryFile()
+    req.write(('\n'.join(blobs) + '\n').encode())
+    req.seek(0)
+    p = subprocess.Popen(['git', 'cat-file', '--batch'], stdin=req, stdout=subprocess.PIPE)
+    for _ in blobs:
+        head = p.stdout.readline().split()
+        if len(head) != 3:
+            void('cat-file не отдал blob: ' + b' '.join(head).decode('utf-8', 'replace'))
+        size = int(head[2])
+        data = p.stdout.read(size)
+        p.stdout.read(1)
+        info[head[0].decode()] = (size, b'\0' in data[:PROBE], data[:PROBE])
+    if p.wait() != 0:
+        void('cat-file --batch вышел ' + str(p.returncode))
 
 # Перечень исключений: `<вид> <шаблон> <довод>`, вид — size | binary.
-a_kind=() a_glob=() a_used=() a_bad=()
-if [ -f "$ALLOW" ]; then
-    while IFS= read -r line || [ -n "$line" ]; do
-        case "$line" in '' | '#'*) continue ;; esac
-        read -r kind glob why <<< "$line"
-        case "$kind" in
-            size | binary) ;;
-            *) a_bad+=("«$line» — вид не size и не binary"); continue ;;
-        esac
-        [ -n "${why:-}" ] || { a_bad+=("«$line» — без довода"); continue; }
-        a_kind+=("$kind"); a_glob+=("$glob"); a_used+=(0)
-    done < "$ALLOW"
-fi
-allowed() {  # allowed <вид> <путь> — 0, если строка перечня снимает этот вид с пути
-    local i
-    for i in "${!a_glob[@]}"; do
-        # shellcheck disable=SC2053  # шаблон перечня — glob намеренно
-        [ "${a_kind[i]}" = "$1" ] && [[ "$2" == ${a_glob[i]} ]] && return 0
-    done
-    return 1
-}
+allow, allow_bad = [], []
+if os.path.isfile(allow_path):
+    for line in open(allow_path, encoding='utf-8'):
+        line = line.rstrip('\n')
+        if not line.strip() or line.lstrip().startswith('#'):
+            continue
+        f = line.split(None, 2)
+        if f[0] not in ('size', 'binary'):
+            allow_bad.append('«' + line + '» — вид не size и не binary')
+        elif len(f) < 3 or not f[2].strip():
+            allow_bad.append('«' + line + '» — без довода')
+        else:
+            allow.append([f[0], f[1], False])
 
-empty_tree="$(git mktree < /dev/null)" || void "пустое дерево для --attr-source не записано"
 
-n_new=0 n_commits=0 n_files=0 n_excused=0 bad=() commit=""
-declare -A seen=() mode=() blob=() bin=() sizes=()
+def allowed(kind, path):
+    return any(a[0] == kind and fnmatch.fnmatchcase(path, a[1]) for a in allow)
 
-# flush — судит добавленные файлы одного коммита (`commit`, `mode`, `blob`, `bin`).
-flush() {
-    local p sz kind what
-    for p in "${!blob[@]}"; do
-        [ -z "${seen[${blob[$p]} $p]:-}" ] || continue
-        seen["${blob[$p]} $p"]=1
-        n_files=$((n_files + 1))
-        what=()
-        if [ "${bin[$p]:-0}" = 1 ] && ! allowed binary "$p"; then
-            kind="$(file -b - < <(git cat-file blob "${blob[$p]}") 2>/dev/null)"
-            if [ "${mode[$p]}" = 100755 ]; then
-                what+=("исполняемый бинарь (${kind%%,*})")
-            else
-                what+=("бинарный (${kind%%,*})")
-            fi
-        fi
-        sz="${sizes[${blob[$p]}]:-0}"
-        if [ "$sz" -gt "$LIMIT" ] && ! allowed size "$p"; then
-            what+=("$sz Б > порога 1 МБ ($LIMIT Б)")
-        fi
-        if [ "${#what[@]}" -gt 0 ]; then
-            bad+=("$p — ${what[*]} · коммит ${commit:0:12}")
-        elif [ "${bin[$p]:-0}" = 1 ] || [ "$sz" -gt "$LIMIT" ]; then
-            n_excused=$((n_excused + 1))
-        fi
-    done
-    mode=() blob=() bin=()
-}
 
-for t in "${targets[@]}"; do
-    tc="$(git rev-parse --verify -q "$t^{commit}")" || void "вершина «$t» не сводится к коммиту"
-    log="$(git --attr-source="$empty_tree" -c core.quotePath=false log --no-color \
-        --diff-merges=remerge --diff-filter=A --raw --no-abbrev --numstat \
-        --format='@%H' "$tc" "${prev[@]}" --not --remotes="$remote" 2>&1)" ||
-        void "диапазон «$tc --not --remotes=$remote» не прочитан: ${log%%$'\n'*}"
-    n=$(git rev-list --count "$tc" "${prev[@]}" --not --remotes="$remote" 2>&1) ||
-        void "число новых коммитов «$tc» не прочитано: $n"
-    n_new=$((n_new + n))
-    sizes=()
-    while read -r b s; do sizes["$b"]="$s"; done < <(
-        awk '/^:/ { print $4 }' <<< "$log" | git cat-file --batch-check='%(objectname) %(objectsize)')
-    commit=""
-    while IFS= read -r line; do
-        case "$line" in
-            @*) [ -z "$commit" ] || flush; commit="${line#@}"; n_commits=$((n_commits + 1)) ;;
-            :*) read -r _m nm _o nb _st <<< "${line%%$'\t'*}"; p="${line#*$'\t'}"
-                mode["$p"]="$nm"; blob["$p"]="$nb" ;;
-            -$'\t'-$'\t'*) bin["${line#-$'\t'-$'\t'}"]=1 ;;
-        esac
-    done <<< "$log"
-    [ -z "$commit" ] || flush
-    # Исключение без предмета: под шаблон не подпадает ни один файл дерева вершины.
-    if [ "${#a_glob[@]}" -gt 0 ]; then
-        mapfile -t tree_files < <(git -c core.quotePath=false ls-tree -r --name-only "$tc")
-        for i in "${!a_glob[@]}"; do
-            for f in "${tree_files[@]}"; do
-                # shellcheck disable=SC2053
-                [[ "$f" == ${a_glob[i]} ]] && { a_used[i]=1; break; }
-            done
-        done
-    fi
-done
-for i in "${!a_glob[@]}"; do
-    [ "${a_used[i]}" = 1 ] ||
-        a_bad+=("${a_kind[i]} ${a_glob[i]} — под шаблон не подпадает ни один файл судимой вершины: исключать нечего")
-done
+bad, excused = [], 0
+for (blob, path), (mode, commit) in sorted(cands.items(), key=lambda x: x[0][1]):
+    size, is_bin, head = info[blob]
+    what = []
+    if is_bin and not allowed('binary', path):
+        kind = subprocess.run(['file', '-b', '-'], input=head, capture_output=True).stdout.decode('utf-8', 'replace').split(',')[0].strip()
+        what.append(('исполняемый бинарь' if mode == '100755' else 'бинарный') + ' (' + kind + ')')
+    if size > LIMIT and not allowed('size', path):
+        what.append(str(size) + ' Б > порога 1 МБ (' + str(LIMIT) + ' Б)')
+    if what:
+        bad.append(path + ' — ' + ' '.join(what) + ' · коммит ' + (commit[:12] or '—'))
+    elif is_bin or size > LIMIT:
+        excused += 1
+# Исключение без предмета: под шаблон не подпадает ни один файл дерева вершины.
+if allow:
+    for tc in tcs:
+        for path in git(['ls-tree', '-r', '--name-only', '-z', tc]).decode('utf-8', 'surrogateescape').split('\0'):
+            for a in allow:
+                if path and not a[2] and fnmatch.fnmatchcase(path, a[1]):
+                    a[2] = True
+for a in allow:
+    if not a[2]:
+        allow_bad.append(a[0] + ' ' + a[1] + ' — под шаблон не подпадает ни один файл судимой вершины: исключать нечего')
 
-echo "prepush-added-files: вершин ${#targets[@]}, новых коммитов $n_new (с добавленными файлами $n_commits), добавленных файлов $n_files (по перечню $n_excused, отвергнуто ${#bad[@]}); строк перечня ${#a_glob[@]}" >&2
-rc=0
-if [ "${#a_bad[@]}" -gt 0 ]; then
-    echo "prepush-added-files: ОТКАЗ — перечень исключений $ALLOW негоден:" >&2
-    printf '  %s\n' "${a_bad[@]}" >&2
-    rc=1
-fi
-if [ "${#bad[@]}" -gt 0 ]; then
-    echo "prepush-added-files: ОТКАЗ — добавленные файлы, которым не место в публичной истории:" >&2
-    printf '  %s\n' "${bad[@]}" >&2
-    echo "  Бинарь собирать вне дерева (go build -o \"\$TMPDIR/…\"), коммитить по именам, а не git add -A." >&2
-    echo "  Коммит, внёсший файл, его уже несёт: удаление следующим коммитом историю не очищает —" >&2
-    echo "  соберите ветку заново от базы без файла. Законный крупный текст или бинарь — строкой" >&2
-    echo "  «<size|binary> <шаблон> <довод>» в $ALLOW." >&2
-    rc=1
-fi
-exit "$rc"
+say('вершин ' + str(len(tcs)) + ', новых коммитов ' + str(n_new) + ', новых blob ' + str(len(new))
+    + ' (пар blob·путь ' + str(len(cands)) + '; по перечню ' + str(excused) + ', отвергнуто ' + str(len(bad))
+    + '); строк перечня ' + str(len(allow)))
+rc = 0
+if allow_bad:
+    say('ОТКАЗ — перечень исключений ' + allow_path + ' негоден:')
+    for x in allow_bad:
+        print('  ' + x, file=sys.stderr)
+    rc = 1
+if bad:
+    say('ОТКАЗ — новые blob\'ы, которым не место в публичной истории:')
+    for x in bad:
+        print('  ' + x, file=sys.stderr)
+    print('  Бинарь собирать вне дерева (go build -o "$TMPDIR/…"), коммитить по именам, а не git add -A.', file=sys.stderr)
+    print('  Коммит, внёсший blob, его уже несёт: удаление следующим коммитом историю не очищает —', file=sys.stderr)
+    print('  соберите ветку заново от базы без него. Законный крупный текст или бинарь — строкой', file=sys.stderr)
+    print('  «<size|binary> <шаблон> <довод>» в ' + allow_path + '.', file=sys.stderr)
+    rc = 1
+sys.exit(rc)
+PY

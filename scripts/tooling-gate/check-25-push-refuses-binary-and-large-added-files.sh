@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# check-25 — хук отправки отвергает БИНАРЬ и файл БОЛЬШЕ 1 МБ среди файлов,
-# добавленных новыми коммитами, и называет файл (ws#1189).
+# check-25 — хук отправки отвергает БИНАРЬ и файл БОЛЬШЕ 1 МБ среди НОВЫХ blob'ов
+# отправки (любой статус файла) и называет файл (ws#1189).
 #
 # Признак: в kacho#3284 коммит ветки нёс собранный ELF края на 39 МБ; поймало
 # его ревью, а не хук. Держатель — scripts/hooks/prepush-added-files.sh, который
@@ -10,7 +10,7 @@
 #
 # ПОВЕДЕНЧЕСКАЯ, как check-18: песочница — настоящий репозиторий с голым
 # удалённым, на который опубликован `main`; в её дереве — копии хука, стража
-# атрибуции, стража добавленных файлов и прогонщик-заглушка, печатающий метку.
+# атрибуции, стража новых blob'ов и прогонщик-заглушка, печатающий метку.
 # Перечень исключений — СВОЙ у песочницы (строка коллекций newman с доводом):
 # в перечне воркспейса строк нет, а исключение «про запас» истекло бы.
 #
@@ -21,10 +21,17 @@
 #     коммитом; бинарь, внесённый руками в слияние; бинарь под строкой
 #     `*.bin diff` в `.gitattributes`; бинарь в черновике `wip/*`; бинарь при
 #     KACHO_SKIP_PREPUSH=1; законный файл рядом с бинарём (антимаска);
-#     строка перечня без предмета; строка перечня без довода;
+#     строка перечня без предмета; строка перечня без довода; ELF и крупный
+#     текст, переименованные с правкой (и при `diff.renames=copies`);
+#     опубликованный текст, перезаписанный ELF либо раздутый за порог; ELF в
+#     первом коммите отправки при тексте во втором; ELF при «* diff» в
+#     `.git/info/attributes` и в `core.attributesFile`; ELF в корневом коммите
+#     при `log.showRoot=false` без ссылок удалённого;
 #   молчание (код 0): коллекция newman больше 1 МБ по строке перечня (законный
 #     близнец); исполняемый текстовый скрипт; текст ровно 1 МБ; бинарь, уже
-#     опубликованный на удалённом; снятие ветки;
+#     опубликованный на удалённом; снятие ветки; `git mv` крупного текста без
+#     правки и его копия (нового blob'а нет — при любой `diff.renames`); правка
+#     текста меньше порога; запись строки перечня с предметом;
 #   не судимо: ссылка удалённого битая — страж выходит 2, хук — 1; стража нет
 #     рядом с хуком — хук отказывает кодом 1 и называет причину.
 #
@@ -77,6 +84,13 @@ chmod +x "$box/scripts/hooks/"*
 printf 'size services/*/tests/newman/collections/*.postman_collection.json коллекция newman — текст, порождаемый gen.py\n' \
     > "$box/scripts/hooks/prepush-added-files.allow"
 printf '{"info":{}}\n' > "$box/$COLL/a.postman_collection.json"
+# Опубликованное в main: малый текст, крупный текст и ELF — предметы правки,
+# переименования и копии (ws#1189, приёмка r1).
+printf 'старый текст\n' > "$box/old.txt"
+head -c 1200000 /dev/zero | tr '\0' 'b' > "$box/big1.txt"
+cp "$ELF" "$box/pub.bin"
+# Свой вариант ELF (байт 300): копии `true` в пробах ниже остаются НОВЫМИ blob'ами.
+printf '\001' | dd of="$box/pub.bin" bs=1 seek=300 conv=notrunc status=none
 printf '#!/usr/bin/env bash\necho "%s"\nexit 0\n' "$MARK" > "$box/scripts/stub/run-all.sh"
 chmod +x "$box/scripts/stub/run-all.sh"
 pgit -C "$box" init -q -b main
@@ -175,6 +189,33 @@ expect_refuse edge "законная ветка рядом с бинарём (а
     "refs/heads/1189-lawful $(pgit -C "$box" rev-parse 1189-lawful) refs/heads/1189-lawful $ZERO
 $(create 1189-elf2)"
 
+# Предмет — новый blob при любом статусе (приёмка r1): правка, переименование с
+# правкой, перезапись опубликованного файла ELF, рост за порог; ELF в первом
+# коммите отправки, текст — во втором.
+flip() { printf '\001' | dd of="$box/$1" bs=1 seek=200 conv=notrunc status=none; }
+branch 1189-renelf; pgit -C "$box" mv pub.bin renamed2.bin; flip renamed2.bin; commit "#1189 переименован с правкой" renamed2.bin
+expect_refuse renamed2.bin "ELF переименован с правкой байта (R) — новый blob" "$(create 1189-renelf)"
+pgit -C "$box" config diff.renames copies
+expect_refuse renamed2.bin "то же при diff.renames=copies — вердикт от настройки не зависит" "$(create 1189-renelf)"
+pgit -C "$box" config --unset diff.renames
+branch 1189-renbig; pgit -C "$box" mv big1.txt big2.txt; printf 'x' >> "$box/big2.txt"; commit "#1189 крупный переименован с правкой" big2.txt
+expect_refuse big2.txt "текст 1,2 МБ переименован с правкой (R) — новый blob" "$(create 1189-renbig)"
+branch 1189-overelf; cp "$ELF" "$box/old.txt"; commit "#1189 перезапись" old.txt
+expect_refuse old.txt "опубликованный old.txt перезаписан ELF (M)" "$(create 1189-overelf)"
+branch 1189-grow; text old.txt 2097152; commit "#1189 рост" old.txt
+expect_refuse old.txt "опубликованный old.txt раздут до 2 МБ (M)" "$(create 1189-grow)"
+branch 1189-first; cp "$ELF" "$box/first.bin"; commit "#1189 бинарь первым" first.bin
+printf 'т\n' > "$box/second.md"; commit "#1189 текст вторым" second.md
+expect_refuse first.bin "ELF в первом коммите отправки, текст во втором" "$(create 1189-first)"
+# Настройки пользователя вердикт не меняют: атрибуты вне дерева.
+pgit -C "$box" checkout -q -f 1189-elf
+mkdir -p "$box/.git/info"; printf '* diff\n' > "$box/.git/info/attributes"
+expect_refuse edge "ELF при «* diff» в .git/info/attributes" "$(create 1189-elf)"
+rm -f "$box/.git/info/attributes"
+printf '* diff\n' > "$TMP/attrs"; pgit -C "$box" config core.attributesFile "$TMP/attrs"
+expect_refuse edge "ELF при «* diff» в core.attributesFile" "$(create 1189-elf)"
+pgit -C "$box" config --unset core.attributesFile
+
 ALLOW="$box/scripts/hooks/prepush-added-files.allow"
 cp "$ALLOW" "$TMP/allow"
 branch 1189-lawful2; printf 'т\n' > "$box/n2.md"; commit "#1189 текст" n2.md
@@ -185,6 +226,19 @@ expect_refuse "без довода" "строка перечня без дово
 cp "$TMP/allow" "$ALLOW"
 
 # ── Законные близнецы ────────────────────────────────────────────────────────
+branch 1189-mv; pgit -C "$box" mv big1.txt big4.txt; commit "#1189 переименован без правки" big4.txt
+expect_pass "git mv крупного текста без правки — blob прежний, опубликован" "$(create 1189-mv)"
+branch 1189-copy; cp "$box/big1.txt" "$box/big3.txt"; commit "#1189 копия" big3.txt
+expect_pass "копия опубликованного крупного текста — нового blob'а нет" "$(create 1189-copy)"
+pgit -C "$box" config diff.renames copies
+expect_pass "та же копия при diff.renames=copies — тот же исход" "$(create 1189-copy)"
+pgit -C "$box" config --unset diff.renames
+branch 1189-small; printf 'ещё строка\n' >> "$box/old.txt"; commit "#1189 правка" old.txt
+expect_pass "правка текстового файла меньше порога" "$(create 1189-small)"
+branch 1189-allow; printf 'size big1.txt крупный текст песочницы — опубликован в main\n' >> "$box/scripts/hooks/prepush-added-files.allow"
+commit "#1189 строка перечня" scripts/hooks/prepush-added-files.allow
+expect_pass "запись строки перечня исключений с предметом" "$(create 1189-allow)"
+pgit -C "$box" checkout -q -f "$BASE" -- scripts/hooks/prepush-added-files.allow
 branch 1189-newman; text "$COLL/b.postman_collection.json" 1500000; commit "#1189 коллекция" "$COLL/b.postman_collection.json"
 expect_pass "коллекция newman больше 1 МБ по строке перечня — законный близнец" "$(create 1189-newman)"
 branch 1189-newman2; text "$COLL/b.json" 1500000; commit "#1189 не коллекция" "$COLL/b.json"
@@ -196,7 +250,7 @@ expect_pass "исполняемый текстовый скрипт" "$(create 1
 branch 1189-edge; text exact.txt 1048576; commit "#1189 ровно 1 МБ" exact.txt
 expect_pass "текст ровно 1 МБ — граница порога" "$(create 1189-edge)"
 
-branch 1189-pub; cp "$ELF" "$box/pub"; commit "#1189 бинарь" pub
+branch 1189-pub; cp "$ELF" "$box/pub"; flip pub; printf '\002' | dd of="$box/pub" bs=1 seek=400 conv=notrunc status=none; commit "#1189 бинарь" pub
 pgit -C "$box" push -q --no-verify origin 1189-pub
 printf 'п\n' > "$box/after.md"; commit "#1189 дальше" after.md
 expect_pass "бинарь уже опубликован на удалённом — уезжает лишь текст" \
@@ -219,6 +273,24 @@ rm -f "$box/.git/refs/remotes/origin/broken"
 mv "$box/scripts/hooks/prepush-added-files.sh" "$TMP/guard.away"
 expect_refuse "стража добавленных файлов нет" "стража нет рядом с хуком" "$(create 1189-void)"
 mv "$TMP/guard.away" "$box/scripts/hooks/prepush-added-files.sh"
+
+# Много новых blob'ов (больше буфера трубы на входе и выходе cat-file): страж
+# завершается сам, а не встаёт насмерть (приёмка r1, весь репозиторий без ссылок).
+branch 1189-many; mkdir -p "$box/many"
+for i in $(seq 1 3000); do printf 'f%s\n' "$i" > "$box/many/$i.txt"; done
+commit "#1189 много файлов" many
+examined=$((examined + 1)); lawful=$((lawful + 1)); code=0
+(cd "$box" && printf '%s\n' "$(create 1189-many)" | HOME="$SANDBOX_GIT_HOME" timeout 30 bash scripts/hooks/prepush-added-files.sh origin > "$TMP/many.out" 2>&1) || code=$?
+[ "$code" -eq 0 ] || fail "3000 новых blob'ов: страж вышел $code вместо 0 (124 — встал насмерть): $(tail -c 300 "$TMP/many.out")"
+
+# Корневой коммит при log.showRoot=false и без ссылок удалённого: судится вся история.
+solo="$TMP/solo"; mkdir -p "$solo/g"; cp "$WS/scripts/hooks/prepush-added-files.sh" "$solo/g/"
+pgit init -q -b main "$solo/r"; cp "$ELF" "$solo/r/root.bin"; pgit -C "$solo/r" add root.bin
+pgit -C "$solo/r" commit -q -m "#1 корень"; pgit -C "$solo/r" config log.showRoot false
+examined=$((examined + 1)); unlawful=$((unlawful + 1)); code=0
+(cd "$solo/r" && HOME="$SANDBOX_GIT_HOME" bash "$solo/g/prepush-added-files.sh" origin < /dev/null > "$TMP/solo.out" 2>&1) || code=$?
+{ [ "$code" -eq 1 ] && grep -qF 'root.bin' "$TMP/solo.out"; } ||
+    fail "ELF в корневом коммите при log.showRoot=false: страж вышел $code вместо 1 либо не назвал root.bin: $(tr '\n' ' ' < "$TMP/solo.out" | head -c 300)"
 
 tooling_gate_census "$NAME: хук и страж осмотрены, проб по входу git $examined (законных $lawful, отвергаемых и не судимых $unlawful)"
 if [ "$findings" -gt 0 ]; then

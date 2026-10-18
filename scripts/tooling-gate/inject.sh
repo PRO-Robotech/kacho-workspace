@@ -3520,39 +3520,48 @@ echo "== check-25: хук отправки отвергает бинарь и ф
 C25=check-25-push-refuses-binary-and-large-added-files.sh
 G25="scripts/hooks/prepush-added-files.sh"
 b="$(mksandbox)"; run 0 "$b" "чистое дерево — молчит" "$C25"
-# Мутант «детектор бинаря снят»: numstat «-» больше не отмечает файл бинарным.
+# Мутанты стража: каждый снимает одно решение и обязан покраснеть СВОЕЙ пробой.
 b="$(mksandbox)"
-if mr_patch "$b/$G25" 's/^(\s*)-\$\x27\\t\x27-\$\x27\\t\x27\*\) bin\[.*$/$1-\$\x27\\t\x27-\$\x27\\t\x27*) ;;/m' \
+if mr_patch "$b/$G25" 's/\(size, b\x27\\0\x27 in data\[:PROBE\], data\[:PROBE\]\)/(size, False, data[:PROBE])/' \
     "детектор бинаря снят"; then
     run_says 1 "$b" "мутант: детектор бинаря снят — краснеет" "$C25" "настоящий исполняемый файл (ELF)"
     run 0 "$b" "тот же мутант у соседа check-18 — молчит" check-18-push-refuses-unlawful-branch-name.sh
 fi
 b="$(mksandbox)"
-if mr_patch "$b/$G25" 's/^LIMIT=1048576$/LIMIT=999999999999/m' "порог снят"; then
+if mr_patch "$b/$G25" 's/^LIMIT = 1048576$/LIMIT = 10 ** 12/m' "порог снят"; then
     run_says 1 "$b" "мутант: порог 1 МБ снят — краснеет" "$C25" "текст больше 1 МБ вне перечня"
 fi
 b="$(mksandbox)"
-if mr_patch "$b/$G25" 's/^void\(\) \{$/void() { exit 0;/m' "пустой обход зелёный"; then
+if mr_patch "$b/$G25" 's/^def void\(m\):\n/def void(m):\n    sys.exit(0)\n/m' "пустой обход зелёный"; then
     run_says 1 "$b" "мутант: не судимое — зелёное — краснеет" "$C25" "пустой обход прошёл бы зелёным"
 fi
 b="$(mksandbox)"
-if mr_patch "$b/$G25" 's/--diff-merges=remerge --diff-filter/--diff-merges=off --diff-filter/' "слияния не судятся"; then
-    run_says 1 "$b" "мутант: слияние не судится — краснеет" "$C25" "внесённый руками в слияние"
+if mr_patch "$b/$G25" "s/'--filter=object:type=blob'\] \+ rng/'--filter=object:type=blob', '-n', '1'] + rng/" \
+    "перепись — лишь последний коммит отправки"; then
+    run_says 1 "$b" "мутант: судится лишь последний коммит — краснеет" "$C25" "добавлен и снят следующим коммитом"
 fi
 b="$(mksandbox)"
-if mr_patch "$b/$G25" 's/--attr-source="\$empty_tree"/--attr-source="\$tc"/' "атрибуты дерева не сняты"; then
-    run_says 1 "$b" "мутант: атрибуты дерева красят бинарь в текст — краснеет" "$C25" "*.bin diff"
+if mr_patch "$b/$G25" "s/^rng = tcs \+ prev \+ \['--not', '--remotes=' \+ remote\]\$/rng = tcs/m" \
+    "опубликованное не вычитается"; then
+    # Опубликованный в main ELF песочницы судится снова — законная отправка текста
+    # краснеет, и проба честно отвечает VOID (предпосылка), а не зелёным.
+    run_says 2 "$b" "мутант: опубликованное судится заново — не зелёное (VOID предпосылки)" "$C25" "законная отправка текста вернула 1"
 fi
 b="$(mksandbox)"
-if mr_patch "$b/$G25" 's/^(\s*)a_bad\+=\("\$\{a_kind\[i\]\} .*$/$1:/m' "исключение без предмета не судится"; then
+if mr_patch "$b/$G25" "s/^(\s*)if blob in new:\$/\$1if blob in new and meta[4] == 'A':/m; s/^(\s*)if blob not in seen:\$/\$1if False:/m" \
+    "судится лишь статус A (прежний предмет)"; then
+    run_says 1 "$b" "мутант: лишь добавленные (A) — краснеет" "$C25" "перезаписан ELF (M)"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$G25" "s/^(\s*)allow_bad\.append\(a\[0\] \+ ' ' \+ a\[1\] .*\$/\$1pass/m" "исключение без предмета не судится"; then
     run_says 1 "$b" "мутант: строка перечня без предмета молчит — краснеет" "$C25" "строка перечня без предмета"
 fi
 b="$(mksandbox)"
-if mr_patch "$b/$G25" 's/"\$tc" "\$\{prev\[@\]\}" --not --remotes="\$remote"/"\$tc" --not "\$tc"/g' \
-    "перепись пуста — новые коммиты не читаются"; then
-    run_says 1 "$b" "мутант: перепись новых коммитов пуста — краснеет" "$C25" "настоящий исполняемый файл (ELF)"
+if mr_patch "$b/$G25" 's/stdin=req, stdout=subprocess\.PIPE\)/stdin=subprocess.PIPE, stdout=subprocess.PIPE)\n    p.stdin.write(req.read())\n    p.stdin.close()/' \
+    "вход cat-file трубой до чтения вывода"; then
+    run_says 1 "$b" "мутант: вход cat-file трубой — страж встаёт насмерть, краснеет" "$C25" "встал насмерть"
 fi
-# Провязка: хук не зовёт стража — ровно хук до ws#1189.
+# Провязка: хук не читает код стража — ровно хук до ws#1189.
 b="$(mksandbox)"
 if mr_patch "$b/scripts/hooks/pre-push" 's/^added_rc=\$\?$/added_rc=0/m' "хук не читает код стража"; then
     run_says 1 "$b" "мутант: хук не читает код стража — краснеет" "$C25" "хук вышел 0 вместо 1"
