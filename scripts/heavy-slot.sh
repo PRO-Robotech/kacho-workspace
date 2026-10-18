@@ -83,7 +83,8 @@
 # SUBJECT_BUDGETS, число каждой строки — с основанием; `--book <класс> -- <команда>` печатает
 # бронь, не занимая слот. Обгон малым: ждущий билет с бюджетом строго выше моего и без места
 # сейчас (иначе он на пороге входа) пропускает меня не более BYPASS_MAX = 3 раз; затем его
-# голова держит — большой не голодает. Каждый обгон — строка bypass в журнале.
+# голова держит — большой не голодает. Каждый обгон — строка bypass в журнале; число обгонов
+# (bypassed) переживает 75 и повтор `--resume`: предел — на жизнь билета, а не на попытку.
 #
 # ИСПОЛНЕНИЕ
 #   · systemd-run --user --scope -p MemoryMax=<бюджет> -p MemorySwapMax=0 — предел
@@ -166,7 +167,10 @@
 # чужой задачи легла в этот репозиторий). Первичная копия воркспейса (git-dir = common-dir, и
 # в ней отслеживается сам слот) с назначением в иную ветку, чем текущая, — отказ 64 (функция
 # push_where). Связанная копия, клон другого репозитория, -C <копия> и назначение в текущую
-# ветку не судятся. Не видно: смену каталога внутри `bash -c '…'`.
+# ветку не судятся. Опции после имени удалённого репозитория (`--force-with-lease`, `-o …`,
+# `--delete`) refspec не считаются: судится лишь refspec, чей ИСТОЧНИК — HEAD, @ либо текущая
+# ветка, а ветка назначения иная; отправка ветки по имени и удаление отказа не дают и названы
+# в печати («по имени:», «удалить:»). Не видно: смену каталога внутри `bash -c '…'`.
 # Класс ci-local, отправка из копии воркспейса (ws#1183): слот сам выставляет KACHO_HOME_KACHO,
 # KACHO_HOME_KANAME, KACHO_HOME_CORELIB на project/<имя> ОСНОВНОГО клона, если вызывающий их не
 # задал, и называет выставленное (клона нет — называет переменную). Без них change-graph-gate и
@@ -705,28 +709,49 @@ push_homes() {
 # (`git worktree`), клон другого репозитория и отправка в текущую ветку не судятся.
 # ГРАНИЦА: `bash -c 'cd … && git push'` — смену каталога внутри строки оболочки слот не видит.
 push_where() {
-    local top url br head i n w rem="" dst bad="" specs=() shown=()
+    local top url br head i n w rem="" bad="" specs=() shown=()
     CMD_R=("$@"); n=${#CMD_R[@]}
     git_push_form; [ -n "$PUSH_AT" ] || { GIT_IDX=""; GDIR="$PWD"; return 0; }
     top="$(git -C "$GDIR" rev-parse --show-toplevel 2>/dev/null)" || { GIT_IDX=""; GDIR="$PWD"; return 0; }
     url="$(git -C "$top" remote get-url origin 2>/dev/null | sed 's|//[^/@]*@|//|')"
     br="$(git -C "$GDIR" branch --show-current 2>/dev/null)"; head="$(git -C "$top" rev-parse --short=8 HEAD 2>/dev/null)"
+    # Слова после push: опции (с значением отдельным словом: --repo, -o, --push-option, --receive-pack,
+    # --exec; прочие — без него или через «=») и позиционные: первый — удалённый репозиторий, остальные —
+    # refspec. Опции встают и после refspec (`git push origin main --force-with-lease`). --delete/-d
+    # превращает refspec в имена удаляемых веток. Заменяющее суждение — только о refspec, кладущем
+    # ГОЛОВУ копии (HEAD, @ либо имя её текущей ветки в роли источника) в иную ветку: прочее — отправка
+    # названной ветки по имени (`origin 1182-lane`) либо удаление — голову корня никуда не кладёт.
+    local del="" pos=() kind src dsta
     i=$(( PUSH_AT + 1 ))
     while [ "$i" -lt "$n" ]; do
-        case "${CMD_R[$i]}" in
-            --repo|-o|--push-option|--receive-pack|--exec) i=$(( i + 2 )) ;;
-            --) i=$(( i + 1 )); break ;;
+        w="${CMD_R[$i]}"
+        case "$w" in
+            --repo|-o|--push-option|--receive-pack|--exec) [ "$w" != --repo ] || rem="${CMD_R[$(( i + 1 ))]:-}"; i=$(( i + 2 )) ;;
+            --repo=*) rem="${w#*=}"; i=$(( i + 1 )) ;;
+            --delete|-d) del=1; i=$(( i + 1 )) ;;
+            --) pos+=("${CMD_R[@]:$(( i + 1 ))}"); break ;;
             -*) i=$(( i + 1 )) ;;
-            *) break ;;
+            *) pos+=("$w"); i=$(( i + 1 )) ;;
         esac
     done
-    [ "$i" -lt "$n" ] && { rem="${CMD_R[$i]}"; specs=("${CMD_R[@]:$(( i + 1 ))}"); }
+    if [ "${#pos[@]}" -gt 0 ]; then
+        if [ -z "$rem" ]; then rem="${pos[0]}"; specs=("${pos[@]:1}"); else specs=("${pos[@]}"); fi
+    fi
     for w in "${specs[@]+"${specs[@]}"}"; do
-        shown+=("$(printf '%s' "$w" | sed 's|//[^/@]*@|//|')")
-        dst="${w#+}"; case "$dst" in *:*) dst="${dst#*:}" ;; esac
-        case "$dst" in ''|HEAD|refs/tags/*|refs/[!h]*) continue ;; esac
-        dst="${dst#refs/heads/}"
-        [ "$dst" = "$br" ] || bad="${bad:+$bad }$dst"
+        w="$(printf '%s' "$w" | sed 's|//[^/@]*@|//|')"
+        if [ -n "$del" ]; then shown+=("удалить:$w"); continue; fi
+        src="${w#+}"; dsta="$src"
+        case "$src" in *:*) dsta="${src#*:}"; src="${src%%:*}" ;; *) { [ "$src" != HEAD ] && [ "$src" != @ ]; } || dsta="$br" ;; esac
+        dsta="${dsta#refs/heads/}"
+        case "$src" in
+            HEAD|@) kind="HEAD→$dsta" ;;
+            "$br") kind="${br:+ветка $br→$dsta}"; [ -n "$br" ] || kind="по имени:$src" ;;
+            *) kind="по имени:$src" ;;
+        esac
+        shown+=("$kind")
+        case "$dsta" in ''|refs/*) continue ;; esac
+        { [ "$src" = HEAD ] || [ "$src" = @ ] || { [ -n "$br" ] && [ "$src" = "$br" ] && [[ "${w#+}" == *:* ]]; }; } || continue
+        [ "$dsta" = "$br" ] || bad="${bad:+$bad }$dsta"
     done
     say "git push: каталог $PWD · корень git $top · origin ${url:-—} · ветка ${br:-отсоединённая} · голова ${head:-—} · отправляется: ${rem:+$(printf '%s' "$rem" | sed 's|//[^/@]*@|//|') }${shown[*]:-по настройкам git}"
     mkdir -p "$DIR" 2>/dev/null
@@ -1512,15 +1537,20 @@ if [ -n "$RESUME" ]; then
 fi
 [ -n "$tk" ] || { tk="$(ticket_next)"; [ -n "$tk" ] || { unlock; say "номер билета не выдан (ticket.lock) — не выполнилось"; exit 69; }; }
 TICKET="$DIR/queue/$(printf '%012d' "$tk")"
+# Число обгонов ждущего (bypassed) переживает перезапись билета — повтор --resume не обнуляет предел (ws#1161 д).
+BPK="$(field "$TICKET" bypassed)"
 printf 'pid=%s\npid_start=%s\nclass=%s\nbudget=%s\nlimit=%s\nmeminfo=%s\nwho=%s\n%s' "$$" "$(pid_start $$)" "$CLASS" "$BUDGET" "$LIMIT_MIB" "$MEMINFO" "$WHO" "${QUEUED:+enq=$QUEUED
 }" > "$TICKET"
+[ -z "$BPK" ] || printf 'bypassed=%s\n' "$BPK" >> "$TICKET"
 unlock
 KEEP_TICKET=""
 trap '[ -n "$KEEP_TICKET" ] || rm -f "$TICKET"' EXIT
 # defer_ticket — отказ 74/75: билет откладывается на RESUME_TTL_S, владелец снят (шапка).
 defer_ticket() {
     lock
-    printf 'class=%s\nbudget=%s\nlimit=%s\nmeminfo=%s\nwho=%s\nresume_until=%s\n' "$CLASS" "$BUDGET" "$LIMIT_MIB" "$MEMINFO" "$WHO" "$(( $(now) + RESUME_TTL_S ))" > "$TICKET.tmp" &&
+    BPK="$(field "$TICKET" bypassed)"
+    printf 'class=%s\nbudget=%s\nlimit=%s\nmeminfo=%s\nwho=%s\nresume_until=%s\n%s' "$CLASS" "$BUDGET" "$LIMIT_MIB" "$MEMINFO" "$WHO" "$(( $(now) + RESUME_TTL_S ))" "${BPK:+bypassed=$BPK
+}" > "$TICKET.tmp" &&
         mv -f "$TICKET.tmp" "$TICKET" && KEEP_TICKET=1
     unlock
 }
