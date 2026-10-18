@@ -8,14 +8,19 @@
   * журналы агентов верхнего уровня `<проект>/<сессия>/subagents/agent-*.jsonl` — строка
     «урок:» ПОСЛЕДНЕГО блока «### ВОЗВРАТ» в тексте ответа модели;
   * итоги агентов workflow `<проект>/<сессия>/subagents/workflows/wf_*/journal.jsonl` —
-    запись `result`: строка (тот же блок ВОЗВРАТ) либо объект с полем `lesson` (wave.js);
+    запись `result`: строка (тот же блок ВОЗВРАТ) либо объект — поле `lesson` (wave.js) и блок
+    ВОЗВРАТ в ЛЮБОМ строковом поле на любой глубине (ret, note, notes[], executed, …: перепись
+    форм итогов 2026-10-18 — 30 полей); полоса волны (`impl:`) узнаётся по заданию агента —
+    путь `wave-*/reports/lessons.md` и префикс «<полоса> · »;
   * главный поток `<проект>/<сессия>.jsonl` — строки «урок диспетчера: <класс> · <где>»
     в тексте ответа модели; ключ — `оркестровка:<класс>`;
   * волны `<WS>/tmp/wave-*/reports/lessons.md` (wave.js, строка «<полоса> · <класс> · <где>»)
     и `<WS>/tmp/wave-*/errors.md` (wave-errors.sh; ключ — `оркестровка:<класс счётчика>`).
 Расположение журналов — то же, что читает `scripts/stall-census.sh`.
 
-Урок «—» — не урок. Урок без «·» — БЕЗ КЛЮЧА («урок без места — не урок»): в счёт классов
+Первый осмотр файла — ВЕСЬ файл (не хвост: дозапущенный агент пишет ВОЗВРАТ и в начале), но
+разбираются лишь строки с байтами признака; бюджет — догоном: смещение сохраняется, хотя бы
+один кусок читается за вызов. Урок «—» — не урок. Урок без «·» — БЕЗ КЛЮЧА («урок без места — не урок»): в счёт классов
 не идёт, печатается отдельно и держит сигнал, пока его не снимут `mark ?<id> rejected`.
 Ключ класса — первый сегмент до «·», нормализованный (регистр, кавычки, «ё», пробелы), затем
 таблица синонимов `aliases.tsv` (регулярное выражение → ключ; первое совпадение).
@@ -27,12 +32,16 @@
 
 Статусы класса (закрытый словарь): open → edited (разовая правка) → mechanism (#N) →
 landed (PR) → verified (путь инъекции, которая краснеет); rejected — не урок.
-Пороги: класс с ≥ THRESHOLD случаями при open|edited — «нужен механизм»; случай позже
+Случай — урок одного агента: одна строка у двух РАЗНЫХ агентов — два случая; сводятся лишь
+повторный сбор того же агента (id) и пара «итог workflow ↔ строка lessons.md той же волны и
+полосы»; урок пересказчика (задание называет журнал другого агента) при том же тексте у
+автора — не случай. Пороги: класс с ≥ THRESHOLD случаями при open|edited — «нужен механизм»; случай позже
 landed|verified — «механизм не держит»; open старше суток — «старше суток».
 
 Коды: scan — 0 прочитано, 2 читать нечего (журналов нет: это не «уроков 0»);
 status — 0 делать нечего, 1 есть что делать (перечень), 2 читать нечего;
-signal — 0 молчать, 1 печатать (строка сигнала на stdout); mark — 0 записано, 1 отказ.
+signal — 0 молчать, 1 печатать (строка сигнала на stdout); mark — 0 записано, 1 отказ;
+3 — сбой сборщика (неразобранный синоним, исключение): хук печатает «НЕ СОБРАНЫ».
 """
 import calendar
 import glob
@@ -50,16 +59,23 @@ SINCE = '2026-10-18'
 DAY = 86400
 STATUSES = ('open', 'edited', 'mechanism', 'landed', 'verified', 'rejected')
 HELD = ('landed', 'verified')
-RET_RE = re.compile(r'^\s*[-*]?\s*урок:\s*(.+?)\s*$', re.M)
+# «урок:» — с начала строки либо после «;»/«·» (ВОЗВРАТ, сжатый в одну строку поля итога).
+RET_RE = re.compile(r'(?:^\s*[-*]?|[;·])\s*урок:\s*(.+?)\s*$', re.M)
+# Блок без заголовка (заголовок в другом поле итога): начало — поле контракта ВОЗВРАТ.
+FIELD_RE = re.compile(r'^\s*[-*]\s*(?:статус|вердикт|исход проверок|посылка|артефакты|факты|нужен следующий|вопросы владельцу|затронуто в vault):', re.M)
+# Пересказчик: задание агента называет журнал другого агента («верни дословно его ВОЗВРАТ»).
+RELAY_RE = re.compile(r'subagents/(?:workflows/wf_[^/\s]+/)?(?:journal|agent-[0-9a-f]+)\.jsonl')
+LANE_RE = re.compile(r'(wave-[^/\s`]+)/reports/lessons\.md`? с префиксом «([^«»\s]+) · »')
 DISP_RE = re.compile(r'^\s*[-*]?\s*урок диспетчера:\s*([^\n]+)', re.M)
 # Место без «·»: фраза «Предотвратить …» / «где предотвратить …» после точки — тоже разделитель.
 PLACE_RE = re.compile(r'[.;:]\s+(?=(?:где\s+)?предотвра)', re.I)
 NOTHING = ('—', '-', '–', '', 'нет', '— нет')
 ORCH = 'оркестровка'
-TAIL_FIRST = 1 << 18  # агентский журнал при первом осмотре — хвостом: ВОЗВРАТ в конце
+CHUNK = int(os.environ.get('LESSONS_CHUNK') or 1 << 24)  # шов пробы догона: размер куска чтения
 
 
 def die(msg, code=2):
+    # 2 — читать нечего; 3 — сбой сборщика (хук: «НЕ СОБРАНЫ»).
     print('lessons: VOID — ' + msg, file=sys.stderr)
     sys.exit(code)
 
@@ -79,7 +95,10 @@ def load_aliases(path):
         parts = line.split('\t')
         if len(parts) < 2 or not parts[0] or not parts[1].strip():
             die('%s:%d — строка синонима не «регэксп<TAB>ключ»' % (path, n))
-        out.append((re.compile(parts[0], re.I), parts[1].strip()))
+        try:
+            out.append((re.compile(parts[0], re.I), parts[1].strip()))
+        except re.error as e:
+            die('%s:%d — регэксп синонима не разобран: %s' % (path, n, e), 3)
     return out
 
 
@@ -108,10 +127,16 @@ def key_of(raw, aliases):
 
 
 def lesson_of(text):
-    """Строка «урок:» последнего блока ВОЗВРАТ; None — блока нет или урок «—»."""
+    """Строка «урок:» последнего блока ВОЗВРАТ; None — блока нет или урок «—». Блок без
+    заголовка «### ВОЗВРАТ» — от последнего слова ВОЗВРАТ, иначе от первого поля контракта."""
     i = text.rfind('### ВОЗВРАТ')
     if i < 0:
-        return None
+        i = text.rfind('ВОЗВРАТ')
+    if i < 0:
+        m = FIELD_RE.search(text)
+        if not m:
+            return None
+        i = m.start()
     m = None
     for m in RET_RE.finditer(text, i):
         pass
@@ -119,6 +144,40 @@ def lesson_of(text):
         return None
     v = m.group(1).strip()
     return None if v in NOTHING or v.startswith('—') else v
+
+
+def lessons_in(o, out):
+    """Уроки итога workflow: поле `lesson` и блок ВОЗВРАТ в любом строковом поле, рекурсивно."""
+    if isinstance(o, str):
+        v = lesson_of(o)
+        if v and v not in out:
+            out.append(v)
+    elif isinstance(o, dict):
+        v = o.get('lesson')
+        if isinstance(v, str) and v.strip() not in NOTHING and not v.strip().startswith('—') and v.strip() not in out:
+            out.append(v.strip())
+        for k, x in o.items():
+            if k != 'lesson':
+                lessons_in(x, out)
+    elif isinstance(o, list):
+        for x in o:
+            lessons_in(x, out)
+    return out
+
+
+def prompt_of(af):
+    """Задание агента — первая строка его журнала (≤ 1 МиБ)."""
+    try:
+        with open(af, 'rb') as f:
+            return f.readline(1 << 20).decode('utf-8', 'replace')
+    except OSError:
+        return ''
+
+
+def lane_of(af):
+    """(волна, полоса) агента волны по его заданию."""
+    m = LANE_RE.search(prompt_of(af))
+    return (m.group(1), m.group(2)) if m else (None, None)
 
 
 def texts(rec):
@@ -168,13 +227,17 @@ class Store:
         self.state.setdefault('files', {})
         self.new = []
 
-    def add(self, sid, agent, src, ts, raw, key):
+    def add(self, sid, agent, src, ts, raw, key, wave=None, lane=None, relay=False):
         lid = sha('%s|%s|%s' % (sid, agent, sha(raw)))
         if lid in self.ids:
             return False
         self.ids.add(lid)
         r = {'t': 'lesson', 'id': lid, 'sid': sid, 'agent': agent, 'src': src,
              'ts': ts, 'key': key, 'raw': raw[:600]}
+        if wave and lane:
+            r['wave'], r['lane'] = wave, lane
+        if relay:
+            r['relay'] = True
         self.lessons.append(r)
         self.new.append(r)
         return True
@@ -199,29 +262,27 @@ class Store:
         self.status.setdefault(key, []).append(r)
 
 
-def new_lines(store, path, first_tail, deadline):
-    """Новые полные строки файла с прошлого смещения (bytes); смещение двигается до конца
-    последней полной строки. Первый осмотр — с хвоста first_tail (0 — весь файл)."""
+def grep_lines(store, path, needle, deadline, census):
+    """Новые полные строки файла с прошлого смещения, содержащие байты needle (None — все).
+    Первый осмотр — с начала файла. Смещение — до конца последней полной прочитанной строки;
+    кусок читается хотя бы один за вызов (догон: бюджет не останавливает сбор навсегда),
+    недочитанный по бюджету файл — в census['deferred']."""
     try:
         size = os.path.getsize(path)
     except OSError:
         return []
     st = store.state['files'].get(path)
-    off = st if isinstance(st, int) else None
-    if off is not None and off > size:
-        off = None  # файл переписан
-    if off is None:
-        off = max(0, size - first_tail) if first_tail else 0
-        skip_first = off > 0
-    else:
-        skip_first = False
-    if off == size:
-        return []
+    off = st if isinstance(st, int) and 0 <= st <= size else 0  # больше размера — переписан
     out = []
+    if off == size:
+        return out
     with open(path, 'rb') as f:
         f.seek(off)
-        chunk = 1 << 24
+        chunk = CHUNK
         while True:
+            if census['progress'] and time.time() > deadline:
+                census['deferred'] += 1
+                break
             data = f.read(chunk)
             if not data:
                 break
@@ -232,15 +293,20 @@ def new_lines(store, path, first_tail, deadline):
                 f.seek(off)
                 chunk *= 2
                 continue
-            body = data[:cut]
-            lines = body.split(b'\n')
-            if skip_first:
-                lines, skip_first = lines[1:], False
-            out.extend(lines)
+            census['progress'] = True
+            if needle is None:
+                out.extend(data[:cut].split(b'\n'))
+            else:
+                pos = 0
+                while True:
+                    j = data.find(needle, pos, cut)
+                    if j < 0:
+                        break
+                    e = data.find(b'\n', j, cut + 1)
+                    out.append(data[data.rfind(b'\n', 0, j) + 1:e])
+                    pos = e + 1
             off += cut + 1
             f.seek(off)
-            if time.time() > deadline:
-                break
     store.state['files'][path] = off
     return out
 
@@ -264,14 +330,10 @@ def scan(store, proj, waves, aliases, deadline, census):
         except OSError:
             return 0
     for p in sorted(agents, key=fresh):
-        if time.time() > deadline:
-            census['deferred'] += 1
-            continue
         sid = os.path.basename(os.path.dirname(os.path.dirname(p)))
         aid = os.path.basename(p)[len('agent-'):-len('.jsonl')]
-        for ln in new_lines(store, p, TAIL_FIRST, deadline):
-            if 'ВОЗВРАТ'.encode() not in ln:
-                continue
+        relay = None
+        for ln in grep_lines(store, p, 'ВОЗВРАТ'.encode(), deadline, census):
             try:
                 r = json.loads(ln)
             except Exception:
@@ -281,40 +343,34 @@ def scan(store, proj, waves, aliases, deadline, census):
             for t in texts(r):
                 v = lesson_of(t)
                 if v:
-                    census['read'] += store.add(sid, aid, 'agent', epoch(r.get('timestamp') or '') or os.path.getmtime(p), v, key_of(v, aliases))
+                    if relay is None:
+                        relay = bool(RELAY_RE.search(prompt_of(p)))
+                    census['read'] += store.add(sid, aid, 'agent', epoch(r.get('timestamp') or '') or os.path.getmtime(p), v, key_of(v, aliases), relay=relay)
         census['agents'] += 1
     for p in sorted(wfj, key=fresh):
-        if time.time() > deadline:
-            census['deferred'] += 1
-            continue
         wdir = os.path.dirname(p)
         sid = os.path.basename(os.path.dirname(os.path.dirname(os.path.dirname(wdir))))
-        for ln in new_lines(store, p, 0, deadline):
+        for ln in grep_lines(store, p, b'"result"', deadline, census):
             try:
                 r = json.loads(ln)
             except Exception:
                 continue
             if not isinstance(r, dict) or r.get('type') != 'result' or not r.get('agentId'):
                 continue
-            res, v = r.get('result'), None
-            if isinstance(res, dict):
-                v = res.get('lesson')
-                v = v.strip() if isinstance(v, str) and v.strip() not in NOTHING else None
-            elif isinstance(res, str):
-                v = lesson_of(res)
-            if v:
-                af = os.path.join(wdir, 'agent-%s.jsonl' % r['agentId'])
-                ts = os.path.getmtime(af) if os.path.exists(af) else os.path.getmtime(p)
-                census['read'] += store.add(sid, r['agentId'], 'workflow', ts, v, key_of(v, aliases))
+            res = r.get('result')
+            vs = [lesson_of(res)] if isinstance(res, str) else lessons_in(res, [])
+            vs = [v for v in vs if v]
+            if not vs:
+                continue
+            af = os.path.join(wdir, 'agent-%s.jsonl' % r['agentId'])
+            ts = os.path.getmtime(af) if os.path.exists(af) else os.path.getmtime(p)
+            wave, lane = lane_of(af)
+            for v in vs:
+                census['read'] += store.add(sid, r['agentId'], 'workflow', ts, v, key_of(v, aliases), wave, lane)
         census['agents'] += 1
     for p in sorted(mains, key=fresh):
-        if time.time() > deadline:
-            census['deferred'] += 1
-            continue
         sid = os.path.basename(p)[:-len('.jsonl')]
-        for ln in new_lines(store, p, 0, deadline):
-            if 'урок диспетчера:'.encode() not in ln:
-                continue
+        for ln in grep_lines(store, p, 'урок диспетчера:'.encode(), deadline, census):
             try:
                 r = json.loads(ln)
             except Exception:
@@ -332,7 +388,7 @@ def scan(store, proj, waves, aliases, deadline, census):
         census['mains'] += 1
     for p in wl:
         wave = os.path.basename(os.path.dirname(os.path.dirname(p)))
-        for ln in new_lines(store, p, 0, deadline):
+        for ln in grep_lines(store, p, None, deadline, census):
             s = ln.decode('utf-8', 'replace').strip()
             if not s or s.startswith('#'):
                 continue
@@ -340,10 +396,10 @@ def scan(store, proj, waves, aliases, deadline, census):
             v = rest.strip() if rest else s
             if v in NOTHING:
                 continue
-            census['read'] += store.add(wave, lane.strip(), 'wave', os.path.getmtime(p), v, key_of(v, aliases))
+            census['read'] += store.add(wave, lane.strip(), 'wave', os.path.getmtime(p), v, key_of(v, aliases), wave, lane.strip())
     for p in we:
         wave = os.path.basename(os.path.dirname(p))
-        for ln in new_lines(store, p, 0, deadline):
+        for ln in grep_lines(store, p, None, deadline, census):
             cells = [c.strip() for c in ln.decode('utf-8', 'replace').split('|')]
             if len(cells) != 8 or cells[1] in ('когда (UTC)', '') or set(cells[1]) <= set('-'):
                 continue
@@ -382,14 +438,19 @@ def class_of(r, aliases):
 
 
 def analyse(store, now, aliases, since=0.0):
-    # Случай — различная СТРОКА урока: та же строка из двух источников (итог workflow и
-    # lessons.md той же волны) — один случай, а не повтор.
+    # Случай — урок одного агента (id: сессия, агент, строка). Сводится лишь пара «итог
+    # workflow ↔ строка lessons.md той же волны и полосы»; одна строка у РАЗНЫХ агентов — повтор.
+    flat = lambda r: re.sub(r'\s+', ' ', r.get('raw', '')).strip()
+    authored = {flat(r) for r in store.lessons if not r.get('relay')}
     by, seen = {}, set()
     for r in store.lessons:
-        if (r.get('ts') or 0) < since:
+        if (r.get('ts') or 0) < since or (r.get('relay') and flat(r) in authored):
             continue
         k = class_of(r, aliases)
-        rh = (k, sha(re.sub(r'\s+', ' ', r.get('raw', '')).strip()))
+        if r.get('wave') and r.get('lane'):
+            rh = (r['wave'], r['lane'], sha(flat(r)))
+        else:
+            rh = r['id']
         if rh in seen:
             continue
         seen.add(rh)
@@ -443,7 +504,7 @@ def main():
             a = a[2:]
         else:
             rest.append(a.pop(0))
-    now = float(opts['--now']) if opts['--now'] else time.time()
+    now = float(opts['--now'] or os.environ.get('LESSONS_NOW') or time.time())
     if not opts['--dir']:
         die('каталог ведомости не задан (LESSONS_DIR)')
     store = Store(opts['--dir'])
@@ -477,7 +538,7 @@ def main():
         print('lessons: %s → %s %s (классов %d)' % (k, st, ref, len(keys)))
         return 0
 
-    census = {'files': 0, 'agents': 0, 'mains': 0, 'read': 0, 'deferred': 0}
+    census = {'files': 0, 'agents': 0, 'mains': 0, 'read': 0, 'deferred': 0, 'progress': False}
     if cmd in ('scan', 'signal'):
         proj = opts['--projects-dir']
         if not proj:
@@ -549,4 +610,9 @@ def signal_out(store, sig, text, now):
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except SystemExit:
+        raise
+    except BaseException as e:  # сбой — кодом 3, а не кодом 1 «есть что делать» без строки
+        die('сбой сборщика: %s: %s' % (type(e).__name__, str(e)[:200]), 3)
