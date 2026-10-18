@@ -1,0 +1,165 @@
+schema_version: 1
+kind: acceptance_review
+review_type: full
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-REG-PUB-1-public-registry-by-class-grant-acceptance.md
+  sha256: a582030ed6c8e6ed3d1ef720910fec90eb815b9c6fd9703c920913af4a00956f
+  revision: 10
+  static_status: DRAFT
+  static_status_note: >-
+    Шапку документа намеренно не правили (change-graph.md §2). Действующий вердикт об этом
+    отпечатке — эта запись вместе с внешним событием, которое публикует курьер. Документ не
+    закоммичен: рабочее дерево ветки 3274-reg-pub-narrow поверх e71390ce7.
+  base_commit: e71390ce7701d23b117564541e8741f313e5f3a7
+  content_commit: none
+  worktree: kacho-workspace/tmp/3274-acc, ветка 3274-reg-pub-narrow
+  task: https://github.com/PRO-Robotech/kacho/issues/3274
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-REG-PUB-1-public-registry-by-class-grant-acceptance.md
+  lines: 655
+  scenarios: 24 (grep -c '^**ID:**')
+verdict: APPROVED
+round: 'круг 1 редакции 10 (объём сужен решением владельца 2026-10-18)'
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-18T19:42:41Z'
+basis:
+  prior_approved_sha256: 0482a061c4f2497d00b1193769cf0671636b6124a172a3875d268a16f48dbccb
+  prior_note: >-
+    Вердикт о редакции 9 на эту редакцию не переносится. Редакцию 10 рассматривали целиком.
+    Сценарии, не тронутые дельтой (20, 21, 25), сверены с редакцией 9 побайтово (HEAD:файл);
+    сценарии 17, 22–24, 26, 27, 29, 50, 51 изменены редакционно, и каждый прочитан заново.
+  owner_decision: >-
+    kacho#3274, комментарий 2026-10-17T22:33:50Z: «для нашего продукта на данный момент не
+    нужен класс паблик, все характеризуется ролевкой, какую поставишь такой вид и будет».
+    Из объёма вынесены поле visibility: PUBLIC, его вычисление и показ в консоли (40–45).
+    В объёме оставлены S1 (kacho#3251) и проверка анонимного чтения X на стенде с отказом по
+    чужому реестру. Документ этому соответствует: «Что НЕ входит» пп. 1–2, Р2, инвариант 5.
+    Сценарии 15, 16, 40–45 сняты, у registry нет ни поля, ни метода. Добавленное сверх
+    перечня остаётся в объёме: S3–S4 (без них нет анонимного токена на стенде), S2 (край
+    следует из Р2 kaname и назван, ban18-q-security), правка текстов (doc-truthfulness).
+    Нового поведения продукта эти части не заводят.
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: issue_comment
+  target: PRO-Robotech/kacho#3274
+  status: not_performed
+  published: false
+  body: 'role: acceptance-reviewer · verdict: APPROVED · subject_sha256: a582030ed6c8e6ed3d1ef720910fec90eb815b9c6fd9703c920913af4a00956f'
+  publication_mode: scripts/rituals/approval-event.sh
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    note: Шесть прежних записей этого документа не правлены.
+
+measurements:
+  neighbours: >-
+    kaname @db8bcb7e8 (origin/main): anonymous-and-authenticated-are-subject-classes.md —
+    dfbe47bf…, nested-rule-reaches-descendants-of-a-named-container.md — f12395ae…. Оба
+    совпадают с таблицей «Опора». Р5 kaname#874 (три условия, классы anonymous и
+    authenticated) прочитан в строках 180–191.
+  heads: >-
+    origin/3172-identity-own-2 = 5e4facc5f, origin/3251-registry-public-read = 636bd5435
+    (PR kacho#3279 OPEN, база 3172-identity-own-2), локальная 3274 = 81b719b11.
+  census: >-
+    Повторены: манифест @5e4facc5f — 0 (roles/publicReadToChildren); @636bd5435 roles|length
+    = 1, тело роли дословно совпадает с перепиской; пол «1» — 15 из 15 rpc; предикат
+    текстов — 8 строк в 6 файлах; ветка 3274 — 9 файлов, +7238, кейсы newman 10–18, 30, 31, 45.
+  producers_read: >-
+    Повторно прочитаны на 636bd5435:
+    - registry_service.proto: Get — v_get; List и ListRepositories — scope_filtered;
+      Update и Delete — hide_existence;
+    - gateway authz.go: denyDecision → NotFound;
+    - handler/public.go: List фильтрует строки по v_list, проекта не проверяет (Р10);
+    - dataplane/handler.go: DELETE → 405 до разбора пути; tags/list — v_list;
+      writeNotFound — NAME_UNKNOWN; writeDenied — DENIED и requested access…;
+      challenge — без error=, при негодном токене error="invalid_token";
+    - serveCatalog: n и Link rel="next".
+    kaname @db8bcb7e8: structural_gates.go — синхронный FAILED_PRECONDITION «Role %s not
+    found» после requireGrantAuthority; текст SC-21 — domain/system_class.go:214.
+
+seeding:
+  summary: 'посеяно 3 из 4 «Дано» (П0 трижды и близнец 01, П1); П2 — не выполнилось'
+  P0: >-
+    Временная копия kacho @636bd5435 (git worktree, scratchpad). GOWORK=off go test
+    ./internal/repohygiene/ -run '<7 проб 01>' -count=1 -v → код 0, 7 PASS, «блоков сверено 27
+    из 27 · байт сверено 80556», «перепись: осмотрено путей 7142 · манифестов прочитано 5 ·
+    находок 0 (манифестов в индексе 5)». GOWORK=off go test ./deploy/ -run
+    'TestOutsourcedImagePinAgreesWithItsModulePin$' → ok.
+  P0_twin: >-
+    yq: publicReadToChildren перенесён с resources[0] (registries) на resources[1]
+    (repositories). TestModelCanonAgreesWithPlatformManifests → код 1, в выводе дословно
+    «resources[1].publicReadToChildren: на тип registry_repository не указывает ни один ресурс
+    модуля registry — объявление без следствия». Правка откатана.
+  P1: >-
+    services/registry: go test ./internal/dataplane/ -run
+    'TestSystemClass_SC39_RegistryAsksAsTheAnonymousClass|TestDataplane_RG1_AnonDisabled_TokenResolvesAsOrdinaryPrincipal|TestDataplane_RG1_B03_AnonPullPublic_200'
+    → ok, 3 PASS.
+  P2: >-
+    НЕ ВЫПОЛНИЛОСЬ: стенд в этом ревью не поднимался. Фикстуры П2 названы и прочитаны:
+    prodseed_matrix.py:918–929 (jwtStranger, jwtProjectEditorA, jwtAccountAdminA);
+    e2e-shards.json registryDataPlaneBaseUrl — 1; роль rolb1325b011aa17211d есть в манифесте
+    PR и в соседе kaname. Ни в зелёное, ни в красное не засчитывается.
+
+blocking: []
+
+non_blocking:
+  - kind: PRODUCER
+    where: «Сценарий → производитель», строка 28; DoD S3; «Снятие прежнего объёма»
+    text: >-
+      «Тогда» 28 утверждает: ровно один вопрос (system_class:anonymous, v_get,
+      registry_repository:{X}/app). Названные держатели проверяют только наличие субъекта:
+      TestSystemClass_SC39_… — az.hasSubject(scAnonClass), TestDataplane_RG1_AnonDisabled_… —
+      hasSubject(...). Ровно один вопрос проверяет только
+      TestDataplane_REGPUB128_AnonymousSubjectIsAskedAsTheClass из regpub1_anonymous_subject_test.go
+      ветки 3274: require.Equal(t, []checkCall{{scAnonClass, "v_get", object}}, az.checks()).
+      Этот файл назвать держателем 28 и явно оставить при снятии прежнего объёма.
+  - kind: FORMAT
+    where: инвариант 5
+    text: >-
+      Предикат не ловит новое поле. buf breaking на добавление поля не жалуется, а grep считает
+      только '^+ *rpc '. Нужен счёт добавленных объявлений полей в diff
+      proto/kacho/cloud/registry без строк комментариев, ожидание — 0. Отсутствие поля
+      visibility частично держит сценарий 11 («ключа visibility нет»).
+  - kind: FORMAT
+    where: сценарий 11
+    text: >-
+      «В странице ровно X» зависит от того, нет ли в общем проекте стенда других реестров,
+      открытых классу. Надёжнее «содержит X, не содержит Y».
+  - kind: FORMAT
+    where: сценарии 17, 29
+    text: >-
+      В редакции 9 стояло «удаление реестра требует пустого пространства имён (delete.go)»,
+      теперь это снято. Опустошение перечисляет только X/app. Для 29 (после 20 уже есть
+      X/late) записать: «все репозитории X (app, late)».
+  - kind: COVERAGE
+    where: «Решение владельца»
+    text: >-
+      Следствие диспетчера говорит «выдача классу или пользователю». Выдачи роли
+      registry.public.read пользователю в сценариях нет. В перечень «в объёме остаётся» она не
+      входит, поэтому замечание не блокирует. Если её добавлять, то одним positive-кейсом S2.
+  - kind: FORMAT
+    where: DoD S2, предикат текстов
+    text: >-
+      Предикат ищет только по-русски. Английских «any-path-to-PUBLIC» в @636bd5435 13 строк:
+      public.go:123, listauthz.go:200, fga_intent.go:97, domain/registry.go:126,
+      0005_repository_configs.sql:30,51 и др. Все они о пути поля visibility→PUBLIC и
+      остаются верными. Это стоит записать одной строкой, чтобы следующий читатель не принял
+      их за пропуск (testing.md, предикат по двуязычному корпусу).
+
+route_signs:
+  proto: да (только комментарии registry.proto и регенерация pb.go; полей и методов нет)
+  schema: нет
+  public_rpc: нет (новых нет; меняется наблюдаемое чтение существующих через выдачу)
+  ui: нет
+  new_domain: нет
+  security_surface: да (анонимный токен плоскости данных, чтение классом через край — названо Р9, Р10)
