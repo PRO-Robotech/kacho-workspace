@@ -57,10 +57,15 @@
 #      deb.debian.org; шаг пакетов в run есть; lint без пакетов (P1l)
 #   P2 шаг пакетов исполнением: jq и PyYAML ставятся с пином суммы, apt не позван;
 #      близнецы — сумма не сходится (P2b, P2g), сети нет (P2d), архитектура чужая
-#      (P2f), psql не исполняется (P2e), всё уже есть и ничего не качается (P2c)
-#   P3 init-контейнер pgclient исполнением: бинари и библиотеки клиента без семейства
-#      libc, обёртки несут LD_LIBRARY_PATH лишь на вызов; нет libpq (P3b) либо psql (P3c) — 125
-#   P4 pgclient — init из postgres:17-trixie до fetch, том tools смонтирован; у lint нет
+#      (P2f), всё уже есть и ничего не качается (P2c)
+#   P3 контейнер pgclient исполнением: бинари и библиотеки клиента без семейства
+#      libc, обёртки несут LD_LIBRARY_PATH лишь на вызов, готовность — файл ready;
+#      нет libpq (P3b) либо psql (P3c) — 125 и файл failed с причиной
+#   P4 pgclient — ОБЫЧНЫЙ контейнер из postgres:17-trixie ПОСЛЕ run (холодный pull не
+#      съедает срок до доставки исходников), не init; том tools смонтирован; у lint нет
+#   P6 шаг pgwait исполнением: готов — 0; отказ pgclient — 125 с причиной (P6a); не
+#      дождался — 125 по сроку (P6b); дождался позже старта — 0 и «ждал N с» (P6c);
+#      psql не исполняется — 125 (P6d)
 #   P5 «подготовка pod до команды — N с» печатается до команды
 #   C1 идущих 2 при пределе 2              → 75, create не звался (F3)
 #   C2 близнец: их Job завершены           → 0
@@ -837,20 +842,20 @@ buf_tools_case E2-buf-prefix 1.72.01 125
 buf_tools_case E2-buf-legit 1.72.0 0
 # ── пакеты без apt (ws#1178) ─────────────────────────────────────────────────
 # Подготовка pod не ходит на deb.debian.org: jq и PyYAML ставит шаг пакетов с пином
-# суммы, psql и pg_dump приносит init-контейнер pgclient из образа postgres.
+# суммы, psql и pg_dump приносит контейнер pgclient из образа postgres.
 #   P1  ни один контейнер Job профиля с go test не зовёт apt и не называет зеркало
 #       Debian; шаг пакетов (pkgs-begin) в run есть; близнец P1l — lint без пакетов
-#   P4  pgclient — init-контейнер из образа postgres:17-trixie ДО fetch, том tools
-#       смонтирован в pgclient и run; у lint ни pgclient, ни тома
+#   P4  pgclient — обычный контейнер из образа postgres:17-trixie ПОСЛЕ run, не init;
+#       том tools смонтирован в pgclient и run; у lint ни pgclient, ни тома
 #   P5  «подготовка pod до команды — N с» печатается до команды, отсчёт — с начала PREP
 #   P2* шаг пакетов ИСПОЛНЕНИЕМ (текст из Job, curl и python3 — двойники, суммы
 #       заменены на суммы двойных архивов — это же доказывает, что пин стоит в тексте
 #       ровно один раз): чисто → jq и yaml на месте, apt не позван; близнецы — суммы
-#       не сходятся, сеть мертва, архитектура чужая, psql не исполняется, всё уже
-#       есть (ничего не качается)
-#   P3* init-контейнер pgclient ИСПОЛНЕНИЕМ над поддельным образом: бинари и
+#       не сходятся, сеть мертва, архитектура чужая, всё уже есть (ничего не качается)
+#   P3* контейнер pgclient ИСПОЛНЕНИЕМ над поддельным образом: бинари и
 #       библиотеки (кроме семейства libc) в /tools, обёртки несут LD_LIBRARY_PATH
-#       лишь на вызов; нет libpq либо psql — 125
+#       лишь на вызов, готов — файл ready; нет libpq либо psql — 125 и файл failed
+#   P6* шаг pgwait ИСПОЛНЕНИЕМ: ждёт ready/failed, судит исполнение psql и pg_dump
 EJ="$BOX/e1-job.json"
 p_apt_count() { python3 - "$1" <<'PY'
 import json, re, sys
@@ -874,19 +879,29 @@ p_spec() { python3 - "$1" <<'PY'
 import json, sys
 sp = json.load(open(sys.argv[1]))["spec"]["template"]["spec"]
 ini = [c["name"] for c in sp.get("initContainers", [])]
-pg = next((c for c in sp.get("initContainers", []) if c["name"] == "pgclient"), None)
+names = [c["name"] for c in sp["containers"]]
+pg = next((c for c in sp["containers"] if c["name"] == "pgclient"), None)
 run = next(c for c in sp["containers"] if c["name"] == "run")
 tm = lambda c: any(m["name"] == "tools" and m["mountPath"] == "/tools" for m in c.get("volumeMounts", []))
 vol = any(v["name"] == "tools" for v in sp.get("volumes", []))
-before = pg is not None and "fetch" in ini and ini.index("pgclient") < ini.index("fetch")
-print("pg=%d image=%s before_fetch=%d pg_mount=%d run_mount=%d volume=%d" % (
-    pg is not None, (pg or {}).get("image", "-"), before, tm(pg) if pg else 0, tm(run), vol))
+print("pg=%d image=%s init=%d after_run=%d pg_mount=%d run_mount=%d volume=%d" % (
+    pg is not None, (pg or {}).get("image", "-"), "pgclient" in ini,
+    pg is not None and names.index("pgclient") > names.index("run"), tm(pg) if pg else 0, tm(run), vol))
 PY
 }
-if [ "$(p_spec "$EJ")" = "pg=1 image=mirror.gcr.io/library/postgres:17-trixie before_fetch=1 pg_mount=1 run_mount=1 volume=1" ]; then ok
+if [ "$(p_spec "$EJ")" = "pg=1 image=mirror.gcr.io/library/postgres:17-trixie init=0 after_run=1 pg_mount=1 run_mount=1 volume=1" ]; then ok
 else OUT="$EJ"; bad P4 "pgclient в Job: $(p_spec "$EJ")"; fi
-if [ "$(p_spec "$BOX/p1l-job.json")" = "pg=0 image=- before_fetch=0 pg_mount=0 run_mount=0 volume=0" ]; then ok
+if [ "$(p_spec "$BOX/p1l-job.json")" = "pg=0 image=- init=0 after_run=0 pg_mount=0 run_mount=0 volume=0" ]; then ok
 else OUT="$BOX/p1l-job.json"; bad P4l "pgclient либо том tools в Job lint: $(p_spec "$BOX/p1l-job.json")"; fi
+# P4k — образ клиента postgres подменяется KACHO_REMOTE_HEAVY_PG_IMAGE; вне формы — 64 до кластера
+fresh
+go_run p4k env FAKE_EXIT=0 KACHO_REMOTE_HEAVY_PG_IMAGE=mirror.gcr.io/library/postgres:16-trixie bash "$RUN" --task 1 --repo kaname --ref pins --src "$SRC" --profile integration --short p4k -- true
+if [ "$(p_spec "$BOX/state/job.json")" = "pg=1 image=mirror.gcr.io/library/postgres:16-trixie init=0 after_run=1 pg_mount=1 run_mount=1 volume=1" ]; then ok
+else OUT="$BOX/state/job.json"; bad P4k "образ pgclient не подменён: $(p_spec "$BOX/state/job.json")"; fi
+fresh
+go_run p4kb env KACHO_REMOTE_HEAVY_PG_IMAGE="postgres 16" "${B[@]}" --short p4kb -- true
+expect_rc P4kb 64
+no_cluster_call P4kb
 # P5 — число «до/после» печатается и стоит перед командой
 if awk '/PT0=\$\(date \+%s\)/ { a = NR } /подготовка pod до команды/ { b = NR } /^heavy_cmd "\$@"$/ { e = NR } END { exit !(a && b && e && a < b && b < e) }' "$BOX/e1.cmd"; then ok
 else OUT="$BOX/e1.cmd"; bad P5 "времени подготовки до команды в тексте run нет либо оно стоит после команды"; fi
@@ -907,7 +922,7 @@ if [ "$pins_jq" = 2 ] && [ "$pins_y" = 1 ]; then ok; else OUT="$BOX/pkgs.raw"; b
 sed -E -e "s/(js=)[0-9a-f]{64}/\1$JQSUM/" -e "s/(pyyaml.tgz )[0-9a-f]{64}/\1$YSUM/" -e "s#/work#$PW#g" "$BOX/pkgs.raw" > "$BOX/pkgs.body"
 # shellcheck disable=SC2016  # текст шага для исполнения в песочнице, не здесь
 { echo 'pf() { echo "remote-heavy-prep: $1" >&2; exit 125; }'; cat "$BOX/pkgs.body"; } > "$BOX/pkgs.sh"
-# p_stubs — двойники curl, python3, psql, pg_dump, apt-get; uname — по STUB_UNAME
+# p_stubs — двойники curl, python3, apt-get; uname — по STUB_UNAME
 p_stubs() {
     rm -rf "$PW" "$PS"; mkdir -p "$PW/bin" "$PS"
     cat > "$PS/curl" <<'STUB'
@@ -929,8 +944,6 @@ OLDIFS="$IFS"; IFS=:; for d in $PYTHONPATH; do [ -f "$d/yaml/__init__.py" ] && o
 [ "$ok" = 1 ] || { echo "ModuleNotFoundError: No module named 'yaml'" >&2; exit 1; }
 case "$*" in *__version__*) echo 6.0.2 ;; esac
 STUB
-    printf '#!/bin/sh\necho "psql (PostgreSQL) 17.fake"\n' > "$PS/psql"
-    printf '#!/bin/sh\necho "pg_dump (PostgreSQL) 17.fake"\n' > "$PS/pg_dump"
     # shellcheck disable=SC2016  # тексты двойников: раскрываются при их запуске
     printf '#!/bin/sh\necho позван >> "$P_APT"\nexit 1\n' > "$PS/apt-get"; cp "$PS/apt-get" "$PS/apt"
     # shellcheck disable=SC2016  # текст двойника
@@ -956,7 +969,7 @@ if [ -x "$PW/bin/jq" ] && [ "$("$PW/bin/jq" --version)" = jq-1.7.1 ] && [ -f "$P
 if [ ! -e "$BOX/p.apt" ]; then ok; else bad P2 "шаг пакетов позвал apt"; fi
 if grep -q 'github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-' "$BOX/p.log" && grep -q 'files.pythonhosted.org/.*pyyaml-6.0.2.tar.gz' "$BOX/p.log" && ! grep -qi debian "$BOX/p.log"; then ok
 else OUT="$BOX/p.log"; bad P2 "адреса загрузок не те: jq с GitHub и PyYAML с PyPI, без Debian"; fi
-if grep -q 'инструменты без пакетного менеджера — jq-1.7.1, PyYAML 6.0.2, psql (PostgreSQL) 17.fake' "$BOX/P2.out"; then ok; else bad P2 "строка итога шага не называет версии"; fi
+if grep -q 'инструменты без пакетного менеджера — jq-1.7.1, PyYAML 6.0.2' "$BOX/P2.out"; then ok; else bad P2 "строка итога шага не называет версии"; fi
 # P2a — arm64: берётся jq-linux-arm64
 p_stubs; p_run P2a 0 STUB_UNAME=aarch64
 if grep -q 'jq-linux-arm64' "$BOX/p.log"; then ok; else OUT="$BOX/p.log"; bad P2a "на aarch64 не взят jq-linux-arm64"; fi
@@ -971,10 +984,6 @@ if grep -q 'remote-heavy-prep: jq 1.7.1 не поставлен' "$BOX/P2d.out";
 # P2f — чужая архитектура
 p_stubs; p_run P2f 125 STUB_UNAME=riscv64
 if grep -q 'jq: архитектура riscv64 не поддержана' "$BOX/P2f.out"; then ok; else bad P2f "чужая архитектура не отвергнута"; fi
-# P2e — psql из образа postgres не исполняется в образе golang → отказ здесь, не красная проба
-p_stubs; printf '#!/bin/sh\necho "psql: error while loading shared libraries: libpq.so.5" >&2\nexit 127\n' > "$PS/psql"
-p_run P2e 125
-if grep -q 'remote-heavy-prep: psql из образа postgres не исполняется в образе golang: psql: error while loading shared libraries' "$BOX/P2e.out"; then ok; else bad P2e "отказ psql не назван причиной"; fi
 # P2c — близнец: jq и yaml уже есть → ничего не качается
 p_stubs; printf '#!/bin/sh\necho jq-1.7.1\n' > "$PS/jq"; chmod +x "$PS/jq"
 p_run P2c 0 STUB_YAML=1
@@ -1019,6 +1028,7 @@ pgw=0; for x in psql pg_dump pg_dumpall pg_restore pg_isready; do [ -x "$PG/tool
 if [ "$pgw" = 5 ]; then ok; else bad P3 "обёрток в /tools: $pgw из 5"; fi
 if [ -f "$PG/tools/pg/lib/libpq.so.5" ] && [ -f "$PG/tools/pg/lib/libssl.so.3" ] && [ "$(cat "$PG/tools/pg/lib/libpq.so.5")" = libpq.so.5.17 ]; then ok
 else bad P3 "libpq.so.5 (по ссылке — содержимым) и libssl среди библиотек клиента не лежат"; fi
+if [ -f "$PG/tools/pg/ready" ] && [ ! -e "$PG/tools/pg/failed" ]; then ok; else bad P3 "после успеха нет файла ready либо есть failed"; fi
 if [ ! -e "$PG/tools/pg/lib/libc.so.6" ] && [ ! -e "$PG/tools/pg/lib/libm.so.6" ] && [ ! -e "$PG/tools/pg/lib/libnss_files.so.2" ] && [ ! -e "$PG/tools/pg/lib/libpthread.so.0" ]; then ok
 else bad P3 "в библиотеки клиента попало семейство libc — ABI берётся из образа golang"; fi
 # старшая major: 17, а не 16; библиотечный путь — на вызов обёртки, не на вызывающего
@@ -1027,9 +1037,46 @@ if [ "$pgo" = "psql 17 LD=$PG/tools/pg/lib" ]; then ok; else bad P3 "обёрт�
 if [ "$(env -i PATH="/usr/bin:/bin" LD_LIBRARY_PATH=вызывающий bash -c "$PG/tools/psql >/dev/null; echo \$LD_LIBRARY_PATH")" = вызывающий ]; then ok; else bad P3 "обёртка меняет библиотечный путь вызывающего"; fi
 pg_image nolibpq -; pg_run P3b 125
 if grep -q 'remote-heavy-prep: pgclient: libpq.so.5 среди библиотек клиента не найдена' "$PG.tl"; then ok; else bad P3b "нет libpq — отказ не записан в termination-log"; fi
+if grep -q 'libpq.so.5 среди библиотек клиента не найдена' "$PG/tools/pg/failed" 2>/dev/null && [ ! -e "$PG/tools/pg/ready" ]; then ok; else bad P3b "отказ не записан файлом failed с причиной либо рядом лежит ready"; fi
 pg_image - nopsql; pg_run P3c 125
 if grep -q 'remote-heavy-prep: pgclient: .*/psql в образе postgres нет' "$PG.tl"; then ok; else bad P3c "нет psql в образе — отказ не записан в termination-log"; fi
 
+# P6 — шаг pgwait исполнением (ожидание клиента postgres перед командой)
+sed -n '/^# pgwait-begin$/,/^# pgwait-end$/p' "$BOX/e1.cmd" > "$BOX/pgwait.raw"
+if grep -q '^# pgwait-end$' "$BOX/pgwait.raw"; then ok; else OUT="$BOX/e1.cmd"; bad P6 "текста шага pgwait в Job нет — исполнять нечего"; fi
+if ! grep -q '^# pgwait-begin$' "$BOX/p1l.cmd"; then ok; else OUT="$BOX/p1l.cmd"; bad P6l "lint ждёт клиент postgres, которого не получает"; fi
+PGW="$BOX/pgw"; PGS="$BOX/pgwstub"
+# shellcheck disable=SC2016  # текст шага для исполнения в песочнице
+{ echo 'pf() { echo "remote-heavy-prep: $1" >&2; exit 125; }'; sed "s#/tools#$PGW/tools#g" "$BOX/pgwait.raw"; } > "$BOX/pgwait.sh"
+# pgw_stubs — песочница: psql и pg_dump исполняются (PGW_BROKEN=psql — psql падает), маркеров нет
+pgw_stubs() {
+    rm -rf "$PGW" "$PGS"; mkdir -p "$PGW/tools/pg" "$PGS"
+    printf '#!/bin/sh\necho "psql (PostgreSQL) 17.fake"\n' > "$PGS/psql"
+    printf '#!/bin/sh\necho "pg_dump (PostgreSQL) 17.fake"\n' > "$PGS/pg_dump"
+    [ "${1:-}" != broken ] || printf '#!/bin/sh\necho "psql: error while loading shared libraries: libpq.so.5" >&2\nexit 127\n' > "$PGS/psql"
+    chmod +x "$PGS"/*
+    local t; for t in bash sleep head cat; do ln -sf "$(command -v "$t")" "$PGS/$t"; done
+}
+pgw_run() {
+    local n="$1" want="$2"; shift 2
+    OUT="$BOX/$n.out"
+    timeout 60 env -i PATH="$PGS" "$@" bash "$BOX/pgwait.sh" > "$OUT" 2>&1; RC=$?
+    cat "$OUT" >> "$ALL_OUT"
+    expect_rc "$n" "$want"
+}
+pgw_stubs; touch "$PGW/tools/pg/ready"; pgw_run P6 0
+if grep -q 'клиент postgres — psql (PostgreSQL) 17.fake, ждал 0 с' "$BOX/P6.out"; then ok; else bad P6 "итог шага не называет клиент и ожидание 0 с"; fi
+pgw_stubs; printf 'libpq.so.5 среди библиотек клиента не найдена\n' > "$PGW/tools/pg/failed"; pgw_run P6a 125
+if grep -q 'remote-heavy-prep: pgclient: libpq.so.5 среди библиотек клиента не найдена' "$BOX/P6a.out"; then ok; else bad P6a "причина отказа pgclient не названа"; fi
+pgw_stubs; pgw_run P6b 125 HEAVY_PG_WAIT_S=2
+if grep -q 'клиент postgres не появился за 2 с' "$BOX/P6b.out"; then ok; else bad P6b "срок ожидания не назван отказом"; fi
+# P6c — маркер приходит ПОЗЖЕ старта шага: шаг ждёт, а не проскакивает
+pgw_stubs; ( timeout 20 bash -c "sleep 3; touch '$PGW/tools/pg/ready'" > /dev/null 2>&1 & )
+pgw_run P6c 0 HEAVY_PG_WAIT_S=30
+if grep -qE 'жду клиент postgres' "$BOX/P6c.out" && grep -qE 'ждал [2-9] с' "$BOX/P6c.out"; then ok; else bad P6c "шаг не дождался маркера, пришедшего через 3 с"; fi
+# P6d — ready есть, а psql в образе golang не исполняется → отказ здесь, не красная проба
+pgw_stubs broken; touch "$PGW/tools/pg/ready"; pgw_run P6d 125
+if grep -q 'remote-heavy-prep: psql из образа postgres не исполняется в образе golang: psql: error while loading shared libraries' "$BOX/P6d.out"; then ok; else bad P6d "отказ psql не назван причиной"; fi
 # D1 модули исходниками (ws#1018). Пакет deploy kacho читает исходник пиненного
 #    kaname из GOMODCACHE, а сборка этот модуль не тянет: без шага загрузки кэш
 #    Job его не содержит (32 отказа «stat /cache/mod/…: no such file»). Конвейер

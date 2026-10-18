@@ -198,11 +198,12 @@
 # Выбор — способ (б): (а) образ ранера с пакетами негде собрать и опубликовать
 # (образы продукта в конвейере не публикуются в реестр, который читает кластер), кэша
 # пакетов в кластере нет (переписью служб — ни прокси, ни зеркала). Поэтому:
-#   • psql, pg_dump, pg_dumpall, pg_restore, pg_isready — init-контейнер pgclient из
+#   • psql, pg_dump, pg_dumpall, pg_restore, pg_isready — обычный контейнер pgclient
+#     (после run, чтобы холодный pull образа не съедал срок до доставки исходников) из
 #     образа postgres:17-trixie (зеркало Docker Hub, как golang и docker): сети pod не
 #     нужно вовсе; библиотеки клиента лежат в /tools/pg/lib и видны лишь обёрткам
 #     /tools/<имя>; выпуск Debian образа обязан совпадать с golang (trixie), и
-#     «исполняется ли» судит шаг пакетов, а не надежда;
+#     «исполняется ли» судит шаг pgwait перед командой, а не надежда;
 #   • jq 1.7.1 и PyYAML 6.0.2 — шаг PKGS_SH: версия и sha256 зашиты в тексте шага
 #     (jq — статический бинарь выпуска; PyYAML — каталог lib/yaml архива исходников,
 #     чистый python), загрузка curl с повтором, сумма не сходится — отказ без повтора.
@@ -326,7 +327,9 @@ CLI_IMAGE="$REGISTRY/docker:29-cli"
 # kubelet тянет образ через зеркало, как golang и docker, сети pod это не требует.
 # Выпуск Debian образа ОБЯЗАН совпадать с выпуском образа golang (оба — trixie): общие
 # библиотеки берутся из образа postgres, а ABI libc — из golang.
-PG_IMAGE="$REGISTRY/postgres:17-trixie"
+# KACHO_REMOTE_HEAVY_PG_IMAGE подменяет образ (частное зеркало; опыт с холодным узлом).
+PG_IMAGE="${KACHO_REMOTE_HEAVY_PG_IMAGE:-$REGISTRY/postgres:17-trixie}"
+[[ "$PG_IMAGE" =~ ^[A-Za-z0-9][A-Za-z0-9._/:@-]*$ ]] || { say "KACHO_REMOTE_HEAVY_PG_IMAGE вне формы образа: «$PG_IMAGE»"; exit 64; }
 WAIT_START_S=900     # образ, планирование и доставка — до начала команды
 DEFAULT_TIMEOUT_S=5400
 MAX_TIMEOUT_S=14400
@@ -1224,7 +1227,7 @@ echo "remote-heavy: сеть pod — DNS и мир есть, управлени�
 # только в pod). Перепись `exec.Command("…")` по дереву kacho и kaname: git, go,
 # bash, make, tar — в образе; jq, python3 с yaml, psql/pg_dump — ставятся здесь
 # БЕЗ apt и БЕЗ deb.debian.org (ws#1178: сеть pod до зеркала Debian пропадала
-# периодически, а установка стоила около 90 с): psql и pg_dump приносит init-контейнер
+# периодически, а установка стоила около 90 с): psql и pg_dump приносит контейнер
 # pgclient из образа postgres (PG_SH ниже), jq и PyYAML — шаг PKGS_SH с пином версии и
 # суммы в тексте; helm, node и buf — СРЕДА ниже; gh, trivy, gitleaks — нет, их пробы
 # в pod не равны конвейеру.
@@ -1256,15 +1259,32 @@ rm -rf /work/dl/pk
 # отказывает здесь, а не красной пробой команды.
 jq --version >/dev/null 2>&1 || pf "jq не исполняется в образе"
 python3 -c "import yaml" >/dev/null 2>&1 || pf "PyYAML не импортируется"
-for x in psql pg_dump; do
-  "$x" --version >/dev/null 2>&1 || pf "$x из образа postgres не исполняется в образе golang: $("$x" --version 2>&1 | head -n 1)"
-done
-echo "remote-heavy: инструменты без пакетного менеджера — $(jq --version), PyYAML $(python3 -c 'import yaml; print(yaml.__version__)'), $(psql --version)" >&2
+echo "remote-heavy: инструменты без пакетного менеджера — $(jq --version), PyYAML $(python3 -c 'import yaml; print(yaml.__version__)')" >&2
 # pkgs-end
 PKGS
 )"
 [ "$PROFILE" = lint ] || PREP="$PREP
 $PKGS_SH"
+# Ожидание клиента postgres — ПОСЛЕДНИМ шагом перед командой, чтобы холодный pull образа
+# шёл под скачивание модулей, helm, node и buf. Срок — HEAVY_PG_WAIT_S (1500 с):
+# кончился — отказ подготовки, а не команда без psql. Исполнением его судит inject.sh.
+# shellcheck disable=SC2016  # раскрывается в pod, не здесь
+PGWAIT_SH="$(cat <<'PGWAIT'
+# pgwait-begin
+pgw=0
+while [ ! -f /tools/pg/ready ] && [ ! -f /tools/pg/failed ]; do
+  [ "$pgw" -lt "${HEAVY_PG_WAIT_S:-1500}" ] || pf "клиент postgres не появился за ${HEAVY_PG_WAIT_S:-1500} с: образ postgres не скачан либо контейнер pgclient не стартовал"
+  [ "$pgw" -ne 0 ] || echo "remote-heavy: жду клиент postgres: образ контейнера pgclient ещё тянется" >&2
+  sleep 2; pgw=$((pgw + 2))
+done
+[ ! -f /tools/pg/failed ] || pf "pgclient: $(head -n 1 /tools/pg/failed)"
+for x in psql pg_dump; do
+  "$x" --version >/dev/null 2>&1 || pf "$x из образа postgres не исполняется в образе golang: $("$x" --version 2>&1 | head -n 1)"
+done
+echo "remote-heavy: клиент postgres — $(psql --version), ждал $pgw с" >&2
+# pgwait-end
+PGWAIT
+)"
 [ "$PROFILE" = lint ] || [ "$PROFILE" = ci-local ] && [ -n "$LINT_PIN" ] && \
     PREP="$PREP; echo \"remote-heavy: ставлю golangci-lint $LINT_PIN\" >&2; GOBIN=/work/bin go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$LINT_PIN || pf \"golangci-lint $LINT_PIN не поставлен\""
 [ "$PROFILE" = ci-local ] && [ -n "$GOSEC_PIN" ] && \
@@ -1431,6 +1451,8 @@ $INSTALL_SH
 $TOOLS_SH"
 [ "$PROFILE" = ci-local ] && [ "$REPO" = kacho ] && PREP="$PREP
 $NPMCI_SH"
+[ "$PROFILE" = lint ] || PREP="$PREP
+$PGWAIT_SH"
 # КРАСНЫЕ ГРУППЫ (шапка) — команда с копией вывода, затем дайджест и доставка
 # журналов красных групп потоком лога. Маркеры — граница, по которой inject.sh
 # исполняет шаг над синтетическим прогоном.
@@ -1508,18 +1530,22 @@ $REDLOG_SH
 echo \"remote-heavy: подготовка pod до команды — \$(( \$(date +%s) - PT0 )) с\" >&2
 heavy_cmd \"\$@\""
 
-# Клиент postgres из образа (ws#1178): init-контейнер pgclient кладёт в общий том
+# Клиент postgres из образа (ws#1178): контейнер pgclient кладёт в общий том
 # /tools бинари psql, pg_dump, pg_dumpall, pg_restore, pg_isready и их библиотеки,
 # кроме семейства libc (её даёт образ golang), а в /tools — обёртки с
 # LD_LIBRARY_PATH ТОЛЬКО на время вызова: прочие процессы pod чужих библиотек не видят.
-# Отказ — строка в termination-log и код 125 init-контейнера; run.sh до доставки
-# исходников читает его лог и выходит 69.
+# Контейнер — обычный, СТОИТ ПОСЛЕ run: kubelet запускает обычные контейнеры по
+# порядку и тянет образ каждого при его запуске, поэтому холодный pull образа postgres
+# (опыт 2026-10-18: 10 мин 30 с на узле без него) идёт, когда run уже подготавливается,
+# а не до доставки исходников (init-контейнером он съел срок WAIT_START_S: «pod не готов
+# принять исходники за 900 с»). Готов — файл /tools/pg/ready, отказ — /tools/pg/failed
+# с причиной (и строка в termination-log, код 125): ждёт и судит их шаг pgwait в run.
 PG_SH="$(cat <<'PGSH'
 set -e
-pgf() { echo "remote-heavy-prep: pgclient: $1" | tee /dev/termination-log >&2; exit 125; }
+mkdir -p /tools/pg/bin /tools/pg/lib
+pgf() { echo "remote-heavy-prep: pgclient: $1" | tee /dev/termination-log >&2; printf '%s\n' "$1" > /tools/pg/failed; exit 125; }
 b="$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -n 1)"
 [ -n "$b" ] || pgf "каталога /usr/lib/postgresql/*/bin в образе postgres нет"
-mkdir -p /tools/pg/bin /tools/pg/lib
 for x in psql pg_dump pg_dumpall pg_restore pg_isready; do
   [ -x "$b/$x" ] || pgf "$b/$x в образе postgres нет"
   cp -L "$b/$x" /tools/pg/bin/
@@ -1532,6 +1558,7 @@ for x in psql pg_dump pg_dumpall pg_restore pg_isready; do
   printf '#!/bin/sh\nexec env LD_LIBRARY_PATH=/tools/pg/lib /tools/pg/bin/%s "$@"\n' "$x" > "/tools/$x"
   chmod 0755 "/tools/$x"
 done
+touch /tools/pg/ready
 echo "remote-heavy: клиент postgres из образа: $(/tools/pg/bin/psql --version 2>&1 | head -n 1)" >&2
 PGSH
 )"
@@ -1586,16 +1613,12 @@ def kesc_c: (if .command then .command |= map(kesc) else (.) end)
         startupProbe: {exec: {command: ["docker", "-H", "unix:///run/dind/docker.sock", "info"]}, periodSeconds: 2, failureThreshold: 150},
         resources: {requests: {cpu: $dcr, memory: $dmr}, limits: {cpu: $dcl, memory: $dml}},
         volumeMounts: [{name: "dind-lib", mountPath: "/var/lib/docker"}, {name: "dind-sock", mountPath: "/run/dind"}]}]
-      else [] end) + (if $pg == 1 then [
-       {name: "pgclient", image: $pgimg, command: ["sh", "-c", $pgsh],
-        resources: {requests: {cpu: "100m", memory: "128Mi"}, limits: {cpu: "1", memory: "512Mi"}},
-        volumeMounts: [{name: "tools", mountPath: "/tools"}]}]
       else [] end) + [
        {name: "fetch", image: $goimg, command: ["sh", "-c", $fetch],
         env: [{name: "HEAVY_SHA", value: $sha}, {name: "HEAVY_MAIN", value: $main}],
         resources: {requests: {cpu: "100m", memory: "256Mi"}, limits: {cpu: "2", memory: "2Gi"}},
         volumeMounts: [{name: "work", mountPath: "/work"}]}]),
-     containers: [{name: "run", image: $goimg, command: (["bash", "-c", $prep, "run"] + $cmd),
+     containers: ([{name: "run", image: $goimg, command: (["bash", "-c", $prep, "run"] + $cmd),
        env: ([{name: "HEAVY_WORKDIR", value: $wd}, {name: "HEAVY_DENY_PROBE", value: $deny}, {name: "HEAVY_HELM", value: $helm}, {name: "HEAVY_NODE", value: $node}, {name: "HEAVY_BUF", value: $buf}, {name: "HEAVY_PUSH_INPUT", value: $pushin}, {name: "HEAVY_GIT_NAME", value: $gname}, {name: "HEAVY_GIT_EMAIL", value: $gemail}, {name: "GOTOOLCHAIN", value: "local"},
               {name: "GOMODCACHE", value: "/cache/mod"}, {name: "GOCACHE", value: "/cache/build"},
               {name: "GOLANGCI_LINT_CACHE", value: "/cache/lint"}, {name: "CI", value: "true"}]
@@ -1604,7 +1627,12 @@ def kesc_c: (if .command then .command |= map(kesc) else (.) end)
        resources: {requests: {cpu: $cr, memory: $mr, "ephemeral-storage": "1Gi"}, limits: {cpu: $cl, memory: $ml, "ephemeral-storage": $eph}},
        volumeMounts: ([{name: "work", mountPath: "/work"}, {name: "cache", mountPath: "/cache"}]
                       + (if $dind == 1 then [{name: "dind-sock", mountPath: "/run/dind"}] else [] end)
-                      + (if $dind == 1 or $pg == 1 then [{name: "tools", mountPath: "/tools"}] else [] end))}],
+                      + (if $dind == 1 or $pg == 1 then [{name: "tools", mountPath: "/tools"}] else [] end))}]
+      + (if $pg == 1 then [
+       {name: "pgclient", image: $pgimg, command: ["sh", "-c", $pgsh],
+        resources: {requests: {cpu: "10m", memory: "32Mi"}, limits: {cpu: "1", memory: "512Mi"}},
+        volumeMounts: [{name: "tools", mountPath: "/tools"}]}]
+      else [] end)),
      volumes: ([{name: "work", emptyDir: {}}, {name: "cache", emptyDir: {}}]
                + (if $dind == 1 then [{name: "dind-lib", emptyDir: {}}, {name: "dind-sock", emptyDir: {}}] else [] end)
                + (if $dind == 1 or $pg == 1 then [{name: "tools", emptyDir: {}}] else [] end))})}}}
@@ -1661,7 +1689,6 @@ while :; do
             say "pod не стартует: $WAITR (не выполнилось)"; exit 69 ;;
     esac
     if [ "$PHASE" = Failed ] || [ "$FETCH_ST" = terminated ]; then
-        kc -n "$NSNAME" logs "$POD" -c pgclient 2>/dev/null | tail -n 10 | mask >&2
         say "pod завершился до доставки исходников (фаза $PHASE) — не выполнилось"; exit 69
     fi
     # pod нет — Job не может его создать (квота, допуск): ждать срока незачем.
