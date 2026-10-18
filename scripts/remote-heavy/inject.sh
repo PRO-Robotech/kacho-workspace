@@ -223,6 +223,13 @@ TOKEN="SENTINEL-TOKEN-5f1c"
 export FAKE_NODE_IP="198.51.100.10" FAKE_NODE_IP6="2001:db8::10" FAKE_API_IP="198.51.100.77"
 export FAKE_POD_IP="192.0.2.44" FAKE_POD_IP6="2001:db8:0:1::44"
 PASS=0; FAIL=0; ALL_OUT="$BOX/all.out"; : > "$ALL_OUT"
+# Команда, которой нет (опечатка в имени помощника, вызов до определения), не краснит набор
+# сама: оболочка пишет «command not found», утверждение молча выпадает из счёта, код 0
+# (ws#1178: P4kb звала no_cluster_call до её определения). Обработчик пишет имя в маркер —
+# bad здесь не зовём: обработчик может идти в подоболочке, и счётчик потерялся бы; провал
+# выносится в конце, из головной оболочки.
+CNF="$BOX/command-not-found"
+command_not_found_handle() { printf '%s\n' "$1" >> "$CNF"; return 127; }
 
 mkdir -p "$BOX/bin" "$BOX/state"
 # kubeconfig_with <current> <контекст>… — кубконфиг пробы (JSON — тоже кубконфиг):
@@ -921,7 +928,13 @@ rm -rf "$BOX/passets"; mkdir -p "$BOX/passets/pyyaml-6.0.2/lib/yaml"
 printf '#!/bin/sh\necho jq-1.7.1\n' > "$BOX/passets/jq"
 printf '# yaml\n' > "$BOX/passets/pyyaml-6.0.2/lib/yaml/__init__.py"
 tar -czf "$BOX/passets/pyyaml.tgz" -C "$BOX/passets" pyyaml-6.0.2
-printf 'другие байты\n' > "$BOX/passets/other"
+# Порченые двойники ВАЛИДНЫ: jq исполняется и печатает версию, PyYAML — настоящий tar.gz
+# с тем же каталогом, но другим содержимым. Без проверки суммы оба прошли бы весь шаг до
+# конца (не-архив и не-исполнимое падали бы и без неё — проба мимо предмета).
+printf '#!/bin/sh\necho jq-1.7.1\n# подмена\n' > "$BOX/passets/jq-evil"
+mkdir -p "$BOX/passets/evil/pyyaml-6.0.2/lib/yaml"
+printf '# yaml подмена\n' > "$BOX/passets/evil/pyyaml-6.0.2/lib/yaml/__init__.py"
+tar -czf "$BOX/passets/pyyaml-evil.tgz" -C "$BOX/passets/evil" pyyaml-6.0.2
 JQSUM="$(sha256sum < "$BOX/passets/jq" | cut -d' ' -f1)"; YSUM="$(sha256sum < "$BOX/passets/pyyaml.tgz" | cut -d' ' -f1)"
 # Пины в тексте: у jq две суммы (amd64, arm64), у PyYAML одна, каждая — РОВНО раз.
 pins_jq="$(grep -oE '(js=)[0-9a-f]{64}' "$BOX/pkgs.raw" | wc -l)"; pins_y="$(grep -oE 'pyyaml.tgz [0-9a-f]{64}' "$BOX/pkgs.raw" | wc -l)"
@@ -929,6 +942,9 @@ if [ "$pins_jq" = 2 ] && [ "$pins_y" = 1 ]; then ok; else OUT="$BOX/pkgs.raw"; b
 sed -E -e "s/(js=)[0-9a-f]{64}/\1$JQSUM/" -e "s/(pyyaml.tgz )[0-9a-f]{64}/\1$YSUM/" -e "s#/work#$PW#g" "$BOX/pkgs.raw" > "$BOX/pkgs.body"
 # shellcheck disable=SC2016  # текст шага для исполнения в песочнице, не здесь
 { echo 'pf() { echo "remote-heavy-prep: $1" >&2; exit 125; }'; cat "$BOX/pkgs.body"; } > "$BOX/pkgs.sh"
+# Подмены отличаются от настоящих ТОЛЬКО суммой: иначе P2b и P2g судили бы не пин
+if [ "$(sha256sum < "$BOX/passets/jq-evil" | cut -d' ' -f1)" != "$JQSUM" ] && [ "$(sha256sum < "$BOX/passets/pyyaml-evil.tgz" | cut -d' ' -f1)" != "$YSUM" ] \
+   && [ "$(sh "$BOX/passets/jq-evil")" = "$(sh "$BOX/passets/jq")" ]; then ok; else bad P2 "подмена jq отличима не только суммой — проба P2b мимо предмета"; fi
 # p_stubs — двойники curl, python3, apt-get; uname — по STUB_UNAME
 p_stubs() {
     rm -rf "$PW" "$PS"; mkdir -p "$PW/bin" "$PS"
@@ -939,8 +955,8 @@ while [ "$#" -gt 0 ]; do case "$1" in -o|--retry|--retry-delay|--connect-timeout
 echo "$u" >> "$P_LOG"
 [ -z "$STUB_NET_DOWN" ] || { echo "curl: (22) нет сети" >&2; exit 22; }
 case "$u" in
-  *jq-linux-*) if [ -n "$STUB_BAD_JQ" ]; then cat "$P_ASSETS/other" > "$o"; else cat "$P_ASSETS/jq" > "$o"; fi ;;
-  *pyyaml-6.0.2.tar.gz) if [ -n "$STUB_BAD_YAML" ]; then cat "$P_ASSETS/other" > "$o"; else cat "$P_ASSETS/pyyaml.tgz" > "$o"; fi ;;
+  *jq-linux-*) if [ -n "$STUB_BAD_JQ" ]; then cat "$P_ASSETS/jq-evil" > "$o"; else cat "$P_ASSETS/jq" > "$o"; fi ;;
+  *pyyaml-6.0.2.tar.gz) if [ -n "$STUB_BAD_YAML" ]; then cat "$P_ASSETS/pyyaml-evil.tgz" > "$o"; else cat "$P_ASSETS/pyyaml.tgz" > "$o"; fi ;;
   *) echo "curl: чужой адрес $u" >&2; exit 22 ;;
 esac
 STUB
@@ -1048,6 +1064,29 @@ if grep -q 'libpq.so.5 среди библиотек клиента не най�
 pg_image - nopsql; pg_run P3c 125
 if grep -q 'remote-heavy-prep: pgclient: .*/psql в образе postgres нет' "$PG.tl"; then ok; else bad P3c "нет psql в образе — отказ не записан в termination-log"; fi
 
+# P8 — ВСЕ профили, а не только integration (e1): у каждого, кроме lint, есть шаг пакетов,
+#      шаг pgwait ПЕРЕД командой и ПОСЛЕ сверки среды, контейнер pgclient; у lint — ничего
+#      из этого. Перечень профилей — из таблицы PROFILES самого run.sh.
+mapfile -t PPROFS < <(sed -n "/^PROFILES='/,/'\$/p" "$RUN" | sed -e "s/^PROFILES='//" | cut -d'|' -f1 | grep -E '^[a-z][a-z0-9-]*$')
+if [ "${#PPROFS[@]}" -ge 4 ]; then ok; else bad P8 "профилей в таблице run.sh прочитано ${#PPROFS[@]} (ждали не меньше 4) — судить нечем"; fi
+for prof in "${PPROFS[@]}"; do
+    fresh
+    go_run "p8-$prof" env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref HEAD --src "$SRC" --profile "$prof" --short "p8$prof" -- true
+    expect_rc "P8-$prof" 0
+    cp "$BOX/state/job.json" "$BOX/p8-$prof-job.json" 2>/dev/null
+    kx cmd "$BOX/p8-$prof-job.json" run 2 > "$BOX/p8-$prof.cmd" 2>/dev/null
+    npkg="$(grep -c '^# pkgs-begin$' "$BOX/p8-$prof.cmd")"; npgw="$(grep -c '^# pgwait-begin$' "$BOX/p8-$prof.cmd")"
+    if [ "$prof" = lint ]; then
+        if [ "$npkg" = 0 ] && [ "$npgw" = 0 ] && [ -s "$BOX/p8-$prof.cmd" ]; then ok; else OUT="$BOX/p8-$prof.cmd"; bad "P8-$prof" "lint несёт шаг пакетов ($npkg) или ожидание клиента postgres ($npgw)"; fi
+        want="pg=0 image=- init=0 after_run=0 pg_mount=0 run_mount=0 volume=0"
+    else
+        if [ "$npkg" = 1 ] && [ "$npgw" = 1 ]; then ok; else OUT="$BOX/p8-$prof.cmd"; bad "P8-$prof" "шагов пакетов $npkg и ожидания клиента postgres $npgw в Job профиля $prof (ждали по одному)"; fi
+        if awk '/^# tools-check$/ { t = NR } /^# pgwait-begin$/ { w = NR } /^heavy_cmd "\$@"$/ { e = NR } END { exit !(t && w && e && t < w && w < e) }' "$BOX/p8-$prof.cmd"; then ok
+        else OUT="$BOX/p8-$prof.cmd"; bad "P8-$prof" "ожидание клиента postgres не между сверкой среды и командой в Job профиля $prof"; fi
+        want="pg=1 image=mirror.gcr.io/library/postgres:17-trixie init=0 after_run=1 pg_mount=1 run_mount=1 volume=1"
+    fi
+    if [ "$(p_spec "$BOX/p8-$prof-job.json")" = "$want" ]; then ok; else OUT="$BOX/p8-$prof-job.json"; bad "P8-$prof" "pgclient в Job профиля $prof: $(p_spec "$BOX/p8-$prof-job.json")"; fi
+done
 # P6 — шаг pgwait исполнением (ожидание клиента postgres перед командой)
 sed -n '/^# pgwait-begin$/,/^# pgwait-end$/p' "$BOX/e1.cmd" > "$BOX/pgwait.raw"
 if grep -q '^# pgwait-end$' "$BOX/pgwait.raw"; then ok; else OUT="$BOX/e1.cmd"; bad P6 "текста шага pgwait в Job нет — исполнять нечего"; fi
@@ -2289,5 +2328,6 @@ for s in "$SERVER_HOST" "$SERVER_IP" "$TOKEN" "$BOX/kubeconfig" "$BOX/probe--lab
 done
 if [ -s "$ALL_OUT" ]; then ok; else bad L1 "вывод пуст — судить нечего"; fi
 
+if [ -s "$CNF" ]; then OUT="$CNF"; bad CNF "в наборе вызваны несуществующие команды: $(sort -u "$CNF" | tr '\n' ' ')— утверждения при них не исполнялись"; fi
 printf 'remote-heavy inject: утверждений %d · сошлось %d · разошлось %d\n' $((PASS + FAIL)) "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
