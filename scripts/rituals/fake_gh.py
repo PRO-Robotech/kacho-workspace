@@ -23,7 +23,10 @@
 `per_page` и `page` запроса, как у настоящего трекера.
 
 Неизвестный путь — отказ с текстом, как у настоящего трекера на 404: двойник не
-сочиняет ответа, которого ему не задали.
+сочиняет ответа, которого ему не задали. Отсутствующие задача, запрос и коммит — отказ
+НАСТОЯЩЕЙ формы gh 2.100.0 (замер 2026-10-18, `gh api repos/PRO-Robotech/kacho-workspace/issues/3274`):
+тело `{"message":"Not Found",…,"status":"404"}` в stdout, `gh: Not Found (HTTP 404)` в stderr,
+код 1 — по нему ритуал отличает «номера в репозитории нет» от «не прочитано» (ws#1164).
 """
 
 import json
@@ -60,6 +63,12 @@ def main(argv):
             print(json.dumps(out, ensure_ascii=False))
         return rc
 
+    def not_found(what):
+        print(json.dumps({"message": "Not Found", "documentation_url": "https://docs.github.com/rest",
+                          "status": "404"}), end="")
+        print("gh: Not Found (HTTP 404) — fake gh: %s" % what, file=sys.stderr)
+        return done(None, 1)
+
     if "%s %s" % (method, path) in st.get("fail", []):
         print("fake gh: отказ, заданный пробой: %s %s" % (method, path), file=sys.stderr)
         return done(None, 1)
@@ -86,20 +95,17 @@ def main(argv):
             r, _, pre = k.partition("@")
             if r == repo and (v["sha"].startswith(num) or pre.startswith(num)):
                 return done(v)
-        print("fake gh: No commit found for SHA: %s" % num, file=sys.stderr)
-        return done(None, 1)
+        return not_found("No commit found for SHA: %s" % num)
 
     if kind == "pulls":
         if sub is None and key in st.get("pulls", {}):
             return done(st["pulls"][key])
         if sub == "commits" and key in st.get("pull_commits", {}):
             return done(paged(st["pull_commits"][key]))
-        print("fake gh: Not Found (pulls %s)" % key, file=sys.stderr)
-        return done(None, 1)
+        return not_found("pulls %s" % key)
 
     if key not in issues:
-        print("fake gh: Not Found (issue %s)" % key, file=sys.stderr)
-        return done(None, 1)
+        return not_found("issue %s" % key)
     it = issues[key]
 
     if sub is None and method == "GET":

@@ -86,6 +86,18 @@
 #   M55 pr-body: префикс догона отброшен (B1: `head = ""`)                → check-01
 #   M56 pr-body: префикс догона не идёт в задачи (B2)                     → check-01
 #
+# ws#1164: номер первой строки, которого нет в репозитории запроса (404 настоящей формы), —
+# задача другого репозитория владельца из ведомости стволов либо номер без задачи.
+#   M57 pr-body: 404 номера — снова отказ кодом 2 (не ловится)            → check-01
+#   M58 pr-body: задача другого репозитория — голым #N                   → check-01
+#   M59 pr-body: номер нескольких репозиториев — первым кандидатом       → check-01
+#   M60 pr-body: отказ чтения кандидата (не 404) — «нет нигде»           → check-01
+#   M61 pr-body: задача другого репозитория с доказательством — Closes   → check-01
+#   M62 gh: 404 не отличён от отказа (признак слеп)                      → check-01
+#   M63 gh: любой отказ — 404 (признак слеп к статусу)      → check-01
+#   M63b pr-body: номер полной формы своего репозитория — ищется в других → check-01
+#   близнец T1: статус 404 сверен иной записью — check-01 зелен
+#
 # Хранилище для check-04 берётся из HEAD настоящего воркспейса (`RITUALS_WS`):
 # копия несёт только код ритуалов и их общие зависимости.
 # Коды: 0 — все доказательства прошли; 1 — хоть одно нет; 2 — копию не завести.
@@ -110,7 +122,7 @@ copy() {
     local d="$tmp/$1"
     mkdir -p "$d/scripts/hooks" "$d/scripts/lib" || return 2
     cp -r "$here" "$d/scripts/rituals" || return 2
-    cp "$ws/scripts/pr-body.sh" "$d/scripts/" || return 2
+    cp "$ws/scripts/pr-body.sh" "$ws/scripts/ci-read-expected.tsv" "$d/scripts/" || return 2
     cp "$ws/scripts/lib/ws-home.sh" "$d/scripts/lib/" || return 2
     cp "$ws/scripts/hooks/attribution-rule.sh" "$d/scripts/hooks/" || return 2
     cp "$ws/scripts/lib/sandbox-git-home.sh" "$ws/scripts/lib/gate_root.py" "$ws/scripts/lib/dod_proof.jq" \
@@ -165,6 +177,19 @@ inject() {
     fi
     out="$(run_check "$d" "$check")"; rc=$?
     expect "$label" 1 "$rc" "$out"
+}
+
+# twin <метка> <самопроба> <якорь> <замена> [<файл>] — то же решение другой записью:
+# самопроба обязана остаться зелёной (код 0), иначе она судит запись, а не решение.
+twin() {
+    local label="$1" check="$2" d out rc
+    d="$(copy "t$((ok + bad))")" || { expect "$label: копия" 0 2 ""; return; }
+    if ! mutate "$d/${5:-rituals.py}" "$3" "$4"; then
+        expect "$label: близнец не применён" 0 2 ""
+        return
+    fi
+    out="$(run_check "$d" "$check")"; rc=$?
+    expect "$label" 0 "$rc" "$out"
 }
 
 inject "M1 pr-body: Closes без доказательства" check-01-pr-body.py \
@@ -292,7 +317,7 @@ inject "M46 pr-body: номера из всего сообщения" check-01-p
     'NUM_RE.findall(meta[h][2])}' \
     'NUM_RE.findall(msgs[h])}'
 inject "M47 pr-body: полная форма — голым #N" check-01-pr-body.py \
-    '        return "#%d" % n if n in first else "%s#%d" % (repo, n)' \
+    '        return "#%d" % n if n in first and n not in home else "%s#%d" % (home.get(n, repo), n)' \
     '        return "#%d" % n'
 inject "M48 pr-body: полная форма — не задача" check-01-pr-body.py \
     '    for n in sorted(first | qual):' \
@@ -321,6 +346,40 @@ inject "M51 pr-body: строка слияния ствола с #N" check-01-pr
 inject "M52 pr-body: доказательство лишь на голове" check-01-pr-body.py \
     ' for u, r in proofs if any(s.startswith(r) for s in range_shas)]' \
     ' for u, r in proofs if head_sha.startswith(r)]'
+inject "M57 pr-body: 404 номера — снова отказ" check-01-pr-body.py \
+    '            it = issue(repo, n)
+        except NotFound:' \
+    '            it = issue(repo, n)
+        except ZeroDivisionError:'
+inject "M58 pr-body: другой репозиторий — голым #N" check-01-pr-body.py \
+    'return "#%d" % n if n in first and n not in home else' \
+    'return "#%d" % n if n in first else'
+inject "M59 pr-body: несколько репозиториев — первый" check-01-pr-body.py \
+    '            if len(hits) == 1:' '            if hits:'
+inject "M60 pr-body: отказ чтения кандидата — «нет нигде»" check-01-pr-body.py \
+    '                except NotFound:
+                    continue' \
+    '                except Unmet:
+                    continue'
+inject "M61 pr-body: другой репозиторий с доказательством — Closes" check-01-pr-body.py \
+    '                home[n], got = hits[0]
+                refs.append(n)' \
+    '                home[n], got = hits[0]
+                closes.append(n)'
+inject "M62 gh: 404 не отличён" check-01-pr-body.py \
+    'if isinstance(got, dict) and got.get("message") == "Not Found" and str(got.get("status")) == "404":' \
+    'if False:'
+inject "M63 gh: любой отказ — 404" check-01-pr-body.py \
+    'if isinstance(got, dict) and got.get("message") == "Not Found" and str(got.get("status")) == "404":' \
+    'if isinstance(got, dict) or True:'
+inject "M63b pr-body: полная форма своего — ищется в других" check-01-pr-body.py \
+    '            if n in qual:
+                orphans[n]' \
+    '            if False:
+                orphans[n]'
+twin "T1 gh: статус 404 сверен иной записью" check-01-pr-body.py \
+    'str(got.get("status")) == "404":' \
+    'got.get("status") in ("404", 404):'
 for c in check-01-pr-body.py check-02-close-wave.py; do
     inject "M26–M27 dod_proof.jq: ревизия из [0-9a-z] ($c)" "$c" \
         '[0-9a-f]{7,40}' '[0-9a-z]{7,40}' ../lib/dod_proof.jq

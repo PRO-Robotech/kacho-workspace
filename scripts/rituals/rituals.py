@@ -53,6 +53,15 @@ class Unmet(Exception):
     """Вход не прочитан либо предпосылки нет — вердикта нет."""
 
 
+class NotFound(Unmet):
+    """Трекер ответил 404 «Not Found»: предмета по адресу нет — исход, а не «не прочитано».
+
+    Форма — настоящая, gh 2.100.0 (замер 2026-10-18): тело `{"message":"Not Found",…,
+    "status":"404"}` в stdout и код 1. Прочие отказы (403, 410, сеть, лимит) — `Unmet`:
+    непрочитанный ответ за «номера нет» не выдаётся. Кто 404 не ждёт, ловит его как `Unmet`.
+    """
+
+
 class Refused(Exception):
     """Отказ: причина названа."""
 
@@ -75,7 +84,14 @@ def gh(method: str, path: str, body: dict | None = None):
     except OSError as e:
         raise Unmet("трекер не вызывается (%s): %s" % (cmd[0], e))
     if p.returncode != 0:
-        raise Unmet("трекер: %s %s — код %d: %s" % (method, path, p.returncode, (p.stderr or p.stdout).strip()[:300]))
+        why = "трекер: %s %s — код %d: %s" % (method, path, p.returncode, (p.stderr or p.stdout).strip()[:300])
+        try:
+            got = json.loads(p.stdout)
+        except ValueError:
+            got = None
+        if isinstance(got, dict) and got.get("message") == "Not Found" and str(got.get("status")) == "404":
+            raise NotFound(why)
+        raise Unmet(why)
     try:
         return json.loads(p.stdout) if p.stdout.strip() else None
     except ValueError:
@@ -164,6 +180,29 @@ def git(*args: str, check: bool = True) -> str:
     if check and p.returncode != 0:
         raise Unmet("git %s: %s" % (" ".join(args), (p.stderr.strip() or "код %d" % p.returncode)[:300]))
     return p.stdout
+
+
+# РЕПОЗИТОРИИ ВЛАДЕЛЬЦА, где ищется номер первой строки, которого нет в репозитории
+# запроса (ws#1164): строки ведомости стволов `scripts/ci-read-expected.tsv` — тех, чьи
+# запросы оснастка судит. Перечень выводится из неё, а не пишется здесь: задача ствола,
+# заведённого без строки, разрешится в упоминание (без закрытия), а не в чужое Closes.
+TRUNKS = os.path.join(HERE, "..", "ci-read-expected.tsv")
+
+
+def sibling_repos(repo: str) -> list[str]:
+    """Прочие репозитории владельца `repo` из ведомости стволов; ни одного — код 2."""
+    path = os.path.normpath(TRUNKS)
+    try:
+        rows = open(path, encoding="utf-8").read().splitlines()
+    except OSError as e:
+        raise Unmet("ведомость стволов %s не читается (%s) — номер другого репозитория разрешить не в чем" % (path, e))
+    owner = repo.split("/", 1)[0].lower()
+    got = sorted({r.split("\t", 1)[0].strip() for r in rows if r.strip() and not r.lstrip().startswith("#")})
+    out = [r for r in got if REPO_RE.match(r) and r.split("/", 1)[0].lower() == owner and r.lower() != repo.lower()]
+    if not out:
+        raise Unmet("в ведомости стволов %s нет репозиториев владельца %s, кроме %s — номер другого репозитория "
+                    "разрешить не в чем" % (path, owner, repo))
+    return out
 
 
 def need_repo(repo: str) -> str:
@@ -457,14 +496,47 @@ def pr_body(argv: list[str]) -> int:
         mentioned |= issue_refs(repo, meta[h][3])
     mentioned -= first | qual
 
+    home: dict[int, str] = {}      # номер первой строки → репозиторий задачи, когда он не `repo`
+    orphans: dict[int, str] = {}   # номер первой строки без задачи ни в одном репозитории → почему
+
     def label(n: int) -> str:
-        return "#%d" % n if n in first else "%s#%d" % (repo, n)
+        return "#%d" % n if n in first and n not in home else "%s#%d" % (home.get(n, repo), n)
 
     ledgers, census = read_ledgers(repo, head_sha)
     range_shas = list(meta)
     closes, refs, pulls, rows = [], [], [], []
     for n in sorted(first | qual):
-        it = issue(repo, n)
+        try:
+            it = issue(repo, n)
+        except NotFound:
+            # Номера в репозитории запроса нет (404). Голый `#N` первой строки — ссылка на
+            # задачу другого репозитория владельца (kacho-workspace PR приёмки kacho#3274):
+            # он ищется в прочих стволах ведомости. Задача ровно одного — `Refs` полной формой:
+            # закрывает её каскад своего репозитория, а не запрос чужого. Нигде либо в
+            # нескольких — номер без задачи, без `#` и без закрытия. Отказ чтения кандидата
+            # (не 404) — код 2: непрочитанное за «нет нигде» не выдаётся.
+            if n in qual:
+                orphans[n] = "в %s номера нет, а назван он полной формой этого репозитория" % repo
+                continue
+            cands = sibling_repos(repo)
+            hits = []
+            for c in cands:
+                try:
+                    got = issue(c, n)
+                except NotFound:
+                    continue
+                if not got.get("pull_request"):
+                    hits.append((c, got))
+            if len(hits) == 1:
+                home[n], got = hits[0]
+                refs.append(n)
+                rows.append("- %s «%s» — задача %s, не %s: `Refs`, закрывает её каскад своего репозитория"
+                            % (label(n), no_hash(got.get("title") or ""), home[n], repo))
+            elif hits:
+                orphans[n] = "в нескольких: %s" % ", ".join(c for c, _ in hits)
+            else:
+                orphans[n] = "ни в одном из %s" % ", ".join([repo] + cands)
+            continue
         if it.get("pull_request"):
             pulls.append(n)
             continue
@@ -496,6 +568,9 @@ def pr_body(argv: list[str]) -> int:
     lines += rows or ["- в первых строках коммитов номеров задач нет"]
     if pulls:
         lines += ["", "Запросы в первых строках (не задачи): %s" % ", ".join(label(n) for n in pulls)]
+    if orphans:
+        lines += ["", "Номера первых строк без задачи (без закрытия): %s"
+                  % "; ".join("%d — %s" % (n, orphans[n]) for n in sorted(orphans))]
     if mentioned:
         lines += ["", "Упомянуты вне первых строк (без закрытия): %s" % ", ".join(str(n) for n in sorted(mentioned))]
     tail = ["Refs %s" % label(n) for n in refs] + ["Closes %s" % label(n) for n in closes]
@@ -510,9 +585,9 @@ def pr_body(argv: list[str]) -> int:
     for c in census:
         say("pr-body: " + c)
     say("pr-body: коммитов %d (полос %d, вне полос %d), номеров первых строк %d — задач %d: Closes %d, Refs %d, "
-        "из них полной формой %d; запросов %d; упомянуто без # %d"
+        "из них полной формой %d; другого репозитория %d, без задачи %d; запросов %d; упомянуто без # %d"
         % (len(meta), len(merges), len(direct), len(first), len(rows), len(closes), len(refs),
-           len(qual), len(pulls), len(mentioned)))
+           len(qual), len(home), len(orphans), len(pulls), len(mentioned)))
     return OK
 
 

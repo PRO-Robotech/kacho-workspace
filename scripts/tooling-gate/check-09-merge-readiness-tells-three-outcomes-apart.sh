@@ -85,7 +85,12 @@
 # репозитория с тем же номером — код 1; вверх в родителя, вверх в ствол, голова `tmp/*`,
 # ветка задачи синхронизации в форме каждого репозитория — код 0; задача не прочитана,
 # номер ветки — запрос, родитель не прочитан — код 2. Голова прочих случаев — задача
-# без дочерних (`issue@788`, её кладёт `mkcase`).
+# без дочерних (`issue@788`, её кладёт `mkcase`). Номера головы в репозитории PR нет —
+# 404 «Not Found» настоящей формы (ws#1164, голова `3274-reg-pub-acceptance` PR воркспейса
+# приёмки kacho#3274): CL-FOREIGN — упоминание, не уровень, код 0; законный близнец
+# CL-ISSUE-410 — отказ той же формы с другим статусом («issues disabled»): по-прежнему
+# НЕ УСТАНОВЛЕН, код 2. Строка закрытия номера, которого в репозитории нет (PF-ABSENT), —
+# упоминание: закрывать нечего, код 0 и число таких в переписи; PF-UNREAD — близнец.
 #
 # ПОДСКАЗКА ОБЯЗАНА БЫТЬ ИСПОЛНИМОЙ В РЕПОЗИТОРИИ PR (ws#910). Прежняя называла
 # `tmp/sync-…`, а kaname такую голову отвергает (`branch-rule.sh`: ветка — `^[0-9]+$`,
@@ -603,6 +608,15 @@ printf '1\n' > "$d/issue@296.rc"
 # CL-ISSUE-PR — номер ветки головы — запрос, а не задача.
 d="$(cl_case CL-ISSUE-PR 296 535)"
 jq -n '{number: 296, labels: [], pull_request: {url: "x"}}' > "$d/issue@296.json"
+# CL-FOREIGN — номера головы в репозитории PR нет (404 настоящей формы, ws#1164).
+NOT_FOUND='{"message":"Not Found","documentation_url":"https://docs.github.com/rest/issues/issues#get-an-issue","status":"404"}'
+d="$(cl_case CL-FOREIGN 3274-reg-pub-acceptance 535)"
+printf '%s' "$NOT_FOUND" > "$d/issue@3274.json"; printf 'gh: Not Found (HTTP 404)\n' > "$d/issue@3274.stderr"
+printf '1\n' > "$d/issue@3274.rc"
+# CL-ISSUE-410 — близнец CL-FOREIGN: отказ той же формы, иной статус — не «номера нет».
+d="$(cl_case CL-ISSUE-410 3274-reg-pub-acceptance 535)"
+printf '%s' '{"message":"Issues are disabled for this repo","status":"410"}' > "$d/issue@3274.json"
+printf '1\n' > "$d/issue@3274.rc"
 # CL-PARENT-403 — уровень, база-линия, родитель не прочитан.
 d="$(cl_case CL-PARENT-403 535 296)"; mk_issue "$d" 535 23
 printf '%s\n' '{"message":"Resource not accessible by integration","status":"403"}' > "$d/parent@535.json"
@@ -821,6 +835,9 @@ mk_comments "$d" PRO-Robotech/kacho 600 "готово"
 # Близнец: одна задача и в теле, и у хостинга — судится один раз, доказана.
 d="$(pf_case HOSTPROOF $'Closes #500' "[$(host_ref PRO-Robotech kacho 500)]")"
 mk_comments "$d" PRO-Robotech/kacho 500 "$PROOF_OK"
+# Номера строки закрытия в репозитории нет (404 настоящей формы, ws#1164) — упоминание.
+d="$(pf_case ABSENT $'Closes #3274')"
+printf '%s' "$NOT_FOUND" > "$d/comments@PRO-Robotech~kacho#3274.json"; printf '1\n' > "$d/comments@PRO-Robotech~kacho#3274.rc"
 # Поле хостинга не массив — разбор сломан, а не «закрывать нечего».
 d="$(pf_case HOSTBROKEN $'Refs #500' 'null')"
 
@@ -1079,6 +1096,10 @@ probe "$PRODUCT_REPO" "$TMP/case-CL-ISSUE-403" 2 "задача ветки гол
     "уровень каскада головы '296' НЕ УСТАНОВЛЕН"
 probe "$PRODUCT_REPO" "$TMP/case-CL-ISSUE-PR" 2 "номер ветки головы — запрос — уровень НЕ УСТАНОВЛЕН" \
     "уровень каскада головы '296' НЕ УСТАНОВЛЕН" "запрос, а не задача"
+probe "$PRODUCT_REPO" "$TMP/case-CL-FOREIGN" 0 "номера головы в репозитории PR нет (404) — упоминание, не уровень, «сливать можно»" \
+    "номера 3274 в PRO-Robotech/kacho нет (404 Not Found)" "можно сливать"
+probe "$PRODUCT_REPO" "$TMP/case-CL-ISSUE-410" 2 "отказ чтения задачи головы со статусом 410 — НЕ УСТАНОВЛЕН, а не «номера нет»" \
+    "уровень каскада головы '3274-reg-pub-acceptance' НЕ УСТАНОВЛЕН"
 probe "$PRODUCT_REPO" "$TMP/case-CL-PARENT-403" 2 "родитель задачи-уровня не прочитан — НЕ УСТАНОВЛЕН, а не «нельзя»" \
     "родитель задачи PRO-Robotech/kacho#535 НЕ ПРОЧИТАН"
 
@@ -1203,6 +1224,8 @@ probe "$PRODUCT_REPO" "$TMP/case-PF-HOST" 1 "закрытие объявил х�
     "СЛИВАТЬ НЕЛЬЗЯ — Closes без доказательства DoD" "PRO-Robotech/kacho#600"
 probe "$PRODUCT_REPO" "$TMP/case-PF-HOSTPROOF" 0 "задача и в теле, и у хостинга — судится один раз, доказана" \
     "можно сливать" "задач, закрываемых PR (хостинг и тело): 1 · с доказательством DoD: 1 · без: 0"
+probe "$PRODUCT_REPO" "$TMP/case-PF-ABSENT" 0 "строка закрытия номера, которого в репозитории нет (404), — упоминание, «сливать можно»" \
+    "можно сливать" "не задач репозитория (404): 1" "PRO-Robotech/kacho#3274"
 probe "$PRODUCT_REPO" "$TMP/case-PF-HOSTBROKEN" 2 "поле хостинга не массив — разбор сломан, а не «закрывать нечего»" \
     "РАЗБОР СЛОМАН — поле closingIssuesReferences"
 

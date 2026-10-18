@@ -268,6 +268,13 @@ LINE_BRANCH_RE='^[0-9]+(-[^/]*)?$'
 # Исходы: не уровень либо вверх — путь идёт дальше, к проверкам; вниз — код 1;
 # задача или родитель не прочитаны, номер ветки — запрос — код 2, уровень НЕ УСТАНОВЛЕН:
 # непрочитанный трекер не выдаётся ни за «не уровень», ни за «вниз».
+#
+# НОМЕРА В РЕПОЗИТОРИИ PR НЕТ (ws#1164) — трекер ответил 404 «Not Found» настоящей формы
+# (`not_found`): ветка названа номером задачи ДРУГОГО репозитория (kacho-workspace PR приёмки
+# kacho#3274, голова `3274-reg-pub-acceptance` — прежде код 2 «НЕ УСТАНОВЛЕН» на каждом
+# проходе демона). Номер — упоминание: уровнем каскада ЭТОГО репозитория ветка быть не
+# может, задачи такой в нём нет; PR, раз он прочитан, читается и трекер, и 404 — ответ, а
+# не отказ. Прочие отказы (403, 410, сеть) — по-прежнему НЕ УСТАНОВЛЕН.
 head_ref=$(jq -r '.headRefName // ""' <<<"$pr_json")
 # sync_head_form <номер источника> <база> — имя ветки синхронизации, которое пропустит
 # правило имени ветки РЕПОЗИТОРИЯ PR (ws#910): `tmp/*` kaname отвергает.
@@ -280,18 +287,28 @@ sync_head_form() {
     *) printf '<N>-sync-%s-into-%s' "$1" "${2%%-*}" ;;
   esac
 }
+# not_found <файл ответа> — отказ gh есть 404 «Not Found» настоящей формы: тело в stdout
+# (gh 2.100.0, замер 2026-10-18 `gh api repos/PRO-Robotech/kacho-workspace/issues/3274`).
+not_found() {
+  jq -e 'type == "object" and .message == "Not Found" and ((.status // "") | tostring) == "404"' >/dev/null 2>&1 <"$1"
+}
 cascade_unknown() {  # <что не установлено> <файл отказа>
   echo "merge-readiness: уровень каскада головы '$head_ref' НЕ УСТАНОВЛЕН — $1"
   [ -s "$2" ] && head -c 300 "$2" | sed 's/^/                 /'
   echo "                 вердикта нет; это НЕ «сливать нельзя»."
   exit 2
 }
+head_num=""; rc=0
+issue_file="$workdir/head-issue.json"
+if [[ "$head_ref" =~ $LINE_BRANCH_RE ]]; then
+  head_num="${head_ref%%-*}"
+  gh api "repos/$REPO/issues/$head_num" >"$issue_file" 2>"$workdir/api.err" && rc=0 || rc=$?
+fi
 if [[ ! "$head_ref" =~ $LINE_BRANCH_RE ]]; then
   echo "голова PR: '$head_ref' — не формы ветки задачи, уровнем каскада не бывает"
+elif [ "$rc" -ne 0 ] && not_found "$issue_file"; then
+  echo "голова PR: '$head_ref' — номера $head_num в $REPO нет (404 Not Found): упоминание задачи другого репозитория, уровнем каскада $REPO не бывает"
 else
-  head_num="${head_ref%%-*}"
-  issue_file="$workdir/head-issue.json"
-  gh api "repos/$REPO/issues/$head_num" >"$issue_file" 2>"$workdir/api.err" && rc=0 || rc=$?
   [ "$rc" -eq 0 ] || cascade_unknown "задача $REPO#$head_num не прочитана (код gh $rc)" "$issue_file"
   jq -e 'type == "object"' >/dev/null 2>&1 <"$issue_file" \
     || parse_broken "ответ о задаче $REPO#$head_num не разбирается как объект JSON"
@@ -360,6 +377,10 @@ fi
 # строка его тела переезжает в запрос эпика. Разбор одного тела форму-адрес не
 # видел (возврат check-verifier, ws#920: код 0 и «строк 0»). Поле не массив —
 # разбор сломан (код 2), а не «закрывать нечего».
+#
+# НОМЕРА НЕТ В РЕПОЗИТОРИИ СТРОКИ (ws#1164): комментарии задачи — 404 «Not Found» настоящей
+# формы. Строка закрытия ничего не закроет — это упоминание, а не Closes без доказательства;
+# число таких печатается («не задач репозитория (404)»). Прочие отказы чтения — код 2.
 pr_body=$(jq -r '.body // ""' <<<"$pr_json")
 jq -e '.closingIssuesReferences | type == "array"' >/dev/null 2>&1 <<<"$pr_json" \
   || parse_broken "поле closingIssuesReferences ответа о PR $REPO#$PR не массив" \
@@ -374,12 +395,17 @@ if [ -z "$closes_refs" ]; then
 else
   proof_missing=()
   proof_unread=()
+  proof_absent=()
   proof_ok=0
   while IFS= read -r ref; do
     ref_repo="${ref%%#*}"; ref_num="${ref##*#}"
     cfile="$workdir/comments-${ref_repo//\//_}-$ref_num.json"
     if ! gh api "repos/$ref_repo/issues/$ref_num/comments?per_page=100" --paginate >"$cfile" 2>"$workdir/api.err"; then
-      proof_unread+=("$ref_repo#$ref_num")
+      if not_found "$cfile"; then
+        proof_absent+=("$ref_repo#$ref_num")
+      else
+        proof_unread+=("$ref_repo#$ref_num")
+      fi
       continue
     fi
     jq -e -s 'all(.[]; type == "array")' >/dev/null 2>&1 <"$cfile" \
@@ -390,7 +416,8 @@ else
       proof_missing+=("$ref_repo#$ref_num")
     fi
   done <<<"$closes_refs"
-  echo "задач, закрываемых PR (хостинг и тело): $(grep -c . <<<"$closes_refs") · с доказательством DoD: $proof_ok · без: ${#proof_missing[@]} · не прочитано: ${#proof_unread[@]}"
+  echo "задач, закрываемых PR (хостинг и тело): $(grep -c . <<<"$closes_refs") · с доказательством DoD: $proof_ok · без: ${#proof_missing[@]} · не прочитано: ${#proof_unread[@]} · не задач репозитория (404): ${#proof_absent[@]}"
+  [ "${#proof_absent[@]}" -eq 0 ] || echo "  номера без задачи — упоминание, строка закрытия их не закроет: $(printf '%s ' "${proof_absent[@]}")"
   if [ "${#proof_missing[@]}" -gt 0 ]; then
     echo
     echo "  Closes без комментария-доказательства DoD (строка «DoD-proof @<ревизия>»):"

@@ -1622,6 +1622,45 @@ if mr_patch "$b/$MR_REL" \
     run 0 "$b" "близнец: ключевые слова закрытия в ином порядке — молчит" "$C09"
 fi
 
+# ── НОМЕРА В РЕПОЗИТОРИИ PR НЕТ — 404 «Not Found» (ws#1164) ─────────────────────
+# Голова `3274-reg-pub-acceptance` и строка закрытия `#3274` в репозитории, где такой
+# задачи нет: упоминание, а не «НЕ УСТАНОВЛЕН» и не «не прочитано». Каждая порча роняет
+# одно решение: 404 снова не отличён (CL-FOREIGN, PF-ABSENT) либо любой отказ выдан за
+# «номера нет» (CL-ISSUE-410, CL-ISSUE-403, PF-UNREAD); близнец пишет признак иначе.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" 's/^elif \[ "\$rc" -ne 0 \] && not_found "\$issue_file"; then$/elif false; then/m' \
+    "404 головы не отличён от отказа"; then
+    run_c09_red "$b" "инъекция: номер головы другого репозитория (404) — снова НЕ УСТАНОВЛЕН — краснеет" CL-FOREIGN
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" 's/^elif \[ "\$rc" -ne 0 \] && not_found "\$issue_file"; then$/elif [ "\$rc" -ne 0 ]; then/m' \
+    "любой отказ чтения головы — «номера нет»"; then
+    run_c09_red "$b" "инъекция: любой отказ чтения задачи головы засчитан «номера нет» — краснеет" CL-ISSUE-410 CL-ISSUE-403
+fi
+b="$(mksandbox)"
+# Признак 404 — текст И статус: порча, оставившая лишь «отказ — объект JSON», засчитывает
+# отказ 410 «issues disabled» отсутствием номера. (Снятие ОДНОГО из двух условий 410 не
+# различает — у него иные и текст, и статус; такая порча эквивалентна.)
+if mr_patch "$b/$MR_REL" 's/type == "object" and \.message == "Not Found" and \(\(\.status \/\/ ""\) \| tostring\) == "404"/type == "object"/' \
+    "признак 404 — любой отказ телом JSON"; then
+    run_c09_red "$b" "инъекция: отказ 410 «issues disabled» засчитан «номера нет» — краснеет" CL-ISSUE-410
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" 's/^      if not_found "\$cfile"; then$/      if false; then/m' \
+    "404 комментариев — «не прочитано»"; then
+    run_c09_red "$b" "инъекция: строка закрытия номера без задачи (404) — снова «не прочитано» — краснеет" PF-ABSENT
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" 's/^      if not_found "\$cfile"; then$/      if true; then/m' \
+    "любой отказ комментариев — упоминание"; then
+    run_c09_red "$b" "инъекция: непрочитанные комментарии засчитаны упоминанием — краснеет" PF-UNREAD
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" 's/\(\(\.status \/\/ ""\) \| tostring\) == "404"/(.status | tostring) == "404"/' \
+    "признак 404 иной записью"; then
+    run 0 "$b" "близнец: статус 404 сверен без запасного значения — молчит" "$C09"
+fi
+
 b="$(mksandbox scripts/merge-readiness.sh)"
 run 2 "$b" "предпосылка: инструмента нет — VOID, а не успех" "$C09"
 
