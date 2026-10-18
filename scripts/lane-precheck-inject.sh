@@ -305,6 +305,13 @@ prem "head o/r 3-stand $HA"
 assert "0 да" "$(runp) $(has 'предусловий 1; ложных 0, не судимо 0')" "близнец: голова 3-stand на origin равна sha → 0"
 prem "head o/r 3-stand $HB"
 assert "1 да да" "$(runp) $(has "голова 3-stand на origin $HA, ожидалась $HB") $(has 'REASON PREMISE-FALSE head')" "голова на origin иная → PREMISE-FALSE, обе sha названы"
+# Близнец, совпадающий с головой во всех знаках, кроме последнего: сравнение — целиком,
+# не по префиксу и не по первому знаку (приёмка r1).
+HN=111111111111111111111111111111111111111f
+prem "head o/r 3-stand $HN"
+assert "1 да" "$(runp) $(has "голова 3-stand на origin $HA, ожидалась $HN")" "голова отличается лишь последним знаком → PREMISE-FALSE"
+prem "head o/r 3-st#and $HA" "branch o/r 1-la#ne"
+assert "2 да да" "$(runp) $(has 'VOID PREMISE-FORM head o/r 3-st#and') $(has 'VOID PREMISE-FORM branch o/r 1-la#ne')" "«#» в имени ветки обрезал бы путь GET → строка вне формы, код 2"
 prem "head o/r 2-gone $HA"
 assert "1 да" "$(runp) $(has "ветки 2-gone на origin нет — ожидалась голова $HA")" "ветки на origin нет → PREMISE-FALSE с веткой и sha"
 prem "head o/r 4-flaky $HA"
