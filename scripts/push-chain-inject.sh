@@ -21,7 +21,7 @@ CHAIN="$HERE/push-chain.sh"
 [ -r "$CHAIN" ] || { echo "push-chain-inject: VOID — прибора нет: $CHAIN" >&2; exit 2; }
 command -v git >/dev/null || { echo "push-chain-inject: VOID — нет git" >&2; exit 2; }
 W="$(mktemp -d)" || { echo "push-chain-inject: VOID — mktemp" >&2; exit 2; }
-trap 'rm -rf "$W" 2>/dev/null || echo "push-chain-inject: ПРЕДУПРЕЖДЕНИЕ: $W не снят" >&2' EXIT
+trap '_rc=$?; rm -rf "$W" 2>/dev/null || rm -rf "$W" || echo "ПРЕДУПРЕЖДЕНИЕ: временный каталог $W не снят; код проверки $_rc сохранён" >&2; exit $_rc' EXIT
 pass=0 fail=0
 assert() { if [ "$1" = "$2" ]; then pass=$((pass + 1)); echo "  [ok] $3"; else fail=$((fail + 1)); echo "  [РАСХОЖДЕНИЕ] $3: ждали «$1», получили «$2»"; fi; }
 
