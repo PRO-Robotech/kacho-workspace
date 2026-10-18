@@ -30,7 +30,8 @@ C="$HERE/stall-census.sh"
 command -v python3 > /dev/null 2>&1 || { echo "stall-census-inject: VOID — нет python3" >&2; exit 2; }
 [ -r "$C" ] || { echo "stall-census-inject: VOID — прибора нет: $C" >&2; exit 2; }
 T="$(mktemp -d)"
-trap 'rm -rf "$T"' EXIT
+# shellcheck disable=SC2154
+trap '_rc=$?; rm -rf "$T" 2>/dev/null || rm -rf "$T" || echo "ПРЕДУПРЕЖДЕНИЕ: временный каталог $T не снят; код проверки $_rc сохранён" >&2; exit $_rc' EXIT
 # Своя сессия прибора берётся из окружения (ws#1131): окружение запустившего
 # claude в пробы не протекает, каждая проба процессов задаёт его сама.
 unset CLAUDE_PID CLAUDE_CODE_SESSION_ID STALL_PROC_ROOT

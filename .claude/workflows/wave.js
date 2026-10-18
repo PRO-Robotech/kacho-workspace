@@ -1,7 +1,7 @@
 export const meta = {
   name: 'wave',
   description: 'Волна по уровням риска: план скриптом, полосы по шагам своего уровня, сборка, один рецензент на волну, CI, предпроверка посадки скриптом, вливание и каскад',
-  whenToUse: 'Любая волна полос kacho, kaname, corelib или воркспейса. args: {repo, wave, epic, base, ws?, root?, targets?, crossRepo?, lanes:[{key, repo, agent, tier?, roles?, branch, deps?, text, ctx?, issues?, paths?, dir?}]}',
+  whenToUse: 'Любая волна полос kacho, kaname, corelib или воркспейса. args: {repo, wave, epic, base, ws?, root?, targets?, crossRepo?, lanes:[{key, repo, agent, tier?, roles?, branch, deps?, text, ctx?, issues?, paths?, dir?, class?, head?}]}',
   phases: [
     { title: 'План', detail: 'plan-precheck.sh: уровни, слои, corelib, пересечения' },
     { title: 'Предполёт', detail: 'до кода: карта влияния полос, критерии рецензентов (ws#1053)' },
@@ -318,6 +318,24 @@ const implementOnce = async (l, tdd, extra, stack) => (M.implCalls++, impl1st[l.
 const mergeSubj = (l, b) => '«#' + l.branch + ' merge ' + (/^[0-9]+$/.test(String(b)) ? '#' + b : b) + ': …»'
 const stackOf = async (l, deps) => agent(C + '\n\nРежим сводка deps полосы ' + l.key + ': в копии ' + D + '/' + l.key + '/stack от свежего origin/' + (l.base || A.base) + ' заведи ветку ' + stackNames[l.key] + ' и влей в неё по порядку ' + deps.map(d => d.branch + '@' + d.head).join(', ') + ' коммитами слияния pointpu --no-ff' + (inLane(l) ? ' (это ветка самой полосы — хук репозитория принимает лишь номер; первая строка слияния — ' + [l.base || A.base, ...deps.map(d => d.branch)].map(b => mergeSubj(l, b)).join(', ') + ')' : '') + '. Ветка уже есть на origin — не перезаписывай: влей в неё свежую базу и недостающие головы. Конфликт по существу не решай: `git merge --abort`, верни status conflict и пути в conflicts. Отправь ветку через слот (журнал ' + R + '/' + l.key + '/stack.push.log). ФАКТ: для каждой головы `git merge-base --is-ancestor <голова> HEAD` — код 0; в contains — головы, прошедшие эту проверку. Отчёт — ' + rep(l.key, 'stack') + '. Верни status, branch, head, contains, conflicts, report.', { ...MECH, label: 'mech:stack:' + l.key, phase: 'Полосы', schema: S_STACK })
 
+// Полоса стенда и сборки образов (ws#1191; класс — args.lanes[].class stand|images либо
+// исполнитель deploy-engineer) работает на головах, которые УЖЕ на origin: строки `head
+// <репо> <ветка> <sha>` порождает шаблон — из веток и голов deps и сводки, а без deps — из
+// branch и head самой полосы; судит `lane-precheck.sh --premise`. Код не 0 либо строк нет —
+// исполнитель не зван: kacho#3284 — полоса стенда ушла раньше, чем голова доехала до origin.
+const STAND_CLASS = ['stand', 'images']
+const standLane = l => STAND_CLASS.includes(l.class) || l.agent === 'deploy-engineer'
+const ghRepo = r => /\//.test(String(r || '')) ? String(r) : (String(A.repo || '').split('/')[0] || 'PRO-Robotech') + '/' + (r || String(A.repo || '').split('/').pop())
+const headLines = (l, ds, stack) => (ds && ds.length ? ds.map(d => 'head ' + ghRepo(d.repo) + ' ' + d.branch + ' ' + d.head).concat(stack ? ['head ' + ghRepo(l.repo) + ' ' + stack.branch + ' ' + stack.head] : []) : (sha40(l.head) && l.branch ? ['head ' + ghRepo(l.repo) + ' ' + l.branch + ' ' + l.head] : []))
+const headGate = async (l, ds, stack) => {
+  if (!standLane(l)) return null
+  const lines = headLines(l, ds, stack)
+  if (!lines.length) return { key: l.key, ok: false, stage: 'полоса стенда и образов без головы: ни deps, ни branch и head sha40 в задании — предусловия головы на origin нет, исполнитель не зван (ws#1191)' }
+  const f = R + '/' + l.key + '/premise.txt'
+  const p = await agent(C + '\n\nРежим предусловие головы полосы ' + l.key + ' (ws#1191): выполни ОДНОЙ командой `mkdir -p ' + R + '/' + l.key + ' && printf \'%s\\n\' ' + lines.map(x => "'" + x + "'").join(' ') + ' > ' + f + ' && bash ' + WS + '/scripts/lane-precheck.sh --premise ' + f + ' > ' + rep(l.key, 'premise') + ' 2>&1`. code — код команды как есть: 0 — головы на origin те; 1 — PREMISE-FALSE; 2 — не судимо. Верни code, out (строки REASON и VOID дословно), reasons (коды из строк REASON), head "".', { ...MECH, label: 'mech:premise:' + l.key, phase: 'Полосы', schema: S_MECH })
+  if (p && p.code === 0) return null
+  return { key: l.key, ok: false, stage: 'предусловие головы на origin (ws#1191): ' + (!p ? 'нет ответа' : p.code === 1 ? 'ложно — ' + (String(p.out || '').slice(0, 300) || 'причина не названа') : 'не судимо (код ' + p.code + ')') + ' — исполнитель не зван', report: rep(l.key, 'premise') }
+}
 const runLane = async (l, stack) => {
   const t = tierOf[l.key]
   const has = s => t.steps.includes(s)
@@ -414,15 +432,15 @@ const launch = k => started[k] || (started[k] = (async () => {
   const notReady = deps.filter(d => !d.ok)
   let r
   if (notReady.length) r = { key: k, ok: false, stage: 'не начата: deps ' + notReady.map(d => d.key).join(', ') + ' не прошли' }
-  else if (!deps.length) r = await runLane(l, null)
+  else if (!deps.length) r = (await headGate(l, [], null)) || await runLane(l, null)
   else {
-    const ds = deps.map(d => ({ branch: lanes.find(x => x.key === d.key).branch, head: d.head }))
+    const ds = deps.map(d => ({ branch: lanes.find(x => x.key === d.key).branch, head: d.head, repo: lanes.find(x => x.key === d.key).repo }))
     const st = await stackOf(l, ds)
     const missing = st ? ds.filter(d => !(st.contains || []).includes(d.head)) : ds
     if (st && sha40(st.head) && !inLane(l)) stacks.push(st.branch || stackNames[k])
     if (!st || st.status === 'conflict' || !['done', 'already-done'].includes(st.status) || !sha40(st.head) || missing.length) {
       r = { key: k, ok: false, stage: 'сводка deps ' + stackNames[k] + ': ' + (st && st.status === 'conflict' ? 'конфликт в ' + ((st.conflicts || []).join(', ') || 'путях без имени') : !st ? 'нет ответа' : !['done', 'already-done'].includes(st.status) ? 'статус ' + st.status : !sha40(st.head) ? 'голова сводки не sha40 (' + JSON.stringify(st.head === undefined ? null : st.head).slice(0, 60) + ')' : missing.length ? 'нет голов ' + missing.map(d => d.branch + '@' + String(d.head).slice(0, 12)).join(', ') : 'причина не названа') + ' — исполнитель не зван, решает диспетчер', conflicts: st ? st.conflicts || [] : [], report: rep(k, 'stack') }
-    } else r = await runLane(l, { branch: inLane(l) ? stackNames[k] : st.branch || stackNames[k], head: st.head })
+    } else { const so = { branch: inLane(l) ? stackNames[k] : st.branch || stackNames[k], head: st.head }; r = (await headGate(l, ds, so)) || await runLane(l, so) }
   }
   if (r.ok) r = await trialIn(l, r)
   done[k] = r
