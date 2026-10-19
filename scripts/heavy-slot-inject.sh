@@ -874,8 +874,29 @@ rm -f "$W/wk-ran"
 assert "0 да да" "$(RDIR="$W/kd" rslot bash "$SLOT" stand -- ./wrap-tail.sh) $([ -e "$W/wk-ran" ] && echo да || echo нет) $(has "$W/err" 'не поднимает локальный стенд')" "хвостовой комментарий с kind create — не вызов: идёт, «не поднимает»"
 rm -f "$W/wk-ran"
 assert "0 да да" "$(RDIR="$W/kd" rslot bash "$SLOT" stand -- ./wrap-echo.sh) $([ -e "$W/wk-ran" ] && echo да || echo нет) $(has "$W/err" 'не поднимает локальный стенд')" "kind create в выводе echo и printf — не вызов: идёт, «не поднимает»"
+rm -f "$W/kind-ran"
 assert "77 да нет" "$(RDIR="$W/kd" rslot bash "$SLOT" stand -- ./wrap-bashc.sh) $(has "$W/err" 'по признаку содержимого') $([ -e "$W/kind-ran" ] && echo да || echo нет)" "близнец: литерал bash -c с kind create — вызов → 77"
+rm -f "$W/kind-ran"
 assert "77 да нет" "$(RDIR="$W/kd" rslot bash "$SLOT" stand -- ./wrap-subst.sh) $(has "$W/err" 'по признаку содержимого') $([ -e "$W/kind-ran" ] && echo да || echo нет)" "близнец: подстановка \$(kind create) в аргументе echo — вызов → 77"
+# Подстановка процесса <(…) и >(…) в аргументе echo/printf — тоже вызов (ws#1250 B2): сегмент
+# без «$(» и обратной кавычки отбрасывался, и подъём уходил локально «не поднимает». Обход
+# вызываемых *.sh берёт тот же текст — помощник, названный лишь внутри <(…), читается.
+printf '#!/usr/bin/env bash\necho <(%s/bin/kind create cluster)\n' "$W" > "$W/kd/wrap-psub.sh"
+printf '#!/usr/bin/env bash\nprintf x >(%s/bin/kind create cluster)\n' "$W" > "$W/kd/wrap-psub-out.sh"
+printf '#!/usr/bin/env bash\necho <(./helper.sh)\n' > "$W/kd/wrap-psub-walk.sh"
+printf '#!/usr/bin/env bash\necho "kind create"\ntouch "%s"\n' "$W/wk-ran" > "$W/kd/wrap-echo-lit.sh"
+chmod +x "$W/kd"/*.sh
+for ps in wrap-psub wrap-psub-out; do
+    rm -f "$W/kind-ran"
+    assert "77 да нет" "$(RDIR="$W/kd" rslot bash "$SLOT" stand -- "./$ps.sh") $(has "$W/err" 'по признаку содержимого') $([ -e "$W/kind-ran" ] && echo да || echo нет)" "$ps: подстановка процесса с kind create в аргументе echo/printf — вызов → 77, kind не запускался"
+done
+assert "77 да" "$(RDIR="$W/kd" rslot bash "$SLOT" stand -- ./wrap-psub-walk.sh) $(has "$W/err" 'helper.sh: ctlptl')" "обход на глубину один: помощник с ctlptl, названный внутри <(…) echo, читается → 77, признак «helper.sh: ctlptl» назван"
+rm -f "$W/wk-ran"
+assert "0 да да" "$(RDIR="$W/kd" rslot bash "$SLOT" stand -- ./wrap-echo-lit.sh) $([ -e "$W/wk-ran" ] && echo да || echo нет) $(has "$W/err" 'не поднимает локальный стенд')" "законный близнец: echo \"kind create\" без подстановки — не вызов: идёт, «не поднимает»"
+# Мутант — старое поведение keep (подстановка процесса отбрасывается вместе с аргументами echo):
+# подъём <(kind create) уходит локально — проба wrap-psub выше его ловит.
+rm -f "$W/kind-ran"
+assert "0 0 да" "$(tmut ' && index(x, "<(") == 0 && index(x, ">(") == 0) return ""' ') return ""') $(RDIR="$W/kd" rslot bash "$W/tmut/heavy-slot.sh" stand -- ./wrap-psub.sh) $([ -e "$W/kind-ran" ] && echo да || echo нет)" "мутант «подстановка процесса отброшена»: echo <(kind create) уходит локально (0), kind запущен — проба wrap-psub выше его ловит"
 
 echo "── стенд во внешнем ns — без слота машины: на машине лишь kubectl и helm (ws#1143)"
 # Журнал слотов до правки: stand-ns-up/down/census/forward — 139 запусков, пик
