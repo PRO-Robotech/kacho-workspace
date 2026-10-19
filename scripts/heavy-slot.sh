@@ -164,22 +164,32 @@
 #
 # ЗАВИСИМОСТИ КОНСОЛИ ЛОКАЛЬНО (ws#1190). Хук kacho отказывает «проверки консоли НЕ ВЫПОЛНЯЛИСЬ»
 # в КОНЦЕ прогона (~6 мин слота), если правка трогает ui-future/, а в судимом дереве нет
-# node_modules (уроки 9c8c12aa, 7fead8dc, 5ecbb391 — reports/lessons.jsonl). Судимое дерево —
+# node_modules (уроки 9c8c12aa, 7fead8dc, 5ecbb391 — ведомость tmp/reports/lessons.jsonl
+# воркспейса, scripts/lessons/collect.sh). Судимое дерево —
 # рабочая копия, если она чиста и на отправляемой вершине, иначе ВРЕМЕННАЯ копия (git worktree
 # add, subject_tree_for_push хука), где node_modules нет по построению. Поэтому `git push` класса
 # ci-local, идущий локально (кластер не принял, --local, 78) из клона с ui-future/ в HEAD, слот
 # зовёт с core.hooksPath на переходник (console_adapter): тот отдаёт вход git суждению
-# --console-deps (console_deps), затем настоящему хуку. Правка консоль трогает (диапазон
-# производителя хука scripts/hooks/prepush-range.sh, `*ui-future/*`) и судить будут временную
+# --console-deps (console_deps), затем настоящему хуку. Отказ хука о консоли требует ДВУХ
+# условий: правка трогает консоль (`*ui-future/*` в диапазоне) И набор групп гонит её проверки
+# (слово ui либо ui-types; all — лишь единственным словом, и пустой набор ci-local читает как
+# all; «go all» ci-local отвергает неизвестной группой). Оба спрошены у производителей хука:
+# диапазон — scripts/hooks/prepush-range.sh (вход git; KACHO_TRUNK_REF), группы —
+# scripts/hooks/prepush-groups.sh с KACHO_PUSH_RANGE = этим диапазоном, как его ставит хук
+# (KACHO_PREPUSH_GROUP, KACHO_TRUNK_REF; KACHO_PUSH_RANGE вызывающего хук перекрывает — и здесь).
+# Оба условия есть и судить будут временную
 # копию — отказ 64 до проверок хука с причиной (копия грязна — пути; не на вершине — обе
 # вершины); рабочую — готовность предикатом проверок (ui-future/scripts/deps-ready.mjs по
 # каждому пакету), не готов хоть один — установка шагом ЗАВИСИМОСТИ КОНСОЛИ run.sh (тот же
 # текст, форма ui.yml; кэш npm — свой, HEAVY_NPM_CACHE), отказ установки либо грязная после
 # неё копия — 69. Хук до проверок консоли не доходит (черновик, KACHO_SKIP_PREPUSH=1, одни
-# удаления, вершин больше одной, производитель отказал) — ход хуку без суждения. Решение — строкой
+# удаления, вершин больше одной, производитель отказал, групп консоли в наборе нет) — ход хуку без
+# суждения. Решение — строкой
 # console-deps в журнал. Свой core.hooksPath и HS_* переходник снимает до хука: фикстуры проверок
-# (git init + commit) иначе получили бы хуки клона. ГРАНИЦА: признаки хука повторены здесь, а не
-# спрошены у него (subject_tree_for_push — выражение внутри хука kacho); разойдутся — молча.
+# (git init + commit) иначе получили бы хуки клона. ГРАНИЦА: диапазон и группы спрошены у
+# производителей хука, а прочие признаки повторены здесь (вход git — черновик, удаления, число
+# вершин; дерево — subject_tree_for_push; правка консоли — `*ui-future/*`: выражения внутри хука
+# kacho, отдельного производителя у них нет); разойдутся — молча.
 #
 # ОТКУДА ИДЁТ ОТПРАВКА (ws#1182): для `git … push` (любой класс, обёртки перед git, -C) слот ДО
 # постановки печатает каталог, корень git, origin (без учётных данных), ветку, голову и
@@ -830,12 +840,16 @@ console_adapter() {
 # console_deps <файл кода> <run.sh> — суждение переходника (вход git на stdin, каталог — корень
 # отправляемой копии): зависимости консоли для ТОГО дерева, что будет судить хук. Код 0 — ход
 # хуку; 1 — отказ до хука, код слота (64, 69) — в <файл кода>. Хук до проверок консоли не
-# доходит — ход как есть, суждения нет. Признаки — те же, что у хука kacho (scripts/hooks/pre-push):
-# дерево — subject_tree_for_push, черновик — push_is_draft, правка консоли — `*ui-future/*` по
-# диапазону его производителя; готовность — предикат проверок (ci-local.sh, npm_deps_ready).
+# доходит — ход как есть, суждения нет. Производители решения хука kacho (scripts/hooks/pre-push)
+# и как каждый взят здесь: обход всего — KACHO_SKIP_PREPUSH (прочитан); вход git — черновик
+# (push_is_draft), одни удаления, число вершин (повторены: выражения хука); диапазон —
+# prepush-range.sh (СПРОШЕН, вход git, KACHO_TRUNK_REF); группы — prepush-groups.sh (СПРОШЕН с
+# KACHO_PUSH_RANGE = диапазоном, как ставит хук; KACHO_PREPUSH_GROUP, KACHO_TRUNK_REF); правка
+# консоли — `*ui-future/*` по диапазону (повторено); дерево — subject_tree_for_push (повторено);
+# готовность — предикат проверок (deps-ready.mjs, как ci-local.sh npm_deps_ready).
 console_deps() {
     local rcf="$1" runsh="$2" lines top zero=0000000000000000000000000000000000000000
-    local total=0 drafts=0 tips="" t _l lsha rref _r ntips rg rgc ch="" x head dirty why n m nn=0 miss="" blk t0
+    local total=0 drafts=0 tips="" t _l lsha rref _r ntips rg rgc ch="" x grp head dirty why n m nn=0 miss="" blk t0
     lines="$(cat)"
     unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_COMMON_DIR GIT_PREFIX
     # Журнал — лишь суждению слота (файл кода — в его записи active/): ручной вызов события слота не пишет.
@@ -863,6 +877,15 @@ console_deps() {
     for x in $rg; do ch="$ch"$'\n'"$(git diff --name-only "$x" 2>/dev/null)"; done
     case "$ch" in *ui-future/*) ;; *)
         say "консоль — правка её не трогает (диапазон $rg): зависимости не судятся"; cdj untouched "ui-future/ не в диапазоне"; return 0 ;;
+    esac
+    # Набор групп — у производителя хука, с ТЕМ диапазоном, что хук экспортирует (KACHO_PUSH_RANGE
+    # вызывающего хук перекрывает). Нет производителя — хук получит пустой набор, ci-local — all;
+    # all гонит консоль лишь единственным словом (ci-local: case "$GROUP" in all), в списке — отказ 2.
+    grp="$(KACHO_PUSH_RANGE="$rg" bash scripts/hooks/prepush-groups.sh 2>/dev/null)"
+    grp="$(printf '%s' "$grp" | tr -s ' \t\n' '   ' | sed 's/^ //; s/ $//')"
+    case " ${grp:-all} " in " all "|*" ui "*|*" ui-types "*) ;; *)
+        say "консоль — правка её трогает, но набор групп хука «$grp» (prepush-groups.sh) её проверок не гонит: зависимости не судятся, ход хуку"
+        cdj nogroup "групп консоли нет: $grp"; return 0 ;;
     esac
     head="$(git rev-parse --verify --quiet 'HEAD^{commit}' 2>/dev/null)"
     dirty="$(git status --porcelain 2>/dev/null)"

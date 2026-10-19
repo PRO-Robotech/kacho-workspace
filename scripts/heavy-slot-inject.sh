@@ -1375,10 +1375,10 @@ echo "── ci-local локально, правка консоли: завис�
 # переходником pre-push: рабочая копия — ставит зависимости как ui.yml (шаг run.sh), временная —
 # отказ 64 до проверок хука. Формы — настоящие, из ствола клона kacho: ui.yml, package.json и
 # .gitignore консоли, ui-future/scripts/deps-ready.mjs (предикат самих проверок),
-# scripts/hooks/prepush-range.sh (производитель диапазона хука). npm — двойник (журнал вызовов),
+# scripts/hooks/prepush-range.sh и prepush-groups.sh (производители диапазона и набора групп хука). npm — двойник (журнал вызовов),
 # node — настоящий. Хук — двойник: пишет, что судит и что видит в окружении.
 KROOT="${HEAVY_SLOT_PROBE_KACHO:-$(dirname "$(git -C "$HERE" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)")/project/kacho}"
-KFORMS=(.github/workflows/ui.yml ui-future/package.json ui-future/.gitignore ui-future/scripts/deps-ready.mjs scripts/hooks/prepush-range.sh)
+KFORMS=(.github/workflows/ui.yml ui-future/package.json ui-future/.gitignore ui-future/scripts/deps-ready.mjs scripts/hooks/prepush-range.sh scripts/hooks/prepush-groups.sh)
 KOK=1
 for f in "${KFORMS[@]}"; do git -C "$KROOT" cat-file -e "origin/main:$f" 2>/dev/null || KOK=""; done
 if [ -z "$KOK" ] || ! command -v node >/dev/null; then
@@ -1449,6 +1449,7 @@ kreset noui нет
 assert "0 нет ran nm=нет untouched" "$(kpush -- HEAD:refs/heads/k4) $(knpm) $(khook) $(kdec)" "близнец: правка трогает ui-futurex/ и x.go, не ui-future/ → установки нет, хук идёт как прежде"
 echo s > "$KS/stray.txt"
 assert "0 ran untouched" "$(kpush -- HEAD:refs/heads/k4b) $(khook | cut -d' ' -f1) $(kdec)" "близнец: та же правка без консоли из ГРЯЗНОЙ копии → не отказ: временная копия хуку без консоли не мешает"
+assert "0 ran untouched" "$(kpush KACHO_PREPUSH_GROUP='go ui-types' -- HEAD:refs/heads/k4c) $(khook | cut -d' ' -f1) $(kdec)" "близнец: группа консоли названа, но правка консоль не трогает (грязная копия) → не отказ: хук о пропуске консоли откажет лишь при ui-future/ в диапазоне"
 
 # Временная копия: рабочая копия грязна либо не на отправляемой вершине — зависимости РАБОЧЕЙ копии хуку не помогут.
 kreset ui все; echo s > "$KS/stray.txt"
@@ -1476,6 +1477,24 @@ assert "64" "$(kpush -- :refs/heads/kdel2 HEAD:refs/heads/k16)" "близнец:
 kom="$(git -C "$KS" rev-parse origin/main)"; git -C "$KS" update-ref -d refs/remotes/origin/main
 assert "0 ran pass" "$(kpush -- HEAD:refs/heads/k17) $(khook | cut -d' ' -f1) $(kdec)" "производитель диапазона отказал (нет точки интеграции) — хук откажет тем же, переходник не судит"
 git -C "$KS" update-ref refs/remotes/origin/main "$kom"
+
+# Производители решения хука и переменные, заменяющие их вывод (по близнецу на каждую):
+# KACHO_SKIP_PREPUSH — весь хук (k11 выше); KACHO_PREPUSH_GROUP — вывод prepush-groups.sh;
+# KACHO_PUSH_RANGE — вход prepush-groups.sh, хук ставит его сам (вызывающего перекрывает);
+# KACHO_TRUNK_REF — база prepush-range.sh. Дерево (subject_tree_for_push) переменной не заменяется.
+kreset ui все; echo s > "$KS/stray.txt"
+assert "0 ran nogroup" "$(kpush KACHO_PREPUSH_GROUP=go -- HEAD:refs/heads/g1) $(khook | cut -d' ' -f1) $(kdec)" "KACHO_PREPUSH_GROUP=go: правка консоли из ГРЯЗНОЙ копии — не отказ: проверок консоли хук не гонит"
+assert "да" "$(has "$W/err" 'набор групп хука «go»')" "решение названо: набор групп хука и его источник"
+kreset ui нет
+assert "0 нет ran nm=нет nogroup" "$(kpush KACHO_PREPUSH_GROUP=go -- HEAD:refs/heads/g2) $(knpm) $(khook) $(kdec)" "KACHO_PREPUSH_GROUP=go: чистая копия без зависимостей — установки нет"
+kreset ui все; echo s > "$KS/stray.txt"
+assert "64 нет temp" "$(kpush KACHO_PREPUSH_GROUP='go ui' -- HEAD:refs/heads/g3) $(khook) $(kdec)" "почти совпадение: KACHO_PREPUSH_GROUP='go ui' — группа консоли названа, грязная копия → 64"
+assert "64 temp" "$(kpush KACHO_PREPUSH_GROUP=all -- HEAD:refs/heads/g4) $(kdec)" "почти совпадение: KACHO_PREPUSH_GROUP=all — ci-local гонит и ui → 64"
+assert "64 temp" "$(kpush KACHO_PREPUSH_GROUP=' ' -- HEAD:refs/heads/g5) $(kdec)" "почти совпадение: набор из одних пробелов — ci-local читает пустой как all → 64"
+assert "0 ran nogroup" "$(kpush KACHO_PREPUSH_GROUP='go all' -- HEAD:refs/heads/g5b) $(khook | cut -d' ' -f1) $(kdec)" "близнец: «go all» — all не единственным словом, ci-local консоль не гонит (неизвестная группа) → суждения нет"
+assert "64 temp" "$(kpush KACHO_PUSH_RANGE="$KNO..$KNO" -- HEAD:refs/heads/g6) $(kdec)" "KACHO_PUSH_RANGE вызывающего (диапазон без консоли) хук перекрывает своим — и суждение тоже: 64"
+assert "0 ran untouched" "$(kpush KACHO_TRUNK_REF=ui -- HEAD:refs/heads/g7) $(khook | cut -d' ' -f1) $(kdec)" "KACHO_TRUNK_REF=ui: база — сама вершина, диапазон пуст → правка консоли не тронута, грязная копия не отказ"
+assert "64 temp" "$(kpush KACHO_TRUNK_REF=main -- HEAD:refs/heads/g8) $(kdec)" "почти совпадение: KACHO_TRUNK_REF=main — диапазон несёт ui-future/ → 64"
 
 # Отказы установки — до хука, кодом 69 («не выполнилось»), причина каждой — своим текстом.
 kreset ui нет
@@ -1528,9 +1547,19 @@ kmut wire '[ "$CLASS" = ci-local ] && console_adapter' 'false && console_adapter
 kmut ready '        [ -z "$miss" ] || continue' '        continue'
 # shellcheck disable=SC2016
 kmut never '        node ui-future/scripts/deps-ready.mjs "${m%/package.json}" >/dev/null 2>&1 && continue' '        false && continue'
-for m in range wc wire ready never; do assert 1 "$(diff "$SLOT" "$KM/$m.sh" | grep -c '^<')" "мутант «$m» лёг ровно одной строкой"; done
+# shellcheck disable=SC2016
+kmut groups '    case " ${grp:-all} " in' '    case " ui " in'
+# shellcheck disable=SC2016
+kmut gall '    case " ${grp:-all} " in' '    case " ${grp} " in'
+# shellcheck disable=SC2016
+kmut gword '" all "|*" ui "*' '*" all "*|*" ui "*'
+# shellcheck disable=SC2016
+kmut gprange '    grp="$(KACHO_PUSH_RANGE="$rg" bash scripts/hooks/prepush-groups.sh 2>/dev/null)"' '    grp="$(bash scripts/hooks/prepush-groups.sh 2>/dev/null)"'
+# shellcheck disable=SC2016
+kmut trunk '    rg="$(printf '"'"'%s\n'"'"' "$lines" | bash scripts/hooks/prepush-range.sh 2>/dev/null)"; rgc=$?' '    rg="$(printf '"'"'%s\n'"'"' "$lines" | env -u KACHO_TRUNK_REF bash scripts/hooks/prepush-range.sh 2>/dev/null)"; rgc=$?'
+for m in range wc wire ready never groups gall gword gprange trunk; do assert 1 "$(diff "$SLOT" "$KM/$m.sh" | grep -c '^<')" "мутант «$m» лёг ровно одной строкой"; done
 kreset noui нет; echo s > "$KS/stray.txt"
-assert "64 нет" "$(KSLOT="$KM/range.sh" kpush -- HEAD:refs/heads/m1) $(khook)" "мутант «проверка диапазона снята»: правка без консоли из грязной копии получает отказ — проба «близнец … из ГРЯЗНОЙ копии» его ловит"
+assert "64 нет" "$(KSLOT="$KM/range.sh" kpush KACHO_PREPUSH_GROUP='go ui-types' -- HEAD:refs/heads/m1) $(khook)" "мутант «проверка диапазона снята»: правка без консоли из грязной копии при группе консоли получает отказ — проба k4c его ловит (без названной группы его маскирует набор групп: prepush-groups.sh сам судит ui-future/)"
 kreset ui все; echo s > "$KS/stray.txt"
 assert "0 ran" "$(KSLOT="$KM/wc.sh" kpush -- HEAD:refs/heads/m2) $(khook | cut -d' ' -f1)" "мутант «судит только рабочую копию»: грязная копия уходит в хук — проба «грязна → 64» его ловит"
 kreset ui нет
@@ -1539,6 +1568,12 @@ kreset ui нет
 assert "0 нет nm=нет" "$(KSLOT="$KM/ready.sh" kpush -- HEAD:refs/heads/m4) $(knpm) $(khook | cut -d' ' -f2)" "мутант «готовым признан всякий»: зависимостей нет, а установки нет — проба установки его ловит"
 kreset ui все
 assert "звался" "$(KSLOT="$KM/never.sh" kpush -- HEAD:refs/heads/m5 >/dev/null; [ "$(knpm)" = нет ] && echo нет || echo звался)" "мутант «готовность не судится»: стоящие зависимости ставятся заново — проба «уже стоят» его ловит"
+kreset ui все; echo s > "$KS/stray.txt"
+assert "64 нет" "$(KSLOT="$KM/groups.sh" kpush KACHO_PREPUSH_GROUP=go -- HEAD:refs/heads/m6) $(khook)" "мутант «набор групп не спрошен»: KACHO_PREPUSH_GROUP=go из грязной копии получает отказ — проба g1 его ловит"
+assert "0 ran" "$(KSLOT="$KM/gall.sh" kpush KACHO_PREPUSH_GROUP=' ' -- HEAD:refs/heads/m7) $(khook | cut -d' ' -f1)" "мутант «пустой набор — не all»: набор из пробелов уходит в хук без суждения — проба g5 его ловит"
+assert "64 нет" "$(KSLOT="$KM/gword.sh" kpush KACHO_PREPUSH_GROUP='go all' -- HEAD:refs/heads/m7b) $(khook)" "мутант «all — любым словом»: «go all» получает отказ, хотя ci-local консоль не гонит — проба g5b его ловит"
+assert "0 ran" "$(KSLOT="$KM/gprange.sh" kpush KACHO_PUSH_RANGE="$KNO..$KNO" -- HEAD:refs/heads/m8) $(khook | cut -d' ' -f1)" "мутант «группы спрошены с диапазоном вызывающего»: суждение разошлось с хуком — проба g6 его ловит"
+assert "64 нет" "$(KSLOT="$KM/trunk.sh" kpush KACHO_TRUNK_REF=ui -- HEAD:refs/heads/m9) $(khook)" "мутант «база диапазона без KACHO_TRUNK_REF»: пустой у хука диапазон судится как правка консоли — проба g7 его ловит"
 fi
 
 echo "[CENSUS] heavy-slot: утверждений $((pass + fail)), сошлось $pass, разошлось $fail; граница (не ловится, заявлено в шапке) $bound; не построено частей $void"
