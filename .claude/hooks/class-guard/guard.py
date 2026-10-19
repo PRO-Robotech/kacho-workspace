@@ -4,11 +4,11 @@
 Что это. Хук `PostToolUse` на Write/Edit/MultiEdit: прогоняет по только что
 записанному файлу предикаты тех классов из скилов `code-authoring`,
 `gate-authoring`, `measurement-discipline`, `verdict-and-landing`, чей вердикт
-зависит ТОЛЬКО от содержимого этого файла. Таких 32 из 138 — 23 %. Остальные три
+зависит ТОЛЬКО от содержимого этого файла. Таких 33 из 138 — 24 %. Остальные три
 четверти требуют модуля, прогона, суждения или знания намерения и в момент записи
 файла ненаблюдаемы; хук о них не заявляет.
 
-Единица «32» и единица «138» — РАЗНЫЕ, и это названо: 32 — классы гейта (A1…G1,
+Единица «33» и единица «138» — РАЗНЫЕ, и это названо: 33 — классы гейта (A1…G2,
 знаменатель выводится из `PREDICATES_BY_ROLE`, см. ниже); 138 — записи классов в
 четырёх скилах, каждая посчитана предикатом своего скила на `workspace@55d64bc`
 (51 + 35 + 33 + 19). Прежняя редакция называла «29 предикатов на 32 класса из 136»
@@ -90,7 +90,7 @@ MIGRATION_DIR = ("migrations/", "/migrations/")
 # и его же читает `render`.
 #
 # Классы Go живут в `goast/main.go` (A1…A11), классы текста — в `text_predicates.py`,
-# событийный G1 — в `analyse`. Перечень сверяется гейтом самоописания (см. `prove.sh`
+# событийный G1 — в `analyse`, G2 (SQL по разбору) — в `text_predicates.py`. Перечень сверяется гейтом самоописания (см. `prove.sh`
 # §«знаменатель выведен из реализации»): он читает идентификаторы классов из ОБОИХ
 # исходников и требует, чтобы множество совпало с этим.
 PREDICATES_BY_ROLE: dict[str, tuple[str, ...]] = {
@@ -102,7 +102,7 @@ PREDICATES_BY_ROLE: dict[str, tuple[str, ...]] = {
     "yaml":        ("D1", "D2"),
     "markdown":    ("E1",),
     "ts":          ("F1",),
-    "sql":         ("G1",),
+    "sql":         ("G1", "G2"),
 }
 # Единица знаменателя — КЛАСС, а не «ветвь диспетчера»: C1 достижим двумя ролями
 # файла (питоновский кейс и порождённая коллекция), и считать его дважды значило бы
@@ -299,9 +299,13 @@ def analyse(path: str, tool: str) -> tuple[list[tp.Finding], dict]:
     elif kind == "ts":
         src = tp.Source(path, raw, tp.strip_c_like(raw))
         findings += tp.f_typescript(src)
-    else:  # sql — только событийный предикат выше
-        census["predicates_run"] = census.get("predicates_run", 0)
-        return findings, census
+    else:  # sql — событийный G1 выше и G2 по разбору; вне каталога миграций — ничего
+        if not any(m in path for m in MIGRATION_DIR):
+            census["predicates_run"] = census.get("predicates_run", 0)
+            return findings, census
+        src = tp.Source(path, raw, tp.strip_sql(raw))
+        src.note("G1")  # событийный G1 рассмотрел этот файл выше
+        findings += tp.g_sql(src)
 
     census.update({
         # Число прогнанного берётся ОТТУДА ЖЕ, откуда знаменатель, — иначе они снова

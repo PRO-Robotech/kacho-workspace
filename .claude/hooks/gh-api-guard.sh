@@ -7,7 +7,9 @@
 # `repos/*/merges` и `pulls/*/merge` у всех, `gh pr merge` вне правила вливания
 # (не git-operator; без --match-head-commit; --auto, --admin) получают отказ с
 # правильным чтением: merge-base — `gh api …/compare/<base>...<head>` (GET) или
-# `git merge-base`. Разбор — gh-api-guard/guard.py (лексер — no-wait-guard);
+# `git merge-base`. Коммит не в ту копию — `git add|commit` после относительного
+# `cd`/`-C` либо в стволе основного клона — тоже отказ (ws#1237).
+# Разбор — gh-api-guard/guard.py (лексер — no-wait-guard);
 # доказательство — gh-api-guard/prove.sh (его зовёт scripts/hook-proofs.sh).
 #
 # Кому адресован отказ: тому, кто звал Bash, — исполнителю. У диспетчера Bash нет.
@@ -21,7 +23,7 @@ HOOK_DIR="$(cd "${_src%/*}" 2>/dev/null && pwd)" || HOOK_DIR="."
 GUARD="$HOOK_DIR/gh-api-guard/guard.py"
 
 broken() {
-    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":"GH-API-GUARD СЛОМАН: %s. Изменяющие вызовы gh api этим вызовом НЕ проверялись — это не «чисто»; норма действует: gh api — только GET, вливание — только gh pr merge --match-head-commit у git-operator; починка — tooling-maintainer."}}\n' "$1"
+    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":"GH-API-GUARD СЛОМАН: %s. Изменяющие вызовы gh api и коммиты этим вызовом НЕ проверялись — это не «чисто»; норма действует: gh api — только GET, вливание — только gh pr merge --match-head-commit у git-operator; починка — tooling-maintainer."}}\n' "$1"
     exit 0
 }
 
