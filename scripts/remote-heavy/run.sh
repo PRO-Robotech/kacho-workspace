@@ -336,10 +336,37 @@
 # — выселение pod, «не выполнилось»); маска снимает адреса, имя сервера и контекста, но не
 # токены — в копиях журналов, как и в потоке, они остаются как есть.
 #
+# ОБРАЗЫ TESTCONTAINERS (ws#1268). Образ, который testcontainers тянет в dind сам, висел
+# без строки в журнале dind до таймаута `go test` (2026-10-19: 4 Job по 600 с на
+# postgres:16-alpine; прежде — 24 мин, съевшие весь -timeout 25m), а соседний прогон
+# грузил его за 8 с: исход — красное теста, причина не названа. Поэтому профили с dind
+# до команды грузят образы сами: шаг «# pull-begin» (сразу после МОДУЛЕЙ, ФОНОМ под
+# прочую подготовку) собирает из текста Job программу tcwarm (только stdlib) и ею:
+#   • ВЫВОДИТ перечень обходом — дерево ревизии (git ls-files) и модули своей
+#     организации из `go list -m all` (кэш после МОДУЛЕЙ: умолчание pgtest corelib живёт
+#     там); позиции образа по AST файлов, импортирующих testcontainers-go: второй аргумент
+#     <модуль>.Run, WithImage, поле Image составного литерала и присваивание x.Image; в
+#     прочих файлах — поле Image литерала типа из пакета, импортирующего testcontainers
+#     (pgtest.Config{Image: …}); значение — литерал, имя пакета, сложение, аргументы
+#     вызова формы «окружение либо умолчание»; ссылка без тега и дайджеста не берётся.
+#     Перепись печатается всегда: файлов, с импортом, образов, позиций без вывода;
+#     ноль прочитанных файлов — отказ подготовки (69), ноль образов — «загружать нечего»;
+#   • ГРУЗИТ каждый образ, которого нет в кеше dind (GET /images/<образ>/json), потоком
+#     POST /images/create: попытка снимается, когда HEAVY_PULL_STALL_S (60 с) нет нового
+#     байта либо статуса слоя, попыток HEAVY_PULL_TRIES (3), всё — в пределе
+#     HEAVY_PULL_LIMIT_S (600 с) от старта шага. Обычная загрузка — 8 с, медленная
+#     прогрессирующая — 225 с (уроки 2026-10-18), поэтому застой, а не срок попытки.
+#     Реестр ответил «нет такого» — образ не грузится, тест судит сам (честное красное).
+# Шаг «# pullwait-begin» перед ВИДИМОСТЬЮ ждёт фон: предел превышен — строка
+# «remote-heavy-pull: образ … не загружен за N с (предел, застой, попыток): слой, байты,
+# последняя строка docker pull» в termination-log, и run.sh выходит 75 с этой цитатой, а
+# не кодом теста; шаг не исполнился — «remote-heavy-prep:», 69. Исполнением судит
+# inject.sh (двойник демона docker), предел держит мутант pull-no-limit.
+#
 # КОДЫ: код команды, если она исполнилась; 64 — вызов неверен; 69 — механизм
 # недоступен (кластер, узлы не того кластера — СТРАЖ, образ, доставка, пин, СРЕДА, МОДУЛИ, ЗАВИСИМОСТИ КОНСОЛИ, УЧЁТКА GIT, сеть
 # pod, открытого узла нет — РАЗМЕЩЕНИЕ); 75 — кластер занят (ПРЕДЕЛ либо места под профиль нет), pod не начал
-# команду в срок либо Job снят по сроку; 76 — команда оборвана
+# команду в срок, Job снят по сроку либо образ testcontainers не загружен в предел (ОБРАЗЫ TESTCONTAINERS); 76 — команда оборвана
 # пределом памяти. 69, 75, 76 —
 # «не выполнилось», а не красное: вердикта по предмету команды нет. Своё слово —
 # строкой «remote-heavy: …» в stderr.
@@ -1773,6 +1800,780 @@ fi
 # hooks-end
 HOOKS
 )"
+# ОБРАЗЫ TESTCONTAINERS (шапка) — вывод перечня и загрузка в dind фоном, ожидание и
+# вердикт — перед видимостью. Маркеры — граница, по которой inject.sh берёт текст из Job
+# и исполняет его над двойником демона docker.
+PULL_SH="$(cat <<'PULL'
+# pull-begin
+pull_pid=""
+pwr="$(git rev-parse --show-toplevel 2>/dev/null)" || pf "образы testcontainers: корень дерева не найден"
+pwm="$(go env GOMOD 2>/dev/null)"
+if [ -z "$pwm" ] || [ "$pwm" = /dev/null ]; then
+  echo "remote-heavy: образы testcontainers — go.mod над каталогом нет, выводить не из чего" >&2
+else
+  mkdir -p /work/tcwarm || pf "образы testcontainers: каталог шага не создан"
+  rm -f /work/tcwarm/fail
+  cat > /work/tcwarm/main.go <<'TCWARM'
+// tcwarm — образы testcontainers прогона: перечень выводится обходом дерева и модулей
+// своей организации, каждый образ загружается в dind ДО команды, с пределом и повтором.
+//
+// Коды: 0 — все выведенные образы в кеше dind (либо их нет в реестре — тест судит сам);
+// 3 — загрузка не уложилась в предел, причина — в файле -fail; 4 — шаг не исполнился
+// (обход не прочитал ни одного файла, демон не отвечает, вызов неверен).
+package main
+
+import (
+	"bufio"
+	"context"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"io"
+	"io/fs"
+	"net"
+	"net/http"
+	"net/url"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+)
+
+const tcPrefix = "github.com/testcontainers/testcontainers-go"
+
+// refRE — ссылка на образ по грамматике distribution/reference; тег либо дайджест
+// обязателен: ссылка без них значит «latest», и прогрев её не выбирает.
+var refRE = regexp.MustCompile(`^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)*(?::[0-9]+)?/)?[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*)*(?::[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}|@sha256:[a-f0-9]{64}|:[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}@sha256:[a-f0-9]{64})$`)
+
+type srcFile struct {
+	path, dir, pkg string
+	imports        map[string]string // локальное имя → путь импорта
+}
+
+type root struct{ dir, mod string }
+
+func say(f string, a ...any) {
+	fmt.Fprintf(os.Stderr, "remote-heavy: образы testcontainers — "+f+"\n", a...)
+}
+
+var failPath string
+
+// failPrep — шаг не исполнился: причина в stderr и в файл отказа, код 4.
+func failPrep(f string, a ...any) {
+	msg := fmt.Sprintf(f, a...)
+	say("шаг не исполнился: %s", msg)
+	if failPath != "" {
+		_ = os.WriteFile(failPath, []byte(msg+"\n"), 0o644)
+	}
+	os.Exit(4)
+}
+
+// modulePath — строка module файла go.mod.
+func modulePath(gomod string) string {
+	b, err := os.ReadFile(gomod)
+	if err != nil {
+		return ""
+	}
+	for _, l := range strings.Split(string(b), "\n") {
+		l = strings.TrimSpace(l)
+		if strings.HasPrefix(l, "module ") {
+			return strings.Trim(strings.TrimSpace(strings.TrimPrefix(l, "module")), `"`)
+		}
+	}
+	return ""
+}
+
+// skipDir — каталог, который go не собирает: vendor, testdata, скрытый, с «_».
+func skipDir(n string) bool {
+	return n == "vendor" || n == "testdata" || strings.HasPrefix(n, ".") || strings.HasPrefix(n, "_")
+}
+
+// listing — файлы корня: дерево ревизии — отслеживаемые git (git ls-files), модуль из
+// кэша — обходом каталога; каталоги, которых go не собирает, отброшены.
+func listing(r root) ([]string, error) {
+	var out []string
+	keep := func(rel string) bool {
+		parts := strings.Split(filepath.ToSlash(rel), "/")
+		for _, x := range parts[:len(parts)-1] {
+			if skipDir(x) {
+				return false
+			}
+		}
+		n := parts[len(parts)-1]
+		return strings.HasSuffix(n, ".go") || n == "go.mod"
+	}
+	if r.mod == "" {
+		cmd := exec.Command("git", "-C", r.dir, "ls-files", "-z", "--", "*.go", "*go.mod")
+		b, err := cmd.Output()
+		if err != nil {
+			return nil, fmt.Errorf("git ls-files: %v", err)
+		}
+		for _, rel := range strings.Split(string(b), "\x00") {
+			if rel != "" && keep(rel) {
+				out = append(out, filepath.Join(r.dir, rel))
+			}
+		}
+		return out, nil
+	}
+	err := filepath.WalkDir(r.dir, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			if p != r.dir && skipDir(d.Name()) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		rel, _ := filepath.Rel(r.dir, p)
+		if keep(rel) {
+			out = append(out, p)
+		}
+		return nil
+	})
+	return out, err
+}
+
+// walk — файлы .go корня с их импортами; пакет файла — путь модуля ближайшего go.mod
+// плюс относительный каталог. Нечитаемый разбором файл считается в bad.
+func walk(r root, out *[]srcFile, fset *token.FileSet, bad *int) error {
+	paths, err := listing(r)
+	if err != nil {
+		return err
+	}
+	mods := map[string]string{}
+	for _, p := range paths {
+		if filepath.Base(p) == "go.mod" {
+			if m := modulePath(p); m != "" {
+				mods[filepath.Dir(p)] = m
+			}
+		}
+	}
+	if r.mod != "" {
+		mods[r.dir] = r.mod
+	}
+	for _, p := range paths {
+		if !strings.HasSuffix(p, ".go") {
+			continue
+		}
+		dir := filepath.Dir(p)
+		pkg := ""
+		for x := dir; ; x = filepath.Dir(x) {
+			if m, ok := mods[x]; ok {
+				rel, _ := filepath.Rel(x, dir)
+				pkg = m
+				if rel != "." {
+					pkg = m + "/" + filepath.ToSlash(rel)
+				}
+				break
+			}
+			if x == r.dir || x == filepath.Dir(x) {
+				break
+			}
+		}
+		f, perr := parser.ParseFile(fset, p, nil, parser.ImportsOnly)
+		if perr != nil || f == nil {
+			*bad++
+			continue
+		}
+		im := map[string]string{}
+		for _, s := range f.Imports {
+			ip, _ := strconv.Unquote(s.Path.Value)
+			if s.Name != nil {
+				im[s.Name.Name] = ip
+				continue
+			}
+			for _, n := range importNames(ip) {
+				im[n] = ip
+			}
+		}
+		*out = append(*out, srcFile{path: p, dir: dir, pkg: pkg, imports: im})
+	}
+	return nil
+}
+
+var verRE = regexp.MustCompile(`^v[0-9]+$`)
+
+// importNames — имена, под которыми виден импорт без псевдонима. Имя пакета не обязано
+// совпадать с последним элементом пути: testcontainers-go — пакет testcontainers, .../v2 —
+// предыдущий элемент. Разбор пакета ради имени не нужен: берутся последний элемент и его
+// формы без «go-», «-go», «.go» и суффикса версии.
+func importNames(ip string) []string {
+	el := strings.Split(ip, "/")
+	last := el[len(el)-1]
+	if len(el) > 1 && verRE.MatchString(last) {
+		last = el[len(el)-2]
+	}
+	out := []string{last}
+	n := strings.TrimPrefix(strings.TrimSuffix(strings.TrimSuffix(last, "-go"), ".go"), "go-")
+	if n != last {
+		out = append(out, n)
+	}
+	return out
+}
+
+type finder struct {
+	fset   *token.FileSet
+	decls  map[string]map[string][]ast.Expr // каталог → имя → выражения значения
+	images map[string][]string              // образ → координаты
+	unres  []string
+}
+
+func (fd *finder) collectDecls(dir string, files []*ast.File) {
+	m := map[string][]ast.Expr{}
+	for _, f := range files {
+		ast.Inspect(f, func(n ast.Node) bool {
+			switch x := n.(type) {
+			case *ast.ValueSpec:
+				for i, id := range x.Names {
+					if i < len(x.Values) {
+						m[id.Name] = append(m[id.Name], x.Values[i])
+					}
+				}
+			case *ast.AssignStmt:
+				if len(x.Lhs) == len(x.Rhs) {
+					for i, l := range x.Lhs {
+						if id, ok := l.(*ast.Ident); ok {
+							m[id.Name] = append(m[id.Name], x.Rhs[i])
+						}
+					}
+				}
+			}
+			return true
+		})
+	}
+	fd.decls[dir] = m
+}
+
+// resolve — строковые значения выражения: литерал, имя (объявления пакета), сложение
+// строк, вызов (его аргументы — форма «переменная окружения либо умолчание»).
+func (fd *finder) resolve(dir string, e ast.Expr, depth int) []string {
+	if depth > 8 || e == nil {
+		return nil
+	}
+	switch x := e.(type) {
+	case *ast.BasicLit:
+		if x.Kind == token.STRING {
+			if s, err := strconv.Unquote(x.Value); err == nil {
+				return []string{s}
+			}
+		}
+	case *ast.ParenExpr:
+		return fd.resolve(dir, x.X, depth+1)
+	case *ast.Ident:
+		var out []string
+		for _, v := range fd.decls[dir][x.Name] {
+			out = append(out, fd.resolve(dir, v, depth+1)...)
+		}
+		return out
+	case *ast.BinaryExpr:
+		if x.Op == token.ADD {
+			var out []string
+			for _, a := range fd.resolve(dir, x.X, depth+1) {
+				for _, b := range fd.resolve(dir, x.Y, depth+1) {
+					out = append(out, a+b)
+				}
+			}
+			return out
+		}
+	case *ast.CallExpr:
+		var out []string
+		for _, a := range x.Args {
+			for _, s := range fd.resolve(dir, a, depth+1) {
+				if refRE.MatchString(s) {
+					out = append(out, s)
+				}
+			}
+		}
+		return out
+	}
+	return nil
+}
+
+func (fd *finder) take(dir string, e ast.Expr) {
+	// Поле Image (s.cfg.Image) — не значение, а ссылка на него: его значения дают
+	// позиции самого поля (литерал Image: …, присваивание x.Image = …).
+	if s, ok := e.(*ast.SelectorExpr); ok && s.Sel.Name == "Image" {
+		return
+	}
+	at := fd.fset.Position(e.Pos())
+	coord := at.Filename + ":" + strconv.Itoa(at.Line)
+	got := 0
+	for _, s := range fd.resolve(dir, e, 0) {
+		if refRE.MatchString(s) {
+			fd.images[s] = append(fd.images[s], coord)
+			got++
+		}
+	}
+	if got == 0 {
+		fd.unres = append(fd.unres, coord)
+	}
+}
+
+func selName(e ast.Expr) (string, string) {
+	if s, ok := e.(*ast.SelectorExpr); ok {
+		if id, ok := s.X.(*ast.Ident); ok {
+			return id.Name, s.Sel.Name
+		}
+	}
+	return "", ""
+}
+
+// scan — позиции образа в файле. tc — файл импортирует testcontainers: Run(ctx, образ),
+// WithImage(образ) пакета testcontainers, поле Image любого составного литерала и
+// присваивание x.Image. Иначе — лишь поле Image литерала типа из пакета, который
+// testcontainers импортирует (pgtest.Config{Image: …}).
+func (fd *finder) scan(f *ast.File, sf srcFile, tc bool, imagePkgs map[string]bool) {
+	ast.Inspect(f, func(n ast.Node) bool {
+		switch x := n.(type) {
+		case *ast.CallExpr:
+			if !tc {
+				return true
+			}
+			q, fn := selName(x.Fun)
+			ip := sf.imports[q]
+			if !strings.HasPrefix(ip, tcPrefix) {
+				return true
+			}
+			if fn == "Run" && len(x.Args) >= 2 {
+				fd.take(sf.dir, x.Args[1])
+			}
+			if fn == "WithImage" && len(x.Args) >= 1 {
+				fd.take(sf.dir, x.Args[0])
+			}
+		case *ast.CompositeLit:
+			typed := tc
+			if !typed {
+				q, _ := selName(x.Type)
+				typed = q != "" && imagePkgs[sf.imports[q]]
+			}
+			if !typed {
+				return true
+			}
+			for _, el := range x.Elts {
+				if kv, ok := el.(*ast.KeyValueExpr); ok {
+					if k, ok := kv.Key.(*ast.Ident); ok && k.Name == "Image" {
+						fd.take(sf.dir, kv.Value)
+					}
+				}
+			}
+		case *ast.AssignStmt:
+			if !tc || len(x.Lhs) != len(x.Rhs) {
+				return true
+			}
+			for i, l := range x.Lhs {
+				if s, ok := l.(*ast.SelectorExpr); ok && s.Sel.Name == "Image" {
+					fd.take(sf.dir, x.Rhs[i])
+				}
+			}
+		}
+		return true
+	})
+}
+
+// derive — обход дерева и модулей своей организации; возвращает образы по порядку.
+func derive(tree, moddir string) []string {
+	fset := token.NewFileSet()
+	main := modulePath(filepath.Join(moddir, "go.mod"))
+	if main == "" {
+		failPrep("в %s нет go.mod с module", moddir)
+	}
+	org := strings.Join(strings.SplitN(main, "/", 3)[:2], "/") + "/"
+	roots := []root{{dir: tree}}
+	cmd := exec.Command("go", "list", "-m", "-f", "{{.Path}}\t{{.Dir}}\t{{.Main}}", "all")
+	cmd.Dir = moddir
+	cmd.Stderr = os.Stderr
+	lst, err := cmd.Output()
+	if err != nil {
+		failPrep("go list -m all не исполнился: %v", err)
+	}
+	nmod := 0
+	for _, l := range strings.Split(strings.TrimSpace(string(lst)), "\n") {
+		w := strings.Split(l, "\t")
+		if len(w) != 3 || w[2] == "true" || !strings.HasPrefix(w[0], org) {
+			continue
+		}
+		if w[1] == "" {
+			failPrep("модуль %s не загружен — его образы не вывести", w[0])
+		}
+		roots = append(roots, root{dir: w[1], mod: w[0]})
+		nmod++
+	}
+	var files []srcFile
+	bad := 0
+	for _, r := range roots {
+		if err := walk(r, &files, fset, &bad); err != nil {
+			failPrep("обход %s: %v", r.dir, err)
+		}
+	}
+	if len(files) == 0 {
+		failPrep("обход прочитал 0 файлов .go — дерево не то либо обход сломан")
+	}
+	imagePkgs := map[string]bool{}
+	ntc := 0
+	for _, sf := range files {
+		for _, ip := range sf.imports {
+			if strings.HasPrefix(ip, tcPrefix) {
+				imagePkgs[sf.pkg] = true
+				ntc++
+				break
+			}
+		}
+	}
+	fd := &finder{fset: fset, decls: map[string]map[string][]ast.Expr{}, images: map[string][]string{}}
+	byDir := map[string][]srcFile{}
+	for _, sf := range files {
+		hit := imagePkgs[sf.pkg]
+		for _, ip := range sf.imports {
+			hit = hit || imagePkgs[ip]
+		}
+		if hit {
+			byDir[sf.dir] = append(byDir[sf.dir], sf)
+		}
+	}
+	dirs := make([]string, 0, len(byDir))
+	for d := range byDir {
+		dirs = append(dirs, d)
+	}
+	sort.Strings(dirs)
+	for _, d := range dirs {
+		var parsed []*ast.File
+		for _, sf := range byDir[d] {
+			f, perr := parser.ParseFile(fset, sf.path, nil, 0)
+			if perr != nil {
+				failPrep("разбор %s: %v", sf.path, perr)
+			}
+			parsed = append(parsed, f)
+		}
+		fd.collectDecls(d, parsed)
+		for i, sf := range byDir[d] {
+			tc := false
+			for _, ip := range sf.imports {
+				tc = tc || strings.HasPrefix(ip, tcPrefix)
+			}
+			fd.scan(parsed[i], sf, tc, imagePkgs)
+		}
+	}
+	imgs := make([]string, 0, len(fd.images))
+	for s := range fd.images {
+		imgs = append(imgs, s)
+	}
+	sort.Strings(imgs)
+	say("обход: дерево (git ls-files) и модулей %s* %d — файлов .go %d (не разобрано %d), с импортом testcontainers %d; образов %d: %s; позиций образа без вывода %d%s",
+		org, nmod, len(files), bad, ntc, len(imgs), strings.Join(imgs, ", "), len(fd.unres), list(fd.unres))
+	return imgs
+}
+
+func list(a []string) string {
+	if len(a) == 0 {
+		return ""
+	}
+	return " (" + strings.Join(a, ", ") + ")"
+}
+
+type daemon struct {
+	cl *http.Client
+}
+
+func newDaemon(host string) *daemon {
+	sock := strings.TrimPrefix(host, "unix://")
+	if sock == host || sock == "" {
+		failPrep("DOCKER_HOST «%s» — не unix-сокет", host)
+	}
+	tr := &http.Transport{DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+		var d net.Dialer
+		return d.DialContext(ctx, "unix", sock)
+	}}
+	return &daemon{cl: &http.Client{Transport: tr}}
+}
+
+func (d *daemon) present(ref string) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "http://docker/images/"+ref+"/json", nil)
+	resp, err := d.cl.Do(req)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, resp.Body)
+	switch resp.StatusCode {
+	case http.StatusOK:
+		return true, nil
+	case http.StatusNotFound:
+		return false, nil
+	}
+	return false, fmt.Errorf("ответ %d", resp.StatusCode)
+}
+
+type progress struct {
+	Status   string `json:"status"`
+	ID       string `json:"id"`
+	Error    string `json:"error"`
+	Progress struct {
+		Current int64 `json:"current"`
+		Total   int64 `json:"total"`
+	} `json:"progressDetail"`
+	ErrorDetail struct {
+		Message string `json:"message"`
+	} `json:"errorDetail"`
+}
+
+// state — что видно о загрузке: последний слой, его статус и байты, последняя строка.
+type state struct {
+	layer, status string
+	cur, total    int64
+	bytes         map[string]int64
+	last          string
+}
+
+func (s *state) String() string {
+	var sum int64
+	for _, b := range s.bytes {
+		sum += b
+	}
+	l := s.last
+	if len(l) > 300 {
+		l = l[:300]
+	}
+	return fmt.Sprintf("слой %s «%s» %d/%d байт, скачано всего %d байт; последняя строка docker pull «%s»",
+		orDash(s.layer), s.status, s.cur, s.total, sum, l)
+}
+
+func orDash(s string) string {
+	if s == "" {
+		return "—"
+	}
+	return s
+}
+
+func absent(msg string) bool {
+	m := strings.ToLower(msg)
+	for _, w := range []string{"manifest unknown", "not found", "pull access denied", "repository does not exist"} {
+		if strings.Contains(m, w) {
+			return true
+		}
+	}
+	return false
+}
+
+const (
+	pullOK = iota
+	pullAbsent
+	pullStalled
+	pullFailed
+	pullLimit
+)
+
+// pullOnce — одна попытка: поток прогресса до конца, до ошибки, до застоя (stall без
+// нового байта либо статуса) или до предела (ctx).
+func (d *daemon) pullOnce(ctx context.Context, ref string, stall time.Duration, st *state) (int, string) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, "http://docker/images/create?fromImage="+url.QueryEscape(ref), nil)
+	type line struct {
+		b   string
+		err error
+	}
+	ch := make(chan line, 64)
+	go func() {
+		defer close(ch)
+		resp, err := d.cl.Do(req)
+		if err != nil {
+			ch <- line{err: err}
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			b, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+			ch <- line{err: fmt.Errorf("ответ %d: %s", resp.StatusCode, strings.TrimSpace(string(b)))}
+			return
+		}
+		sc := bufio.NewScanner(resp.Body)
+		sc.Buffer(make([]byte, 64*1024), 1024*1024)
+		for sc.Scan() {
+			ch <- line{b: sc.Text()}
+		}
+		if err := sc.Err(); err != nil {
+			ch <- line{err: err}
+		}
+	}()
+	t := time.NewTimer(stall)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return pullLimit, "предел"
+		case <-t.C:
+			cancel()
+			return pullStalled, fmt.Sprintf("нет движения %d с", int(stall/time.Second))
+		case ln, ok := <-ch:
+			if !ok {
+				return pullOK, ""
+			}
+			if ln.err != nil {
+				if ctx.Err() != nil {
+					return pullLimit, "предел"
+				}
+				if absent(ln.err.Error()) {
+					return pullAbsent, ln.err.Error()
+				}
+				return pullFailed, ln.err.Error()
+			}
+			var p progress
+			if json.Unmarshal([]byte(ln.b), &p) != nil {
+				continue
+			}
+			if p.Error != "" || p.ErrorDetail.Message != "" {
+				msg := p.ErrorDetail.Message
+				if msg == "" {
+					msg = p.Error
+				}
+				st.last = ln.b
+				if absent(msg) {
+					return pullAbsent, msg
+				}
+				return pullFailed, msg
+			}
+			moved := ln.b != st.last
+			st.last = ln.b
+			if p.ID != "" && p.Status != "" && !strings.HasPrefix(p.Status, "Pulling from") {
+				st.layer, st.status = p.ID, p.Status
+				st.cur, st.total = p.Progress.Current, p.Progress.Total
+				if p.Status == "Downloading" {
+					st.bytes[p.ID] = p.Progress.Current
+				}
+			}
+			if moved {
+				if !t.Stop() {
+					select {
+					case <-t.C:
+					default:
+					}
+				}
+				t.Reset(stall)
+			}
+		}
+	}
+}
+
+func main() {
+	tree := flag.String("tree", "", "корень дерева ревизии")
+	moddir := flag.String("moddir", "", "каталог go.mod прогона")
+	failf := flag.String("fail", "", "файл причины отказа загрузки")
+	deriveOnly := flag.Bool("derive", false, "только вывести перечень (строкой на образ в stdout)")
+	flag.Parse()
+	failPath = *failf
+	limit := envSec("HEAVY_PULL_LIMIT_S", 600)
+	stall := envSec("HEAVY_PULL_STALL_S", 60)
+	tries := int(envSec("HEAVY_PULL_TRIES", 3) / time.Second)
+	if *tree == "" || *moddir == "" || (*failf == "" && !*deriveOnly) {
+		failPrep("вызов: -tree, -moddir и -fail обязательны")
+	}
+	t0 := time.Now()
+	imgs := derive(*tree, *moddir)
+	if *deriveOnly {
+		for _, s := range imgs {
+			fmt.Println(s)
+		}
+		return
+	}
+	if len(imgs) == 0 {
+		say("загружать нечего — образов в позициях testcontainers не выведено")
+		return
+	}
+	d := newDaemon(os.Getenv("DOCKER_HOST"))
+	deadline := t0.Add(limit)
+	cached, loaded := 0, 0
+	for _, ref := range imgs {
+		ok, err := d.present(ref)
+		if err != nil {
+			failPrep("демон dind не ответил о %s: %v", ref, err)
+		}
+		if ok {
+			say("%s — в кеше dind, загрузка не нужна", ref)
+			cached++
+			continue
+		}
+		st := &state{bytes: map[string]int64{}}
+		i0 := time.Now()
+		res, why := pullLimit, "предел"
+		try := 0
+		for try < tries && time.Now().Before(deadline) {
+			try++
+			ctx, cancel := context.WithDeadline(context.Background(), deadline)
+			res, why = d.pullOnce(ctx, ref, stall, st)
+			cancel()
+			if res == pullOK || res == pullAbsent {
+				break
+			}
+			say("%s — попытка %d не удалась: %s — %s", ref, try, why, st)
+		}
+		switch {
+		case res == pullAbsent:
+			say("%s — в реестре нет (%s): не загружен, тест судит сам", ref, why)
+			continue
+		case res == pullOK:
+			if ok, err := d.present(ref); err != nil || !ok {
+				res, why = pullFailed, "поток кончился, а образа в кеше нет"
+			}
+		}
+		if res != pullOK {
+			msg := fmt.Sprintf("образ %s не загружен в dind за %d с (предел %d с, застой %d с, попыток %d): %s — %s",
+				ref, int(time.Since(t0)/time.Second), int(limit/time.Second), int(stall/time.Second), try, why, st)
+			_ = os.WriteFile(*failf, []byte(msg+"\n"), 0o644)
+			say("%s", msg)
+			os.Exit(3)
+		}
+		loaded++
+		say("%s — загружен за %.1f с (попытка %d)", ref, time.Since(i0).Seconds(), try)
+	}
+	say("готово за %.1f с: в кеше было %d, загружено %d", time.Since(t0).Seconds(), cached, loaded)
+}
+
+func envSec(k string, def int) time.Duration {
+	v := os.Getenv(k)
+	if v == "" {
+		return time.Duration(def) * time.Second
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n <= 0 {
+		failPrep("%s=«%s» — не целое положительное", k, v)
+	}
+	return time.Duration(n) * time.Second
+}
+TCWARM
+  printf 'module tcwarm\n\ngo 1.21\n' > /work/tcwarm/go.mod
+  ( cd /work/tcwarm && GOWORK=off GOFLAGS= go build -o /work/tcwarm/tcwarm . > /work/tcwarm/build.log 2>&1 \
+      || { echo "сборка шага не исполнилась: $(tail -n 1 /work/tcwarm/build.log)" > /work/tcwarm/fail; exit 4; }
+    exec /work/tcwarm/tcwarm -tree "$pwr" -moddir "${pwm%/go.mod}" -fail /work/tcwarm/fail ) &
+  pull_pid=$!
+  echo "remote-heavy: образы testcontainers — вывод и загрузка в dind идут фоном" >&2
+fi
+# pull-end
+PULL
+)"
+PULLWAIT_SH="$(cat <<'PULLW'
+# pullwait-begin
+if [ -n "${pull_pid:-}" ]; then
+  pw0=$(date +%s)
+  wait "$pull_pid"; prc=$?
+  case "$prc" in
+    0) echo "remote-heavy: образы testcontainers — готовы, ждал перед командой $(( $(date +%s) - pw0 )) с" >&2 ;;
+    3) echo "remote-heavy-pull: $(head -n 1 /work/tcwarm/fail 2>/dev/null)" | tee /dev/termination-log >&2; exit 125 ;;
+    *) pf "образы testcontainers: $(head -n 1 /work/tcwarm/fail 2>/dev/null) (шаг вышел кодом $prc)" ;;
+  esac
+fi
+# pullwait-end
+PULLW
+)"
 # ВИДИМОСТЬ ИНСТРУМЕНТОВ (ws#1207) — последним шагом подготовки, после всех установок:
 # всё исполняемое из /work/bin и /tools получает ссылку в /usr/local/bin — каталог
 # стандартного PATH образа. Подпроцесс, собравший окружение заново либо очистивший его,
@@ -1795,6 +2596,8 @@ EXPOSE
 )"
 PREP="$PREP
 $MODDL_SH"
+[ "$DIND" = 1 ] && PREP="$PREP
+$PULL_SH"
 [ "$PROFILE" = ci-local ] && PREP="$PREP
 $GITID_SH
 $HOOKS_SH"
@@ -1807,6 +2610,8 @@ $NPMCI_SH"
 $PGWAIT_SH"
 [ "$PROFILE" = ci-local ] && PREP="$PREP
 $FILEWAIT_SH"
+[ "$DIND" = 1 ] && PREP="$PREP
+$PULLWAIT_SH"
 PREP="$PREP
 $EXPOSE_SH"
 # КРАСНЫЕ ГРУППЫ (шапка) — команда с копией вывода, затем дайджест и доставка
@@ -2135,6 +2940,9 @@ if [ "$RUN_ST" != terminated ]; then
     say "результат команды не прочитан: pod ${POD:-нет}, фаза ${PHASE:-нет}, Job ${reason:-без условия} — не выполнилось"; exit 69
 fi
 [ -z "$USERNS" ] || userns_refused "$USERNS"
+if [[ "$RUN_MSG" == remote-heavy-pull:* ]]; then
+    say "образ testcontainers не загружен в dind до команды — ${RUN_MSG#remote-heavy-pull: } — команда не запускалась (не выполнилось)"; exit 75
+fi
 if [[ "$RUN_MSG" == "remote-heavy-prep: среда: "* ]]; then
     say "команда не запускалась — не выполнилось — среда: ${RUN_MSG#remote-heavy-prep: среда: }"; exit 69
 fi

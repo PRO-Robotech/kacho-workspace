@@ -45,6 +45,16 @@ INJECT = os.path.join(HERE, "inject.sh")
 
 # (id, проба, что портит, фрагмент, замена)
 MUTANTS = [
+    # ОБРАЗЫ TESTCONTAINERS (ws#1268): предел, застой и код вердикта загрузки.
+    ("pull-no-limit", "PW3", "загрузка образа без предела: попытка не ограничена сроком шага",
+     "ctx, cancel := context.WithDeadline(context.Background(), deadline)",
+     "ctx, cancel := context.WithCancel(context.Background())"),
+    ("pull-no-stall", "PW4", "застой загрузки не снимает попытку — повтор после зависания не наступает",
+     "case <-t.C:\n\t\t\tcancel()",
+     "case <-make(chan time.Time):\n\t\t\tcancel()"),
+    ("pull-code-69", "PW9", "отказ загрузки образа читается как 69, а не 75",
+     '''команда не запускалась (не выполнилось)"; exit 75''',
+     '''команда не запускалась (не выполнилось)"; exit 69'''),
     ("M12", "E7-badsum-node", "сумма архива node не проверяется",
      r'''| grep "  $f\$" | sha256sum -c --quiet -''',
      r'''| grep "  $f\$" >/dev/null'''),
