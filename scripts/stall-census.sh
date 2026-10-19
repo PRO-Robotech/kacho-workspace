@@ -364,6 +364,12 @@ def last_message(path):
         return t, 'tool', u.get('name', '?') + ': ' + ' '.join(str(what).split())[:160]
     if any(isinstance(c, dict) and c.get('type') == 'tool_result' for c in content):
         return t, 'result', 'ответ модели после результата инструмента'
+    # Прерывание харнесс пишет записью user с текстом «[Request interrupted …]» (строкой либо
+    # блоком text): подпись — прерывание, вид и пороги прежние (ws#1242, пункт 2).
+    raw = r['message'].get('content')
+    texts = [raw] if isinstance(raw, str) else [c.get('text', '') for c in content if isinstance(c, dict)]
+    if any(str(x).lstrip().startswith('[Request interrupted') for x in texts):
+        return t, 'result', 'прервано пользователем'
     return t, 'result', 'ответ модели на сообщение'
 
 
