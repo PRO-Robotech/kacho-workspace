@@ -235,6 +235,12 @@
 #     Это сеть pod до github.com и files.pythonhosted.org, а не до зеркала Debian: из
 #     них github.com pod и так зовёт для buf. Сеть pod остаётся предпосылкой подготовки
 #     (proxy.golang.org, сборка модулей), отказ — «remote-heavy-prep:», то есть 69.
+#   • file 5.45 (ws#1247) — лишь ci-local: его зовёт проба хука отправки
+#     prepush-added-files-inject (kacho, corelib), без него — «НЕ СУДИМО — нет file».
+#     Ни образ golang, ни postgres его не несут, статического выпуска нет: шаг FILE_SH
+#     собирает исходник выпуска (пин суммы; та же сумма у orig-архива Ubuntu 24.04 —
+#     второй адрес) ФОНОМ под прочую подготовку, FILEWAIT_SH перед видимостью ждёт его
+#     и судит ИСПОЛНЕНИЕМ: `file -b` настоящего ELF образа начинается с «ELF».
 #   • ВИДИМОСТЬ БЕЗ ОКРУЖЕНИЯ (ws#1207, регрессия ws#1188): пробы и хук зовут
 #     подпроцессы с окружением, собранным заново, и переменные подготовки до них не
 #     доходят. Поэтому PyYAML лежит в site-packages самого интерпретатора, а не в
@@ -1505,8 +1511,64 @@ echo "remote-heavy: инструменты без пакетного менед�
 # pkgs-end
 PKGS
 )"
+# file (ws#1247) — сборка из исходника выпуска ФОНОМ и ПЕРВЫМ шагом установок (ей нужны лишь
+# curl, tar и компилятор образа): настройка и сборка идут ~20 с
+# (замер 2026-10-19: configure 12,5 с, make -j4 и install 4,5 с), и шаг их не ждёт —
+# их ждёт FILEWAIT_SH перед видимостью. Версия — 5.45, как у ранера ubuntu-24.04;
+# сумма — подписанного архива выпуска (ключ 71112AB16CB33B3A), она же у orig-архива
+# Ubuntu (второй адрес). Каталог сборки — свой: шаги среды снимают /work/dl целиком.
+# shellcheck disable=SC2016  # раскрывается в pod, не здесь
+FILE_SH="$(cat <<'FILEB'
+# file-begin
+fpid=""
+if command -v file >/dev/null 2>&1; then
+  echo "remote-heavy: file уже в образе — $(file --version 2>&1 | head -n 1)" >&2
+else
+  echo "remote-heavy: собираю file 5.45 из исходника выпуска (фоном, под прочую подготовку)" >&2
+  mkdir -p /work/filebuild /work/file /work/bin || pf "каталог сборки file не создан"
+  (
+    cd /work/filebuild || exit 1
+    got=""
+    for u in https://astron.com/pub/file/file-5.45.tar.gz https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/file/1:5.45-3build1/file_5.45.orig.tar.gz; do
+      curl -fsSL --retry 2 --retry-all-errors --retry-delay 3 --connect-timeout 10 --max-time 120 -o src.tgz "$u" || { echo "file: $u не скачан"; continue; }
+      echo "fc97f51029bb0e2c9f4e3bffefdaf678f0e039ee872b9de5c002a6d09c784d82  src.tgz" | sha256sum -c --quiet - && { got="$u"; break; }
+      echo "file: сумма архива $u не сходится с пином"
+    done
+    [ -n "$got" ] || { echo "file: архив выпуска 5.45 с пином суммы не получен ни с одного адреса"; exit 1; }
+    tar -xzf src.tgz --strip-components=1 || { echo "file: архив не распакован"; exit 1; }
+    ./configure --quiet --prefix=/work/file --bindir=/work/bin --disable-shared --enable-static \
+      --disable-zlib --disable-bzlib --disable-xzlib --disable-zstdlib --disable-lzlib --disable-libseccomp \
+      || { echo "file: configure не исполнился"; exit 1; }
+    make -s -j4 || { echo "file: сборка не исполнилась"; exit 1; }
+    make -s install || { echo "file: установка не исполнилась"; exit 1; }
+  ) > /work/filebuild.log 2>&1 &
+  fpid=$!
+fi
+# file-end
+FILEB
+)"
+[ "$PROFILE" = ci-local ] && PREP="$PREP
+$FILE_SH"
 [ "$PROFILE" = lint ] || PREP="$PREP
 $PKGS_SH"
+# Ожидание сборки file и сверка ИСПОЛНЕНИЕМ — перед видимостью: бинарь, не узнающий
+# настоящий ELF образа, — отказ подготовки (69), а не «НЕ СУДИМО» пробы через полчаса.
+# shellcheck disable=SC2016  # раскрывается в pod, не здесь
+FILEWAIT_SH="$(cat <<'FILEW'
+# filewait-begin
+fw0=$(date +%s)
+if [ -n "$fpid" ]; then
+  wait "$fpid" || pf "file 5.45 не поставлен — $(tail -n 1 /work/filebuild.log 2>/dev/null)"
+  rm -rf /work/filebuild
+fi
+command -v file >/dev/null 2>&1 || pf "file нет в PATH после сборки"
+fe="$(type -P true)"; fe="$(readlink -f "$fe")"
+fk="$(file -b "$fe" 2>&1)"
+case "$fk" in ELF*) ;; *) pf "file не узнаёт ELF образа ($fe): «$fk»" ;; esac
+echo "remote-heavy: file — $(file --version 2>&1 | head -n 1), ждал сборку $(( $(date +%s) - fw0 )) с" >&2
+# filewait-end
+FILEW
+)"
 # Ожидание клиента postgres — ПОСЛЕДНИМ шагом перед командой, чтобы холодный pull образа
 # шёл под скачивание модулей, helm, node и buf. Срок — HEAVY_PG_WAIT_S (1500 с):
 # кончился — отказ подготовки, а не команда без psql. Исполнением его судит inject.sh.
@@ -1741,6 +1803,8 @@ $TOOLS_SH"
 $NPMCI_SH"
 [ "$PROFILE" = lint ] || PREP="$PREP
 $PGWAIT_SH"
+[ "$PROFILE" = ci-local ] && PREP="$PREP
+$FILEWAIT_SH"
 PREP="$PREP
 $EXPOSE_SH"
 # КРАСНЫЕ ГРУППЫ (шапка) — команда с копией вывода, затем дайджест и доставка

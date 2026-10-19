@@ -62,7 +62,7 @@ assert() {
 # прогона сняты: страж читает их из своего окружения, а оно — HOOKENV.
 run() {
     python3 -c 'import json,sys; print(json.dumps({"tool_name":sys.argv[3],"tool_input":{"command":sys.argv[1]},"cwd":sys.argv[2]}))' \
-        "$1" "${2:-$WORK}" "$TOOL" | env -u GOFLAGS -u MAKEFLAGS "${HOOKENV[@]}" CLAUDE_PROJECT_DIR=/ws bash "$HOOK" > "$WORK/out" 2>&1
+        "$1" "${2:-$WORK}" "$TOOL" | env -u GOFLAGS -u MAKEFLAGS "${HOOKENV[@]}" CLAUDE_PROJECT_DIR=/ws bash "${HOOK_RUN:-$HOOK}" > "$WORK/out" 2>&1
     echo $?
 }
 
@@ -307,6 +307,144 @@ knob   HEAVY_SLOT_WAIT_S=60     'HEAVY_SLOT_WAIT_S=60 HEAVY_SLOT_POLL_S=5 /ws/sc
 knob   HEAVY_SLOT_LIMIT_GIB=1   'HEAVY_SLOT_LIMIT_GIB=1 HEAVY_SLOT_WAIT_S=99999 /ws/scripts/heavy-slot.sh docker -- true'
 knob   HEAVY_SLOT_LIMIT_GIB=40  'HEAVY_SLOT_LIMIT_GIB=40 /ws/scripts/heavy-slot.sh docker -- true'
 passes 'FOO=1 /ws/scripts/heavy-slot.sh docker -- true'
+
+echo "── синтаксическая проверка — не исполнение (ws#1247): noexec — пропуск, близнецы — прежний отказ"
+# Каждая форма судится ДВАЖДЫ: стражем (на месте @H@ — `go test -race ./...`) и настоящей
+# оболочкой (на месте @H@ — запись метки): отказ обязан быть формой, которая ИСПОЛНЯЕТ
+# тело, пропуск — формой, которая его НЕ исполняет. Так причина отказа («тяжёлая
+# команда») подтверждена исполнением, а не догадкой стража. Оболочка оракула — без
+# управляющего терминала (setsid) и с HOME прогона: интерактивная (`-i`) читает ~/.bashrc
+# и берёт терминал, а вердикт не должен зависеть от машины.
+NX="$WORK/nx"; NXO="$WORK/nxo"; NXS=(); command -v setsid > /dev/null && NXS=(setsid -w)
+mkdir -p "$NX/scripts" "$NX/tmp" "$NXO/scripts" "$NXO/tmp"
+printf 'go test -race ./...\n' > "$NX/heavy.sh"; : > "$NX/scripts/ci-local.sh"
+printf 'bash scripts/ci-local.sh go\n' > "$NX/tmp/land-3261.sh"
+printf 'touch "%s/ran"\n' "$NXO" | tee "$NXO/heavy.sh" "$NXO/scripts/ci-local.sh" > "$NXO/tmp/land-3261.sh"
+chmod +x "$NX/scripts/ci-local.sh" "$NXO/scripts/ci-local.sh"
+# nx_ran <форма> — исполнила ли настоящая оболочка тело формы: да | нет
+nx_ran() {
+    rm -f "$NXO/ran"
+    (cd "$NXO" && HOME="$NXO" timeout 20 "${NXS[@]}" bash -c "${1//@H@/touch $NXO/ran}") > /dev/null 2>&1 < /dev/null
+    if [ -e "$NXO/ran" ]; then echo да; else echo нет; fi
+}
+# nx <пропуск|класс> <форма> — страж и настоящая оболочка над одной формой
+nx() {
+    local o="${2//@H@/touch $NXO/ran}"
+    if [ "$1" = пропуск ]; then passes "${2//@H@/go test -race ./...}" "$NX"; else denies "$1" "${2//@H@/go test -race ./...}" "$NX"; fi
+    assert "$([ "$1" = пропуск ] && echo нет || echo да)" "$(nx_ran "$2")" "оболочка: тело $([ "$1" = пропуск ] && echo НЕ )исполнено — $(printf '%s' "$o" | tr '\n' ' ')"
+}
+# nx_cons <класс> <форма> — отказ КОНСЕРВАТИВЕН: страж не полагается на поведение версии
+# оболочки, которое man называет иначе; исход оракула печатается, но не утверждается
+nx_cons() {
+    denies "$1" "${2//@H@/go test -race ./...}" "$NX"
+    echo "         оракул здесь: тело исполнено — $(nx_ran "$2"); отказ консервативен"
+}
+nx go-race   'bash heavy.sh'
+nx пропуск   'bash -n heavy.sh'
+nx пропуск   'sh -n heavy.sh'
+nx пропуск   'bash -nx heavy.sh'
+nx пропуск   'bash -xn heavy.sh'
+nx пропуск   'bash -n -x heavy.sh'
+nx пропуск   'bash -o noexec heavy.sh'
+nx пропуск   'bash -n scripts/ci-local.sh'
+nx пропуск   'bash -n -c "@H@"'
+nx пропуск   'bash -nc "@H@"'
+nx пропуск   "bash -c 'set -n; @H@'"
+nx пропуск   "sh -c 'set -n; @H@'"
+nx пропуск   "bash -c 'set -e; set -o noexec; @H@'"
+nx пропуск   "bash -n <<'EOF'
+@H@
+EOF"
+nx пропуск   "bash -c 'set -n
+@H@'"
+echo "   близнецы «почти совпадение» — прежний отказ"
+nx go-race   'bash heavy.sh -n'
+nx ci-local  './scripts/ci-local.sh -n'
+nx go-race   'bash -n +n heavy.sh'
+nx go-race   'bash -o noexec +o noexec heavy.sh'
+nx go-race   "bash -c '@H@; set -n'"
+nx go-race   "bash -c 'set -n | cat; @H@'"
+nx go-race   "bash -c 'set -n & @H@'"
+nx go-race   "bash -c '(set -n); @H@'"
+nx go-race   "bash -c 'set -- -n; @H@'"
+nx go-race   "bash -c 'set +n; @H@'"
+nx go-race   'bash -n heavy.sh; bash heavy.sh'
+nx go-race   "bash <<'EOF'
+set -x
+@H@
+EOF"
+echo "   интерактивная оболочка (-i в любой связке) noexec не соблюдает — отказ"
+nx go-race   "bash -ic 'set -n; @H@'"
+nx go-race   "bash -xi -c 'set -n; @H@'"
+nx go-race   "bash -i -c 'set -o noexec; @H@'"
+nx go-race   "bash -ic 'set -e; set -o noexec; @H@'"
+nx go-race   "bash -i <<'EOF'
+set -n
+@H@
+EOF"
+nx go-race   "bash -is <<'EOF'
+set -o noexec
+@H@
+EOF"
+echo "   -n флагом при -i: bash 5.3 соблюдает, man bash — «игнорируется интерактивной»"
+nx_cons go-race "bash -ni -c '@H@'"
+nx_cons go-race 'bash -n -i heavy.sh'
+nx_cons go-race "bash -i -n <<'EOF'
+@H@
+EOF"
+nx_cons go-race "bash -i +i -c 'set -n; @H@'"
+echo "   близнецы без -i — пропуск (значение опции с буквой i — не -i)"
+nx пропуск   "bash -x -c 'set -n; @H@'"
+nx пропуск   "bash -o pipefail -c 'set -n; @H@'"
+nx пропуск   "bash <<'EOF'
+set -n
+@H@
+EOF"
+echo "   живые формы исполнителей (журналы сессий, 2026-10)"
+nx ci-local  "/bin/bash -c '. tmp/land-3261.sh' ; echo syn=\$?"
+nx пропуск   "/bin/bash -c 'set -n; . tmp/land-3261.sh' ; echo syn=\$?"
+nx пропуск   'bash -n tmp/land-3261.sh; echo rc=$?'
+nx пропуск   'for f in heavy.sh tmp/land-3261.sh; do bash -n "$f" || echo "SYNTAX $f"; done'
+# Мутанты: порча стража по одному решению — каждую обязан поймать свой случай выше.
+# Порча — точная замена фрагмента копии guard.py (фрагмент ровно один, иначе мутант
+# устарел и не построен); убита, если страж с порчей вышел не тем кодом, что без неё.
+nx_mut() {
+    local id="$1" form="$2" want="$3" md="$WORK/mut-$1" rc
+    mkdir -p "$md/heavy-guard"; cp "$HOOK" "$md/heavy-guard.sh"
+    if ! python3 -c '
+import sys
+s = open(sys.argv[1], encoding="utf-8").read()
+if s.count(sys.argv[3]) != 1:
+    sys.exit(1)
+open(sys.argv[2], "w", encoding="utf-8").write(s.replace(sys.argv[3], sys.argv[4]))' "$GUARD" "$md/heavy-guard/guard.py" "$4" "$5"; then
+        assert "построен" "не построен" "мутант $id: фрагмент порчи в guard.py не единствен"; return
+    fi
+    rc="$(HOOK_RUN="$md/heavy-guard.sh" run "${form//@H@/go test -race ./...}" "$NX")"
+    assert "убит" "$([ "$rc" != "$want" ] && echo убит || echo выжил)" "мутант $id ($(printf '%s' "$form" | tr '\n' ' ')): с порчей код $rc, без неё $want"
+}
+nx_mut n-past-script 'bash heavy.sh -n' 2 \
+    $'            k += 1 + j\n            continue\n        break\n    return on' \
+    $'            k += 1 + j\n            continue\n        k += 1\n    return on'
+nx_mut plus-ignored 'bash -n +n heavy.sh' 2 \
+    $'                if ch == "n":\n                    on = a[0] == "-"' \
+    $'                if ch == "n":\n                    on = True'
+nx_mut set-anywhere "bash -c '@H@; set -n'" 2 'm = SET_HEAD.match(t)' 'm = SET_HEAD.search(t)'
+nx_mut set-pipe "bash -c 'set -n | cat; @H@'" 2 '(;|&&|\|\||\n|$)")' '(;|&&|\|\||\||&|\n|$)")'
+nx_mut cluster-exact 'bash -nx heavy.sh' 0 '                if ch == "n":' '                if ch == "n" and a in ("-n", "+n"):'
+nx_mut heredoc-blind "bash -n <<'EOF'
+@H@
+EOF" 0 '                if shell_interactive(argv[1:]) or not (shell_noexec(argv[1:]) or set_noexec_first(body)):' '                if True:'
+nx_mut interactive-ignored "bash -ic 'set -n; @H@'" 2 \
+    $'        if a[0] == "-" and "i" in a[1:]:\n            return True' \
+    $'        if False:\n            return True'
+nx_mut interactive-argv "bash -i -c 'set -o noexec; @H@'" 2 \
+    '        noexec = not shell_interactive(args)' '        noexec = True'
+nx_mut interactive-heredoc "bash -i <<'EOF'
+set -n
+@H@
+EOF" 2 'if shell_interactive(argv[1:]) or not (' 'if not ('
+nx_mut interactive-flag-n "bash -ni -c '@H@'" 2 \
+    '        if noexec and shell_noexec(args):' '        if shell_noexec(args):'
 
 echo "── git push: тяжёл там, где pre-push клона зовёт ci-local (признак — дерево)"
 mkdir -p "$WORK/prod/.git" "$WORK/prod/scripts/hooks" "$WORK/ws/.git" "$WORK/ws/scripts/hooks"
