@@ -239,6 +239,13 @@ denies_commit "$CU" 'git -C tmp/kn-878-int commit -m x'
 denies_commit "$CU" 'pushd tmp/kn-878-int && git add -A'
 denies_commit "$CU" 'bash -c "cd tmp/kn-878-int && git commit -m x"'
 denies_commit "$CU" 'cd tmp/kn-878-int; timeout 30 git commit -m x'
+# ws#1242 п.0: значение `-c` не принимается за подкоманду; переменная с относительным
+# значением — относительный шаг, будь она из строки или из окружения вызова.
+denies_commit "$CU" 'git -c k=v -C tmp/kn-878-int commit -m x'
+denies_commit "$CU" 'X=tmp; cd $X/kn-878-int && git commit -m x'
+export GHG_REL=tmp
+denies_commit "$CU" 'cd "$GHG_REL/kn-878-int" && git commit -m x'
+unset GHG_REL
 CWD="$S/ws/tmp/kn-878-int"
 denies_commit "$CU" 'cd .. && git add -A'
 echo "== законные близнецы коммита — пропуск без слова"
@@ -249,6 +256,11 @@ passes "export K=$S/ws/tmp/kn-878-int; git -C \"\${K}\" commit -m x"
 passes "cd $S/ws && git -C tmp/kn-878-int commit -m x"
 passes "cd $S/ws/tmp/kn-878-int/internal && cd repo && git add -A"
 passes "git -C $S/br commit -m x"
+passes "git -c k=v -C $S/ws/tmp/kn-878-int commit -m x"
+passes "X=$S/ws/tmp; cd \$X/kn-878-int && git commit -m x"
+export GHG_ABS="$S/ws/tmp"
+passes 'cd "$GHG_ABS/kn-878-int" && git commit -m x'
+unset GHG_ABS
 passes "git -C $S/ws/tmp/kn-main commit -m x"
 passes 'cd tmp/kn-878-int && git status --short && git log -1'
 passes 'git -C tmp/kn-878-int diff --stat'
@@ -343,6 +355,16 @@ mutant "относительный шаг не судится"    '        if ho
 mutant "якорь не снимает относительность" '        if how in ("inherited", "rel"):' '        if True:' "cd $S/ws && git -C tmp/kn-878-int commit -m x"
 mutant "присваивание строки не читается" '        if self.assign(ws):' '        if False:' "K=$S/ws; cd \$K && git add -A"
 mutant "подстановка — относительный путь" '        if hg.SQ in w or "__SUBST__" in w:' '        if hg.SQ in w:' 'cd "$(git rev-parse --show-toplevel)" && git add -A'
+mutant "значение -c — подкоманда"         '            if a in GIT_VALUED:
+                i += 2' '            if a in GIT_VALUED:
+                i += 1' 'git -c k=v -C tmp/kn-878-int commit -m x'
+mutant "переменная с отн. значением — не вычислима" '        if os.path.isabs(path):
+            return os.path.normpath(path), "abs", rel
+        joined' '        if os.path.isabs(path):
+            return os.path.normpath(path), "abs", rel
+        if "$" in word:
+            return None, "unknown", rel
+        joined' 'X=tmp; cd $X/kn-878-int && git commit -m x'
 mutant "cwd входа не читается"           '    found = judge(cmd, data.get("agent_type"), data.get("cwd"))' '    found = judge(cmd, data.get("agent_type"), None)' 'git add -A'
 CWD=/tmp
 

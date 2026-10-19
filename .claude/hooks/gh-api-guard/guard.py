@@ -37,8 +37,10 @@ Bash был корнем воркспейса, и коммит лёг в main в
                     ОТНОСИТЕЛЬНЫМ шагом (`cd tmp/x`, `pushd ..`, `git -C tmp/x`) раньше
                     любого абсолютного: каталог вызова у сабагента сбрасывается, и
                     относительный путь разрешается не от копии. Абсолютный `cd` или
-                    `-C` (литерал либо переменная, присвоенная абсолютным путём в той же
-                    строке) — якорь, после него относительный шаг законен;
+                    `-C` (литерал либо переменная строки или окружения с абсолютным
+                    значением) — якорь, после него относительный шаг законен;
+                    переменная с относительным значением (`X=rel; cd $X/y`) — шаг
+                    относительный; значение `-c k=v` перед `-C` пропускается;
   commit-trunk    — `git add` / `git commit` в ОСНОВНОМ клоне (git-dir равен общему),
                     стоящем на `main`/`master`: ствол коммитом не пишется ни у кого —
                     работа в ветке своей копии под tmp/. Каталог вычисляется от поля
@@ -288,13 +290,13 @@ class Walker:
         if word in ("", "~") or word.startswith("~/"):
             home = os.environ.get("HOME", "")
             return os.path.normpath(home + word[1:]) if home else None, "abs", rel
-        path, had_var = self.value(word)
+        # Подставленная переменная (строки или окружения) судится как литерал её
+        # значения: относительный X в `cd $X/y` — тот же относительный шаг (ws#1242 п.0).
+        path, _ = self.value(word)
         if path is None:
             return None, "unknown", rel
         if os.path.isabs(path):
             return os.path.normpath(path), "abs", rel
-        if had_var:  # `$X/…` с относительным X — не путь из строки, а из окружения
-            return None, "unknown", rel
         joined = os.path.normpath(os.path.join(base, path)) if base else None
         if how in ("inherited", "rel"):
             return joined, "rel", rel or word
