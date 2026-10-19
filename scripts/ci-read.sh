@@ -120,13 +120,28 @@
 #            отброшен по (е1), а failure судится по (е2)). Без проверки того же имени
 #            из pull_request ничто не отбрасывается: skipped ручного — не success
 #            (обязательный контекст — REQUIRED-NOT-SUCCESS), failure — CI-FAILED.
+#   (ж) вытеснение в группе concurrency (ws#1216; урок kacho#3296 @5a586e18):
+#       RUN-DISPLACED — ПОСЛЕДНИЙ прогон процесса (workflow и событие, (а)) завершён
+#                       cancelled, и у его check_suite_id нет ни одного check-run:
+#                       задания процесса не исполнялись вовсе. Счёт «различных не
+#                       меньше EXPECT» это не видит — строки соседних процессов
+#                       закрывают нехватку (на 5a586e18 — 71 из 68, а три задания
+#                       production-posture не появились). Причина красная (1): вердикта
+#                       о заданиях процесса нет, нужен перезапуск. Не появившиеся имена
+#                       выводятся из файла workflow на голове (`contents/<path>?ref=`;
+#                       имя задания либо ключ, `${{ matrix.<k> }}` раскрывается по
+#                       литеральному списку без include/exclude) и печатаются в причине;
+#                       файл не прочитан или не разобран — причина та же, имена
+#                       заменены строкой «не выведены: <почему>». Прогон cancelled С
+#                       проверками судится по ним, как прежде.
 #
 # ИСХОДЫ — код возврата и строка VERDICT; при нескольких причинах побеждает
 # старшая в порядке 2 > 1 > 4 > 3 > 5 > 0, остальные напечатаны всё равно; ИСКЛЮЧЕНИЕ
 # (ws#1110, владелец 2026-10-16): красное при идущих заданиях — 3, а не 1: ожидание не
 # прерывается на первом красном, VERDICT называет число уже красных:
 #   0 green    — полный набор, всё завершено, обязательные success, база свежая;
-#   1 red      — CI-FAILED, REQUIRED-NOT-SUCCESS, REQUIRED-MISSING (перепись имён), всё завершено;
+#   1 red      — CI-FAILED, REQUIRED-NOT-SUCCESS, REQUIRED-MISSING (перепись имён),
+#                RUN-DISPLACED, всё завершено;
 #   2 unread   — VOID: площадка не ответила, ответ не разбирается, пары нет в
 #                ведомости, лимит площадки ниже 100 (REASON RATE-LIMIT со временем
 #                сброса, lib/gh-rate.sh). Это НЕ «зелёное» и НЕ «красное»;
@@ -145,6 +160,9 @@
 #                      условного чтения; пробы дают свой);
 #   CI_READ_GH_CONDITIONAL=1 — подставной gh знает `-i` и If-None-Match (двойник
 #                      scripts/ci-read-fixtures/gh-twin.sh); без него — чтение без условия.
+#   CI_READ_REQUIRED_OUT — файл, куда пишется набор обязательных контекстов базы
+#                      (защита и наборы правил, по строке на имя; пустой — ноль
+#                      прочитан), которым судится (б); берёт merge-readiness.sh.
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -402,6 +420,46 @@ printf 'CENSUS\tпроверок на голове: различных %s (check
 R="$W/reasons"; : > "$R"
 reason() { printf 'REASON\t%s\t%s\n' "$1" "$2" >> "$R"; }
 
+# (ж) последний прогон процесса cancelled без единого check-run своего check_suite —
+# вытеснен в группе concurrency (ws#1216). Имена — из файла workflow на голове.
+displaced_names() {  # <path> — имена заданий, не появившихся на голове, либо «не выведены: …»
+    local path="$1"
+    apic "repos/$REPO/contents/$path?ref=$HEAD_SHA" > "$W/wf.json" 2>/dev/null \
+        || { printf 'не выведены: файл %s на голове не прочитан (%s)' "$path" "$(apierr)"; return; }
+    jq -r '.content // empty' "$W/wf.json" | base64 -d > "$W/wf.yml" 2>/dev/null \
+        || { printf 'не выведены: файл %s не декодирован' "$path"; return; }
+    jq -r '.[].name' "$W/all.json" > "$W/present.txt"
+    python3 - "$W/wf.yml" "$W/present.txt" <<'PY' 2>/dev/null || printf 'не выведены: файл %s не разобран (python3-yaml)' "$path"
+import re, sys, yaml
+jobs = (yaml.safe_load(open(sys.argv[1], encoding="utf-8")) or {}).get("jobs")
+if not isinstance(jobs, dict) or not jobs:
+    print("не выведены: в файле нет jobs", end=""); sys.exit(0)
+present = set(open(sys.argv[2], encoding="utf-8").read().splitlines())
+names = []
+for key, job in jobs.items():
+    job = job if isinstance(job, dict) else {}
+    name = str(job.get("name") or key)
+    mx = (job.get("strategy") or {}).get("matrix")
+    keys = re.findall(r"\$\{\{\s*matrix\.([A-Za-z0-9_-]+)\s*\}\}", name)
+    if keys and isinstance(mx, dict) and not ({"include", "exclude"} & set(mx)) \
+            and all(isinstance(mx.get(k), list) for k in keys):
+        out = [name]
+        for k in dict.fromkeys(keys):
+            out = [re.sub(r"\$\{\{\s*matrix\." + re.escape(k) + r"\s*\}\}", str(v), o) for o in out for v in mx[k]]
+        names += out
+    else:
+        names.append(name)
+missing = [n for n in names if n not in present]
+print(f"не появились {len(missing)} из {len(names)}: " + "; ".join(missing) if missing else f"все {len(names)} имён заданий есть на голове от других процессов", end="")
+PY
+}
+jq -c --slurpfile cr "$W/cr.json" '([$cr[0][].check_runs[] | .check_suite.id // empty]) as $have
+    | [.latest[] | select(.status == "completed" and .conclusion == "cancelled"
+        and (.check_suite_id as $s | $have | index($s) | not))]' "$W/runsel.json" > "$W/displaced.json"
+while IFS=$'\t' read -r dn dp de did ds; do
+    reason RUN-DISPLACED "$dn ($dp, $de, run $did, check_suite $ds): cancelled без единой проверки — вытеснен в группе concurrency, задания не исполнялись; $(displaced_names "$dp"); перезапустить процесс"
+done < <(jq -r '.[] | "\(.name)\t\(.path // "?")\t\(.event)\t\(.id)\t\(.check_suite_id)"' "$W/displaced.json")
+
 while IFS= read -r n; do reason CI-PENDING "не завершена: $n"; done < <(jq -r '.[]|select(.done|not)|.name' "$W/all.json")
 while IFS=$'\t' read -r n c; do reason CI-FAILED "$c: $n"; done < <(jq -r --argjson f "$FAILSET" '.[]|select(.done and (.c as $c | $f | index($c)))|"\(.name)\t\(.c)"' "$W/all.json")
 OTHER="$(jq -r --argjson f "$FAILSET" '[.[]|select(.done and .c!="success" and .c!="draft-guard" and (.c as $c | $f | index($c) | not))|"\(.name) (\(.c))"]|join("; ")' "$W/all.json")"
@@ -409,8 +467,8 @@ OTHER="$(jq -r --argjson f "$FAILSET" '[.[]|select(.done and .c!="success" and .
 RUNS="$(jq '[.[].workflow_runs[]]|length' "$W/runs.json")"
 while IFS= read -r n; do reason RUNS-PENDING "workflow run не завершён: $n"; done < <(jq -r '.latest[]|select(.status!="completed")|"\(.name) (\(.status), run \(.id))"' "$W/runsel.json")
 SUPN="$(jq '.superseded|length' "$W/runsel.json")"
-printf 'CENSUS\tworkflow runs на голове: %s; последних по workflow и событию %s, вытеснено %s; из последних не завершено %s\n' \
-    "$RUNS" "$(jq '.latest|length' "$W/runsel.json")" "$SUPN" "$(jq '[.latest[]|select(.status!="completed")]|length' "$W/runsel.json")"
+printf 'CENSUS\tworkflow runs на голове: %s; последних по workflow и событию %s, вытеснено %s; из последних не завершено %s, cancelled без проверок %s\n' \
+    "$RUNS" "$(jq '.latest|length' "$W/runsel.json")" "$SUPN" "$(jq '[.latest[]|select(.status!="completed")]|length' "$W/runsel.json")" "$(jq length "$W/displaced.json")"
 [ "$SUPN" -eq 0 ] || printf 'CENSUS\tвытесненные прогоны (не судятся): %s\n' "$(jq -r '[.superseded[]|"\(.name) run \(.id) (\(.status)/\(.conclusion // "-"))"]|join("; ")' "$W/runsel.json")"
 if [ "$DRAFT" = true ]; then
     EXEC="$(jq '[.[]|select(.done and .c!="skipped" and .c!="draft-guard")]|length' "$W/all.json")"
@@ -443,6 +501,12 @@ else
 fi
 sort -u -o "$W/req.txt" "$W/req.txt"
 REQN="$(grep -c . "$W/req.txt")"
+# Набор, которым судится (б), — вызывающему (merge-readiness.sh, путь базы без
+# контекстов; ws#1215): пустой набор, прочитанный из защиты и наборов правил, —
+# установленный ноль, а не «не получено». Пишется до правки черновика.
+if [ -n "${CI_READ_REQUIRED_OUT:-}" ]; then
+    cp "$W/req.txt" "$CI_READ_REQUIRED_OUT" || void "набор обязательных не записан в $CI_READ_REQUIRED_OUT"
+fi
 # неполный набор — тоже «ещё идёт»: недостающий обязательный контекст мог не стартовать
 PENDING_ANY="$(grep -cP '^REASON\t(CI-PENDING|RUNS-PENDING|CHECKS-INCOMPLETE)\t' "$R")"
 [ "$DRAFT" != true ] || : > "$W/req.txt"   # черновик: обязательные не судятся (см. (г))
@@ -477,7 +541,7 @@ PEND='CI-PENDING|RUNS-PENDING|CHECKS-INCOMPLETE'
 # красном, пока идут задания (владелец 2026-10-16, ai-tooling.md#at-red-ci-one-round) —
 # перепись корней снимается с ЗАВЕРШЁННОГО набора, иначе круг чинит часть красноты;
 # DRAFT-GUARD-PENDING красного не держит: страж не вынесен при завершённых заданиях
-REDN="$(grep -cP '^REASON\t(CI-FAILED|REQUIRED-NOT-SUCCESS|REQUIRED-MISSING)\t' "$R")"
+REDN="$(grep -cP '^REASON\t(CI-FAILED|REQUIRED-NOT-SUCCESS|REQUIRED-MISSING|RUN-DISPLACED)\t' "$R")"
 if [ "$REDN" -gt 0 ] && ! has "$PEND"; then code=1; v=red
 elif has 'BASE-STALE'; then code=4; v=stale
 elif has "$PEND|DRAFT-GUARD-PENDING"; then code=3; v=running

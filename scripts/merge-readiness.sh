@@ -640,7 +640,16 @@ if [ "${own_count:-0}" -eq 0 ]; then
   if [[ "$expect" =~ ^[1-9][0-9]*$ ]]; then
     [ -r "$here/ci-read.sh" ] || { echo "merge-readiness: ci-read.sh рядом нет ($here) — вердикта нет (рецепт — шапка, «ЗАПУСК»)" >&2; exit 2; }
     own_why="ветка не защищена"; [ "$own_state" = protected ] && own_why="защита есть, обязательных контекстов ноль"
-    cr_out=$(bash "$here/ci-read.sh" "$REPO" "$PR" 2>&1) && cr_rc=0 || cr_rc=$?
+    # Набор обязательных на этом пути выводит ci-read (защита и наборы правил базы):
+    # он и судит (б). Вызывающему — тем же файлом и с основанием рядом (ws#1215):
+    # пустой набор с основанием — установленный ноль, без основания — «не получен».
+    rm -f "$workdir/ci-required"
+    cr_out=$(CI_READ_REQUIRED_OUT="$workdir/ci-required" bash "$here/ci-read.sh" "$REPO" "$PR" 2>&1) && cr_rc=0 || cr_rc=$?
+    if [ -n "${MERGE_READINESS_REQUIRED_OUT:-}" ] && [ -f "$workdir/ci-required" ]; then
+      { cp "$workdir/ci-required" "$MERGE_READINESS_REQUIRED_OUT" \
+          && printf 'ci-read: защита и наборы правил базы %s, строка ведомости %s\n' "$base" "$expect" > "$MERGE_READINESS_REQUIRED_OUT.basis"; } || {
+        echo "merge-readiness: набор обязательных не записан в $MERGE_READINESS_REQUIRED_OUT" >&2; exit 2; }
+    fi
     echo "merge-readiness: $REPO#$PR → $base"
     echo "  источник вердикта: ci-read.sh — строка ведомости $REPO / $base ($expect), набор ствола не судит ($own_why)"
     printf '%s\n' "$cr_out" | grep -E '^(REASON|VERDICT|VOID)'$'\t' | sed 's/^/    /'
@@ -698,9 +707,11 @@ fi
 # обязателен для ЭТОГО PR (база или ствол для ветки линии), решает только этот
 # скрипт — второй копии выбора нет. Имя за строкой; файла нет — набор не выведен
 # (ранний выход, путь ручного прогона воркспейса), и вызывающий обязан считать
-# `skipped` незелёным.
+# `skipped` незелёным. Рядом — `<файл>.basis`, откуда набор: только с ним пустой
+# набор — установленный ноль (путь базы без контекстов выше отдаёт набор ci-read).
 if [ -n "${MERGE_READINESS_REQUIRED_OUT:-}" ]; then
-  printf '%s\n' "$required" > "$MERGE_READINESS_REQUIRED_OUT" || {
+  { printf '%s\n' "$required" > "$MERGE_READINESS_REQUIRED_OUT" \
+      && printf 'защита %s: обязательных контекстов %s\n' "$set_branch" "$req_count" > "$MERGE_READINESS_REQUIRED_OUT.basis"; } || {
     echo "merge-readiness: набор обязательных не записан в $MERGE_READINESS_REQUIRED_OUT" >&2; exit 2; }
 fi
 

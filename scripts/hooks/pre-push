@@ -138,13 +138,56 @@ fi
 # shellcheck source=scripts/hooks/branch-name-rule.sh
 . "$hooks_dir/branch-name-rule.sh"
 
+# ── НОМЕР — ЗАДАЧА ЭТОГО РЕПОЗИТОРИЯ (ws#1214) ──────────────────────────────
+# Форма имени не говорит, ЧЕЙ номер: `3274-reg-pub-narrow` (3274 — задача kacho)
+# прошла хук воркспейса кодом 0 (ws#1164, ws#1166, ws#1214). При СОЗДАНИИ ветки
+# `<N>-<суть>` номер спрашивается у трекера репозитория отправки
+# (`gh api repos/<владелец>/<имя>/issues/<N>`): задачи нет (404) либо номер —
+# запрос на слияние — отказ «заведи задачу в этом репозитории». Ответ не получен —
+# тоже отказ («не проверено»): судить нечем, а созданная ветка публична.
+# Репозиторий — из адреса удалённого (второй довод хука); адрес не GitHub либо его
+# нет (ручной вызов, песочницы проб с удалённым-каталогом) — принадлежность не
+# судится, и хук говорит это строкой. Дописывание существующей ветки не судится.
+# Подмена для проб: PREPUSH_GH (вместо gh), PREPUSH_REPO (вместо адреса).
+# Держит check-18 (подменный gh, без сети).
+task_repo="${PREPUSH_REPO:-}"
+if [ -z "$task_repo" ] && [[ "${2:-}" =~ github\.com[:/]([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)$ ]]; then
+    task_repo="${BASH_REMATCH[1]%.git}"
+fi
+task_owner_reason() {  # <N> — пусто: задача этого репозитория; иначе причина отказа
+    local n="$1" out rc
+    out="$("${PREPUSH_GH:-gh}" api "repos/$task_repo/issues/$n" --jq '"\(.number) \(.pull_request != null)"' 2>&1)" && rc=0 || rc=$?
+    if [ "$rc" -eq 0 ]; then
+        case "$out" in
+            "$n false") return 0 ;;
+            "$n true") echo "#$n в $task_repo — запрос на слияние, а не задача; заведи задачу в этом репозитории" ;;
+            *) echo "ответ трекера о #$n не разобран («$(head -c 120 <<< "$out")») — принадлежность не проверена" ;;
+        esac
+    elif grep -q 'HTTP 404' <<< "$out"; then
+        echo "задачи #$n в $task_repo нет — номер другого репозитория? заведи задачу в этом репозитории"
+    else
+        echo "трекер $task_repo не ответил о #$n (код $rc: $(head -c 160 <<< "$out" | tr '\n' ' ')) — принадлежность не проверена"
+    fi
+}
+
 zero_sha="0000000000000000000000000000000000000000"
 bad_names=()
+foreign=()
 while read -r _local_ref local_sha remote_ref remote_sha; do
     case "${remote_ref:-}" in refs/heads/*) ;; *) continue ;; esac
     name="${remote_ref#refs/heads/}"
     [ "${local_sha:-}" = "$zero_sha" ] && continue
-    branch_name_lawful "$name" && continue
+    if branch_name_lawful "$name"; then
+        if [[ "$name" =~ ^([0-9]+)- ]] && { [ -z "${remote_sha:-}" ] || [ "$remote_sha" = "$zero_sha" ]; }; then
+            if [ -z "$task_repo" ]; then
+                echo "pre-push: принадлежность номера ветки «$name» не судится — удалённый не GitHub («${2:-адреса нет}»)" >&2
+            else
+                why="$(task_owner_reason "${BASH_REMATCH[1]}")"
+                [ -z "$why" ] || foreign+=("$name — $why")
+            fi
+        fi
+        continue
+    fi
     if [ -n "${remote_sha:-}" ] && [ "$remote_sha" != "$zero_sha" ]; then
         echo "pre-push: ветка «$name» прежней формы уже есть на удалённом — дописывание пропущено; новую так не заводить" >&2
         continue
@@ -152,6 +195,12 @@ while read -r _local_ref local_sha remote_ref remote_sha; do
     bad_names+=("$name")
 done <<< "$push_input"
 
+if [ "${#foreign[@]}" -gt 0 ]; then
+    echo "pre-push: ОТКАЗ — номер ветки не задача репозитория $task_repo (git-issues.md gi-branch-name-form):" >&2
+    printf '  %s\n' "${foreign[@]}" >&2
+    echo "Заведи задачу здесь (gh issue create -R $task_repo), переименуй ветку под её номер и отправь заново." >&2
+    [ "${#bad_names[@]}" -gt 0 ] || exit 1
+fi
 if [ "${#bad_names[@]}" -gt 0 ]; then
     echo "pre-push: ОТКАЗ — имя ветки не по форме «<N>-<суффикс>» (git-issues.md §«Имя ветки»):" >&2
     for n in "${bad_names[@]}"; do
