@@ -117,6 +117,8 @@
 #             защиты | пустой без защиты | контекст набора правил   → 0, файл;
 #             наборы правил | защита (502, не «not protected») не
 #             прочитаны                                → 2 VOID, файла нет
+#   ведомость занижена (на голове 68, записано 67)        → 0 green + LEDGER-STALE;
+#             близнецы: 68 при 68 и черновик — строки LEDGER-STALE нет
 #   живая ведомость: запрос в main каждого ствола (kacho, kaname,
 #             corelib, kacho-workspace) — строка есть             → 0 green
 #   живая ведомость: запрос в базу КАЖДОЙ строки (стволы и эпики,
@@ -186,6 +188,7 @@
 #   protection-read-tolerated — то же для отказа чтения защиты не вида «not protected»;
 #   no-rule-e           — (е) снято целиком (прежняя форма «последний по имени»);
 #   expect-compare-dropped — сверка числа снята: CHECKS-INCOMPLETE не выносится (ws#1097);
+#   ledger-stale-dropped — строка LEDGER-STALE не печатается: занижение снова молчит (ws#1244);
 #   rate-limit-dropped  — проверка лимита до чтения снята (урок 2026-10-16, ws#1110);
 #   both-forms-checkrun-wins — у имени с обеими формами судится первая запись, красное
 #                         и незавершённое не побеждают (прежняя форма слияния, ws#1113);
@@ -277,7 +280,9 @@ if [ -f "$C/reqout" ]; then
     rm -f "$O.req"
 fi
 pat="$(cat "$C/pat")"
-if [ "$code" -eq "$(cat "$C/code")" ] && { [ -z "$pat" ] || grep -qP "$pat" <<<"$out"; } && grep -qP "^VERDICT\t" <<<"$out"; then
+# nopat — строка, которой в выводе быть НЕ должно (близнец сигнала, ws#1244 L4)
+if [ "$code" -eq "$(cat "$C/code")" ] && { [ -z "$pat" ] || grep -qP "$pat" <<<"$out"; } && grep -qP "^VERDICT\t" <<<"$out" \
+    && { [ ! -f "$C/nopat" ] || ! grep -qP "$(cat "$C/nopat")" <<<"$out"; }; then
     printf 'OK\t%s\n' "$code" > "$O"
 else
     { printf 'FAIL\t%s\n' "$code"; tail -8 <<<"$out"; } > "$O"
@@ -312,6 +317,15 @@ one_concl() {
 
 say "== контроль"
 mk; run "полный зелёный, база свежая" 0 '^VERDICT\tgreen\t.*проверок 68 из 68'
+
+say "== ведомость занижена — сигнал LEDGER-STALE, вердикт тот же (ws#1244 L4)"
+# 2026-10-18: kaname/main записано 19 при 27 на голове, kacho/main — 68 при 74. Занижение молчало:
+# голова с 20 из 27 читалась полной. Различных проверок на голове БОЛЬШЕ записанного — строка
+# ведомости устарела; вердикт о голове не меняется (полна), сигнал — отдельной строкой.
+printf 'PRO-Robotech/kacho\t1266\t%s\tзанижено\n' "$((FX_N - 1))" > "$T/ledger.low.tsv"
+mk; run "68 при записанных 67: LEDGER-STALE с числом и строкой, зелёный" 0 "^LEDGER-STALE\tPRO-Robotech/kacho\t1266\tпроверок $FX_N при записанных $((FX_N - 1))" "$T/ledger.low.tsv"
+mk; run "близнец: 68 при записанных 68 — сигнала нет" 0 '^VERDICT\tgreen\t.*проверок 68 из 68'; printf '%s' '^LEDGER-STALE' > "$C/nopat"
+mk; edit pull.json '.draft = true'; run "близнец: черновик при занижении — полнота не судится, сигнала нет" 3 '' "$T/ledger.low.tsv"; printf '%s' '^LEDGER-STALE' > "$C/nopat"
 
 say "== неполно и идёт — 3"
 mk; edit check-runs.json '.check_runs |= (group_by(.name) | map(.[0]) | .[0:30])'
@@ -727,6 +741,7 @@ drop-any-conclusion	/\.drop = (\$pr and/s/ and \.ev != null and \.ev != "pull_re
 drop-failure-too	/\.drop = (\$pr and/s/IN("skipped", "neutral", "success")/IN("skipped", "neutral", "success", "failure")/
 red-not-first	/if (\$red | length) > 0/s/if (\$red | length) > 0/if false/
 null-suite-ignored	/map(\.ev = \$ev\[/s/map(\.ev = /map(select(.check_suite != null) | .ev = /
+ledger-stale-dropped	/^    printf 'LEDGER-STALE/s/^    printf /    : printf /
 expect-compare-dropped	/then reason CHECKS-INCOMPLETE/s/\[ "$NAMES" -lt "$EXPECT" \]/false/
 red-wins-while-running	/^if \[ "$REDN" -gt 0 \] \&\& ! has/s/ \&\& ! has "$PEND"//
 rate-limit-dropped	/^if ! RL="$(gh_rate_short/s/if ! RL=/if false \&\& ! RL=/

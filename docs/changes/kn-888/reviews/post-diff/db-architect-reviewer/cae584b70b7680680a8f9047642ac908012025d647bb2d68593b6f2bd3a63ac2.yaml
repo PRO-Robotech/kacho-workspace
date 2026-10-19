@@ -1,0 +1,60 @@
+# Пост-дифф ревью схемы и repo-SQL — роль db-architect-reviewer, круг сведения.
+# Запись не правится: вердикт привязан к отпечатку (change-graph §2).
+schema_version: 1
+change_id: kn-888
+holder: post-diff/db-architect-reviewer
+owner: db-architect-reviewer
+mode: review
+subject: >-
+  kaname#888 — чтения выдач по субъекту (ListBySubject, фильтр subject у List,
+  фильтр вида у ListByAccount, ListSubjectPrivileges, ListAccountsForUser)
+  спрашивают и одиночную пару строки выдачи, и набор access_binding_subjects.
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: "888"
+  base: 892853c457efb6362f2eed315a4a6502d8b34293   # origin/746
+  head: d343b87939bfd7646daf3c75e22a14c3e988fab6
+  files_touched: 3
+content_digest: sha256:cae584b70b7680680a8f9047642ac908012025d647bb2d68593b6f2bd3a63ac2
+digest_command: git diff --full-index origin/746...HEAD | sha256sum
+verdict: returned
+migrations_touched: 0
+repo_sql_touched: 2   # access_binding_repo.go, user_repo.go
+evidence:
+  - "все SQL-правки — чтения без FOR UPDATE: замков и порядка их взятия изменение не трогает; подзапросы ARRAY(...) без ссылок наружу — один снимок оператора"
+  - "одна строка на выдачу: предикат — дизъюнкция над той же строкой access_bindings, а не соединение; курсор (created_at, id) остаётся верным; UNION в ListAccountsForUser снимает дубли"
+  - "столбцы области набора (resource_type, resource_id) держит триггер access_binding_subjects_carries_scope_trg (0001_initial.sql:5101) — сужение набора областью аккаунта равносильно сужению выдачи"
+  - "неквалифицированные resource_type/resource_id в accountScopePredicate внутри подзапроса набора разрешаются в столбцы access_binding_subjects, id/account_id — в projects; связи с внешней строкой нет"
+  - "ListBySubject, ListSubjectPrivileges, ListAccountsForUser: набор читается префиксом access_binding_subjects_subject_scope_idx (subject_type, subject_id[, resource_type]) — индексно"
+  - "via_group_id: коррелированный подзапрос по access_binding_subjects_binding_ordinal_idx (binding_id, ordinal)"
+  - "цифры EXPLAIN ANALYZE (8,1/6,0/1,2 мс; 0,17/9,7 мс) — со слов автора в комментариях; мной не перепрогнаны"
+concurrent_probe: >-
+  не требуется: изменение не вводит инварианта (CAS, UNIQUE, EXCLUDE, SKIP LOCKED);
+  пробы чтений — access_binding_second_subject_reads_integration_test.go, пять функций
+findings:
+  - id: DB-888-1
+    severity: blocking
+    class: deferral-without-carrier (запрет #11) + полный обход набора на публичном фильтре
+    where: internal/repo/kaname/pg/access_binding_repo.go:216 и :241-244
+    statement: >-
+      Фильтр subject у List (публичный ListAccessBindings, handler.go:320) читает
+      access_binding_subjects целиком на каждый запрос: у индексов набора нет
+      ведущего subject_id, и рост — по субъектам всех арендаторов. Цена названа
+      числом, но снятие отложено фразой «предмет миграции» без носителя.
+      Второе место (:241-244, фильтр вида ListByAccount) ограничено областью
+      аккаунта, отложено той же фразой.
+    removal_predicate: >-
+      (а) чтение по subject без полного обхода набора: EXPLAIN на фикстуре автора
+      не содержит Seq Scan по access_binding_subjects. Варианты: закрытый набор
+      видов из access_binding_subjects_type_ck через `s.subject_type = ANY(...)`
+      по существующему subject_scope_idx (без миграции, план замерить), либо новая
+      миграция с индексом по subject_id (гейт миграций — приёмка);
+      либо (б) обе строки называют открытую задачу kaname#N с причиной и
+      предикатом снятия.
+    return_to: исполнитель полосы kaname#888
+  - id: DB-888-2
+    severity: note
+    statement: >-
+      Ветвь пары нужна ради выдачи без строк набора («легаси»); в новых пробах
+      такой выдачи нет — покрытие ветви пары другими пробами мной не проверено.
+distributed_overlap: false

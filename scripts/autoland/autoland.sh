@@ -19,7 +19,8 @@
 #                     [--timeout <с | Nm | Nh>] [--poll <с>] [--void-limit <N>]
 #       — проверяет доводы, отсоединяет демон (setsid, новый сеанс) и СРАЗУ печатает
 #         строки «pid», «журнал», «state»; код 0 — демон запущен, 2 — довод не тот,
-#         3 — этот PR уже ведёт другой демон (замок).
+#         3 — этот PR уже ведёт другой демон (замок), 4 — копия демона старше ствола
+#         либо это не установлено (ниже «КОПИЯ ДЕМОНА»), демон не запущен.
 #   autoland.sh status <файл .state>
 #       — печатает исход; код: 0 merged · 1 red · 2 void или демон умер · 3 идёт ·
 #         4 stale-base · 5 head-moved · 6 timeout.
@@ -37,7 +38,10 @@
 #
 # ЧТО ДЕЛАЕТ — по кругу, пока не наступит исход или предел:
 #   1. запрос (`gh api repos/<репо>/pulls/<N>`, GET): закрыт без вливания — red
-#      PR-NOT-OPEN; влит этой головой — merged; голова ≠ --head — head-moved;
+#      PR-NOT-OPEN; влит этой головой — merged; голова ≠ --head — head-moved; до ПЕРВОГО
+#      совпадения в пределах AUTOLAND_HEAD_SYNC с от старта (по умолчанию 30) — повтор
+#      чтения раз в AUTOLAND_HEAD_SYNC_POLL с (3): сразу после push площадка ещё отдаёт
+#      прежнюю голову (урок c33f9e84, ws#1227); после совпадения расхождение — сразу;
 #   2. CI — `ci-read.sh <репо> <N> --head <sha> --from-state`: ответ из снимка демона
 #      состояния ws#1113 (scripts/ci-state/ci-stated.py) без вызовов gh, иначе ci-read
 #      читает живьём сам. 0 — дальше; 1 — red; 4 — stale-base; 3 (идёт) и 5 (черновик,
@@ -63,7 +67,9 @@
 #      (воркспейс и project/*, чей origin — этот репозиторий) — fetch --prune; ветка
 #      снимается, только если её голова РАВНА влитой либо её предок, а влитая — предок
 #      origin/<база>; копия (worktree) — `git worktree remove` лишь при пустом
-#      `status --porcelain`; origin — `--delete-branch`, оставшуюся — `git push origin
+#      `status --porcelain` и без процессов в ней: cwd либо открытый файл внутри копии (/proc,
+#      свои процессы учётки) — копия и ветка остаются, в .state «оставлено: процессы <pid…>»
+#      (ws#1244: снята копия, где шли 6 процессов integration); origin — `--delete-branch`, оставшуюся — `git push origin
 #      --delete` под замком interim; перепись `branch-audit.sh` до и после — в журнал;
 #   7. догон основного клона (ws#1200): запрос в `main` репозитория, чей origin у
 #      основного клона воркспейса (каталог, чей `.git` = `git rev-parse --git-common-dir`),
@@ -72,6 +78,13 @@
 #      исполнители берут $WS/scripts оттуда. Отказ ff (пересечение с локальной правкой —
 #      перечнем файлов, свои коммиты, выписана не main) — строкой в журнал и в исход
 #      merged, ошибкой вливания не считается; ни stash, ни reset.
+# КОПИЯ ДЕМОНА (ws#1228). Демон исполняет копию скрипта, снятую при start из дерева, где
+# скрипт лежит. 2026-10-18 основной клон 8 ч стоял до ws#1200, и все демоны тех часов
+# исполняли копию без догона клона — механизм не сработал ни разу, даже на вливании себя.
+# Поэтому start сверяет дерево скрипта со стволом: `main-clone-lag.sh --own <дерево> --
+# scripts/autoland/ scripts/main-clone-lag.sh`; отставание либо «не установлено» — код 4
+# с N и командой догона, демон не запущен. Отказ, а не копия из origin/main: start и демон
+# одной версии, и правка в копии судится своей же пробой (inject.sh, сцена start-stale).
 # Гейты — рецептом «ЗАПУСК» шапки landing-precheck.sh, вырезанным по меткам из
 # origin/main воркспейса (тем же способом, что у шаблона волны): каталог scripts/ —
 # целиком из origin/main, не из рабочей копии; сбой подготовки — код 2.
@@ -99,6 +112,8 @@
 #   AUTOLAND_GATES   — каталог с ci-read.sh, merge-readiness.sh, landing-precheck.sh,
 #                      branch-audit.sh вместо рецепта «ЗАПУСК» из origin/main;
 #   AUTOLAND_WS      — воркспейс (по умолчанию — основной клон того, где лежит скрипт);
+#   AUTOLAND_TOOLING_TREE — дерево, чья выписка сверяется со стволом при start (по
+#                      умолчанию — каталог скрипта); AUTOLAND_LAG — main-clone-lag.sh;
 #   AUTOLAND_DIR     — каталог .state, журналов и замков (по умолчанию $WS/tmp/autoland);
 #   AUTOLAND_CLONES  — клоны для снятия через «:» (заданная пустой — ни одного);
 #   AUTOLAND_GATE_TIMEOUT — предел одного гейта, с (по умолчанию 900);
@@ -110,6 +125,7 @@ set -uo pipefail
 SELF="$(readlink -f "${BASH_SOURCE[0]}")"
 GH="${AUTOLAND_GH:-gh}"
 GATE_TIMEOUT="${AUTOLAND_GATE_TIMEOUT:-900}"
+HEAD_SYNC="${AUTOLAND_HEAD_SYNC:-30}"; HEAD_SYNC_POLL="${AUTOLAND_HEAD_SYNC_POLL:-3}"
 FF_FETCH_TIMEOUT="${AUTOLAND_FF_FETCH_TIMEOUT:-8}"
 INTERIM_LOCK="${AUTOLAND_INTERIM_LOCK:-$HOME/.cache/heavy-slots/interim.lock}"
 
@@ -172,6 +188,8 @@ parse_args() {
     [[ "$POLL" =~ ^[0-9]+$ ]] && [ "$POLL" -ge 1 ] && [ "$POLL" -le 290 ] \
         || die "--poll «$POLL» не от 1 до 290 с"
     [[ "$VOID_LIMIT" =~ ^[0-9]+$ ]] && [ "$VOID_LIMIT" -ge 1 ] || die "--void-limit «$VOID_LIMIT» не число ≥ 1"
+    [[ "$HEAD_SYNC" =~ ^[0-9]+$ ]] && [[ "$HEAD_SYNC_POLL" =~ ^[1-9][0-9]*$ ]] \
+        || die "AUTOLAND_HEAD_SYNC «$HEAD_SYNC» / AUTOLAND_HEAD_SYNC_POLL «$HEAD_SYNC_POLL» не секунды"
 }
 
 paths() {
@@ -207,6 +225,10 @@ if [ "${1:-}" = start ]; then
     command -v flock >/dev/null 2>&1 || die "нет flock"
     { mkdir -p "$RUN_DIR" && chmod 700 "$RUN_DIR"; } || die "каталог «$RUN_DIR» не заводится"
     flock -n "$LOCK" true || die "PR $REPO#$PR уже ведёт другой демон (замок $LOCK)" 3
+    lag_sh="${AUTOLAND_LAG:-$(dirname "$SELF")/../main-clone-lag.sh}"
+    [ -r "$lag_sh" ] || die "копия демона не сверена со стволом: $lag_sh нет — демон не запущен (ws#1228)" 4
+    lag="$(bash "$lag_sh" --own "${AUTOLAND_TOOLING_TREE:-$(dirname "$SELF")}" -- scripts/autoland/ scripts/main-clone-lag.sh 2>&1)" \
+        || die "копия демона старше ствола либо это не установлено — демон не запущен (ws#1228): ${lag#TOOLING-LAG: }" 4
     rm -f "$STATE" "$PIDF"
     # Демон исполняет СВОЮ копию: копия, откуда его запустили, может быть снята им же.
     cp "$SELF" "$RUN_DIR/$NAME.autoland.sh" || die "копия демона не легла в «$RUN_DIR»"
@@ -395,6 +417,8 @@ prune() {  # <ветка головы> <база>
             if [ "$wt" = "$(git -C "$c" rev-parse --show-toplevel 2>/dev/null)" ]; then
                 kept+=("$c: ветка $br выписана в основной копии клона"); dirty=1; continue
             fi
+            busy="$(wt_procs "$wt")"
+            if [ -n "$busy" ]; then kept+=("копия $wt: оставлено: процессы $busy"); dirty=1; continue; fi
             if [ -z "$(git -C "$wt" status --porcelain 2>/dev/null)" ] && git -C "$c" worktree remove "$wt" 2> "$W/wt.err"; then
                 removed+=("копия $wt")
             else kept+=("копия $wt: не пуста либо не снята — $(head -c 200 "$W/wt.err" 2>/dev/null | tr '\n' ' ')"); dirty=1; fi
@@ -407,6 +431,16 @@ prune() {  # <ветка головы> <база>
     PRUNE="снятие: снято ${#removed[@]}${removed[*]:+ (${removed[*]})}, оставлено ${#kept[@]}"
     [ "${#kept[@]}" -eq 0 ] || PRUNE="$PRUNE: $(printf '%s\n' "${kept[@]}" | join)"
     log "$PRUNE"
+}
+
+# wt_procs <копия> — pid процессов, чей cwd либо открытый файл — внутри копии (ws#1244), кроме
+# самого демона; чужие учётки /proc не отдают — их процессы не видны (граница).
+wt_procs() {
+    local d
+    d="$(cd "$1" 2>/dev/null && pwd -P)" || return 0
+    { find /proc/[0-9]*/cwd -maxdepth 0 \( -lname "$d" -o -lname "$d/*" \) 2>/dev/null
+      find /proc/[0-9]*/fd -mindepth 1 -maxdepth 1 \( -lname "$d" -o -lname "$d/*" \) 2>/dev/null
+    } | cut -d/ -f3 | grep -vxF -e "$$" -e "$BASHPID" | sort -un | tr '\n' ' ' | sed 's/ $//'
 }
 
 # ── догон основного клона воркспейса (ws#1200) ─────────────────────────────────
@@ -457,6 +491,7 @@ landed() {  # запрос влит — проверка родителя, сн�
 }
 
 LP_ARGS=()
+RUN_T0="$(date +%s)"; HEAD_SEEN=0
 [ -z "$REVIEWS" ] || LP_ARGS+=(--reviews "$REVIEWS")
 [ -z "$STAND_REPORT" ] || LP_ARGS+=(--stand-report "$STAND_REPORT" --stand-expect "$STAND_EXPECT")
 
@@ -468,7 +503,12 @@ while :; do
         landed "(влит не этим демоном)"
     fi
     [ "$PR_STATE" = open ] || finish red "запрос: REASON"$'\t'"PR-NOT-OPEN"$'\t'"состояние $PR_STATE без вливания"
+    if [ "$PR_HEAD" != "$HEAD" ] && [ "$HEAD_SEEN" = 0 ] && [ $(( $(date +%s) - RUN_T0 )) -lt "$HEAD_SYNC" ]; then
+        log "голова запроса на площадке ${PR_HEAD:0:12}, ожидалась ${HEAD:0:12}: площадка ещё не видит отправку — повтор через $HEAD_SYNC_POLL с (предел $HEAD_SYNC с от старта)"
+        sleep "$HEAD_SYNC_POLL"; continue
+    fi
     [ "$PR_HEAD" = "$HEAD" ] || finish head-moved "$HEAD $PR_HEAD"
+    HEAD_SEEN=1
 
     gate ci-read.sh "$REPO" "$PR" --head "$HEAD" --from-state
     case "$GATE_RC" in

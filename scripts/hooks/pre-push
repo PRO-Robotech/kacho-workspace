@@ -128,33 +128,15 @@ cd "$ROOT" || exit 1
 # почему с терминала он не читается); второе чтение stdin получило бы пустоту.
 # Держатель поведения — поведенческая проба
 # `scripts/tooling-gate/check-18-push-refuses-unlawful-branch-name.sh`.
-branch_name_lawful() {
-    local name="$1" re='^[0-9]+-[a-z0-9][a-z0-9-]*$'
-    case "$name" in
-        main | wip/* | tmp/*) return 0 ;;
-    esac
-    [[ "$name" =~ $re ]] || return 1
-    local suffix="${name#*-}"
-    [ "${#suffix}" -le 40 ]
-}
-
-branch_name_reason() {
-    local name="$1"
-    case "$name" in
-        issue-* | epic-* | ntf/* | release/*)
-            echo "прежняя форма «${name%%[-/]*}…» снята решением 2026-09-30" ;;
-        *)
-            if [[ "$name" =~ ^[0-9]+$ ]]; then
-                echo "голый номер — прежняя форма, заводить новую нельзя (существующие на удалённом дописываются до вливания); нужна суть задачи: $name-<суть>"
-            elif ! [[ "$name" =~ ^[0-9]+- ]]; then
-                echo "не начинается с номера задачи"
-            elif ! [[ "$name" =~ ^[0-9]+-[a-z0-9][a-z0-9-]*$ ]]; then
-                echo "суффикс не латиница kebab-case [a-z0-9-] либо начинается с дефиса"
-            else
-                echo "суффикс длиннее 40 символов"
-            fi ;;
-    esac
-}
+# Предикат имени — scripts/hooks/branch-name-rule.sh: его же зовёт предпроверка задания
+# (`lane-precheck.sh --premise`, вид branchname, ws#1226) ДО раздачи, и копии нет. Файла
+# нет рядом с хуком — ОТКАЗ: хук без предиката выпускал бы любое имя молча.
+if [ ! -f "$hooks_dir/branch-name-rule.sh" ]; then
+    echo "pre-push: ОТКАЗ — предиката имени ветки нет ($hooks_dir/branch-name-rule.sh): судить нечем, отправка остановлена." >&2
+    exit 1
+fi
+# shellcheck source=scripts/hooks/branch-name-rule.sh
+. "$hooks_dir/branch-name-rule.sh"
 
 # ── НОМЕР — ЗАДАЧА ЭТОГО РЕПОЗИТОРИЯ (ws#1214) ──────────────────────────────
 # Форма имени не говорит, ЧЕЙ номер: `3274-reg-pub-narrow` (3274 — задача kacho)

@@ -1,0 +1,58 @@
+# Пост-дифф ревью Go-кода — роль go-style-reviewer. Имя файла — content_digest;
+# запись не правится, сменился дайджест — новый файл (change-graph §2).
+schema_version: 1
+change_id: kn-898
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+run: 1
+subject: >-
+  kaname#898 — пробы сигналов internal/check (TestRunIntegration*) не зависят
+  от унаследованного игнора SIGHUP/SIGINT/SIGTERM родителя пробы.
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: "898"
+  worktree: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/kn-898
+  base: 892853c457efb6362f2eed315a4a6502d8b34293   # origin/746 = merge-base
+  head: 86972bae0f43fcf2d28a76416a0e3e2bc5e13fe0
+content_digest: sha256:772b65f34c5402206e33d3d49d2faf933575b604fa8d16e8b585d76b7a5214a3
+digest_command: >-
+  git -C /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/kn-898
+  diff --full-index origin/746...HEAD | sha256sum
+scope: >-
+  2 файла, +109 −4, только пробы (*_unix_test.go, //go:build unix); прод-код не
+  тронут (запрет #13 соблюдён). Рабочее дерево копии чисто.
+verdict: approved
+blocking: false
+fresh_deferral_markers: 0
+tests_in_same_pr: true
+critical: []
+important: []
+style_non_blocking:
+  - at: internal/check/run_integration_cleanup_unix_test.go:79
+    note: >-
+      Перечень сигналов задан дважды — константой "HUP,INT,TERM" и литералом
+      `trap '' HUP INT TERM` в argv (строка ~101); второй можно выводить из
+      первого, чтобы обёртка игнора и сброс не разошлись при правке.
+  - at: internal/check/run_integration_cleanup_unix_test.go:223
+    note: >-
+      Предпосылка исполнимости `env --default-signal` гоняется на каждом пути
+      каждой пробы и через exec.Command без ctx; уже есть ctx с пределом
+      строкой выше — exec.CommandContext(ctx, …), либо один раз на пакет.
+  - at: internal/check/run_integration_cleanup_unix_test.go:1
+    note: >-
+      //go:build unix включает darwin/BSD, где env без --default-signal: проба
+      там краснеет громко «НЕ ИСПОЛНЯЛАСЬ» (не молча) — приемлемо, отмечено.
+approved:
+  - Диспозиция сбрасывается к сценарию через exec-цепочку с тем же pid — сигнал
+    cmd.Process.Signal доходит до bash сценария (exec сохраняет pid).
+  - Отрицательный близнец (без сброса под игнором) доказывает, что обёртка
+    игнор действительно передаёт; положительный — что сброс его гасит.
+  - Комментарий о поведении среды Go (наследуемый SIG_IGN для HUP/INT
+    сохраняется после fork, ручки диспозиции в SysProcAttr нет) соответствует
+    реальности; комментарии по-русски, идентификаторы латиницей.
+  - argv клонирует общий срез reset — мутации разделяемого значения нет.
+  - Ожидание сценария под context.WithTimeout + WaitDelay; паники нет;
+    ошибки предпосылок отличены от находок («НЕ ИСПОЛНЯЛАСЬ»).
+security_comments_contradicting_code: []
+foundation_candidates: []
+not_declared: исход линтера и проб роль не объявляет (landing-reviewer, check-verifier).

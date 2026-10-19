@@ -52,7 +52,8 @@ denies() {
     rc="$(run "$2")"
     named="нет"; grep -qF -- "$1" "$WORK/out" && named="да"
     rule="нет"; grep -qF 'Правило «Не жди»' "$WORK/out" && rule="да"
-    fix="нет"; grep -qF "setsid env --default-signal=PIPE sh -c '<команда>; echo \$? > <журнал>.rc' > <журнал> 2>&1 & echo \$! > <pid-файл>" "$WORK/out" && ! grep -qF 'setsid nohup <команда>' "$WORK/out" && fix="да"
+    fix="нет"; grep -qF "setsid env --default-signal=PIPE sh -c '<команда>; echo \$? > <журнал>.rc' > <журнал> 2>&1 & echo \$! > <pid-файл>" "$WORK/out" && ! grep -qF 'setsid nohup <команда>' "$WORK/out" \
+        && grep -qF '/scripts/detach.sh start <каталог> -- <команда>' "$WORK/out" && fix="да"
     assert "2 да да да" "$rc $named $rule $fix" "отказ ($1): $(printf '%s' "$2" | tr '\n' ' ')"
     denied=$((denied + 1))
 }
@@ -180,6 +181,8 @@ passes $'cat > f.sh <<EOF\nwhile :; do sleep 1; done\nEOF'
 passes $'cat <<EOF | grep sleep\nwhile :; do sleep 1; done\nEOF'
 passes '/ws/scripts/heavy-slot.sh go-race -- go test -race ./...'
 passes '/ws/scripts/heavy-slot.sh --wait 300 go-race -- go test -race ./...'
+passes 'bash /ws/scripts/detach.sh start /ws/tmp/1225 -- bash /ws/scripts/heavy-slot.sh ci-local -- git push origin HEAD:refs/heads/1225-x'
+passes 'bash /ws/scripts/detach.sh status /ws/tmp/1225/a.rc'
 
 echo "== метка исключения — только ci-watcher, ≤ 9 мин, под timeout ≤ N·60"
 passes 'timeout 540 gh run watch 1 # no-wait-exempt ci-watcher 9m'
