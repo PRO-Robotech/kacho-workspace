@@ -32,6 +32,9 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOOL="$HERE/stand-report.sh"
 for t in jq python3; do command -v "$t" > /dev/null 2>&1 || { echo "stand-report-inject: VOID — нет $t" >&2; exit 2; }; done
 W="$(mktemp -d "${TMPDIR:-/tmp}/stand-report-inject.XXXXXX")" || exit 2
+# Правленые копии инструмента (мутанты, случаи со своей правкой) — рядом с НАСТОЯЩИМ судьёй
+# маршрута: stand-report.sh спрашивает heavy-slot.sh своего каталога (ws#1192).
+WM="$W/mut"; mkdir -p "$WM" && ln -s "$HERE/heavy-slot.sh" "$WM/heavy-slot.sh" || exit 2
 # shellcheck disable=SC2154
 trap '_rc=$?; rm -rf "$W" 2>/dev/null || rm -rf "$W" || echo "ПРЕДУПРЕЖДЕНИЕ: временный каталог $W не снят; код проверки $_rc сохранён" >&2; exit $_rc' EXIT
 # shellcheck source=lib/sandbox-git-home.sh
@@ -99,7 +102,8 @@ control() {
 LEDGER='["ci.yaml:unit-shard","ci.yaml:integration","e2e-newman.yml:shard","console-e2e.yml:probes","production-posture.yml:stand"]'
 expected() {  # expected [jq-правка] — ожидаемое контроля: дословная форма вывода `stand-report.sh expect` при ready
     jq -n --arg h "$H" --argjson l "$LEDGER" '{head: $h, repo: "PRO-Robotech/kacho", source: "affected", base: "origin/1266",
-      draft: "false", full: true, reason: "ready", ledger: $l, jobs: $l}' | jq "${1:-.}"
+      draft: "false", full: true, reason: "ready", ledger: $l, jobs: $l,
+      routes: ($l | map({key: ., value: {route: "external", why: "проба"}}) | from_entries)}' | jq "${1:-.}"
 }
 NC=0; pass=0; fail=0
 # kase <имя> <jq-правка контроля | -> [довод --of: jq-правка прежнего] — отчёт случая
@@ -118,8 +122,40 @@ ecase() {
     printf 'jobs:\n  stand: {}\n' > "$C/co/.github/workflows/production-posture.yml"
     printf 'jobs:\n  unit: {}\n  integration: {}\n' > "$C/co/.github/workflows/ci.yml"
     [ "$2" != PRO-Robotech/kacho ] || cp "$K/.github/scripts/affected.py" "$C/co/.github/scripts/" && { [ "$2" != PRO-Robotech/kacho ] || cp "$K/.github/ci-paths.json" "$C/co/.github/"; }
+    # Механизмы маршрута головы (ws#1192): kacho — стенд stand-ns (deploy/), kaname — скрипт
+    # контейнерных проб и стенд own, чей census спрашивает выбор пути (форма kaname#841).
+    if [ "$2" = PRO-Robotech/kacho ]; then
+        mkdir -p "$C/co/deploy/scripts"; printf 'stand-ns-run:\n\t@bash scripts/stand-ns.sh run "$(NS)"\n' > "$C/co/deploy/Makefile"
+        printf '#!/usr/bin/env bash\necho stand-ns "$@"\n' > "$C/co/deploy/scripts/stand-ns.sh"
+    fi
+    if [ "$2" = PRO-Robotech/kaname ]; then
+        printf 'jobs:\n  stand: {}\n' > "$C/co/.github/workflows/e2e-newman.yml"
+        printf '#!/usr/bin/env bash\necho integration\n' > "$C/co/.github/scripts/run-integration.sh"; chmod +x "$C/co/.github/scripts/run-integration.sh"
+        knmech route
+    fi
     sandbox_run git -C "$C/co" init -q && git -C "$C/co" remote add origin "git@github.com:$2.git"
 }
+# knmech route|local|dirty|hermetic — стенд own головы копии kaname: route — census отвечает выбором
+# пути (кубконфиг не читается → «недоступен», код 0), local — подкоманды census нет (стенд без
+# внешнего пути, форма ствола до kaname#841), dirty — census пишет в копию, hermetic — census
+# отвечает 0, лишь если проба не дала ему читаемого кубконфига и личного файла.
+knmech() {
+    local f="$C/co/.github/scripts/stand-own.sh"
+    case "$1" in
+        route|hermetic) printf '%s\n' '#!/usr/bin/env bash' 'case "${1:-}" in' \
+            '  census) if [ -n "${KANAME_STAND_KUBECONFIG:-}" ] && [ ! -r "$KANAME_STAND_KUBECONFIG" ] && [ ! -e "${XDG_CONFIG_HOME:-$HOME/.config}/kacho/remote-kubeconfig" ]; then' \
+            '            echo "внешний кластер недоступен (названный кубконфиг не читается) — переписывать нечего"; exit 0; fi' \
+            '          echo "проба механизма не герметична: кубконфиг читается" >&2; exit 3 ;;' \
+            '  *) echo "использование: $0 {up|down|census}" >&2; exit 2 ;;' 'esac' > "$f" ;;
+        local) printf '%s\n' '#!/usr/bin/env bash' 'case "${1:-}" in' '  up) exit 0 ;;' \
+            '  *) echo "использование: $0 {up|down}" >&2; exit 2 ;;' 'esac' > "$f" ;;
+        dirty) printf '%s\n' '#!/usr/bin/env bash' 'touch "$(dirname "$0")/../../probe-wrote"; exit 0' > "$f" ;;
+    esac
+    chmod +x "$f"
+}
+# routes <копия> — строки ROUTE вывода expect случая: «задание<TAB>метка» по строке.
+routes() { grep -P '^ROUTE\t' "$1/err" | cut -f2,3 | LC_ALL=C sort | tr '\n' ';'; }
+KNJOBS='["ci.yml:unit","ci.yml:integration","e2e-newman.yml:stand"]'
 # kecase <имя> <draft> <база-ветка> <путь правки> <ожидаемое JSON> — копия kacho: база —
 # origin/main и origin/1266, голова правит путь; ожидаемое сверено с детектором CI.
 kecase() {
@@ -131,19 +167,28 @@ kecase() {
     if [ "$det" = "$5" ]; then pass=$((pass + 1)); echo "  [OK]   паритет с --github-output: $1 — CI исполнит $det"
     else fail=$((fail + 1)); echo "  [FAIL] паритет с --github-output: $1 — детектор CI даёт «$det», а случай ждёт «$5»" >&2; fi
     want 0 "$det"
+    printf 'ci.yaml:integration\tвнешний кластер;ci.yaml:unit-shard\tвнешний кластер;console-e2e.yml:probes\tвнешний кластер;e2e-newman.yml:shard\tвнешний кластер;production-posture.yml:stand\tвнешний кластер;' > "$C/routes"
 }
 ecommit() { sandbox_run git -C "$C/co" add -A && sandbox_run git -C "$C/co" commit -qm c && git -C "$C/co" rev-parse HEAD > "$C/head"; }
 # want <код> <код причины | -> — ожидание случая; «-» — ни одной строки REASON
-want() { printf '%s' "$1" > "$C/code"; printf '%s' "$2" > "$C/want"; }
+want() { printf '%s' "$1" > "$C/code"; printf '%s' "$2" > "$C/want"; rm -f "$C/routes"; }
 judge() {  # judge <скрипт> <каталог случая> → 0 сошлось
     local c="$2" out code
     if [ -f "$c/expect" ]; then  # случай подкоманды expect: код и задания либо строка VOID
-        local eargs=(); [ ! -f "$c/args" ] || mapfile -t eargs < "$c/args"
-        out="$(bash "$1" expect --checkout "$c/co" --head "$(cat "$c/head")" "${eargs[@]}" 2>/dev/null)"; code=$?
-        printf '%s\n' "$out" > "$c/out.$(basename "$1")"
+        local eargs=() tool="$1"; [ ! -f "$c/args" ] || mapfile -t eargs < "$c/args"
+        # Случай со своей правкой инструмента (строка ведомости снята) судит её, мутант — нет.
+        [ ! -f "$c/tool" ] || [ "$1" != "$TOOL" ] || tool="$(cat "$c/tool")"
+        local envs=(); [ ! -f "$c/envs" ] || mapfile -t envs < "$c/envs"
+        out="$(env "${envs[@]}" bash "$tool" expect --checkout "$c/co" --head "$(cat "$c/head")" "${eargs[@]}" 2>"$c/err")"; code=$?
+        printf '%s\n' "$out" > "$c/out.$(basename "$1")"; sed 's/^/stderr: /' "$c/err" >> "$c/out.$(basename "$1")"
         [ "$code" = "$(cat "$c/code")" ] || return 1
-        if [ "$code" = 0 ]; then [ "$(jq -c .jobs <<< "$out" 2>/dev/null)" = "$(cat "$c/want")" ]
-        else grep -q "^VOID" <<< "$out"; fi
+        # ROUTE — строка на КАЖДОЕ задание ведомости с меткой маршрута (ws#1192).
+        [ ! -f "$c/routes" ] || [ "$(routes "$c")" = "$(cat "$c/routes")" ] || return 1
+        if [ "$code" = 0 ]; then
+            [ "$(jq -c .jobs <<< "$out" 2>/dev/null)" = "$(cat "$c/want")" ] || return 1
+            # маршрут каждого задания ожидаемого — внешний и в самом JSON (его судит check)
+            [ ! -f "$c/routes" ] || [ "$(jq -r '[.jobs[] as $j | .routes[$j].route] | unique | join(",")' <<< "$out" 2>/dev/null)" = "$(jq -r 'if length == 0 then "" else "external" end' <<< "$(cat "$c/want")")" ]
+        else grep -q "^VOID" <<< "$out" || return 1; [ ! -f "$c/voidre" ] || grep -qP "^VOID\t$(cat "$c/voidre")" <<< "$out"; fi
         return
     fi
     local extra; mapfile -t extra < "$c/args"
@@ -199,6 +244,9 @@ kase "ожидаемое без поля draft — не выбор ready" -; exp
 kase "близнец only-red: ожидаемое черновика не судится" '.mode = "only-red" | .planned = 1 | .suites = [.suites[2]]' '.suites[2] |= (.outcome = "red" | .quote = "q")'; want 0 -
 kase "ожидаемое от другой базы, чем у запроса" -; printf -- '--expect\n%s\n--pr-base\nmain\n' "$C/exp.json" > "$C/args"; want 1 STAND-EXPECT-BASE
 kase "близнец: база ожидаемого — база запроса" -; printf -- '--expect\n%s\n--pr-base\n1266\n' "$C/exp.json" > "$C/args"; want 0 -
+kase "ожидаемое без маршрута задания (ws#1192)" -; expected 'del(.routes["ci.yaml:integration"])' > "$C/exp.json"; want 1 'STAND-EXPECT-ROUTE(?=\tci\.yaml:integration: маршрут в ожидаемом — нет,)'
+kase "маршрут задания в ожидаемом не внешний" -; expected '.routes["e2e-newman.yml:shard"].route = "local"' > "$C/exp.json"; want 1 'STAND-EXPECT-ROUTE(?=\te2e-newman\.yml:shard: маршрут в ожидаемом — local,)'
+kase "близнец only-red: маршрут невыбранного задания не внешний — не судится" '.mode = "only-red" | .planned = 1 | .suites = [.suites[2]]' '.suites[2] |= (.outcome = "red" | .quote = "q")'; expected '.draft = "true" | .full = false | .jobs = ["e2e-newman.yml:shard"] | .routes["ci.yaml:integration"].route = "local"' > "$C/exp.json"; printf -- '--of\n%s\n--expect\n%s\n' "$C/prev.json" "$C/exp.json" > "$C/args"; want 0 -
 kase "полный прогон без --expect — VOID" -; : > "$C/args"; want 2 -
 kase "ожидаемое не формы expect — VOID" -; echo '{"jobs": "все"}' > "$C/exp.json"; want 2 -
 kase "зелёный исполнено больше, чем всего (D5)" '.suites[2].executed = 231'; want 1 STAND-REPORT-TRUNCATED
@@ -215,8 +263,34 @@ git -C "$C/co" update-ref refs/remotes/origin/1266 HEAD; want 2 -
 kecase "expect kacho: правка вне коммита в копии — VOID" false 1266 tests/newman/x.json "$LEDGER"; echo y > "$C/co/untracked.txt"; want 2 -
 ecase "expect kacho: задания ведомости нет в workflow головы — VOID" PRO-Robotech/kacho
 printf 'jobs:\n  shard-renamed: {}\n' > "$C/co/.github/workflows/e2e-newman.yml"; ecommit; printf -- '--base\norigin/main\n--draft\nfalse\n' > "$C/args"; want 2 -
-ecase "expect kaname: CI без выбора — все задания стенда" PRO-Robotech/kaname; printf 'jobs:\n  stand: {}\n' > "$C/co/.github/workflows/e2e-newman.yml"; ecommit
-want 0 '["ci.yml:unit","ci.yml:integration","e2e-newman.yml:stand"]'
+# МАРШРУТ (ws#1192). Ожидаемое называет маршрут КАЖДОГО задания ведомости строкой ROUTE и не
+# выводится (VOID до запуска), если у задания, которое голова обязана пройти, внешнего маршрута
+# нет. Судья маршрута — НАСТОЯЩИЙ heavy-slot.sh --route этого дерева; механизм стенда головы
+# спрашивается герметично. Каждый случай меняет один факт контроля «kaname: всё внешнее».
+KN3='ci.yml:integration	внешний кластер;ci.yml:unit	внешний кластер;e2e-newman.yml:stand	внешний кластер;'
+ecase "expect kaname: все задания с внешним маршрутом — код 0, ROUTE на каждое" PRO-Robotech/kaname; ecommit; want 0 "$KNJOBS"; printf '%s' "$KN3" > "$C/routes"
+ecase "expect kaname: стенд own головы без внешнего пути (census нет) — VOID, стенд локальный" PRO-Robotech/kaname; knmech local; ecommit; want 2 -
+printf '%s' "${KN3/stand	внешний кластер/stand	локальный}" > "$C/routes"; printf '%s' 'маршрута во внешний кластер нет[^\t]*e2e-newman\.yml:stand — локальный: [^\t]*census[^\t]*код 2' > "$C/voidre"
+ecase "expect kaname: стенда own в голове нет — VOID, стенд локальный" PRO-Robotech/kaname; rm "$C/co/.github/scripts/stand-own.sh"; ecommit; want 2 -
+printf '%s' "${KN3/stand	внешний кластер/stand	локальный}" > "$C/routes"; printf '%s' '[^\t]*e2e-newman\.yml:stand — локальный: [^\t]*stand-own\.sh[^\t]*в голове нет' > "$C/voidre"
+ecase "expect kaname: скрипта контейнерных проб в голове нет — VOID, интеграция «нет»" PRO-Robotech/kaname; rm "$C/co/.github/scripts/run-integration.sh"; ecommit; want 2 -
+printf '%s' "${KN3/integration	внешний кластер/integration	нет}" > "$C/routes"; printf '%s' '[^\t]*ci\.yml:integration — нет: [^\t]*не опознана как переносимая' > "$C/voidre"
+ecase "expect kaname: проба механизма стенда пишет в копию — VOID" PRO-Robotech/kaname; knmech dirty; ecommit; want 2 -; printf '%s' 'проба механизма стенда [^\t]*правила копию' > "$C/voidre"
+ecase "expect kaname: проба механизма герметична — читаемый кубконфиг и личный файл вызова до census не доходят" PRO-Robotech/kaname; knmech hermetic; ecommit; want 0 "$KNJOBS"; printf '%s' "$KN3" > "$C/routes"
+mkdir -p "$C/xdg/kacho"; echo "$C/kc.yaml" > "$C/xdg/kacho/remote-kubeconfig"; : > "$C/kc.yaml"
+printf '%s\n' "KANAME_STAND_KUBECONFIG=$C/kc.yaml" "XDG_CONFIG_HOME=$C/xdg" "KACHO_REMOTE_KUBECONFIG=$C/kc.yaml" > "$C/envs"
+ecase "expect kaname: строки маршрута у задания нет — VOID «нет»" PRO-Robotech/kaname; ecommit; want 2 -
+sed '/^    "ci\.yml:unit": \[/d' "$TOOL" > "$WM/norow.sh"; echo "$WM/norow.sh" > "$C/tool"
+printf '%s' "${KN3/unit	внешний кластер/unit	нет}" > "$C/routes"; printf '%s' '[^\t]*ci\.yml:unit — нет: [^\t]*STAND_ROUTE' > "$C/voidre"
+ecase "expect kaname: судья маршрута не ответил — VOID" PRO-Robotech/kaname; ecommit; want 2 -
+sed 's|^SLOT="\$HERE/heavy-slot\.sh"|SLOT="$HERE/heavy-slot-нет.sh"|' "$TOOL" > "$WM/noslot.sh"; echo "$WM/noslot.sh" > "$C/tool"
+printf '%s' 'heavy-slot\.sh --route [^\t]*не ответил' > "$C/voidre"
+ecase "expect kacho: ready, механизм stand-ns в голове — пять заданий, все внешние" PRO-Robotech/kacho; ecommit; printf -- '--base\norigin/main\n--draft\nfalse\n' > "$C/args"; want 0 "$LEDGER"
+KC5='ci.yaml:integration	внешний кластер;ci.yaml:unit-shard	внешний кластер;console-e2e.yml:probes	внешний кластер;e2e-newman.yml:shard	внешний кластер;production-posture.yml:stand	внешний кластер;'
+printf '%s' "$KC5" > "$C/routes"
+ecase "expect kacho: stand-ns в голове нет — VOID, три задания стенда локальные" PRO-Robotech/kacho; rm "$C/co/deploy/scripts/stand-ns.sh"; ecommit; printf -- '--base\norigin/main\n--draft\nfalse\n' > "$C/args"; want 2 -
+printf '%s' "$(sed 's/console-e2e.yml:probes	внешний кластер/console-e2e.yml:probes	локальный/; s/e2e-newman.yml:shard	внешний кластер/e2e-newman.yml:shard	локальный/; s/production-posture.yml:stand	внешний кластер/production-posture.yml:stand	локальный/' <<< "$KC5")" > "$C/routes"
+printf '%s' 'маршрута во внешний кластер нет[^\t]*e2e-newman\.yml:shard — локальный: [^\t]*stand-ns' > "$C/voidre"
 ecase "expect kacho-workspace: заданий на кластере нет — выведенный ноль" PRO-Robotech/kacho-workspace; ecommit; want 0 '[]'
 ecase "expect: репозиторий вне ведомости — VOID" PRO-Robotech/elsewhere; ecommit; want 2 -
 ecase "expect: копия не на голове — VOID" PRO-Robotech/kacho-workspace; ecommit; echo "$H" > "$C/head"; want 2 -
@@ -288,10 +362,13 @@ echo "== мутанты — каждый обязан покраснеть"
 killed=0; survived=0; void=0
 while IFS=$'\t' read -r name expr; do
     [ -n "$name" ] || continue
-    M="$W/m-$name.sh"; sed -e "$expr" "$TOOL" > "$M"
+    M="$WM/m-$name.sh"; sed -e "$expr" "$TOOL" > "$M"
     if cmp -s "$M" "$TOOL"; then void=$((void + 1)); echo "  MUTANT $name → RESULT VOID (правка не легла)"; continue; fi
-    red=0; for c in "$W"/c*; do judge "$M" "$c" || red=$((red + 1)); done
-    if [ "$red" -gt 0 ]; then killed=$((killed + 1)); echo "  MUTANT $name → RESULT KILLED (разошлось $red из $NC)"
+    # Мутант убит ПЕРВЫМ разошедшимся случаем: остальные случаи о нём уже ничего не добавят, а
+    # каждый случай expect зовёт судью маршрута (ws#1192) — полный перебор стоил минуты на мутант.
+    # Порядок заведения (дешёвые случаи check — первыми): мутант суда отчёта гибнет до случаев expect.
+    red=""; for i in $(seq 1 "$NC"); do c="$W/c$i"; judge "$M" "$c" || { red="$(cat "$c/name")"; break; }; done
+    if [ -n "$red" ]; then killed=$((killed + 1)); echo "  MUTANT $name → RESULT KILLED (случаем «$red»)"
     else survived=$((survived + 1)); echo "  MUTANT $name → RESULT SURVIVED"; fi
 done <<'MUT'
 stale-dropped	s/if d\['head'\] != head:/if False:/
@@ -349,6 +426,14 @@ carry-source-head-ignored	s/        if (src is None or src\['head'\] != r or/   
 carry-source-local-ok	s/                or not (str(src.get('context') or '').endswith('-client')/                or False and not (str(src.get('context') or '').endswith('-client')/
 carry-src-images-ignored	s/        if xi != head and base(xi,/        if False and base(xi,/
 images-rev-unjudged	s/    if img not in (None, head):/    if False:/
+route-void-ignored	s/^if bad:$/if False:/
+route-local-ok	s/    if j in want and route != 'external':/    if j in want and route == 'none':/
+route-slot-verdict-ignored	s/        route, rwhy = m.group(1), m.group(2)/        route, rwhy = 'external', m.group(2)/
+route-mech-not-asked	s/        if len(r) > 2 and route == 'local':/        if False:/
+route-mech-code-trusted	s/    if rc == 0:/    if True:/
+route-mech-dirty-ok	s/    if not clean():/    if False:/
+route-mech-env-inherited	s/        e = {'PATH': '\/usr\/local\/bin:\/usr\/bin:\/bin', 'HOME': tmp, 'XDG_CONFIG_HOME': tmp, 'LANG': 'C.UTF-8'}/        e = dict(os.environ)/
+expect-route-unjudged	s/        if not (isinstance(r, dict) and r.get('route') == 'external'):/        if False:/
 MUT
 echo "stand-report-inject: мутантов $((killed + survived + void)), убито $killed, выжило $survived, не легло $void"
 [ "$fail" -eq 0 ] && [ "$pass" -gt 0 ] && [ "$survived" -eq 0 ] && [ "$void" -eq 0 ] && [ "$killed" -gt 0 ]
