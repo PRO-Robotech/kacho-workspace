@@ -144,7 +144,15 @@ want() {
         "$(status "$RCF")|$(head -n 1 "$W/st.out")" "$2"
 }
 # jsettle <юнит> <образец> — журнал юнита дописан (journald асинхронен): до 5 с.
-jsettle() { local _; for _ in $(seq 1 20); do journalctl --user -u "$1.service" -o cat --no-pager -n 40 2>/dev/null | grep -qF "$2" && return 0; sleep 0.25; done; return 1; }
+jsettle() {
+    local _ j
+    for _ in $(seq 1 20); do
+        j="$(journalctl --user -u "$1.service" -o cat --no-pager -n 40 2>/dev/null)"
+        grep -qF "$2" <<< "$j" && return 0
+        sleep 0.25
+    done
+    return 1
+}
 PID=""; UNIT=""
 cause_cases() {
     local R="$W/run.$RANDOM" kill9 stop; mkdir -p "$R"
