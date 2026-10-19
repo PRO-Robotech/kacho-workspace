@@ -53,6 +53,14 @@ cluster.sh`). make страж НЕ зовёт: `make -n` исполняет ст
 отказывающий всему, остановил бы каждую полосу на любой команде; но молчать о
 поломке он не вправе, и слово доходит до модели.
 
+Синтаксическая проверка — не исполнение (ws#1247): оболочка, вызванная с noexec
+(`bash -n x.sh`, `sh -n`, слитно `-xn`, `-o noexec`; последующее `+n`/`+o noexec` его
+снимает — по порядку опций до скрипта), и строка `-c`, ПЕРВАЯ команда которой — `set`,
+включающий noexec, за которой `;`, `&&`, `||` или перевод строки (труба и `&` — подоболочка,
+noexec до хвоста не доходит), команд не исполняют: страж их пропускает. Флаг после имени
+скрипта (`bash x.sh -n`) — его аргумент, а `set -n` не первой командой — после
+исполненного; оба — прежний отказ. Замер 2026-10-19, bash 5 и dash.
+
 Головы с флагами до подкоманды — случайная форма и ловятся: `helm -n ns upgrade
 --install`, `kind -q create cluster`, `env -S"…"`/`-iS`/`--split-string=…`, `go -C`,
 `docker --context x run`; цель `make lint|test|ci` тяжела и по имени, когда рецепт
@@ -465,6 +473,63 @@ def shell_args(args):
     if stdin or not rest:
         return None, None, [], True
     return None, rest[0], rest[1:], False
+
+
+def shell_noexec(args):
+    """Опции вызова оболочки оставляют noexec включённым: `-n` (и слитно: `-xn`, `-nc`),
+    `-o noexec`; `+n`, `+o noexec` его снимают — побеждает последнее. Обход опций — тот же,
+    что у shell_args: до `--` или первого не-флага (имени скрипта, строки -c)."""
+    on, k = False, 0
+    while k < len(args):
+        a = args[k]
+        if a == "--":
+            break
+        if a in ("--rcfile", "--init-file"):
+            k += 2
+            continue
+        if a.startswith("--"):
+            k += 1
+            continue
+        if len(a) > 1 and a[0] in "-+":
+            j = 0
+            for ch in a[1:]:
+                if ch == "n":
+                    on = a[0] == "-"
+                elif ch in "oO":
+                    val = args[k + 1 + j] if k + 1 + j < len(args) else None
+                    j += 1
+                    if ch == "o" and val == "noexec":
+                        on = a[0] == "-"
+            k += 1 + j
+            continue
+        break
+    return on
+
+
+SET_WORD = re.compile(r"^(?:--|[-+][A-Za-z]+|[A-Za-z_][A-Za-z0-9_]*)$")
+
+
+SET_HEAD = re.compile(r"set((?:[ \t]+[^\s;&|()<>`$'\"\\]+)+)[ \t]*(;|&&|\|\||\n|$)")
+
+
+def set_noexec_first(text):
+    """Строка начинается командами `set` (через `;`, `&&`, перевод строки), и одна из них
+    включает noexec, а за ней — `;`, `&&`, `||`, перевод строки или конец: всё дальше
+    оболочка читает, но не исполняет, и `set +n` после неё тоже (замер). `set -n | …`,
+    `(set -n)`, `set -n & …` — подоболочка, хвост исполняется; команда до `set` — исполнена."""
+    t = text.lstrip()
+    while True:
+        m = SET_HEAD.match(t)
+        if not m:
+            return False
+        words = m.group(1).split()
+        if not all(SET_WORD.match(w) for w in words):
+            return False
+        if shell_noexec(words):
+            return True
+        if m.group(2) not in (";", "&&", "\n"):
+            return False
+        t = t[m.end():].lstrip()
 
 
 def flag_value(args, names):
@@ -906,9 +971,11 @@ def classify_argv(env, argv, cwd, ctx, level, alt):
     def text_class(text):  # строка, которую исполнит дочерняя оболочка
         return best(classes_in(text, cwd, ctx, level, alt, env)) if text else None
     if base in SHELLS:
+        if shell_noexec(args):
+            return None  # noexec: строки читаются, не исполняются (ws#1247)
         cmd, script, params, _ = shell_args(args)
         if cmd is not None:
-            return text_class(positional(cmd, params))
+            return None if set_noexec_first(cmd) else text_class(positional(cmd, params))
         if script is None or os.path.basename(script) == "heavy-slot.sh":
             return None
         if os.path.basename(script) in SCRIPTS:
@@ -1075,7 +1142,8 @@ def scan(text, cwd, ctx, level=0, alt=None, env0=None):
         for seg in split_commands(intro):
             _, argv = unwrap(words(seg))
             if argv and os.path.basename(argv[0]) in SHELLS and shell_args(argv[1:])[3]:
-                yield from scan(body, cur, ctx, level, alt, vis)
+                if not shell_noexec(argv[1:]) and not set_noexec_first(body):
+                    yield from scan(body, cur, ctx, level, alt, vis)
                 break
 
 
