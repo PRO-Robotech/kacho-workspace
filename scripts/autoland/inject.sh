@@ -470,6 +470,16 @@ s_detach() {
     ok detach "копия демона в каталоге состояния снята" eval '! ls "$FX"/run/*.autoland.sh >/dev/null 2>&1'
     printf 'running ожидание CI\n' > "$FX/dead.state"; echo 999999999 > "$FX/dead.pid"
     ok detach "running без живого демона — status 2" eval 'bash "$AL" status "$FX/dead.state" >/dev/null; [ $? -eq 2 ]'
+    ok detach "  …и .state переписан в «void оборван», следующее чтение — тоже 2" eval '[[ "$(head -n1 "$FX/dead.state")" == "void оборван: демон pid 999999999"* ]] && { bash "$AL" status "$FX/dead.state" >/dev/null; [ $? -eq 2 ]; }'
+    # pid переиспользован (после перезагрузки): живой ЧУЖОЙ процесс — оболочка пробы — не демон.
+    printf 'running ожидание CI\n' > "$FX/reuse.state"; echo "$$" > "$FX/reuse.pid"
+    ok detach "running, pid занят живым чужим процессом — status 2, .state — «void оборван»" eval 'bash "$AL" status "$FX/reuse.state" >/dev/null; [ $? -eq 2 ] && [[ "$(head -n1 "$FX/reuse.state")" == "void оборван"* ]]'
+    # Демон прежней версии (без метки AUTOLAND_TAG): копия <имя>.autoland.sh в строке запуска.
+    local op; ( exec -a "$FX/old.autoland.sh" sleep 30 ) & op=$!; PIDS+=("$op")
+    for _ in $(seq 1 20); do grep -qaF "old.autoland.sh" "/proc/$op/cmdline" 2>/dev/null && break; sleep 0.1; done
+    printf 'running ожидание CI\n' > "$FX/old.state"; echo "$op" > "$FX/old.pid"
+    ok detach "близнец: демон прежней версии без метки жив — status 3, .state не тронут" eval 'bash "$AL" status "$FX/old.state" >/dev/null; [ $? -eq 3 ] && [[ "$(head -n1 "$FX/old.state")" == running* ]]'
+    kill "$op" 2>/dev/null
     unset AL_FX
 }
 # ── копия демона сверяется со стволом при start (ws#1228) ─────────────────────
@@ -839,7 +849,9 @@ echo "== контроль: провалов $control_fails"
 # ── мутанты: <имя> <сцены через запятую> <было> <стало> ───────────────────────
 mutants=0; survived=0; voidm=0
 mutant() {  # … [<исходник: autoland.sh по умолчанию либо main-clone-lag.sh>]
-    local name="$1" scenes="$2" from="$3" to="$4" src="${5:-$AL_REAL}" m="$T/mut.$RANDOM.sh" s
+    local name="$1" scenes="$2" from="$3" to="$4" src="${5:-$AL_REAL}" md="$T/mut.$RANDOM" m s
+    # Мутант autoland.sh — в каталоге, рядом с которым (..) лежит detach-launch.sh: start его подключает.
+    mkdir -p "$md/autoland"; cp "$(dirname "$AL_REAL")/../detach-launch.sh" "$md/"; m="$md/autoland/$(basename "$src")"
     python3 - "$src" "$m" "$from" "$to" <<'PY' || { echo "  [VOID] мутант $name: правка не легла в текст"; voidm=$((voidm + 1)); return; }
 import sys
 src, dst, a, b = sys.argv[1:5]
@@ -880,6 +892,12 @@ mutant prune-origin-ahead-dropped s_prune_origin_ahead 'if [ "$rh" = "$HEAD" ] |
 mutant prune-busy-unchecked s_prune_busy 'busy="$(wt_procs "$wt")"' 'busy=""'
 mutant prune-busy-fd-unchecked s_prune_busy 'find /proc/[0-9]*/fd -mindepth 1' 'false /proc/[0-9]*/fd -mindepth 1'
 mutant prune-base-ancestor-dropped s_prune_not_in_base 'if ! git -C "$c" merge-base --is-ancestor "$HEAD" "origin/$base" 2>/dev/null; then' 'if false; then'
+mutant status-alive-by-kill0 s_detach '[[ "$1" =~ ^[0-9]+$ ]] || return 1
+    { mapfile' '[[ "$1" =~ ^[0-9]+$ ]] || return 1
+    kill -0 "$1" 2>/dev/null && return 0
+    { mapfile'
+mutant status-old-daemon-unknown s_detach '[[ "$a" == */"$2".autoland.sh ]] && return 0' 'false'
+mutant status-dead-not-rewritten s_detach 'printf '"'"'%s\n'"'"' "$line" > "$f.$$.tmp" && mv -f "$f.$$.tmp" "$f"' ':'
 mutant status-stale-as-merged s_status 'stale-base) exit 4 ;;' 'stale-base) exit 0 ;;'
 mutant status-moved-as-merged s_status 'head-moved) exit 5 ;;' 'head-moved) exit 0 ;;'
 mutant status-timeout-as-merged s_status 'timeout) exit 6 ;;' 'timeout) exit 0 ;;'
