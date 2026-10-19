@@ -314,6 +314,14 @@ def body(pr):
     pr.ok("близнец: «5 из 5» без слова «пункт» — полное, Closes #41",
           rc == 0 and "Closes #41" in closes(out), out + err)
     rc, out, err, _ = pr.run("pr-body", args, pr.state(world(sha, c41=[
+        comment(41, 1, "DoD-proof @%s — 6 из 6 пунктов\nкод 0" % sha["41b"][:9])])), extra=extra)
+    pr.ok("близнец: «6 из 6 пунктов» — полное (K = N), Closes #41",
+          rc == 0 and "Closes #41" in closes(out), out + err)
+    rc, out, err, _ = pr.run("pr-body", args, pr.state(world(sha, c41=[
+        comment(41, 1, "DoD-proof @%s — 5 из 6 пунктов\nкод 0" % sha["41b"][:9])])), extra=extra)
+    pr.ok("«5 из 6 пунктов» — частичное, Refs #41",
+          rc == 0 and "Refs #41" in out and "Closes #41" not in closes(out), out + err)
+    rc, out, err, _ = pr.run("pr-body", args, pr.state(world(sha, c41=[
         comment(41, 1, "DoD-proof @%s — частично: пункт 0" % sha["41a"][:9]),
         comment(41, 2, "DoD-proof @%s — полностью, пункты 0–5\nкод 0" % sha["41b"][:9])])), extra=extra)
     pr.ok("близнец: частичное, затем полное — Closes #41 по полному",

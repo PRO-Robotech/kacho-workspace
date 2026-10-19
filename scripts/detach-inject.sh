@@ -78,10 +78,22 @@ run_cases() {
     st "$R/s" sh -c 'false; echo "rc=$?"'
     assert "64 да" "$SRC $(grep -qF 'в .rc лёг бы код echo' <<< "$OUT" && echo да || echo нет)" "«…; echo rc=\$?» — 64: код echo в .rc не пишется (урок ws#1242)"
     st "$R/s" bash -c 'false; printf "x\n"  ;  '; assert "64" "$SRC" "строка, кончающаяся printf и «;» с пробелами, — 64"
+    # Разделитель перед хвостовым echo (check-verifier ws#1242, круг 3): маскирует ; \n || | &, не &&.
+    st "$R/s" sh -c 'false
+echo x'; assert "64" "$SRC" "echo после перевода строки — 64"
+    st "$R/s" sh -c 'false || echo x'; assert "64" "$SRC" "echo после «||» — 64 (при отказе код echo 0)"
+    st "$R/s" sh -c 'false | echo x'; assert "64" "$SRC" "echo после «|» — 64 (код конвейера — echo)"
+    st "$R/s" sh -c 'false & echo x'; assert "64" "$SRC" "echo после «&» — 64"
+    st "$R/s" bash -c 'true && echo ok'; settle "$RCF"
+    assert "0 0" "$SRC $(status "$RCF")" "близнец: «true && echo ok» — запуск 0, status 0"
+    st "$R/s" bash -c 'false && echo ok'; settle "$RCF"
+    assert "0 1" "$SRC $(status "$RCF")" "близнец: «false && echo ok» — запуск 0, status 1 (код false, не echo)"
+    st "$R/s" sh -c 'echo only'; settle "$RCF"
+    assert "0 0" "$SRC $(status "$RCF")" "близнец: строка из одного echo — его код честен, запуск 0"
     st "$R/s" sh -c 'false; a=$?; echo "rc=$a"; exit $a'; settle "$RCF"
     assert "0 1" "$SRC $(status "$RCF")" "близнец: код сохранён и возвращён exit — запуск 0, status 1 (код 1 прогона)"
     printf 'shift; "$@"\n' > "$R/s/chain.sh"
-    st "$R/s" bash "$R/s/chain.sh" -- sh -c 'printf "%s" x > /dev/null'; settle "$RCF"
+    st "$R/s" bash "$R/s/chain.sh" -- sh -c 'true; printf "%s" x > /dev/null'; settle "$RCF"
     assert "0 0" "$SRC $(status "$RCF")" "близнец: «-c» — довод шага цепочки, не сама команда — запускается (код — цепочки)"
     st "$R/s" echo hi; settle "$RCF"
     assert "0 0" "$SRC $(status "$RCF")" "близнец: сама команда echo (не строка оболочки) — запускается"
@@ -147,7 +159,8 @@ mutant ext-dead-as-broken '        echo "не судим как идущий: в
 mutant ext-holder-ignored '        if [ -n "$holder" ]; then echo' '        if false; then echo'
 mutant inner-c-judged '        [ "$prev" != -c ] && [ "$prev" != "" ] && [ "${prev:0:1}" != - ] && [ "$prev" != "$1" ] && break
 ' ''
-mutant trailing-echo-allowed '            if [[ "$last" =~ ^(echo|printf)([[:space:]]|$) ]]; then' '            if false; then'
+mutant and-as-semicolon '[ "${pre: -2}" != "&&" ] &&' 'true &&'
+mutant trailing-echo-allowed '&& [[ "$last" =~ ^(echo|printf)([[:space:]]|$) ]]; then' '&& false; then'
 mutant name-not-unique '-$$-$(printf' '-$(printf'
 mutant tree-unchecked '= true ] && [ "$ign" = 0 ]; then' '= true ] && false; then'
 
