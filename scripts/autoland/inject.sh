@@ -104,8 +104,10 @@
 #   q-pin-twins  — двойник landing-precheck привязан к голове, как настоящий: свежие вердикты —
 #                  merged, ревью о другой голове — red REVIEW-STALE, отчёт и ожидаемое — red
 #                  STAND-REPORT-STALE и STAND-EXPECT-STALE;
-#   real-states  — status по КАЖДОМУ настоящему .state основного клона ($WS/tmp/autoland;
-#                  AUTOLAND_REAL_DIR): код — по исходу и живости демона, без билета — без
+#   real-states  — status по КОПИИ каждого настоящего .state основного клона ($WS/tmp/autoland;
+#                  AUTOLAND_REAL_DIR) во временном каталоге пробы — настоящие не трогаются
+#                  (status переписывает «running» мёртвого демона): код — по исходу и живости
+#                  демона (метка либо копия <имя>.autoland.sh), без билета — без
 #                  строки очереди, билетов и очереди status не заводит; каталога нет (CI) —
 #                  «без предмета» строкой и в итоге, не зелёное;
 #   status       — коды status для каждого исхода (4, 5, 6 — тоже) и для слова вне перечня;
@@ -1228,12 +1230,16 @@ s_q_pin_twins() {  # двойник landing-precheck судит привязку
     ok q-pin-twins "отчёт и ожидаемое о другой голове — red STAND-REPORT-STALE и STAND-EXPECT-STALE" eval '[ "${QRC[4303]}" = 1 ] && qst 4303 | grep -q "STAND-REPORT-STALE" && qst 4303 | grep -q "STAND-EXPECT-STALE"'
     ok q-pin-twins "отправок нет, влит лишь 4301" eval '[ ! -s "$Q/push.calls" ] && [ "$(tr "\n" " " < "$Q/merge.order")" = "4301 " ]'
 }
-s_real_states() {  # прогон по настоящим .state машины: status судит каждый, не пишет ничего
-    local dir="$REAL_DIR" n=0 bad=0 f out c first exp pid nm before after
-    ST="настоящие .state $dir"; RC=-
-    if ! compgen -G "$dir/*.state" > /dev/null; then
-        echo "  [без предмета] real-states: в $dir нет .state — прогон по настоящим формам не исполнен"; NOSUBJ=$((NOSUBJ + 1)); return
+s_real_states() {  # прогон по КОПИЯМ настоящих .state машины: status судит каждый; настоящие не трогаются
+    # status переписывает «running» мёртвого демона в «void оборван» (ws#1269) — потому судится
+    # копия каталога во временном каталоге пробы: проба окружения не меняет.
+    local src="$REAL_DIR" dir="$T/real-states" n=0 bad=0 f out c first exp pid nm before after e
+    ST="настоящие .state $src (копии)"; RC=-
+    if ! compgen -G "$src/*.state" > /dev/null; then
+        echo "  [без предмета] real-states: в $src нет .state — прогон по настоящим формам не исполнен"; NOSUBJ=$((NOSUBJ + 1)); return
     fi
+    mkdir -p "$dir"
+    for e in state pid unit exit ticket; do compgen -G "$src/*.$e" > /dev/null && cp -p "$src"/*."$e" "$dir"/; done
     before="$(find "$dir" -maxdepth 1 \( -name '*.ticket' -o -name queue \) -printf '%f\n' | sort | tr '\n' ' ')"
     for f in "$dir"/*.state; do
         n=$((n + 1)); out="$(bash "$AL" status "$f" 2>&1)"; c=$?; first="$(head -n1 <<< "$out")"
@@ -1250,9 +1256,9 @@ s_real_states() {  # прогон по настоящим .state машины: s
         if [ "$exp" = 3 ] && [ ! -e "${f%.state}.ticket" ] && grep -q '^очередь:' <<< "$out"; then bad=$((bad + 1)); echo "    очередь у демона без билета: $(basename "$f")"; fi
     done
     after="$(find "$dir" -maxdepth 1 \( -name '*.ticket' -o -name queue \) -printf '%f\n' | sort | tr '\n' ' ')"
-    echo "  [перепись] real-states: .state $n в $dir; расхождений $bad"
+    echo "  [перепись] real-states: .state $n — копии из $src; расхождений $bad"
     ok real-states "status по каждому настоящему .state ($n): код — по исходу и живости демона, расхождений 0" eval '[ "$n" -gt 0 ] && [ "$bad" -eq 0 ]'
-    ok real-states "status очередь не заводит и билетов не пишет" eval '[ "$before" = "$after" ]'
+    ok real-states "status очередь не заводит и билетов не пишет (на копии)" eval '[ "$before" = "$after" ]'
 }
 
 ALL=(s_green s_red s_moved_start s_moved_gates s_moved_merge s_allow_ok s_allow_bad s_stale s_mr_red s_timeout
