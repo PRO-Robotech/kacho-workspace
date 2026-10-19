@@ -3075,9 +3075,14 @@ PW_IMGS='образов 6: busybox:1.36, minio/minio:RELEASE.2024-01-01, postgre
 pw_tree; pw_daemon cached; pw_run PW1 0
 if grep -qF "$PW_IMGS" "$PW/PW1.out" && grep -q 'модулей github.com/PRO-Robotech/\* 1 — файлов .go 4 (не разобрано 0), с импортом testcontainers 2;' "$PW/PW1.out"; then ok
 else bad PW1 "перечень не выведен обходом ровно в 6 образов (перепись: модуль организации 1, файлов 4, с импортом 2)"; fi
+pw_line="$(grep 'образов 6:' "$PW/PW1.out")"
 for s in unrelated sha256:layer fixture:1 PROBE_MINIO_IMAGE; do
-    if grep 'образов 6:' "$PW/PW1.out" | grep -qF "$s"; then bad PW1 "в перечень попало «$s» — литерал вне позиции образа"; else ok; fi
+    case "$pw_line" in
+        *"$s"*) bad PW1 "в перечень попало «$s» — литерал вне позиции образа" ;;
+        *) ok ;;
+    esac
 done
+if [ -n "$pw_line" ]; then ok; else bad PW1 "строки переписи с 6 образами нет — проверять литералы вне позиции не в чем"; fi
 if [ "$(grep -c '^GET /images/.*/json$' "$PW/req.log")" = 6 ] && ! grep -q '^POST' "$PW/req.log"; then ok; else OUT="$PW/req.log"; bad PW2 "образы в кеше — ждали 6 запросов наличия и ни одной загрузки"; fi
 if grep -q 'remote-heavy: команда исполнилась' "$PW/PW1.out" && grep -q 'в кеше было 6, загружено 0' "$PW/PW1.out"; then ok; else bad PW2 "образы в кеше — команда не дошла либо итог не назван"; fi
 # PW3 — инъекция: реестр завис; предел 5 с, застой 2 с, попыток вволю — держит ПРЕДЕЛ
