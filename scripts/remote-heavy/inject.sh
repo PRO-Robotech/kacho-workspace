@@ -1328,6 +1328,110 @@ if grep -qE 'жду клиент postgres' "$BOX/P6c.out" && grep -qE 'ждал 
 # P6d — ready есть, а psql в образе golang не исполняется → отказ здесь, не красная проба
 pgw_stubs broken; touch "$PGW/tools/pg/ready"; pgw_run P6d 125
 if grep -q 'remote-heavy-prep: psql из образа postgres не исполняется в образе golang: psql: error while loading shared libraries' "$BOX/P6d.out"; then ok; else bad P6d "отказ psql не назван причиной"; fi
+# ── file для пробы хука отправки (ws#1247) ──────────────────────────────────
+# prepush-added-files-inject (kacho, corelib) судит лишь при `file` в PATH («НЕ СУДИМО —
+# нет file» в каждом прогоне pod); образ его не несёт. FILE_SH собирает исходник выпуска
+# фоном, FILEWAIT_SH ждёт сборку и судит её исполнением.
+#   F0  шаги file и filewait — по одному и только в Job ci-local: file первым из
+#       установок (до шага пакетов), filewait после ожидания клиента postgres и перед
+#       видимостью и командой;
+#       близнецы go-race, integration, lint (go test есть, хука нет) — ни одного
+#   F1  пин суммы в тексте ровно один, адресов архива два
+#   F2* шаги ИСПОЛНЕНИЕМ (текст из Job; curl — двойник, архив — двойной исходник с
+#       configure и Makefile, make настоящий, сумма — двойного архива): чисто → file в
+#       /work/bin узнаёт настоящий ELF; близнецы — подмена архива (отличие только
+#       суммой), первый адрес мёртв (второй выручает), сеть мертва, configure отказал,
+#       собранный file не узнаёт ELF, file уже есть (ничего не качается)
+for prof in "${PPROFS[@]}"; do
+    pc="$BOX/p8-$prof.cmd"
+    nf="$(grep -c '^# file-begin$' "$pc")"; nfw="$(grep -c '^# filewait-begin$' "$pc")"
+    if [ "$prof" = ci-local ]; then
+        if [ "$nf" = 1 ] && [ "$nfw" = 1 ] && awk '/^# pkgs-begin$/ { p = NR } /^# file-end$/ { f = NR } /^# pgwait-end$/ { g = NR } /^# filewait-begin$/ { w = NR } /^# expose-begin$/ { x = NR } /^heavy_cmd "\$@"$/ { e = NR }
+               END { exit !(p && f && g && w && x && e && f < p && f < w && g < w && w < x && x < e) }' "$pc"; then ok
+        else OUT="$pc"; bad F0 "шагов file $nf и filewait $nfw в Job ci-local (ждали по одному: file до шага пакетов, filewait после pgwait и перед видимостью)"; fi
+    elif [ "$nf" = 0 ] && [ "$nfw" = 0 ] && [ -s "$pc" ]; then ok
+    else OUT="$pc"; bad "F0-$prof" "Job профиля $prof собирает file ($nf) или ждёт его ($nfw) — пробу хука отправки гонит лишь ci-local"; fi
+done
+sed -n '/^# file-begin$/,/^# file-end$/p' "$BOX/p8-ci-local.cmd" > "$BOX/file.raw"
+sed -n '/^# filewait-begin$/,/^# filewait-end$/p' "$BOX/p8-ci-local.cmd" > "$BOX/filewait.raw"
+if grep -q '^# file-end$' "$BOX/file.raw" && grep -q '^# filewait-end$' "$BOX/filewait.raw"; then ok; else OUT="$BOX/p8-ci-local.cmd"; bad F2 "текста шагов file и filewait в Job нет — исполнять нечего"; fi
+pins_f="$(grep -cE '"[0-9a-f]{64}  src\.tgz"' "$BOX/file.raw")"; urls_f="$(grep -oE 'https://[^ ;]*5\.45[^ ;]*\.tar\.gz' "$BOX/file.raw" | sort -u | wc -l)"
+if [ "$pins_f" = 1 ] && [ "$urls_f" = 2 ]; then ok; else OUT="$BOX/file.raw"; bad F1 "пинов суммы $pins_f (ждали 1), адресов архива $urls_f (ждали 2)"; fi
+FW="$BOX/fw"; FS="$BOX/fstub"; FA="$BOX/fassets"
+# Двойной исходник: configure пишет каталог bin, Makefile настоящим make «собирает» file,
+# который узнаёт ELF по сигнатуре файла (FILE_VARIANT=noelf — не узнаёт; cfgfail — configure
+# отказывает). Подмена отличается ТОЛЬКО содержимым README — то есть суммой.
+f_src() {
+    local d="$FA/$1/file-5.45"
+    rm -rf "${FA:?}/$1"; mkdir -p "$d"
+    cat > "$d/configure" <<'CFG'
+#!/bin/sh
+[ "$FILE_VARIANT" != cfgfail ] || { echo "configure: error: двойник" >&2; exit 1; }
+for a; do case "$a" in --bindir=*) echo "BINDIR=${a#--bindir=}" > config.mk ;; esac; done
+CFG
+    cat > "$d/file.in" <<'FIN'
+#!/bin/sh
+[ "$1" = --version ] && { echo file-5.45; exit 0; }
+[ "$FILE_VARIANT" != noelf ] && head -c 4 "$2" | grep -q ELF && { echo "ELF 64-bit двойник"; exit 0; }
+echo data
+FIN
+    # shellcheck disable=SC2016  # $(BINDIR) — переменная make, а не оболочки
+    printf 'include config.mk\nall:\n\tcat file.in > file.out\ninstall: all\n\tinstall -m 0755 file.out $(BINDIR)/file\n' > "$d/Makefile"
+    echo "${2:-подлинный}" > "$d/README"
+    chmod +x "$d/configure"
+    tar -czf "$FA/$1.tgz" -C "$FA/$1" file-5.45
+}
+f_src good; f_src evil подмена
+FSUM="$(sha256sum < "$FA/good.tgz" | cut -d' ' -f1)"
+if [ "$FSUM" != "$(sha256sum < "$FA/evil.tgz" | cut -d' ' -f1)" ]; then ok; else bad F2 "подмена архива file не отличается суммой — проба F2b мимо предмета"; fi
+# shellcheck disable=SC2016  # текст шагов для исполнения в песочнице
+{ echo 'pf() { echo "remote-heavy-prep: $1" >&2; exit 125; }'; cat "$BOX/file.raw" "$BOX/filewait.raw"; } \
+    | sed -E -e "s/\"[0-9a-f]{64}  src\.tgz\"/\"$FSUM  src.tgz\"/" -e "s#/work#$FW/work#g" > "$BOX/file.sh"
+f_stubs() {
+    rm -rf "$FW" "$FS"; mkdir -p "$FW/work" "$FS"
+    cat > "$FS/curl" <<'STUB'
+#!/bin/sh
+o=""; u=""
+while [ "$#" -gt 0 ]; do case "$1" in -o|--retry|--retry-delay|--connect-timeout|--max-time) [ "$1" = -o ] && o="$2"; shift 2 ;; -*) shift ;; *) u="$1"; shift ;; esac; done
+echo "$u" >> "$F_LOG"
+[ -z "$STUB_NET_DOWN" ] || { echo "curl: (7) нет сети" >&2; exit 7; }
+case "$u" in
+  https://astron.com/*) [ -z "$STUB_FIRST_DEAD" ] || { echo "curl: (22) 404" >&2; exit 22; } ;;
+  https://launchpad.net/*) ;;
+  *) echo "curl: чужой адрес $u" >&2; exit 22 ;;
+esac
+if [ -n "$STUB_BAD" ]; then cat "$F_ASSETS/evil.tgz" > "$o"; else cat "$F_ASSETS/good.tgz" > "$o"; fi
+STUB
+    chmod +x "$FS/curl"
+    local t
+    for t in bash sh cat cut date env grep gzip head install make mkdir printf readlink rm sha256sum tail tar tr true; do ln -sf "$(command -v "$t")" "$FS/$t"; done
+    ln -sf "$(type -P true)" "$FS/true"
+    : > "$BOX/f.log"
+}
+# f_run <случай> <ожидаемый код> [VAR=знач…] — шаги file и filewait в песочнице
+f_run() {
+    local n="$1" want="$2"; shift 2
+    OUT="$BOX/$n.out"
+    timeout 60 env -i PATH="$FW/work/bin:$FS" F_LOG="$BOX/f.log" F_ASSETS="$FA" "$@" bash "$BOX/file.sh" > "$OUT" 2>&1; RC=$?
+    cat "$OUT" >> "$ALL_OUT"
+    expect_rc "$n" "$want"
+}
+f_stubs; f_run F2 0
+if [ -x "$FW/work/bin/file" ] && grep -q 'remote-heavy: file — file-5.45, ждал сборку' "$BOX/F2.out" && [ "$(grep -c . "$BOX/f.log")" = 1 ] && [ ! -e "$FW/work/filebuild" ]; then ok
+else bad F2 "после шагов нет file в /work/bin, итог не назван, адресов позвано $(grep -c . "$BOX/f.log") (ждали 1) либо каталог сборки не снят"; fi
+f_stubs; f_run F2b 125 STUB_BAD=1
+if grep -q 'remote-heavy-prep: file 5.45 не поставлен — file: архив выпуска 5.45 с пином суммы не получен ни с одного адреса' "$BOX/F2b.out" && [ ! -e "$FW/work/bin/file" ]; then ok; else bad F2b "подмена архива не отвергнута причиной либо file поставлен"; fi
+f_stubs; f_run F2m 0 STUB_FIRST_DEAD=1
+if [ "$(grep -c . "$BOX/f.log")" = 2 ] && grep -q '^https://launchpad.net/' "$BOX/f.log" && [ -x "$FW/work/bin/file" ]; then ok; else bad F2m "мёртвый первый адрес не выручен вторым"; fi
+f_stubs; f_run F2n 125 STUB_NET_DOWN=1
+if grep -q 'remote-heavy-prep: file 5.45 не поставлен — file: архив выпуска' "$BOX/F2n.out"; then ok; else bad F2n "мёртвая сеть не названа отказом подготовки"; fi
+f_stubs; f_run F2c 125 FILE_VARIANT=cfgfail
+if grep -q 'remote-heavy-prep: file 5.45 не поставлен — file: configure не исполнился' "$BOX/F2c.out"; then ok; else bad F2c "отказ configure не назван причиной"; fi
+f_stubs; f_run F2x 125 FILE_VARIANT=noelf
+if grep -q 'remote-heavy-prep: file не узнаёт ELF образа (.*): «data»' "$BOX/F2x.out"; then ok; else bad F2x "file, не узнающий ELF, не отвергнут исполнением"; fi
+f_stubs; mkdir -p "$FS/pre"; ( cd "$FA/good/file-5.45" && sh ./configure --bindir="$FS/pre" && make -s install ) > /dev/null 2>&1
+ln -sf "$FS/pre/file" "$FS/file"; f_run F2e 0
+if [ ! -s "$BOX/f.log" ] && grep -q 'remote-heavy: file уже в образе — file-5.45' "$BOX/F2e.out" && [ ! -e "$FW/work/bin/file" ]; then ok; else bad F2e "file уже есть, а шаг качает либо собирает"; fi
 # D1 модули исходниками (ws#1018). Пакет deploy kacho читает исходник пиненного
 #    kaname из GOMODCACHE, а сборка этот модуль не тянет: без шага загрузки кэш
 #    Job его не содержит (32 отказа «stat /cache/mod/…: no such file»). Конвейер

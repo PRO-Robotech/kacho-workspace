@@ -468,6 +468,29 @@ sweep_heavy
      '''"\\(.n).kacho.svc:\\(.p)"')" \\
     || defect "перепись служб и политик ns kacho прочитана, а разбор её отказал — проба закрытости ns kacho не выбрана, прогон без неё не идёт"''',
      '''"\\(.n).kacho.svc:\\(.p)"')"'''),
+    # ws#1247: file для пробы хука отправки — сборка исходника выпуска фоном и сверка исполнением.
+    ("file-unwired", "F0", "шаг сборки file не включён в Job ci-local",
+     '''[ "$PROFILE" = ci-local ] && PREP="$PREP
+$FILE_SH"''',
+     '''[ "$PROFILE" = x ] && PREP="$PREP
+$FILE_SH"'''),
+    ("filewait-unwired", "F0", "ожидание сборки file не включено в Job ci-local",
+     '''[ "$PROFILE" = ci-local ] && PREP="$PREP
+$FILEWAIT_SH"''',
+     '''[ "$PROFILE" = x ] && PREP="$PREP
+$FILEWAIT_SH"'''),
+    ("file-sum", "F2b", "сумма архива file не проверяется",
+     '''src.tgz" | sha256sum -c --quiet - && { got="$u"; break; }''',
+     '''src.tgz" >/dev/null && { got="$u"; break; }'''),
+    ("file-fallback", "F2m", "мёртвый первый адрес архива file не выручается вторым",
+     '''|| { echo "file: $u не скачан"; continue; }''',
+     '''|| { echo "file: $u не скачан"; break; }'''),
+    ("file-refusal", "F2c", "отказ сборки file проглочен — причина не названа",
+     '''wait "$fpid" || pf "file 5.45 не поставлен''',
+     '''wait "$fpid" || echo "file 5.45 не поставлен'''),
+    ("file-elf", "F2x", "собранный file не судится исполнением на настоящем ELF",
+     '''case "$fk" in ELF*) ;;''',
+     '''case "$fk" in *) ;;'''),
 ]
 
 
