@@ -162,6 +162,14 @@ def dod_proofs(repo: str, n: int, rng: list) -> list:
                                          rng) or []]
 
 
+def dod_partial(repo: str, n: int):
+    """Ревизия последнего ЧАСТИЧНОГО доказательства (`dod_proof_partial_revisions`) либо None — для текста."""
+    comments = gh_list("repos/%s/issues/%d/comments" % (repo, n))
+    p = subprocess.run(["jq", "-L", DOD_LIB, "-r", 'include "dod_proof"; [.[] | (.body // "") | dod_proof_partial_revisions[]] | last // empty'],
+                       input=json.dumps(comments), capture_output=True, text=True)
+    return (p.stdout.strip() or None) if p.returncode == 0 else None
+
+
 # ── атрибуция ───────────────────────────────────────────────────────────────
 
 
@@ -576,6 +584,10 @@ def pr_body(argv: list[str]) -> int:
             refs.append(n)
             rows.append("- %s «%s» — `DoD-proof @%s` не коммит диапазона `%s`: `Refs`, не `Closes`"
                         % (label(n), title, proofs[-1][1], span))
+        elif dod_partial(repo, n):
+            refs.append(n)
+            rows.append("- %s «%s» — `DoD-proof @%s` частичный (пункт, не задача): `Refs`, не `Closes`"
+                        % (label(n), title, dod_partial(repo, n)))
         else:
             refs.append(n)
             rows.append("- %s «%s» — доказательства DoD нет: `Refs`, не `Closes`" % (label(n), title))

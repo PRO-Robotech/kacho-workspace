@@ -44,9 +44,19 @@ def _dod_lines_outside_code:
     .out // empty
   );
 
+# ЧАСТИЧНОЕ доказательство (ws#1242) — строка, чей остаток после ревизии несёт «частичн…» либо
+# «только пункт…» (`DoD-proof @<sha> — частично: пункт 0`, `DoD-proof @<sha> — только пункт 0`):
+# закрыт пункт, а не задача. Доказательством DoD задачи оно НЕ является ни у одного из пяти
+# судей — иначе тело PR ставило Closes задаче пачки по первому пункту (#1241 → «Closes #1242»).
+def _dod_partial_tail: test("частичн|только\\s+пункт"; "i");
+def _dod_marks:
+  [_dod_lines_outside_code | capture("^([#]{1,6} +)?([*]{2})?DoD-proof @(?<rev>[0-9a-f]{7,40})(?<rest>.*)$")];
+
 # Ревизии всех строк-доказательств текста, по порядку; пустой массив — доказательства нет.
-def dod_proof_revisions:
-  [_dod_lines_outside_code | capture("^([#]{1,6} +)?([*]{2})?DoD-proof @(?<rev>[0-9a-f]{7,40})") | .rev];
+def dod_proof_revisions: [_dod_marks[] | select(.rest | _dod_partial_tail | not) | .rev];
+
+# Ревизии частичных строк — только для текста отказа («частичное, не Closes»).
+def dod_proof_partial_revisions: [_dod_marks[] | select(.rest | _dod_partial_tail) | .rev];
 
 # Есть ли в тексте строка-доказательство.
 def dod_proof: dod_proof_revisions | length > 0;
