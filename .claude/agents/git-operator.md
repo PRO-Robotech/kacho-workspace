@@ -293,8 +293,9 @@ skills:
   `--subject` правило ветки краснит, ws#1029) и из задания `--reviews`, `--stand-report` и
   `--stand-expect`, `--allow <коды>` — сразу печатает pid, журнал и `.state`; затем ОДИН шаг
   `autoland.sh status <.state>`: 0 merged · 1 red · 2 void · 3 идёт · 4 stale-base · 5
-  head-moved · 6 timeout. Демон ждёт CI, гонит три гейта, вливает `--merge
-  --match-head-commit` и снимает голову PR (шапка `autoland.sh`), не руками.
+  head-moved · 6 timeout. Демон встаёт в очередь базы, догоняет базу, ждёт CI, гонит три
+  гейта, вливает `--merge --match-head-commit` и снимает голову PR (шапка `autoland.sh`),
+  не руками; 4 — догон не удался: конфликт, предел, клона нет (ws#1263).
   3 — возврат «идёт» с путём `.state`, status —
   следующим заданием; иной не 0 — первая строка `.state` ДОСЛОВНО диспетчеру, повторного
   старта без задания нет; start 4 — копия демона старше ствола: `git -C $WS merge --ff-only

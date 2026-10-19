@@ -22,6 +22,7 @@
 # тела, в stderr «gh: HTTP 304», код 1. ETag двойника — md5 тела: то же тело — тот же
 # ETag, другое — другой, ложного 304 не бывает.
 #
+# Файл на ревизии (`contents/<путь>?ref=`) — wf/<путь> каталога случая (ws#1216).
 # GHLOG — файл: каждая вызванная команда дописывается строкой (счёт вызовов gh пробой).
 [ -z "${GHLOG:-}" ] || printf '%s\n' "$*" >> "$GHLOG"
 p="${!#}"
@@ -42,6 +43,12 @@ body="$(mktemp)"; err="$(mktemp)"
 trap 'rm -f "$body" "$err"' EXIT
 core() {
     case "$p" in
+      repos/*/contents/*)
+        # файл на ревизии: wf/<путь> случая, ответ — форма площадки (base64); нет — 404
+        local wp="${p#repos/*/contents/}"; wp="${wp%%\?ref=*}"
+        [ -f "$CI_READ_FX/wf/$wp" ] || { echo "gh: Not Found (HTTP 404) $p" >&2; return 1; }
+        printf '{"encoding":"base64","content":"%s"}\n' "$(base64 -w0 < "$CI_READ_FX/wf/$wp")"
+        return 0 ;;
       repos/*/pulls/*) f=pull.json ;;
       repos/*/commits/*/check-runs*) f=check-runs.json ;;
       repos/*/commits/*/status) f=status.json ;;
