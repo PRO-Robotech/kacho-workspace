@@ -309,6 +309,7 @@ t0="$(date +%s%N)"
 rc="$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_ENQ_S=40 HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" --enqueue "$W/enq" docker -- touch "$W/q1")"
 ms=$(( ($(date +%s%N) - t0) / 1000000 )); RC1="$(rcof)"
 assert "0 да да нет" "$rc $([ "$ms" -lt 3000 ] && echo да || echo "нет(${ms}мс)") $(case "$RC1" in "$W/enq/hs-docker-"*.rc) echo да ;; *) echo "нет($RC1)" ;; esac) $([ -e "$RC1" ] && echo да || echo нет)" "занятый слот: --enqueue возвращает 0 «поставлено» за < 3 с, .rc под уникальным именем ещё не записан"
+assert "да" "$(has "$W/err" 'занято слотов 1 из 3 при постановке')" "постановка печатает занятость слотов сразу (1 из 3), а не по 74 следующего шага (ws#1225)"
 # Ждать ЖИВОГО билета: отложенные 74/75 выше (resume_until) в очереди тоже лежат.
 for _ in $(seq 1 20); do [ -n "$(grep -L '^resume_until=' "$HEAVY_SLOT_DIR"/queue/* 2>/dev/null)" ] && break; sleep 0.2; done
 assert "74 да" "$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" docker -- true) $(has "$W/err" 'СЛОТ ЗАНЯТ, очередь 1')" "вошедший позже видит поставленное задание ВПЕРЕДИ (очередь 1): билет держится всё ожидание"

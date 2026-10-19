@@ -15,6 +15,7 @@
 # usage: lane-precheck.sh <каталог копии> <ветка> <база> [--issue <владелец/репо>#<N>]…
 #                          [--hook-log <файл>]
 #        lane-precheck.sh --premise <файл предусловий>
+#        lane-precheck.sh --task-text <файл текста задания>
 #
 # РЕЖИМ ПРЕДУСЛОВИЙ (ws#1071, база диспетчера §3) — ДО раздачи задания: задание с
 # ложным предусловием не уходит. Строка файла — одно предусловие закрытого словаря
@@ -32,6 +33,19 @@
 # Ложное — `REASON PREMISE-FALSE …`, код 1. Не судимо (трекер не ответил, строка вне
 # словаря, файла нет) — VOID, код 2; ноль предусловий — тоже код 2: пустой файл не
 # «все верны».
+#
+# РЕЖИМ ТЕКСТА ЗАДАНИЯ (ws#1225) — до раздачи, статически: задание не заказывает ожидание
+# внутри вызова. Уроки «ожидание-в-вызове» 18–19.10: «270 с на паузу» против «Bash не
+# дольше 60 с», «не жди дольше трёх пауз», ожидание `.rc` в пределах 10 мин под
+# no-wait-guard. Причины (строка и её номер названы):
+#   TASK-WAIT          заказ паузы или ожидания числом: `sleep N`, «пауза N с», «N с на паузу»,
+#                      «жди|подожди|дождись N с|мин», а также «жди … пауз» без числа («не жди
+#                      дольше трёх пауз»: паузы этим заказаны); «Не жди» без пауз — норма, не заказ;
+#   TASK-LIMITS        два разных предела одного вызова («Bash ≤ 60 с» и «вызов до 270 с»);
+#   TASK-RETURN        задание с долгим шагом (полный хук отправки, слот, --enqueue, autoland)
+#                      не называет возврат «идёт» (detach.sh, «идёт: pid, журнал, срок»,
+#                      «отсоединённо»): исполнитель стал бы дежурить.
+# Код 0 — причин нет; 1 — есть; 2 — прочитано ноль строк.
 #
 # ЧТО СУДИТ (каждый пункт — своя причина, строкой `REASON <КОД> <текст>`):
 #   HEAD-NOT-ON-ORIGIN  ветки нет на origin (`git ls-remote`, а не память);
@@ -100,16 +114,17 @@
 set -uo pipefail
 
 usage() {
-    echo "usage: lane-precheck.sh <каталог копии> <ветка> <база> [--issue <владелец/репо>#<N>]… [--hook-log <файл>] | --premise <файл>" >&2
+    echo "usage: lane-precheck.sh <каталог копии> <ветка> <база> [--issue <владелец/репо>#<N>]… [--hook-log <файл>] | --premise <файл> | --task-text <файл>" >&2
     exit 2
 }
 
-issues=() hook_log="" premise="" pos=()
+issues=() hook_log="" premise="" task_text="" pos=()
 while [ $# -gt 0 ]; do
     case "$1" in
         --issue) [ $# -ge 2 ] || usage; issues+=("$2"); shift 2 ;;
         --hook-log) [ $# -ge 2 ] || usage; hook_log="$2"; shift 2 ;;
         --premise) [ $# -ge 2 ] || usage; premise="$2"; shift 2 ;;
+        --task-text) [ $# -ge 2 ] || usage; task_text="$2"; shift 2 ;;
         -h | --help) usage ;;
         *) pos+=("$1"); shift ;;
     esac
@@ -135,6 +150,37 @@ ghget() {
     if grep -q 'HTTP 404' "$err"; then rm -f "$err"; return 3; fi
     rm -f "$err"; return 1
 }
+# ── режим текста задания (ws#1225) ──────────────────────────────────────
+if [ -n "$task_text" ]; then
+    [ "${#pos[@]}" -eq 0 ] && [ -z "$premise" ] || usage
+    [ -r "$task_text" ] || { echo "lane-precheck: текста задания $task_text нет; вердикта нет" >&2; exit 2; }
+    reasons=() n=0 limits=() longstep="" ret=""
+    num='[0-9]+([.,][0-9]+)?'; sec='(с|сек[[:alpha:]]*|s|мин[[:alpha:]]*|m)([^[:alnum:]]|$)'
+    while IFS= read -r line || [ -n "$line" ]; do
+        n=$((n + 1)); l="${line,,}"
+        if [[ "$l" =~ (^|[^[:alnum:]_])sleep[[:space:]]+$num ]] \
+            || [[ "$l" =~ пауз[[:alpha:]]*[[:space:]]+(по[[:space:]]+)?~?${num}[[:space:]]*${sec} ]] \
+            || [[ "$l" =~ ${num}[[:space:]]*(с|сек[[:alpha:]]*)[[:space:]]+(на[[:space:]]+)?пауз ]] \
+            || [[ "$l" =~ (^|[^[:alpha:]])(жди|подожди|дождись|ожидай)[[:space:]]+(до[[:space:]]+)?~?${num}[[:space:]]*${sec} ]] \
+            || { [[ "$l" =~ пауз ]] && [[ "$l" =~ (^|[^[:alpha:]])(жди|подожди|дождись|дежурь) ]]; }; then
+            reasons+=("TASK-WAIT строка $n: «$(cut -c1-160 <<< "$line")» — ожидание внутри вызова; долгое — scripts/detach.sh start <каталог> -- <команда>, возврат «идёт: pid, журнал, срок», исход — detach.sh status отдельным шагом")
+        fi
+        while [[ "$l" =~ (bash|вызов[[:alpha:]]*)[^.\;]{0,24}(≤|<=|не[[:space:]]+дольше|до)[[:space:]]*([0-9]+)[[:space:]]*(с|сек) ]]; do
+            limits+=("${BASH_REMATCH[3]}"); l="${l/"${BASH_REMATCH[0]}"/}"
+        done
+        [[ "${line,,}" =~ heavy-slot|git[[:space:]]+push|--enqueue|autoland\.sh[[:space:]]+start|полн[[:alpha:]]*[[:space:]]+хук ]] && longstep="${longstep:-$n}"
+        [[ "${line,,}" =~ detach\.sh|«идёт|идёт:|отсоедин ]] && ret=1
+    done < "$task_text"
+    distinct="$(printf '%s\n' "${limits[@]+"${limits[@]}"}" | sed '/^$/d' | sort -un | tr '\n' ' ')"
+    [ "$(wc -w <<< "$distinct")" -le 1 ] || reasons+=("TASK-LIMITS пределы одного вызова разные: ${distinct% } с — предел вызова задаётся одним числом")
+    [ -z "$longstep" ] || [ -n "$ret" ] || reasons+=("TASK-RETURN строка $longstep: долгий шаг без возврата «идёт» — задание называет форму: scripts/detach.sh start …, возврат «идёт: pid, журнал, срок», исход отдельным шагом")
+    echo "lane-precheck --task-text: файл $task_text; строк $n; причин ${#reasons[@]}"
+    for x in "${reasons[@]+"${reasons[@]}"}"; do echo "REASON $x"; done
+    [ "$n" -gt 0 ] || exit 2
+    [ "${#reasons[@]}" -eq 0 ] || exit 1
+    exit 0
+fi
+
 if [ -n "$premise" ]; then
     [ "${#pos[@]}" -eq 0 ] || usage
     [ -r "$premise" ] || { echo "lane-precheck: файла предусловий $premise нет; вердикта нет" >&2; exit 2; }

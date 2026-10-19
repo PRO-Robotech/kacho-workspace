@@ -354,6 +354,36 @@ assert "2 да" "$(runp) $(has 'VOID PREMISE-FORM task o/r')" "без #<N> — �
 prem '# только комментарий'
 assert "2" "$(runp)" "ноль предусловий — не «все верны» → код 2"
 
+echo "== текст задания (ws#1225)"
+tt() { printf '%s\n' "$@" > "$W/task.txt"; bash "$P" --task-text "$W/task.txt" > "$W/out" 2>&1; echo $?; }
+assert "1 да" "$(tt 'Ожидание хука: 270 с на паузу между чтениями журнала.') $(has 'REASON TASK-WAIT строка 1')" "«270 с на паузу» → TASK-WAIT со строкой (урок c375d889)"
+assert "1 да" "$(tt 'Проверь .rc, затем sleep 50 и снова.') $(has 'TASK-WAIT')" "sleep 50 в задании → TASK-WAIT (урок 04a0cb11)"
+assert "1 да" "$(tt 'Отправь и не жди дольше трёх пауз.') $(has 'TASK-WAIT')" "«не жди дольше трёх пауз» → TASK-WAIT"
+assert "1 да" "$(tt 'Каждый Bash ≤ 60 с.' 'Хук: вызов до 270 с.') $(has 'TASK-LIMITS пределы одного вызова разные: 60 270 с')" "два предела вызова (60 и 270 с) → TASK-LIMITS"
+assert "1 да" "$(tt 'Отправка полным хуком: heavy-slot.sh ci-local -- git push origin HEAD:refs/heads/1-x.') $(has 'TASK-RETURN строка 1')" "долгий шаг без возврата «идёт» → TASK-RETURN (урок 525a21f5)"
+assert "0 да" "$(tt 'Каждый Bash ≤ 60 с; Не жди.' 'Отправка полным хуком: heavy-slot.sh ci-local -- git push origin HEAD:refs/heads/1-x.' 'Долгое — scripts/detach.sh start <каталог> -- …; верни «идёт: pid, журнал, срок», исход — detach.sh status.') $(has 'строк 3; причин 0')" "близнец: один предел, «Не жди» как норма, возврат «идёт» назван → 0"
+: > "$W/task.txt"
+assert "2" "$(bash "$P" --task-text "$W/task.txt" > "$W/out" 2>&1; echo $?)" "пустой текст — ноль строк, не «причин нет» → 2"
+
+echo "== мутанты lane-precheck (по одной правке; проба выше обязана покраснеть)"
+mut() {  # <имя> <было> <стало> <файл предусловий|--task-text строки…> — печатает код мутанта
+    local m="$W/mut-lp.sh"
+    python3 - "$P" "$m" "$2" "$3" <<'PYM' || { echo "VOID"; return; }
+import sys
+s, d, a, b = sys.argv[1:5]
+t = open(s, encoding="utf-8").read()
+if t.count(a) != 1:
+    sys.exit(1)
+open(d, "w", encoding="utf-8").write(t.replace(a, b))
+PYM
+    # Мутант — в своём каталоге рядом со ссылками на lib/ и hooks/: HERE мутанта находит их, дерево не тронуто.
+    mkdir -p "$W/ms"; ln -sfn "$(dirname "$P")/lib" "$W/ms/lib"; ln -sfn "$(dirname "$P")/hooks" "$W/ms/hooks"
+    mv "$m" "$W/ms/lane-precheck.sh"; m="$W/ms/lane-precheck.sh"
+    if [ "$4" = --task-text ]; then shift 4; printf '%s\n' "$@" > "$W/task.txt"; bash "$m" --task-text "$W/task.txt" > "$W/out" 2>&1; echo $?
+    else shift 3; printf '%s\n' "$@" > "$W/premise.txt"; bash "$m" --premise "$W/premise.txt" > "$W/out" 2>&1; echo $?; fi
+}
+assert "0" "$(mut wait '|| [[ "$l" =~ ${num}[[:space:]]*(с|сек[[:alpha:]]*)[[:space:]]+(на[[:space:]]+)?пауз ]] \' '\' --task-text 'Ожидание хука: 270 с на паузу между чтениями журнала.')" "мутант «N с на паузу» не ловится: задание с паузой проходит"
+
 echo "== вход"
 assert "2" "$(run "$W/srv" 1-lane main --issue o/r#7)" "не рабочая копия → код 2"
 assert "2" "$(run "$L" 1-lane)" "неполный вызов → код 2"

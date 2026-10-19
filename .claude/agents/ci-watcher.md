@@ -149,6 +149,8 @@ skills:
 
 - трогаю только прогоны PR из входа;
 - перезапускаю **только** отказ класса среды с двумя признаками, **один раз на sha**;
+- перед `gh run rerun` — `concurrency.group` его workflow: без `cancel-in-progress` группа держит
+  одного ждущего, второй перезапуск вытесняет первый (урок 7d7164c2) — по одному;
 - ошибки утверждений, сборки и линта, а также «блуждающий» флейк (разные пробы от прогона к
   прогону) **не перезапускаю**: авто-повтор ради зелёного легализует дефект (скилл
   `testing-product-coach` §8.5);
@@ -158,8 +160,8 @@ skills:
 
 ## Ожидание
 
-- Норма `CLAUDE.md` «Не жди» (ws#1001): ни один вызов не держит ожидание дольше 10 минут; долгий прогон — отсоединённо, возврат «идёт» с pid, журналом и ожидаемым окончанием; истёк срок задания — возврат с остатком.
-- Норма «`gh api` — только GET» (ws#1008): хостинг читается только запросом GET. `-X/--method POST|PUT|PATCH|DELETE` и поля `-f/-F/--field/--raw-field/--input` без `--method GET` меняют состояние: `gh api repos/<r>/merges -X POST …` ВЛИВАЕТ head в base (kacho#3142, kacho#3144, kaname#703 — мимо посадки). Merge-base — `gh api repos/<o>/<r>/compare/<base>...<head> --jq .merge_base_commit.sha` либо `git merge-base <base> <head>`; влита ли голова — `git merge-base --is-ancestor <head> origin/<base>`. Отказ держит хук `gh-api-guard`.
+- Норма `CLAUDE.md` «Не жди» (ws#1001); долгое — `$WS/scripts/detach.sh start <каталог> -- <команда>`, возврат его строкой «идёт», исход — `detach.sh status <.rc>` следующим шагом (ws#1225).
+- Норма «`gh api` — только GET» (ws#1008, хук `gh-api-guard`): `-X`/`--method` и поля `-f/-F/--input` без `--method GET` меняют состояние (`repos/<r>/merges -X POST` ВЛИВАЕТ мимо посадки, kacho#3142). Merge-base — `gh api repos/<o>/<r>/compare/<base>...<head> --jq .merge_base_commit.sha` либо `git merge-base`; влитость — `git merge-base --is-ancestor <head> origin/<base>`.
 - режима ожидания нет (ws#1152): CI до вливания ждёт демон `autoland.sh`, не агент; пауза —
   только командой чтения из задания шаблона волны (`sleep N; … ci-read.sh`, N ≤ 300), циклов
   и фоновых наблюдателей не завожу; сетевой вызов — под `timeout` не дольше 90 с.
