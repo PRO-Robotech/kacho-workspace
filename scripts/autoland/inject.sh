@@ -1033,7 +1033,7 @@ s_q_live() {  # близнец: билет живого процесса впе�
     new_fx q-live; mk_q 4301
     sleep 60 & sp=$!; PIDS+=("$sp"); plant main 1 "$sp" "$(pstart "$sp")" "PRO-Robotech/kacho-workspace#1"
     run_q 4301 --timeout 5
-    for i in $(seq 1 30); do qst 4301 | grep -q "^running очередь" && break; sleep 0.2; done
+    for i in $(seq 1 30); do [[ "$(qst 4301)" == "running очередь"* ]] && break; sleep 0.2; done
     out="$(bash "$AL" status "$Q"/run/*__4301__*.state 2>&1)"; c=$?
     wait_q 4301; ST_Q 4301
     ok q-live "status ждущего — код 3 и «очередь: позиция 2 из 2 (впереди: …#1)» ($c: $out)" eval '[ "$c" = 3 ] && grep -qxF "очередь: позиция 2 из 2 (впереди: PRO-Robotech/kacho-workspace#1)" <<< "$out"'
@@ -1050,7 +1050,7 @@ s_q_queued() {  # в очереди исход наступает сразу: к
     enrolled 4303; : > "$Q/pr/4303/closed"   # закрыт ПОСЛЕ постановки: до неё исход дал бы первое чтение
     sleep 2; git -C "$Q/seed" checkout -q p4302; echo moved >> "$Q/seed/p4302.txt"; git -C "$Q/seed" add -A
     sandbox_run git -C "$Q/seed" commit -qm "#4302 ещё"; git -C "$Q/seed" push -q origin p4302; git -C "$Q/seed" checkout -q main
-    for _ in $(seq 1 30); do qst 4304 | grep -q "^running очередь" && break; sleep 0.2; done
+    for _ in $(seq 1 30); do [[ "$(qst 4304)" == "running очередь"* ]] && break; sleep 0.2; done
     p="$(cat "$Q"/run/*__4304__*.pid)"; kill -TERM "$p"
     wait_q 4301; dt=$(( $(date +%s) - t0 )); wait_q 4302 4303 4304   # время — исхода красного, не соседей
     ST="$(qst 4301) | $(qst 4302) | $(qst 4303) | $(qst 4304)"; RC="${QRC[4301]}/${QRC[4302]}/${QRC[4303]}/${QRC[4304]}"
