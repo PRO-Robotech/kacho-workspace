@@ -192,12 +192,15 @@ AGENT=""
 echo "== коммит не в ту копию (ws#1237): основной клон на main, копия полосы, клон на ветке"
 # Песочница той же формы, что воркспейс: основной клон `ws` на main с отслеживаемым tmp/,
 # под tmp/ — связанная копия чужого репозитория (как tmp/kn-878-int у kaname), рядом
-# основной клон на ветке. Коммиты песочницы — `-c user.*`: личной настройки git нет.
+# основной клон на ветке. Подпись песочницы — её HOME (scripts/lib/sandbox-git-home.sh).
 S="$WORK/sb"
-g() { git -c user.email=p@x -c user.name=p -c init.defaultBranch=main "$@" > /dev/null 2>&1; }
+# shellcheck source=../../../scripts/lib/sandbox-git-home.sh
+. "$HOOK_DIR/../../scripts/lib/sandbox-git-home.sh"
+sandbox_git_home "$WORK/home" || { echo "[VOID] gh-api-guard: подписи песочницы нет" >&2; exit 2; }
+g() { sandbox_git "$@" > /dev/null 2>&1; }
 mkdir -p "$S/ws/tmp" "$S/kn"; touch "$S/ws/tmp/README.md"
-g -C "$S/ws" init; g -C "$S/ws" add tmp/README.md; g -C "$S/ws" commit -m init
-g -C "$S/kn" init; g -C "$S/kn" commit --allow-empty -m init
+g -C "$S/ws" init -b main; g -C "$S/ws" add tmp/README.md; g -C "$S/ws" commit -m init
+g -C "$S/kn" init -b main; g -C "$S/kn" commit --allow-empty -m init
 g -C "$S/kn" worktree add -b 878 "$S/ws/tmp/kn-878-int"
 mkdir -p "$S/ws/tmp/kn-878-int/internal/repo/kaname/pg/relverdict"
 g -C "$S" clone -q "$S/kn" "$S/br"; g -C "$S/br" checkout -b 1237-x
