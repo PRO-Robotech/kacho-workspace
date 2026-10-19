@@ -3122,7 +3122,8 @@ expect_ns_gone PW9 t1-heavy-pw9
 #   CN2 canary.sh над двойником run.sh, исполняющим команду Job здесь же: невидимый
 #       инструмент → 75 с цитатой; серия из трёх обращений той же пачки — Job один раз,
 #       вердикт читается, «Job запущен 1 раз, обращений 3»; близнец — здоровый Job → 0
-#   CN3 run.sh вышел 75 загрузкой образа → канарейка 75 с его строкой
+#   CN3 run.sh вышел 75 загрузкой образа, следом trap «ns … снято» → канарейка 75 с
+#       цитатой отказа, а не строки снятия
 #   CN4 --batch вне формы → 64, Job не запущен
 CANARY="$SELF_DIR/canary.sh"; CN="$BOX/cn"; mkdir -p "$CN/std" "$CN/caller"
 sed -n "/^PROBE='# canary-begin\$/,/^# canary-end'\$/p" "$CANARY" | sed -e "s/^PROBE='//" -e "s/^# canary-end'\$/# canary-end/" > "$CN/probe.sh"
@@ -3142,7 +3143,8 @@ ln -sf "$CN/std-psql" "$CN/std/psql"; cn_probe CN1b 0
 cat > "$CN/run" <<'FAKERUN'
 #!/usr/bin/env bash
 printf '%s\n' "$(printf '%s ' "$@" | tr '\n' ' ')" >> "$CN_CALLS"
-if [ -n "${CN_RUN_EXIT:-}" ]; then echo "remote-heavy: [t1-heavy-canary] ${CN_RUN_MSG:-}" >&2; exit "$CN_RUN_EXIT"; fi
+# Отказ — как у run.sh: причина, затем строка снятия ns из trap (её канарейка не цитирует).
+if [ -n "${CN_RUN_EXIT:-}" ]; then echo "remote-heavy: [t1-heavy-canary] ${CN_RUN_MSG:-}" >&2; echo "remote-heavy: [t1-heavy-canary] ns t1-heavy-canary снято" >&2; exit "$CN_RUN_EXIT"; fi
 while [ "$1" != -- ]; do shift; done; shift
 "$@"; rc=$?
 echo "remote-heavy: [t1-heavy-canary] команда завершилась кодом $rc" >&2; exit "$rc"
