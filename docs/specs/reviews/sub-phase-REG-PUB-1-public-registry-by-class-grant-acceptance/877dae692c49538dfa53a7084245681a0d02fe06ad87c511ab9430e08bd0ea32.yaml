@@ -43,9 +43,20 @@ authority:
 event:
   type: issue_comment
   target: PRO-Robotech/kacho#3274
-  status: not_performed
-  published: false
-  body: 'role: acceptance-reviewer · verdict: APPROVED · subject_sha256: 877dae692c49538dfa53a7084245681a0d02fe06ad87c511ab9430e08bd0ea32'
+  status: performed
+  published: true
+  database_id: 6277439992
+  node_id: "IC_kwDOTZqgWM8AAAABdioh-A"
+  url: "https://github.com/PRO-Robotech/kacho/issues/3274#issuecomment-6277439992"
+  api_url: "https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/6277439992"
+  actor: "pointpu"
+  role: "acceptance-reviewer"
+  author_association: "MEMBER"
+  created_at: "2026-10-19T21:13:00Z"
+  body_sha256: "e9934e217105292d09e282f997f9ca03ce800b03845d2120730b8db4831dd5a5"
+  subject_sha256: "877dae692c49538dfa53a7084245681a0d02fe06ad87c511ab9430e08bd0ea32"
+  subject_revision_commit: "b8c0e986de1aae0b887a0a83501e33f2b934be97"
+  verdict: "APPROVED"
   publication_mode: scripts/rituals/approval-event.sh
 attribution:
   reviewer_kind: claude_agent
