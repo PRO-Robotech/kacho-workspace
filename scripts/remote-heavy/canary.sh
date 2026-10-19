@@ -12,11 +12,13 @@
 #
 # ФОРМА
 #   canary.sh --batch <id пачки> --task <N> --repo <kacho|kaname|corelib> --ref <ревизия>
-#             [--src <клон>] [-- <доп. проба в pod>…]
+#             [--src <клон>] [--profiles <профили пачки через запятую>] [-- <доп. проба в pod>…]
 #
-# ЧТО СУДИТ. Один Job профиля ci-local (run.sh): вся подготовка pod — та же, что у
-# отправки (СРЕДА, МОДУЛИ, ВИДИМОСТЬ, ОБРАЗЫ TESTCONTAINERS — загрузка образа тестовой
-# базы в предел, иначе run.sh 75). Командой — шаг «# canary-begin»: jq, psql и модуль
+# ЧТО СУДИТ. Один Job (run.sh): подготовка pod — та же, что у пачки (СРЕДА, МОДУЛИ,
+# ВИДИМОСТЬ). Профиль Job — по профилям пачки (--profiles, по умолчанию ci-local): есть в ней
+# integration — Job integration, и загрузка образа тестовой базы в предел судится (ОБРАЗЫ
+# TESTCONTAINERS run.sh, иначе 75); нет — Job ci-local, образ не грузится: команде пачки он
+# не нужен, и 75 медленного реестра был бы ложным отказом серии (приёмка ws#1268). Командой — шаг «# canary-begin»: jq, psql и модуль
 # yaml python3 обязаны находиться подпроцессом `env -i` с PATH образа (как их зовут
 # пробы и хук, собирающие окружение заново); затем — доп. проба после `--`, если дана
 # (например, `go test ./deploy/… -run …` дерева kacho).
@@ -44,7 +46,7 @@ DIR="${KACHO_CANARY_DIR:-$WS/tmp/remote-heavy-canary}"
 say() { printf 'remote-heavy-canary: %s\n' "$*" >&2; }
 usage() { say "$1"; exit 64; }
 
-BATCH="" TASK="" REPO="" REF="" SRC=""
+BATCH="" TASK="" REPO="" REF="" SRC="" PROFILES="ci-local"
 while [ $# -gt 0 ]; do
     case "$1" in
         --batch) BATCH="${2:-}"; shift 2 ;;
@@ -52,6 +54,7 @@ while [ $# -gt 0 ]; do
         --repo) REPO="${2:-}"; shift 2 ;;
         --ref) REF="${2:-}"; shift 2 ;;
         --src) SRC="${2:-}"; shift 2 ;;
+        --profiles) PROFILES="${2:-}"; shift 2 ;;
         --) shift; break ;;
         *) usage "неизвестный аргумент «$1»" ;;
     esac
@@ -60,6 +63,10 @@ done
 [[ "$TASK" =~ ^[1-9][0-9]*$ ]] || usage "--task — номер задачи: «$TASK»"
 case "$REPO" in kacho|kaname|corelib) ;; *) usage "--repo вне kacho|kaname|corelib: «$REPO»" ;; esac
 [ -n "$REF" ] || usage "--ref обязателен"
+[[ "$PROFILES" =~ ^(ci-local|integration|go-race|lint)(,(ci-local|integration|go-race|lint))*$ ]] \
+    || usage "--profiles — профили run.sh через запятую: «$PROFILES»"
+JOBPROF=ci-local; WHY="образ команде пачки не нужен — загрузку не сужу"
+case ",$PROFILES," in *,integration,*) JOBPROF=integration; WHY="в пачке integration — сужу и загрузку образа тестовой базы" ;; esac
 
 mkdir -p "$DIR" || { say "каталог вердиктов $DIR не создан"; exit 75; }
 RC_F="$DIR/$BATCH.rc"; LOG="$DIR/$BATCH.log"; CALLS="$DIR/$BATCH.calls"; JOBS="$DIR/$BATCH.jobs"
@@ -89,8 +96,8 @@ echo "remote-heavy-canary: jq, psql, yaml видны подпроцессу с �
 # canary-end'
 
 echo "$$" >> "$JOBS"
-say "пачка $BATCH: запускаю Job канарейки (ci-local $REPO@$REF) — до раздачи серии"
-"$RUN" --task "$TASK" --repo "$REPO" --ref "$REF" ${SRC:+--src "$SRC"} --profile ci-local --short canary \
+say "пачка $BATCH: запускаю Job канарейки ($JOBPROF $REPO@$REF; профили пачки $PROFILES: $WHY) — до раздачи серии"
+"$RUN" --task "$TASK" --repo "$REPO" --ref "$REF" ${SRC:+--src "$SRC"} --profile "$JOBPROF" --short canary \
     -- bash -c "$PROBE" canary "$@" > "$LOG" 2>&1
 jrc=$?
 if [ "$jrc" -eq 0 ]; then

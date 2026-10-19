@@ -352,8 +352,9 @@
 #     Перепись печатается всегда: файлов, с импортом, образов, позиций без вывода;
 #     ноль прочитанных файлов — отказ подготовки (69), ноль образов — «загружать нечего»;
 #   • ГРУЗИТ каждый образ, которого нет в кеше dind (GET /images/<образ>/json), потоком
-#     POST /images/create: попытка снимается, когда HEAVY_PULL_STALL_S (60 с) нет нового
-#     байта либо статуса слоя, попыток HEAVY_PULL_TRIES (3), всё — в пределе
+#     POST /images/create: попытка снимается, когда HEAVY_PULL_STALL_S (60 с) ни у одного
+#     слоя нет нового байта либо статуса (движение — по СЛОЮ, не по соседней строке: демон
+#     пишет строку каждого активного слоя раз в 100 мс и без изменения), попыток HEAVY_PULL_TRIES (3), всё — в пределе
 #     HEAVY_PULL_LIMIT_S (600 с) от старта шага. Обычная загрузка — 8 с, медленная
 #     прогрессирующая — 225 с (уроки 2026-10-18), поэтому застой, а не срок попытки.
 #     Повтор той же строки прогресса — не движение: слой, запертый чужой записью (919,
@@ -362,6 +363,13 @@
 #     а отказ демона «locked for … unavailable» — попыткой; прогретый до команды образ
 #     пакеты уже не тянут, и одновременной первой загрузки нет.
 #     Реестр ответил «нет такого» — образ не грузится, тест судит сам (честное красное).
+# КОМУ (приёмка ws#1268): прогрев — лишь профилю, чьей команде образ нужен: integration
+# всегда, go-race — команде `go test` без -short (`make …` и `bash -c` не распознаются — их
+# образ тест тянет сам); ci-local — нет: ci-local.sh гонит go test -short, и под -short
+# контейнер не поднимается, а 75 от медленного реестра (≈0,09 МБ/с, канарейка 2026-10-19)
+# было бы ложным отказом каждой отправки. Решение — env HEAVY_PULL контейнера run; шаги в
+# Job профилей с dind есть всегда, без HEAVY_PULL=1 шаг печатает «прогрева нет».
+# Позиция образа без вывода значения — строка с числом и координатами, код 0.
 # Шаг «# pullwait-begin» перед ВИДИМОСТЬЮ ждёт фон: предел превышен — строка
 # «remote-heavy-pull: образ … не загружен за N с (предел, застой, попыток): слой, байты,
 # последняя строка docker pull» в termination-log, и run.sh выходит 75 с этой цитатой, а
@@ -1805,6 +1813,18 @@ fi
 # hooks-end
 HOOKS
 )"
+# КОМУ ПРОГРЕВ (шапка, ОБРАЗЫ TESTCONTAINERS): integration — всегда; go-race — лишь команде
+# `go test` без -short; ci-local и прочие — нет (ci-local.sh гонит go test -short, контейнер
+# под -short не поднимается). Решение — env HEAVY_PULL контейнера run.
+PULL_IMG=0  # кому прогрев
+if [ "$DIND" = 1 ]; then
+    case "$PROFILE" in
+        integration) PULL_IMG=1 ;;
+        go-race)
+            cw=" $(printf '%s ' "${CMD[@]}" | tr '\n\t' '  ') "
+            if [[ "$cw" =~ [[:space:]]go[[:space:]]+test[[:space:]] ]] && ! [[ "$cw" =~ [[:space:]]--?short(=(true|1))?[[:space:]] ]]; then PULL_IMG=1; fi ;;
+    esac
+fi
 # ОБРАЗЫ TESTCONTAINERS (шапка) — вывод перечня и загрузка в dind фоном, ожидание и
 # вердикт — перед видимостью. Маркеры — граница, по которой inject.sh берёт текст из Job
 # и исполняет его над двойником демона docker.
@@ -1813,7 +1833,9 @@ PULL_SH="$(cat <<'PULL'
 pull_pid=""
 pwr="$(git rev-parse --show-toplevel 2>/dev/null)" || pf "образы testcontainers: корень дерева не найден"
 pwm="$(go env GOMOD 2>/dev/null)"
-if [ -z "$pwm" ] || [ "$pwm" = /dev/null ]; then
+if [ "${HEAVY_PULL:-0}" != 1 ]; then
+  echo "remote-heavy: образы testcontainers — команде профиля образ не нужен (ci-local, go-race с -short либо без go test): прогрева нет" >&2
+elif [ -z "$pwm" ] || [ "$pwm" = /dev/null ]; then
   echo "remote-heavy: образы testcontainers — go.mod над каталогом нет, выводить не из чего" >&2
 else
   mkdir -p /work/tcwarm || pf "образы testcontainers: каталог шага не создан"
@@ -2184,7 +2206,7 @@ func (fd *finder) scan(f *ast.File, sf srcFile, tc bool, imagePkgs map[string]bo
 }
 
 // derive — обход дерева и модулей своей организации; возвращает образы по порядку.
-func derive(tree, moddir string) []string {
+func derive(tree, moddir string) ([]string, []string) {
 	fset := token.NewFileSet()
 	main := modulePath(filepath.Join(moddir, "go.mod"))
 	if main == "" {
@@ -2273,7 +2295,7 @@ func derive(tree, moddir string) []string {
 	sort.Strings(imgs)
 	say("обход: дерево (git ls-files) и модулей %s* %d — файлов .go %d (не разобрано %d), с импортом testcontainers %d; образов %d: %s; позиций образа без вывода %d%s",
 		org, nmod, len(files), bad, ntc, len(imgs), strings.Join(imgs, ", "), len(fd.unres), list(fd.unres))
-	return imgs
+	return imgs, fd.unres
 }
 
 func list(a []string) string {
@@ -2337,6 +2359,30 @@ type state struct {
 	cur, total    int64
 	bytes         map[string]int64
 	last          string
+	seen          map[string]string // слой → «статус|байты» его последней строки
+	other         map[string]bool   // строки без слоя, уже виденные
+}
+
+// moved — сдвинулась ли загрузка этой строкой. Движение судится ПО СЛОЮ: статус и байты
+// строки против прошлой строки ТОГО ЖЕ слоя. Демон (moby daemon/containerd/progress.go)
+// раз в 100 мс пишет строку на каждый активный слой без проверки изменения: при двух
+// стоящих слоях соседние строки различаются всегда, и сравнение с соседней строкой
+// видело бы движение там, где его нет (приёмка ws#1268, опыты interleave и ilonce).
+// Строка без слоя движется, лишь если такой ещё не было.
+func (s *state) moved(p progress, raw string) bool {
+	if p.ID == "" {
+		if s.other[raw] {
+			return false
+		}
+		s.other[raw] = true
+		return true
+	}
+	k := p.Status + "|" + strconv.FormatInt(p.Progress.Current, 10)
+	if s.seen[p.ID] == k {
+		return false
+	}
+	s.seen[p.ID] = k
+	return true
 }
 
 func (s *state) String() string {
@@ -2447,7 +2493,7 @@ func (d *daemon) pullOnce(ctx context.Context, ref string, stall time.Duration, 
 				}
 				return pullFailed, msg
 			}
-			moved := ln.b != st.last
+			moved := st.moved(p, ln.b)
 			st.last = ln.b
 			if p.ID != "" && p.Status != "" && !strings.HasPrefix(p.Status, "Pulling from") {
 				st.layer, st.status = p.ID, p.Status
@@ -2483,7 +2529,12 @@ func main() {
 		failPrep("вызов: -tree, -moddir и -fail обязательны")
 	}
 	t0 := time.Now()
-	imgs := derive(*tree, *moddir)
+	imgs, unres := derive(*tree, *moddir)
+	// Позиция образа без вывода значения — не «загружать нечего»: её образ не прогрет и
+	// тест потянет его сам. Строка с числом и координатами; шаг это не блокирует (код 0).
+	if len(unres) > 0 {
+		say("позиций образа без вывода значения %d — их образы не прогреты, тест загрузит их сам: %s", len(unres), strings.Join(unres, ", "))
+	}
 	if *deriveOnly {
 		for _, s := range imgs {
 			fmt.Println(s)
@@ -2491,7 +2542,11 @@ func main() {
 		return
 	}
 	if len(imgs) == 0 {
-		say("загружать нечего — образов в позициях testcontainers не выведено")
+		if len(unres) > 0 {
+			say("выведенных образов нет, позиций без вывода %d — прогревать нечего, загрузку решит тест", len(unres))
+		} else {
+			say("загружать нечего — образов в позициях testcontainers не выведено")
+		}
 		return
 	}
 	d := newDaemon(os.Getenv("DOCKER_HOST"))
@@ -2507,7 +2562,7 @@ func main() {
 			cached++
 			continue
 		}
-		st := &state{bytes: map[string]int64{}}
+		st := &state{bytes: map[string]int64{}, seen: map[string]string{}, other: map[string]bool{}}
 		i0 := time.Now()
 		res, why := pullLimit, "предел"
 		try := 0
@@ -2763,7 +2818,7 @@ jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg goimg "$GO_IMAGE" --arg dimg "
     --arg cr "${RUN_CPU_REQ}m" --arg cl "$CPU_LIM" --arg mr "${RUN_MEM_REQ}Mi" --arg ml "${RUN_MEM_LIM}Mi" --arg eph "$EPH" \
     --arg dcr "$DCR" --arg dcl "$DCL" --arg dmr "$DMR" --arg dml "$DML" \
     --arg pgimg "$PG_IMAGE" --arg pgsh "$PG_SH" --argjson pg "$PG" --arg pgcr "${PG_REQ_M}m" --arg pgmr "${PG_REQ_MIB}Mi" --arg dindsh "$DIND_SH" --arg deny "$DENY_PROBE" --arg helm "$HELM_PIN" --arg node "$NODE_PIN" --arg buf "$BUF_PIN" \
-    --arg pushin "$PUSH_INPUT" --arg gname "$GIT_NAME" --arg gemail "$GIT_EMAIL" --slurpfile cmdv <(printf '%s' "$CMD_JSON") '
+    --arg pull "$PULL_IMG" --arg pushin "$PUSH_INPUT" --arg gname "$GIT_NAME" --arg gemail "$GIT_EMAIL" --slurpfile cmdv <(printf '%s' "$CMD_JSON") '
 # kubelet раскрывает в command, args и value env контейнера $(ИМЯ) значением env и
 # сворачивает $$ в $ (ws#1142: составной Job потерял переменные и коды осей). Каждый
 # $ удваивается: kubelet свернёт его обратно, и байты дойдут до контейнера как есть.
@@ -2794,7 +2849,7 @@ def kesc_c: (if .command then .command |= map(kesc) else (.) end)
         resources: {requests: {cpu: "100m", memory: "256Mi"}, limits: {cpu: "2", memory: "2Gi"}},
         volumeMounts: [{name: "work", mountPath: "/work"}]}]),
      containers: ([{name: "run", image: $goimg, command: (["bash", "-c", $prep, "run"] + $cmdv[0]),
-       env: ([{name: "HEAVY_WORKDIR", value: $wd}, {name: "HEAVY_DENY_PROBE", value: $deny}, {name: "HEAVY_HELM", value: $helm}, {name: "HEAVY_NODE", value: $node}, {name: "HEAVY_BUF", value: $buf}, {name: "HEAVY_PUSH_INPUT", value: $pushin}, {name: "HEAVY_GIT_NAME", value: $gname}, {name: "HEAVY_GIT_EMAIL", value: $gemail}, {name: "GOTOOLCHAIN", value: "local"},
+       env: ([{name: "HEAVY_WORKDIR", value: $wd}, {name: "HEAVY_PULL", value: $pull}, {name: "HEAVY_DENY_PROBE", value: $deny}, {name: "HEAVY_HELM", value: $helm}, {name: "HEAVY_NODE", value: $node}, {name: "HEAVY_BUF", value: $buf}, {name: "HEAVY_PUSH_INPUT", value: $pushin}, {name: "HEAVY_GIT_NAME", value: $gname}, {name: "HEAVY_GIT_EMAIL", value: $gemail}, {name: "GOTOOLCHAIN", value: "local"},
               {name: "GOMODCACHE", value: "/cache/mod"}, {name: "GOCACHE", value: "/cache/build"},
               {name: "GOLANGCI_LINT_CACHE", value: "/cache/lint"}, {name: "CI", value: "true"}]
              + (if $dind == 1 then [{name: "DOCKER_HOST", value: "unix:///run/dind/docker.sock"},

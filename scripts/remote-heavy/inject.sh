@@ -2935,6 +2935,12 @@ if grep -q 'не отвечает' "$OUT"; then ok; else bad V1 "причина 
 #   PWL1 слой заперт («locked for» в журнале dind, 919 2026-10-19): строки прогресса идут,
 #        байты стоят → 125 за предел, а не зависание; PWL2 демон отдал «locked for …
 #        unavailable» на каждой попытке → 125 с этой цитатой
+#   PWI1 ДВА стоящих слоя, строки вперемешку (демон пишет каждый слой раз в 100 мс без
+#        изменения) → 125 застоем по слою; PWI2 вперемешку стоят лишь в 1-й попытке → 0
+#   PWU  позиция образа без вывода (os.Getenv) → строка с числом и координатой, код 0
+#   PWC  кому прогрев: HEAVY_PULL Job — integration 1, ci-local/lint/go-race без go test 0,
+#        go-race `go test` без -short 1, с -short 0; PWC1 ci-local на зависшем реестре →
+#        команда исполнилась, к демону 0 обращений; близнец PWC1b integration → 125
 #   PW4  первая попытка зависла, вторая прошла → 0, попытка 1 названа застоем
 #   PW5  медленная, но идущая загрузка дольше застоя → 0 с первой попытки
 #   PW6  реестр: «manifest unknown» → 0, образ назван «в реестре нет», тест судит сам
@@ -2993,6 +2999,14 @@ class H(http.server.BaseHTTPRequestHandler):
                 w({"status": "Downloading", "id": "a1b2c3d4e5f6", "progressDetail": {"current": 1048576, "total": 104857600}, "progress": "[>   ] 1.049MB/104.9MB"})
                 time.sleep(0.2)
             return
+        if mode == "interleave" or (mode == "ilonce" and n == 1):
+            # Два слоя стоят, а демон (moby daemon/containerd/progress.go) раз в 100 мс пишет
+            # строку КАЖДОГО активного слоя без проверки изменения: соседние строки различны.
+            for _ in range(36000):
+                for lid, cur in (("a1b2c3d4e5f6", 1048576), ("f6e5d4c3b2a1", 2097152)):
+                    w({"status": "Downloading", "id": lid, "progressDetail": {"current": cur, "total": 104857600}})
+                time.sleep(0.1)
+            return
         if mode == "locked-err":
             w({"errorDetail": {"message": "ref moby/1/layer-sha256:25b77f59fd95 locked for 21m58.3s (since 2026-10-19 16:22:53 +0000 UTC): unavailable"}, "error": "unavailable"}); return
         if mode == "absent":
@@ -3018,6 +3032,7 @@ package a
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"github.com/testcontainers/testcontainers-go"
@@ -3037,6 +3052,7 @@ func TestA(t *testing.T) {
 	_ = testcontainers.ContainerRequest{Image: img}
 	_ = "sha256:layer"
 	_ = `tcpostgres.Run(nil, "fixture:1")`
+	_ = testcontainers.ContainerRequest{Image: os.Getenv("PROBE_ONLY_ENV")}
 }
 GOA
     printf 'package b\n\ntype Pod struct{ Image string }\n\nvar P = Pod{Image: "docker.io/example/unrelated:1.0"}\n' > "$t/b/b.go"
@@ -3066,7 +3082,7 @@ pw_run() {
     t0=$(date +%s)
     # shellcheck disable=SC2016  # раскрывается в подоболочке пробы
     (cd "$PW/tree" && timeout 120 env GOWORK=off GOPROXY=off GOTOOLCHAIN=local PW_TL="$PW/tl" \
-        DOCKER_HOST="unix://$PWS/d.sock" "$@" bash -c 'source "$1"; echo "remote-heavy: команда исполнилась"' pw "$PW/step.sh") > "$OUT" 2>&1; RC=$?
+        DOCKER_HOST="unix://$PWS/d.sock" HEAVY_PULL=1 "$@" bash -c 'source "$1"; echo "remote-heavy: команда исполнилась"' pw "$PW/step.sh") > "$OUT" 2>&1; RC=$?
     echo $(( $(date +%s) - t0 )) > "$PW/$n.sec"
     cat "$OUT" >> "$ALL_OUT"
     expect_rc "$n" "$want"
@@ -3085,6 +3101,8 @@ done
 if [ -n "$pw_line" ]; then ok; else bad PW1 "строки переписи с 6 образами нет — проверять литералы вне позиции не в чем"; fi
 if [ "$(grep -c '^GET /images/.*/json$' "$PW/req.log")" = 6 ] && ! grep -q '^POST' "$PW/req.log"; then ok; else OUT="$PW/req.log"; bad PW2 "образы в кеше — ждали 6 запросов наличия и ни одной загрузки"; fi
 if grep -q 'remote-heavy: команда исполнилась' "$PW/PW1.out" && grep -q 'в кеше было 6, загружено 0' "$PW/PW1.out"; then ok; else bad PW2 "образы в кеше — команда не дошла либо итог не назван"; fi
+# PWU — позиция образа без вывода значения (os.Getenv) — строкой с числом и координатой, код 0
+if grep -q 'позиций образа без вывода значения 1 — их образы не прогреты, тест загрузит их сам: .*/a/a_test.go:[0-9][0-9]*$' "$PW/PW1.out"; then ok; else bad PWU "позиция без вывода не названа строкой с числом и координатой"; fi
 # PW3 — инъекция: реестр завис; предел 5 с, застой 2 с, попыток вволю — держит ПРЕДЕЛ
 pw_daemon hang; pw_run PW3 125 HEAVY_PULL_LIMIT_S=5 HEAVY_PULL_STALL_S=2 HEAVY_PULL_TRIES=10
 took="$(sed -n 's/^remote-heavy-pull: образ [^ ]* не загружен в dind за \([0-9]*\) с .*/\1/p' "$PW/tl")"
@@ -3104,6 +3122,15 @@ if [ -n "$took" ] && [ "$took" -le 6 ] && grep -q '(предел 30 с, заст
 #        попытки исчерпаны, 125 с цитатой отказа
 pw_daemon locked-err; pw_run PWL2 125 HEAVY_PULL_LIMIT_S=30 HEAVY_PULL_STALL_S=5 HEAVY_PULL_TRIES=3
 if grep -q '^remote-heavy-pull: образ busybox:1.36 не загружен в dind за [0-9]* с (предел 30 с, застой 5 с, попыток 3): ref moby/1/layer-sha256:25b77f59fd95 locked for 21m58.3s' "$PW/tl"; then ok; else OUT="$PW/tl"; bad PWL2 "отказ «locked for» не процитирован после исчерпания попыток"; fi
+# PWI1 — ДВА слоя стоят, строки чередуются (демон пишет каждый слой раз в 100 мс без
+#        изменения) → застой по слою: 125 «нет движения» за застой × попытки, не по пределу
+pw_daemon interleave; pw_run PWI1 125 HEAVY_PULL_LIMIT_S=30 HEAVY_PULL_STALL_S=2 HEAVY_PULL_TRIES=2
+took="$(sed -n 's/^remote-heavy-pull: образ [^ ]* не загружен в dind за \([0-9]*\) с .*/\1/p' "$PW/tl")"
+echo "remote-heavy inject: PWI1 — два стоящих слоя вперемешку: отказ через ${took:-?} с (застой 2 с × 2 попытки, предел 30 с)"
+if [ -n "$took" ] && [ "$took" -le 6 ] && grep -q '(предел 30 с, застой 2 с, попыток 2): нет движения 2 с' "$PW/tl"; then ok; else OUT="$PW/tl"; bad PWI1 "чередование строк двух стоящих слоёв принято за движение — застой не сработал"; fi
+# PWI2 — первая попытка: два слоя стоят вперемешку; вторая проходит → 0, попытка 1 — застой
+pw_daemon ilonce; pw_run PWI2 0 HEAVY_PULL_LIMIT_S=30 HEAVY_PULL_STALL_S=2 HEAVY_PULL_TRIES=3
+if grep -q 'busybox:1.36 — попытка 1 не удалась: нет движения 2 с' "$PW/PWI2.out" && grep -q 'busybox:1.36 — загружен за .* (попытка 2)' "$PW/PWI2.out"; then ok; else bad PWI2 "застой двух слоёв не снят повтором"; fi
 pw_daemon hang-once; pw_run PW4 0 HEAVY_PULL_LIMIT_S=8 HEAVY_PULL_STALL_S=2 HEAVY_PULL_TRIES=3
 if grep -q 'busybox:1.36 — попытка 1 не удалась: нет движения 2 с' "$PW/PW4.out" && grep -q 'busybox:1.36 — загружен за .* (попытка 2)' "$PW/PW4.out"; then ok; else bad PW4 "застой первой попытки не снят повтором"; fi
 pw_daemon slow; pw_run PW5 0 HEAVY_PULL_LIMIT_S=30 HEAVY_PULL_STALL_S=3
@@ -3114,6 +3141,28 @@ pw_tree nogo; pw_daemon cached; pw_run PW7 125
 if grep -q '^remote-heavy-prep: образы testcontainers: обход прочитал 0 файлов .go' "$PW/tl"; then ok; else OUT="$PW/tl"; bad PW7 "пустой обход не назван отказом подготовки"; fi
 pw_tree notc; pw_daemon cached; pw_run PW8 0
 if grep -q 'загружать нечего' "$PW/PW8.out" && [ ! -s "$PW/req.log" ]; then ok; else OUT="$PW/req.log"; bad PW8 "дерево без testcontainers: ждали «загружать нечего» и ни одного обращения к демону"; fi
+# PWC — КОМУ прогрев: HEAVY_PULL в Job — integration 1; ci-local, lint и go-race без
+#       go test 0; go-race `go test` без -short 1, с -short 0
+pw_pull_of() { jq -r '[.spec.template.spec.containers[] | select(.name == "run") | .env[]? | select(.name == "HEAVY_PULL") | .value] | first // "нет"' "$1" 2>/dev/null; }
+for prof in "${PPROFS[@]}"; do
+    want=0; [ "$prof" = integration ] && want=1
+    got="$(pw_pull_of "$BOX/p8-$prof-job.json")"
+    if [ "$got" = "$want" ]; then ok; else OUT="$BOX/p8-$prof-job.json"; bad "PWC-$prof" "HEAVY_PULL в Job профиля $prof — «$got», ждали $want"; fi
+done
+for v in "1|go test -race -count=1 ./..." "0|go test -race -short -count=1 ./..."; do
+    fresh
+    # shellcheck disable=SC2086  # команда словами — нарочно
+    go_run "pwc-gorace-${v%%|*}" env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref HEAD --src "$SRC" --profile go-race --short "pwc${v%%|*}" -- ${v#*|}
+    got="$(pw_pull_of "$BOX/state/job.json")"
+    if [ "$got" = "${v%%|*}" ]; then ok; else bad "PWC-go-race-${v%%|*}" "HEAVY_PULL в Job go-race «${v#*|}» — «$got», ждали ${v%%|*}"; fi
+done
+# PWC1 — сцена: ci-local на ЗАВИСШЕМ реестре — HEAVY_PULL из Job ci-local, команда
+#        исполняется, 125/75 нет, к демону ни одного обращения
+pw_tree; pw_daemon hang; pw_run PWC1 0 HEAVY_PULL="$(pw_pull_of "$BOX/p8-ci-local-job.json")" HEAVY_PULL_LIMIT_S=3 HEAVY_PULL_STALL_S=2
+if grep -q 'remote-heavy: команда исполнилась' "$PW/PWC1.out" && grep -q 'команде профиля образ не нужен' "$PW/PWC1.out" && [ ! -s "$PW/req.log" ]; then ok
+else OUT="$PW/PWC1.out"; bad PWC1 "ci-local на зависшем реестре: команда не исполнилась либо демон опрошен ($(wc -l < "$PW/req.log") запросов)"; fi
+# близнец PWC1b — тот же реестр, HEAVY_PULL из Job integration → 125 (загрузка судится)
+pw_run PWC1b 125 HEAVY_PULL="$(pw_pull_of "$BOX/p8-integration-job.json")" HEAVY_PULL_LIMIT_S=3 HEAVY_PULL_STALL_S=2
 kill "$PW_PID" 2>/dev/null; wait "$PW_PID" 2>/dev/null; PW_PID=""; rm -rf "$PWS"
 fresh
 go_run pw9 env FAKE_EXIT=125 FAKE_MSG="remote-heavy-pull: образ postgres:16-alpine не загружен в dind за 600 с (предел 600 с, застой 60 с, попыток 3): нет движения 60 с" "${B[@]}" --short pw9 -- true
@@ -3130,6 +3179,7 @@ expect_ns_gone PW9 t1-heavy-pw9
 #   CN3 run.sh вышел 75 загрузкой образа, следом trap «ns … снято» → канарейка 75 с
 #       цитатой отказа, а не строки снятия
 #   CN4 --batch вне формы → 64, Job не запущен
+#   CN5 профиль Job — по профилям пачки: ci-local → ci-local; с integration → integration
 CANARY="$SELF_DIR/canary.sh"; CN="$BOX/cn"; mkdir -p "$CN/std" "$CN/caller"
 sed -n "/^PROBE='# canary-begin\$/,/^# canary-end'\$/p" "$CANARY" | sed -e "s/^PROBE='//" -e "s/^# canary-end'\$/# canary-end/" > "$CN/probe.sh"
 if grep -q '^# canary-begin$' "$CN/probe.sh" && grep -q '^# canary-end$' "$CN/probe.sh"; then ok; else bad CN1 "текста пробы канарейки в canary.sh нет — исполнять нечего"; fi
@@ -3174,6 +3224,16 @@ if [ "$(wc -l < "$CN/calls")" = 1 ] && grep -q 'Job запущен 1 раз, о�
 rm -rf "$CN/v"; : > "$CN/calls"; CN_B=b-pull
 cn_call CN3 75 CN_RUN_EXIT=75 CN_RUN_MSG="образ testcontainers не загружен в dind до команды — образ postgres:16-alpine не загружен"
 if grep -q 'канарейка красная (run.sh код 75) — серия НЕ раздаётся: remote-heavy: \[t1-heavy-canary\] образ testcontainers не загружен' "$CN/CN3.out"; then ok; else OUT="$CN/CN3.out"; bad CN3 "75 загрузки образа не процитирован"; fi
+# CN5 — профиль Job канарейки по профилям пачки: ci-local → ci-local (образ не судится),
+#       с integration → integration (судится загрузка образа)
+rm -rf "$CN/v"; : > "$CN/calls"; CN_B=b-ci
+cn_call CN5 0
+if grep -q -- '--profile ci-local' "$CN/calls" && grep -q 'образ команде пачки не нужен' "$CN/CN5.out"; then ok; else OUT="$CN/calls"; bad CN5 "пачка ci-local: Job канарейки не ci-local либо причина не названа"; fi
+rm -rf "$CN/v"; : > "$CN/calls"; CN_B=b-int
+env KACHO_CANARY_RUN="$CN/run" KACHO_CANARY_DIR="$CN/v" CN_CALLS="$CN/calls" HEAVY_STD_PATH="$CN/std" \
+    bash "$CANARY" --batch "$CN_B" --task 1268 --repo kacho --ref HEAD --profiles ci-local,integration > "$CN/CN5b.out" 2>&1; RC=$?
+cat "$CN/CN5b.out" >> "$ALL_OUT"; expect_rc CN5b 0
+if grep -q -- '--profile integration' "$CN/calls" && grep -q 'в пачке integration — сужу и загрузку образа' "$CN/CN5b.out"; then ok; else OUT="$CN/calls"; bad CN5b "пачка с integration: Job канарейки не integration"; fi
 rm -rf "$CN/v"; : > "$CN/calls"; CN_B='b/../x'
 cn_call CN4 64
 if [ ! -s "$CN/calls" ]; then ok; else bad CN4 "Job запущен при неверном --batch"; fi
