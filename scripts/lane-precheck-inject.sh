@@ -397,6 +397,44 @@ assert "1 да" "$(runp) $(has 'предмет снят до раздачи')" "
 prem "alive $W/nope main x"
 assert "2 да" "$(runp) $(has 'VOID PREMISE-FORM alive')" "клона нет → VOID"
 
+# ── ws#1242 п.1: вишни пачки собираются пробами — go vet -tags=integration на голове ──
+# Песочница — урок b3d4f0781: вишня с integration-пробой, чья зависимость (функция B) осталась
+# в ветке-источнике. `go build ./...` такой ветки зелёный (проба вне сборки) — дефект видит лишь vet
+# с тегом. Близнец — та же проба стеком от предшественницы (B в ветке).
+if command -v go > /dev/null 2>&1; then
+    git init -q --bare -b main "$W/srv/gv.git"; GV="$W/gv"
+    git clone -q "$W/srv/gv.git" "$GV" 2> /dev/null
+    mkdir -p "$GV/p"; printf 'module example.com/gv\n\ngo 1.21\n' > "$GV/go.mod"
+    printf 'package p\n\nfunc A() int { return 1 }\n' > "$GV/p/p.go"
+    echo r > "$GV/README.md"
+    git -C "$GV" add . && git -C "$GV" commit -qm base && git -C "$GV" push -q origin main 2> /dev/null
+    git -C "$GV" checkout -qb src
+    printf 'package p\n\nfunc B() int { return 2 }\n' > "$GV/p/b.go"; git -C "$GV" add . && git -C "$GV" commit -qm dep
+    printf '//go:build integration\n\npackage p\n\nimport "testing"\n\nfunc TestB(t *testing.T) { _ = A() + B() }\n' > "$GV/p/p_integration_test.go"
+    git -C "$GV" add . && git -C "$GV" commit -qm probe; PROBE_SHA="$(git -C "$GV" rev-parse HEAD)"
+    git -C "$GV" checkout -qb 771 main && git -C "$GV" cherry-pick "$PROBE_SHA" > /dev/null
+    git -C "$GV" checkout -qb 772 main && git -C "$GV" merge -q --ff-only src
+    git -C "$GV" checkout -qb 773 main && echo s > "$GV/README.md" && git -C "$GV" commit -qam docs
+    git -C "$GV" checkout -q 771
+    assert "0" "$( (cd "$GV" && go build ./... > /dev/null 2>&1); echo $?)" "предпосылка: go build ./... на вишне без зависимости зелёный (урок b3d4f0781)"
+    prem "cherry-vet $GV 771"
+    assert "1 да" "$(runp) $(has 'PREMISE-FALSE cherry-vet .* 771: go vet -tags=integration на голове .*(пакетов 1).*undefined: B')" "вишня, чья зависимость не перенесена, — PREMISE-FALSE, код 1, причина vet названа"
+    prem "cherry-vet $GV 772"
+    assert "0 да" "$(runp) $(has 'CHERRY-VET 772 @.*: пакетов 1, vet -tags=integration 0')" "близнец: та же проба стеком (зависимость в ветке) — 0, перепись пакетов названа"
+    prem "cherry-vet $GV 773"
+    assert "2 да" "$(runp) $(has 'VOID CHERRY-EMPTY')" "Go-пакетов в диффе нет — VOID, не зелёное"
+    assert "0" "$(git -C "$GV" worktree list | grep -vc "^$GV ")" "копии голов сняты тем же шагом (worktree list — только клон)"
+    prem "cherry-vet $W/nope 771"
+    assert "2 да" "$(runp) $(has 'VOID PREMISE-FORM cherry-vet')" "клона нет — VOID"
+    if ! PATH=/usr/bin:/bin command -v go > /dev/null 2>&1; then
+        prem "cherry-vet $GV 771"
+        assert "2 да" "$(PATH=/usr/bin:/bin bash "$P" --premise "$W/premise.txt" > "$W/out" 2>&1; echo $?) $(has 'VOID GO-ABSENT')" "go нет — VOID GO-ABSENT, не зелёное"
+    fi
+    CHERRY_GV="$GV"
+else
+    echo "  [VOID] go нет — cherry-vet не судим" >&2; CHERRY_VOID=1
+fi
+
 # ── ws#1226: имя ветки и первая строка — правилом репозитория; форма отправки ──
 # Клоны с origin продукта (сети нет: адрес лишь читается). Предикат kaname — форма
 # branch_rule_is_number из scripts/hooks/branch-rule.sh kaname (@bbbe33524), дословно.
@@ -498,10 +536,13 @@ assert "1" "$(mut forecast 'w="${l//ожидаем/_}"' 'w="$l"' --task-text 'о
 
 assert "0" "$(LANE_PRECHECK_GIT_BASE="$W/gb" mut pushed '[ "$kind" = pushed ] && [ "$got" != "$want" ]' 'false' "pushed o/r 1-lane $BASE_SHA")" "мутант «голова отправки не сверяется»: непредъявленная голова проходит — проба выше его ловит"
 
+[ -z "${CHERRY_GV:-}" ] || assert "0" "$(mut cherry 'elif [ -n "$cerr" ]; then reasons+=' 'elif false; then reasons+=' "cherry-vet $CHERRY_GV 771")" "мутант «отказ vet не судится»: вишня без зависимости проходит — проба выше его ловит"
+
 echo "== вход"
 assert "2" "$(run "$W/srv" 1-lane main --issue o/r#7)" "не рабочая копия → код 2"
 assert "2" "$(run "$L" 1-lane)" "неполный вызов → код 2"
 
 echo
-echo "lane-precheck-inject: утверждений $((pass + fail)); сошлось $pass, разошлось $fail"
-[ "$fail" -eq 0 ]
+echo "lane-precheck-inject: утверждений $((pass + fail)); сошлось $pass, разошлось $fail${CHERRY_VOID:+; cherry-vet не судим (нет go)}"
+[ "$fail" -eq 0 ] || exit 1
+[ -z "${CHERRY_VOID:-}" ] || exit 2

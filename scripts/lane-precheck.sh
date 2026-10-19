@@ -42,6 +42,14 @@
 #                                                 трижды 2026-10-19 шаг выдан до .rc отправки); другая
 #                                                 голова или ветки нет — ложно, origin молчит — VOID;
 #                                                 цепочка «отправка → шаг» — scripts/push-then.sh;
+#   cherry-vet <клон> <ветка>                      вишни пачки собираются ПРОБАМИ: на голове ветки — `go vet
+#                                                 -tags=integration` по пакетам её Go-диффа от merge-base с
+#                                                 origin/main (ws#1242: b3d4f0781 на #771 — `go build`
+#                                                 зелёный, зависимость была лишь в ветке-источнике); дерево
+#                                                 — временной копией `git worktree add --detach`, снятой тем
+#                                                 же шагом; отказ vet — ложно; нет go, ветки, origin/main,
+#                                                 пакетов в диффе — VOID (без слота: vet своих пакетов —
+#                                                 быстрое, heavy-guard его не судит);
 #   alive <клон> <ревизия> <фраза…>               предмет жив: фраза есть в дереве ревизии (`git grep
 #                                                 -F`); нет — «снят до раздачи» (урок f487bb7c);
 #   branchname <клон> <ветка>                     имя — по правилу репозитория клона (ws#1226, его же
@@ -292,6 +300,32 @@ if [ -n "$premise" ]; then
                 if [ "$rc" != 0 ]; then voids+=("GH-UNREADABLE $line"); continue; fi
                 if ! got="$(printf '%s' "$got" | dod_revs)"; then voids+=("DOD-LIB $line: распознаватель $HERE/lib/dod_proof.jq не судил"); continue; fi
                 if [ -z "$got" ]; then reasons+=("PREMISE-FALSE $line: комментария «DoD-proof @<sha>» нет"); fi ;;
+            cherry-vet)
+                if ! top="$(git -C "$a" rev-parse --show-toplevel 2>/dev/null)" || [ -z "$b" ]; then voids+=("PREMISE-FORM $line: клона «$a» либо ветки нет"); continue; fi
+                command -v go > /dev/null 2>&1 || { voids+=("GO-ABSENT $line: go нет — vet не судим"); continue; }
+                csha="$(git -C "$top" rev-parse -q --verify "$b^{commit}" 2>/dev/null)" || { voids+=("PREMISE-FORM $line: ветки «$b» в клоне нет"); continue; }
+                cbase="$(git -C "$top" merge-base "$csha" refs/remotes/origin/main 2>/dev/null)" || { voids+=("PREMISE-FORM $line: origin/main в клоне нет — дифф не от чего"); continue; }
+                cwt="$(mktemp -d)"
+                if ! git -C "$top" worktree add -q --detach "$cwt/t" "$csha" > /dev/null 2>&1; then voids+=("WORKTREE $line: копия головы не заводится"); rm -rf "$cwt"; continue; fi
+                # Пакеты диффа — каталоги изменённых .go, живые на голове; модуль — ближайший go.mod вверх.
+                declare -A cmods=(); cpk=0
+                while IFS= read -r f; do
+                    d="$(dirname "$f")"; [ -d "$cwt/t/$d" ] || continue
+                    m="$d"; while [ "$m" != . ] && [ ! -f "$cwt/t/$m/go.mod" ]; do m="$(dirname "$m")"; done
+                    [ -f "$cwt/t/$m/go.mod" ] || continue
+                    if [ "$d" = "$m" ]; then rel=.; elif [ "$m" = . ]; then rel="./$d"; else rel="./${d#"$m"/}"; fi
+                    case " ${cmods[$m]:-} " in *" $rel "*) ;; *) cmods[$m]="${cmods[$m]:-} $rel"; cpk=$((cpk + 1)) ;; esac
+                done < <(git -C "$top" diff --name-only "$cbase" "$csha" -- '*.go')
+                cerr=""
+                for m in "${!cmods[@]}"; do
+                    # shellcheck disable=SC2086 # перечень пакетов — словами
+                    out="$(cd "$cwt/t/$m" && go vet -tags=integration ${cmods[$m]} 2>&1)" || cerr="${cerr:+$cerr; }$m: $(grep -m1 -vE '^#|^$' <<< "$out" | cut -c1-200)"
+                done
+                git -C "$top" worktree remove --force "$cwt/t" > /dev/null 2>&1; rm -rf "$cwt"
+                unset cmods
+                if [ "$cpk" -eq 0 ]; then voids+=("CHERRY-EMPTY $line: Go-пакетов в диффе от merge-base нет — vet не судит ничего")
+                elif [ -n "$cerr" ]; then reasons+=("PREMISE-FALSE $line: go vet -tags=integration на голове ${csha:0:12} (пакетов $cpk) — $cerr; зависимость вишни не перенесена — ветку стеком от предшественницы (fa-a5-stacked-branches)")
+                else heads+=("CHERRY-VET $b @${csha:0:12}: пакетов $cpk, vet -tags=integration 0"); fi ;;
             alive)
                 read -r _ _ _ phrase <<< "$line"
                 if [ -z "${phrase:-}" ] || ! git -C "$a" rev-parse -q --verify "$b^{commit}" > /dev/null 2>&1; then voids+=("PREMISE-FORM $line: клона «$a» либо ревизии «$b» нет"); continue; fi
