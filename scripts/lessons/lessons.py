@@ -20,12 +20,15 @@
 
 Первый осмотр файла — ВЕСЬ файл (не хвост: дозапущенный агент пишет ВОЗВРАТ и в начале), но
 разбираются лишь строки с байтами признака; бюджет — догоном: смещение сохраняется, хотя бы
-один кусок читается за вызов. Урок «—» — не урок. Урок без «·» — БЕЗ КЛЮЧА («урок без места — не урок»): в счёт классов
-не идёт, печатается отдельно и держит сигнал, пока ему не дадут ключ `rekey ?<id> <ключ>`
-(событие {t:rekey,id,key,ts}; урок с «·» его не берёт — ключ из текста) либо не снимут
-`mark ?<id> rejected`.
-Ключ класса — первый сегмент до «·», нормализованный (регистр, кавычки, «ё», пробелы), затем
-таблица синонимов `aliases.tsv` (регулярное выражение → ключ; первое совпадение).
+один кусок читается за вызов. Урок «—» — не урок. Урок без ключа в тексте (нет ни «·», ни
+фразы места PLACE_RE, либо сегмент до них пуст) — БЕЗ КЛЮЧА («урок без места — не урок»): в
+счёт классов не идёт, печатается отдельно и держит сигнал, пока ему не дадут ключ
+`rekey ?<id> <ключ>` (событие {t:rekey,id,key,ts}; урок с ключом в тексте его не берёт; ключ
+с «·», начатый «?» либо пустой — отказ; из нескольких событий одному уроку действует
+последнее) либо не снимут `mark ?<id> rejected`.
+Ключ класса — первый сегмент до «·» либо ключ события rekey, и ОБА проходят одну функцию
+`canon`: нормализация (регистр, кавычки, «ё», пробелы), затем таблица синонимов `aliases.tsv`
+(регулярное выражение → ключ; первое совпадение) — пересчётом при каждом чтении.
 
 Ведомость `lessons.jsonl` — ТОЛЬКО дописывается: запись урока {t:lesson,id,…} и событие
 статуса {t:status,key,status,ref,ts}. id = sha1(сессия|агент|sha1(строки)) — повторный сбор
@@ -110,8 +113,20 @@ def norm(seg):
     return re.sub(r'\s+', ' ', s).strip(' .,:;—-')
 
 
+def canon(seg, aliases):
+    """Ключ класса из сырого ключа — ОДНА функция для всех путей задания ключа (сегмент текста
+    урока, событие rekey): нормализация, затем синонимы. None — ключ пуст."""
+    seg = norm(seg or '')
+    if not seg:
+        return None
+    for rx, c in aliases:
+        if rx.search(seg):
+            return c
+    return seg[:80]
+
+
 def key_of(raw, aliases):
-    """Ключ класса или None (урок без места)."""
+    """Ключ класса из текста урока или None (урок без места)."""
     if '·' in raw:
         seg = raw.split('·', 1)[0]
     else:
@@ -119,13 +134,7 @@ def key_of(raw, aliases):
         if not m:
             return None
         seg = raw[:m.start()]
-    seg = norm(seg)
-    if not seg:
-        return None
-    for rx, canon in aliases:
-        if rx.search(seg):
-            return canon
-    return seg[:80]
+    return canon(seg, aliases)
 
 
 def lesson_of(text):
@@ -438,13 +447,14 @@ def held_since(store, key):
 def class_of(r, aliases, rekeys=None):
     """Ключ случая — ПЕРЕСЧЁТОМ из строки по текущей таблице синонимов: новая строка
     `aliases.tsv` сводит и прежние случаи. Ключ счётчика волны — как записан. Урок без
-    ключа в тексте берёт ключ события `rekey`; ключ из текста событие не перекрывает."""
+    ключа в тексте берёт ключ события `rekey` через ту же `canon`; ключ из текста событие
+    не перекрывает."""
     if r.get('src') == 'wave-errors':
         k = r.get('key')
     else:
         k = key_of(r.get('raw', ''), aliases)
         if k is None and rekeys:
-            k = rekeys.get(r['id'])
+            k = canon(rekeys.get(r['id']), aliases)
         if k is not None and r.get('src') == 'dispatcher' and not (k == ORCH or k.startswith(ORCH + ':')):
             k = ORCH + ':' + k
     return k if k else '?' + r['id'][:8]
@@ -524,13 +534,16 @@ def main():
     aliases = load_aliases(opts['--aliases'])
 
     if cmd == 'rekey':
-        # Ключ уроку без «·»: событие ведомости, а не правка записи (ведомость только дописывается).
+        # Ключ уроку без ключа в тексте: событие ведомости, а не правка записи (ведомость только
+        # дописывается). Ключ события — сырой нормализованный: синонимы — пересчётом в class_of.
         if len(rest) != 2 or not re.fullmatch(r'\?[0-9a-f]{4,40}', rest[0]):
             print('lessons: ОТКАЗ — rekey ?<id> <ключ>', file=sys.stderr)
             sys.exit(1)
         pre, key = rest[0][1:], norm(rest[1])
-        if not key or key.startswith('?') or '·' in key:
-            print('lessons: ОТКАЗ — ключ пуст, начат «?» либо несёт «·»', file=sys.stderr)
+        why = ('несёт «·»' if '·' in rest[1] else 'начат «?»' if key.startswith('?')
+               else 'пуст после нормализации' if canon(key, aliases) is None else '')
+        if why:
+            print('lessons: ОТКАЗ — ключ «%s» %s' % (rest[1], why), file=sys.stderr)
             sys.exit(1)
         hit = [r for r in store.lessons if r['id'].startswith(pre)]
         if len(hit) != 1:
@@ -538,7 +551,7 @@ def main():
             sys.exit(1)
         r = hit[0]
         if r.get('src') == 'wave-errors' or key_of(r.get('raw', ''), aliases) is not None:
-            print('lessons: ОТКАЗ — у урока %s ключ из текста «%s»; rekey — только уроку без «·»'
+            print('lessons: ОТКАЗ — у урока %s ключ из текста «%s»; rekey — только уроку без ключа в тексте'
                   % (rest[0], class_of(r, aliases)), file=sys.stderr)
             sys.exit(1)
         store.rekey(r['id'], key, now)
@@ -615,7 +628,7 @@ def main():
     for k, rs in stale:
         body.append('STALE %s — открыт дольше суток: %s' % (k, rs[0]['raw'][:140]))
     for k, rs in unkeyed:
-        body.append('UNKEYED %s — урок без «·» (без места; ключ — rekey %s <ключ>): %s/%s: %s' % (k, k, rs[0]['sid'][:8], rs[0]['agent'], rs[0]['raw'][:140]))
+        body.append('UNKEYED %s — урок без ключа в тексте (без места; ключ — rekey %s <ключ>): %s/%s: %s' % (k, k, rs[0]['sid'][:8], rs[0]['agent'], rs[0]['raw'][:140]))
     todo = bool(need or fails or stale or unkeyed)
     if cmd == 'status':
         print('[CENSUS] lessons: уроков %d, классов %d' % (len(store.lessons), len([k for k in by if not k.startswith('?')])))

@@ -21,9 +21,12 @@
 #                 (два блока одной строкой) — один, пересказчик (задание называет журнал
 #                 автора) при том же тексте у автора — не случай;
 #   ключ, идемпотентность, порог 2, статусы — как прежде;
-#   rekey       — `rekey ?<id> <ключ>`: урок без «·» уходит из UNKEYED в класс ключа (ws#1230);
-#                 близнецы: rekey уроку с «·» — отказ, событие ведомости на него ключ из текста
-#                 не меняет; нет урока с таким id — отказ;
+#   rekey       — `rekey ?<id> <ключ>`: урок без ключа в тексте уходит из UNKEYED в класс ключа
+#                 (ws#1230); ключ события проходит ту же `canon` (синонимы — пересчётом: строка
+#                 aliases.tsv, дописанная ПОСЛЕ события, сводит и его); из двух событий одному
+#                 уроку действует последнее; близнецы — отказ с текстом и без события в ведомости:
+#                 урок с ключом в тексте, нет урока, префикс id у двух уроков, ключ с «·»,
+#                 начатый «?», пустой; событие на урок с ключом в тексте ключ не меняет;
 #   бюджет      — при --budget 0 сбор читает кусок за вызов и откладывает остальное, догоном
 #                 доходит до того же числа уроков;
 #   B4 хук      — неверный регэксп синонима: сборщик код 3 с координатой, хук «НЕ СОБРАНЫ»;
@@ -147,6 +150,10 @@ suite() {
     chk() { if [ "$1" = "$2" ]; then ok "$3"; else no "$3 — ожидалось «$1», получено «$2»"; fi; }
     has() { if grep -qF -- "$1" <<< "$out"; then ok "$2"; else no "$2 — нет «$1»"; fi; }
     hasnt() { if grep -qF -- "$1" <<< "$out"; then no "$2 — есть «$1»"; else ok "$2"; fi; }
+    lid() { python3 -c 'import json,sys
+for l in open(sys.argv[1]):
+    r = json.loads(l)
+    if r.get("raw") == sys.argv[2]: print(r["id"])' "$1/led/lessons.jsonl" "$2"; }
     L() { LESSONS_PY="$py" LESSONS_DIR="$1/led" LESSONS_PROJECTS_DIR="$1/proj" LESSONS_WAVES_DIR="$1/waves" \
         LESSONS_ALIASES="$1/aliases.tsv" LESSONS_SINCE=2000-01-01 bash "$HERE/collect.sh" "${@:2}" 2>&1; }
     H() { local d="$1" inp="${2:-}"; [ -n "$inp" ] || inp='{}'; printf '%s' "$inp" | LESSONS_COLLECT="${HC:-$HERE/collect.sh}" LESSONS_PY="$py" LESSONS_DIR="$d/led" \
@@ -235,14 +242,8 @@ suite() {
     mkfix "$D/r" work
     L "$D/r" scan > /dev/null
     local uid kid
-    uid="$(python3 -c 'import json,sys
-for l in open(sys.argv[1]):
-    r = json.loads(l)
-    if r.get("raw") == sys.argv[2]: print(r["id"])' "$D/r/led/lessons.jsonl" 'без места вообще')"
-    kid="$(python3 -c 'import json,sys
-for l in open(sys.argv[1]):
-    r = json.loads(l)
-    if r.get("raw") == sys.argv[2]: print(r["id"])' "$D/r/led/lessons.jsonl" 'второй-блок · берётся')"
+    uid="$(lid "$D/r" 'без места вообще')"
+    kid="$(lid "$D/r" 'второй-блок · берётся')"
     out="$(L "$D/r" rekey "?${uid:0:8}" ключ-пробы)"; rc=$?
     chk 0 "$rc" "rekey: урок без «·» — код 0"
     out="$(L "$D/r" report)"
@@ -252,12 +253,60 @@ for l in open(sys.argv[1]):
     chk 0 "$rc" "rekey: класс ключа виден mark"
     out="$(L "$D/r" rekey "?${kid:0:8}" чужой-ключ)"; rc=$?
     chk 1 "$rc" "rekey близнец: урок с «·» — отказ"
+    has 'ключ из текста «второй-блок»; rekey — только уроку без ключа в тексте' "rekey близнец: отказ уроку с «·» называет его ключ"
     out="$(L "$D/r" rekey '?ffffffff' ключ-пробы)"; rc=$?
     chk 1 "$rc" "rekey: нет урока с таким id — отказ"
+    has 'уроков с id ffffffff…: 0, нужен ровно один' "rekey: отказ «нет урока» называет число"
     printf '{"t": "rekey", "id": "%s", "key": "чужой-ключ", "ts": 0}\n' "$kid" >> "$D/r/led/lessons.jsonl"
     out="$(L "$D/r" report)"
     has '  1  open                      второй-блок' "rekey близнец: событие на урок с «·» ключ из текста не меняет"
     hasnt 'чужой-ключ' "rekey близнец: ключ события к уроку с «·» не применён"
+
+    # rekey: ключ события — через ту же canon (синонимы, пересчёт), последнее событие выигрывает,
+    # отказы — с текстом и без события в ведомости.
+    mkfix "$D/q" work
+    L "$D/q" scan > /dev/null
+    python3 - "$D/q/led/lessons.jsonl" "$now" <<'PY'
+import json, sys
+p, now = sys.argv[1], float(sys.argv[2])
+with open(p, 'a', encoding='utf-8') as f:
+    for n in (1, 2):  # два урока без места с общим префиксом id «abcd»
+        f.write(json.dumps({'t': 'lesson', 'id': 'abcd%04d' % n + '0' * 32, 'sid': 'S9', 'agent': 'z%d' % n,
+                            'src': 'agent', 'ts': now - 3600, 'key': None, 'raw': 'синтетика без места %d' % n},
+                           ensure_ascii=False) + '\n')
+PY
+    n1="$(grep -c '"t": "rekey"' "$D/q/led/lessons.jsonl")"
+    out="$(L "$D/q" rekey '?abcd' ключ-пробы)"; rc=$?
+    chk 1 "$rc" "rekey близнец: префикс id у двух уроков — отказ"
+    has 'уроков с id abcd…: 2, нужен ровно один' "rekey близнец: отказ называет неоднозначность числом"
+    out="$(L "$D/q" rekey '?abcd0002' 'а · б')"; rc=$?
+    chk 1 "$rc" "rekey близнец: ключ с «·» — отказ"
+    has 'ключ «а · б» несёт «·»' "rekey близнец: отказ называет «·»"
+    out="$(L "$D/q" rekey '?abcd0002' '?abc')"; rc=$?
+    chk 1 "$rc" "rekey близнец: ключ, начатый «?», — отказ"
+    has 'ключ «?abc» начат «?»' "rekey близнец: отказ называет «?»"
+    out="$(L "$D/q" rekey '?abcd0002' '«» .')"; rc=$?
+    chk 1 "$rc" "rekey близнец: ключ, пустой после нормализации, — отказ"
+    has 'ключ ««» .» пуст после нормализации' "rekey близнец: отказ называет пустоту"
+    n2="$(grep -c '"t": "rekey"' "$D/q/led/lessons.jsonl")"
+    chk "$n1" "$n2" "rekey близнецы: отказ событие в ведомость не дописал"
+    uid="$(lid "$D/q" 'без места вообще')"
+    out="$(L "$D/q" rekey "?${uid:0:8}" первый-ключ)"; rc=$?
+    chk 0 "$rc" "rekey: первое событие уроку — код 0"
+    out="$(L "$D/q" rekey "?${uid:0:8}" '«Код 77» в цепочке')"; rc=$?
+    chk 0 "$rc" "rekey: второе событие тому же уроку — код 0"
+    has "?${uid:0:8} → код-77" "rekey: ключ события прошёл синонимы при записи — класс код-77"
+    out="$(L "$D/q" report)"
+    has '  3  open                      код-77' "rekey: ключ «Код 77 в цепочке» сведён синонимом с уроками из текста — 3 случая"
+    hasnt 'код 77 в цепочке' "rekey: ключ события в обход синонимов классом не стал"
+    hasnt 'первый-ключ' "rekey: из двух событий одному уроку действует последнее"
+    out="$(L "$D/q" status)"
+    has 'NEED-MECHANISM код-77 — случаев 3' "rekey: случай под ключом события виден порогу"
+    out="$(L "$D/q" rekey '?abcd0001' новый-класс)"; rc=$?
+    chk 0 "$rc" "rekey: однозначный префикс — код 0"
+    printf 'новый-класс\tкод-77\n' >> "$D/q/aliases.tsv"
+    out="$(L "$D/q" report)"
+    has '  4  open                      код-77' "rekey: строка синонимов, дописанная после события, сводит и его (пересчёт)"
 
     # B4: сбой сборщика отличим от «делать нечего».
     mkfix "$D/a" work
@@ -314,19 +363,21 @@ ctl=$?
 [ "$ctl" = 0 ] || echo "контроль: расхождений $ctl" >&2
 
 # ── Мутанты ────────────────────────────────────────────────────────────────
-mutant() {  # mutant <имя> <файл: py|hook> <фрагмент> <замена>
+mutant() {  # mutant <имя> <файл: py|hook> <фрагмент> <замена> [<фрагмент> <замена> …]
     local name="$1" which="$2" py="$HERE/lessons.py" hook="$WSR/.claude/hooks/lessons-signal.sh" m
     m="$T/mut-$name"
     mkdir -p "$m"
     cp "$py" "$m/lessons.py"; cp "$hook" "$m/hook.sh"
     local tgt="$m/lessons.py"; [ "$which" = hook ] && tgt="$m/hook.sh"
-    if ! python3 - "$tgt" "$3" "$4" <<'PY'
+    if ! python3 - "$tgt" "${@:3}" <<'PY'
 import sys
-p, a, b = sys.argv[1:4]
+p, pairs = sys.argv[1], sys.argv[2:]
 s = open(p, encoding='utf-8').read()
-if a not in s:
-    sys.exit(1)
-open(p, 'w', encoding='utf-8').write(s.replace(a, b, 1))
+for a, b in zip(pairs[::2], pairs[1::2]):
+    if a not in s:
+        sys.exit(1)
+    s = s.replace(a, b, 1)
+open(p, 'w', encoding='utf-8').write(s)
 PY
     then
         echo "  [FAIL] мутант $name: фрагмент не найден — порча не легла" >&2
@@ -367,8 +418,18 @@ mutant b3-pair-off py "        if r.get('wave') and r.get('lane'):" "        if 
 # rekey (ws#1230) — событие не учтено; событие перекрывает ключ из текста; отказ близнецу снят
 mutant rekey-ignored py '        if k is None and rekeys:' '        if False:'
 mutant rekey-overrides-text py '        if k is None and rekeys:
-            k = rekeys.get(r['"'"'id'"'"'])' '        if rekeys and r['"'"'id'"'"'] in rekeys:
-            k = rekeys[r['"'"'id'"'"']]'
+            k = canon(rekeys.get(r['"'"'id'"'"']), aliases)' '        if rekeys and r['"'"'id'"'"'] in rekeys:
+            k = canon(rekeys[r['"'"'id'"'"']], aliases)'
+# ключ события в обход canon; canon лишь при записи (новая строка синонимов не сводит прежний);
+# неоднозначный префикс берёт первый урок; первое событие выигрывает; ключ не проверен
+mutant rekey-key-bypasses-canon py "            k = canon(rekeys.get(r['id']), aliases)" "            k = rekeys.get(r['id'])"
+mutant rekey-canon-at-write-only py "            k = canon(rekeys.get(r['id']), aliases)" "            k = rekeys.get(r['id'])" \
+    "        store.rekey(r['id'], key, now)" "        store.rekey(r['id'], canon(key, aliases), now)"
+mutant rekey-ambiguous-takes-first py '        if len(hit) != 1:' '        if len(hit) < 1:'
+mutant rekey-first-event-wins py "self.rekeys[r['id']] = r['key']  # последнее событие выигрывает" "self.rekeys.setdefault(r['id'], r['key'])"
+mutant rekey-key-unchecked py '        if why:
+            print' '        if not key:
+            print'
 mutant rekey-keyed-accepted py "        if r.get('src') == 'wave-errors' or key_of(r.get('raw', ''), aliases) is not None:" "        if False:"
 # B4 — бюджет, догон, исключения сборщика, ветви хука
 mutant b4-budget-1e9 py "deadline = time.time() + float(opts['--budget'])" "deadline = time.time() + 1e9"
