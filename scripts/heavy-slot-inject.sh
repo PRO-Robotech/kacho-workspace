@@ -893,10 +893,59 @@ done
 assert "77 да" "$(RDIR="$W/kd" rslot bash "$SLOT" stand -- ./wrap-psub-walk.sh) $(has "$W/err" 'helper.sh: ctlptl')" "обход на глубину один: помощник с ctlptl, названный внутри <(…) echo, читается → 77, признак «helper.sh: ctlptl» назван"
 rm -f "$W/wk-ran"
 assert "0 да да" "$(RDIR="$W/kd" rslot bash "$SLOT" stand -- ./wrap-echo-lit.sh) $([ -e "$W/wk-ran" ] && echo да || echo нет) $(has "$W/err" 'не поднимает локальный стенд')" "законный близнец: echo \"kind create\" без подстановки — не вызов: идёт, «не поднимает»"
-# Мутант — старое поведение keep (подстановка процесса отбрасывается вместе с аргументами echo):
-# подъём <(kind create) уходит локально — проба wrap-psub выше его ловит.
+# Мутант — подстановка процесса отбрасывается вместе с аргументами echo: подъём <(kind create)
+# уходит локально — проба wrap-psub выше его ловит.
 rm -f "$W/kind-ran"
-assert "0 0 да" "$(tmut ' && index(x, "<(") == 0 && index(x, ">(") == 0) return ""' ') return ""') $(RDIR="$W/kd" rslot bash "$W/tmut/heavy-slot.sh" stand -- ./wrap-psub.sh) $([ -e "$W/kind-ran" ] && echo да || echo нет)" "мутант «подстановка процесса отброшена»: echo <(kind create) уходит локально (0), kind запущен — проба wrap-psub выше его ловит"
+assert "0 0 да" "$(tmut '        if ((c == "<" || c == ">") && substr(x, i + 1, 1) == "(") return 0
+' '') $(RDIR="$W/kd" rslot bash "$W/tmut/heavy-slot.sh" stand -- ./wrap-psub.sh) $([ -e "$W/kind-ran" ] && echo да || echo нет)" "мутант «подстановка процесса отброшена»: echo <(kind create) уходит локально (0), kind запущен — проба wrap-psub выше его ловит"
+
+echo "── стенд: аргумент echo/printf отбрасывается, лишь если сегмент ЦЕЛИКОМ литерален — правило класса (ws#1250 B2, fa-b6)"
+# Третий ложный зелёный того же рода: перечень форм подстановки в keep пропускал новую — сперва
+# <(…), затем ${ cmd; } bash 5.3 (kind исполнялся локально при доступном кластере). Правило — КЛАСС:
+# вне одинарных кавычек ни «$» (любое раскрытие), ни обратной кавычки, ни «<(», «>(»; иначе — код.
+mkw() { printf '#!/usr/bin/env bash\n%s\ntouch "%s"\n' "$2" "$W/wk-ran" > "$W/kd/$1.sh"; chmod +x "$W/kd/$1.sh"; }
+mkw wrap-funsub "echo \${ $W/bin/kind create cluster; }"
+mkw wrap-valsub "echo \${| $W/bin/kind create cluster; }"
+# shellcheck disable=SC2016  # строка скрипта: раскрывает он сам
+mkw wrap-funsub-walk 'echo ${ ./helper.sh; }'
+mkw wrap-dsub "echo \$($W/bin/kind create cluster)"
+mkw wrap-dsubq "echo \"\$($W/bin/kind create cluster)\""
+mkw wrap-bq "printf '%s' \`$W/bin/kind create cluster\`"
+for ps in wrap-funsub wrap-valsub wrap-dsub wrap-dsubq wrap-bq; do
+    rm -f "$W/kind-ran" "$W/wk-ran"
+    assert "77 да нет нет" "$(RDIR="$W/kd" rslot bash "$SLOT" stand -- "./$ps.sh") $(has "$W/err" 'по признаку содержимого') $([ -e "$W/wk-ran" ] && echo да || echo нет) $([ -e "$W/kind-ran" ] && echo да || echo нет)" "$ps: раскрытие в аргументе echo/printf с kind create — вызов → 77, ни обёртка, ни kind не запускались"
+done
+assert "77 да" "$(RDIR="$W/kd" rslot bash "$SLOT" stand -- ./wrap-funsub-walk.sh) $(has "$W/err" 'helper.sh: ctlptl')" "обход на глубину один: помощник с ctlptl внутри \${ …; } echo читается → 77, признак «helper.sh: ctlptl» назван"
+# Законные близнецы: целиком литеральный вывод — не вызов; одинарные кавычки разбираются однозначно
+# («$» внутри них — литерал), поэтому echo 'kind create cluster $HOME' — тоже вывод.
+mkw wrap-tw-fine 'echo "kind is fine"'
+mkw wrap-tw-hello 'echo hello'
+mkw wrap-tw-printf "printf 'x\\n'"
+mkw wrap-tw-sq "echo 'kind create cluster \$HOME'"
+for tw in wrap-tw-fine wrap-tw-hello wrap-tw-printf wrap-tw-sq; do
+    rm -f "$W/wk-ran"
+    assert "0 да да" "$(RDIR="$W/kd" rslot bash "$SLOT" stand -- "./$tw.sh") $([ -e "$W/wk-ran" ] && echo да || echo нет) $(has "$W/err" 'не поднимает локальный стенд')" "законный близнец $tw: литеральный вывод — не вызов: идёт, «не поднимает»"
+done
+# [BOUND] fail-closed (шапка stand_sign): «$» и «<(» внутри ДВОЙНЫХ кавычек сегмент сохраняют, даже
+# когда раскрытие не исполняет команды; литерал kind create рядом — ложный красный, 77, не тайный
+# локальный подъём. Безопасная сторона — эта (решение диспетчера, fa-b6).
+bound_fc() {
+    if [ "$1" = "$2" ]; then echo "  [BOUND] fail-closed (ложный красный, граница): $3"; bound=$((bound + 1))
+    else echo "  [FAIL] граница fail-closed «$3» — ожидалось «$1», получено «$2»: шапка устарела" >&2; fail=$((fail + 1)); fi
+}
+# shellcheck disable=SC2016  # строка скрипта: раскрывает он сам
+mkw wrap-bd-var 'echo "kind create ${var}"'
+mkw wrap-bd-psubq 'echo "<(kind create cluster)"'
+for bd in wrap-bd-var wrap-bd-psubq; do
+    rm -f "$W/wk-ran"
+    bound_fc "77 нет" "$(RDIR="$W/kd" rslot bash "$SLOT" stand -- "./$bd.sh") $([ -e "$W/wk-ran" ] && echo да || echo нет)" "$bd: раскрытие или «<(» внутри двойных кавычек рядом с литералом kind create → 77"
+done
+# Мутанты keep, каждый погибает на wrap-funsub: (а) снова перечень форм; (б) «$» не проверяется.
+rm -f "$W/kind-ran"
+# shellcheck disable=SC2016  # тексты мутанта — строки исходника слота
+assert "0 0 да" "$(tmut ' && lit(x)) return ""' ' && index(x, "$(") == 0 && index(x, "`") == 0 && index(x, "<(") == 0 && index(x, ">(") == 0) return ""') $(RDIR="$W/kd" rslot bash "$W/tmut/heavy-slot.sh" stand -- ./wrap-funsub.sh) $([ -e "$W/kind-ran" ] && echo да || echo нет)" "мутант (а) «keep сверяет перечень форм»: echo \${ kind create; } уходит локально (0), kind запущен — проба wrap-funsub выше его ловит"
+rm -f "$W/kind-ran"
+assert "0 0 да" "$(tmut 'if (c == "$" || c == "`") return 0' 'if (c == "`") return 0') $(RDIR="$W/kd" rslot bash "$W/tmut/heavy-slot.sh" stand -- ./wrap-funsub.sh) $([ -e "$W/kind-ran" ] && echo да || echo нет)" "мутант (б) «keep не проверяет \$»: echo \${ kind create; } уходит локально (0), kind запущен — проба wrap-funsub выше его ловит"
 
 echo "── стенд во внешнем ns — без слота машины: на машине лишь kubectl и helm (ws#1143)"
 # Журнал слотов до правки: stand-ns-up/down/census/forward — 139 запусков, пик
