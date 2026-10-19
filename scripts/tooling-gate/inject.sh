@@ -1530,7 +1530,7 @@ if mr_patch "$b/$MR_REL" \
 fi
 b="$(mksandbox)"
 if mr_patch "$b/$DOD_REL" \
-    's/capture\("\^\(/capture("(/' \
+    's/_dod_mark_re: "\^\(/_dod_mark_re: "(/' \
     "маркер в любом месте строки"; then
     run_c09_red "$b" "инъекция: маркер в середине строки и в цитате засчитан доказательством — краснеет" \
         PF-MIDLINE PF-QUOTE
@@ -2612,7 +2612,7 @@ if mr_patch "$b/$CC_REL" 's/gh api --paginate "repos\/\$r\/issues/gh api "repos\
     run 1 "$b" "инъекция: комментарии задачи читаются одной страницей — краснеет" "$C14"
 fi
 b="$(mksandbox)"
-if mr_patch "$b/$DOD_REL" 's/capture\("\^\(/capture("(/' \
+if mr_patch "$b/$DOD_REL" 's/_dod_mark_re: "\^\(/_dod_mark_re: "(/' \
     "маркер в любом месте строки"; then
     run 1 "$b" "инъекция: маркер в середине строки засчитан доказательством — краснеет" "$C14"
 fi
