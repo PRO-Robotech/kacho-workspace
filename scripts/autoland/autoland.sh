@@ -103,7 +103,7 @@
 #      (воркспейс и project/*, чей origin — этот репозиторий) — fetch --prune; ветка
 #      снимается, только если её голова РАВНА влитой либо её предок, а влитая — предок
 #      origin/<база>; копия (worktree) — `git worktree remove` лишь при пустом
-#      `status --porcelain` и без процессов в ней: cwd либо открытый файл внутри копии (/proc,
+#      `status --porcelain` и без процессов в ней: cwd, исполняемый файл (ws#1250) либо открытый файл внутри копии (/proc,
 #      свои процессы учётки) — копия и ветка остаются, в .state «оставлено: процессы <pid…>»
 #      (ws#1244: снята копия, где шли 6 процессов integration); origin — `--delete-branch`, оставшуюся — `git push origin
 #      --delete` под замком interim; перепись `branch-audit.sh` до и после — в журнал;
@@ -521,13 +521,16 @@ prune() {  # <ветка головы> <база>
     log "$PRUNE"
 }
 
-# wt_procs <копия> — pid процессов, чей cwd либо открытый файл — внутри копии (ws#1244), кроме
-# самого демона; чужие учётки /proc не отдают — их процессы не видны (граница).
+# wt_procs <копия> — pid процессов, чей cwd, исполняемый файл (exe) либо открытый файл — внутри
+# копии (ws#1244; exe — ws#1250), кроме самого демона; чужие учётки /proc не отдают — их процессы
+# не видны (граница). Путь копии в -lname — шаблон: знаки [ ] * ? \ экранируются, иначе копия
+# «a[1]» ловила бы чужую «a1» и не видела свою (ws#1250).
 wt_procs() {
-    local d
+    local d e
     d="$(cd "$1" 2>/dev/null && pwd -P)" || return 0
-    { find /proc/[0-9]*/cwd -maxdepth 0 \( -lname "$d" -o -lname "$d/*" \) 2>/dev/null
-      find /proc/[0-9]*/fd -mindepth 1 -maxdepth 1 \( -lname "$d" -o -lname "$d/*" \) 2>/dev/null
+    e="$(printf '%s' "$d" | sed 's/[][*?\\]/\\&/g')"
+    { find /proc/[0-9]*/cwd /proc/[0-9]*/exe -maxdepth 0 \( -lname "$e" -o -lname "$e/*" \) 2>/dev/null
+      find /proc/[0-9]*/fd -mindepth 1 -maxdepth 1 \( -lname "$e" -o -lname "$e/*" \) 2>/dev/null
     } | cut -d/ -f3 | grep -vxF -e "$$" -e "$BASHPID" | sort -un | tr '\n' ' ' | sed 's/ $//'
 }
 

@@ -910,6 +910,77 @@ rm -f "$W/wk-ran"
 assert "0 да да" "$(RDIR="$W/kd" rslot bash "$SLOT" stand -- ./wrap-kubectl.sh) $([ -e "$W/wk-ran" ] && echo да || echo нет) $(has "$W/err" 'не поднимает локальный стенд')" "близнец: обёртка лишь с kubectl (kind create — в комментарии) → локально «не поднимает», кластер не мешает"
 boundary "0" "$(RDIR="$W/kd" rslot bash "$SLOT" stand -- ./wrap-deep.sh)" "обёртка → посредник → помощник с ctlptl (глубина два)"
 
+echo "── стенд: флаг СО ЗНАЧЕНИЕМ между kind и create — подъём (ws#1250 K2, C1)"
+# K2: признак допускал между kind и create лишь слова на «-», и значение флага («3») рвало совпадение;
+# разбор argv брал значение флага за подкоманду.
+rm -f "$W/kind-ran"
+assert "77 да нет" "$(rslot bash "$SLOT" stand -- "$W/bin/kind" --verbosity 3 create cluster) $(has "$W/err" 'во внешний кластер') $([ -e "$W/kind-ran" ] && echo да || echo нет)" "argv: kind --verbosity 3 create при доступном кластере → 77, kind не запускался"
+assert "77 нет" "$(rslot bash "$SLOT" stand -- "$W/bin/kind" -v 3 create cluster) $([ -e "$W/kind-ran" ] && echo да || echo нет)" "argv: kind -v 3 create → 77"
+assert "0 да" "$(rslot bash "$SLOT" stand -- "$W/bin/kind" -v 3 delete cluster) $([ -e "$W/kind-ran" ] && echo да || echo нет)" "близнец argv: kind -v 3 delete (не подъём) → идёт локально"
+rm -f "$W/kind-ran"
+printf '#!/usr/bin/env bash\n%s/bin/kind -v 3 create cluster\n' "$W" > "$W/kd/wrap-kv.sh"; chmod +x "$W/kd/wrap-kv.sh"
+assert "77 да" "$(RDIR="$W/kd" rslot bash "$SLOT" stand -- ./wrap-kv.sh) $(has "$W/err" 'по признаку содержимого')" "содержимое: kind -v 3 create → 77 по признаку содержимого"
+
+echo "── стенд: текст скрипта судится весь, кроме строки-комментария; вывод echo и хвостовой комментарий не отбрасываются (ws#1250 C2)"
+# Отбрасывание сегментов echo/printf четыре круга подряд давало ложный зелёный одного рода (kind
+# исполнялся локально при доступном кластере): <(…), ${ cmd; }, затем многострочная двойная кавычка —
+# построчный разбор оболочки текстом неполон. Снято (решение диспетчера, fa-b6): лишние 77 безопасны.
+mkw() { printf '#!/usr/bin/env bash\n%s\ntouch "%s"\n' "$2" "$W/wk-ran" > "$W/kd/$1.sh"; chmod +x "$W/kd/$1.sh"; }
+mkw wrap-funsub "echo \${ $W/bin/kind create cluster; }"
+mkw wrap-valsub "echo \${| $W/bin/kind create cluster; }"
+mkw wrap-dsub "echo \$($W/bin/kind create cluster)"
+mkw wrap-dsubq "echo \"\$($W/bin/kind create cluster)\""
+mkw wrap-bq "printf '%s' \`$W/bin/kind create cluster\`"
+mkw wrap-psub "echo <($W/bin/kind create cluster)"
+mkw wrap-psub-out "printf x >($W/bin/kind create cluster)"
+mkw wrap-bashc "echo \"подъём\"; bash -c \"$W/bin/kind create cluster\""
+mkw wrap-subst "echo \"\$($W/bin/kind create cluster)\" # вывод"
+mkw wrap-pipe-sh "echo $W/bin/kind create cluster | sh"
+# Многострочная двойная кавычка: вторая строка — echo '…' целиком в одинарных, но $(…) раскрывает
+# внешняя "…", открытая строкой выше.
+mkw wrap-ml "echo \"начало
+echo '\$($W/bin/kind create cluster)'
+конец\""
+for ps in wrap-funsub wrap-valsub wrap-dsub wrap-dsubq wrap-bq wrap-psub wrap-psub-out wrap-bashc wrap-subst wrap-pipe-sh wrap-ml; do
+    rm -f "$W/kind-ran" "$W/wk-ran"
+    assert "77 да нет нет" "$(RDIR="$W/kd" rslot bash "$SLOT" stand -- "./$ps.sh") $(has "$W/err" 'по признаку содержимого') $([ -e "$W/wk-ran" ] && echo да || echo нет) $([ -e "$W/kind-ran" ] && echo да || echo нет)" "$ps: kind create в строке echo/printf — признак → 77, ни обёртка, ни kind не запускались"
+done
+# shellcheck disable=SC2016  # строки скрипта: раскрывает он сам
+mkw wrap-funsub-walk 'echo ${ ./helper.sh; }'
+mkw wrap-psub-walk 'echo <(./helper.sh)'
+for ps in wrap-funsub-walk wrap-psub-walk; do
+    assert "77 да" "$(RDIR="$W/kd" rslot bash "$SLOT" stand -- "./$ps.sh") $(has "$W/err" 'helper.sh: ctlptl')" "$ps: обход на глубину один читает помощник с ctlptl, названный в строке echo → 77, признак «helper.sh: ctlptl» назван"
+done
+# Законный близнец: строка-комментарий целиком — не вызов.
+mkw wrap-cmt-line '# kind create cluster'
+rm -f "$W/wk-ran"
+assert "0 да да" "$(RDIR="$W/kd" rslot bash "$SLOT" stand -- ./wrap-cmt-line.sh) $([ -e "$W/wk-ran" ] && echo да || echo нет) $(has "$W/err" 'не поднимает локальный стенд')" "законный близнец: строка «# kind create cluster» — комментарий: идёт, «не поднимает»"
+# [BOUND] fail-closed (шапка stand_sign): echo/printf и хвостовой комментарий с признаком — признак,
+# 77; лишний красный безопасен — команда уходит на кластер, а не тайно поднимает стенд локально.
+bound_fc() {
+    if [ "$1" = "$2" ]; then echo "  [BOUND] fail-closed (лишний красный, граница): $3"; bound=$((bound + 1))
+    else echo "  [FAIL] граница fail-closed «$3» — ожидалось «$1», получено «$2»: шапка устарела" >&2; fail=$((fail + 1)); fi
+}
+mkw wrap-bd-echo 'echo "kind create"'
+mkw wrap-bd-tail 'true # kind create cluster — не здесь'
+# shellcheck disable=SC2016  # строки скрипта: раскрывает он сам
+mkw wrap-bd-sq "echo 'kind create cluster \$HOME'"
+mkw wrap-bd-printf 'printf "%s\n" "run kind create cluster yourself"'
+# shellcheck disable=SC2016  # строки скрипта: раскрывает он сам
+mkw wrap-bd-var 'echo "kind create ${var}"'
+mkw wrap-bd-psubq 'echo "<(kind create cluster)"'
+for bd in wrap-bd-echo wrap-bd-tail wrap-bd-sq wrap-bd-printf wrap-bd-var wrap-bd-psubq; do
+    rm -f "$W/wk-ran"
+    bound_fc "77 нет" "$(RDIR="$W/kd" rslot bash "$SLOT" stand -- "./$bd.sh") $([ -e "$W/wk-ran" ] && echo да || echo нет)" "$bd: литерал kind create в выводе echo/printf либо в хвостовом комментарии → 77"
+done
+# Мутант «сегмент echo снова отбрасывается»: подъём из строки echo уходит локально — пробы
+# wrap-dsub и wrap-ml выше его ловят.
+for ps in wrap-dsub wrap-ml; do
+    rm -f "$W/kind-ran"
+    # shellcheck disable=SC2016  # тексты мутанта — строки исходника слота
+    assert "0 0 да" "$(tmut "grep -vE '^[[:space:]]*#' \"\$f\"" "grep -vE '^[[:space:]]*(#|echo[[:space:]])' \"\$f\"") $(RDIR="$W/kd" rslot bash "$W/tmut/heavy-slot.sh" stand -- "./$ps.sh") $([ -e "$W/kind-ran" ] && echo да || echo нет)" "мутант «сегмент echo отбрасывается»: $ps уходит локально (0), kind запущен — проба $ps выше его ловит"
+done
+
 echo "── стенд во внешнем ns — без слота машины: на машине лишь kubectl и helm (ws#1143)"
 # Журнал слотов до правки: stand-ns-up/down/census/forward — 139 запусков, пик
 # памяти ≤ 118 МиБ, ожидание слота до 1343 с (17.10 — дважды больше 10 мин).
@@ -1346,8 +1417,20 @@ assert "64 да" "$rc $([ "$(tk_of "$RB4")" != нет ] && echo да || echo н�
 rc="$(cdslot "$W/own" env bash "$SLOT" --cancel "${RB4%.rc}.pid")"; c4="$(await_rc "$RB4")"
 assert "да 0 143 нет нет" "$hint $rc $c4 $([ -e "$W/cn4" ] && echo да || echo нет) $(tk_of "$RB4")" "ENQUEUED называет отмену; свой журнал заявки (.pid): 0, ожидание снято (.rc 143), команда не запускалась, билета нет"
 rc="$(cdslot "$W/own" env bash "$SLOT" --cancel "$W/enq/hs-docker-20990101T000000-1.log")"
-assert "69 да" "$rc $(has "$W/err" 'билета нет')" "журнал заявки без билета (снята, исполнилась, не выдавалась) — 69 «не выполнилось», а не успех"
+assert "69 да да" "$rc $(has "$W/err" 'билета нет') $(has "$W/err" 'не выдавалась')" "журнал заявки без билета, без процесса и без .rc — 69 «не выдавалась», а не успех"
 wait "$HA"
+# Заявка ИДЁТ без билета (ws#1250 K5): вошла в слот — билета у неё нет, а процесс жив. Прежде отмена
+# отвечала «снята, исполнилась либо не выдавалась» и о живой команде молчала.
+rm -f "$W/cn5"
+# shellcheck disable=SC2016  # тело `bash -c` раскрывает дочерняя оболочка
+cdslot "$W/own" -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_ENQ_S=60 HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" --enqueue "$W/enq" docker -- bash -c 'sleep 4; touch "$0"' "$W/cn5" >/dev/null; RB5="$(rcof)"
+for _ in $(seq 1 25); do [ "$(nslots)" -ge 1 ] && [ "$(tk_of "$RB5")" = нет ] && break; sleep 0.2; done
+P5="$(cat "${RB5%.rc}.pid" 2>/dev/null)"
+rc="$(cdslot "$W/own" env bash "$SLOT" --cancel "${RB5%.rc}.pid")"
+assert "69 да да да" "$rc $(has "$W/err" 'ИДЁТ') $(has "$W/err" "pid ${P5:-нет}") $(kill -0 "${P5:-0}" 2>/dev/null && echo да || echo нет)" "идущая заявка без билета: 69, «ИДЁТ» и её pid названы, процесс не тронут"
+c5="$(await_rc "$RB5")"
+rc="$(cdslot "$W/own" env bash "$SLOT" --cancel "${RB5%.rc}.log")"
+assert "0 да 69 да" "$c5 $([ -e "$W/cn5" ] && echo да || echo нет) $rc $(has "$W/err" 'завершилась кодом 0')" "близнец: та же заявка исполнилась — 69 с её кодом из .rc, а не «идёт»"
 
 echo "── срок заявки ОДИН на все фазы: внешний вход, занятость кластера и очередь памяти (ws#1244 L1)"
 # Очередь памяти считала срок от СВОЕГО начала: заявка, прождавшая занятый кластер, на его отказе
