@@ -36,6 +36,12 @@
 #                                                 урок 9d4363aa: sha задания устарела после «merge
 #                                                 main»); печатается строкой `HEAD <репо> <ветка> <sha>`
 #                                                 для задания; ветки нет — ложно, origin молчит — VOID;
+#   pushed <владелец/репо> <ветка> <sha40>        отправка ДОЕХАЛА: `git ls-remote` origin = sha целиком —
+#                                                 предусловие ЛЮБОГО шага, зависящего от отправки (событие
+#                                                 одобрения, PR, ревью по дельте, autoland start; ws#1242:
+#                                                 трижды 2026-10-19 шаг выдан до .rc отправки); другая
+#                                                 голова или ветки нет — ложно, origin молчит — VOID;
+#                                                 цепочка «отправка → шаг» — scripts/push-then.sh;
 #   alive <клон> <ревизия> <фраза…>               предмет жив: фраза есть в дереве ревизии (`git grep
 #                                                 -F`); нет — «снят до раздачи» (урок f487bb7c);
 #   branchname <клон> <ветка>                     имя — по правилу репозитория клона (ws#1226, его же
@@ -259,15 +265,17 @@ if [ -n "$premise" ]; then
                 ghget "repos/$a/branches/$b" .name > /dev/null; rc=$?
                 if [ "$rc" = 3 ]; then reasons+=("PREMISE-FALSE $line: ветки на origin нет")
                 elif [ "$rc" != 0 ]; then voids+=("GH-UNREADABLE $line"); fi ;;
-            head)
+            head | pushed)
                 read -r _ _ _ want _ <<< "$line"
-                if [ "${want:-}" = ls-remote ]; then
-                    if [ -z "$a" ] || ! [[ "$a" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || ! [[ "$b" =~ ^[A-Za-z0-9._/-]+$ ]]; then voids+=("PREMISE-FORM $line"); continue; fi
+                if [ "${want:-}" = ls-remote ] || [ "$kind" = pushed ]; then
+                    if [ -z "$a" ] || ! [[ "$a" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || ! [[ "$b" =~ ^[A-Za-z0-9._/-]+$ ]] \
+                        || { [ "$kind" = pushed ] && ! [[ "${want:-}" =~ ^[0-9a-f]{40}$ ]]; }; then voids+=("PREMISE-FORM $line"); continue; fi
                     out="$(GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh -o BatchMode=yes}" timeout 20 \
                         git ls-remote "${LANE_PRECHECK_GIT_BASE:-https://github.com}/$a.git" "refs/heads/$b" 2>/dev/null)" \
                         || { voids+=("GIT-UNREADABLE $line: ls-remote origin не ответил"); continue; }
                     got="$(awk -v r="refs/heads/$b" '$2 == r { print $1 }' <<< "$out")"
                     if [ -z "$got" ]; then reasons+=("PREMISE-FALSE $line: ветки $b на origin нет")
+                    elif [ "$kind" = pushed ] && [ "$got" != "$want" ]; then reasons+=("PREMISE-FALSE $line: голова $b на origin $got, отправка $want не доехала — зависимый шаг не выдаётся")
                     else heads+=("HEAD $a $b $got"); fi
                     continue
                 fi

@@ -293,13 +293,12 @@ skills:
   `--subject` правило ветки краснит, ws#1029) и из задания `--reviews`, `--stand-report` и
   `--stand-expect`, `--allow <коды>` — сразу печатает pid, журнал и `.state`; затем ОДИН шаг
   `autoland.sh status <.state>`: 0 merged · 1 red · 2 void · 3 идёт · 4 stale-base · 5
-  head-moved · 6 timeout. Демон ждёт CI, гонит три гейта, вливает `--merge
-  --match-head-commit` и снимает голову PR (шапка `autoland.sh`), не руками.
+  head-moved · 6 timeout. Демон ждёт CI, гонит три гейта, вливает и снимает голову PR (шапка `autoland.sh`), не руками.
   3 — возврат «идёт» с путём `.state`, status —
   следующим заданием; иной не 0 — первая строка `.state` ДОСЛОВНО диспетчеру, повторного
   старта без задания нет; start 4 — копия демона старше ствола: `git -C $WS merge --ff-only
   origin/main`, тот же start (ws#1228); цепочка «отправка → DoD-proof → start» — одним
-  `scripts/detach.sh start`; перед start база догнана (`rev-list --count HEAD..origin/<база>` 0);
+  `scripts/push-then.sh start` (ws#1242); перед start база догнана (`rev-list --count HEAD..origin/<база>` 0);
 - коммит в ветку чужого PR — первой строкой номер ВЕТКИ (`commit-msg` kaname, corelib),
   задача — `Refs` в теле; задание сверяет `lane-precheck.sh --premise` (branchname,
   commit-subject, push-form; ws#1226);

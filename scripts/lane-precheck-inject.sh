@@ -378,6 +378,18 @@ prem 'head o/r 2-gone ls-remote'
 assert "1 да" "$(runl) $(has 'PREMISE-FALSE head o/r 2-gone ls-remote: ветки 2-gone на origin нет')" "ls-remote: ветки нет → PREMISE-FALSE"
 prem 'head o/x 1-lane ls-remote'
 assert "2 да" "$(runl) $(has 'VOID GIT-UNREADABLE head o/x 1-lane ls-remote')" "ls-remote: origin не ответил → VOID"
+# ws#1242: шаг, зависящий от отправки, — только при голове на origin = ожидаемой (ls-remote).
+OH="$(git -C "$W/srv/kacho-workspace.git" rev-parse 1-lane)"
+prem "pushed o/r 1-lane $OH"
+assert "0 да" "$(runl) $(has 'предусловий 1; ложных 0, не судимо 0')" "близнец: опубликованная голова = ожидаемая → 0, зависимый шаг выдаётся"
+prem "pushed o/r 1-lane $BASE_SHA"
+assert "1 да" "$(runl) $(has "PREMISE-FALSE pushed o/r 1-lane $BASE_SHA: голова 1-lane на origin $OH, отправка $BASE_SHA не доехала")" "непредъявленная голова (на origin другая) → PREMISE-FALSE, код 1 (ws#1242: шаг выдан до .rc отправки)"
+prem "pushed o/r 2-gone $HEAD_SHA"
+assert "1 да" "$(runl) $(has 'PREMISE-FALSE pushed o/r 2-gone .*: ветки 2-gone на origin нет')" "ветки на origin нет → PREMISE-FALSE"
+prem "pushed o/x 1-lane $HEAD_SHA"
+assert "2 да" "$(runl) $(has 'VOID GIT-UNREADABLE pushed o/x')" "origin не ответил → VOID, не зелёное"
+prem "pushed o/r 1-lane ${HEAD_SHA:0:12}"
+assert "2 да" "$(runl) $(has 'VOID PREMISE-FORM pushed')" "sha не целиком → VOID PREMISE-FORM: неполная голова не сверяется"
 prem "alive $L main a"
 assert "0" "$(runp)" "близнец: фраза есть в дереве базы → предмет жив, 0"
 prem "alive $L main фраза-которой-нет"
@@ -483,6 +495,8 @@ assert "1" "$(mut limit 'while [[ "$w" =~ (bash|вызов[[:alpha:]]*)' 'while 
 assert "1" "$(mut thresh 'while [[ "$w" =~ (^|[^[:alpha:]_])${cmp}' 'while false && [[ "$w" =~ (^|[^[:alpha:]_])${cmp}' --task-text 'Ни один вызов не держит ожидание дольше 10 минут')" "мутант «порог-запрет не снят»: норма CLAUDE.md краснеет"
 assert "0" "$(mut ne 'while [[ "$w" =~ (^|[^[:alpha:]])не[[:space:]]+$cmp ]]' 'while false' --task-text 'жди не дольше 10 мин')" "мутант «не дольше» прочитан порогом: разрешённый срок проходит"
 assert "1" "$(mut forecast 'w="${l//ожидаем/_}"' 'w="$l"' --task-text 'ожидаемое окончание через 20 мин')" "мутант «прогноз не снят»: «ожидаемое окончание» краснеет"
+
+assert "0" "$(LANE_PRECHECK_GIT_BASE="$W/gb" mut pushed '[ "$kind" = pushed ] && [ "$got" != "$want" ]' 'false' "pushed o/r 1-lane $BASE_SHA")" "мутант «голова отправки не сверяется»: непредъявленная голова проходит — проба выше его ловит"
 
 echo "== вход"
 assert "2" "$(run "$W/srv" 1-lane main --issue o/r#7)" "не рабочая копия → код 2"
