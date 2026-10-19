@@ -11,6 +11,9 @@
 # — служба шага жива и дописывает исход; близнец KACHO_DETACH_NO_SYSTEMD=1 (setsid-путь)
 # в том же опыте убит, status — «шаг оборван». Метки окружения доходят до службы (их
 # читает перепись застоя). Машина перезагружена — .pid старше btime — причина названа.
+# Причина обрыва службы — дословной строкой status: kill -9 процесса шага и
+# `systemctl --user stop` — РАЗНЫЕ фразы (запись .exit службы), сторонний kill -TERM — своя
+# (журнал о нём молчит — держит чтение записи); запись снята — та же фраза из журнала юнита.
 # Без systemd --user (ранер CI) случаи службы не исполняются и печатаются счётом
 # «служба: не исполнено N» — не зелёным; setsid-путь и остальное исполняются везде.
 # Каталог шагов — свой временный; процессы шагов снимаются по группе на выходе (и на падении),
@@ -133,6 +136,37 @@ survive_cases() {
     unset DETACH_PROBE_MARK
 }
 
+# cause_cases — причина обрыва службы: каждая своей инъекцией, строка status — дословно.
+# want <фраза причины> <что> — status шага (RCF, UNIT) — 2 и строка ровно такая.
+want() {
+    local b="${RCF%.rc}"
+    assert "2|не выполнилось: процесса $PID нет, а .rc нет — шаг оборван: $1; журнал $b.log" \
+        "$(status "$RCF")|$(head -n 1 "$W/st.out")" "$2"
+}
+# jsettle <юнит> <образец> — журнал юнита дописан (journald асинхронен): до 5 с.
+jsettle() { local _; for _ in $(seq 1 20); do journalctl --user -u "$1.service" -o cat --no-pager -n 40 2>/dev/null | grep -qF "$2" && return 0; sleep 0.25; done; return 1; }
+PID=""; UNIT=""
+cause_cases() {
+    local R="$W/run.$RANDOM" kill9 stop; mkdir -p "$R"
+    if [ "$SYSD" = 0 ]; then unexec=$((unexec + 6)); return 0; fi
+    step_up() { st "$R/c" sleep 30; PID="$(cat "${RCF%.rc}.pid")"; UNIT="$(cat "${RCF%.rc}.unit")"; }
+    step_up; kill -9 "$PID"; settle "${RCF%.rc}.exit"
+    kill9="служба $UNIT: процесс шага убит сигналом KILL (kill -9 либо OOM-убийство)"
+    want "$kill9" "инъекция kill -9 процесса шага — «убит сигналом KILL (kill -9 либо OOM-убийство)»"
+    rm -f "${RCF%.rc}.exit"; jsettle "$UNIT" "Failed with result"
+    want "$kill9" "  …записи .exit нет — та же фраза из журнала юнита"
+    step_up; systemctl --user stop "$UNIT"; settle "${RCF%.rc}.exit"
+    stop="служба $UNIT остановлена менеджером служб (systemctl stop либо остановка systemd --user)"
+    want "$stop" "инъекция systemctl --user stop — «остановлена менеджером служб», не «убит»"
+    rm -f "${RCF%.rc}.exit"; jsettle "$UNIT" "Stopped $UNIT"
+    want "$stop" "  …записи .exit нет — та же фраза из журнала юнита"
+    step_up; kill -TERM "$PID"; settle "${RCF%.rc}.exit"
+    want "служба $UNIT: процесс шага убит сигналом TERM" "инъекция стороннего kill -TERM — «убит сигналом TERM», не остановка (журнал молчит — фраза из записи)"
+    step_up; settle "${RCF%.rc}.exit"
+    assert "3" "$(status "$RCF")" "близнец: служба жива — status 3, причины нет"
+    systemctl --user stop "$UNIT" 2>/dev/null
+}
+
 grc() {
     python3 -c 'import json,sys; print(json.dumps({"tool_name":"Bash","tool_input":{"command":sys.argv[1]},"agent_type":"go-implementer"}))' "$1" \
         | python3 "$GUARD" > "$W/g.out" 2>&1
@@ -143,6 +177,8 @@ echo "== перезагрузка машины"
 boot_cases
 echo "== перезапуск сессии: scope вызова снят"
 survive_cases
+echo "== причина обрыва службы"
+cause_cases
 echo "== страж no-wait-guard"
 assert "0" "$(grc "bash \$WS/scripts/detach.sh start \$WS/tmp/1225 -- bash \$WS/scripts/heavy-slot.sh ci-local -- env KACHO_TASK=1225 git push origin HEAD:refs/heads/1225-x")" "страж пропускает start"
 assert "0" "$(grc "bash \$WS/scripts/detach.sh status \$WS/tmp/1225/x.rc")" "страж пропускает status"
@@ -183,7 +219,13 @@ mutant boot-unread '[ "$mt" -lt "$bt" ]; then' '[ "$mt" -lt 0 ]; then' detach-la
 if [ "$SYSD" = 1 ]; then
     mutant no-unit '[ "${KACHO_DETACH_NO_SYSTEMD:-}" = 1 ]; then' 'true; then' detach-launch.sh survive_cases
     mutant env-expanded ' --expand-environment=no \' ' \' detach-launch.sh survive_cases
-    mutant env-not-carried '&& envs+=("--setenv=$n")' '&& true' detach-launch.sh survive_cases
+    mutant env-not-carried '&& [ "$n" != DETACH_EXIT_FILE ] && envs+=("--setenv=$n")' '&& true' detach-launch.sh survive_cases
+    mutant one-phrase-stop-as-kill "printf 'служба %s остановлена менеджером служб (systemctl stop либо остановка systemd --user)' \"\$1\"" \
+        "printf 'служба %s: процесс шага убит сигналом KILL (kill -9 либо OOM-убийство)' \"\$1\"" detach-launch.sh cause_cases
+    mutant one-phrase-both-gone '[ -n "$rec" ] && { detach_cause_text "$u" $rec; return; }' ':' detach-launch.sh cause_cases
+    mutant stop-mark-inverted '[ -z "$MAINPID" ] || : >' '[ -n "$MAINPID" ] || : >' detach-launch.sh cause_cases
+    mutant record-unread 'rec="$(head -n 1 "${2%.unit}.exit" 2> /dev/null)"' 'rec=""' detach-launch.sh cause_cases
+    mutant journal-unread '[ -n "$rec" ] || rec="$(detach_unit_journal "$u")"' ':' detach-launch.sh cause_cases
 fi
 
 reap_steps

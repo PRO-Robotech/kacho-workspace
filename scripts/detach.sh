@@ -17,7 +17,7 @@
 #         перезапуск; scripts/detach-launch.sh), при недоступном systemd --user — setsid в
 #         scope сессии с громким предупреждением; env --default-signal=PIPE, stdin /dev/null;
 #         файлы <каталог>/<метка>.log, .rc (код команды, пишется атомарно по её выходу), .pid
-#         и .unit (имя службы; на пути setsid его нет); метка
+#         .unit (имя службы) и .exit (исход службы — пишет она сам; на пути setsid их нет); метка
 #         уникальна: время UTC, pid вызова, 8 знаков sha256 команды; .rc снимается до старта.
 #         Печатает строку «идёт: pid N; журнал …; rc …; срок <UTC>; вид служба <юнит> | setsid
 #         (не переживёт перезапуск сессии)» и строку дочитки исхода.
@@ -30,7 +30,8 @@
 #         хвост журнала (5 строк). Живость — pid из .pid И метка DETACH_TAG в его окружении:
 #         чужой процесс на переиспользованном pid «идущим» не считается; вид шага (служба
 #         или setsid) на живость не влияет. Оборванный шаг (2) назван причиной: перезагрузка
-#         машины (.pid старше загрузки), служба снята (её состояние systemd), процесса нет.
+#         машины (.pid старше загрузки); служба остановлена менеджером служб либо процесс
+#         убит сигналом — разными фразами (запись .exit, нет её — журнал юнита); процесса нет.
 # Срок (--deadline, с; по умолчанию 3600) — KACHO_DETACHED_UNTIL окружения шага: перепись
 # застоя (scripts/stall-census.sh, ws#1154) сироту в сроке застоем не судит.
 #
@@ -71,14 +72,14 @@ start)
     mkdir -p "$dir" 2>/dev/null || { say "каталог «$dir» не заводится — не запущено"; exit 69; }
     dir="$(cd "$dir" && pwd -P)"
     ign=1
-    for x in x.log x.rc x.pid x.rc.tmp; do git -C "$dir" check-ignore -q "$dir/$x" 2>/dev/null || ign=0; done
+    for x in x.log x.rc x.pid x.rc.tmp x.unit x.exit; do git -C "$dir" check-ignore -q "$dir/$x" 2>/dev/null || ign=0; done
     if [ "$(git -C "$dir" rev-parse --is-inside-work-tree 2>/dev/null)" = true ] && [ "$ign" = 0 ]; then
         say "каталог «$dir» — внутри рабочего дерева git, и файлы шага там не игнорируются: копия стала бы грязной (kacho#3251). Каталог шагов — вне копии, например \$WS/tmp/<полоса>/"
         exit 64
     fi
     tag="$(date -u +%Y%m%dT%H%M%SZ)-$$-$(printf '%s\0' "$@" | sha256sum | cut -c1-8)"
     base="$dir/$tag"
-    rm -f "$base.rc" "$base.pid" "$base.unit"
+    rm -f "$base.rc" "$base.pid" "$base.unit" "$base.exit"
     until_ts=$(( $(date +%s) + deadline ))
     unit="kacho-detach-$tag"
     # Внутренняя оболочка пишет СВОЙ pid (обёртка и env исполняются через exec — pid тот же;

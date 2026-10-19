@@ -30,8 +30,9 @@
 #         AUTOLAND_TAG=<имя> в его окружении либо копия <имя>.autoland.sh в строке запуска
 #         (демон прежней версии): pid после перезагрузки переиспользуется, чужой процесс
 #         «идущим» не считается. «running» без живого демона status
-#         ПЕРЕПИСЫВАЕТ в «void оборван: <причина>» (перезагрузка машины, служба снята,
-#         процесс убит): следующее чтение не видит «running».
+#         ПЕРЕПИСЫВАЕТ в «void оборван: <причина>» (перезагрузка машины, служба остановлена,
+#         процесс убит сигналом; pid занят чужим процессом — так и названо): следующее
+#         чтение не видит «running».
 #   autoland.sh run …  — тело демона (те же доводы), его зовёт start; пробы зовут его
 #         в переднем плане.
 #
@@ -237,7 +238,9 @@ if [ "${1:-}" = status ]; then
             why="процесс убит или снят вместе со scope сессии"
             # shellcheck source=scripts/detach-launch.sh
             if . "$(dirname "$SELF")/../detach-launch.sh" 2>/dev/null; then why="$(detach_gone_reason "$b.pid" "$b.unit")"; fi
-            line="void оборван: демон pid ${pid:-—} не жив, исхода нет — $why; журнал $b.log"
+            if [[ "$pid" =~ ^[0-9]+$ ]] && [ -d "/proc/$pid" ]; then who="pid $pid занят чужим процессом, демона нет"
+            else who="демон pid ${pid:-—} не жив"; fi
+            line="void оборван: $who, исхода нет — $why; журнал $b.log"
             printf '%s\n' "$line" > "$f.$$.tmp" && mv -f "$f.$$.tmp" "$f"
             echo "autoland: $line — не-выполнилось"
             exit 2 ;;
@@ -257,7 +260,7 @@ if [ "${1:-}" = start ]; then
     [ -r "$lag_sh" ] || die "копия демона не сверена со стволом: $lag_sh нет — демон не запущен (ws#1228)" 4
     lag="$(bash "$lag_sh" --own "${AUTOLAND_TOOLING_TREE:-$(dirname "$SELF")}" -- scripts/autoland/ scripts/main-clone-lag.sh scripts/detach-launch.sh 2>&1)" \
         || die "копия демона старше ствола либо это не установлено — демон не запущен (ws#1228): ${lag#TOOLING-LAG: }" 4
-    rm -f "$STATE" "$PIDF" "$UNITF"
+    rm -f "$STATE" "$PIDF" "$UNITF" "${UNITF%.unit}.exit"
     # Демон исполняет СВОЮ копию: копия, откуда его запустили, может быть снята им же.
     cp "$SELF" "$RUN_DIR/$NAME.autoland.sh" || die "копия демона не легла в «$RUN_DIR»"
     printf 'running старт\n' > "$STATE"

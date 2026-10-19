@@ -473,7 +473,7 @@ s_detach() {
     ok detach "  …и .state переписан в «void оборван», следующее чтение — тоже 2" eval '[[ "$(head -n1 "$FX/dead.state")" == "void оборван: демон pid 999999999"* ]] && { bash "$AL" status "$FX/dead.state" >/dev/null; [ $? -eq 2 ]; }'
     # pid переиспользован (после перезагрузки): живой ЧУЖОЙ процесс — оболочка пробы — не демон.
     printf 'running ожидание CI\n' > "$FX/reuse.state"; echo "$$" > "$FX/reuse.pid"
-    ok detach "running, pid занят живым чужим процессом — status 2, .state — «void оборван»" eval 'bash "$AL" status "$FX/reuse.state" >/dev/null; [ $? -eq 2 ] && [[ "$(head -n1 "$FX/reuse.state")" == "void оборван"* ]]'
+    ok detach "running, pid занят живым чужим процессом — status 2, .state — «void оборван: pid N занят чужим процессом», не «не жив»" eval 'bash "$AL" status "$FX/reuse.state" >/dev/null; [ $? -eq 2 ] && [[ "$(head -n1 "$FX/reuse.state")" == "void оборван: pid $$ занят чужим процессом, демона нет, исхода нет — "* ]]'
     # Демон прежней версии (без метки AUTOLAND_TAG): копия <имя>.autoland.sh в строке запуска.
     local op; ( exec -a "$FX/old.autoland.sh" sleep 30 ) & op=$!; PIDS+=("$op")
     for _ in $(seq 1 20); do grep -qaF "old.autoland.sh" "/proc/$op/cmdline" 2>/dev/null && break; sleep 0.1; done
@@ -897,6 +897,7 @@ mutant status-alive-by-kill0 s_detach '[[ "$1" =~ ^[0-9]+$ ]] || return 1
     kill -0 "$1" 2>/dev/null && return 0
     { mapfile'
 mutant status-old-daemon-unknown s_detach '[[ "$a" == */"$2".autoland.sh ]] && return 0' 'false'
+mutant status-foreign-pid-as-dead s_detach 'if [[ "$pid" =~ ^[0-9]+$ ]] && [ -d "/proc/$pid" ]; then who=' 'if false; then who='
 mutant status-dead-not-rewritten s_detach 'printf '"'"'%s\n'"'"' "$line" > "$f.$$.tmp" && mv -f "$f.$$.tmp" "$f"' ':'
 mutant status-stale-as-merged s_status 'stale-base) exit 4 ;;' 'stale-base) exit 0 ;;'
 mutant status-moved-as-merged s_status 'head-moved) exit 5 ;;' 'head-moved) exit 0 ;;'
