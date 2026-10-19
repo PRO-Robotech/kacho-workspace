@@ -17,6 +17,9 @@
 #   heavy-slot.sh --classes     классы, бюджеты и основание каждого
 #   heavy-slot.sh --budget <класс>  бюджет класса в МиБ (читает session-memcap.sh)
 #   heavy-slot.sh --book <класс> -- <команда>  бронь, которую слот поставит этой команде из этого каталога
+#   heavy-slot.sh --route <класс> -- <команда>  маршрут, который слот выбрал бы этой команде из этого
+#               каталога, — строкой ROUTE<TAB>external|local|none<TAB>основание, код 0; команда не
+#               исполняется, кластер не спрашивается, журнала нет (ws#1192; «ВНЕШНИЙ КЛАСТЕР» ниже)
 #   heavy-slot.sh --status      занятые слоты, билеты очереди и внешнего входа, память машины, хвост журнала
 #   heavy-slot.sh --cancel <билет | журнал заявки>  снять СВОЮ заявку (ждущую, отложенную, внешнего входа) и её --enqueue
 #   heavy-slot.sh --prune-tmp   снять TMPDIR копий класса ci-local, не тронутые > 7 суток
@@ -168,6 +171,35 @@
 # хуки клона переходник берёт ссылками. Отправка не головы копии (иная вершина, их
 # несколько) переходник отклоняет кодом 78, и слот гонит ту же команду локально с
 # причиной; Job не состоялся (69, 75) — тот код, «не выполнилось».
+#
+# ЗАВИСИМОСТИ КОНСОЛИ ЛОКАЛЬНО (ws#1190). Хук kacho отказывает «проверки консоли НЕ ВЫПОЛНЯЛИСЬ»
+# в КОНЦЕ прогона (~6 мин слота), если правка трогает ui-future/, а в судимом дереве нет
+# node_modules (уроки 9c8c12aa, 7fead8dc, 5ecbb391 — ведомость tmp/reports/lessons.jsonl
+# воркспейса, scripts/lessons/collect.sh). Судимое дерево —
+# рабочая копия, если она чиста и на отправляемой вершине, иначе ВРЕМЕННАЯ копия (git worktree
+# add, subject_tree_for_push хука), где node_modules нет по построению. Поэтому `git push` класса
+# ci-local, идущий локально (кластер не принял, --local, 78) из клона с ui-future/ в HEAD, слот
+# зовёт с core.hooksPath на переходник (console_adapter): тот отдаёт вход git суждению
+# --console-deps (console_deps), затем настоящему хуку. Отказ хука о консоли требует ДВУХ
+# условий: правка трогает консоль (`*ui-future/*` в диапазоне) И набор групп гонит её проверки
+# (слово ui либо ui-types; all — лишь единственным словом, и пустой набор ci-local читает как
+# all; «go all» ci-local отвергает неизвестной группой). Оба спрошены у производителей хука:
+# диапазон — scripts/hooks/prepush-range.sh (вход git; KACHO_TRUNK_REF), группы —
+# scripts/hooks/prepush-groups.sh с KACHO_PUSH_RANGE = этим диапазоном, как его ставит хук
+# (KACHO_PREPUSH_GROUP, KACHO_TRUNK_REF; KACHO_PUSH_RANGE вызывающего хук перекрывает — и здесь).
+# Оба условия есть и судить будут временную
+# копию — отказ 64 до проверок хука с причиной (копия грязна — пути; не на вершине — обе
+# вершины); рабочую — готовность предикатом проверок (ui-future/scripts/deps-ready.mjs по
+# каждому пакету), не готов хоть один — установка шагом ЗАВИСИМОСТИ КОНСОЛИ run.sh (тот же
+# текст, форма ui.yml; кэш npm — свой, HEAVY_NPM_CACHE), отказ установки либо грязная после
+# неё копия — 69. Хук до проверок консоли не доходит (черновик, KACHO_SKIP_PREPUSH=1, одни
+# удаления, вершин больше одной, производитель отказал, групп консоли в наборе нет) — ход хуку без
+# суждения. Решение — строкой
+# console-deps в журнал. Свой core.hooksPath и HS_* переходник снимает до хука: фикстуры проверок
+# (git init + commit) иначе получили бы хуки клона. ГРАНИЦА: диапазон и группы спрошены у
+# производителей хука, а прочие признаки повторены здесь (вход git — черновик, удаления, число
+# вершин; дерево — subject_tree_for_push; правка консоли — `*ui-future/*`: выражения внутри хука
+# kacho, отдельного производителя у них нет); разойдутся — молча.
 #
 # ОТКУДА ИДЁТ ОТПРАВКА (ws#1182): для `git … push` (любой класс, обёртки перед git, -C) слот ДО
 # постановки печатает каталог, корень git, origin (без учётных данных), ветку, голову и
@@ -805,6 +837,132 @@ cancel_without_ticket() {
         say "у заявки «$b» билета нет, процесса и исхода тоже ($b.pid, $b.rc): не выдавалась либо журналы сняты — не выполнилось"
     fi
 }
+
+# console_adapter — ci-local локально, `git push` с хуком из клона, где в HEAD есть каталог
+# ui-future/ (шапка, «ЗАВИСИМОСТИ КОНСОЛИ ЛОКАЛЬНО»): CMD получает -c core.hooksPath на
+# переходник $P.hooks, чей pre-push отдаёт вход git суждению --console-deps, а затем — настоящему
+# хуку клона. Прочие хуки клона — ссылками. Переходник снимает свой core.hooksPath и HS_* до хука:
+# иначе фикстуры проверок (git init + commit) получили бы хуки клона. Исход суждения — $P.console.
+console_adapter() {
+    local top hooks h
+    CMD_R=("${CMD[@]}"); git_push_form || return 0
+    top="$(git -C "$GDIR" rev-parse --show-toplevel 2>/dev/null)" || return 0
+    [ -n "$(git -C "$top" ls-tree -d --name-only HEAD -- ui-future 2>/dev/null)" ] || return 0
+    hooks="$(cd "$GDIR" && cd "$(git rev-parse --git-path hooks 2>/dev/null)" 2>/dev/null && pwd -P)" || return 0
+    [ -x "$hooks/pre-push" ] || return 0
+    mkdir -p "$P.hooks" || { say "консоль — каталог переходника $P.hooks не создан: зависимости консоли слот не судит"; return 0; }
+    for h in "$hooks"/*; do
+        case "${h##*/}" in pre-push|*.sample) continue ;; esac
+        [ -f "$h" ] && [ -x "$h" ] && ln -s "$h" "$P.hooks/${h##*/}"
+    done
+    # shellcheck disable=SC2016  # текст переходника раскрывает он сам
+    printf '%s\n' '#!/usr/bin/env bash' 'set -uo pipefail' 'lines="$(cat)"' \
+        'printf "%s\n" "$lines" | bash "$HS_SELF" --console-deps "$HS_RC" "$HS_RUNSH" || exit 1' \
+        'ours="'"'"'core.hooksPath'"'"'='"'"'$HS_HOOKS'"'"'"; p="${GIT_CONFIG_PARAMETERS:-}"; p="${p//" $ours"/}"; p="${p//"$ours"/}"; p="${p# }"' \
+        'if [ -n "$p" ]; then export GIT_CONFIG_PARAMETERS="$p"; else unset GIT_CONFIG_PARAMETERS; fi' \
+        'orig="$HS_ORIG"; unset HS_ORIG HS_SELF HS_RC HS_HOOKS HS_RUNSH' \
+        'printf "%s\n" "$lines" | exec "$orig" "$@"' > "$P.hooks/pre-push"
+    chmod +x "$P.hooks/pre-push"
+    CMD=("${CMD[@]:0:$(( GIT_IDX + 1 ))}" -c "core.hooksPath=$P.hooks" "${CMD[@]:$(( GIT_IDX + 1 ))}")
+    CENV+=(HS_ORIG="$hooks/pre-push" HS_SELF="$SELF" HS_RC="$P.console" HS_HOOKS="$P.hooks"
+        HS_RUNSH="$(dirname -- "$SELF")/remote-heavy/run.sh")
+    GIT_IDX=""; GDIR="$PWD"
+}
+
+# console_deps <файл кода> <run.sh> — суждение переходника (вход git на stdin, каталог — корень
+# отправляемой копии): зависимости консоли для ТОГО дерева, что будет судить хук. Код 0 — ход
+# хуку; 1 — отказ до хука, код слота (64, 69) — в <файл кода>. Хук до проверок консоли не
+# доходит — ход как есть, суждения нет. Производители решения хука kacho (scripts/hooks/pre-push)
+# и как каждый взят здесь: обход всего — KACHO_SKIP_PREPUSH (прочитан); вход git — черновик
+# (push_is_draft), одни удаления, число вершин (повторены: выражения хука); диапазон —
+# prepush-range.sh (СПРОШЕН, вход git, KACHO_TRUNK_REF); группы — prepush-groups.sh (СПРОШЕН с
+# KACHO_PUSH_RANGE = диапазоном, как ставит хук; KACHO_PREPUSH_GROUP, KACHO_TRUNK_REF); правка
+# консоли — `*ui-future/*` по диапазону (повторено); дерево — subject_tree_for_push (повторено);
+# готовность — предикат проверок (deps-ready.mjs, как ci-local.sh npm_deps_ready).
+console_deps() {
+    local rcf="$1" runsh="$2" lines top zero=0000000000000000000000000000000000000000
+    local total=0 drafts=0 tips="" t _l lsha rref _r ntips rg rgc ch="" x grp head dirty why n m nn=0 miss="" blk t0
+    lines="$(cat)"
+    unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_COMMON_DIR GIT_PREFIX
+    # Журнал — лишь суждению слота (файл кода — в его записи active/): ручной вызов события слота не пишет.
+    cdj() { [[ "$rcf" == "$DIR/active/"* ]] || return 0; journal "console-deps decision=$1 top=${top:-—} tip=${tips:0:8} why=$2"; }
+    cdpass() { say "консоль — $2: зависимости консоли слот не судит, ход хуку"; cdj "$1" "$2"; return 0; }
+    cdrefuse() { printf '%s\n' "$2" > "$rcf"; say "$3"; cdj "$1" "$4"; return 1; }
+    if ! top="$(git rev-parse --show-toplevel 2>/dev/null)" || ! cd "$top"; then cdpass pass "корень дерева отправки не найден"; return 0; fi
+    [ "${KACHO_SKIP_PREPUSH:-0}" != 1 ] || { cdpass pass "KACHO_SKIP_PREPUSH=1 — хук проверок дерева не гонит"; return 0; }
+    while read -r _l lsha rref _r; do
+        [ -n "${rref:-}" ] || continue
+        total=$(( total + 1 ))
+        case "$rref" in refs/heads/wip/*|refs/heads/tmp/*) drafts=$(( drafts + 1 )) ;; esac
+        [ "$lsha" != "$zero" ] || continue
+        t="$(git rev-parse --verify --quiet "$lsha^{commit}" 2>/dev/null)" || continue
+        tips="$tips$t"$'\n'
+    done <<< "$lines"
+    tips="$(printf '%s' "$tips" | sed '/^$/d' | sort -u)"; ntips="$(printf '%s' "$tips" | grep -c .)"
+    [ "$total" -gt 0 ] || { cdpass pass "вход git пуст — отправляемой вершины нет"; return 0; }
+    [ "$drafts" -lt "$total" ] || { cdpass pass "все ссылки — черновики (wip/, tmp/), хук проверок не гонит"; return 0; }
+    [ "$ntips" -gt 0 ] || { cdpass pass "отправка — одни удаления ссылок, хук проверок не гонит"; return 0; }
+    [ "$ntips" -eq 1 ] || { cdpass pass "вершин $ntips — хук откажет сам до проверок"; return 0; }
+    [ -f scripts/hooks/prepush-range.sh ] || { cdpass pass "производителя диапазона scripts/hooks/prepush-range.sh в дереве нет — правку консоли не вывести"; return 0; }
+    rg="$(printf '%s\n' "$lines" | bash scripts/hooks/prepush-range.sh 2>/dev/null)"; rgc=$?
+    { [ "$rgc" -eq 0 ] && [ -n "$rg" ]; } || { cdpass pass "диапазон отправки не выбран (prepush-range.sh, код $rgc) — хук откажет тем же производителем"; return 0; }
+    for x in $rg; do ch="$ch"$'\n'"$(git diff --name-only "$x" 2>/dev/null)"; done
+    case "$ch" in *ui-future/*) ;; *)
+        say "консоль — правка её не трогает (диапазон $rg): зависимости не судятся"; cdj untouched "ui-future/ не в диапазоне"; return 0 ;;
+    esac
+    # Набор групп — у производителя хука, с ТЕМ диапазоном, что хук экспортирует (KACHO_PUSH_RANGE
+    # вызывающего хук перекрывает). Нет производителя — хук получит пустой набор, ci-local — all;
+    # all гонит консоль лишь единственным словом (ci-local: case "$GROUP" in all), в списке — отказ 2.
+    grp="$(KACHO_PUSH_RANGE="$rg" bash scripts/hooks/prepush-groups.sh 2>/dev/null)"
+    grp="$(printf '%s' "$grp" | tr -s ' \t\n' '   ' | sed 's/^ //; s/ $//')"
+    case " ${grp:-all} " in " all "|*" ui "*|*" ui-types "*) ;; *)
+        say "консоль — правка её трогает, но набор групп хука «$grp» (prepush-groups.sh) её проверок не гонит: зависимости не судятся, ход хуку"
+        cdj nogroup "групп консоли нет: $grp"; return 0 ;;
+    esac
+    head="$(git rev-parse --verify --quiet 'HEAD^{commit}' 2>/dev/null)"
+    dirty="$(git status --porcelain 2>/dev/null)"
+    if [ "$tips" != "$head" ] || [ -n "$dirty" ]; then
+        why=""
+        [ "$tips" = "$head" ] || why="рабочая копия на ${head:0:8}, а отправляется ${tips:0:8}"
+        if [ -n "$dirty" ]; then
+            n="$(printf '%s\n' "$dirty" | grep -c .)"
+            why="${why:+$why; }копия грязна: путей $n (git status --porcelain), первые: $(printf '%s\n' "$dirty" | head -n 3 | cut -c4- | tr '\n' ' ' | sed 's/ $//')"
+        fi
+        cdrefuse temp 64 "ОТКАЗ до проверок хука: правка трогает консоль, а хук будет судить ВРЕМЕННУЮ копию ревизии ${tips:0:8} (git worktree add) — $why. Во временной копии node_modules нет по построению: проверки консоли уйдут в «НЕ выполнено», и хук откажет в конце прогона; npm ci в рабочей копии ей не поможет. Приведите копию к отправляемой ревизии (закоммитьте либо уберите правки, отправляйте её голову) — тогда слот поставит зависимости сам, как ui.yml; либо отправляйте из чистой копии на ${tips:0:8}. Отправка не запускалась (не выполнилось, не красное)" "$why"
+        return 1
+    fi
+    command -v node >/dev/null 2>&1 || { cdrefuse fail 69 "ОТКАЗ до проверок хука: правка трогает консоль, а node нет в PATH — готовность зависимостей не судить, и проверки консоли не исполнятся. Отправка не запускалась (не выполнилось)" "node нет"; return 1; }
+    [ -f ui-future/scripts/deps-ready.mjs ] || { cdrefuse fail 69 "ОТКАЗ до проверок хука: правка трогает консоль, а предиката готовности ui-future/scripts/deps-ready.mjs в дереве нет — проверки консоли (ci-local.sh, npm_deps_ready) не исполнятся и после npm ci. Отправка не запускалась (не выполнилось)" "deps-ready.mjs нет"; return 1; }
+    for m in ui-future/*/package.json; do
+        [ -f "$m" ] || continue
+        nn=$(( nn + 1 ))
+        node ui-future/scripts/deps-ready.mjs "${m%/package.json}" >/dev/null 2>&1 && continue
+        [ -z "$miss" ] || continue
+        miss="${m#ui-future/}"; miss="${miss%/package.json}"
+    done
+    if [ -z "$miss" ]; then
+        say "консоль — правка её трогает, хук судит рабочую копию: зависимости стоят, готовы пакетов $nn из $nn (deps-ready.mjs) — установки нет"
+        cdj ready "готовы $nn из $nn"; return 0
+    fi
+    say "консоль — правка её трогает, хук судит рабочую копию, пакет «$miss» не готов (deps-ready.mjs): ставлю как ui.yml — шаг ЗАВИСИМОСТИ КОНСОЛИ $runsh"
+    blk="$(sed -n '/^# npmci-begin$/,/^# npmci-end$/p' "$runsh" 2>/dev/null)"
+    [[ "$blk" == *$'\n# npmci-end' ]] || { cdrefuse fail 69 "ОТКАЗ до проверок хука: шага установки (маркеры npmci-begin/npmci-end) в $runsh нет — дефект оснастки. Отправка не запускалась (не выполнилось)" "шага нет"; return 1; }
+    t0="$(now)"
+    # shellcheck disable=SC2016  # строка дочерней оболочки, $1 раскрывает она
+    if ! HEAVY_PUSH_INPUT="$lines" HEAVY_NPM_CACHE="${npm_config_cache:-$(getent passwd "$(id -u)" | cut -d: -f6)/.npm}" \
+        bash -c 'pf() { printf "heavy-slot: консоль: %s\n" "$1" >&2; exit 69; }'$'\n'"$blk" >&2; then
+        cdrefuse fail 69 "ОТКАЗ до проверок хука: зависимости консоли не поставлены — причина строкой «heavy-slot: консоль: …» выше. Отправка не запускалась (не выполнилось)" "установка отказала"
+        return 1
+    fi
+    dirty="$(git status --porcelain 2>/dev/null)"
+    if [ -n "$dirty" ]; then
+        cdrefuse fail 69 "ОТКАЗ до проверок хука: после установки копия стала грязной ($(printf '%s\n' "$dirty" | head -n 3 | cut -c4- | tr '\n' ' ' | sed 's/ $//')) — хук судил бы временную копию без node_modules. Отправка не запускалась (не выполнилось)" "грязна после установки"
+        return 1
+    fi
+    cdj install "поставлены за $(( $(now) - t0 )) с"
+    return 0
+}
+
 # cancel_ticket <номер> — снять СВОЮ заявку очереди по билету (ws#1156): ждущую, отложенную (74/75)
 # или внешнего входа, и её отсоединённое ожидание --enqueue (процесс слота получает TERM, его .rc
 # запишет обёртка). Билет чужой — «who» (ветка@каталог) не совпал с вызвавшим — не снимается:
@@ -891,9 +1049,10 @@ book_cmd() {
 # его внутренняя форма: принимается лишь у ребёнка --enqueue (stdout — <база>.log, родитель —
 # лидер своего сеанса), иначе 64.
 # --resume <билет> — повтор после 74/75 на месте отложенного билета (шапка, ws#1115).
-WAIT_ARG=""; LOCAL_WHY=""; LOCAL_SET=""; ENQ_DIR=""; QUEUED=""; RESUME=""
+WAIT_ARG=""; LOCAL_WHY=""; LOCAL_SET=""; ENQ_DIR=""; QUEUED=""; RESUME=""; ROUTE_ONLY=""
 while :; do
     case "${1:-}" in
+        --route) ROUTE_ONLY=1; shift ;;
         --resume)
             RESUME="${2:-}"
             [[ "$RESUME" =~ ^[0-9]{1,12}$ ]] || { say "--resume «$RESUME» — номер билета из отказа 74/75 (целое)"; exit 64; }
@@ -923,12 +1082,17 @@ while :; do
         *) break ;;
     esac
 done
+if [ -n "$ROUTE_ONLY" ] && { [ -n "$WAIT_ARG$LOCAL_SET$ENQ_DIR$QUEUED$RESUME" ] || [[ "${1:-}" == --* ]] || [ -z "${1:-}" ]; }; then
+    say "--route — чистое суждение о маршруте: heavy-slot.sh --route <класс> -- <команда>, без --wait, --local, --enqueue, --resume"
+    exit 64
+fi
 case "${1:-}" in
     --classes) print_classes; exit 0 ;;
     --budget)  class_budget "${2:-}" || { say "класса «${2:-}» нет"; exit 64; }; exit 0 ;;
     --status)  mkdir -p "$DIR/active" 2>/dev/null; print_status; exit 0 ;;
     --cancel)  cancel_ticket "${2:-}"; exit $? ;;
     --book)    book_cmd "$@"; exit $? ;;
+    --console-deps) console_deps "${2:-}" "${3:-}"; exit $? ;;
     --prune-tmp)
         { mkdir -p "$DIR/active" && touch "$DIR/lock"; } 2>/dev/null || { say "каталог слотов $DIR недоступен на запись"; exit 69; }
         exec {LK}>>"$DIR/lock"; flock -w 120 "$LK" || { say "замок $DIR/lock не взят за 120 с"; exit 69; }
@@ -1025,7 +1189,7 @@ done
 
 # ── ревизия первой строкой вывода (ws#1244; шапка, «РЕВИЗИЯ») ────────────────────
 HEAD_REV=""
-if [ -z "$ENQ_DIR" ]; then
+if [ -z "$ENQ_DIR" ] && [ -z "$ROUTE_ONLY" ]; then
     HEAD_REV="$(git -C "$PWD" rev-parse -q --verify HEAD 2>/dev/null)" || HEAD_REV=""
     printf 'HEAD %s class=%s at=%s dir=%s\n' "${HEAD_REV:-—}" "$CLASS" "$(date -Is)" "$PWD" >&2
 fi
@@ -1105,7 +1269,8 @@ fi
 # машины не занимают. Нагрузка судится ЗА обёртками (env, nice, ionice, timeout,
 # nohup, setsid, stdbuf, command, time — функция payload): обёртка тяжёлое локально не
 # уводит. Удалённый прогон судит КОММИТ, поэтому условий пять: нагрузка переносима
-# (go, make, линтеры, ci-local.sh), каталог — клон kacho, kaname или corelib,
+# (go, make, линтеры, ci-local.sh, скрипт клона из ведомости PORTABLE — ws#1192), каталог —
+# клон kacho, kaname или corelib,
 # отслеживаемые файлы без правок, номер задачи — из KACHO_TASK либо ведущих цифр
 # имени ветки, кластер принимает (`run.sh --available --profile <класс>`, ws#991).
 # Без внешнего пути вообще — хук отправки (`git push`, ws#1106) и клон не продукта —
@@ -1324,33 +1489,39 @@ stand_script() {
 # словам строки дочерней оболочки и по тексту вызванного скрипта (stand_sign); строка
 # оболочки без внешней формы (stand-ns-*) — не опознана: цель может прийти переменной
 # (`bash -c 'make "$G"'`).
-stand_route() {
-    local a tok kd="" pv="" mk="" safe="" toks s
+# stand_static — статическая часть суждения класса stand, ОДНА у прогона и у --route: 0 — команда
+# локального стенда не поднимает (ST_SAFE — она в форме stand-ns-*); 1 — поднимает (ST_MK, признак
+# содержимого ST_SIGN) либо её строку оболочки слот не судит: при доступном кластере это 77.
+stand_static() {
+    local a tok kd="" pv="" toks s
+    ST_MK=""; ST_SAFE=""; ST_SIGN=""
     for a in "${CMD_R[@]}"; do
         mapfile -t toks < <(printf '%s\n' "$a" | tr ' \t;&|()"'"'"'`' '\n')
         for tok in "${toks[@]}"; do
             [ -n "$tok" ] || continue
             case "$(basename -- "$tok")" in
-                dev-up|dev-prod-up|own-up|stack-up|cert-manager-up|create-cluster.sh) mk=1 ;;
-                stand-ns-*) safe=1 ;;
+                dev-up|dev-prod-up|own-up|stack-up|cert-manager-up|create-cluster.sh) ST_MK=1 ;;
+                stand-ns-*) ST_SAFE=1 ;;
             esac
             # kind [флаг [значение]]… create — как STAND_SIGN_RE (ws#1250): слово после флага —
             # его значение («-v 3»), первое иное слово — подкоманда.
             if [ "$(basename -- "$tok")" = kind ]; then kd=1; pv=""
             elif [ -n "$kd" ]; then
                 if [ "${tok#-}" != "$tok" ]; then pv=1
-                elif [ "$tok" = create ]; then mk=1; kd=""
+                elif [ "$tok" = create ]; then ST_MK=1; kd=""
                 elif [ -n "$pv" ]; then pv=""
                 else kd=""; fi
             fi
         done
     done
     payload
-    ST_SIGN=""
-    if [ -z "$mk" ] && [ -z "$safe" ] && [ -z "$PAY_SH" ] && [ -n "$PAY_I" ]; then
-        s="$(stand_script "${CMD_R[$PAY_I]}")" && ST_SIGN="$(stand_sign "$s")" && mk=1
+    if [ -z "$ST_MK" ] && [ -z "$ST_SAFE" ] && [ -z "$PAY_SH" ] && [ -n "$PAY_I" ]; then
+        s="$(stand_script "${CMD_R[$PAY_I]}")" && ST_SIGN="$(stand_sign "$s")" && ST_MK=1
     fi
-    if [ -z "$mk" ] && { [ -z "$PAY_SH" ] && [ "${PAY#\?}" = "$PAY" ] || [ -n "$safe" ]; }; then
+    [ -z "$ST_MK" ] && { [ -z "$PAY_SH" ] && [ "${PAY#\?}" = "$PAY" ] || [ -n "$ST_SAFE" ]; }
+}
+stand_route() {
+    if stand_static; then
         WHY_LOCAL="команда стенда не поднимает локальный стенд"; return 1
     fi
     if ! cluster_check; then
@@ -1359,7 +1530,7 @@ stand_route() {
     fi
     task_of
     [[ "$TASK" =~ ^[1-9][0-9]*$ ]] || TASK="<задача>"
-    [ -n "$mk" ] || refuse_external "строку оболочки «${PAY_SH:-$PAY}» слот не судит (цель стенда может прийти переменной) — дай команду словами argv; стенд — в deploy/ продукта make stand-ns-up NS=t$TASK-<коротко>"
+    [ -n "$ST_MK" ] || refuse_external "строку оболочки «${PAY_SH:-$PAY}» слот не судит (цель стенда может прийти переменной) — дай команду словами argv; стенд — в deploy/ продукта make stand-ns-up NS=t$TASK-<коротко>"
     refuse_external "${ST_SIGN:+подъём стенда — по признаку содержимого $ST_SIGN; }в deploy/ продукта make stand-ns-up NS=t$TASK-<коротко> (либо stand-ns-run NS=… CMD='…' — снятие само), снятие — make stand-ns-down NS=… этой же задачей, после — stand-ns-census и residue-census 0"
 }
 # ── внешний вход по одному (ws#1176; шапка у EXT_GATE) ──────────────────────────
@@ -1440,25 +1611,63 @@ ext_run() {
     return "$rc"
 }
 
-remote_route() {
-    local top url repo rel fix="" known=""
-    case "$CLASS" in go-race|integration|lint|ci-local) ;; stand) stand_route; return 1 ;; *) WHY_LOCAL="класс «$CLASS» внешнего пути не имеет"; return 1 ;; esac
+# PORTABLE — скрипты клона, которые Job исполняет как есть (ws#1192 б): «<репозиторий>|<путь в
+# дереве>|<классы через запятую>». Скрипт переносим, лишь когда он — ОТСЛЕЖИВАЕМЫЙ файл клона этого
+# репозитория (Job исполняет коммит, а не файл машины), назван относительным путём из рабочего
+# каталога (путь машины в pod не существует) и класс — из записи. Запись — форма шага конвейера:
+# integrationshard ci.yml kaname зовёт `.github/scripts/run-integration.sh` (testcontainers — dind
+# профиля integration); до записи слот отвечал на неё 77, и пробы уходили во внешний кластер лишь
+# пересборкой команды мимо скрипта (ws#1192, посадка kaname#871).
+PORTABLE='kaname|.github/scripts/run-integration.sh|integration'
+# portable_script — 0, если слово нагрузки (PAY_I) — скрипт ведомости PORTABLE этого клона и класса.
+portable_script() {
+    local w="${CMD_R[${PAY_I:-0}]:-}" real r p c
+    [ -n "$PAY_I" ] && [ -z "$PAY_SH" ] || return 1
+    case "$w" in /*|'') return 1 ;; esac
+    [ "$w" != "${w#*/}" ] || return 1
+    real="$(cd "$PWD" && realpath -e -- "$w" 2>/dev/null)" || return 1
+    while IFS='|' read -r r p c; do
+        [ "$r" = "$RS_REPO" ] || continue
+        [[ ",$c," == *",$CLASS,"* ]] || continue
+        [ "$real" = "$RS_TOP/$p" ] || continue
+        git -C "$RS_TOP" ls-files --error-unmatch -- "$p" > /dev/null 2>&1 || continue
+        return 0
+    done <<< "$PORTABLE"
+    return 1
+}
+# route_static — статическая часть маршрута Job-ом, ОДНА у прогона и у --route: класс с внешним
+# путём, клон kacho, kaname или corelib (RS_TOP, RS_REPO), нагрузка опознана (RS_KNOWN). 1 — внешнего
+# пути у команды нет (WHY_LOCAL); неопознанная нагрузка пути не закрывает: при доступном кластере —
+# 77, при недоступном — локально с доказательством.
+route_static() {
+    local url
+    RS_KNOWN=""; RS_TOP=""; RS_REPO=""
+    case "$CLASS" in go-race|integration|lint|ci-local) ;; *) WHY_LOCAL="класс «$CLASS» внешнего пути не имеет"; return 1 ;; esac
     payload
     case "$PAY" in
-        go|make|golangci-lint|gosec|govulncheck|ci-local.sh) known=1 ;;
+        go|make|golangci-lint|gosec|govulncheck|ci-local.sh) RS_KNOWN=1 ;;
         git)
             if [ "$CLASS" != ci-local ] || ! git_push_form; then
                 WHY_LOCAL="команда «git» без push (не хук отправки) внешнего пути не имеет"; return 1
             fi
-            known=1 ;;
+            RS_KNOWN=1 ;;
     esac
-    top="$(git -C "$GDIR" rev-parse --show-toplevel 2>/dev/null)" || { WHY_LOCAL="рабочий каталог — не клон git: внешнего пути нет"; return 1; }
-    url="$(git -C "$top" remote get-url origin 2>/dev/null)"
-    repo="${url%.git}"; repo="${repo##*/}"
+    RS_TOP="$(git -C "$GDIR" rev-parse --show-toplevel 2>/dev/null)" || { WHY_LOCAL="рабочий каталог — не клон git: внешнего пути нет"; return 1; }
+    RS_TOP="$(cd "$RS_TOP" && pwd -P)"
+    url="$(git -C "$RS_TOP" remote get-url origin 2>/dev/null)"
+    RS_REPO="${url%.git}"; RS_REPO="${RS_REPO##*/}"
     case "$url" in
         *PRO-Robotech/kacho|*PRO-Robotech/kacho.git|*PRO-Robotech/kaname|*PRO-Robotech/kaname.git|*PRO-Robotech/corelib|*PRO-Robotech/corelib.git) ;;
         *) WHY_LOCAL="клон не kacho, kaname или corelib: внешнего пути нет"; return 1 ;;
     esac
+    [ -n "$RS_KNOWN" ] || ! portable_script || RS_KNOWN=1
+    return 0
+}
+remote_route() {
+    local top repo rel fix="" known=""
+    [ "$CLASS" != stand ] || { stand_route; return 1; }
+    route_static || return 1
+    top="$RS_TOP"; repo="$RS_REPO"; known="$RS_KNOWN"
     [ -n "$(git -C "$top" status --porcelain --untracked-files=no 2>/dev/null)" ] &&
         fix="закоммить правки отслеживаемых файлов (кластер судит коммит) и повтори ту же команду — слот уведёт её Job-ом"
     task_of
@@ -1472,7 +1681,7 @@ remote_route() {
     tooling_gate
     ext_enter
     cluster_check "$CLASS" "$repo" || return 1
-    [ -n "$known" ] || refuse_external "нагрузка «${PAY_SH:-$PAY}» за обёрткой не опознана как переносимая (go, make, golangci-lint, gosec, govulncheck, ci-local.sh) — дай её словами argv: heavy-slot.sh $CLASS -- go …; слот уведёт её Job-ом"
+    [ -n "$known" ] || refuse_external "нагрузка «${PAY_SH:-$PAY}» за обёрткой не опознана как переносимая (go, make, golangci-lint, gosec, govulncheck, ci-local.sh; скрипт клона из ведомости PORTABLE — относительным путём) — дай её словами argv: heavy-slot.sh $CLASS -- go …; слот уведёт её Job-ом"
     [ -n "$fix" ] && refuse_external "$fix"
     if [ -n "$GIT_IDX" ]; then
         HOOKS_ORIG="$(cd "$GDIR" && cd "$(git rev-parse --git-path hooks 2>/dev/null)" 2>/dev/null && pwd -P)"
@@ -1485,6 +1694,38 @@ remote_route() {
     rel="$(realpath --relative-to="$top" "$PWD")"
     ROUTE=(bash "$REMOTE_RUN" --task "$TASK" --repo "$repo" --ref "$(git -C "$top" rev-parse HEAD)" --src "$top" --workdir "$rel" --profile "$CLASS" --)
     return 0
+}
+# route_print — `--route` (ws#1192): маршрут, который прогон выбрал бы этой команде, теми же
+# route_static и stand_static, без кластера, run.sh, журнала и исполнения. external — Job
+# внешнего кластера либо стенд в ns внешнего кластера (stand-ns-* в клоне kacho с механизмом
+# stand-ns); local — команда идёт на машине при любом кластере (класс без внешнего пути, клон не
+# продукта, команда стенда без признака: где её стенд, слот не судит); none — при доступном
+# кластере слот откажет 77 (нагрузка не опознана, подъём локального стенда, строка оболочки).
+route_print() {
+    local kind why top url
+    if [ "$CLASS" = stand ]; then
+        if stand_static; then
+            top="$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null)"; url="$(git -C "${top:-.}" remote get-url origin 2>/dev/null)"
+            case "$url" in *PRO-Robotech/kacho|*PRO-Robotech/kacho.git) ;; *) url="" ;; esac
+            if [ -n "$ST_SAFE" ] && [ -n "$url" ] && git -C "$top" ls-files --error-unmatch -- deploy/Makefile deploy/scripts/stand-ns.sh > /dev/null 2>&1; then
+                kind=external; why="стенд — ns внешнего кластера (stand-ns клона kacho), команда — на машине под слотом stand"
+            elif [ -n "$ST_SAFE" ]; then
+                kind=local; why="форма stand-ns-*, а механизма stand-ns (отслеживаемые deploy/Makefile и deploy/scripts/stand-ns.sh клона kacho) нет"
+            else
+                kind=local; why="команда стенда не поднимает локальный стенд; где её стенд, слот не судит"
+            fi
+        elif [ -n "$ST_MK" ]; then
+            kind=none; why="подъём локального стенда${ST_SIGN:+ (признак содержимого $ST_SIGN)} — при доступном кластере 77: стенд — make stand-ns-up в ns внешнего кластера"
+        else
+            kind=none; why="строку оболочки «${PAY_SH:-$PAY}» слот не судит — при доступном кластере 77"
+        fi
+    elif route_static; then
+        if [ -n "$RS_KNOWN" ]; then kind=external; why="Job внешнего кластера: профиль $CLASS, репозиторий $RS_REPO (при недоступном кластере — локально с доказательством)"
+        else kind=none; why="нагрузка «${PAY_SH:-$PAY}» не опознана как переносимая (go, make, линтеры, ci-local.sh; скрипт ведомости PORTABLE относительным путём) — при доступном кластере 77"; fi
+    else
+        kind=local; why="$WHY_LOCAL"
+    fi
+    printf 'ROUTE\t%s\t%s\n' "$kind" "$why"
 }
 # push_remote — отправка с хуком Job-ом (шапка, «ХУК ОТПРАВКИ»). Возвращает 0, если
 # переходник отклонил отправку кодом 78 (не голова копии) — тогда слот идёт локально;
@@ -1592,6 +1833,7 @@ stand_ns_light() {
 }
 CMD_R=("$@"); WHY_LOCAL=""; ROUTE=(); GIT_IDX=""; GDIR="$PWD"
 WAIT_T0="$(now)"   # начало срока заявки: внешний вход, кластер и очередь памяти считают от него (ws#1244)
+if [ -n "$ROUTE_ONLY" ]; then route_print; exit 0; fi
 if [ "$CLASS" = stand ] && stand_ns_light; then
     busy=0
     for f in "$DIR"/active/*.slot; do [ -e "$f" ] && busy=$(( busy + 1 )); done
@@ -1893,6 +2135,8 @@ fi
 if [ "$CLASS" = ci-local ] && [ -z "${TMPDIR:-}" ] && [ -n "$SLOT_TMP" ]; then
     CENV+=(TMPDIR="$SLOT_TMP")
 fi
+# Зависимости консоли для дерева, которое будет судить хук отправки (ws#1190; шапка).
+[ "$CLASS" = ci-local ] && console_adapter
 
 t_run="$(now)"; rc=0
 if [ "$LIMITER" != watch ] && command -v systemd-run >/dev/null; then
@@ -1963,6 +2207,12 @@ if [ -n "$cut_by" ]; then
     say "НЕ ВЫПОЛНИЛОСЬ — команда оборвана пределом памяти: $cut_by; код команды $rc${cids:+; контейнеры слота остановлены}."
     say "это исчерпание ресурса, а не красное: вердикта по предмету нет. Бюджет класса «$CLASS» — $(mib "$BUDGET"); пик — в журнале $DIR/journal.log"
     exit 76
+fi
+# Переходник консоли отказал до проверок хука (ws#1190): код слота, а не код git push.
+if [ -s "$P.console" ]; then
+    crc="$(cat "$P.console")"
+    say "отправка остановлена ДО проверок хука (код $crc — не выполнилось, не красное); причина — строкой «heavy-slot: … консоль» выше"
+    exit "$crc"
 fi
 exit "$rc"
 }
