@@ -60,6 +60,11 @@ cluster.sh`). make страж НЕ зовёт: `make -n` исполняет ст
 noexec до хвоста не доходит), команд не исполняют: страж их пропускает. Флаг после имени
 скрипта (`bash x.sh -n`) — его аргумент, а `set -n` не первой командой — после
 исполненного; оба — прежний отказ. Замер 2026-10-19, bash 5 и dash.
+Интерактивная оболочка (`-i` в опциях вызова в любой связке: `-ic`, `-xi`, `-i -c`) noexec не
+соблюдает — `set -n`/`set -o noexec` в строке и в heredoc bash игнорирует и тело исполняет
+(замер bash 5.3); `-n` флагом при `-i` bash 5.3 соблюдает, но man bash называет его
+игнорируемым интерактивной оболочкой, и страж на версию не полагается: при `-i` noexec не
+применяется ни в какой форме — прежний отказ.
 
 Головы с флагами до подкоманды — случайная форма и ловятся: `helm -n ns upgrade
 --install`, `kind -q create cluster`, `env -S"…"`/`-iS`/`--split-string=…`, `go -C`,
@@ -473,6 +478,27 @@ def shell_args(args):
     if stdin or not rest:
         return None, None, [], True
     return None, rest[0], rest[1:], False
+
+
+def shell_interactive(args):
+    """`-i` в опциях вызова (слитно тоже: `-ic`, `-xi`; отдельным словом: `-i -c`) — оболочка
+    интерактивна, а интерактивная noexec не соблюдает (ws#1247). `+i` не засчитывается:
+    отказ консервативен. Обход опций — как у shell_noexec."""
+    k = 0
+    while k < len(args):
+        a = args[k]
+        if a == "--" or not (len(a) > 1 and a[0] in "-+"):
+            return False
+        if a in ("--rcfile", "--init-file"):
+            k += 2
+            continue
+        if a.startswith("--"):
+            k += 1
+            continue
+        if a[0] == "-" and "i" in a[1:]:
+            return True
+        k += 1 + a[1:].count("o") + a[1:].count("O")
+    return False
 
 
 def shell_noexec(args):
@@ -971,11 +997,12 @@ def classify_argv(env, argv, cwd, ctx, level, alt):
     def text_class(text):  # строка, которую исполнит дочерняя оболочка
         return best(classes_in(text, cwd, ctx, level, alt, env)) if text else None
     if base in SHELLS:
-        if shell_noexec(args):
+        noexec = not shell_interactive(args)  # -i: noexec не соблюдается (ws#1247)
+        if noexec and shell_noexec(args):
             return None  # noexec: строки читаются, не исполняются (ws#1247)
         cmd, script, params, _ = shell_args(args)
         if cmd is not None:
-            return None if set_noexec_first(cmd) else text_class(positional(cmd, params))
+            return None if noexec and set_noexec_first(cmd) else text_class(positional(cmd, params))
         if script is None or os.path.basename(script) == "heavy-slot.sh":
             return None
         if os.path.basename(script) in SCRIPTS:
@@ -1142,7 +1169,7 @@ def scan(text, cwd, ctx, level=0, alt=None, env0=None):
         for seg in split_commands(intro):
             _, argv = unwrap(words(seg))
             if argv and os.path.basename(argv[0]) in SHELLS and shell_args(argv[1:])[3]:
-                if not shell_noexec(argv[1:]) and not set_noexec_first(body):
+                if shell_interactive(argv[1:]) or not (shell_noexec(argv[1:]) or set_noexec_first(body)):
                     yield from scan(body, cur, ctx, level, alt, vis)
                 break
 
