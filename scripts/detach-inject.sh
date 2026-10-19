@@ -58,6 +58,13 @@ run_cases() {
     printf '%s\n' "$$" > "$R/s/foreign.pid"
     assert "2" "$(status "$R/s/foreign.rc")" "pid в .pid — живой ЧУЖОЙ процесс без метки шага — не «идёт» (2)"
     assert "2" "$(status "$R/s/none.rc")" "файлов шага нет — status 2"
+    # ws#1242: имя «<журнал>.log.rc» (код рядом с журналом) — исход по этому имени.
+    echo chain-line > "$R/s/ch.log"; echo 0 > "$R/s/ch.log.rc"
+    assert "0 да" "$(status "$R/s/ch.log.rc") $(grep -qF 'chain-line' "$W/st.out" && echo да || echo нет)" "status <журнал>.log.rc с кодом 0 — 0, хвост журнала"
+    assert "0" "$(status "$R/s/ch.log")" "status <журнал>.log при <журнал>.log.rc — тот же исход"
+    echo 4 > "$R/s/cf.log.rc"; : > "$R/s/cf.log"
+    assert "1 да" "$(status "$R/s/cf.log.rc") $(grep -qF 'исход: код 4' "$W/st.out" && echo да || echo нет)" "status <журнал>.log.rc с кодом 4 — 1, код назван"
+    assert "2" "$(status "$R/s/gone.log.rc")" "близнец: <журнал>.log.rc нет и процесса нет — 2 «не выполнилось»"
     echo "== уникальность и каталог"
     # Два запуска той же команды РАЗОМ (в одну секунду): имена различает pid вызова.
     bash "$D" start "$R/u" -- sh -c 'exit 0' > "$R/u1" 2>&1 & local j1=$!
@@ -107,12 +114,14 @@ PY
 mutant tag-ignored '[ "$e" = "DETACH_TAG=$2" ] && return 0' '[ -n "$e" ] && return 0'
 mutant nonzero-as-green '[ "$code" -eq 0 ] && exit 0
         exit 1' 'exit 0'
-mutant dead-as-running '        echo "идёт: pid $pid; журнал $base.log"
+mutant dead-as-running '        echo "идёт: pid $pid; журнал $logf"
         exit 3
-    fi' '        echo "идёт: pid $pid; журнал $base.log"
+    fi' '        echo "идёт: pid $pid; журнал $logf"
         exit 3
     fi
     exit 3'
+mutant log-rc-name '        *.log.rc) rcf="$2"; logf="${2%.rc}" ;;
+' ''
 mutant name-not-unique '-$$-$(printf' '-$(printf'
 mutant tree-unchecked '= true ] && [ "$ign" = 0 ]; then' '= true ] && false; then'
 

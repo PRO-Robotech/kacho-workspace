@@ -20,7 +20,7 @@
 #         Код 0 — запущено; 64 — вызов неверен (в том числе каталог внутри рабочего дерева
 #         git, где файлы шага не игнорируются: они делают копию грязной, kacho#3251);
 #         69 — не запущено (нет setsid, каталог не заводится, pid не записан за 5 с).
-#   detach.sh status <файл .rc | .log | .pid | путь без расширения>
+#   detach.sh status <файл .rc | .log | .pid | <журнал>.log.rc | путь без расширения>
 #       — 0: команда вышла кодом 0; 1: вышла не нулём (код назван); 3: идёт; 2: не
 #         выполнилось — процесса нет, а .rc нет, либо файлов шага нет. По выходу команды —
 #         хвост журнала (5 строк). Живость — pid из .pid И метка DETACH_TAG в его окружении:
@@ -89,24 +89,30 @@ start)
 status)
     [ $# -eq 2 ] || usage
     base="${2%.rc}"; base="${base%.log}"; base="${base%.pid}"
-    tag="${base##*/}"
-    if [ -f "$base.rc" ]; then
-        code="$(head -n 1 "$base.rc")"
-        [[ "$code" =~ ^[0-9]+$ ]] || { echo "не выполнилось: .rc «$code» не код — журнал $base.log"; exit 2; }
-        echo "исход: код $code; журнал $base.log"
-        tail -n 5 "$base.log" 2>/dev/null | sed 's/^/  | /'
+    tag="${base##*/}"; rcf="$base.rc"; logf="$base.log"
+    # Форма вызывающих «<журнал>.log.rc» (код рядом с журналом, ws#1242: chain-3296-3292-r2.sh) —
+    # .rc берётся тем именем, которым назван; «<журнал>.log» при таком .rc — тоже.
+    case "$2" in
+        *.log.rc) rcf="$2"; logf="${2%.rc}" ;;
+        *.log) [ -f "$2.rc" ] && [ ! -f "$rcf" ] && { rcf="$2.rc"; logf="$2"; } ;;
+    esac
+    if [ -f "$rcf" ]; then
+        code="$(head -n 1 "$rcf")"
+        [[ "$code" =~ ^[0-9]+$ ]] || { echo "не выполнилось: .rc «$code» не код — журнал $logf"; exit 2; }
+        echo "исход: код $code; журнал $logf"
+        tail -n 5 "$logf" 2>/dev/null | sed 's/^/  | /'
         [ "$code" -eq 0 ] && exit 0
         exit 1
     fi
     pid="$(cat "$base.pid" 2>/dev/null)"
     if alive "$pid" "$tag"; then
-        echo "идёт: pid $pid; журнал $base.log"
+        echo "идёт: pid $pid; журнал $logf"
         exit 3
     fi
-    if [ -e "$base.pid" ] || [ -e "$base.log" ]; then
-        echo "не выполнилось: процесса ${pid:-—} нет, а .rc нет — шаг оборван; журнал $base.log"
+    if [ -e "$base.pid" ] || [ -e "$logf" ]; then
+        echo "не выполнилось: процесса ${pid:-—} нет, а .rc нет — шаг оборван; журнал $logf"
     else
-        echo "не выполнилось: файлов шага $base.{rc,log,pid} нет"
+        echo "не выполнилось: файлов шага $rcf, $logf, $base.pid нет"
     fi
     exit 2 ;;
 *) usage ;;
