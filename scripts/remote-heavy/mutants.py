@@ -45,6 +45,25 @@ INJECT = os.path.join(HERE, "inject.sh")
 
 # (id, проба, что портит, фрагмент, замена)
 MUTANTS = [
+    # ОБРАЗЫ TESTCONTAINERS (ws#1268): предел, застой и код вердикта загрузки.
+    ("pull-no-limit", "PW3", "загрузка образа без предела: попытка не ограничена сроком шага",
+     "ctx, cancel := context.WithDeadline(context.Background(), deadline)",
+     "ctx, cancel := context.WithCancel(context.Background())"),
+    ("pull-no-stall", "PW4", "застой загрузки не снимает попытку — повтор после зависания не наступает",
+     "case <-t.C:\n\t\t\tcancel()",
+     "case <-make(chan time.Time):\n\t\t\tcancel()"),
+    ("pull-same-line-moves", "PWL1", "повтор той же строки прогресса (слой заперт, «locked for») считается движением",
+     "if s.seen[p.ID] == k {",
+     "if false && s.seen[p.ID] == k {"),
+    ("pull-moved-by-neighbour", "PWI1", "движение судится по соседней строке, а не по слою: чередование двух стоящих слоёв — «движение»",
+     "moved := st.moved(p, ln.b)",
+     "moved := ln.b != st.last"),
+    ("pull-unconditional", "PWC1", "прогрев безусловный: ci-local на медленном реестре получает 75",
+     "PULL_IMG=0  # кому прогрев",
+     "PULL_IMG=1  # кому прогрев"),
+    ("pull-code-69", "PW9", "отказ загрузки образа читается как 69, а не 75",
+     '''команда не запускалась (не выполнилось)"; exit 75''',
+     '''команда не запускалась (не выполнилось)"; exit 69'''),
     ("M12", "E7-badsum-node", "сумма архива node не проверяется",
      r'''| grep "  $f\$" | sha256sum -c --quiet -''',
      r'''| grep "  $f\$" >/dev/null'''),
