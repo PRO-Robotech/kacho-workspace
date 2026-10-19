@@ -1,0 +1,101 @@
+# Пост-дифф ревью распределённых свойств — роль system-design-reviewer, круг 1.
+# kaname#866: контейнер публичного чтения у типа вне канона. Имя файла — content_digest.
+# Запись новая, добавлением (change-graph §2).
+schema_version: 1
+change_id: kn-866
+holder: post-diff/system-design-reviewer
+owner: system-design-reviewer
+round: 1
+
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: '866'
+  base: 7642fc25e47650158a91410eab50e5c8acc5d362
+  head: ba1f0f68199b13940b4420afffd2fadbaf012b8c
+  commits: 2        # 8ef0a3aff код и пробы; ba1f0f681 документы-соседи
+  files: 16
+content_digest: sha256:24edfbf2df25934e2d4969e09b7eef6c2cd96a5142b03104eff508e734ad49a7
+digest_definition: 'git -C tmp/kn-866-acc diff --full-index 7642fc25e...ba1f0f681 | sha256sum'
+
+subject_preflight:
+  digest: 'перемерен той же командой: 24edfbf2…ad49a7, совпадает с объявленным'
+  committed: >-
+    да; судилась одноразовая detached-копия tmp/kn-866-sdr-902394 на ba1f0f681,
+    копия автора не тронута. Ветка на origin пока стоит на 7642fc25e (отправка
+    автора идёт), вердикт относится к коммитам, а не к origin.
+
+scope:
+  subject: 'CE-12 (одна доставка, один предикат), CE-08 (детерминизм), CE-05 (обход от каждого семени)'
+  distributed_surface: >-
+    нет. Дифф трогает только путь ПУСКА: рендер, композиция и допуск модели (чистые
+    функции) и проверку манифеста при загрузке. Мутаций, Operation, outbox,
+    воркеров, межсервисных вызовов, края и подписки в диффе нет. Новых runtime-рёбер нет.
+  schema_overlap: 'нет: CAS, xmin и advisory-lock в диффе не встречаются'
+
+verdict: ✅ принято
+blocks_landing: false
+return_to: '—'
+
+axes:
+  CE-12:
+    status: держится по построению; пробы-держателя нет
+    evidence:
+      - 'один предикат: manifest.Resource.PassesPublicRead (internal/manifest/resources.go:485). Его читают ветка ключа рендера (internal/modelrender/render.go:163, 198), откуда берутся KeyTerms, и колонка каталога (internal/apps/kaname/modulecatalog/rows.go:136). Прочитано @ba1f0f681'
+      - 'одна доставка внутри пуска: одна переменная deliveredManifests (cmd/kaname/serve.go:282) идёт в installComposedModel (serve.go:326) и в применитель каталога (serve.go:350). Перечень допуска берётся из того же вызова Compose, что собрал текст (cmd/kaname/model_compose.go:55, 68)'
+    residual: >-
+      Писатель кортежа public_reader (reconcile/public_reader.go) читает НЕ доставку
+      своего процесса, а снимок каталога из БД (catalog.Snapshot, отставание ограничено
+      периодом обновления). При выкатке с новой редакцией манифестов строки может
+      записать соседняя реплика. Расхождение безопасно в обе стороны. Если у кортежа
+      есть строка каталога, а в модели процесса нет отношения public_reader, Check
+      этот кортеж не читает. Если отношение в модели есть, а строки каталога нет,
+      кортеж не пишется либо снимается, и доступ закрывается. Детей контейнера тоже
+      выводят двумя путями: рендер — через linkPublicRead/childrenOf одного документа,
+      каталог — через containersOf по ParentTypes одного модуля. Их расхождение тоже
+      ведёт только к закрытию доступа: терма в модели нет — кортеж ничего не открывает;
+      ребёнка нет в каталоге — кортеж не пишется. Класс существовал и до диффа:
+      дифф впервые пускает типы модулей в строки с флагом, но писателя не меняет.
+  CE-08:
+    status: держится
+    evidence:
+      - 'выдача находок идёт только по срезам: m.Types, t.Relations, declarationsNamed, PointerTargets (compile.go:374, срез термов), wildcardRecords (сортирует и убирает повторы). Карта full обходится только для подсчёта премиссы, это число, а не порядок'
+      - 'Term — slices.Sort и slices.Compact; путь — первое попадание BFS (order по срезу); порядок находок — по семени в порядке объявления'
+      - 'порядок KeyTerms и строка ErrKeyTermNotInText следуют порядку доставки: filepath.WalkDir (internal/manifest/check.go:390) обходит лексически, поэтому порядок одинаков на всех репликах'
+      - 'GOWORK=off go test -count=3 -shuffle=on authzmodel, modelcompose, modelrender, manifest, domain → 5 ok, код 0; TestAdmitFindingsAreDeterministic (200 повторов) зелёная'
+  CE-05:
+    status: держится
+    evidence:
+      - 'reach (admit.go) — BFS от ОДНОГО семени со своими seen и from; reachableWildcardFindings вызывает его по каждому семени в двух плечах'
+      - 'голая запись класса снимается только при p == seed && lawful.class[seed]; ребро TTU public_reader режется только при cur == seed && lawful.via[seed][ptr]'
+      - 'via законен, только когда КАЖДАЯ цель указателя — новый тип с законной записью класса в public_reader (CE-07); запись перечня без терма в тексте — отказ ErrKeyTermNotInText (fail-closed)'
+      - 'go test -v -run TestCE0|TestAdmitKeyTerm|TestAdmitPath|TestAdmitEdge|TestAdmitFindingsAreDeterministic|TestPM_ (authzmodel, modelcompose) → PASS 10, FAIL 0'
+
+checklist:
+  atomicity_no_dual_write: 'н/п — записи в БД в диффе нет'
+  idempotency: 'н/п'
+  cas_occ: 'н/п'
+  delivery_polling: 'н/п'
+  workers_replicas: 'н/п по коду; допуск детерминирован, поэтому реплики с одной доставкой выносят один вердикт'
+  per_call_deadline: 'н/п — внешних вызовов нет'
+  service_graph_acyclic: 'новых runtime-рёбер нет'
+  replica_state_isolation: 'пакетного состояния нет; перечень передаётся аргументом (CE-04)'
+  edge: 'н/п'
+  clean_layers: 'см. notes[1]'
+
+notes:
+  - id: N1
+    blocking: false
+    text: >-
+      У CE-12 нет пробы-держателя: равенство «контейнер в KeyTerms ⇔ строка каталога
+      с PublicReadToChildren» для одной доставки держится тем, что предикат объявлен
+      в одном месте. Держатель стоит дёшево и в запись ревью: для одной доставки
+      сверить множество типов с KeyTerm{Relation: public_reader} и множество строк
+      modulecatalog с флагом, ограничив его типами из rep.Composed.
+  - id: N2
+    blocking: false
+    text: >-
+      modelrender и modelcompose теперь импортируют authzmodel ради одного типа
+      данных KeyTerm. При этом проза cmd/kaname/model_compose.go:29 и шапка
+      compose.go утверждают, что «композиция не знает о допуске». Цикла сборки нет,
+      и на корректность это не влияет. Чище держать KeyTerm в нейтральном пакете
+      (domain или authzplan), тогда граф пакетов совпадёт с прозой.

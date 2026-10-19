@@ -1,0 +1,101 @@
+# Пост-дифф ревью Go-кода продукта — роль go-style-reviewer, kaname#888.
+# Имя файла — content_digest; запись не правится (change-graph §2).
+schema_version: 1
+change_id: kn-888
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+run: 1
+subject: >-
+  kaname — чтения выдач по субъекту спрашивают каждого субъекта выдачи, а не
+  одиночную пару (ListBySubject, фильтр subject у List, фильтр вида у
+  ListByAccount, ListSubjectPrivileges, ListAccountsForUser); перевод
+  комментариев двух файлов на русский
+
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: '888'
+  worktree: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/kn-888
+  base: 892853c457efb6362f2eed315a4a6502d8b34293   # origin/746 = merge-base
+  head: d343b87939bfd7646daf3c75e22a14c3e988fab6
+content_digest: sha256:cae584b70b7680680a8f9047642ac908012025d647bb2d68593b6f2bd3a63ac2
+digest_command: >-
+  git -C /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/kn-888
+  diff --full-index origin/746...HEAD | sha256sum
+worktree_clean: true   # git status --porcelain пуст
+
+verdict: approved            # ✅ принято
+blocks_landing: false
+timestamp: '2026-10-18T00:00:00Z'
+review_scope: >-
+  полный дифф: 3 файла, 738 вставок / 350 удалений (git diff --numstat):
+  access_binding_repo.go +435/-317, user_repo.go +45/-33 (большая часть —
+  перевод прозы комментариев), новая проба
+  access_binding_second_subject_reads_integration_test.go +258 (5 функций Test,
+  по одной на чтение, у каждой близнец и отрицательный случай).
+return_to: pointpu <pointpu@in-cloud.io> (автор головы d343b8793)
+
+counts:
+  fresh_deferral_markers: 0      # TestNoDeferredWorkInTheTree — ok @d343b8793
+  tests_in_same_pr: true
+  gofmt_unformatted: 0
+  go_vet_findings: 0             # go vet ./internal/repo/kaname/pg/ — пусто
+
+checked:
+  - ошибки — прежний mapErr / iamerr.Wrapf, новых путей возврата без обёртки нет
+  - ctx прокинут во все Query; context.Background только в пробе
+  - паники, init(), глобальных синглтонов в диффе нет
+  - логирования в диффе нет
+  - SQL собран Sprintf только из номеров параметров и литералов кода; значения
+    запроса идут параметрами pgx
+  - типы параметров, повторённых в двух таблицах (subject_type/subject_id),
+    совпадают — text в обеих (0001_initial.sql: access_bindings, access_binding_subjects)
+  - область набора в bindingHasSubjectTypeInAccount разрешается в столбцы
+    access_binding_subjects (resource_type/resource_id есть, их ставит
+    access_binding_subjects_carries_scope_trg) — внешний предикат области
+    повторён, сужение подзапросом ответ не расширяет
+  - комментарии новые — по-русски; латиница без кириллицы только в обратных кавычках
+
+critical: []
+
+important:
+  - where: internal/repo/kaname/pg/access_binding_repo.go:690-700
+    class: doc-truthfulness (комментарий у ограничения против инъекции)
+    finding: >-
+      шапка listWithConds называет его «общий path-builder для
+      ListByScope/ListBySubject» и «вызывающих двое (ListByScope/ListBySubject)»;
+      после диффа ListBySubject идёт через listWhere, у listWithConds один
+      вызывающий. Вывод о безопасности верен (вызывающий литерален), ошибка — в
+      сторону завышения радиуса, поэтому не блокирует.
+    requirement: назвать одного вызывающего (ListByScope) и указать, что listWhere несёт тот же запрет
+  - where: internal/repo/kaname/pg/access_binding_repo.go:153-163
+    class: doc-truthfulness
+    finding: >-
+      шапка accountScopePredicate: «ОДНО написание на двух вызывающих» при трёх
+      местах после диффа, и два абзаца подряд называют «третьим» разные места
+      (подзапрос bindingHasSubjectTypeInAccount и membershipHoldingBindingsPredicate)
+    requirement: пересчитать места одним перечнем
+  - where: internal/repo/kaname/pg/access_binding_repo.go:196
+    class: style
+    finding: >-
+      bindingNamesSubject вставляет псевдоним таблицы через %s в текст запроса;
+      требование «только литерал кода» записано у listWithConds/listWhere, у
+      этого помощника — нет
+    requirement: одна строка ограничения в шапке помощника
+
+notes:
+  - >-
+    цена чтения названа числом: фильтр вида у ListByAccount для частого вида
+    0,09 → 9,7 мс на 20000 выдачах аккаунта, фильтр subject у List 1,2 → 6,0 мс
+    (линейно по набору без ведущего subject_id). Корректность восстановлена;
+    индекс набора по subject_id — вопрос схемы (db-architect-reviewer), заявлен в
+    комментарии без задачи-носителя.
+  - >-
+    вне диффа: visibility_repo.go:96-104 и system_class_repo.go:24-33 читают
+    только набор access_binding_subjects, тогда как шапка bindingNamesSubject
+    утверждает, что выдача до набора строк в нём не имеет. Одно из двух
+    утверждений о легаси-выдачах неверно; предмет — не Go-стиль, передаётся
+    диспетчеру как вопрос к system-design / security-auditor.
+
+foundation_candidates: []
+security_comments_contradicting_code:
+  - internal/repo/kaname/pg/access_binding_repo.go:690-700 — счёт вызывающих устарел (не блокирует, см. important[0])
