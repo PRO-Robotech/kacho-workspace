@@ -1,0 +1,126 @@
+schema_version: 1
+kind: acceptance_review
+review_type: delta
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-REG-PUB-1-public-registry-by-class-grant-acceptance.md
+  sha256: 877dae692c49538dfa53a7084245681a0d02fe06ad87c511ab9430e08bd0ea32
+  revision: 13
+  static_status: DRAFT
+  static_status_note: >-
+    Шапку документа намеренно не правили (change-graph.md §2). Действующий вердикт об этом
+    отпечатке — эта запись вместе с внешним событием, которое публикует курьер. Документ не
+    закоммичен: рабочее дерево воркспейса, ветка main @3ea45692b; в HEAD лежит редакция 10
+    (a582030e…).
+  base_commit: 3ea45692b
+  content_commit: none
+  task: https://github.com/PRO-Robotech/kacho/issues/3274
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-REG-PUB-1-public-registry-by-class-grant-acceptance.md
+  lines: 860
+  scenarios: 26 (grep -c '^**ID:**')
+verdict: APPROVED
+round: 'круг 2 (последний) после редакции 12: проверка исполнения ⛔ записи 408010e1…'
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-19T20:34:29Z'
+basis:
+  prior_sha256: 408010e155f1a3b5248dc5be515877fb42241b64c74d64a91c1c3bd1b82c4c94
+  prior_verdict: CHANGES_REQUESTED (CONSTRUCTIBILITY, COVERAGE)
+  prior_note: >-
+    Судилась разница двух дельт к a582030e… (r12.diff против r13.diff): шапка, Р9 пп. 2, 5,
+    П3 (описание и строка прогона), сценарий 53 целиком, строки производителей 52 и 53,
+    DoD S3, раздел «Редакция 13». Прочее в дельте побайтово то же, что в редакции 12, и не
+    переоткрыто (fa-b1).
+  dispatcher_decision: >-
+    2026-10-19, по COVERAGE — вариант (а): отказ рендера умбреллы при заданном общем значении и
+    registry.enabled=false заказан S3 этой задачи, исполнитель — deploy-engineer после
+    одобрения. Рендер (г) с кодом 0 на dc4e91348 — заказ, а не опровергнутое утверждение.
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: issue_comment
+  target: PRO-Robotech/kacho#3274
+  status: not_performed
+  published: false
+  body: 'role: acceptance-reviewer · verdict: APPROVED · subject_sha256: 877dae692c49538dfa53a7084245681a0d02fe06ad87c511ab9430e08bd0ea32'
+  publication_mode: scripts/rituals/approval-event.sh
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    note: Восемь прежних записей этого документа не правлены.
+
+prior_blocking_status:
+  - kind: CONSTRUCTIBILITY
+    status: исполнено
+    evidence: >-
+      Сценарий 53, «Given»: каждое сочетание задаётся явным перекрытием G поверх цепочки стека,
+      (а) — prod с G= (пусто) и K. DoD S3 «собственный ключ registry при явно пустом общем» —
+      с --set-string global.kacho.registry.anonymousSubjectId=. Исход (а) в круге 1 измерен
+      ровно в этой форме (prod, G= явно, K → код 1, kaname/templates/deployment.yaml:90).
+  - kind: COVERAGE
+    status: исполнено (вариант (а) диспетчера)
+    evidence: >-
+      Р9 п. 2 заказывает отказ умбреллы (G задано, registry.enabled=false), текст называет оба
+      ключа; Р9 п. 5 опирается на два отказа и прямо говорит, что второго на dc4e91348 нет.
+      Сценарий 53 (г) с двумя близнецами (G пусто → код 0; registry.enabled=true → код 0);
+      DoD S3 с исходом «до фикса проба красная»; строка производителя 53 (г) — «производителя
+      нет, заказан S3». Отрицательное наблюдение (г) на dc4e91348 совпадает с моим замером
+      круга 1: dev, --set registry.enabled=false → код 0, счёт 0 и 1.
+
+prior_non_blocking_status:
+  - 'FORMAT 53 «пустой вывод» — исполнено: render_must_fail_because с подстрокой причины'
+  - 'FORMAT 52 (б) — исполнено: строка производителя 52 называет kaname#495'
+  - 'PRODUCER 53 — исполнено: «_helpers.tpl, зовётся из deployment.yaml», :90 и :237'
+
+measurements:
+  premise: >-
+    sha256sum файла → 877dae69…ea32 (совпало с заданием); diff r12.diff r13.diff — изменения
+    только в перечисленных местах.
+  cause_substrings: >-
+    Подстроки причины прочитаны в шаблонах @dc4e91348 (круг 1): отказ kaname начинается с
+    «kaname: config.apiServer.registryToken.anonymousClientId=%q задан», отказ registry — с
+    «registry: анонимный субъект плоскости данных объявлен ДВАЖДЫ»; ни одна не входит в другой
+    текст. Строка «registry.enabled» не входит ни в один из двух — требование (г) к
+    подстроке выполнимо.
+  stacks_enable_registry: >-
+    yq '.registry.enabled' по профилям @dc4e91348: true в values.dev.yaml, values.prod.yaml,
+    values.fe3455-prod.yaml; цепочки stacks.txt — каждая из 7 включает один из них, так что
+    отказ (г) ни одного стека перечня не задевает и DoD S4 «7 из 7» с ним совместим.
+
+seeding:
+  summary: >-
+    (а)–(в) и их близнецы посеяны в круге 1 на той же ревизии dc4e91348 рендером; (г) —
+    наблюдение «отказа нет» посеяно в круге 1; близнецы (г) (G пусто при registry.enabled=false;
+    registry.enabled=true) в этом круге рендером не перепрогонялись — следуют из прочитанных
+    шаблонов и замеров документа П3. Не выполнилось — 0.
+
+blocking: []
+
+non_blocking:
+  - kind: COVERAGE
+    where: сценарий 53 (г), близнецы; DoD S3
+    text: >-
+      Все 7 стеков задают registry.enabled: true явно, поэтому рендер с ОТСУТСТВУЮЩИМ ключом
+      (умбрелла без профиля) ни одним держателем не покрыт. Условие подчарта в Chart.yaml при
+      отсутствии ключа подчарт включает; реализация «not .Values.registry.enabled» отказала бы
+      там, где registry разворачивается. Не о безопасности (лишний отказ, а не лишний токен) и
+      вне перечня стеков, поэтому не блокирует; держателю (г) стоит добавить близнеца
+      «ключа нет, G задано → код 0, обе стороны».
+
+route_signs:
+  proto: нет
+  schema: нет
+  public_rpc: нет
+  ui: нет
+  new_domain: нет
+  security_surface: >-
+    да (анонимный токен плоскости данных во всех профилях, включая prod; выдающая сторона
+    только вместе с узнающей — два отказа рендера, второй заказан S3)
