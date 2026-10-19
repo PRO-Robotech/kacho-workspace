@@ -354,6 +354,37 @@ assert "2 да" "$(runp) $(has 'VOID PREMISE-FORM task o/r')" "без #<N> — �
 prem '# только комментарий'
 assert "2" "$(runp)" "ноль предусловий — не «все верны» → код 2"
 
+# ── ws#1227: задача открыта и о предмете; голова — текущая (ls-remote); предмет жив ──
+printf '%s' '{"number":20,"state":"open","title":"lane-precheck: состояние задачи, предмет жив"}' > "$W/c/repos_o_r_issues_20.json"
+printf '%s' '{"number":21,"state":"closed","title":"старая задача о квотах"}' > "$W/c/repos_o_r_issues_21.json"
+printf '%s' '{"number":22,' > "$W/c/repos_o_r_issues_22.json"
+prem 'task o/r#20 open title~состояние задачи'
+assert "0 да" "$(runp) $(has 'предусловий 1; ложных 0, не судимо 0')" "близнец: задача открыта, заголовок несёт подстроку → 0"
+prem 'task o/r#20 title~СОСТОЯНИЕ'
+assert "0" "$(runp)" "подстрока заголовка — без учёта регистра, состояние по умолчанию open → 0"
+prem 'task o/r#20 title~квоты'
+assert "1 да" "$(runp) $(has 'задача не о предмете — заголовок «lane-precheck: состояние задачи, предмет жив» без «квоты»')" "заголовок без подстроки — PREMISE-FALSE «не о предмете» (урок ae22eb25)"
+prem 'task o/r#21'
+assert "1 да" "$(runp) $(has 'PREMISE-FALSE task o/r#21: задача closed, задание ждёт open')" "закрытая задача — PREMISE-FALSE (урок fa7858a6: #832 закрыта)"
+prem 'task o/r#21 closed title~квот'
+assert "0" "$(runp)" "близнец: задание само о закрытой задаче → 0"
+prem 'task o/r#22'
+assert "2 да" "$(runp) $(has 'VOID GH-UNREADABLE task o/r#22')" "ответ трекера не разобран → VOID, не зелёное"
+mkdir -p "$W/gb/o"; ln -s "$W/srv/kacho-workspace.git" "$W/gb/o/r.git"
+runl() { LANE_PRECHECK_GIT_BASE="$W/gb" bash "$P" --premise "$W/premise.txt" > "$W/out" 2>&1; echo $?; }
+prem 'head o/r 1-lane ls-remote'
+assert "0 да" "$(runl) $(has "HEAD o/r 1-lane $(git -C "$W/srv/kacho-workspace.git" rev-parse 1-lane)")" "head … ls-remote — текущая голова напечатана для задания, код 0 (урок 9d4363aa)"
+prem 'head o/r 2-gone ls-remote'
+assert "1 да" "$(runl) $(has 'PREMISE-FALSE head o/r 2-gone ls-remote: ветки 2-gone на origin нет')" "ls-remote: ветки нет → PREMISE-FALSE"
+prem 'head o/x 1-lane ls-remote'
+assert "2 да" "$(runl) $(has 'VOID GIT-UNREADABLE head o/x 1-lane ls-remote')" "ls-remote: origin не ответил → VOID"
+prem "alive $L main a"
+assert "0" "$(runp)" "близнец: фраза есть в дереве базы → предмет жив, 0"
+prem "alive $L main фраза-которой-нет"
+assert "1 да" "$(runp) $(has 'предмет снят до раздачи')" "фразы нет в базе → PREMISE-FALSE «снят до раздачи» (урок f487bb7c)"
+prem "alive $W/nope main x"
+assert "2 да" "$(runp) $(has 'VOID PREMISE-FORM alive')" "клона нет → VOID"
+
 # ── ws#1226: имя ветки и первая строка — правилом репозитория; форма отправки ──
 # Клоны с origin продукта (сети нет: адрес лишь читается). Предикат kaname — форма
 # branch_rule_is_number из scripts/hooks/branch-rule.sh kaname (@bbbe33524), дословно.
@@ -431,6 +462,8 @@ PYM
     if [ "$4" = --task-text ]; then shift 4; printf '%s\n' "$@" > "$W/task.txt"; bash "$m" --task-text "$W/task.txt" > "$W/out" 2>&1; echo $?
     else shift 3; printf '%s\n' "$@" > "$W/premise.txt"; bash "$m" --premise "$W/premise.txt" > "$W/out" 2>&1; echo $?; fi
 }
+assert "0" "$(mut state 'elif [ "$gstate" != "$want_state" ]; then' 'elif false; then' 'task o/r#21')" "мутант «состояние не судится»: закрытая задача проходит — проба выше его ловит"
+assert "0" "$(mut title '[[ "${gtitle,,}" != *"${want_title,,}"* ]]' 'false' 'task o/r#20 title~квоты')" "мутант «заголовок не судится»: задача не о предмете проходит"
 assert "0" "$(mut merged 'elif [ -n "$got" ]; then reasons+=("PREMISE-FALSE $line: ветка $b уже влита' 'elif false; then reasons+=("PREMISE-FALSE $line: ветка $b уже влита' "branchname $W/wsc 1200-old")" "мутант «влитая ветка не судится»: прежнее имя проходит"
 assert "0" "$(mut detached '! git -C "$top" symbolic-ref -q HEAD > /dev/null 2>&1 &&' 'false &&' "push-form $W/knd /ws/scripts/heavy-slot.sh ci-local -- git push origin HEAD:refs/heads/3180")" "мутант «отсоединённая голова не судится»: отправка без KACHO_TASK проходит"
 assert "0" "$(mut wait '|| [[ "$l" =~ ${num}[[:space:]]*(с|сек[[:alpha:]]*)[[:space:]]+(на[[:space:]]+)?пауз ]] \' '\' --task-text 'Ожидание хука: 270 с на паузу между чтениями журнала.')" "мутант «N с на паузу» не ловится: задание с паузой проходит"

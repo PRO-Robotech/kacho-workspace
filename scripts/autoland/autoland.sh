@@ -38,7 +38,10 @@
 #
 # ЧТО ДЕЛАЕТ — по кругу, пока не наступит исход или предел:
 #   1. запрос (`gh api repos/<репо>/pulls/<N>`, GET): закрыт без вливания — red
-#      PR-NOT-OPEN; влит этой головой — merged; голова ≠ --head — head-moved;
+#      PR-NOT-OPEN; влит этой головой — merged; голова ≠ --head — head-moved; до ПЕРВОГО
+#      совпадения в пределах AUTOLAND_HEAD_SYNC с от старта (по умолчанию 30) — повтор
+#      чтения раз в AUTOLAND_HEAD_SYNC_POLL с (3): сразу после push площадка ещё отдаёт
+#      прежнюю голову (урок c33f9e84, ws#1227); после совпадения расхождение — сразу;
 #   2. CI — `ci-read.sh <репо> <N> --head <sha> --from-state`: ответ из снимка демона
 #      состояния ws#1113 (scripts/ci-state/ci-stated.py) без вызовов gh, иначе ci-read
 #      читает живьём сам. 0 — дальше; 1 — red; 4 — stale-base; 3 (идёт) и 5 (черновик,
@@ -120,6 +123,7 @@ set -uo pipefail
 SELF="$(readlink -f "${BASH_SOURCE[0]}")"
 GH="${AUTOLAND_GH:-gh}"
 GATE_TIMEOUT="${AUTOLAND_GATE_TIMEOUT:-900}"
+HEAD_SYNC="${AUTOLAND_HEAD_SYNC:-30}"; HEAD_SYNC_POLL="${AUTOLAND_HEAD_SYNC_POLL:-3}"
 FF_FETCH_TIMEOUT="${AUTOLAND_FF_FETCH_TIMEOUT:-8}"
 INTERIM_LOCK="${AUTOLAND_INTERIM_LOCK:-$HOME/.cache/heavy-slots/interim.lock}"
 
@@ -182,6 +186,8 @@ parse_args() {
     [[ "$POLL" =~ ^[0-9]+$ ]] && [ "$POLL" -ge 1 ] && [ "$POLL" -le 290 ] \
         || die "--poll «$POLL» не от 1 до 290 с"
     [[ "$VOID_LIMIT" =~ ^[0-9]+$ ]] && [ "$VOID_LIMIT" -ge 1 ] || die "--void-limit «$VOID_LIMIT» не число ≥ 1"
+    [[ "$HEAD_SYNC" =~ ^[0-9]+$ ]] && [[ "$HEAD_SYNC_POLL" =~ ^[1-9][0-9]*$ ]] \
+        || die "AUTOLAND_HEAD_SYNC «$HEAD_SYNC» / AUTOLAND_HEAD_SYNC_POLL «$HEAD_SYNC_POLL» не секунды"
 }
 
 paths() {
@@ -471,6 +477,7 @@ landed() {  # запрос влит — проверка родителя, сн�
 }
 
 LP_ARGS=()
+RUN_T0="$(date +%s)"; HEAD_SEEN=0
 [ -z "$REVIEWS" ] || LP_ARGS+=(--reviews "$REVIEWS")
 [ -z "$STAND_REPORT" ] || LP_ARGS+=(--stand-report "$STAND_REPORT" --stand-expect "$STAND_EXPECT")
 
@@ -482,7 +489,12 @@ while :; do
         landed "(влит не этим демоном)"
     fi
     [ "$PR_STATE" = open ] || finish red "запрос: REASON"$'\t'"PR-NOT-OPEN"$'\t'"состояние $PR_STATE без вливания"
+    if [ "$PR_HEAD" != "$HEAD" ] && [ "$HEAD_SEEN" = 0 ] && [ $(( $(date +%s) - RUN_T0 )) -lt "$HEAD_SYNC" ]; then
+        log "голова запроса на площадке ${PR_HEAD:0:12}, ожидалась ${HEAD:0:12}: площадка ещё не видит отправку — повтор через $HEAD_SYNC_POLL с (предел $HEAD_SYNC с от старта)"
+        sleep "$HEAD_SYNC_POLL"; continue
+    fi
     [ "$PR_HEAD" = "$HEAD" ] || finish head-moved "$HEAD $PR_HEAD"
+    HEAD_SEEN=1
 
     gate ci-read.sh "$REPO" "$PR" --head "$HEAD" --from-state
     case "$GATE_RC" in

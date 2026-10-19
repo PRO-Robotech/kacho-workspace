@@ -20,14 +20,24 @@
 # РЕЖИМ ПРЕДУСЛОВИЙ (ws#1071, база диспетчера §3) — ДО раздачи задания: задание с
 # ложным предусловием не уходит. Строка файла — одно предусловие закрытого словаря
 # (`#` и пустые строки — не предусловия):
-#   task <владелец/репо>#<N>                      номер задачи полосы: N — ^[0-9]+$ (иначе ложно:
+#   task <владелец/репо>#<N> [open|closed] [title~<подстрока>]
+#                                                 номер задачи полосы: N — ^[0-9]+$ (иначе ложно:
 #                                                 урок 2026-10-16 — в шаблон подставился текст
 #                                                 отказа, полоса ушла без N), задача есть и не PR;
+#                                                 состояние — open, если не названо closed (ws#1227:
+#                                                 задание назвало закрытую #832 о другом); title~ —
+#                                                 подстрока заголовка без учёта регистра: «о предмете»;
 #   pr <владелец/репо>#<N> <MERGED|OPEN|CLOSED>   состояние PR (GET pulls/<N>);
 #   branch <владелец/репо> <ветка>                ветка на origin (GET branches/<ветка>);
 #   head <владелец/репо> <ветка> <sha40>          голова ветки на origin равна sha целиком (GET branches/
 #                                                 <ветка> .commit.sha; ws#1191: полоса стенда ушла
 #                                                 раньше, чем голова ветки доехала до origin);
+#   head <владелец/репо> <ветка> ls-remote        голова — ТЕКУЩАЯ, `git ls-remote` origin (ws#1227,
+#                                                 урок 9d4363aa: sha задания устарела после «merge
+#                                                 main»); печатается строкой `HEAD <репо> <ветка> <sha>`
+#                                                 для задания; ветки нет — ложно, origin молчит — VOID;
+#   alive <клон> <ревизия> <фраза…>               предмет жив: фраза есть в дереве ревизии (`git grep
+#                                                 -F`); нет — «снят до раздачи» (урок f487bb7c);
 #   branchname <клон> <ветка>                     имя — по правилу репозитория клона (ws#1226, его же
 #                                                 предикат: kaname — scripts/hooks/branch-rule.sh клона,
 #                                                 corelib — git-rule.sh клона, воркспейс и kacho —
@@ -197,20 +207,29 @@ fi
 if [ -n "$premise" ]; then
     [ "${#pos[@]}" -eq 0 ] || usage
     [ -r "$premise" ] || { echo "lane-precheck: файла предусловий $premise нет; вердикта нет" >&2; exit 2; }
-    reasons=() voids=() n=0
+    reasons=() voids=() heads=() n=0
     while IFS= read -r line || [ -n "$line" ]; do
         case "$line" in '' | '#'*) continue ;; esac
         n=$((n + 1))
         read -r kind a b _ <<< "$line"
         case "$kind" in
             task)
-                r="${line#task }"; r="${r%%#*}" num="${line#*#}"
-                if [ "$r" = "$line" ] || [ "$num" = "$line" ] || ! [[ "$r" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then voids+=("PREMISE-FORM $line"); continue; fi
+                r="${line#task }"; want_state=open; want_title=""
+                # Хвост «[open|closed] [title~<подстрока>]» — только целиком этой формы; иначе
+                # номер — всё после «#» (подставленный текст отказа судится как номер).
+                if [[ "$r" =~ ^([^[:space:]]+)\ (open|closed)?\ ?(title~(.+))?$ ]] && [ -n "${BASH_REMATCH[2]}${BASH_REMATCH[3]}" ]; then
+                    r="${BASH_REMATCH[1]}"; want_state="${BASH_REMATCH[2]:-open}"; want_title="${BASH_REMATCH[4]}"
+                fi
+                num="${r#*#}"; r="${r%%#*}"
+                if [ "$r" = "${line#task }" ] || [ "$num" = "${line#task }" ] || ! [[ "$r" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then voids+=("PREMISE-FORM $line"); continue; fi
                 if ! [[ "$num" =~ ^[0-9]+$ ]]; then reasons+=("PREMISE-FALSE $line: номер задачи «$num» не ^[0-9]+$ — полоса не раздаётся"); continue; fi
-                got="$(ghget "repos/$r/issues/$num" 'if .pull_request then "PR" else "ISSUE" end')"; rc=$?
+                got="$(ghget "repos/$r/issues/$num" '[(if .pull_request then "PR" else "ISSUE" end), (.state // ""), ((.title // "") | gsub("[\t\n]"; " "))] | @tsv')"; rc=$?
+                IFS=$'\t' read -r gkind gstate gtitle <<< "$got"
                 if [ "$rc" = 3 ]; then reasons+=("PREMISE-FALSE $line: задачи нет")
-                elif [ "$rc" != 0 ]; then voids+=("GH-UNREADABLE $line")
-                elif [ "$got" != ISSUE ]; then reasons+=("PREMISE-FALSE $line: это PR, а не задача"); fi ;;
+                elif [ "$rc" != 0 ] || [ -z "$gstate" ]; then voids+=("GH-UNREADABLE $line")
+                elif [ "$gkind" != ISSUE ]; then reasons+=("PREMISE-FALSE $line: это PR, а не задача")
+                elif [ "$gstate" != "$want_state" ]; then reasons+=("PREMISE-FALSE $line: задача $gstate, задание ждёт $want_state — «$gtitle»")
+                elif [ -n "$want_title" ] && [[ "${gtitle,,}" != *"${want_title,,}"* ]]; then reasons+=("PREMISE-FALSE $line: задача не о предмете — заголовок «$gtitle» без «$want_title»"); fi ;;
             pr)
                 r="${a%%#*}" num="${a##*#}"
                 if ! [[ "$num" =~ ^[0-9]+$ ]] || [ "$r" = "$a" ] || ! [[ "$b" =~ ^(MERGED|OPEN|CLOSED)$ ]]; then voids+=("PREMISE-FORM $line"); continue; fi
@@ -225,6 +244,16 @@ if [ -n "$premise" ]; then
                 elif [ "$rc" != 0 ]; then voids+=("GH-UNREADABLE $line"); fi ;;
             head)
                 read -r _ _ _ want _ <<< "$line"
+                if [ "${want:-}" = ls-remote ]; then
+                    if [ -z "$a" ] || ! [[ "$a" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || ! [[ "$b" =~ ^[A-Za-z0-9._/-]+$ ]]; then voids+=("PREMISE-FORM $line"); continue; fi
+                    out="$(GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh -o BatchMode=yes}" timeout 20 \
+                        git ls-remote "${LANE_PRECHECK_GIT_BASE:-https://github.com}/$a.git" "refs/heads/$b" 2>/dev/null)" \
+                        || { voids+=("GIT-UNREADABLE $line: ls-remote origin не ответил"); continue; }
+                    got="$(awk -v r="refs/heads/$b" '$2 == r { print $1 }' <<< "$out")"
+                    if [ -z "$got" ]; then reasons+=("PREMISE-FALSE $line: ветки $b на origin нет")
+                    else heads+=("HEAD $a $b $got"); fi
+                    continue
+                fi
                 # Ветка — знаки пути GET (`#`, `?`, пробел обрезали бы путь до чужой ветки).
                 if [ -z "$a" ] || ! [[ "$b" =~ ^[A-Za-z0-9._/-]+$ ]] || ! [[ "${want:-}" =~ ^[0-9a-f]{40}$ ]]; then voids+=("PREMISE-FORM $line"); continue; fi
                 got="$(ghget "repos/$a/branches/$b" .commit.sha)"; rc=$?
@@ -238,6 +267,11 @@ if [ -n "$premise" ]; then
                 if [ "$rc" != 0 ]; then voids+=("GH-UNREADABLE $line"); continue; fi
                 if ! got="$(printf '%s' "$got" | dod_revs)"; then voids+=("DOD-LIB $line: распознаватель $HERE/lib/dod_proof.jq не судил"); continue; fi
                 if [ -z "$got" ]; then reasons+=("PREMISE-FALSE $line: комментария «DoD-proof @<sha>» нет"); fi ;;
+            alive)
+                read -r _ _ _ phrase <<< "$line"
+                if [ -z "${phrase:-}" ] || ! git -C "$a" rev-parse -q --verify "$b^{commit}" > /dev/null 2>&1; then voids+=("PREMISE-FORM $line: клона «$a» либо ревизии «$b» нет"); continue; fi
+                c="$(git -C "$a" grep -F -l -e "$phrase" "$b" -- 2>/dev/null | wc -l)"
+                [ "$c" -gt 0 ] || reasons+=("PREMISE-FALSE $line: предмет снят до раздачи — «$phrase» в $b не встречается") ;;
             branchname | commit-subject | push-form)
                 if ! top="$(git -C "$a" rev-parse --show-toplevel 2>/dev/null)"; then voids+=("PREMISE-FORM $line: клона «$a» нет"); continue; fi
                 slug="$(git -C "$top" remote get-url origin 2>/dev/null)"; slug="${slug%.git}"; slug="${slug#*github.com[:/]}"
@@ -300,6 +334,7 @@ if [ -n "$premise" ]; then
         esac
     done < "$premise"
     echo "lane-precheck --premise: файл $premise; предусловий $n; ложных ${#reasons[@]}, не судимо ${#voids[@]}"
+    for x in "${heads[@]+"${heads[@]}"}"; do echo "$x"; done
     for x in "${reasons[@]+"${reasons[@]}"}"; do echo "REASON $x"; done
     for x in "${voids[@]+"${voids[@]}"}"; do echo "VOID $x"; done
     [ "${#reasons[@]}" -eq 0 ] || exit 1
