@@ -44,7 +44,9 @@
 #   prune        — влитая ветка снята в клоне, чистая копия снята, origin пуст; prune-dirty:
 #                  копия с неотслеживаемым файлом остаётся с веткой; prune-ahead: местная
 #                  голова впереди влитой — ни ветка, ни копия не сняты; prune-remote:
-#                  ветку на origin хостинг не снял — демон снимает её сам;
+#                  ветку на origin хостинг не снял — демон снимает её сам; prune-busy (ws#1244 L5):
+#                  в чистой копии идёт процесс (cwd внутри) либо открыт её файл — копия и ветка
+#                  на месте, в .state «оставлено: процессы <pid>»; близнец — prune;
 #   empty-code   — landing-precheck 1 с причиной БЕЗ кода (REASON<TAB><TAB>текст) — red и без
 #                  --allow, и с непустым --allow;
 #   lp-head      — landing-precheck судил другую голову (его CENSUS) → head-moved; строки
@@ -589,6 +591,20 @@ s_prune_ahead() {
     ok prune-ahead "merged, местная голова впереди — оставлено" eval 'st_is merged && st_has "не равна и не предок"'
     ok prune-ahead "ветка и копия на месте" eval 'has_branch && [ -d "$G/wt" ]'
 }
+s_prune_busy() {  # ws#1244 L5: 2026-10-18 снята копия, где шли 6 процессов integration (cwd внутри)
+    local bp bf
+    new_fx prune-busy; mk_git
+    (cd "$G/wt" && exec sleep 60) & bp=$!
+    run_al
+    ok prune-busy "merged, копия с процессом (cwd внутри) оставлена, pid назван" eval 'st_is merged && st_has "оставлено: процессы $bp"'
+    ok prune-busy "копия и ветка на месте" eval '[ -d "$G/wt" ] && has_branch'
+    kill "$bp" 2>/dev/null; wait "$bp" 2>/dev/null
+    new_fx prune-busy-fd; mk_git
+    ( exec 7< "$G/wt/g"; exec sleep 60 ) & bf=$!
+    run_al
+    ok prune-busy-fd "merged, копия с открытым файлом (cwd вне) оставлена, pid назван" eval 'st_is merged && st_has "оставлено: процессы $bf" && [ -d "$G/wt" ]'
+    kill "$bf" 2>/dev/null; wait "$bf" 2>/dev/null
+}
 s_prune_origin_ahead() {
     new_fx prune-origin-ahead; mk_git origin-ahead; run_al
     ok prune-origin-ahead "merged, origin-ветка ушла вперёд — оставлена с причиной" eval 'st_is merged && st_has "сдвинулась после вливания"'
@@ -809,7 +825,7 @@ s_static() {
 
 ALL=(s_green s_red s_moved_start s_moved_gates s_moved_merge s_allow_ok s_allow_bad s_stale s_mr_red s_timeout
      s_void s_void_twin s_ratelimit s_pr_unread s_draft s_closed s_already s_fifo s_fifo_nowriter s_args s_detach s_recipe
-     s_prune s_prune_dirty s_prune_ahead s_prune_remote s_prune_origin_ahead s_prune_not_in_base
+     s_prune s_prune_dirty s_prune_ahead s_prune_remote s_prune_origin_ahead s_prune_not_in_base s_prune_busy
      s_ff s_ff_overlap s_ff_worktree s_ff_foreign s_ff_hang s_ff_epic s_lag s_lag_own s_lag_nofetch s_lag_hang
      s_start_stale s_head_sync
      s_status s_empty_code s_lp_head s_census s_guard s_static)
@@ -861,6 +877,8 @@ mutant empty-code-allowed s_empty_code '$2 == "" || index(allow' 'index(allow'
 mutant lp-head-unchecked s_lp_head 'elif [ "$lph" != "${HEAD:0:12}" ]; then' 'elif false; then'
 mutant lp-nohead-ignored s_lp_head 'if [ -z "$lph" ]; then' 'if false; then'
 mutant prune-origin-ahead-dropped s_prune_origin_ahead 'if [ "$rh" = "$HEAD" ] || git -C "$c" merge-base --is-ancestor "$rh" "$HEAD" 2>/dev/null; then' 'if true; then'
+mutant prune-busy-unchecked s_prune_busy 'busy="$(wt_procs "$wt")"' 'busy=""'
+mutant prune-busy-fd-unchecked s_prune_busy 'find /proc/[0-9]*/fd -mindepth 1' 'false /proc/[0-9]*/fd -mindepth 1'
 mutant prune-base-ancestor-dropped s_prune_not_in_base 'if ! git -C "$c" merge-base --is-ancestor "$HEAD" "origin/$base" 2>/dev/null; then' 'if false; then'
 mutant status-stale-as-merged s_status 'stale-base) exit 4 ;;' 'stale-base) exit 0 ;;'
 mutant status-moved-as-merged s_status 'head-moved) exit 5 ;;' 'head-moved) exit 0 ;;'
