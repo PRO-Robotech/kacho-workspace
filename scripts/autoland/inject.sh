@@ -46,7 +46,9 @@
 #                  голова впереди влитой — ни ветка, ни копия не сняты; prune-remote:
 #                  ветку на origin хостинг не снял — демон снимает её сам; prune-busy (ws#1244 L5):
 #                  в чистой копии идёт процесс (cwd внутри) либо открыт её файл — копия и ветка
-#                  на месте, в .state «оставлено: процессы <pid>»; близнец — prune;
+#                  на месте, в .state «оставлено: процессы <pid>»; близнец — prune; exe (ws#1250):
+#                  процесс исполняет файл копии при cwd вне её — оставлена; prune-busy-glob: копия
+#                  «w[1]» с процессом внутри оставлена, процесс в чужом «w1» её не держит (шаблон);
 #   empty-code   — landing-precheck 1 с причиной БЕЗ кода (REASON<TAB><TAB>текст) — red и без
 #                  --allow, и с непустым --allow;
 #   lp-head      — landing-precheck судил другую голову (его CENSUS) → head-moved; строки
@@ -604,6 +606,33 @@ s_prune_busy() {  # ws#1244 L5: 2026-10-18 снята копия, где шли 
     run_al
     ok prune-busy-fd "merged, копия с открытым файлом (cwd вне) оставлена, pid назван" eval 'st_is merged && st_has "оставлено: процессы $bf" && [ -d "$G/wt" ]'
     kill "$bf" 2>/dev/null; wait "$bf" 2>/dev/null
+    # ws#1250 K4: исполняемый файл из копии при cwd вне её и без открытых файлов в ней.
+    local bx _
+    new_fx prune-busy-exe; mk_git
+    # Копия bash, а не sleep: sleep здесь — многовызовный двоичный файл, под чужим именем он не
+    # исполняется. read ждёт на очереди вне копии — exe единственная связь процесса с копией.
+    cp "$(command -v bash)" "$G/wt/xs"; mkfifo "$FX/exe.fifo"
+    # shellcheck disable=SC2016  # тело -c раскрывает исполняемая копия bash
+    (cd / && exec "$G/wt/xs" -c 'read -r -t 60 <> "$0"' "$FX/exe.fifo") < /dev/null > /dev/null 2>&1 & bx=$!
+    for _ in $(seq 1 25); do [ "$(readlink "/proc/$bx/exe" 2>/dev/null)" = "$G/wt/xs" ] && break; sleep 0.1; done
+    run_al
+    ok prune-busy-exe "merged, копия с исполняемым файлом процесса (cwd вне) оставлена, pid назван" eval 'st_is merged && st_has "оставлено: процессы $bx" && [ -d "$G/wt" ]'
+    kill "$bx" 2>/dev/null; wait "$bx" 2>/dev/null
+}
+s_prune_busy_glob() {  # ws#1250 K4: путь копии со знаками шаблона — свой процесс виден, чужой «a1» нет
+    local bo bf
+    new_fx prune-busy-glob; mk_git
+    git -C "$G/clone" worktree move "$G/wt" "$G/w[1]"; mkdir -p "$G/w1"
+    (cd "$G/w1" && exec sleep 60) & bf=$!
+    run_al
+    ok prune-busy-glob "близнец: процесс в чужом каталоге w1 копию w[1] не держит — снята" eval 'st_is merged && [ ! -d "$G/w[1]" ] && ! st_has "процессы $bf"'
+    kill "$bf" 2>/dev/null; wait "$bf" 2>/dev/null
+    new_fx prune-busy-glob-own; mk_git
+    git -C "$G/clone" worktree move "$G/wt" "$G/w[1]"
+    (cd "$G/w[1]" && exec sleep 60) & bo=$!
+    run_al
+    ok prune-busy-glob-own "копия w[1] с процессом внутри оставлена, pid назван" eval 'st_is merged && st_has "оставлено: процессы $bo" && [ -d "$G/w[1]" ]'
+    kill "$bo" 2>/dev/null; wait "$bo" 2>/dev/null
 }
 s_prune_origin_ahead() {
     new_fx prune-origin-ahead; mk_git origin-ahead; run_al
@@ -825,7 +854,7 @@ s_static() {
 
 ALL=(s_green s_red s_moved_start s_moved_gates s_moved_merge s_allow_ok s_allow_bad s_stale s_mr_red s_timeout
      s_void s_void_twin s_ratelimit s_pr_unread s_draft s_closed s_already s_fifo s_fifo_nowriter s_args s_detach s_recipe
-     s_prune s_prune_dirty s_prune_ahead s_prune_remote s_prune_origin_ahead s_prune_not_in_base s_prune_busy
+     s_prune s_prune_dirty s_prune_ahead s_prune_remote s_prune_origin_ahead s_prune_not_in_base s_prune_busy s_prune_busy_glob
      s_ff s_ff_overlap s_ff_worktree s_ff_foreign s_ff_hang s_ff_epic s_lag s_lag_own s_lag_nofetch s_lag_hang
      s_start_stale s_head_sync
      s_status s_empty_code s_lp_head s_census s_guard s_static)
@@ -879,6 +908,8 @@ mutant lp-nohead-ignored s_lp_head 'if [ -z "$lph" ]; then' 'if false; then'
 mutant prune-origin-ahead-dropped s_prune_origin_ahead 'if [ "$rh" = "$HEAD" ] || git -C "$c" merge-base --is-ancestor "$rh" "$HEAD" 2>/dev/null; then' 'if true; then'
 mutant prune-busy-unchecked s_prune_busy 'busy="$(wt_procs "$wt")"' 'busy=""'
 mutant prune-busy-fd-unchecked s_prune_busy 'find /proc/[0-9]*/fd -mindepth 1' 'false /proc/[0-9]*/fd -mindepth 1'
+mutant prune-busy-exe-unchecked s_prune_busy 'find /proc/[0-9]*/cwd /proc/[0-9]*/exe -maxdepth 0' 'find /proc/[0-9]*/cwd -maxdepth 0'
+mutant prune-busy-glob-unescaped s_prune_busy_glob "e=\"\$(printf '%s' \"\$d\" | sed 's/[][*?\\\\]/\\\\&/g')\"" 'e="$d"'
 mutant prune-base-ancestor-dropped s_prune_not_in_base 'if ! git -C "$c" merge-base --is-ancestor "$HEAD" "origin/$base" 2>/dev/null; then' 'if false; then'
 mutant status-stale-as-merged s_status 'stale-base) exit 4 ;;' 'stale-base) exit 0 ;;'
 mutant status-moved-as-merged s_status 'head-moved) exit 5 ;;' 'head-moved) exit 0 ;;'
