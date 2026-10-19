@@ -29,6 +29,13 @@
 Ключ класса — первый сегмент до «·» либо ключ события rekey, и ОБА проходят одну функцию
 `canon`: нормализация (регистр, кавычки, «ё», пробелы), затем таблица синонимов `aliases.tsv`
 (регулярное выражение → ключ; первое совпадение) — пересчётом при каждом чтении.
+Ключ СЛИШКОМ ОБЩИЙ (ws#1248) — одно слово (слова делят пробел и дефис, префикс «оркестровка:»
+снят) и не итог строки синонима. Такой класс СКЛЕЕН, когда у его уроков (кроме строк счётчика
+волны — словарь wave-errors.sh) ≥ 2 разных «где» (текст после первого «·»): в повтор не идёт,
+печатается GLUED с id по месту; mark его — отказ, «*» его пропускает; развести — `rekey`
+расходящемуся уроку (rekey берёт и урок с общим ключом в тексте; новый ключ из одного слова —
+отказ, кроме итога синонима). Порога по числу знаков нет: на живой ведомости 2026-10-19 у
+ключей из ≥ 2 слов, кроме синонимов, короче 9 знаков — ни одного.
 
 Ведомость `lessons.jsonl` — ТОЛЬКО дописывается: запись урока {t:lesson,id,…} и событие
 статуса {t:status,key,status,ref,ts}. id = sha1(сессия|агент|sha1(строки)) — повторный сбор
@@ -123,6 +130,40 @@ def canon(seg, aliases):
         if rx.search(seg):
             return c
     return seg[:80]
+
+
+def general(k, aliases):
+    """Ключ слишком общий: одно слово (пробел и дефис делят слова; префикс «оркестровка:»
+    снят) и не итог строки синонима aliases.tsv (её завели решением свести)."""
+    inner = k[len(ORCH) + 1:] if k.startswith(ORCH + ':') else k
+    return inner not in {c for _, c in aliases} and not re.search(r'[\s-]', inner)
+
+
+def where_of(raw):
+    """«Где предотвратить» урока — текст после первого «·» либо после фразы места."""
+    if '·' in raw:
+        return norm(raw.split('·', 1)[1])
+    m = PLACE_RE.search(raw)
+    return norm(raw[m.end():]) if m else ''
+
+
+def glued(k, rs, aliases):
+    """Класс, склеенный общим ключом: {место: уроки} при ≥ 2 разных местах, иначе пусто.
+    Строки счётчика волны не судятся: их класс — из словаря wave-errors.sh."""
+    if k.startswith('?') or not general(k, aliases):
+        return {}
+    ws = {}
+    for r in rs:
+        if r.get('src') != 'wave-errors':
+            ws.setdefault(where_of(r.get('raw', '')), []).append(r)
+    return ws if len(ws) >= 2 else {}
+
+
+def glue_ids(g):
+    """Перечень склейки: id первого урока каждого места и начало места в его записи."""
+    def place(raw):
+        return re.sub(r'\s+', ' ', raw.split('·', 1)[1] if '·' in raw else raw).strip()[:48]
+    return ' · '.join('?%s «%s»' % (rs[0]['id'][:8], place(rs[0].get('raw', ''))) for _, rs in sorted(g.items(), key=lambda x: x[1][0]['id']))
 
 
 def key_of(raw, aliases):
@@ -455,6 +496,8 @@ def class_of(r, aliases, rekeys=None):
         k = key_of(r.get('raw', ''), aliases)
         if k is None and rekeys:
             k = canon(rekeys.get(r['id']), aliases)
+        elif k is not None and rekeys and r['id'] in rekeys and general(k, aliases):
+            k = canon(rekeys[r['id']], aliases)  # общий ключ текста разводится событием
         if k is not None and r.get('src') == 'dispatcher' and not (k == ORCH or k.startswith(ORCH + ':')):
             k = ORCH + ':' + k
     return k if k else '?' + r['id'][:8]
@@ -478,7 +521,7 @@ def analyse(store, now, aliases, since=0.0):
             continue
         seen.add(rh)
         by.setdefault(k, []).append(r)
-    need, fails, stale, unkeyed, fresh = [], [], [], [], 0
+    need, fails, stale, unkeyed, glue, fresh = [], [], [], [], [], 0
     for k, rs in sorted(by.items()):
         st, ref, _ = current(store, k)
         if st == 'rejected':
@@ -488,6 +531,10 @@ def analyse(store, now, aliases, since=0.0):
             continue
         if st == 'open':
             fresh += len(rs)
+        g = glued(k, rs, aliases)
+        if g:
+            glue.append((k, rs, g))  # склейка — не повтор: ни механизма, ни «не держит»
+            continue
         if len(rs) >= THRESHOLD and st in ('open', 'edited'):
             need.append((k, rs, st))
         hs = held_since(store, k)
@@ -497,15 +544,17 @@ def analyse(store, now, aliases, since=0.0):
                 fails.append((k, late, ref))
         if st == 'open' and min((r.get('ts') or now) for r in rs) < now - DAY:
             stale.append((k, rs))
-    return by, need, fails, stale, unkeyed, fresh
+    return by, need, fails, stale, unkeyed, glue, fresh
 
 
-def line_of(need, fails, stale, unkeyed, fresh):
+def line_of(need, fails, stale, unkeyed, glue, fresh):
     s = '📚 УРОКИ: новых %d · классов с повтором без задачи %d · старше суток %d' % (fresh, len(need), len(stale))
     if fails:
         s += ' · механизм не держит %d' % len(fails)
     if unkeyed:
         s += ' · без ключа %d' % len(unkeyed)
+    if glue:
+        s += ' · ключ слишком общий %d' % len(glue)
     return s
 
 
@@ -541,7 +590,9 @@ def main():
             sys.exit(1)
         pre, key = rest[0][1:], norm(rest[1])
         why = ('несёт «·»' if '·' in rest[1] else 'начат «?»' if key.startswith('?')
-               else 'пуст после нормализации' if canon(key, aliases) is None else '')
+               else 'пуст после нормализации' if canon(key, aliases) is None
+               else 'из одного слова — слишком общий: склеит несвязанные уроки; нужен ключ из ≥ 2 слов либо итог синонима aliases.tsv'
+               if general(canon(key, aliases), aliases) else '')
         if why:
             print('lessons: ОТКАЗ — ключ «%s» %s' % (rest[1], why), file=sys.stderr)
             sys.exit(1)
@@ -550,8 +601,9 @@ def main():
             print('lessons: ОТКАЗ — уроков с id %s…: %d, нужен ровно один' % (pre, len(hit)), file=sys.stderr)
             sys.exit(1)
         r = hit[0]
-        if r.get('src') == 'wave-errors' or key_of(r.get('raw', ''), aliases) is not None:
-            print('lessons: ОТКАЗ — у урока %s ключ из текста «%s»; rekey — только уроку без ключа в тексте'
+        tk = key_of(r.get('raw', ''), aliases)
+        if r.get('src') == 'wave-errors' or (tk is not None and not general(tk, aliases)):
+            print('lessons: ОТКАЗ — у урока %s ключ из текста «%s»; rekey — только уроку без ключа в тексте либо с ключом из одного слова'
                   % (rest[0], class_of(r, aliases)), file=sys.stderr)
             sys.exit(1)
         store.rekey(r['id'], key, now)
@@ -575,11 +627,21 @@ def main():
                 print('lessons: ОТКАЗ — «*» только для edited|rejected', file=sys.stderr)
                 sys.exit(1)
             since = calendar.timegm(time.strptime(opts['--since'], '%Y-%m-%d')) if opts['--since'] else 0.0
-            keys = sorted(x for x in analyse(store, now, aliases, since)[0] if current(store, x)[0] == 'open')
+            an = analyse(store, now, aliases, since)
+            skip = sorted(x for x, _, _ in an[5] if current(store, x)[0] == 'open')
+            keys = sorted(x for x in an[0] if current(store, x)[0] == 'open' and x not in skip)
+            if skip:
+                print('lessons: пропущено склеенных общим ключом %d: %s' % (len(skip), ', '.join(skip)))
         else:
             keys = [k]
             if k not in {class_of(r, aliases, store.rekeys) for r in store.lessons}:
                 print('lessons: ОТКАЗ — класса «%s» в ведомости нет' % k, file=sys.stderr)
+                sys.exit(1)
+            rs = analyse(store, now, aliases)[0].get(k, [])  # случаи — тем же сведением, что status
+            g = glued(k, rs, aliases)
+            if g:
+                print('lessons: ОТКАЗ — ключ «%s» из одного слова (не синоним aliases.tsv) склеил уроков %d с разными местами (мест %d): %s; развести — rekey ?<id> <ключ из ≥ 2 слов> расходящимся урокам, затем mark'
+                      % (k, len(rs), len(g), glue_ids(g)), file=sys.stderr)
                 sys.exit(1)
         for x in keys:
             store.mark(x, st, ref, now)
@@ -603,13 +665,14 @@ def main():
                   % (census['files'], census['agents'], census['mains'], census['read'], census['deferred'], len(store.lessons)))
             return 0
     since = calendar.timegm(time.strptime(opts['--since'], '%Y-%m-%d')) if opts['--since'] else 0.0
-    by, need, fails, stale, unkeyed, fresh = analyse(store, now, aliases, since)
+    by, need, fails, stale, unkeyed, glue, fresh = analyse(store, now, aliases, since)
     if cmd == 'report':
-        rep = sum(1 for k, rs in by.items() if not k.startswith('?') and len(rs) >= THRESHOLD)
+        gk = {k for k, _, _ in glue}
+        rep = sum(1 for k, rs in by.items() if not k.startswith('?') and k not in gk and len(rs) >= THRESHOLD)
         held = [k for k in by if current(store, k)[0] in HELD]
         bad = [k for k, _, _ in fails]
-        print('[CENSUS] lessons%s: уроков %d, классов %d, с повтором (≥%d) %d, без ключа %d; механизмов влито %d, из них не держат %d (%s)'
-              % (' с ' + opts['--since'] if since else '', sum(len(v) for v in by.values()), len([k for k in by if not k.startswith('?')]), THRESHOLD, rep, len(unkeyed),
+        print('[CENSUS] lessons%s: уроков %d, классов %d, с повтором (≥%d) %d, без ключа %d, склеено общим ключом %d; механизмов влито %d, из них не держат %d (%s)'
+              % (' с ' + opts['--since'] if since else '', sum(len(v) for v in by.values()), len([k for k in by if not k.startswith('?')]), THRESHOLD, rep, len(unkeyed), len(glue),
                  len(held), len(bad), ('доля %.0f %%' % (100.0 * len(bad) / len(held))) if held else 'доли нет'))
         for k, rs in sorted(by.items(), key=lambda kv: (-len(kv[1]), kv[0])):
             st, ref, _ = current(store, k)
@@ -619,7 +682,7 @@ def main():
         die('неизвестная команда «%s»' % cmd, 1)
     if not store.lessons and cmd == 'status' and not os.path.isfile(store.ledger):
         die('ведомости нет: %s — сбор не вёлся' % store.ledger)
-    head = line_of(need, fails, stale, unkeyed, fresh)
+    head = line_of(need, fails, stale, unkeyed, glue, fresh)
     body = []
     for k, rs, st in need:
         body.append('NEED-MECHANISM %s — случаев %d (%s): %s' % (k, len(rs), st, rs[-1]['raw'][:140]))
@@ -629,7 +692,9 @@ def main():
         body.append('STALE %s — открыт дольше суток: %s' % (k, rs[0]['raw'][:140]))
     for k, rs in unkeyed:
         body.append('UNKEYED %s — урок без ключа в тексте (без места; ключ — rekey %s <ключ>): %s/%s: %s' % (k, k, rs[0]['sid'][:8], rs[0]['agent'], rs[0]['raw'][:140]))
-    todo = bool(need or fails or stale or unkeyed)
+    for k, rs, g in glue:
+        body.append('GLUED %s — ключ из одного слова склеил уроков %d, мест %d (не синоним aliases.tsv); развести — rekey ?<id> <ключ из ≥ 2 слов>: %s' % (k, len(rs), len(g), glue_ids(g)))
+    todo = bool(need or fails or stale or unkeyed or glue)
     if cmd == 'status':
         print('[CENSUS] lessons: уроков %d, классов %d' % (len(store.lessons), len([k for k in by if not k.startswith('?')])))
         if todo:

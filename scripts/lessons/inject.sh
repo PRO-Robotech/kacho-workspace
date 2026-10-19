@@ -27,6 +27,11 @@
 #                 уроку действует последнее; близнецы — отказ с текстом и без события в ведомости:
 #                 урок с ключом в тексте, нет урока, префикс id у двух уроков, ключ с «·»,
 #                 начатый «?», пустой; событие на урок с ключом в тексте ключ не меняет;
+#   общий ключ  — (ws#1248, набор suite_key, настоящие строки ведомости) ключ из одного слова с
+#                 ≥ 2 местами — GLUED в status с id по месту, не повтор, mark — отказ с id и
+#                 подсказкой rekey, «*» пропускает; rekey разводит урок с общим ключом в тексте,
+#                 новый ключ из одного слова — отказ; близнец на каждое условие: одно место, два
+#                 слова, дефис, синоним, один урок, счётчик волны, префикс «оркестровка:»;
 #   бюджет      — при --budget 0 сбор читает кусок за вызов и откладывает остальное, догоном
 #                 доходит до того же числа уроков;
 #   B4 хук      — неверный регэксп синонима: сборщик код 3 с координатой, хук «НЕ СОБРАНЫ»;
@@ -357,9 +362,145 @@ PY
     return "$fails"
 }
 
+# ── Общий ключ (ws#1248): ключ из одного слова склеивает несвязанные уроки ────────
+# Ведомость — настоящими строками уроков `tmp/reports/lessons.jsonl` (перемер 2026-10-19 @810fe9830):
+# класс «склеен», когда ключ — одно слово (дефис и пробел делят слова; префикс «оркестровка:»
+# снят), не строка-итог синонима aliases.tsv, и у его уроков (кроме строк счётчика волны) ≥ 2
+# разных «где» (текст после первого «·»). Близнец — на каждое условие.
+mkkey() {  # mkkey <каталог>
+    python3 - "$1" <<'PY'
+import json, os, sys, time
+root = sys.argv[1]
+os.makedirs(os.path.join(root, 'led'), exist_ok=True)
+now = time.time()
+n = [0]
+def L(raw, src='agent', key=None, agent=None):
+    n[0] += 1
+    return {'t': 'lesson', 'id': '%02d' % n[0] + 'e' * 38, 'sid': 'K1', 'agent': agent or 'k%d' % n[0],
+            'src': src, 'ts': now - 3600, 'key': key, 'raw': raw}
+PR = 'инструмент · `scripts/pr-body.sh` вне `RITUAL_REPO_DIR`-формы `origin/<база>` и sha падает на 404 по номеру в старом коммите; форма вызова в задании диспетчера должна быть `origin/main <sha>`, а не `main 880`.'
+PYT = 'среда · тесты оснастки newman (`*_test.py`) написаны под pytest, а pytest на машине нет, поэтому локально они не выполняются. Где предотвратить: дать pytest в слоте `heavy-slot.sh` или запускать эти тесты в CI-задании newman.'
+rows = [
+    # 01–03 склеен: «инструмент» — урок про очередь слота и два урока про pr-body.sh (случай 2026-10-19)
+    L('инструмент · `heavy-slot.sh --enqueue <каталог>` — это каталог журналов, а не рабочая копия; запускать нужно из `cd <копия>` · предотвратить: строка в шапке `heavy-slot.sh` и в задании git-operator'),
+    L(PR), L(PR, src='workflow'),
+    # 04–05 близнец «где одно»: одно слово, два урока, одно место — не склеен
+    L(PYT), L(PYT, src='workflow'),
+    # 06–07 близнец «два слова»: разные места, ключ из двух слов — не склеен
+    L('устаревший артефакт · `gh run download` в непустой каталог отказывает «file exists» и оставляет файлы предыдущего прогона; их легко принять за свежие', src='workflow'),
+    L('устаревший артефакт · `gh run download` в непустой каталог даёт rc=1 и оставляет файлы прежнего прогона, вердикт читается не с той ревизии', src='workflow'),
+    # 08–09 близнец «дефис делит слова»
+    L('стек-противоречие · стенд `own` ставит боевые окна (срок предъявителей, окно источника), а наборы рассчитаны на окна CI'),
+    L('стек-противоречие · `stand-ns.sh` принимает `STACK=prod`, хотя в своём пространстве эта цепочка не поднимается', src='workflow'),
+    # 10–11 близнец «синоним»: одно слово — итог строки aliases.tsv (решение свести)
+    L('форма · `cascade-census.sh --proof` проверяет только наличие строки `DoD-proof @sha`'),
+    L('форма · ритуал `approval-event.sh` требует опубликованный HEAD перед каждым вызовом'),
+    # 12 близнец «склеивать нечего»: один урок одного слова
+    L('прибор · предел `timeout-minutes=5` шага посева церемонии рассчитан на ранер CI, а стенд во внешнем кластере втрое медленнее'),
+    # 13–14 близнец «счётчик волны»: класс словаря wave-errors.sh, разные заметки — не склеен
+    L('new:сеть · implement: отказ codeload', src='wave-errors', key='оркестровка:new:сеть', agent='L1'),
+    L('new:сеть · review: обрыв ssh', src='wave-errors', key='оркестровка:new:сеть', agent='L2'),
+    # 15–16 склеен под префиксом: урок диспетчера «среда · …» с двумя местами
+    L('среда · сбой codeload уронил 5 джоб · база §7', src='dispatcher', agent='dispatcher'),
+    L('среда · хук отправки из копии не видит клоны · шаблон задания', src='dispatcher', agent='dispatcher'),
+    # 17–18 близнец префикса: урок диспетчера из двух слов, два места
+    L('цепочка проб · место А', src='dispatcher', agent='dispatcher'),
+    L('цепочка проб · место Б', src='dispatcher', agent='dispatcher'),
+    # 19–20 близнец префикса и синонима: «оркестровка:форма» — итог синонима под префиксом
+    L('форма · место А', src='dispatcher', agent='dispatcher'),
+    L('форма · место Б', src='dispatcher', agent='dispatcher'),
+]
+with open(os.path.join(root, 'led', 'lessons.jsonl'), 'w', encoding='utf-8') as f:
+    for r in rows:
+        f.write(json.dumps(r, ensure_ascii=False) + '\n')
+with open(os.path.join(root, 'aliases.tsv'), 'w') as f:
+    f.write('^форма$\tформа\n')
+os.makedirs(os.path.join(root, 'proj'), exist_ok=True)
+PY
+}
+suite_key() {
+    local py="$1" D fails=0 out rc n1 n2
+    D="$(mktemp -d "$T/key.XXXX")"
+    ok() { echo "  [OK]   $1"; }
+    no() { echo "  [FAIL] $1" >&2; fails=$((fails + 1)); }
+    chk() { if [ "$1" = "$2" ]; then ok "$3"; else no "$3 — ожидалось «$1», получено «$2»"; fi; }
+    has() { if grep -qF -- "$1" <<< "$out"; then ok "$2"; else no "$2 — нет «$1»"; fi; }
+    hasnt() { if grep -qF -- "$1" <<< "$out"; then no "$2 — есть «$1»"; else ok "$2"; fi; }
+    st() { grep -c '"t": "status"' "$1/led/lessons.jsonl"; }
+    K() { LESSONS_PY="$py" LESSONS_DIR="$1/led" LESSONS_PROJECTS_DIR="$1/proj" LESSONS_WAVES_DIR="$1/waves" \
+        LESSONS_ALIASES="$1/aliases.tsv" LESSONS_SINCE=2000-01-01 bash "$HERE/collect.sh" "${@:2}" 2>&1; }
+    local e="eeeeee"
+    mkkey "$D/k"
+    out="$(K "$D/k" status)"; rc=$?
+    chk 1 "$rc" "общий ключ: status — есть что делать, код 1"
+    has '[CENSUS] lessons: уроков 20,' "общий ключ: прочитано 20 уроков (ноль прочитанных — красное)"
+    has 'GLUED инструмент — ключ из одного слова склеил уроков 3, мест 2' "общий ключ: «инструмент» с двумя местами — склеен, число уроков и мест"
+    has "?01$e" "общий ключ: перечень склеенного называет id урока про очередь слота"
+    has "?02$e" "общий ключ: перечень склеенного называет id урока про pr-body.sh"
+    has 'rekey ?<id> <ключ из ≥ 2 слов>' "общий ключ: подсказка — rekey"
+    has 'GLUED оркестровка:среда' "общий ключ: урок диспетчера — префикс «оркестровка:» снят перед счётом слов"
+    hasnt 'GLUED среда' "близнец «где одно»: одно слово, одно место — не склеен"
+    hasnt 'GLUED устаревший артефакт' "близнец «два слова»: разные места — не склеен"
+    hasnt 'GLUED стек-противоречие' "близнец «дефис»: дефис делит слова — не склеен"
+    hasnt 'GLUED форма' "близнец «синоним»: итог строки aliases.tsv — не склеен"
+    hasnt 'GLUED прибор' "близнец «один урок»: склеивать нечего"
+    hasnt 'GLUED оркестровка:new' "близнец «счётчик волны»: класс словаря wave-errors.sh — не склеен"
+    hasnt 'GLUED оркестровка:цепочка проб' "близнец префикса: урок диспетчера из двух слов — не склеен"
+    hasnt 'GLUED оркестровка:форма' "близнец префикса: синоним судится по ключу без «оркестровка:»"
+    hasnt 'NEED-MECHANISM инструмент' "склеенный класс — не повтор: механизма не просит"
+    has 'NEED-MECHANISM среда — случаев 2' "близнец: одно слово с одним местом — повтор, механизм просит"
+    has 'ключ слишком общий 2' "строка сигнала называет число склеенных классов"
+    n1="$(st "$D/k")"
+    out="$(K "$D/k" mark инструмент edited ws#1)"; rc=$?
+    chk 1 "$rc" "mark склеенного класса — отказ, код 1"
+    has 'ключ «инструмент» из одного слова' "отказ называет одно слово"
+    has 'склеил уроков 3 с разными местами (мест 2)' "отказ называет число уроков и мест"
+    has 'не синоним aliases.tsv' "отказ называет отсутствие синонима"
+    has "?01$e" "отказ перечисляет id расходящегося урока"
+    has 'rekey ?<id> <ключ из ≥ 2 слов>' "отказ подсказывает rekey"
+    out="$(K "$D/k" mark оркестровка:среда edited ws#1)"; rc=$?
+    chk 1 "$rc" "mark склеенного класса диспетчера — отказ"
+    n2="$(st "$D/k")"
+    chk "$n1" "$n2" "отказ mark события статуса не дописал"
+    for c in среда 'устаревший артефакт' стек-противоречие форма прибор оркестровка:new:сеть 'оркестровка:цепочка проб'; do
+        out="$(K "$D/k" mark "$c" edited ws#1)"; rc=$?
+        chk 0 "$rc" "близнец: mark «$c» проходит"
+    done
+    out="$(K "$D/k" rekey "?01$e" среда)"; rc=$?
+    chk 1 "$rc" "rekey: новый ключ из одного слова — отказ"
+    has 'ключ «среда» из одного слова — слишком общий' "rekey: отказ называет одно слово"
+    out="$(K "$D/k" rekey "?01$e" форма)"; rc=$?
+    chk 0 "$rc" "rekey близнец: одно слово — итог синонима — проходит"
+    out="$(K "$D/k" rekey "?01$e" 'каталог очереди слота')"; rc=$?
+    chk 0 "$rc" "rekey: урок склеенного класса получает ключ из ≥ 2 слов"
+    has "?01$e → каталог очереди слота" "rekey: класс урока — ключ события (последнее событие)"
+    out="$(K "$D/k" rekey "?06$e" 'другой ключ')"; rc=$?
+    chk 1 "$rc" "rekey близнец: урок с ключом из двух слов в тексте — отказ, как прежде"
+    out="$(K "$D/k" status)"
+    hasnt 'GLUED инструмент' "после rekey расходящегося урока «инструмент» не склеен"
+    has 'ключ слишком общий 1' "после rekey склеенных классов 1"
+    out="$(K "$D/k" mark инструмент edited ws#1)"; rc=$?
+    chk 0 "$rc" "подсказка исполнима: после rekey mark проходит"
+    out="$(K "$D/k" report)"
+    has '  1  open                      каталог очереди слота' "rekey: урок ушёл в класс ключа события"
+    has 'склеено общим ключом 1' "report называет число склеенных классов"
+    # «*» — остаток пачки: склеенный класс пропускается и остаётся открытым.
+    mkkey "$D/s"
+    out="$(K "$D/s" mark '*' edited ws#1)"; rc=$?
+    chk 0 "$rc" "mark «*»: код 0"
+    has 'пропущено склеенных общим ключом 2: инструмент, оркестровка:среда' "mark «*»: склеенные пропущены поимённо"
+    out="$(K "$D/s" report)"
+    has '  3  open                      инструмент' "mark «*»: склеенный класс остался open"
+    has '  2  edited     ws#1           среда' "mark «*»: несклеенный класс отмечен"
+    return "$fails"
+}
+
 echo "== контроль"
 suite "$HERE/lessons.py" "$WSR/.claude/hooks/lessons-signal.sh"
 ctl=$?
+echo "== контроль: общий ключ"
+suite_key "$HERE/lessons.py"
+ctl=$((ctl + $?))
 [ "$ctl" = 0 ] || echo "контроль: расхождений $ctl" >&2
 
 # ── Мутанты ────────────────────────────────────────────────────────────────
@@ -383,7 +524,7 @@ PY
         echo "  [FAIL] мутант $name: фрагмент не найден — порча не легла" >&2
         mfail=$((mfail + 1)); return
     fi
-    suite "$m/lessons.py" "$m/hook.sh" > "$m/out" 2>&1
+    "${MSUITE:-suite}" "$m/lessons.py" "$m/hook.sh" > "$m/out" 2>&1
     local r=$?
     if [ "$r" -gt 0 ]; then echo "  [OK]   мутант $name покраснел (расхождений $r)"; mok=$((mok + 1))
     else echo "  [FAIL] мутант $name прошёл контроль — проба слепа к нему" >&2; mfail=$((mfail + 1)); fi
@@ -430,7 +571,7 @@ mutant rekey-first-event-wins py "self.rekeys[r['id']] = r['key']  # после�
 mutant rekey-key-unchecked py '        if why:
             print' '        if not key:
             print'
-mutant rekey-keyed-accepted py "        if r.get('src') == 'wave-errors' or key_of(r.get('raw', ''), aliases) is not None:" "        if False:"
+mutant rekey-keyed-accepted py "        if r.get('src') == 'wave-errors' or (tk is not None and not general(tk, aliases)):" "        if False:"
 # B4 — бюджет, догон, исключения сборщика, ветви хука
 mutant b4-budget-1e9 py "deadline = time.time() + float(opts['--budget'])" "deadline = time.time() + 1e9"
 mutant b4-no-progress py "if census['progress'] and time.time() > deadline:" "if time.time() > deadline:"
@@ -454,6 +595,35 @@ mutant hook-stop-active-ignored hook "*'\"stop_hook_active\":true'* | *'\"stop_h
 # (6) хук конца хода: перечень не чаще раза в сутки — и не реже
 mutant signal-unthrottled py "    if last.get('sig') == sig and now - float(last.get('ts') or 0) < DAY:" "    if False:"
 mutant signal-throttle-forever py "now - float(last.get('ts') or 0) < DAY:" "now - float(last.get('ts') or 0) < 1e12:"
+
+# Общий ключ (ws#1248) — мутанты судит набор suite_key (секунды, а не полный набор).
+# Ключ из одного слова не общий; дефис не делит слова; синоним не изъят; места не сравнены
+# (склейка по числу уроков); строки счётчика волны судятся; префикс «оркестровка:» не снят.
+MSUITE=suite_key mutant key-general-never py "    return inner not in {c for _, c in aliases} and not re.search(r'[\\s-]', inner)" "    return False"
+MSUITE=suite_key mutant key-hyphen-joins py "re.search(r'[\\s-]', inner)" "re.search(r'\\s', inner)"
+MSUITE=suite_key mutant key-synonym-not-exempt py "    return inner not in {c for _, c in aliases} and not" "    return not"
+MSUITE=suite_key mutant key-places-not-compared py "    return ws if len(ws) >= 2 else {}" "    return ws if len(rs) >= 2 else {}"
+MSUITE=suite_key mutant key-wave-errors-judged py "        if r.get('src') != 'wave-errors':
+            ws.setdefault" "        if True:
+            ws.setdefault"
+MSUITE=suite_key mutant key-orch-prefix-kept py "    inner = k[len(ORCH) + 1:] if k.startswith(ORCH + ':') else k" "    inner = k"
+# Склейка — повтор; строки GLUED нет; число в сигнале и в report не названо.
+MSUITE=suite_key mutant key-glued-is-repeat py "            glue.append((k, rs, g))  # склейка — не повтор: ни механизма, ни «не держит»
+            continue" "            glue.append((k, rs, g))"
+MSUITE=suite_key mutant key-no-glued-line py "        body.append('GLUED %s" "        0 and body.append('GLUED %s"
+MSUITE=suite_key mutant key-head-silent py "    if glue:
+        s += ' · ключ слишком общий" "    if False:
+        s += ' · ключ слишком общий"
+MSUITE=suite_key mutant key-report-silent py "len(unkeyed), len(glue)," "len(unkeyed), 0,"
+# mark склеенного проходит; «*» берёт склеенный; rekey: ключ из одного слова принят, урок с
+# общим ключом в тексте — отказ, событие на нём не учтено.
+MSUITE=suite_key mutant key-mark-glued-accepted py "            if g:
+                print('lessons: ОТКАЗ — ключ" "            if False:
+                print('lessons: ОТКАЗ — ключ"
+MSUITE=suite_key mutant key-star-takes-glued py "x not in skip)" "True)"
+MSUITE=suite_key mutant key-rekey-general-key-accepted py "               if general(canon(key, aliases), aliases) else '')" "               if False else '')"
+MSUITE=suite_key mutant key-rekey-general-lesson-refused py "(tk is not None and not general(tk, aliases))" "tk is not None"
+MSUITE=suite_key mutant key-rekey-ignored-on-general py "        elif k is not None and rekeys and r['id'] in rekeys and general(k, aliases):" "        elif False:"
 
 echo "lessons-inject: контроль — расхождений $ctl; мутантов покраснело $mok, прошло контроль либо не легло $mfail"
 [ "$ctl" = 0 ] && [ "$mfail" = 0 ] && [ "$mok" -gt 0 ] || exit 1
