@@ -1,0 +1,89 @@
+# Пост-дифф ревью Go-кода продукта — роль go-style-reviewer, kaname#866.
+# Имя файла — content_digest; запись не правится (change-graph §2).
+schema_version: 1
+change_id: kn-866
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+run: 1
+subject: >-
+  kaname — тип модуля вне канона с ключом publicReadToChildren допускается:
+  перечень термов ключа (KeyTerm) производит рендер, композиция берёт его из
+  добавленных типов, корень передаёт допуску аргументом; Д3 обходит от каждого
+  семени; Р2 — класс в get/list ресурса с ключом отвергает загрузка.
+
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: '866'
+  worktree: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/kn-866-acc
+  base: 7642fc25e
+  head: ba1f0f68199b13940b4420afffd2fadbaf012b8c
+content_digest: sha256:24edfbf2df25934e2d4969e09b7eef6c2cd96a5142b03104eff508e734ad49a7
+digest_command: >-
+  git -C /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/kn-866-acc
+  diff --full-index 7642fc25e...ba1f0f681 | sha256sum
+
+verdict: returned            # ⛔ возврат
+blocks_landing: true
+timestamp: '2026-10-18T00:00:00Z'
+review_scope: >-
+  полный дифф: 16 файлов, +1425/-141 (git diff --stat); прод: admit.go,
+  model_compose.go, domain/public_read.go, domain/system_class.go,
+  manifest/resources.go, modelcompose/compose.go, modelrender/render.go;
+  пробы: 4 новых файла и 3 правленых. Осмотр — в одноразовой копии
+  tmp/kn-866-gsr-871011 на ba1f0f681 (снята).
+return_to: pointpu <pointpu@in-cloud.io> (автор головы ba1f0f681)
+
+counts:
+  fresh_deferral_markers: 0      # grep '^+.*(TODO|FIXME|XXX|HACK|t.Skip)' по диффу — пусто
+  tests_in_same_pr: true
+  gofmt_unformatted: 0
+  go_vet_findings: 0             # go vet по пяти пакетам — пусто
+
+checked:
+  - ошибки — новые пути возврата обёрнуты (%w); ErrKeyTermNotInText и
+    ErrPublicReadClassInReadVerb — sentinel под errors.Is
+  - ctx в диффе не вводится; panic, init(), context.Background, fmt.Print в диффе нет
+  - журнал — slog со структурным полем public_read_key_terms; персональных данных нет
+  - перечень термов передаётся аргументом (Admit(composed, rep.KeyTerms...)),
+    пакетной переменной нет; пустой перечень — строгий режим (CE-04)
+  - обход Д3 по срезам, порядок находок по семени, Term — Sort+Compact (CE-08)
+  - предикаты «действие чтения» и «слово — класс» объявлены один раз в domain,
+    копия в modelrender снята (CE-03)
+  - Р2 стоит под ветвью ключа (PublicReadToChildren != nil и true), находки копятся
+
+critical:
+  - id: GS-866-1
+    class: misleading-security-comment
+    at: internal/repo/kaname/pg/relverdict/nesteddepth/testmain_pgtest_test.go:54-56
+    finding: >-
+      Комментарий оправдывает снятие ключа из фикстуры тем, что публичное чтение
+      «держат пробы ... мира публичного чтения модуля вне канона
+      (access_binding/publicreadmodule)». Такого пакета в дереве нет
+      (git ls-tree -r ba1f0f681 | grep publicreadmodule — пусто); мир П2
+      (PM-03/04) не сделан по возврату самого автора. Текст называет держателем
+      свойства безопасности то, чего нет.
+    requirement: >-
+      Назвать только существующих держателей (modelcompose/public_read_module_type_test.go,
+      cmd/kaname/public_read_module_type_test.go) либо снять ссылку до посадки мира П2.
+    predicate: git -C <копия> ls-tree -r --name-only HEAD | grep -c publicreadmodule больше нуля, либо ссылки в комментарии нет
+
+important:
+  - id: GS-866-2
+    class: dependency-direction / doc-truthfulness
+    at: internal/modelrender/render.go:10, internal/modelcompose/compose.go:32, cmd/kaname/model_compose.go:29
+    finding: >-
+      KeyTerm объявлен в authzmodel, поэтому рендер и композиция теперь
+      импортируют пакет допуска. Шапка корня по-прежнему говорит «композиция не
+      знает о допуске», и на уровне импорта это больше не так.
+    requirement: >-
+      Вынести KeyTerm в нейтральный пакет (domain либо authzplan), чтобы рёбра
+      modelrender/modelcompose → authzmodel исчезли; либо исправить фразу шапки.
+
+foundation_candidates: []
+
+style:
+  - render.go:88 — ссылка «замер приёмки, строки 5 и 6» по номеру строки документа; лучше по имени раздела
+  - domain.IsPublicReadVerb нормализует через NormalizeVerb (trim+lower), VerbRelationName — только lower; два правила нормализации одного имени
+
+security_comments_contradicting_code:
+  - internal/repo/kaname/pg/relverdict/nesteddepth/testmain_pgtest_test.go:54-56 (GS-866-1)

@@ -1,0 +1,74 @@
+# Пост-дифф ревью — роль security-auditor, режим опровержения. Имя файла — content_digest.
+schema_version: 1
+change_id: kn-892
+holder: post-diff/security-auditor
+owner: security-auditor
+mode: refutation
+subject: >-
+  kaname#892 — ожидание места вычисления проверяющего прерывается контекстом
+  вызывающего; оговорка о чеканке хеша мимо мест вычисления
+hypothesis: >-
+  отмена ожидания открывает обход ограничения числа проверок пароля (подбор):
+  проверка, не записанная попыткой, отдаёт вызывающему сведения о пароле
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: '892'
+  worktree: tmp/kn-892
+  base: origin/882
+  head: 94c728fe800f47bfdcf0f6d526576d62ebac40c3
+  delta_judged: origin/882...94c728fe8 (1 коммит, 27 файлов, +678/-122)
+content_digest: sha256:bde5a061c25fa49f93a98ed8b01e8ff2df8165700c356747fca2b7039525957d
+digest_command: git diff --full-index origin/882...HEAD | sha256sum
+verdict: accepted
+hypothesis_outcome: refuted
+blocks_landing: false
+timestamp: '2026-10-18'
+inspected:
+  - internal/passwordverify/capacity.go (processorGate.acquire)
+  - internal/passwordverify/verifier.go (Verify, VerifyPresented, compute, SetCandidate)
+  - internal/passwordverify/envelope.go (calibrationRun)
+  - internal/apps/kaname/api/humansession/login.go (Execute, admitted, refuse, refuseWith, refuseSecondFactor)
+  - internal/apps/kaname/api/humansession/sf_present.go (prepare, refusalOf, countsAsAttempt)
+  - internal/apps/kaname/api/humansession/step_up.go (verifyPassword и его вызывающий)
+  - internal/apps/kaname/api/humansession/change_password.go
+  - internal/ceremonyport/client_secrets.go (VerifyClientSecret)
+  - corelib v1.14.2 oauthceremony/bridge.go (потребитель вердикта секрета клиента)
+reasons:
+  - >-
+    ошибка проверяющего возникает ТОЛЬКО до занятия места вычисления: вычисление
+    идёт строго после успешного занятия, а занятое место возвращает исход без
+    ошибки; вызов, получивший ошибку, вычисления не видел и сведений о пароле не
+    получает — незапись попытки в этом случае ничего не открывает
+  - >-
+    наружу на всех четырёх полосах (вход, смена пароля, повышение, второй фактор
+    набором кодов) — тот же отказ, что у неверного предъявления; у сверки секрета
+    клиента — отказ операции без вердикта; совпадение не выдаётся ни на одной
+    ветви ошибки
+  - >-
+    ёмкость, занятая до очереди, освобождается отложенно на ветви ошибки; ушедший
+    по контексту снимается с очереди, мест не удерживает
+  - >-
+    изменение СУЖАЕТ прежнее окно: до него вычисление шло и после конца вызова,
+    а запись попытки затем падала на отменённом контексте; теперь вызов,
+    кончившийся в очереди, не вычисляет вовсе
+  - >-
+    при совпавшем пароле и прерванной сверке второго фактора попытка не пишется,
+    при несовпавшем — пишется; ответ один и тот же (refusalOf -> общий отказ), а
+    каждое неверное предъявление пароля по-прежнему считается — ограничение
+    подбора держится; ветвь та же, что при настоящем исчерпании ёмкости, до диффа
+  - >-
+    чеканка хеша мимо мест вычисления — свойство производительности и срока
+    очереди, предмета подбора не касается; оговорка в комментарии отражает код
+checks:
+  - command: timeout 55 go test -count=1 -v -run 'TestProcessorGate|CallEnded|TestVerifier' ./internal/passwordverify/ ./internal/apps/kaname/api/humansession/
+    result: 9 PASS, 0 FAIL
+  - command: timeout 50 go vet ./internal/... ./cmd/...
+    result: exit 0
+findings: []
+out_of_subject_notes:
+  - >-
+    запись попытки входа (refuseWith) идёт на контексте запроса, тогда как
+    повышение пишет отказ на отсоединённом контексте с бюджетом; на текущей
+    полосе входа серверного срока нет (контекст кончается только с уходом
+    клиента, ответ не доставляется), поэтому сведений не открывает; станет
+    существенным, если полосе входа дадут серверный срок — не блокирует

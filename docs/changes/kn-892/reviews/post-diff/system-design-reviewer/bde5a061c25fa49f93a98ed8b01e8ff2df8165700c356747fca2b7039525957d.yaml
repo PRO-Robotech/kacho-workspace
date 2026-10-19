@@ -1,0 +1,63 @@
+# Пост-дифф ревью, роль system-design-reviewer, круг 1 (сведение волны 12, identity-own-2).
+# Задача PRO-Robotech/kaname#892. Имя файла равно content_digest. Запись новая, добавлением.
+schema_version: 1
+change_id: kn-892
+holder: post-diff/system-design-reviewer
+owner: system-design-reviewer
+round: 1
+
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: '892'
+  base: 60398adb1182d9a28bb29322a56e49787c4d9061   # origin/882 (= merge-base)
+  head: 94c728fe800f47bfdcf0f6d526576d62ebac40c3   # origin/892
+  commits: 1
+  files: 27
+content_digest: sha256:bde5a061c25fa49f93a98ed8b01e8ff2df8165700c356747fca2b7039525957d
+digest_definition: 'git -C tmp/kn-892 diff --full-index origin/882...HEAD | sha256sum'
+
+verdict: returned
+blocking: true
+return_to: исполнитель kaname#892 (ветка 892)
+distributed_surface: да   # очередь мест вычисления, доля ёмкости церемонии, срок порта и операции
+schema_overlap: нет       # CAS, xmin и advisory-lock дифф не трогает
+
+checks_run:
+  - 'go test -count=1 -v ./internal/passwordverify/ ./internal/apps/kaname/api/humansession/ -run "ProcessorGate|CallEnded" @94c728fe8 → PASS 6, FAIL 0'
+  - 'go test -count=1 ./internal/ceremonyport/ -run ClientSecrets @94c728fe8 → ok'
+
+axes_closed:
+  queue_release: 'Verify/SetCandidate: ёмкость берётся до очереди и отдаётся defer при ошибке контекста (verifier.go:158-167, 557-567); место вычисления при ошибке не занимается (capacity.go:142-152); калибровка отдаёт acquireWait defer (envelope.go:402-406)'
+  ended_call_not_attempt: 'login/change_password/step_up/sf_present читают ошибку как исчерпание ёмкости без записи попытки; проба с близнецом (call_ended_before_check_test.go)'
+  share_release: 'доля церемонии отдаётся defer до вызова проверяющего (client_secrets.go:134-137)'
+  closed_dictionary: 'конец вызова — ошибка, а не исход; приёмник исходов его не слышит'
+
+findings:
+  SD-892-1:
+    severity: критическая
+    where: internal/ceremonyport/client_secrets.go:144; cmd/kaname/ceremony.go:65-78; internal/passwordverify/capacity.go:115-122
+    summary: >-
+      Ожидание места вычисления сверки секрета клиента ограничено сроком ПОРТА (PortTimeout =
+      credentialLanePeerTimeout = 3 с, cmd/kaname/client_token.go:56; ceremony.go:219), а не сроком
+      операции: мост фундамента зовёт VerifyClientSecret с context.WithTimeout(ctx, PortTimeout)
+      (corelib v1.14.2 oauthceremony/bridge.go:64-65, 374-376). До диффа очередь контекста не читала,
+      и сверка, ждавшая дольше 3 с, давала вердикт в сроке операции; теперь она кончается отказом
+      port_deadline. Слагаемое очереди в ceremonyOperationDeadline (ёмкость × стоимость) для
+      единственного ждущего порта недостижимо, и при очереди длиннее 3 с одновременные обмены
+      конфиденциального клиента снова отказывают по сроку — симптом kaname#818/#882. Тексты
+      ceremony.go и capacity.go утверждают, что ожидание прерывается контекстом ОПЕРАЦИИ, — это
+      неверно (arch-doc-truthfulness). Проба client_secrets_queue_test.go подаёт срок прямо в порт и
+      срок порта от срока операции не отличает.
+    requirement: >-
+      Ожидание места сверкой секрета клиента ограничено сроком операции церемонии (как объявляет
+      ceremonyOperationDeadline), а не PortTimeout; либо, если границей выбран срок порта, —
+      ceremonyOperationDeadline и тексты ceremony.go/capacity.go/client_secrets.go пересчитаны под неё
+      и проба #882 доказывает, что очередь доли укладывается в PortTimeout. Механизм выбирает автор
+      (бюджет очереди, переданный порту при сборке; правка моста фундамента пином; иное).
+    removal_predicate: >-
+      Детерминированная проба (synctest) через мост oauthceremony с PortTimeout P и OperationTimeout
+      O > P: сверка, ждущая места дольше P, но меньше O, даёт вердикт (обмен 200); ждущая дольше O —
+      отказ port_deadline. Красная на 94c728fe8, зелёная на голове возврата.
+
+orders:
+  - 'integration-tester: красная проба SD-892-1 (предикат выше) на 94c728fe8'
