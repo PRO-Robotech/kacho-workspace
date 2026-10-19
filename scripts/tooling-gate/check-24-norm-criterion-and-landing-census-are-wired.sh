@@ -127,7 +127,7 @@ need(RULE, norm('at-agent-does-not-wait'),
 # База диспетчера: §3 (М2), §6 (М1), §8 (М5).
 b = texts[BASE]
 need(BASE, unit(b, '\n## 3. Задание агенту', r'\n## '),
-     ['Предусловия (PR MERGED/OPEN, ветка на origin, DoD-proof, вердикт роли) — `lane-precheck.sh --premise` до раздачи, код не 0 — не раздаётся'],
+     ['Предусловия (PR MERGED/OPEN, ветка на origin, DoD-proof, вердикт роли, после отправки — `pushed`) — `lane-precheck.sh --premise` до раздачи, не 0 — не раздаётся'],
      '§3: предусловия скриптом до раздачи (М2)')
 need(BASE, unit(b, '\n| Посадка изменения | ', r'\n'),
      ['`wave.js` «Перепись гейтов»: все разом до первой починки и схождения (`ai-tooling.md#at-red-ci-one-round`)'],

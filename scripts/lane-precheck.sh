@@ -47,8 +47,10 @@
 #                                                 origin/main (ws#1242: b3d4f0781 на #771 — `go build`
 #                                                 зелёный, зависимость была лишь в ветке-источнике); дерево
 #                                                 — временной копией `git worktree add --detach`, снятой тем
-#                                                 же шагом; отказ vet — ложно; нет go, ветки, origin/main,
-#                                                 пакетов в диффе — VOID (без слота: vet своих пакетов —
+#                                                 же шагом; отказ vet — ложно; пакет, чьи файлы теги
+#                                                 отсекают все (tools.go с //go:build tools), и testdata —
+#                                                 вне суда, счётом; нет go, ветки, origin/main, пакетов
+#                                                 для vet — VOID (без слота: vet своих пакетов —
 #                                                 быстрое, heavy-guard его не судит);
 #   alive <клон> <ревизия> <фраза…>               предмет жив: фраза есть в дереве ревизии (`git grep
 #                                                 -F`); нет — «снят до раздачи» (урок f487bb7c);
@@ -308,14 +310,26 @@ if [ -n "$premise" ]; then
                 cwt="$(mktemp -d)"
                 if ! git -C "$top" worktree add -q --detach "$cwt/t" "$csha" > /dev/null 2>&1; then voids+=("WORKTREE $line: копия головы не заводится"); rm -rf "$cwt"; continue; fi
                 # Пакеты диффа — каталоги изменённых .go, живые на голове; модуль — ближайший go.mod вверх.
-                declare -A cmods=(); cpk=0
+                declare -A cmods=(); cpk=0 ccut=0 ctd=0
                 while IFS= read -r f; do
                     d="$(dirname "$f")"; [ -d "$cwt/t/$d" ] || continue
+                    # testdata — не пакет для go (каталог игнорируется сборкой): вне суда, счётом.
+                    case "/$d/" in */testdata/*) ctd=$((ctd + 1)); continue ;; esac
                     m="$d"; while [ "$m" != . ] && [ ! -f "$cwt/t/$m/go.mod" ]; do m="$(dirname "$m")"; done
                     [ -f "$cwt/t/$m/go.mod" ] || continue
                     if [ "$d" = "$m" ]; then rel=.; elif [ "$m" = . ]; then rel="./$d"; else rel="./${d#"$m"/}"; fi
                     case " ${cmods[$m]:-} " in *" $rel "*) ;; *) cmods[$m]="${cmods[$m]:-} $rel"; cpk=$((cpk + 1)) ;; esac
                 done < <(git -C "$top" diff --name-only "$cbase" "$csha" -- '*.go')
+                # Пакет, где теги -tags=integration отсекают ВСЕ файлы (tools.go с //go:build tools),
+                # vet отверг бы «build constraints exclude all Go files» — не предмет: вне суда, счётом.
+                for m in "${!cmods[@]}"; do
+                    keep=""
+                    for rel in ${cmods[$m]}; do
+                        nf="$(cd "$cwt/t/$m" && go list -e -tags=integration -f '{{len .GoFiles}} {{len .CgoFiles}} {{len .TestGoFiles}} {{len .XTestGoFiles}}' "$rel" 2>/dev/null | awk '{ print $1 + $2 + $3 + $4 }')"
+                        if [ "${nf:-0}" -gt 0 ]; then keep="$keep $rel"; else ccut=$((ccut + 1)); cpk=$((cpk - 1)); fi
+                    done
+                    if [ -n "$keep" ]; then cmods[$m]="$keep"; else unset "cmods[$m]"; fi
+                done
                 cerr=""
                 for m in "${!cmods[@]}"; do
                     # shellcheck disable=SC2086 # перечень пакетов — словами
@@ -323,9 +337,9 @@ if [ -n "$premise" ]; then
                 done
                 git -C "$top" worktree remove --force "$cwt/t" > /dev/null 2>&1; rm -rf "$cwt"
                 unset cmods
-                if [ "$cpk" -eq 0 ]; then voids+=("CHERRY-EMPTY $line: Go-пакетов в диффе от merge-base нет — vet не судит ничего")
+                if [ "$cpk" -eq 0 ]; then voids+=("CHERRY-EMPTY $line: Go-пакетов для vet в диффе от merge-base нет (отсечено тегами $ccut, файлов testdata $ctd) — vet не судит ничего")
                 elif [ -n "$cerr" ]; then reasons+=("PREMISE-FALSE $line: go vet -tags=integration на голове ${csha:0:12} (пакетов $cpk) — $cerr; зависимость вишни не перенесена — ветку стеком от предшественницы (fa-a5-stacked-branches)")
-                else heads+=("CHERRY-VET $b @${csha:0:12}: пакетов $cpk, vet -tags=integration 0"); fi ;;
+                else heads+=("CHERRY-VET $b @${csha:0:12}: пакетов $cpk, vet -tags=integration 0; отсечено тегами $ccut, файлов testdata $ctd"); fi ;;
             alive)
                 read -r _ _ _ phrase <<< "$line"
                 if [ -z "${phrase:-}" ] || ! git -C "$a" rev-parse -q --verify "$b^{commit}" > /dev/null 2>&1; then voids+=("PREMISE-FORM $line: клона «$a» либо ревизии «$b» нет"); continue; fi

@@ -415,12 +415,22 @@ if command -v go > /dev/null 2>&1; then
     git -C "$GV" checkout -qb 771 main && git -C "$GV" cherry-pick "$PROBE_SHA" > /dev/null
     git -C "$GV" checkout -qb 772 main && git -C "$GV" merge -q --ff-only src
     git -C "$GV" checkout -qb 773 main && echo s > "$GV/README.md" && git -C "$GV" commit -qam docs
+    # check-verifier ws#1242: tools.go (//go:build tools) и testdata — не предмет vet.
+    git -C "$GV" checkout -qb 774 main; mkdir -p "$GV/tools" "$GV/p/testdata"
+    printf '//go:build tools\n\npackage tools\n\nimport _ "example.com/nope"\n' > "$GV/tools/tools.go"
+    printf 'package broken\n\nfunc X( {\n' > "$GV/p/testdata/bad.go"
+    git -C "$GV" add . && git -C "$GV" commit -qm tools
+    git -C "$GV" checkout -qb 775 771 && git -C "$GV" merge -q --no-edit 774 > /dev/null
     git -C "$GV" checkout -q 771
     assert "0" "$( (cd "$GV" && go build ./... > /dev/null 2>&1); echo $?)" "предпосылка: go build ./... на вишне без зависимости зелёный (урок b3d4f0781)"
     prem "cherry-vet $GV 771"
     assert "1 да" "$(runp) $(has 'PREMISE-FALSE cherry-vet .* 771: go vet -tags=integration на голове .*(пакетов 1).*undefined: B')" "вишня, чья зависимость не перенесена, — PREMISE-FALSE, код 1, причина vet названа"
     prem "cherry-vet $GV 772"
     assert "0 да" "$(runp) $(has 'CHERRY-VET 772 @.*: пакетов 1, vet -tags=integration 0')" "близнец: та же проба стеком (зависимость в ветке) — 0, перепись пакетов названа"
+    prem "cherry-vet $GV 774"
+    assert "2 да" "$(runp) $(has 'VOID CHERRY-EMPTY .*отсечено тегами 1, файлов testdata 1')" "близнец: только tools.go (//go:build tools) и testdata — не ложь, VOID с переписью отсечённого"
+    prem "cherry-vet $GV 775"
+    assert "1 да" "$(runp) $(has 'PREMISE-FALSE cherry-vet .* 775: .*(пакетов 1).*undefined: B')" "tools.go и testdata рядом с вишней без зависимости — ложь вишни судится, отсечённое её не прячет"
     prem "cherry-vet $GV 773"
     assert "2 да" "$(runp) $(has 'VOID CHERRY-EMPTY')" "Go-пакетов в диффе нет — VOID, не зелёное"
     assert "0" "$(git -C "$GV" worktree list | grep -vc "^$GV ")" "копии голов сняты тем же шагом (worktree list — только клон)"
@@ -536,6 +546,8 @@ assert "1" "$(mut forecast 'w="${l//ожидаем/_}"' 'w="$l"' --task-text 'о
 
 assert "0" "$(LANE_PRECHECK_GIT_BASE="$W/gb" mut pushed '[ "$kind" = pushed ] && [ "$got" != "$want" ]' 'false' "pushed o/r 1-lane $BASE_SHA")" "мутант «голова отправки не сверяется»: непредъявленная голова проходит — проба выше его ловит"
 
+[ -z "${CHERRY_GV:-}" ] || assert "1" "$(mut tags-cut 'if [ "${nf:-0}" -gt 0 ]; then keep=' 'if true; then keep=' "cherry-vet $CHERRY_GV 774")" "мутант «теги не отсекаются»: tools.go даёт ложь vet — проба выше его ловит"
+[ -z "${CHERRY_GV:-}" ] || assert "1" "$(mut testdata '*/testdata/*) ctd=$((ctd + 1)); continue ;;' '*/testdata-never/*) ;;' "cherry-vet $CHERRY_GV 774")" "мутант «testdata судится»: битый файл testdata даёт ложь — проба выше его ловит"
 [ -z "${CHERRY_GV:-}" ] || assert "0" "$(mut cherry 'elif [ -n "$cerr" ]; then reasons+=' 'elif false; then reasons+=' "cherry-vet $CHERRY_GV 771")" "мутант «отказ vet не судится»: вишня без зависимости проходит — проба выше его ловит"
 
 echo "== вход"

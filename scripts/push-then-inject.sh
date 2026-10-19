@@ -19,7 +19,9 @@ for t in setsid python3 git; do command -v "$t" > /dev/null 2>&1 || { echo "[VOI
 W="$(mktemp -d)"; W="$(cd "$W" && pwd -P)"
 PGS=()
 # shellcheck disable=SC2154
-trap '_rc=$?; for p in "${PGS[@]+"${PGS[@]}"}"; do kill -- "-$p" 2>/dev/null; done; rm -rf "$W" 2>/dev/null || echo "ПРЕДУПРЕЖДЕНИЕ: временный каталог $W не снят; код проверки $_rc сохранён" >&2; exit $_rc' EXIT
+trap '_rc=$?; rm -rf "$W" 2>/dev/null || rm -rf "$W" || echo "ПРЕДУПРЕЖДЕНИЕ: временный каталог $W не снят; код проверки $_rc сохранён" >&2; exit $_rc' EXIT
+# Шаги пробы (setsid — своя группа) снимаются группой в конце; долгий шаг снят в своём случае.
+reap_steps() { local p; for p in "${PGS[@]+"${PGS[@]}"}"; do kill -- "-$p" 2>/dev/null; done; }
 # shellcheck source=lib/sandbox-git-home.sh
 . "$HERE/lib/sandbox-git-home.sh"
 sandbox_git_home "$W/home" || exit 2
@@ -65,7 +67,12 @@ S="$W/s"; mkscripts "$S" "$HERE/push-then.sh"; PT="$S/push-then.sh"
 M="$W/mark"
 step=(sh -c 'printf "%s\n" "$PUSHED_SHA" > "$0"' "$M")
 # fake_rc <код|-> — файлы шага отправки, как их пишет detach.sh; «-» — без .rc и без процесса.
-fake_rc() { local b="$W/steps/push-$RANDOM"; echo "lane-push" > "$b.log"; [ "$1" = - ] || echo "$1" > "$b.rc"; echo "$b.rc"; }
+# «-» — шаг detach.sh (есть .pid мёртвого процесса), «ext» — внешний шаг без .pid.
+fake_rc() {
+    local b="$W/steps/push-$RANDOM"; echo "lane-push" > "$b.log"
+    case "$1" in -) sh -c 'echo $$' > "$b.pid" ;; ext) ;; *) echo "$1" > "$b.rc" ;; esac
+    echo "$b.rc"
+}
 after() { rm -f "$M"; bash "$PT" after "$@" > "$W/out" 2>&1; echo "$? $([ -s "$M" ] && echo выдан || echo нет)"; }
 settle() { local _; for _ in $(seq 1 120); do [ -s "$1" ] && return 0; sleep 0.25; done; return 1; }
 
@@ -80,6 +87,7 @@ run_cases() {
     assert "13 нет" "$(after "$(fake_rc 0)" o/x 7-lane "$OLD" -- "${step[@]}")" "origin не ответил — VOID, шаг НЕ выдан, 13 (не зелёное)"
     assert "10 нет" "$(after "$(fake_rc 1)" o/r 7-lane "$OLD" -- "${step[@]}")" "отправка вышла 1 — шаг НЕ выдан, 10"
     assert "11 нет" "$(after "$(fake_rc -)" o/r 7-lane "$OLD" -- "${step[@]}")" "отправка оборвана (.rc нет, процесса нет) — шаг НЕ выдан, 11"
+    assert "14 нет" "$(after "$(fake_rc ext)" o/r 7-lane "$OLD" -- "${step[@]}")" "внешняя отправка без .pid и .rc, журнал никто не держит — не судима, шаг НЕ выдан, 14"
     bash "$HERE/detach.sh" start "$W/steps" -- sleep 30 > "$W/st.out" 2>&1
     local rcf pid; rcf="$(sed -n 's/^идёт: .*; rc \([^;]*\);.*/\1/p' "$W/st.out")"; pid="$(sed -n 's/^идёт: pid \([0-9]*\);.*/\1/p' "$W/st.out")"
     [ -n "$pid" ] && PGS+=("$pid")
@@ -107,6 +115,9 @@ run_cases() {
     assert "64" "$(bash "$PT" start "$W/steps" "$C" 7-lane -- true > "$W/out" 2>&1; echo $?)" "копия грязная — 64, не запущено"
     rm -f "$C/dirty.md"
     assert "64" "$(bash "$PT" start "$W/steps" "$C" 7-lane > "$W/out" 2>&1; echo $?)" "без «-- <шаг>» — 64"
+    # Голова копии сдвинулась между start и отправкой — не отправлять и шаг не выдавать.
+    rm -f "$M" "$W/argv"; local o7; o7="$(sandbox_git -C "$W/gb/o/r.git" rev-parse 7-lane)"
+    assert "64 нет нет $o7" "$(STUB_ARGV="$W/argv" bash "$PT" _run "$C" o/r 7-lane "$OLD" -- "${step[@]}" > "$W/out" 2>&1; echo $?) $([ -s "$M" ] && echo выдан || echo нет) $([ -s "$W/argv" ] && echo отправлено || echo нет) $(sandbox_git -C "$W/gb/o/r.git" rev-parse 7-lane)" "голова копии не та, что при start, — 64: отправки нет, шаг НЕ выдан, origin прежний"
 }
 
 run_cases
@@ -135,8 +146,10 @@ mutant running-issues '        0) ;;
         3) say' '        0 | 3) ;;
         3333) say'
 mutant head-unchecked '        1) say "голова $br на origin не $sha — шаг НЕ выдан"; return 12 ;;' '        1) ;;'
+mutant head-moved-ignored '    [ "$(git rev-parse HEAD)" = "$sha" ] || { say' '    true || { say'
 mutant push-rc-ignored '0) st=0 ;; *) st=1 ;; esac' '*) st=0 ;; esac'
 
+reap_steps
 total=$((pass + fail))
 echo "[CENSUS] push-then: утверждений $total, сошлось $pass, разошлось $fail; мутантов $muts, выжило $survived"
 [ "$total" -gt 0 ] || { echo "[VOID] утверждений ноль — вердикта нет" >&2; exit 2; }

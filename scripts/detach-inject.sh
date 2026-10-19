@@ -65,6 +65,26 @@ run_cases() {
     echo 4 > "$R/s/cf.log.rc"; : > "$R/s/cf.log"
     assert "1 да" "$(status "$R/s/cf.log.rc") $(grep -qF 'исход: код 4' "$W/st.out" && echo да || echo нет)" "status <журнал>.log.rc с кодом 4 — 1, код назван"
     assert "2" "$(status "$R/s/gone.log.rc")" "близнец: <журнал>.log.rc нет и процесса нет — 2 «не выполнилось»"
+    # Внешняя цепочка (без .pid и метки): живость — по журналу (check-verifier ws#1242).
+    : > "$R/s/ext.log"
+    # Один процесс (exec sleep), лидер своей сессии: pid — из файла, группа снимается целиком.
+    setsid bash -c 'echo $$ > "$1"; exec >> "$0"; echo ext-line; exec sleep 30' "$R/s/ext.log" "$R/s/ext.holder" < /dev/null &
+    for _ in $(seq 1 20); do grep -q ext-line "$R/s/ext.log" 2>/dev/null && break; sleep 0.1; done
+    local ext; ext="$(cat "$R/s/ext.holder" 2>/dev/null)"; [ -n "$ext" ] && PGS+=("$ext")
+    assert "3 да" "$(status "$R/s/ext.log.rc") $(grep -qF 'журнал держит pid' "$W/st.out" && echo да || echo нет)" "живая внешняя цепочка держит журнал — 3 «идёт», не «оборван»"
+    kill -- "-$ext" 2>/dev/null; for _ in $(seq 1 20); do kill -0 "$ext" 2>/dev/null || break; sleep 0.1; done
+    assert "4 нет" "$(status "$R/s/ext.log.rc") $(grep -qF 'оборван' "$W/st.out" && echo да || echo нет)" "внешний журнал никто не держит, .rc нет — 4 «не судим как идущий», слова «оборван» нет"
+    echo "== код последней команды строки оболочки"
+    st "$R/s" sh -c 'false; echo "rc=$?"'
+    assert "64 да" "$SRC $(grep -qF 'в .rc лёг бы код echo' <<< "$OUT" && echo да || echo нет)" "«…; echo rc=\$?» — 64: код echo в .rc не пишется (урок ws#1242)"
+    st "$R/s" bash -c 'false; printf "x\n"  ;  '; assert "64" "$SRC" "строка, кончающаяся printf и «;» с пробелами, — 64"
+    st "$R/s" sh -c 'false; a=$?; echo "rc=$a"; exit $a'; settle "$RCF"
+    assert "0 1" "$SRC $(status "$RCF")" "близнец: код сохранён и возвращён exit — запуск 0, status 1 (код 1 прогона)"
+    printf 'shift; "$@"\n' > "$R/s/chain.sh"
+    st "$R/s" bash "$R/s/chain.sh" -- sh -c 'printf "%s" x > /dev/null'; settle "$RCF"
+    assert "0 0" "$SRC $(status "$RCF")" "близнец: «-c» — довод шага цепочки, не сама команда — запускается (код — цепочки)"
+    st "$R/s" echo hi; settle "$RCF"
+    assert "0 0" "$SRC $(status "$RCF")" "близнец: сама команда echo (не строка оболочки) — запускается"
     echo "== уникальность и каталог"
     # Два запуска той же команды РАЗОМ (в одну секунду): имена различает pid вызова.
     bash "$D" start "$R/u" -- sh -c 'exit 0' > "$R/u1" 2>&1 & local j1=$!
@@ -122,6 +142,12 @@ mutant dead-as-running '        echo "идёт: pid $pid; журнал $logf"
     exit 3'
 mutant log-rc-name '        *.log.rc) rcf="$2"; logf="${2%.rc}" ;;
 ' ''
+mutant ext-dead-as-broken '        echo "не судим как идущий: внешний шаг без .pid и метки, журнал $logf не держит ни один процесс — .rc нет; исход — status позже либо по журналу"
+        exit 4' '        echo "оборван"; exit 2'
+mutant ext-holder-ignored '        if [ -n "$holder" ]; then echo' '        if false; then echo'
+mutant inner-c-judged '        [ "$prev" != -c ] && [ "$prev" != "" ] && [ "${prev:0:1}" != - ] && [ "$prev" != "$1" ] && break
+' ''
+mutant trailing-echo-allowed '            if [[ "$last" =~ ^(echo|printf)([[:space:]]|$) ]]; then' '            if false; then'
 mutant name-not-unique '-$$-$(printf' '-$(printf'
 mutant tree-unchecked '= true ] && [ "$ign" = 0 ]; then' '= true ] && false; then'
 

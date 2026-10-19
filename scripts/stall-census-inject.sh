@@ -59,6 +59,7 @@ rec() {
         ask) printf '{"type":"user","timestamp":"%s","message":{"role":"user","content":"продолжи"}}\n' "$t" >> "$f" ;;
         result) printf '{"type":"user","timestamp":"%s","message":{"role":"user","content":[{"type":"tool_result","content":"ok"}]}}\n' "$t" >> "$f" ;;
         intr) printf '{"type":"user","timestamp":"%s","message":{"role":"user","content":[{"type":"text","text":"[Request interrupted by user]"}]}}\n' "$t" >> "$f" ;;
+        intrmid) printf '{"type":"user","timestamp":"%s","message":{"role":"user","content":"см. выше: [Request interrupted by user] было вчера"}}\n' "$t" >> "$f" ;;
         intrs) printf '{"type":"user","timestamp":"%s","message":{"role":"user","content":"[Request interrupted by user for tool use]"}}\n' "$t" >> "$f" ;;
     esac
     printf '{"type":"attachment","timestamp":"%s"}\n' "$t" >> "$f"
@@ -103,6 +104,8 @@ intr_cases() {
     absent="ответ модели на сообщение" probe 1 "прерывание блоком text — STALL-AGENT, подпись «прервано пользователем»" "STALL-AGENT agent-i1 — без нового вызова 30 мин; последний: прервано пользователем" --session "$s" --ps "$T/ps"
     s="$(session intrs)"; rec "$s/subagents/agent-i2.jsonl" 30 intrs
     probe 1 "прерывание строкой content — та же подпись" "последний: прервано пользователем" --session "$s" --ps "$T/ps"
+    s="$(session intrmid)"; rec "$s/subagents/agent-i4.jsonl" 30 intrmid
+    absent="прервано пользователем" probe 1 "близнец: фраза «[Request interrupted» в середине текста — прежняя подпись" "последний: ответ модели на сообщение" --session "$s" --ps "$T/ps"
     s="$(session asked)"; rec "$s/subagents/agent-i3.jsonl" 30 ask
     absent="прервано пользователем" probe 1 "близнец: обычное сообщение user — прежняя подпись, тот же вид" "STALL-AGENT agent-i3 — без нового вызова 30 мин; последний: ответ модели на сообщение" --session "$s" --ps "$T/ps"
 }
@@ -200,6 +203,7 @@ MUTPY
         echo "  [FAIL] мутант «$1» выжил: все $mp проб сошлись" >&2; fail=$((fail + 1))
     fi
 }
+fmutant "прерывание — вхождение, а не начало текста" "str(x).lstrip().startswith('[Request interrupted')" "'[Request interrupted' in str(x)" intr_cases
 fmutant "прерывание — общая подпись (до ws#1242)" "        return t, 'result', 'прервано пользователем'" "        return t, 'result', 'ответ модели на сообщение'" intr_cases
 fmutant "не проверять завершение" "FINAL_STOP = ('end_turn', 'stop_sequence', 'refusal')" "FINAL_STOP = ()"
 fmutant "завершение — любой ответ без вызова" "('final' if fin else 'done')" "'final'"
