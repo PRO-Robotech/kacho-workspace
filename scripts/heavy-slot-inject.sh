@@ -618,6 +618,7 @@ git -C "$R" remote add origin https://github.com/PRO-Robotech/kaname.git
 echo a > "$R/f"; git -C "$R" add f; sandbox_git -C "$R" commit -q -m p
 mkdir -p "$R/sub"; echo b > "$R/sub/g"; git -C "$R" add sub; sandbox_git -C "$R" commit -q -m p2
 rslot() { (cd "${RDIR:-$R}" && env HEAVY_SLOT_REMOTE_RUN="$W/fake-run.sh" FAKE_ARGV="$W/argv" "$@" 2> "$W/err" > "$W/out"); echo $?; }
+
 rm -f "$W/argv"
 assert "17 да" "$(RDIR="$R/sub" rslot bash "$SLOT" lint -- go version) $(has "$W/argv" '--profile')" "lint с go в чистом клоне → run.sh, его код (17)"
 assert "--available --profile lint --repo kaname" "$(tr '\n' ' ' < "$W/argv.avail" | sed 's/ $//')" "проверка кластера несёт профиль класса и репозиторий — размещение судится под запрос по замеру его прогонов (ws#991, ws#1195)"
@@ -705,6 +706,15 @@ echo "── тяжёлое только во внешнем кластере, �
 JL="$HEAVY_SLOT_DIR/journal.log"
 # shellcheck disable=SC2016  # тело `bash -c` раскрывает дочерняя оболочка
 jn() { grep -cF -- "$1" "$JL" 2>/dev/null || true; }
+echo "── первая строка вывода слота — ревизия рабочего каталога, класс и время (ws#1244 L3)"
+# Журналы -race и integration 2026-10-18 не несли ни sha, ни класса: какую голову судил прогон, по
+# журналу не установить. Первая строка stderr слота — «HEAD <sha> class=… at=… dir=…»; в журнале
+# слотов строка enter — с head=.
+hr="$(git -C "$R" rev-parse HEAD)"; b="$(jn "head=${hr:0:12}")"
+rc="$(rslot bash "$SLOT" docker -- true)"; l1="$(head -n 1 "$W/err")"
+assert "0 HEAD $hr class=docker да $((b + 1))" "$rc $(cut -d' ' -f1-3 <<< "$l1") $(grep -qE ' at=20[0-9-]+T[0-9:]+' <<< "$l1" && echo да || echo нет) $(jn "head=${hr:0:12}")" "git-каталог: первая строка — HEAD с полной ревизией, класс, время; enter в журнале несёт head="
+rc="$(RDIR="$W/nogit" rslot bash "$SLOT" docker -- true)"
+assert "0 HEAD — class=docker" "$rc $(head -n 1 "$W/err" | cut -d' ' -f1-3)" "близнец: каталог не git — первая строка та же, ревизии нет («—»), без отказа"
 b="$(jn ' local class=lint proof=rc=69 remote-heavy: кластер не отвечает')"
 assert "0 $((b + 1))" "$(FAKE_AVAIL=1 rslot bash "$SLOT" lint -- go version) $(jn ' local class=lint proof=rc=69 remote-heavy: кластер не отвечает')" "недоступен → локально, вывод проверки (код и причина) записан в журнал строкой local … proof="
 # Занятость — не недоступность (решение диспетчера 2026-10-16): ожидание места в
@@ -824,6 +834,25 @@ assert "77 нет" "$(RDIR="$W/kd" rslot env G=dev-up bash "$SLOT" stand -- bash
 # shellcheck disable=SC2016
 assert "0 да" "$(RDIR="$W/kd" FAKE_AVAIL=1 rslot env G=dev-up bash "$SLOT" stand -- bash -c 'make -s -f mk "$G"') $([ -e "$W/mv-ran" ] && echo да || echo нет)" "близнец: та же строка при недоступном кластере → локально"
 assert "0 да нет" "$(RDIR="$W/kd" rslot bash "$SLOT" stand -- make -s -f mk dev-down) $([ -e "$W/dd-ran" ] && echo да || echo нет) $(has "$W/err" 'во внешний кластер')" "близнец: снятие локального стенда (dev-down) маршрут не судит — идёт"
+
+echo "── стенд: обёртка поднимает стенд — признак в СОДЕРЖИМОМ скрипта, на глубину одного вызова (ws#1244 L2)"
+# 2026-10-18 скрипт, внутри которого `kind create` либо up.sh, уходил «локально — команда стенда не
+# поднимает локальный стенд»: судились лишь слова argv. kind здесь — двойник ($W/bin/kind).
+printf '#!/usr/bin/env bash\n%s/bin/kind create cluster --name t1244\ntouch "%s"\n' "$W" "$W/wk-ran" > "$W/kd/wrap-kind.sh"
+printf '#!/usr/bin/env bash\nbash ./stand-up.sh\n' > "$W/kd/wrap-up.sh"; printf '#!/usr/bin/env bash\ntouch "%s"\n' "$W/wk-ran" > "$W/kd/stand-up.sh"
+# shellcheck disable=SC2016  # строка скрипта-обёртки, раскрывает он сам
+printf '#!/usr/bin/env bash\n"$(dirname "$0")/helper.sh" "$@"\n' > "$W/kd/wrap-outer.sh"; printf '#!/usr/bin/env bash\nctlptl apply -f cluster.yaml\n' > "$W/kd/helper.sh"
+printf '#!/usr/bin/env bash\n# kind create cluster — здесь не зовётся: стенд внешний\nKUBECONFIG=/dev/null kubectl version --client >/dev/null 2>&1 || true\ntouch "%s"\n' "$W/wk-ran" > "$W/kd/wrap-kubectl.sh"
+printf '#!/usr/bin/env bash\n./mid.sh\n' > "$W/kd/wrap-deep.sh"; printf '#!/usr/bin/env bash\n./deep.sh\n' > "$W/kd/mid.sh"; printf '#!/usr/bin/env bash\nctlptl version >/dev/null 2>&1 || true\n' > "$W/kd/deep.sh"
+chmod +x "$W/kd"/*.sh; rm -f "$W/wk-ran" "$W/kind-ran"
+assert "77 да нет нет" "$(RDIR="$W/kd" rslot bash "$SLOT" stand -- ./wrap-kind.sh) $(has "$W/err" 'по признаку содержимого') $([ -e "$W/wk-ran" ] && echo да || echo нет) $([ -e "$W/kind-ran" ] && echo да || echo нет)" "обёртка с kind create при доступном кластере → 77, признак содержимого назван, обёртка не запускалась"
+assert "77 да" "$(RDIR="$W/kd" rslot bash "$SLOT" stand -- bash wrap-up.sh) $(has "$W/err" 'stand-up.sh')" "bash <обёртка>, зовущая up-скрипт → 77, признак (stand-up.sh) назван"
+assert "77 да" "$(RDIR="$W/kd" rslot bash "$SLOT" stand -- ./wrap-outer.sh) $(has "$W/err" 'helper.sh')" "обёртка → помощник с ctlptl (глубина одного вызова) → 77, файл признака назван"
+b="$(jn 'локально по признаку содержимого')"
+assert "0 да $((b + 1))" "$(RDIR="$W/kd" FAKE_AVAIL=1 rslot bash "$SLOT" stand -- ./wrap-kind.sh) $([ -e "$W/wk-ran" ] && echo да || echo нет) $(jn 'локально по признаку содержимого')" "та же обёртка при недоступном кластере → локально, в журнале «локально по признаку содержимого»"
+rm -f "$W/wk-ran"
+assert "0 да да" "$(RDIR="$W/kd" rslot bash "$SLOT" stand -- ./wrap-kubectl.sh) $([ -e "$W/wk-ran" ] && echo да || echo нет) $(has "$W/err" 'не поднимает локальный стенд')" "близнец: обёртка лишь с kubectl (kind create — в комментарии) → локально «не поднимает», кластер не мешает"
+boundary "0" "$(RDIR="$W/kd" rslot bash "$SLOT" stand -- ./wrap-deep.sh)" "обёртка → посредник → помощник с ctlptl (глубина два)"
 
 echo "── стенд во внешнем ns — без слота машины: на машине лишь kubectl и helm (ws#1143)"
 # Журнал слотов до правки: stand-ns-up/down/census/forward — 139 запусков, пик
@@ -1036,6 +1065,7 @@ cat > "$W/fake-run-gate.sh" <<'GATE'
 #!/usr/bin/env bash
 if [ "${1:-}" = --available ]; then
     [ -n "${GATE_BUSY:-}" ] && [ -e "$GATE_BUSY" ] && { echo "remote-heavy: кластер занят: идущих тяжёлых прогонов 4 при пределе 4" >&2; exit 75; }
+    [ -n "${GATE_DOWN:-}" ] && [ -e "$GATE_DOWN" ] && { echo "remote-heavy: кластер не отвечает" >&2; exit 69; }
     exit 0
 fi
 label="${*: -1}"
@@ -1245,6 +1275,36 @@ T3="$(tk_of "$RB3")"
 rc="$(cdslot "$W/alien" env bash "$W/slot-mut-1156.sh" --cancel "$T3")"; await_rc "$RB3" >/dev/null
 assert "1 0" "$(diff "$SLOT" "$W/slot-mut-1156.sh" | grep -c '^<') $rc" "мутант «владелец не сверяется»: чужой билет снят — проба выше его ловит"
 wait "$HA"
+
+echo "── --cancel <журнал заявки>: снимается тем, что вызов держит в руках — строкой ENQUEUED (ws#1244 L1)"
+# ENQUEUED называет журнал, .rc и pid, а номер билета выдаёт ребёнок позже: 2026-10-18 заявку ревьюера
+# 123 мин снять было нечем, кроме переписи --status и ручного kill.
+HEAVY_SLOT_BUDGET_MIB=250 bash "$SLOT" docker -- sleep 9 2>/dev/null & HA=$!
+for _ in $(seq 1 25); do [ "$(nslots)" -ge 1 ] && break; sleep 0.2; done
+rm -f "$W/cn4"
+cdslot "$W/own" -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_ENQ_S=60 HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" --enqueue "$W/enq" docker -- touch "$W/cn4" >/dev/null; RB4="$(rcof)"
+hint="$(has "$W/err" "--cancel ${RB4%.rc}.pid")"
+for _ in $(seq 1 25); do [ "$(tk_of "$RB4")" != нет ] && break; sleep 0.2; done
+rc="$(cdslot "$W/alien" env bash "$SLOT" --cancel "${RB4%.rc}.pid")"
+assert "64 да" "$rc $([ "$(tk_of "$RB4")" != нет ] && echo да || echo нет)" "близнец владельца: чужой вызов журналом заявки — 64, билет остался"
+rc="$(cdslot "$W/own" env bash "$SLOT" --cancel "${RB4%.rc}.pid")"; c4="$(await_rc "$RB4")"
+assert "да 0 143 нет нет" "$hint $rc $c4 $([ -e "$W/cn4" ] && echo да || echo нет) $(tk_of "$RB4")" "ENQUEUED называет отмену; свой журнал заявки (.pid): 0, ожидание снято (.rc 143), команда не запускалась, билета нет"
+rc="$(cdslot "$W/own" env bash "$SLOT" --cancel "$W/enq/hs-docker-20990101T000000-1.log")"
+assert "69 да" "$rc $(has "$W/err" 'билета нет')" "журнал заявки без билета (снята, исполнилась, не выдавалась) — 69 «не выполнилось», а не успех"
+wait "$HA"
+
+echo "── срок заявки ОДИН на все фазы: внешний вход, занятость кластера и очередь памяти (ws#1244 L1)"
+# Очередь памяти считала срок от СВОЕГО начала: заявка, прождавшая занятый кластер, на его отказе
+# уходила локально и ждала ещё столько же — до 2 × 120 мин. Здесь срок 7 с: кластер занят 4 с, затем
+# не отвечает, слоты полны. Общий срок — 75 к ~7 с; сброшенный — к ~11 с.
+HEAVY_SLOT_BUDGET_MIB=250 bash "$SLOT" docker -- sleep 15 2>/dev/null & HA=$!
+for _ in $(seq 1 25); do [ "$(nslots)" -ge 1 ] && break; sleep 0.2; done
+gnew; touch "$W/gate-busy"; rm -f "$W/gate-down"; t0="$(date +%s)"
+genq "$R" D GATE_BUSY="$W/gate-busy" GATE_DOWN="$W/gate-down" HEAVY_SLOT_ENQ_S=7 >/dev/null; RD="$(rcof)"
+sleep 4; touch "$W/gate-down"; rm -f "$W/gate-busy"
+cdd="$(await_rc "$RD")"; el=$(( $(date +%s) - t0 ))
+assert "75 да да" "$cdd $([ "$el" -le 10 ] && echo да || echo "нет(${el} с)") $(has "${RD%.rc}.log" 'кластер недоступен')" "занятость кластера, затем отказ и очередь памяти — 75 в пределах ОДНОГО срока заявки (7 с), а не срок на фазу"
+wait "$HA"; rm -f "$W/gate-down"
 export HEAVY_SLOT_LIMIT_MIB=100000
 
 echo "── ci-local, git push из копии воркспейса: клоны для наборов хука выставляются сами (KACHO_HOME_<ИМЯ>)"

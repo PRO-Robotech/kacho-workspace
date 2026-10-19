@@ -67,7 +67,9 @@
 #      (воркспейс и project/*, чей origin — этот репозиторий) — fetch --prune; ветка
 #      снимается, только если её голова РАВНА влитой либо её предок, а влитая — предок
 #      origin/<база>; копия (worktree) — `git worktree remove` лишь при пустом
-#      `status --porcelain`; origin — `--delete-branch`, оставшуюся — `git push origin
+#      `status --porcelain` и без процессов в ней: cwd либо открытый файл внутри копии (/proc,
+#      свои процессы учётки) — копия и ветка остаются, в .state «оставлено: процессы <pid…>»
+#      (ws#1244: снята копия, где шли 6 процессов integration); origin — `--delete-branch`, оставшуюся — `git push origin
 #      --delete` под замком interim; перепись `branch-audit.sh` до и после — в журнал;
 #   7. догон основного клона (ws#1200): запрос в `main` репозитория, чей origin у
 #      основного клона воркспейса (каталог, чей `.git` = `git rev-parse --git-common-dir`),
@@ -415,6 +417,8 @@ prune() {  # <ветка головы> <база>
             if [ "$wt" = "$(git -C "$c" rev-parse --show-toplevel 2>/dev/null)" ]; then
                 kept+=("$c: ветка $br выписана в основной копии клона"); dirty=1; continue
             fi
+            busy="$(wt_procs "$wt")"
+            if [ -n "$busy" ]; then kept+=("копия $wt: оставлено: процессы $busy"); dirty=1; continue; fi
             if [ -z "$(git -C "$wt" status --porcelain 2>/dev/null)" ] && git -C "$c" worktree remove "$wt" 2> "$W/wt.err"; then
                 removed+=("копия $wt")
             else kept+=("копия $wt: не пуста либо не снята — $(head -c 200 "$W/wt.err" 2>/dev/null | tr '\n' ' ')"); dirty=1; fi
@@ -427,6 +431,16 @@ prune() {  # <ветка головы> <база>
     PRUNE="снятие: снято ${#removed[@]}${removed[*]:+ (${removed[*]})}, оставлено ${#kept[@]}"
     [ "${#kept[@]}" -eq 0 ] || PRUNE="$PRUNE: $(printf '%s\n' "${kept[@]}" | join)"
     log "$PRUNE"
+}
+
+# wt_procs <копия> — pid процессов, чей cwd либо открытый файл — внутри копии (ws#1244), кроме
+# самого демона; чужие учётки /proc не отдают — их процессы не видны (граница).
+wt_procs() {
+    local d
+    d="$(cd "$1" 2>/dev/null && pwd -P)" || return 0
+    { find /proc/[0-9]*/cwd -maxdepth 0 \( -lname "$d" -o -lname "$d/*" \) 2>/dev/null
+      find /proc/[0-9]*/fd -mindepth 1 -maxdepth 1 \( -lname "$d" -o -lname "$d/*" \) 2>/dev/null
+    } | cut -d/ -f3 | grep -vxF -e "$$" -e "$BASHPID" | sort -un | tr '\n' ' ' | sed 's/ $//'
 }
 
 # ── догон основного клона воркспейса (ws#1200) ─────────────────────────────────

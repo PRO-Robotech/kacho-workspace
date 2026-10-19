@@ -18,7 +18,7 @@
 #   heavy-slot.sh --budget <класс>  бюджет класса в МиБ (читает session-memcap.sh)
 #   heavy-slot.sh --book <класс> -- <команда>  бронь, которую слот поставит этой команде из этого каталога
 #   heavy-slot.sh --status      занятые слоты, билеты очереди и внешнего входа, память машины, хвост журнала
-#   heavy-slot.sh --cancel <билет>  снять СВОЮ заявку (ждущую, отложенную, внешнего входа) и её --enqueue
+#   heavy-slot.sh --cancel <билет | журнал заявки>  снять СВОЮ заявку (ждущую, отложенную, внешнего входа) и её --enqueue
 #   heavy-slot.sh --prune-tmp   снять TMPDIR копий класса ci-local, не тронутые > 7 суток
 #
 # ВХОД — очередь по билету под flock на каталоге слотов, ОДНОМ на машину (малый билет
@@ -57,8 +57,13 @@
 # круг 3: потолок 1 ГиБ на 99999 с стоял головой строгой очереди).
 # Заявку снимает `--cancel <билет>` (ws#1156): СВОЮ — ждущую, отложенную либо внешнего входа —
 # вместе с её отсоединённым ожиданием; номера билетов показывает --status, а ENQUEUED связан с
-# билетом полем enq записи. Чужую (иной «ветка@каталог») не снимает: отказ 64 с названным
-# владельцем; неизвестный билет — 69, «не выполнилось». Строка cancel — в журнал.
+# билетом полем enq записи; вместо номера годится и путь .log/.rc/.pid из строки ENQUEUED — её
+# называет сама постановка (ws#1244: номер билет получает позже ENQUEUED, и заявку ревьюера 123 мин
+# снять было нечем). Чужую (иной «ветка@каталог») не снимает: отказ 64 с названным владельцем;
+# неизвестный билет и заявка без билета — 69, «не выполнилось». Строка cancel — в журнал.
+# Срок заявки ОДИН на все фазы — внешний вход, занятость кластера, очередь памяти: счёт от начала
+# маршрута (WAIT_T0). Прежде очередь памяти начинала его заново, и заявка, прождавшая кластер, на
+# его отказе ждала локально ещё столько же — до 2 × 120 мин (ws#1244).
 # Потолок — в ГиБ, в тех единицах, что печатает `free -g` (MemTotal здесь 92,2).
 #
 # ГРАНИЦА: предел держит cgroup слота, а из неё уводит перенос процесса в другой
@@ -209,6 +214,10 @@
 # переменных узнавали из текста [VOID] после отправки. Хук во внешнем кластере — Job: окружение
 # слота в него не попадает (граница).
 #
+# РЕВИЗИЯ (ws#1244): первая строка stderr слота — «HEAD <git rev-parse HEAD рабочего каталога | —>
+# class=<класс> at=<время> dir=<каталог>»: журнал вызова (`> журнал 2>&1`, .log --enqueue) называет
+# судимую голову; строка enter журнала слотов — с head=. Постановка --enqueue её не печатает —
+# печатает её ребёнок первой строкой .log.
 # ЖУРНАЛ: $HEAVY_SLOT_DIR/journal.log — вход, ожидание (занято слотов, свободно), уход
 # во внешний кластер (remote … до запуска Job), выход с пиком памяти, обрыв. Пик —
 # основание для пересмотра бюджетов: `grep ' leave ' journal.log`.
@@ -937,8 +946,14 @@ console_deps() {
 # отказ 64 с названным владельцем. Неизвестный билет — 69 «не выполнилось», а не успех. Запись
 # cancel — в журнал. Билет ВОШЕДШЕГО в слот снять нечем: его уже нет в очереди (слот снимает сигнал).
 cancel_ticket() {
-    local n="${1:-}" k f="" kind="" me who pid st cls what
-    [[ "$n" =~ ^[0-9]{1,12}$ ]] || { say "--cancel «$n» — номер билета (целое); билеты и их владельцев показывает --status"; return 64; }
+    local n="${1:-}" k f="" kind="" me who pid st cls what b
+    if [[ "$n" == */* ]]; then  # журнал заявки из строки ENQUEUED (ws#1244): билет — по полю enq
+        b="$(realpath -m -- "$n")"; b="${b%.log}"; b="${b%.rc}"; b="${b%.pid}"
+        f="$(grep -l -x -F -- "enq=$b" "$DIR"/queue/* "$DIR"/ext/* 2>/dev/null | head -n 1)"
+        [ -n "$f" ] || { say "у заявки «$b» билета нет: снята, исполнилась либо не выдавалась — не выполнилось (исход — $b.rc)"; return 69; }
+        n="$((10#${f##*/}))"; f=""
+    fi
+    [[ "$n" =~ ^[0-9]{1,12}$ ]] || { say "--cancel «$n» — номер билета (целое) либо журнал заявки из строки ENQUEUED; билеты и их владельцев показывает --status"; return 64; }
     n=$((10#$n)); k="$(printf '%012d' "$n")"
     mkdir -p "$DIR/queue" "$DIR/ext" 2>/dev/null
     me="$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD"
@@ -1144,6 +1159,13 @@ for a in "$@"; do
     fi
 done
 
+# ── ревизия первой строкой вывода (ws#1244; шапка, «РЕВИЗИЯ») ────────────────────
+HEAD_REV=""
+if [ -z "$ENQ_DIR" ]; then
+    HEAD_REV="$(git -C "$PWD" rev-parse -q --verify HEAD 2>/dev/null)" || HEAD_REV=""
+    printf 'HEAD %s class=%s at=%s dir=%s\n' "${HEAD_REV:-—}" "$CLASS" "$(date -Is)" "$PWD" >&2
+fi
+
 # ── откуда идёт отправка (ws#1182; push_where) — до постановки в очередь ────────
 push_where "$@"
 # Бронь ci-local по предмету отправки поставлена рано (SUBJ_BOOK, ниже «Бронь по предмету»): здесь — её слово.
@@ -1186,7 +1208,7 @@ if [ -n "$ENQ_DIR" ]; then
             ctk="$(grep -l "^enq=$cb\$" "$DIR"/queue/* "$DIR"/ext/* 2>/dev/null | head -n 1)"
             eunlock
             printf 'ENQUEUED\tlog=%s\trc=%s\tpid=%s\tdeadline=%s\n' "$cb.log" "$cb.rc" "$cb.pid" "$(date -d "@$(field "$DIR/enq-claims/$ENQ_KEY" deadline)" +%H:%M)"
-            say "уже стоит: та же команда из того же каталога и ветки ждёт своим билетом${ctk:+ $((10#${ctk##*/}))} — второго не ставлю; журнал $cb.log, исход — $cb.rc (ws#1176)"
+            say "уже стоит: та же команда из того же каталога и ветки ждёт своим билетом${ctk:+ $((10#${ctk##*/}))} — второго не ставлю; журнал $cb.log, исход — $cb.rc (ws#1176); отмена — heavy-slot.sh --cancel $cb.pid"
             exit 0
         fi
         find "$DIR/enq-claims" -type f -mmin +1440 -delete 2>/dev/null
@@ -1203,7 +1225,7 @@ if [ -n "$ENQ_DIR" ]; then
         heavy-slot "$SELF" "$EB" "${fwd[@]+"${fwd[@]}"}" "$CLASS" -- "$@" > "$EB.log" 2>&1 < /dev/null ||
         { rm -f "$DIR/enq-claims/$ENQ_KEY"; say "отсоединённый прогон не запущен (setsid) — не выполнилось"; exit 69; }
     printf 'ENQUEUED\tlog=%s\trc=%s\tpid=%s\tdeadline=%s\n' "$EB.log" "$EB.rc" "$EB.pid" "$(date -d "@$(( $(now) + ENQ_MAX_S ))" +%H:%M)"
-    say "идёт: «$CLASS» поставлен в очередь ОДНИМ билетом до $(( ENQ_MAX_S / 60 )) мин; исход — код в $EB.rc (появится по выходу), журнал $EB.log. Дочитывает короткий шаг; повторно не ставить"
+    say "идёт: «$CLASS» поставлен в очередь ОДНИМ билетом до $(( ENQ_MAX_S / 60 )) мин; исход — код в $EB.rc (появится по выходу), журнал $EB.log. Дочитывает короткий шаг; повторно не ставить; отмена — heavy-slot.sh --cancel $EB.pid"
     # Занятость при постановке (ws#1225, уроки fadf7133, 31c23cef): при 3 из 3 занятых пачка шагов
     # одним заходом не умещается в предел вызова — число видно сразу, а не по 74 следующего шага.
     read -r occ_n _ <<< "$(occupied)"
@@ -1286,7 +1308,7 @@ cluster_once() {
 # иной код — дефект обёртки: defect_exit, 69.
 cluster_check() {
     local rc t0
-    t0="${EXT_T0:-$(now)}"   # бюджет ожидания общий с внешним входом (ws#1176)
+    t0="${WAIT_T0:-${EXT_T0:-$(now)}}"   # срок заявки один на все фазы (ws#1176, ws#1244)
     while :; do
         cluster_once "${1:-}" "${2:-}"; rc=$?
         [ "$rc" -eq 0 ] && return 0
@@ -1399,11 +1421,43 @@ payload() {
     done
     PAY="?обёртка без команды"
 }
-# stand_route — класс stand: подъём ЛОКАЛЬНОГО стенда судится по словам argv И по
-# словам строки дочерней оболочки; строка оболочки без внешней формы (stand-ns-*) —
-# не опознана: цель может прийти переменной (`bash -c 'make "$G"'`).
+# stand_sign <файл> [глубина] — признак подъёма ЛОКАЛЬНОГО стенда в ТЕКСТЕ скрипта (ws#1244):
+# kind … create, ctlptl, create-cluster.sh, up-скрипт (`up.sh`, `<имя>-up.sh`) и цели dev-up и
+# родственные — в строке не-комментария. Скрипт, названный в нём словом *.sh (файл рядом с ним
+# либо в рабочем каталоге), читается на глубину ОДНОГО вызова. Печатает «<файл>: <признак>».
+# Двоичный файл (kubectl, make) и файл больше 1 МиБ не читаются. ГРАНИЦА (inject — [BOUND]):
+# вызов глубже одного, имя скрипта переменной, Makefile цели.
+# Почему признак, а не флаг --kind у обёртки: флаг держался бы вниманием автора каждой обёртки, а
+# отказ без него краснил бы и законные скрипты стенда; признак — ни одной правки обёрток.
+STAND_SIGN_RE='(^|[^A-Za-z0-9_.-])(kind([[:space:]]+-[^[:space:]]+)*[[:space:]]+create|ctlptl|create-cluster\.sh|([A-Za-z0-9_-]*-)?up\.sh|dev-up|dev-prod-up|own-up|stack-up|cert-manager-up)([^A-Za-z0-9_-]|$)'
+stand_sign() {
+    local f="$1" d="${2:-0}" body hit w c
+    [ -f "$f" ] && [ -r "$f" ] || return 1
+    [ "$(stat -c %s -- "$f" 2>/dev/null || echo 0)" -le 1048576 ] && grep -Iq . "$f" 2>/dev/null || return 1
+    body="$(grep -vE '^[[:space:]]*#' "$f" 2>/dev/null)"
+    hit="$(grep -m1 -oE "$STAND_SIGN_RE" <<< "$body")"
+    if [ -n "$hit" ]; then printf '%s: %s\n' "$f" "$(sed -E 's/^[^A-Za-z0-9]+//; s/[^A-Za-z0-9]+$//' <<< "$hit")"; return 0; fi
+    [ "$d" -eq 0 ] || return 1
+    while IFS= read -r w; do
+        for c in "$(dirname -- "$f")/$(basename -- "$w")" "$PWD/$(basename -- "$w")"; do
+            [ -f "$c" ] || continue
+            stand_sign "$c" 1 && return 0
+            break
+        done
+    done < <(tr -s ' \t;&|()"'"'"'`=<>' '\n' <<< "$body" | grep -E '\.sh$' | sort -u)
+    return 1
+}
+# stand_script <слово> — путь скрипта, который исполнит argv: со «/» — как есть, иначе файл
+# рабочего каталога (bash <имя>) либо поиск по PATH.
+stand_script() {
+    case "$1" in */*) printf '%s\n' "$1" ;; *) if [ "$PAY_I" -gt 0 ] && [ -f "$1" ]; then printf '%s\n' "$1"; else command -v -- "$1"; fi ;; esac
+}
+# stand_route — класс stand: подъём ЛОКАЛЬНОГО стенда судится по словам argv, по
+# словам строки дочерней оболочки и по тексту вызванного скрипта (stand_sign); строка
+# оболочки без внешней формы (stand-ns-*) — не опознана: цель может прийти переменной
+# (`bash -c 'make "$G"'`).
 stand_route() {
-    local a tok prev="" mk="" safe="" toks
+    local a tok prev="" mk="" safe="" toks s
     for a in "${CMD_R[@]}"; do
         mapfile -t toks < <(printf '%s\n' "$a" | tr ' \t;&|()"'"'"'`' '\n')
         for tok in "${toks[@]}"; do
@@ -1417,14 +1471,21 @@ stand_route() {
         done
     done
     payload
+    ST_SIGN=""
+    if [ -z "$mk" ] && [ -z "$safe" ] && [ -z "$PAY_SH" ] && [ -n "$PAY_I" ]; then
+        s="$(stand_script "${CMD_R[$PAY_I]}")" && ST_SIGN="$(stand_sign "$s")" && mk=1
+    fi
     if [ -z "$mk" ] && { [ -z "$PAY_SH" ] && [ "${PAY#\?}" = "$PAY" ] || [ -n "$safe" ]; }; then
         WHY_LOCAL="команда стенда не поднимает локальный стенд"; return 1
     fi
-    cluster_check || return 1
+    if ! cluster_check; then
+        [ -z "$ST_SIGN" ] || WHY_LOCAL="$WHY_LOCAL; локально по признаку содержимого $ST_SIGN"
+        return 1
+    fi
     task_of
     [[ "$TASK" =~ ^[1-9][0-9]*$ ]] || TASK="<задача>"
     [ -n "$mk" ] || refuse_external "строку оболочки «${PAY_SH:-$PAY}» слот не судит (цель стенда может прийти переменной) — дай команду словами argv; стенд — в deploy/ продукта make stand-ns-up NS=t$TASK-<коротко>"
-    refuse_external "в deploy/ продукта make stand-ns-up NS=t$TASK-<коротко> (либо stand-ns-run NS=… CMD='…' — снятие само), снятие — make stand-ns-down NS=… этой же задачей, после — stand-ns-census и residue-census 0"
+    refuse_external "${ST_SIGN:+подъём стенда — по признаку содержимого $ST_SIGN; }в deploy/ продукта make stand-ns-up NS=t$TASK-<коротко> (либо stand-ns-run NS=… CMD='…' — снятие само), снятие — make stand-ns-down NS=… этой же задачей, после — stand-ns-census и residue-census 0"
 }
 # ── внешний вход по одному (ws#1176; шапка у EXT_GATE) ──────────────────────────
 # Билет внешнего входа — файл $DIR/ext/<номер> (номер общий с очередью памяти); голова — младший
@@ -1449,7 +1510,7 @@ ext_leave() { [ -z "$EXT_T" ] || rm -f "$EXT_T"; EXT_T=""; }
 ext_enter() {
     [ "$EXT_GATE" = 1 ] && [ "$WAIT_S" -gt 0 ] || return 0
     local etk first f w=0
-    EXT_T0="$(now)"
+    EXT_T0="${WAIT_T0:-$(now)}"
     mkdir -p "$DIR/ext" 2>/dev/null
     etk="$(ticket_next)"; [ -n "$etk" ] || { say "номер билета не выдан (ticket.lock) — не выполнилось"; exit 69; }
     elock
@@ -1655,6 +1716,7 @@ stand_ns_light() {
     esac
 }
 CMD_R=("$@"); WHY_LOCAL=""; ROUTE=(); GIT_IDX=""; GDIR="$PWD"
+WAIT_T0="$(now)"   # начало срока заявки: внешний вход, кластер и очередь памяти считают от него (ws#1244)
 if [ "$CLASS" = stand ] && stand_ns_light; then
     busy=0
     for f in "$DIR"/active/*.slot; do [ -e "$f" ] && busy=$(( busy + 1 )); done
@@ -1766,7 +1828,7 @@ defer_ticket() {
     unlock
 }
 RETRY_HINT="повтор — ОДИН коротким шагом: heavy-slot.sh --resume $tk [--wait N] $CLASS -- … в течение $RESUME_TTL_S с держит место (билет $tk); без билета — в конец очереди"
-t0="$(now)"; waited=0
+t0="${WAIT_T0:-$(now)}"; waited=0; wlogged=""
 while :; do
     lock
     reap
@@ -1822,7 +1884,7 @@ while :; do
         # Уборка старых TMPDIR копий — шагом входа под замком, а не выходом слота:
         # каталог переживает прогон, снимается лишь неиспользуемый дольше срока.
         prune_tmp
-        journal "enter id=$ID class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB free=${free}MiB slots=$nocc waited=${waited}s bypass=${#byp[@]} who=$WHO cmd=$CMDLINE"
+        journal "enter id=$ID class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB free=${free}MiB slots=$nocc waited=${waited}s bypass=${#byp[@]} head=${HEAD_REV:0:12} who=$WHO cmd=$CMDLINE"
         unlock
         break
     fi
@@ -1847,7 +1909,7 @@ while :; do
         say "команда НЕ запускалась; $RETRY_HINT; дольше $WAIT_MAX_S с — ОДИН раз --enqueue <каталог>; кто занял — heavy-slot.sh --status"
         exit 75
     fi
-    [ "$waited" -eq 0 ] && journal "wait class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB free=${free}MiB slots=$nocc ahead=$ahead ticket=$tk who=$WHO"
+    [ -n "$wlogged" ] || { wlogged=1; journal "wait class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB free=${free}MiB slots=$nocc ahead=$ahead ticket=$tk who=$WHO"; }
     say "ждёт слота «$CLASS»: $why; ждёт ${waited} с из ${WAIT_S}"
     sleep "$(( POLL_S < WAIT_S - waited ? POLL_S : WAIT_S - waited ))"
 done
