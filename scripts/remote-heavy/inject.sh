@@ -3053,7 +3053,9 @@ PW_PID=""
 pw_daemon() {
     [ -z "$PW_PID" ] || { kill "$PW_PID" 2>/dev/null; wait "$PW_PID" 2>/dev/null; }
     : > "$PW/req.log"; rm -f "$PWS/d.sock"
-    python3 "$PW/fakedocker.py" "$PWS/d.sock" "$1" "$PW/req.log" & PW_PID=$!
+    # stderr двойника — в файл: снятая клиентом попытка рвёт поток, и запись в закрытый
+    # сокет печатала бы трассу в вывод набора
+    python3 "$PW/fakedocker.py" "$PWS/d.sock" "$1" "$PW/req.log" 2>> "$PW/daemon.err" & PW_PID=$!
     local i; for i in $(seq 1 50); do [ -S "$PWS/d.sock" ] && return 0; sleep 0.1; done
     bad PW-daemon "двойник демона docker не поднялся"
 }
