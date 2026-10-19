@@ -120,7 +120,8 @@
 #
 # КОДЫ: код команды, если она исполнилась; 64 — вызов неверен; 69 — механизм
 # недоступен (в том числе дефект обёртки внешнего кластера: проверка отказала не
-# сетевым признаком — команда не запускалась ни там, ни локально); 74 — слот занят, ожидания не было (очередь K названа); 75 — слот не
+# сетевым признаком — команда не запускалась ни там, ни локально; дерево оснастки отстаёт
+# от origin/main по run.sh и слоту либо отставание не установлено — ws#1228); 74 — слот занят, ожидания не было (очередь K названа); 75 — слот не
 # выдан за --wait N; 76 — команда оборвана пределом памяти; 77 — кластер доступен, и
 # команде место там: локально она не запускалась, текст «во внешний кластер: <как>».
 # 69, 74, 75, 76 и 77 — «не выполнилось», а не красное: вердикта по предмету команды
@@ -939,7 +940,7 @@ if [ "$CLASS" = ci-local ] && [ -z "${GIT_SSH_COMMAND:-}" ] && [ -z "${GIT_SSH:-
 fi
 
 # Ручки — до первой записи: отказ не оставляет следа в общем каталоге.
-KNOBS="HEAVY_SLOT_SUBJECTS HEAVY_SLOT_EXT_HOLD_S HEAVY_SLOT_LIMIT_GIB HEAVY_SLOT_LIMIT_MIB HEAVY_SLOT_WAIT_S HEAVY_SLOT_ENQ_S HEAVY_SLOT_POLL_S HEAVY_SLOT_BUDGET_MIB HEAVY_SLOT_LIMITER HEAVY_SLOT_GUARD_S HEAVY_SLOT_GUARD_GRACE_S HEAVY_SLOT_REMOTE_RUN HEAVY_SLOT_SLOTS_SUM_MIB HEAVY_SLOT_CHECK_S"
+KNOBS="HEAVY_SLOT_SUBJECTS HEAVY_SLOT_EXT_HOLD_S HEAVY_SLOT_LIMIT_GIB HEAVY_SLOT_LIMIT_MIB HEAVY_SLOT_WAIT_S HEAVY_SLOT_ENQ_S HEAVY_SLOT_POLL_S HEAVY_SLOT_BUDGET_MIB HEAVY_SLOT_LIMITER HEAVY_SLOT_GUARD_S HEAVY_SLOT_GUARD_GRACE_S HEAVY_SLOT_REMOTE_RUN HEAVY_SLOT_SLOTS_SUM_MIB HEAVY_SLOT_CHECK_S HEAVY_SLOT_TOOLING_TREE"
 if [ "$MEMINFO" = /proc/meminfo ]; then
     knob=""
     [ "$DIR" = "$SHARED" ] || [ "$DIR" -ef "$SHARED" ] || knob="свой каталог слотов $DIR — отдельная очередь, соседей общей он не видит"
@@ -956,7 +957,7 @@ else
         exit 64
     fi
     for v in $KNOBS; do
-        [ "$v" = HEAVY_SLOT_LIMITER ] || [ "$v" = HEAVY_SLOT_REMOTE_RUN ] || [ "$v" = HEAVY_SLOT_SUBJECTS ] || [ -z "${!v+x}" ] || [[ "${!v}" =~ ^[0-9]+$ ]] || { say "$v=«${!v}» — не число"; exit 64; }
+        [ "$v" = HEAVY_SLOT_LIMITER ] || [ "$v" = HEAVY_SLOT_REMOTE_RUN ] || [ "$v" = HEAVY_SLOT_SUBJECTS ] || [ "$v" = HEAVY_SLOT_TOOLING_TREE ] || [ -z "${!v+x}" ] || [[ "${!v}" =~ ^[0-9]+$ ]] || { say "$v=«${!v}» — не число"; exit 64; }
     done
     LIMIT_MIB="${HEAVY_SLOT_LIMIT_MIB:-$(( ${HEAVY_SLOT_LIMIT_GIB:-$(( CAP_MIB / 1024 ))} * 1024 ))}"
     POLL_S="${HEAVY_SLOT_POLL_S:-$POLL_S}"; WAIT_S="${HEAVY_SLOT_WAIT_S:-$WAIT_S}"; ENQ_MAX_S="${HEAVY_SLOT_ENQ_S:-$ENQ_MAX_S}"
@@ -1085,8 +1086,22 @@ fi
 # настоящей памятью эта ручка — 64, как прочие.
 REMOTE_RUN="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/remote-heavy/run.sh"
 REMOTE_ON=1
+# СВЕРКА ОСНАСТКИ СО СТВОЛОМ (ws#1228). run.sh и этот файл берутся из ЭТОГО дерева; дерево,
+# отставшее от origin/main по ним, повторяло на заезде уже починенный дефект (урок cd0b92df:
+# исправленная ws#1207 оснастка не действовала, заезд покраснел повторно). Выбран ОТКАЗ, а не
+# «run.sh из origin/main»: исполнять файл, отличный от вызванного, — две версии одного
+# механизма в одном вызове (разбор доводов слота старый, Job новый) и непроверяемость правки
+# в копии её же пробой. Перед проверкой кластера — `main-clone-lag.sh --own <дерево> --
+# TOOLING_PATHS`: отставание — 69 с N и командой догона, «не установлено» (fetch не прошёл
+# при нуле) — тоже 69: ноль по устаревшему origin/main — не «отставания нет». Прочие пути
+# ствола слоту не мешают. Обход — только --local с причиной. В режиме проб сверка судится
+# лишь с HEAVY_SLOT_TOOLING_TREE — деревом песочницы; над настоящей памятью это ручка, 64.
+TOOLING_PATHS=(scripts/remote-heavy/ scripts/heavy-slot.sh)
+TOOLING_TREE="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
+LAG_SH="$TOOLING_TREE/main-clone-lag.sh"
 if [ "$MEMINFO" != /proc/meminfo ]; then
     if [ -n "${HEAVY_SLOT_REMOTE_RUN:-}" ]; then REMOTE_RUN="$HEAVY_SLOT_REMOTE_RUN"; else REMOTE_ON=0; fi
+    TOOLING_TREE="${HEAVY_SLOT_TOOLING_TREE:-}"
 fi
 PROOF=""; CL_OUT=""
 # journal_early — запись журнала до входа в очередь (каталог может быть ещё не заведён).
@@ -1143,6 +1158,21 @@ busy_exit() {
     say "кластер занят: ${CL_OUT#remote-heavy: } — команда НЕ запускалась ни там, ни локально (код $code, не выполнилось, не красное): занятость — не недоступность."
     say "повтори коротким шагом; ожидание места — --wait N (≤ $WAIT_MAX_S с) перед классом (testing-verdict.md#external-cluster-first)"
     exit "$code"
+}
+tooling_gate() {
+    [ -n "$TOOLING_TREE" ] || return 0
+    local out rc=2
+    if [ -r "$LAG_SH" ]; then
+        out="$(bash "$LAG_SH" --own "$TOOLING_TREE" -- "${TOOLING_PATHS[@]}" 2>&1)"; rc=$?
+    else
+        out="сверять нечем: $LAG_SH нет"
+    fi
+    [ "$rc" -eq 0 ] && return 0
+    out="$(printf '%s' "$out" | tr '[:cntrl:]' ' ' | cut -c1-500)"
+    journal_early "stale-tooling class=$CLASS rc=$rc proof=$out who=$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD cmd=$(printf '%q ' "${CMD_R[@]}")"
+    say "оснастка внешнего маршрута не сверена со стволом (${TOOLING_PATHS[*]}, ws#1228): ${out#TOOLING-LAG: } — команда НЕ запускалась ни там, ни локально (код 69, не выполнилось, не красное)."
+    say "догони дерево оснастки и повтори ту же команду; локально — лишь --local \"<причина>\" перед классом (testing-verdict.md#external-cluster-first)"
+    exit 69
 }
 task_of() {
     local branch
@@ -1339,6 +1369,7 @@ remote_route() {
     task_of
     [[ "$TASK" =~ ^[1-9][0-9]*$ ]] ||
         fix="${fix:+$fix; }задай номер задачи: KACHO_TASK=<N> heavy-slot.sh $CLASS -- … (ведущих цифр в имени ветки «$BRANCH» нет)"
+    tooling_gate
     ext_enter
     cluster_check "$CLASS" "$repo" || return 1
     [ -n "$known" ] || refuse_external "нагрузка «${PAY_SH:-$PAY}» за обёрткой не опознана как переносимая (go, make, golangci-lint, gosec, govulncheck, ci-local.sh) — дай её словами argv: heavy-slot.sh $CLASS -- go …; слот уведёт её Job-ом"
