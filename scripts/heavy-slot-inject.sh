@@ -1367,6 +1367,180 @@ assert "1 нет 0" "$(diff "$SLOT" "$W/slot-mut-bpr.sh" | grep -c '^<') $(bpres
 assert "1 нет 0" "$(diff "$SLOT" "$W/slot-mut-bpd.sh" | grep -c '^<') $(bpresume "$W/slot-mut-bpd.sh" | cut -d' ' -f2,3)" "мутант «defer_ticket теряет bypassed»: S4 проходит — проба выше его ловит"
 export HEAVY_SLOT_LIMIT_MIB=100000
 
+echo "── ci-local локально, правка консоли: зависимости — у ТОГО дерева, что судит хук отправки (ws#1190)"
+# Хук отправки kacho отказывает «проверки консоли НЕ ВЫПОЛНЯЛИСЬ» в самом конце прогона (~6 мин
+# слота), когда правка трогает ui-future/, а в судимом дереве нет node_modules. Судимое дерево —
+# рабочая копия, если она чиста и стоит на отправляемой вершине, иначе ВРЕМЕННАЯ копия (git
+# worktree add в subject_tree_for_push), где node_modules нет по построению. Слот судит вход git
+# переходником pre-push: рабочая копия — ставит зависимости как ui.yml (шаг run.sh), временная —
+# отказ 64 до проверок хука. Формы — настоящие, из ствола клона kacho: ui.yml, package.json и
+# .gitignore консоли, ui-future/scripts/deps-ready.mjs (предикат самих проверок),
+# scripts/hooks/prepush-range.sh (производитель диапазона хука). npm — двойник (журнал вызовов),
+# node — настоящий. Хук — двойник: пишет, что судит и что видит в окружении.
+KROOT="${HEAVY_SLOT_PROBE_KACHO:-$(dirname "$(git -C "$HERE" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)")/project/kacho}"
+KFORMS=(.github/workflows/ui.yml ui-future/package.json ui-future/.gitignore ui-future/scripts/deps-ready.mjs scripts/hooks/prepush-range.sh)
+KOK=1
+for f in "${KFORMS[@]}"; do git -C "$KROOT" cat-file -e "origin/main:$f" 2>/dev/null || KOK=""; done
+if [ -z "$KOK" ] || ! command -v node >/dev/null; then
+    skip "ws#1190: клона kacho с формами консоли ($KROOT, origin/main: ${KFORMS[*]}) либо node нет — часть не построена"
+else
+KS="$W/kcons"; KB="$W/kcons.git"
+git init -q --bare -b main "$KB"; git init -q -b main "$KS"; git -C "$KS" remote add origin "$KB"
+for f in "${KFORMS[@]}"; do mkdir -p "$KS/$(dirname "$f")"; git -C "$KROOT" show "origin/main:$f" > "$KS/$f"; done
+# Пакеты консоли — по настоящим перечням: STANDALONE ui.yml и workspaces корневого package.json.
+KSTD="$(python3 -c 'import sys,yaml; print(" ".join(yaml.safe_load(open(sys.argv[1]))["env"]["STANDALONE"].split()))' "$KS/.github/workflows/ui.yml")"
+KMEM="$(python3 -c 'import sys,json; print(" ".join(json.load(open(sys.argv[1]))["workspaces"]))' "$KS/ui-future/package.json")"
+for p in $KSTD $KMEM; do mkdir -p "$KS/ui-future/$p"; echo '{}' > "$KS/ui-future/$p/package.json"; done
+echo base > "$KS/f.txt"; git -C "$KS" add -A; sandbox_git -C "$KS" commit -qm base; git -C "$KS" push -q origin main 2>/dev/null
+git -C "$KS" fetch -q origin
+git -C "$KS" checkout -q -b ui; echo 1 > "$KS/ui-future/host/a.ts"; git -C "$KS" add -A; sandbox_git -C "$KS" commit -qm ui
+git -C "$KS" checkout -q -b noui main; mkdir -p "$KS/ui-futurex"; echo 1 > "$KS/ui-futurex/a.ts"; echo 1 > "$KS/x.go"; git -C "$KS" add -A; sandbox_git -C "$KS" commit -qm noui
+git -C "$KS" checkout -q -b nodr ui; git -C "$KS" rm -q ui-future/scripts/deps-ready.mjs; sandbox_git -C "$KS" commit -qm nodr
+git -C "$KS" checkout -q ui
+KUI="$(git -C "$KS" rev-parse ui)"; KNO="$(git -C "$KS" rev-parse noui)"
+# Двойник npm: журнал «каталог|аргументы»; ci ставит непустой node_modules (в --prefix либо в cwd).
+KNB="$W/knpm"; mkdir -p "$KNB"
+cat > "$KNB/npm" <<'NPM'
+#!/usr/bin/env bash
+printf '%s|%s\n' "$(basename "$PWD")" "$*" >> "$KNPM_LOG"
+[ "${1:-}" = ci ] || exit 0
+d="$PWD"; [ "${2:-}" = --prefix ] && d="$PWD/$3"
+case "${FAKE_NPM_FAIL:-}" in root) [ "${2:-}" = --prefix ] || exit 1 ;; "") ;; *) [ "${3:-}" = "$FAKE_NPM_FAIL" ] && exit 1 ;; esac
+[ "${FAKE_NPM_DIRTY:-}" = 1 ] && echo x > "$PWD/stray-from-npm.txt"
+mkdir -p "$d/node_modules/.x"; touch "$d/node_modules/.x/ok"
+NPM
+chmod +x "$KNB/npm"
+# Двойник хука: что судит (корень, есть ли node_modules в корне консоли) и окружение git.
+# shellcheck disable=SC2016  # текст хука раскрывает он сам
+printf '%s\n' '#!/usr/bin/env bash' 'cat > /dev/null' \
+    'top="$(git rev-parse --show-toplevel)"; nm=нет; [ -n "$(ls -A "$top/ui-future/node_modules" 2>/dev/null)" ] && nm=да' \
+    'printf "ran nm=%s gcp=%s hs=%s\n" "$nm" "${GIT_CONFIG_PARAMETERS:-}" "$(env | grep -c "^HS_")" > "$KHOOK"' 'exit 0' > "$KS/.git/hooks/pre-push"
+chmod +x "$KS/.git/hooks/pre-push"
+KPATH="$KNB:$PATH"
+# kreset <ветка> <зависимости: все|нет|без-<пакет>> — копия на ветке, чистая, зависимости как велено.
+kreset() {
+    git -C "$KS" checkout -q -f "$1"; git -C "$KS" clean -qfdx
+    case "$2" in
+        все|без-*) mkdir -p "$KS/ui-future/node_modules/.x"; touch "$KS/ui-future/node_modules/.x/ok"
+            for p in $KSTD; do [ "$2" = "без-$p" ] && continue; mkdir -p "$KS/ui-future/$p/node_modules/.x"; touch "$KS/ui-future/$p/node_modules/.x/ok"; done ;;
+    esac
+    rm -f "$W/knpm.log" "$W/khook"
+}
+# kpush [ENV=…] -- <слова git push после «push»> — ci-local слотом из копии; код слота.
+kpush() {
+    local e=()
+    rm -f "$W/knpm.log" "$W/khook"
+    while [ "$1" != -- ]; do e+=("$1"); shift; done; shift
+    (cd "$KS" && slot PATH="$KPATH" KNPM_LOG="$W/knpm.log" KHOOK="$W/khook" "${e[@]+"${e[@]}"}" bash "${KSLOT:-$SLOT}" ci-local -- git push -q origin "$@")
+}
+knpm() { [ -s "$W/knpm.log" ] && tr '\n' ';' < "$W/knpm.log" || echo нет; }
+khook() { [ -s "$W/khook" ] && cut -d' ' -f1,2 "$W/khook" || echo нет; }
+KWANT="ui-future|ci;"; for p in $KSTD; do KWANT="${KWANT}ui-future|ci --prefix $p;"; done
+kdec() { grep ' console-deps ' "$JL" 2>/dev/null | tail -n 1 | sed -n 's/.* decision=\([^ ]*\).*/\1/p'; }
+
+kreset ui нет
+assert "0 $KWANT ran nm=да install" "$(kpush -- HEAD:refs/heads/k1) $(knpm) $(khook) $(kdec)" "правка консоли, копия чиста и на вершине, зависимостей нет → npm ci как ui.yml ДО хука (корень и каждый STANDALONE по порядку), хук видит node_modules"
+assert "да" "$(has "$W/err" 'хук судит рабочую копию')" "решение названо: хук судит рабочую копию, ставлю как ui.yml"
+kreset ui все
+assert "0 нет ran nm=да ready" "$(kpush -- HEAD:refs/heads/k2) $(knpm) $(khook) $(kdec)" "близнец: зависимости уже стоят у всех пакетов → повторной установки нет, хук идёт как прежде"
+kreset ui без-e2e
+assert "0 $KWANT ran" "$(kpush -- HEAD:refs/heads/k3) $(knpm) $(khook | cut -d' ' -f1)" "почти совпадение: не готов один STANDALONE (e2e) → ставится вся форма ui.yml"
+kreset noui нет
+assert "0 нет ran nm=нет untouched" "$(kpush -- HEAD:refs/heads/k4) $(knpm) $(khook) $(kdec)" "близнец: правка трогает ui-futurex/ и x.go, не ui-future/ → установки нет, хук идёт как прежде"
+echo s > "$KS/stray.txt"
+assert "0 ran untouched" "$(kpush -- HEAD:refs/heads/k4b) $(khook | cut -d' ' -f1) $(kdec)" "близнец: та же правка без консоли из ГРЯЗНОЙ копии → не отказ: временная копия хуку без консоли не мешает"
+
+# Временная копия: рабочая копия грязна либо не на отправляемой вершине — зависимости РАБОЧЕЙ копии хуку не помогут.
+kreset ui все; echo s > "$KS/stray.txt"
+assert "64 нет нет temp" "$(kpush -- HEAD:refs/heads/k5) $(knpm) $(khook) $(kdec)" "копия грязна неотслеживаемым файлом, зависимости в ней стоят → отказ 64 ДО хука, npm не звался"
+assert "да да да да" "$(has "$W/err" 'ВРЕМЕННУЮ копию') $(has "$W/err" 'грязна: путей 1') $(has "$W/err" 'stray.txt') $(has "$W/err" 'node_modules нет по построению')" "текст отказа: временная копия, причина «грязна» с числом и путём, почему зависимостей нет"
+kreset noui все
+assert "64 нет нет" "$(kpush -- "$KUI:refs/heads/k6") $(knpm) $(khook)" "отправка вершины ui из копии на noui (чистой, с зависимостями) → отказ 64 до хука"
+assert "да нет" "$(has "$W/err" "рабочая копия на ${KNO:0:8}, а отправляется ${KUI:0:8}") $(has "$W/err" 'грязна')" "текст отказа: причина «на другой ревизии» с обеими вершинами, «грязна» не названа"
+kreset ui все; echo l > "$KS/ui-future/dev-x.log"
+assert "0 нет ran nm=да" "$(kpush -- HEAD:refs/heads/k7) $(knpm) $(khook)" "почти совпадение: неотслеживаемый, но ИГНОРИРУЕМЫЙ файл (dev-x.log) копию грязной не делает → рабочая копия, хук идёт"
+kreset ui все
+assert "0 нет ran nm=да" "$(kpush -- "ui:refs/heads/k8") $(knpm) $(khook)" "почти совпадение: вершина названа по имени ветки, но это голова копии → рабочая копия, хук идёт"
+
+# Хук не доходит до проверок консоли — переходник ему не мешает (ход как прежде).
+kreset ui все; echo s > "$KS/stray.txt"
+assert "0 ran pass" "$(kpush -- HEAD:refs/heads/wip/k9) $(khook | cut -d' ' -f1) $(kdec)" "черновик (все ссылки wip/): грязная копия не отказ — хук проверок не гонит"
+assert "64 нет" "$(kpush -- HEAD:refs/heads/wip/k10 HEAD:refs/heads/k10) $(khook)" "близнец: смешанная (wip/ и обычная) — судится, отказ 64"
+assert "0 ran" "$(kpush KACHO_SKIP_PREPUSH=1 -- HEAD:refs/heads/k11) $(khook | cut -d' ' -f1)" "KACHO_SKIP_PREPUSH=1: хук проверок дерева не гонит — отказа нет"
+assert "0 ran" "$(kpush -- "$KUI:refs/heads/k12" "$KNO:refs/heads/k13") $(khook | cut -d' ' -f1)" "две разные вершины: хук откажет сам до проверок — переходник не судит"
+assert "64" "$(kpush -- HEAD:refs/heads/k14 "ui:refs/heads/k15")" "близнец: две ссылки на ОДНУ вершину — судится, отказ 64"
+git -C "$KS" push -q origin "$KUI:refs/heads/kdel" 2>/dev/null
+assert "0 ran" "$(kpush -- :refs/heads/kdel) $(khook | cut -d' ' -f1)" "одно удаление ссылки: вершины нет — переходник не судит"
+git -C "$KS" push -q origin "$KUI:refs/heads/kdel2" 2>/dev/null
+assert "64" "$(kpush -- :refs/heads/kdel2 HEAD:refs/heads/k16)" "близнец: удаление и вершина — судится, отказ 64"
+kom="$(git -C "$KS" rev-parse origin/main)"; git -C "$KS" update-ref -d refs/remotes/origin/main
+assert "0 ran pass" "$(kpush -- HEAD:refs/heads/k17) $(khook | cut -d' ' -f1) $(kdec)" "производитель диапазона отказал (нет точки интеграции) — хук откажет тем же, переходник не судит"
+git -C "$KS" update-ref refs/remotes/origin/main "$kom"
+
+# Отказы установки — до хука, кодом 69 («не выполнилось»), причина каждой — своим текстом.
+kreset ui нет
+assert "69 нет да" "$(kpush FAKE_NPM_FAIL=root -- HEAD:refs/heads/k18) $(khook) $(has "$W/err" 'npm ci в ui-future не исполнился')" "npm ci корня не исполнился → 69 до хука, причина названа"
+kreset ui нет
+assert "69 нет да" "$(kpush FAKE_NPM_DIRTY=1 -- HEAD:refs/heads/k19) $(khook) $(has "$W/err" 'после установки копия стала грязной')" "установка оставила неигнорируемый файл → 69 до хука: хук судил бы временную копию"
+kreset nodr нет
+assert "69 нет нет да" "$(kpush -- HEAD:refs/heads/k20) $(khook) $(knpm) $(has "$W/err" 'предиката готовности ui-future/scripts/deps-ready.mjs')" "предиката готовности в дереве нет → 69 до хука, npm не звался"
+kreset ui нет
+assert "69 нет да" "$(kpush PATH="$KNB:/usr/bin:/bin" -- HEAD:refs/heads/k21) $(khook) $(has "$W/err" 'node нет в PATH')" "node нет в PATH → 69 до хука, причина названа"
+
+# Граница переходника: его core.hooksPath в проверки хука не уходит; заданное вызывающим — уходит.
+kreset ui все
+kpush -- HEAD:refs/heads/k22 >/dev/null
+assert "0 0" "$(grep -c 'core.hooksPath' "$W/khook") $(sed -n 's/.* hs=\([0-9]*\).*/\1/p' "$W/khook")" "хук не видит ни core.hooksPath переходника, ни HS_* — фикстуры проверок не получают чужих хуков"
+kreset ui все
+(cd "$KS" && slot PATH="$KPATH" KNPM_LOG="$W/knpm.log" KHOOK="$W/khook" bash "$SLOT" ci-local -- git -c user.probe=1 push -q origin HEAD:refs/heads/k23) >/dev/null
+assert "1 ran" "$(grep -c "'user.probe'='1'" "$W/khook") $(khook | cut -d' ' -f1)" "близнец: -c вызывающего до хука доходит"
+
+# Где переходника нет: клон без консоли, класс не ci-local, --no-verify.
+KN="$W/knocons"; git init -q -b main "$KN"; git -C "$KN" remote add origin "$W/knocons.git"; git init -q --bare -b main "$W/knocons.git"
+echo a > "$KN/f"; git -C "$KN" add f; sandbox_git -C "$KN" commit -qm a; cp "$KS/.git/hooks/pre-push" "$KN/.git/hooks/pre-push"
+mkdir -p "$KN/ui-futurex"; echo 1 > "$KN/ui-futurex/a"; echo s > "$KN/stray.txt"; git -C "$KN" add ui-futurex; sandbox_git -C "$KN" commit -qm b
+rm -f "$W/khook"; jm="$(grep -c ' console-deps ' "$JL" 2>/dev/null)"
+(cd "$KN" && slot PATH="$KPATH" KHOOK="$W/khook" bash "$SLOT" ci-local -- git push -q origin HEAD:refs/heads/n1) >/dev/null
+assert "ran $jm" "$(khook | cut -d' ' -f1) $(grep -c ' console-deps ' "$JL" 2>/dev/null)" "клон без ui-future/ (есть ui-futurex/) — переходника нет, суждения нет, хук как прежде"
+kreset ui все; echo s > "$KS/stray.txt"
+assert "0 ran" "$(cd "$KS" && slot PATH="$KPATH" KHOOK="$W/khook" bash "$SLOT" docker -- git push -q origin HEAD:refs/heads/n2) $(khook | cut -d' ' -f1)" "класс не ci-local — переходника нет: грязная копия не отказ"
+rm -f "$W/khook"
+assert "0 нет" "$(cd "$KS" && slot PATH="$KPATH" KHOOK="$W/khook" bash "$SLOT" ci-local -- git push -q --no-verify origin HEAD:refs/heads/n3) $(khook)" "--no-verify — хука нет, переходника нет"
+
+# Мутанты: каждое условие снято по одному — проба выше обязана краснеть.
+KM="$W/kmut"; mkdir -p "$KM"; ln -s "$HERE/remote-heavy" "$KM/remote-heavy"
+kmut() { python3 - "$SLOT" "$KM/$1.sh" "$2" "$3" <<'PYM'
+import sys
+src, dst, old, new = sys.argv[1:5]
+t = open(src).read()
+if t.count(old) != 1:
+    sys.exit("мутант: образец найден %d раз" % t.count(old))
+open(dst, "w").write(t.replace(old, new))
+PYM
+}
+# shellcheck disable=SC2016  # образцы мутантов — текст слота, не раскрываются
+kmut range '    case "$ch" in *ui-future/*) ;; *)' '    case "ui-future/" in *ui-future/*) ;; *)'
+# shellcheck disable=SC2016
+kmut wc '    if [ "$tips" != "$head" ] || [ -n "$dirty" ]; then' '    if false; then'
+# shellcheck disable=SC2016
+kmut wire '[ "$CLASS" = ci-local ] && console_adapter' 'false && console_adapter'
+# shellcheck disable=SC2016
+kmut ready '        [ -z "$miss" ] || continue' '        continue'
+# shellcheck disable=SC2016
+kmut never '        node ui-future/scripts/deps-ready.mjs "${m%/package.json}" >/dev/null 2>&1 && continue' '        false && continue'
+for m in range wc wire ready never; do assert 1 "$(diff "$SLOT" "$KM/$m.sh" | grep -c '^<')" "мутант «$m» лёг ровно одной строкой"; done
+kreset noui нет; echo s > "$KS/stray.txt"
+assert "64 нет" "$(KSLOT="$KM/range.sh" kpush -- HEAD:refs/heads/m1) $(khook)" "мутант «проверка диапазона снята»: правка без консоли из грязной копии получает отказ — проба «близнец … из ГРЯЗНОЙ копии» его ловит"
+kreset ui все; echo s > "$KS/stray.txt"
+assert "0 ran" "$(KSLOT="$KM/wc.sh" kpush -- HEAD:refs/heads/m2) $(khook | cut -d' ' -f1)" "мутант «судит только рабочую копию»: грязная копия уходит в хук — проба «грязна → 64» его ловит"
+kreset ui нет
+assert "0 нет nm=нет" "$(KSLOT="$KM/wire.sh" kpush -- HEAD:refs/heads/m3) $(knpm) $(khook | cut -d' ' -f2)" "мутант «переходник не ставится»: хук судит копию без node_modules — проба установки его ловит"
+kreset ui нет
+assert "0 нет nm=нет" "$(KSLOT="$KM/ready.sh" kpush -- HEAD:refs/heads/m4) $(knpm) $(khook | cut -d' ' -f2)" "мутант «готовым признан всякий»: зависимостей нет, а установки нет — проба установки его ловит"
+kreset ui все
+assert "звался" "$(KSLOT="$KM/never.sh" kpush -- HEAD:refs/heads/m5 >/dev/null; [ "$(knpm)" = нет ] && echo нет || echo звался)" "мутант «готовность не судится»: стоящие зависимости ставятся заново — проба «уже стоят» его ловит"
+fi
+
 echo "[CENSUS] heavy-slot: утверждений $((pass + fail)), сошлось $pass, разошлось $fail; граница (не ловится, заявлено в шапке) $bound; не построено частей $void"
 [ "$fail" -eq 0 ] || exit 1
 [ "$void" -eq 0 ] || exit 2
