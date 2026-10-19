@@ -284,7 +284,9 @@
 # ui.yml не называет перечня, npm ci не исполнился, пакет не готов — строкой
 # «remote-heavy-prep: консоль: …», то есть 69 до команды, а не отказ хука через
 # двадцать минут. Кэш npm — /cache/npm, общий восьми установкам одного Job;
-# между Job его нет по той же причине, что у кэша модулей.
+# между Job его нет по той же причине, что у кэша модулей. Тот же шаг слот
+# исполняет локально (heavy-slot.sh, ЗАВИСИМОСТИ КОНСОЛИ ЛОКАЛЬНО, ws#1190) с
+# HEAVY_NPM_CACHE — кэшем машины; в Job переменной нет, кэш прежний.
 #
 # УЧЁТКА GIT (ws#1115). Стражи правила ветки и коммита хуков отправки (kaname
 # branch-rule.sh, corelib git-rule.sh) сверяют подпись коммитов с КОРНЕВОЙ
@@ -1707,7 +1709,7 @@ if not isinstance(w, str) or not w or not isinstance(s, str) or not s.split():
 print(w + "|" + " ".join(s.split()))' "$nr/.github/workflows/ui.yml" 2>&1)" || pf "консоль: ui.yml ревизии не разобран — ${nui##*$'\n'}"
       nwd="${nui%%|*}"; nst="${nui#*|}"
       case "$nwd" in /*|..|../*|*/..|*/../*) pf "консоль: working-directory ui.yml «$nwd» вне дерева";; esac
-      export npm_config_cache=/cache/npm
+      export npm_config_cache="${HEAVY_NPM_CACHE:-/cache/npm}"
       echo "remote-heavy: консоль — правка её трогает: ставлю зависимости как ui.yml — npm ci в $nwd и --prefix $nst" >&2
       nt0="$(date +%s)"
       ( cd "$nr/$nwd" && npm ci ) >&2 || pf "консоль: npm ci в $nwd не исполнился — зависимости не поставлены, проверки консоли не исполнить"
