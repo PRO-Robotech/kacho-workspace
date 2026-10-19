@@ -134,8 +134,9 @@ def canon(seg, aliases):
 
 def general(k, aliases):
     """Ключ слишком общий: одно слово (пробел и дефис делят слова; префикс «оркестровка:»
-    снят) и не итог строки синонима aliases.tsv (её завели решением свести)."""
-    inner = k[len(ORCH) + 1:] if k.startswith(ORCH + ':') else k
+    снят вместе с пробелом за двоеточием) и не итог строки синонима aliases.tsv (её завели
+    решением свести)."""
+    inner = (k[len(ORCH) + 1:] if k.startswith(ORCH + ':') else k).strip()
     return inner not in {c for _, c in aliases} and not re.search(r'[\s-]', inner)
 
 
