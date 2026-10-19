@@ -179,6 +179,11 @@ judge() {  # judge <скрипт> <каталог случая> → 0 сошло
         # Случай со своей правкой инструмента (строка ведомости снята) судит её, мутант — нет.
         [ ! -f "$c/tool" ] || [ "$1" != "$TOOL" ] || tool="$(cat "$c/tool")"
         local envs=(); [ ! -f "$c/envs" ] || mapfile -t envs < "$c/envs"
+        # Повтор случая (мутант) судит ТОТ ЖЕ вход: неотслеживаемое, которого не было при первом
+        # прогоне (__pycache__ мутанта pycache-written, след пробы механизма), снимается до прогона —
+        # иначе красное следующих случаев шло от грязной копии, а не от правки мутанта.
+        [ -f "$c/others0" ] || git -C "$c/co" ls-files --others > "$c/others0"
+        git -C "$c/co" ls-files --others | grep -vxFf "$c/others0" | (cd "$c/co" && xargs -r -d '\n' rm -f --)
         out="$(env "${envs[@]}" bash "$tool" expect --checkout "$c/co" --head "$(cat "$c/head")" "${eargs[@]}" 2>"$c/err")"; code=$?
         printf '%s\n' "$out" > "$c/out.$(basename "$1")"; sed 's/^/stderr: /' "$c/err" >> "$c/out.$(basename "$1")"
         [ "$code" = "$(cat "$c/code")" ] || return 1
@@ -359,7 +364,7 @@ done
 echo "stand-report-inject: случаев $NC, сошлось $pass, разошлось $fail"
 
 echo "== мутанты — каждый обязан покраснеть"
-killed=0; survived=0; void=0
+killed=0; survived=0; void=0; unstable=0
 while IFS=$'\t' read -r name expr; do
     [ -n "$name" ] || continue
     M="$WM/m-$name.sh"; sed -e "$expr" "$TOOL" > "$M"
@@ -367,7 +372,12 @@ while IFS=$'\t' read -r name expr; do
     # Мутант убит ПЕРВЫМ разошедшимся случаем: остальные случаи о нём уже ничего не добавят, а
     # каждый случай expect зовёт судью маршрута (ws#1192) — полный перебор стоил минуты на мутант.
     # Порядок заведения (дешёвые случаи check — первыми): мутант суда отчёта гибнет до случаев expect.
-    red=""; for i in $(seq 1 "$NC"); do c="$W/c$i"; judge "$M" "$c" || { red="$(cat "$c/name")"; break; }; done
+    # Красное засчитывается мутанту, лишь если тот же случай тут же зелен на настоящем инструменте:
+    # иначе красное — от состояния случая или среды, а не от правки (injection-drops-only-its-subject).
+    red=""; for i in $(seq 1 "$NC"); do c="$W/c$i"; judge "$M" "$c" && continue
+        if judge "$TOOL" "$c"; then red="$(cat "$c/name")"; break; fi
+        unstable=$((unstable + 1)); echo "  [VOID] случай «$(cat "$c/name")» красен и на настоящем инструменте — мутанту $name не засчитан" >&2
+    done
     if [ -n "$red" ]; then killed=$((killed + 1)); echo "  MUTANT $name → RESULT KILLED (случаем «$red»)"
     else survived=$((survived + 1)); echo "  MUTANT $name → RESULT SURVIVED"; fi
 done <<'MUT'
@@ -435,5 +445,5 @@ route-mech-dirty-ok	s/    if not clean():/    if False:/
 route-mech-env-inherited	s/        e = {'PATH': '\/usr\/local\/bin:\/usr\/bin:\/bin', 'HOME': tmp, 'XDG_CONFIG_HOME': tmp, 'LANG': 'C.UTF-8'}/        e = dict(os.environ)/
 expect-route-unjudged	s/        if not (isinstance(r, dict) and r.get('route') == 'external'):/        if False:/
 MUT
-echo "stand-report-inject: мутантов $((killed + survived + void)), убито $killed, выжило $survived, не легло $void"
-[ "$fail" -eq 0 ] && [ "$pass" -gt 0 ] && [ "$survived" -eq 0 ] && [ "$void" -eq 0 ] && [ "$killed" -gt 0 ]
+echo "stand-report-inject: мутантов $((killed + survived + void)), убито $killed, выжило $survived, не легло $void; нестабильных повторов случаев $unstable"
+[ "$fail" -eq 0 ] && [ "$pass" -gt 0 ] && [ "$survived" -eq 0 ] && [ "$void" -eq 0 ] && [ "$killed" -gt 0 ] && [ "$unstable" -eq 0 ]
