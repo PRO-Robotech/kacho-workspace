@@ -1,0 +1,65 @@
+schema_version: 1
+kind: check_verification
+role: check-verifier
+round: 1
+scope: перемер и инъекции — пробы TestCE01_*, TestCE02_*, TestPM10_* (X1, X1b, X2, X4, PM-10) допуска публичного чтения у типа вне канона
+subject:
+  repository: PRO-Robotech/kaname
+  task: PRO-Robotech/kaname#866
+  branch: "866"
+  base: 7642fc25e
+  head: ba1f0f681
+  digest_predicate: git -C tmp/kn-866-acc diff --full-index 7642fc25e...ba1f0f681 | sha256sum
+  digest: 24edfbf2df25934e2d4969e09b7eef6c2cd96a5142b03104eff508e734ad49a7
+mode: перемер на коммите + приёмка работы-проверки опытом
+isolation: >-
+  git worktree add --detach tmp/cv866-exp ba1f0f681 и tmp/cv866-old 7642fc25e; инъекции и временные пробы —
+  только через go test -overlay (файлы в scratchpad, дерево не правлено); перенесённая проба в cv866-old удалена,
+  status --porcelain 0; обе копии сняты git worktree remove, worktree list | grep -c cv866 = 0;
+  копия автора tmp/kn-866-acc не тронута (HEAD ba1f0f681, ветка 866, status — только прежняя незакоммиченная запись разбора аналитика)
+runner: GOWORK=off go test -count=1 -v (без -race), пакеты internal/modelcompose, internal/authzmodel
+census_probe: >-
+  временная проба приёмщика TestCV866Census — входы проб автора дословно (X1, X1b, X1-близнец, X2, X2-близнец,
+  X4, X4-близнец, PM-01, PM-10 в трёх написаниях и близнец), 12 входов, исход против ожидания автора поштучно;
+  допуск зовётся шимом: на голове Admit(composed, KeyTerms...), на базе Admit(composed), на прототипе — с ProtoDeclaredContainers
+experiments:
+  control_head:
+    command: go test ./internal/modelcompose/ -run 'TestPM0|TestPM10|TestCE0' -v @ba1f0f681
+    result: зелёная, rc 0, 9 тестов PASS / 0 FAIL; перепись TestCV866Census — входов 12, красных 0
+  base_author_probes_transferred:
+    command: та же @7642fc25e, проба автора перенесена с шимом API (Admit без перечня; удалены 3 утверждения о Report.KeyTerms, поля на базе нет)
+    result: >-
+      rc 1; FAIL — TestPM01, TestPM07, TestPM08, TestPM10 (3/3 подтеста), TestCE01; PASS — TestPM02, TestPM05, TestCE02_ForeignChild.
+      Поимённо (TestCV866Census): X1 — 3 находки вместо 1, X1b — 3, X2 — 3 (все на probemod_box, не на item), X4 — 1 = ждали (ЗЕЛЁНОЕ),
+      X4-близнец — 0 (ЗЕЛЁНОЕ), PM-10 — 4 находки вместо 1 в каждом написании. Красное X1/X1b/X2/PM-10 на базе — та же причина, что PM-01:
+      база отвергает все следствия ключа; дискриминацию CE-01 это не показывает
+  prototype_analyst:
+    command: PROTO_MODE=A go test -overlay (admit.go прототипа из scratchpad kn866/ov) @7642fc25e, TestCV866Census
+    result: X1, X1b, X2, X4 — 0 находок (КРАСНОЕ против ожидания автора); близнецы и PM-01 — 0 (ЗЕЛЁНОЕ); PM-10 — 1 (ЗЕЛЁНОЕ). Замер аналитика воспроизведён
+  inj_I1_name_rule:
+    change: lawfulKeyTerms — законность по ИМЕНИ отношения (v_get/v_list с голой записью класса у контейнера; TTU public_reader в v_get/v_list у нового типа), +22 строки
+    result: >-
+      TestCE01 FAIL — «находок 0, ждали 1: получено [] ждали [{Д3 probemod_box v_get system_class}]» (public_read_module_type_test.go:295);
+      перепись: X1, X1b, X2 — 0 (КРАСНОЕ), X4 — 1 (ЗЕЛЁНОЕ), близнецы — 0
+  inj_I2_container_from_text:
+    change: цикл pending — контейнер = любой тип, объявляющий public_reader (включая канон), вместо «новый тип с public_reader в перечне», 1 строка
+    result: >-
+      TestAdmitEdgeIsCutOnlyTowardADeclaredNewContainer FAIL — «указатель в КАНОНИЧЕСКИЙ контейнер законным термом не становится:
+      ждали одну находку на acme_thing.v_get, получено []» (admit_key_terms_test.go:196); пробы modelcompose (вкл. X4) — зелёные
+  inj_I1_plus_I2_prototype_shape:
+    result: >-
+      TestCE01 FAIL, TestCE02_ForeignChildOfACanonContainerIsNotLawful FAIL — «находок 0, ждали 1: ждали [{Д3 othermod_thing v_get system_class}]»
+      (public_read_module_type_test.go:327), TestAdmitEdgeIsCut FAIL; перепись X1, X1b, X2, X4 — 0 (КРАСНОЕ), близнецы — 0
+  lawful_twin_PM01:
+    result: голова — 0 находок (ЗЕЛЁНОЕ) во всех режимах I1, I2, I1+I2; на базе 3 находки
+  empty_key_list_strict:
+    command: TestCV866Census @ba1f0f681 с Admit(composed) без перечня
+    result: PM-01 — 5 находок, X1/X2/PM-10 — 4–5; пустой перечень строгий, зелёного не даёт
+x4_explanation: >-
+  X4 на базе зелёный честно: база не исключает ничего, находка на othermod_thing.v_get есть. Красным X4 становится только
+  на ДВУХ фактах сразу — законность по имени (иначе авторское v_get не даёт терма) И контейнер из канона (иначе указатель
+  в registry_registry не законен); прототип нёс оба (ProtoDeclaredContainers = {registry_registry} из пробы). Поодиночке
+  каждый факт ловят другие пробы: I1 — TestCE01, I2 — TestAdmitEdgeIsCutOnlyTowardADeclaredNewContainer. X4 — держатель
+  регрессии на сочетание, а не TDD-красный; утверждение «канонический тип не в перечне термов» в той же пробе держит CE-02 по производителю
+masks: не найдено; осмотрены проба автора в modelcompose целиком (pmEdit — ровно одна замена, иначе Fatal; pmChain — Fatal на отказе загрузки и композиции; pmRequireFindings — множество точно)
+verdict: принято

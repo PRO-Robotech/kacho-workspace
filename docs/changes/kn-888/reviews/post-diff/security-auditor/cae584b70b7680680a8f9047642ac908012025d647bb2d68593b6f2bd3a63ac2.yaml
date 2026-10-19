@@ -1,0 +1,63 @@
+# Пост-дифф ревью — роль security-auditor, режим опровержения. Имя файла — content_digest.
+schema_version: 1
+change_id: kn-888
+holder: post-diff/security-auditor
+owner: security-auditor
+mode: refutation
+subject: >-
+  kaname#888 — чтения выдач по субъекту спрашивают каждого субъекта выдачи
+  (пара строки и набор субъектов), а не только первого
+hypothesis: >-
+  изменение расширяет видимость выдач/привилегий субъекту сверх положенного
+  либо скрывает отзыв
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: '888'
+  worktree: tmp/kn-888
+  base: origin/746
+  head: d343b87939bfd7646daf3c75e22a14c3e988fab6
+  delta_judged: origin/746...d343b8793 (7 коммитов, 3 файла, +738/-350)
+content_digest: sha256:cae584b70b7680680a8f9047642ac908012025d647bb2d68593b6f2bd3a63ac2
+digest_command: git diff --full-index origin/746...HEAD | sha256sum
+verdict: accepted
+hypothesis_outcome: refuted
+blocks_landing: false
+timestamp: '2026-10-18'
+inspected:
+  - internal/repo/kaname/pg/access_binding_repo.go (List, ListBySubject, ListByAccount, ListSubjectPrivileges, listWhere, DeleteSubject)
+  - internal/repo/kaname/pg/user_repo.go (ListAccountsForUser)
+  - internal/apps/kaname/api/access_binding/list_by_subject.go, list_subject_privileges.go, subject_read_authority.go (допуск и сужение страницы)
+  - internal/apps/kaname/api/authorize/whoami.go (единственный потребитель ListAccountsForUser)
+  - internal/migrations/0001_initial.sql (FK области набора, триггер области)
+reasons:
+  - >-
+    допуск чтений не тронут: диф не касается internal/apps; полосы и сужение
+    страницы (распорядитель аккаунта, системный класс) исполняются над
+    результатом репозитория как прежде
+  - >-
+    новые строки — выдачи, где субъект стоит не первым; модель прав уже
+    исполняет права каждого субъекта набора, поэтому ответ приведён к модели,
+    а не шире неё; со-субъекты выдачи и прежде были видны её первому субъекту
+  - >-
+    фильтры субъекта и вида в List/ListByAccount стоят конъюнктом к области и
+    к пообъектной видимости — результат может только сузиться; подзапрос
+    набора сужен областью через FK (binding_id, resource_type, resource_id)
+    с ON UPDATE CASCADE, расхождения области набора и выдачи нет
+  - >-
+    отзыв не скрыт: предикаты статуса стоят на внешней строке выдачи для всех
+    ветвей (List, ListByAccount, ListSubjectPrivileges — не REVOKED;
+    ListAccountsForUser — только ACTIVE; ListBySubject статус не фильтровал и
+    до правки, whoami отбрасывает неактивные); прежняя ветвь пары сохранена,
+    множество строк — надмножество прежнего
+  - >-
+    условия собираются из литералов кода и номеров параметров; значения
+    запроса идут только параметрами
+non_blocking:
+  - >-
+    в пробах нет отрицательного близнеца: отозванная выдача, где субъект стоит
+    не первым, не появляется в ListAccountsForUser/ListSubjectPrivileges —
+    свойство держится конструкцией запроса, проба закрепила бы его
+  - >-
+    тело коммита d2d32d469 называет форму чтения по одной оси, заменённую
+    последующими коммитами; на безопасность не влияет
+disclosure: публичный текст коммитов и комментариев механики эксплуатации не несёт
