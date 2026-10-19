@@ -20,7 +20,8 @@
 #                 итог workflow ↔ lessons.md той же волны и полосы — один, повтор одного агента
 #                 (два блока одной строкой) — один, пересказчик (задание называет журнал
 #                 автора) при том же тексте у автора — не случай;
-#   ключ, идемпотентность, порог 2, статусы — как прежде;
+#   ключ, идемпотентность, порог 2, статусы — как прежде; `status <ключ>` судит один класс
+#                 (ws#1250): с исходом — 0 при чужом остатке, открытый — 1, нет класса — 2;
 #   rekey       — `rekey ?<id> <ключ>`: урок без ключа в тексте уходит из UNKEYED в класс ключа
 #                 (ws#1230); ключ события проходит ту же `canon` (синонимы — пересчётом: строка
 #                 aliases.tsv, дописанная ПОСЛЕ события, сводит и его); из двух событий одному
@@ -208,6 +209,15 @@ for l in open(sys.argv[1]):
     L "$D/w" mark код-77 mechanism ws#1 > /dev/null
     out="$(L "$D/w" status)"
     hasnt 'NEED-MECHANISM код-77' "после mechanism класс механизма не просит"
+    # status <ключ> (ws#1250): судит один класс; чужой остаток (имя-ветки просит механизм) не красит.
+    out="$(L "$D/w" status код-77)"; rc=$?
+    chk "0 да" "$rc $(grep -qF 'закрыт исходом' <<< "$out" && echo да || echo нет)" "status <ключ>: класс с исходом mechanism — код 0 при чужом остатке"
+    out="$(L "$D/w" status имя-ветки)"; rc=$?
+    chk "1 да нет" "$rc $(grep -qF 'NEED-MECHANISM имя-ветки' <<< "$out" && echo да || echo нет) $(grep -qF 'одинаковый-урок' <<< "$out" && echo да || echo нет)" "status <ключ> близнец: открытый класс с повтором — код 1, перечень только его"
+    out="$(L "$D/w" status head-moved)"; rc=$?
+    chk "1 да" "$rc $(grep -qF 'OPEN head-moved' <<< "$out" && echo да || echo нет)" "status <ключ>: открытый класс без перечня (один случай, свежий) — код 1 «исхода нет»"
+    out="$(L "$D/w" status нет-такого-класса)"; rc=$?
+    chk "2" "$rc" "status <ключ>: класса нет — код 2, не «закрыт»"
     L "$D/w" mark код-77 landed ws#2 > /dev/null
     late_case "$D/w"
     L "$D/w" scan > /dev/null
@@ -451,6 +461,9 @@ mutant hook-void-unthrottled hook '        exit 0
     mkdir -p'
 mutant hook-stop-active-ignored hook "*'\"stop_hook_active\":true'* | *'\"stop_hook_active\": true'*) exit 0 ;;" "*'\"stop_hook_active\":never'*) exit 0 ;;"
 }
+# status <ключ> (ws#1250): ключ не читается — чужой остаток красит; класс без исхода — «закрыт»
+mutant status-key-ignored py "    if cmd == 'status' and rest:" "    if False:"
+mutant status-key-open-closed py "        if st == 'open' and not why:" "        if False:"
 # (6) хук конца хода: перечень не чаще раза в сутки — и не реже
 mutant signal-unthrottled py "    if last.get('sig') == sig and now - float(last.get('ts') or 0) < DAY:" "    if False:"
 mutant signal-throttle-forever py "now - float(last.get('ts') or 0) < DAY:" "now - float(last.get('ts') or 0) < 1e12:"

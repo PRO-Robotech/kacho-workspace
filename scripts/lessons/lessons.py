@@ -44,7 +44,8 @@ landed (PR) → verified (путь инъекции, которая красне
 landed|verified — «механизм не держит»; open старше суток — «старше суток».
 
 Коды: scan — 0 прочитано, 2 читать нечего (журналов нет: это не «уроков 0»);
-status — 0 делать нечего, 1 есть что делать (перечень), 2 читать нечего;
+status — 0 делать нечего, 1 есть что делать (перечень), 2 читать нечего; `status <ключ>` судит один
+класс: 0 — закрыт исходом, 1 — есть что делать, 2 — класса нет (ws#1250);
 signal — 0 молчать, 1 печатать (строка сигнала на stdout); mark, rekey — 0 записано, 1 отказ;
 3 — сбой сборщика (неразобранный синоним, исключение): хук печатает «НЕ СОБРАНЫ».
 """
@@ -630,6 +631,27 @@ def main():
     for k, rs in unkeyed:
         body.append('UNKEYED %s — урок без ключа в тексте (без места; ключ — rekey %s <ключ>): %s/%s: %s' % (k, k, rs[0]['sid'][:8], rs[0]['agent'], rs[0]['raw'][:140]))
     todo = bool(need or fails or stale or unkeyed)
+    if cmd == 'status' and rest:
+        # `status <ключ>` судит ОДИН класс (ws#1250): код 0 — закрыт исходом (не open и ни в одном
+        # перечне), 1 — ещё есть что делать, 2 — класса в ведомости нет. Чужой остаток не красит.
+        if len(rest) != 1:
+            print('lessons: ОТКАЗ — status [<ключ>]: один ключ', file=sys.stderr)
+            sys.exit(1)
+        keys = {class_of(r, aliases, store.rekeys) for r in store.lessons}
+        k = rest[0] if rest[0] in keys else canon(rest[0], aliases)
+        if k not in keys:
+            print('lessons: класса «%s» в ведомости нет — судить нечего' % rest[0])
+            return 2
+        st, ref, _ = current(store, k)
+        why = [b for b in body if b.split(' — ')[0].split(' ', 1)[-1] == k]
+        if st == 'open' and not why:
+            why = ['OPEN %s — исхода нет (mark <ключ> <статус> <ссылка>)' % k]
+        print('lessons: класс «%s» — %s%s; случаев %d' % (k, st, ' ' + ref if ref else '', len(by.get(k) or [])))
+        if why:
+            print('\n'.join(why))
+            return 1
+        print('lessons: закрыт исходом')
+        return 0
     if cmd == 'status':
         print('[CENSUS] lessons: уроков %d, классов %d' % (len(store.lessons), len([k for k in by if not k.startswith('?')])))
         if todo:
