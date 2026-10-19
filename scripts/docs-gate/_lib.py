@@ -360,10 +360,13 @@ def trunk_show(repo, ref, rel):
 # отвергнут замером дерева, а не вкусом: рядом с воркспейсом лежат десятки
 # припаркованных рабочих копий одного и того же репозитория, и вердикт стал бы
 # функцией того, какая из них попалась первой, — тот же класс, из-за которого весь
-# набор судит СТВОЛ, а не индекс копии. Кандидатов три: переменная
+# набор судит СТВОЛ, а не индекс копии. Кандидатов четыре: переменная
 # `KACHO_HOME_<ИМЯ>` · уже резолвнутое дерево продукта, если его идентичность
 # совпала с названной · `project/<имя>` от корня воркспейса — место, куда клонирует
-# `bootstrap.sh` и куда выкладывает дерево конвейер.
+# `bootstrap.sh` и куда выкладывает дерево конвейер · `project/<имя>` КАНОНИЧЕСКОЙ
+# копии воркспейса, если корень — копия полосы либо копия хука отправки под её `tmp/`
+# (правило подъёма — `scripts/lib/product_clone.canonical`, п. 4; ws#1250: отправка
+# без слота из такой копии уходила в VOID «копия kaname рядом не найдена»).
 #
 # ДОМ НЕ РЕЗОЛВИТСЯ — ЭТО ТРЕТЬЯ КАТЕГОРИЯ У ЧИТАТЕЛЯ, а не находка и не проход:
 # «копии рядом нет» есть несозданное условие, «координаты в доме нет» — дефект
@@ -422,6 +425,13 @@ def home_tree(root, identity, product=None):
     if product:
         candidates.append((product, "дерево продукта"))
     candidates.append((os.path.join(root, "project", name), "project/%s" % name))
+    import sys
+    sys.path.insert(0, os.path.join(_HERE, "..", "lib"))
+    import product_clone
+    ws = product_clone.canonical(root)
+    if ws and os.path.realpath(ws) != os.path.realpath(root):
+        candidates.append((os.path.join(ws, "project", name),
+                           "project/%s канонической копии" % name))
 
     tried = []
     for path, whence in candidates:
