@@ -21,6 +21,9 @@
 #                 (два блока одной строкой) — один, пересказчик (задание называет журнал
 #                 автора) при том же тексте у автора — не случай;
 #   ключ, идемпотентность, порог 2, статусы — как прежде;
+#   rekey       — `rekey ?<id> <ключ>`: урок без «·» уходит из UNKEYED в класс ключа (ws#1230);
+#                 близнецы: rekey уроку с «·» — отказ, событие ведомости на него ключ из текста
+#                 не меняет; нет урока с таким id — отказ;
 #   бюджет      — при --budget 0 сбор читает кусок за вызов и откладывает остальное, догоном
 #                 доходит до того же числа уроков;
 #   B4 хук      — неверный регэксп синонима: сборщик код 3 с координатой, хук «НЕ СОБРАНЫ»;
@@ -228,6 +231,34 @@ suite() {
     out="$(LESSONS_CHUNK=65536 L "$D/b" scan --budget 5)"
     has 'в ведомости 21' "догон: те же 21 урок"
 
+    # rekey (ws#1230): урок без «·» получает ключ событием ведомости; урок с «·» — нет.
+    mkfix "$D/r" work
+    L "$D/r" scan > /dev/null
+    local uid kid
+    uid="$(python3 -c 'import json,sys
+for l in open(sys.argv[1]):
+    r = json.loads(l)
+    if r.get("raw") == sys.argv[2]: print(r["id"])' "$D/r/led/lessons.jsonl" 'без места вообще')"
+    kid="$(python3 -c 'import json,sys
+for l in open(sys.argv[1]):
+    r = json.loads(l)
+    if r.get("raw") == sys.argv[2]: print(r["id"])' "$D/r/led/lessons.jsonl" 'второй-блок · берётся')"
+    out="$(L "$D/r" rekey "?${uid:0:8}" ключ-пробы)"; rc=$?
+    chk 0 "$rc" "rekey: урок без «·» — код 0"
+    out="$(L "$D/r" report)"
+    has '  1  open                      ключ-пробы' "rekey: урок без «·» считается в классе ключа"
+    has 'без ключа 0' "rekey: урок ушёл из UNKEYED"
+    out="$(L "$D/r" mark ключ-пробы edited ws#1)"; rc=$?
+    chk 0 "$rc" "rekey: класс ключа виден mark"
+    out="$(L "$D/r" rekey "?${kid:0:8}" чужой-ключ)"; rc=$?
+    chk 1 "$rc" "rekey близнец: урок с «·» — отказ"
+    out="$(L "$D/r" rekey '?ffffffff' ключ-пробы)"; rc=$?
+    chk 1 "$rc" "rekey: нет урока с таким id — отказ"
+    printf '{"t": "rekey", "id": "%s", "key": "чужой-ключ", "ts": 0}\n' "$kid" >> "$D/r/led/lessons.jsonl"
+    out="$(L "$D/r" report)"
+    has '  1  open                      второй-блок' "rekey близнец: событие на урок с «·» ключ из текста не меняет"
+    hasnt 'чужой-ключ' "rekey близнец: ключ события к уроку с «·» не применён"
+
     # B4: сбой сборщика отличим от «делать нечего».
     mkfix "$D/a" work
     printf '(\tсломан\n' > "$D/a/aliases.tsv"
@@ -333,6 +364,12 @@ mutant b2-tail-first py 'isinstance(st, int) and 0 <= st <= size else 0' 'isinst
 mutant b3-text-dedup py "            rh = r['id']" "            rh = (k, sha(re.sub(r'\\s+', ' ', r.get('raw', '')).strip()))"
 mutant b3-relay-counted py " or (r.get('relay') and flat(r) in authored):" ":"
 mutant b3-pair-off py "        if r.get('wave') and r.get('lane'):" "        if False:"
+# rekey (ws#1230) — событие не учтено; событие перекрывает ключ из текста; отказ близнецу снят
+mutant rekey-ignored py '        if k is None and rekeys:' '        if False:'
+mutant rekey-overrides-text py '        if k is None and rekeys:
+            k = rekeys.get(r['"'"'id'"'"'])' '        if rekeys and r['"'"'id'"'"'] in rekeys:
+            k = rekeys[r['"'"'id'"'"']]'
+mutant rekey-keyed-accepted py "        if r.get('src') == 'wave-errors' or key_of(r.get('raw', ''), aliases) is not None:" "        if False:"
 # B4 — бюджет, догон, исключения сборщика, ветви хука
 mutant b4-budget-1e9 py "deadline = time.time() + float(opts['--budget'])" "deadline = time.time() + 1e9"
 mutant b4-no-progress py "if census['progress'] and time.time() > deadline:" "if time.time() > deadline:"

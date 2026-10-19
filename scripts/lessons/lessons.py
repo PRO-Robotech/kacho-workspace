@@ -21,7 +21,9 @@
 Первый осмотр файла — ВЕСЬ файл (не хвост: дозапущенный агент пишет ВОЗВРАТ и в начале), но
 разбираются лишь строки с байтами признака; бюджет — догоном: смещение сохраняется, хотя бы
 один кусок читается за вызов. Урок «—» — не урок. Урок без «·» — БЕЗ КЛЮЧА («урок без места — не урок»): в счёт классов
-не идёт, печатается отдельно и держит сигнал, пока его не снимут `mark ?<id> rejected`.
+не идёт, печатается отдельно и держит сигнал, пока ему не дадут ключ `rekey ?<id> <ключ>`
+(событие {t:rekey,id,key,ts}; урок с «·» его не берёт — ключ из текста) либо не снимут
+`mark ?<id> rejected`.
 Ключ класса — первый сегмент до «·», нормализованный (регистр, кавычки, «ё», пробелы), затем
 таблица синонимов `aliases.tsv` (регулярное выражение → ключ; первое совпадение).
 
@@ -40,7 +42,7 @@ landed|verified — «механизм не держит»; open старше с
 
 Коды: scan — 0 прочитано, 2 читать нечего (журналов нет: это не «уроков 0»);
 status — 0 делать нечего, 1 есть что делать (перечень), 2 читать нечего;
-signal — 0 молчать, 1 печатать (строка сигнала на stdout); mark — 0 записано, 1 отказ;
+signal — 0 молчать, 1 печатать (строка сигнала на stdout); mark, rekey — 0 записано, 1 отказ;
 3 — сбой сборщика (неразобранный синоним, исключение): хук печатает «НЕ СОБРАНЫ».
 """
 import calendar
@@ -202,7 +204,7 @@ class Store:
         self.dir = d
         self.ledger = os.path.join(d, 'lessons.jsonl')
         self.statef = os.path.join(d, 'lessons-scan.json')
-        self.lessons, self.status, self.ids = [], {}, set()
+        self.lessons, self.status, self.ids, self.rekeys = [], {}, set(), {}
         if os.path.isfile(self.ledger):
             for raw in open(self.ledger, encoding='utf-8'):
                 try:
@@ -218,6 +220,8 @@ class Store:
                     self.lessons.append(r)
                 elif r.get('t') == 'status' and r.get('key'):
                     self.status.setdefault(r['key'], []).append(r)
+                elif r.get('t') == 'rekey' and r.get('id') and r.get('key'):
+                    self.rekeys[r['id']] = r['key']  # последнее событие выигрывает
         try:
             self.state = json.load(open(self.statef, encoding='utf-8'))
             if not isinstance(self.state, dict):
@@ -253,6 +257,12 @@ class Store:
         with open(tmp, 'w', encoding='utf-8') as f:
             json.dump(self.state, f, ensure_ascii=False)
         os.replace(tmp, self.statef)
+
+    def rekey(self, lid, key, now):
+        os.makedirs(self.dir, exist_ok=True)
+        with open(self.ledger, 'a', encoding='utf-8') as f:
+            f.write(json.dumps({'t': 'rekey', 'id': lid, 'key': key, 'ts': now}, ensure_ascii=False) + '\n')
+        self.rekeys[lid] = key
 
     def mark(self, key, st, ref, now):
         os.makedirs(self.dir, exist_ok=True)
@@ -425,13 +435,16 @@ def held_since(store, key):
     return t
 
 
-def class_of(r, aliases):
+def class_of(r, aliases, rekeys=None):
     """Ключ случая — ПЕРЕСЧЁТОМ из строки по текущей таблице синонимов: новая строка
-    `aliases.tsv` сводит и прежние случаи. Ключ счётчика волны — как записан."""
+    `aliases.tsv` сводит и прежние случаи. Ключ счётчика волны — как записан. Урок без
+    ключа в тексте берёт ключ события `rekey`; ключ из текста событие не перекрывает."""
     if r.get('src') == 'wave-errors':
         k = r.get('key')
     else:
         k = key_of(r.get('raw', ''), aliases)
+        if k is None and rekeys:
+            k = rekeys.get(r['id'])
         if k is not None and r.get('src') == 'dispatcher' and not (k == ORCH or k.startswith(ORCH + ':')):
             k = ORCH + ':' + k
     return k if k else '?' + r['id'][:8]
@@ -446,7 +459,7 @@ def analyse(store, now, aliases, since=0.0):
     for r in store.lessons:
         if (r.get('ts') or 0) < since or (r.get('relay') and flat(r) in authored):
             continue
-        k = class_of(r, aliases)
+        k = class_of(r, aliases, store.rekeys)
         if r.get('wave') and r.get('lane'):
             rh = (r['wave'], r['lane'], sha(flat(r)))
         else:
@@ -490,7 +503,7 @@ def main():
     signal.signal(signal.SIGPIPE, signal.SIG_DFL)
     a = sys.argv[1:]
     if not a:
-        die('нет команды: scan | status | signal | mark <ключ> <статус> <ссылка> | report', 1)
+        die('нет команды: scan | status | signal | mark <ключ> <статус> <ссылка> | rekey ?<id> <ключ> | report', 1)
     cmd, a = a[0], a[1:]
     opts = {'--projects-dir': os.environ.get('LESSONS_PROJECTS_DIR', ''),
             '--waves-dir': os.environ.get('LESSONS_WAVES_DIR', ''),
@@ -509,6 +522,28 @@ def main():
         die('каталог ведомости не задан (LESSONS_DIR)')
     store = Store(opts['--dir'])
     aliases = load_aliases(opts['--aliases'])
+
+    if cmd == 'rekey':
+        # Ключ уроку без «·»: событие ведомости, а не правка записи (ведомость только дописывается).
+        if len(rest) != 2 or not re.fullmatch(r'\?[0-9a-f]{4,40}', rest[0]):
+            print('lessons: ОТКАЗ — rekey ?<id> <ключ>', file=sys.stderr)
+            sys.exit(1)
+        pre, key = rest[0][1:], norm(rest[1])
+        if not key or key.startswith('?') or '·' in key:
+            print('lessons: ОТКАЗ — ключ пуст, начат «?» либо несёт «·»', file=sys.stderr)
+            sys.exit(1)
+        hit = [r for r in store.lessons if r['id'].startswith(pre)]
+        if len(hit) != 1:
+            print('lessons: ОТКАЗ — уроков с id %s…: %d, нужен ровно один' % (pre, len(hit)), file=sys.stderr)
+            sys.exit(1)
+        r = hit[0]
+        if r.get('src') == 'wave-errors' or key_of(r.get('raw', ''), aliases) is not None:
+            print('lessons: ОТКАЗ — у урока %s ключ из текста «%s»; rekey — только уроку без «·»'
+                  % (rest[0], class_of(r, aliases)), file=sys.stderr)
+            sys.exit(1)
+        store.rekey(r['id'], key, now)
+        print('lessons: %s → %s' % (rest[0], class_of(r, aliases, store.rekeys)))
+        return 0
 
     if cmd == 'mark':
         if len(rest) != 3 or rest[1] not in STATUSES:
@@ -530,7 +565,7 @@ def main():
             keys = sorted(x for x in analyse(store, now, aliases, since)[0] if current(store, x)[0] == 'open')
         else:
             keys = [k]
-            if k not in {class_of(r, aliases) for r in store.lessons}:
+            if k not in {class_of(r, aliases, store.rekeys) for r in store.lessons}:
                 print('lessons: ОТКАЗ — класса «%s» в ведомости нет' % k, file=sys.stderr)
                 sys.exit(1)
         for x in keys:
@@ -580,7 +615,7 @@ def main():
     for k, rs in stale:
         body.append('STALE %s — открыт дольше суток: %s' % (k, rs[0]['raw'][:140]))
     for k, rs in unkeyed:
-        body.append('UNKEYED %s — урок без «·» (без места): %s/%s: %s' % (k, rs[0]['sid'][:8], rs[0]['agent'], rs[0]['raw'][:140]))
+        body.append('UNKEYED %s — урок без «·» (без места; ключ — rekey %s <ключ>): %s/%s: %s' % (k, k, rs[0]['sid'][:8], rs[0]['agent'], rs[0]['raw'][:140]))
     todo = bool(need or fails or stale or unkeyed)
     if cmd == 'status':
         print('[CENSUS] lessons: уроков %d, классов %d' % (len(store.lessons), len([k for k in by if not k.startswith('?')])))

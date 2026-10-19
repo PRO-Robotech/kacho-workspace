@@ -11,6 +11,7 @@
 #   collect.sh signal [--budget С]          scan + строка сигнала, только новое (хук)
 #   collect.sh report                        классы, случаи, статусы, доля «не держит»
 #   collect.sh mark <ключ> <статус> <ссылка> open|edited|mechanism|landed|verified|rejected
+#   collect.sh rekey ?<id> <ключ>            ключ уроку без «·» (событие ведомости; ws#1230)
 #
 # Где (переопределяется окружением — швы пробы `inject.sh`):
 #   LESSONS_DIR          ведомость `lessons.jsonl` и кэш разбора — `<WS>/tmp/reports`;
