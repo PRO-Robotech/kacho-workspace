@@ -88,7 +88,7 @@ probe() {
     # ws#1189): без них хук отказывает
     # всякой отправке, и проба судила бы отказ стража, а не свой предмет.
     cp "$WS/scripts/hooks/attribution-rule.sh" "$WS/scripts/hooks/prepush-attribution.sh" \
-        "$WS/scripts/hooks/prepush-added-files.sh" \
+        "$WS/scripts/hooks/prepush-added-files.sh" "$WS/scripts/hooks/branch-name-rule.sh" \
         "$dir/scripts/hooks/" 2>/dev/null
     for rc in "$@"; do
         mkdir -p "$dir/scripts/stub-$i"

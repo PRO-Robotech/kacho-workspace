@@ -354,6 +354,55 @@ assert "2 да" "$(runp) $(has 'VOID PREMISE-FORM task o/r')" "без #<N> — �
 prem '# только комментарий'
 assert "2" "$(runp)" "ноль предусловий — не «все верны» → код 2"
 
+# ── ws#1226: имя ветки и первая строка — правилом репозитория; форма отправки ──
+# Клоны с origin продукта (сети нет: адрес лишь читается). Предикат kaname — форма
+# branch_rule_is_number из scripts/hooks/branch-rule.sh kaname (@bbbe33524), дословно.
+mkcl() { git init -q -b "${3:-main}" "$1"; git -C "$1" remote add origin "https://github.com/PRO-Robotech/$2.git"; }
+mkcl "$W/kn" kaname 3180; mkdir -p "$W/kn/scripts/hooks"
+printf '%s\n' 'branch_rule_is_number() { [[ "$1" =~ ^[0-9]+$ ]]; }' > "$W/kn/scripts/hooks/branch-rule.sh"
+mkcl "$W/wsc" kacho-workspace 1228-x; mkcl "$W/oth" other
+printf '%s' '[{"number":1201,"merged_at":"2026-10-18T00:00:00Z"}]' > "$W/c/repos_PRO-Robotech_kacho-workspace_pulls?head=PRO-Robotech:1200-old&state=closed&per_page=100.json"
+printf '%s' '[{"number":5,"merged_at":null}]' > "$W/c/repos_PRO-Robotech_kacho-workspace_pulls?head=PRO-Robotech:1199-closed&state=closed&per_page=100.json"
+prem "branchname $W/kn 893-acc"
+assert "1 да" "$(runp) $(has 'имя не номер задачи kaname')" "kaname 893-acc → PREMISE-FALSE по предикату клона (урок a261e3e4)"
+prem "branchname $W/kn w10-kn-x"
+assert "1" "$(runp)" "kaname w10-kn-x → PREMISE-FALSE (урок 6ea1bffe)"
+prem "branchname $W/kn 893"
+assert "0 да" "$(runp) $(has 'предусловий 1; ложных 0, не судимо 0')" "близнец: kaname 893 → 0"
+prem "branchname $W/wsc 1226-lane-precheck" "branchname $W/wsc 1199-closed"
+assert "0" "$(runp)" "близнец: воркспейс <N>-<суть>; закрытый НЕвлитый PR ветки — не помеха → 0"
+prem "branchname $W/wsc w10-x"
+assert "1 да" "$(runp) $(has 'не по форме «<N>-<суффикс>»: не начинается с номера задачи')" "воркспейс w10-x → PREMISE-FALSE с причиной хука (общий предикат branch-name-rule.sh)"
+prem "branchname $W/wsc 1200-old"
+assert "1 да" "$(runp) $(has 'ветка 1200-old уже влита (#1201)')" "ветка с этим именем уже влита → PREMISE-FALSE (урок ed1f2016)"
+prem "branchname $W/oth 1-x"
+assert "2 да" "$(runp) $(has 'VOID RULE-UNKNOWN')" "правила для репозитория нет → VOID, не зелёное"
+mv "$W/kn/scripts/hooks/branch-rule.sh" "$W/kn/br.away"; prem "branchname $W/kn 893"
+assert "2 да" "$(runp) $(has 'предиката')" "предиката в клоне нет → VOID"
+mv "$W/kn/br.away" "$W/kn/scripts/hooks/branch-rule.sh"
+prem "commit-subject $W/kn 3180 #3274 правка пробы"
+assert "1 да" "$(runp) $(has 'несёт номер ВЕТКИ: «#3180 …»')" "kaname: первая строка #3274 на ветке 3180 → PREMISE-FALSE (уроки 3da5d886, 5ed6b2bb)"
+prem "commit-subject $W/kn 3180 #3180 правка пробы"
+assert "0 да" "$(runp) $(has 'предусловий 1; ложных 0, не судимо 0')" "близнец: #3180 на ветке 3180 → 0, счёт предусловий не сбит номером строки"
+prem "commit-subject $W/wsc 1228-x #1225 механизм ожидания"
+assert "0" "$(runp)" "воркспейс: номер задачи на ветке другой задачи пачки — законно → 0"
+prem "commit-subject $W/wsc 1228-x механизм без номера"
+assert "1 да" "$(runp) $(has 'первая строка не «#<N> …»')" "первая строка без «#<N> » → PREMISE-FALSE"
+git -C "$W/kn" commit -q --allow-empty -m x 2>/dev/null || sandbox_git -C "$W/kn" commit -q --allow-empty -m x
+cp -r "$W/kn" "$W/knd"; git -C "$W/knd" checkout -q --detach
+prem "push-form $W/kn bash -c 'git push origin HEAD:refs/heads/3180'"
+assert "1 да" "$(runp) $(has 'обёртка «bash -c»')" "bash -c вокруг git push → PREMISE-FALSE «слот отдаст 77» (урок b9c180f6)"
+prem "push-form $W/kn cd /x && git push origin HEAD:refs/heads/3180; echo \$?"
+assert "1 да да" "$(runp) $(has '«cd … &&»') $(has '«; echo $?»')" "cd … && и ; echo \$? → обе причины одной строкой"
+prem "push-form $W/knd /ws/scripts/heavy-slot.sh ci-local -- git push origin HEAD:refs/heads/3180"
+assert "1 да" "$(runp) $(has 'голова копии отсоединена')" "отсоединённая голова без KACHO_TASK → PREMISE-FALSE (урок 36369ea7)"
+prem "push-form $W/knd env KACHO_TASK=3180 /ws/scripts/heavy-slot.sh ci-local -- git push origin HEAD:refs/heads/3180"
+assert "0" "$(runp)" "близнец: та же отправка с KACHO_TASK=<N> → 0"
+prem "push-form $W/kn env KACHO_HOME_KACHO=/k /ws/scripts/heavy-slot.sh ci-local -- git push origin HEAD:refs/heads/3180"
+assert "1 да" "$(runp) $(has '--local')" "kaname с KACHO_HOME_KACHO без --local → PREMISE-FALSE"
+prem "push-form $W/kn env KACHO_HOME_KACHO=/k /ws/scripts/heavy-slot.sh --local \"проба приёмок\" ci-local -- git push origin HEAD:refs/heads/3180"
+assert "0" "$(runp)" "близнец: та же с --local → 0"
+
 echo "== текст задания (ws#1225)"
 tt() { printf '%s\n' "$@" > "$W/task.txt"; bash "$P" --task-text "$W/task.txt" > "$W/out" 2>&1; echo $?; }
 assert "1 да" "$(tt 'Ожидание хука: 270 с на паузу между чтениями журнала.') $(has 'REASON TASK-WAIT строка 1')" "«270 с на паузу» → TASK-WAIT со строкой (урок c375d889)"
@@ -382,6 +431,8 @@ PYM
     if [ "$4" = --task-text ]; then shift 4; printf '%s\n' "$@" > "$W/task.txt"; bash "$m" --task-text "$W/task.txt" > "$W/out" 2>&1; echo $?
     else shift 3; printf '%s\n' "$@" > "$W/premise.txt"; bash "$m" --premise "$W/premise.txt" > "$W/out" 2>&1; echo $?; fi
 }
+assert "0" "$(mut merged 'elif [ -n "$got" ]; then reasons+=("PREMISE-FALSE $line: ветка $b уже влита' 'elif false; then reasons+=("PREMISE-FALSE $line: ветка $b уже влита' "branchname $W/wsc 1200-old")" "мутант «влитая ветка не судится»: прежнее имя проходит"
+assert "0" "$(mut detached '! git -C "$top" symbolic-ref -q HEAD > /dev/null 2>&1 &&' 'false &&' "push-form $W/knd /ws/scripts/heavy-slot.sh ci-local -- git push origin HEAD:refs/heads/3180")" "мутант «отсоединённая голова не судится»: отправка без KACHO_TASK проходит"
 assert "0" "$(mut wait '|| [[ "$l" =~ ${num}[[:space:]]*(с|сек[[:alpha:]]*)[[:space:]]+(на[[:space:]]+)?пауз ]] \' '\' --task-text 'Ожидание хука: 270 с на паузу между чтениями журнала.')" "мутант «N с на паузу» не ловится: задание с паузой проходит"
 
 echo "== вход"

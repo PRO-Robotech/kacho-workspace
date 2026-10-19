@@ -1371,8 +1371,13 @@ remote_route() {
     [ -n "$(git -C "$top" status --porcelain --untracked-files=no 2>/dev/null)" ] &&
         fix="закоммить правки отслеживаемых файлов (кластер судит коммит) и повтори ту же команду — слот уведёт её Job-ом"
     task_of
-    [[ "$TASK" =~ ^[1-9][0-9]*$ ]] ||
-        fix="${fix:+$fix; }задай номер задачи: KACHO_TASK=<N> heavy-slot.sh $CLASS -- … (ведущих цифр в имени ветки «$BRANCH» нет)"
+    if ! [[ "$TASK" =~ ^[1-9][0-9]*$ ]]; then
+        if [ -z "$BRANCH" ]; then  # урок 36369ea7: отправка из чистой отсоединённой копии
+            fix="${fix:+$fix; }голова отсоединена — имени ветки нет, номер задачи слот берёт лишь из KACHO_TASK: env KACHO_TASK=<N> heavy-slot.sh $CLASS -- … (форма задания: lane-precheck.sh --premise, вид push-form)"
+        else
+            fix="${fix:+$fix; }задай номер задачи: KACHO_TASK=<N> heavy-slot.sh $CLASS -- … (ведущих цифр в имени ветки «$BRANCH» нет)"
+        fi
+    fi
     tooling_gate
     ext_enter
     cluster_check "$CLASS" "$repo" || return 1

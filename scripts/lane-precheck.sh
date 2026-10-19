@@ -28,11 +28,24 @@
 #   head <владелец/репо> <ветка> <sha40>          голова ветки на origin равна sha целиком (GET branches/
 #                                                 <ветка> .commit.sha; ws#1191: полоса стенда ушла
 #                                                 раньше, чем голова ветки доехала до origin);
+#   branchname <клон> <ветка>                     имя — по правилу репозитория клона (ws#1226, его же
+#                                                 предикат: kaname — scripts/hooks/branch-rule.sh клона,
+#                                                 corelib — git-rule.sh клона, воркспейс и kacho —
+#                                                 scripts/hooks/branch-name-rule.sh; хук kacho имени не
+#                                                 судит — форма нормы) и ветки с этим именем нет среди
+#                                                 влитых PR (GET pulls?head=…&state=closed);
+#   commit-subject <клон> <ветка> <первая строка…> первая строка — «#<N> …»; kaname: N — номер ветки
+#                                                 (хук commit-msg, уроки 3da5d886, 5ed6b2bb); corelib —
+#                                                 git_rule_form клона; воркспейс и kacho — форма;
+#   push-form <клон> <команда отправки…>          argv слота, а не строка оболочки: без `bash -c`,
+#                                                 `cd … &&`, `; echo $?`; отсоединённая голова — с
+#                                                 KACHO_TASK=<N>; kaname с KACHO_HOME_KACHO — с --local
+#                                                 (уроки b9c180f6, 36369ea7: иначе слот отдаст 77);
 #   proof <владелец/репо>#<N>                     у задачи есть `DoD-proof @<sha>`;
 #   verdict <файл записи роли> <accept|return>    `verdict.value` записи: ✅ / ⛔.
 # Ложное — `REASON PREMISE-FALSE …`, код 1. Не судимо (трекер не ответил, строка вне
-# словаря, файла нет) — VOID, код 2; ноль предусловий — тоже код 2: пустой файл не
-# «все верны».
+# словаря, файла нет, нет клона или его предиката) — VOID, код 2; ноль предусловий — тоже
+# код 2: пустой файл не «все верны».
 #
 # РЕЖИМ ТЕКСТА ЗАДАНИЯ (ws#1225) — до раздачи, статически: задание не заказывает ожидание
 # внутри вызова. Уроки «ожидание-в-вызове» 18–19.10: «270 с на паузу» против «Bash не
@@ -225,6 +238,58 @@ if [ -n "$premise" ]; then
                 if [ "$rc" != 0 ]; then voids+=("GH-UNREADABLE $line"); continue; fi
                 if ! got="$(printf '%s' "$got" | dod_revs)"; then voids+=("DOD-LIB $line: распознаватель $HERE/lib/dod_proof.jq не судил"); continue; fi
                 if [ -z "$got" ]; then reasons+=("PREMISE-FALSE $line: комментария «DoD-proof @<sha>» нет"); fi ;;
+            branchname | commit-subject | push-form)
+                if ! top="$(git -C "$a" rev-parse --show-toplevel 2>/dev/null)"; then voids+=("PREMISE-FORM $line: клона «$a» нет"); continue; fi
+                slug="$(git -C "$top" remote get-url origin 2>/dev/null)"; slug="${slug%.git}"; slug="${slug#*github.com[:/]}"
+                repo="${slug##*/}"
+                case "$kind" in
+                    branchname)
+                        if [ -z "$b" ]; then voids+=("PREMISE-FORM $line"); continue; fi
+                        case "$repo" in
+                            kaname) rf="$top/scripts/hooks/branch-rule.sh"; ex='branch_rule_is_number "$2" || [ "$2" = main ] || echo "имя не номер задачи kaname (^[0-9]+$, кроме main): ветка — «<N>», а не «<N>-<суть>»"' ;;
+                            corelib) rf="$top/scripts/hooks/git-rule.sh"; ex='git_rule_branch_why "$2"; :' ;;
+                            kacho-workspace | kacho) rf="$HERE/hooks/branch-name-rule.sh"; ex='branch_name_lawful "$2" || echo "не по форме «<N>-<суффикс>»: $(branch_name_reason "$2")"' ;;
+                            *) voids+=("RULE-UNKNOWN $line: правила имени ветки для «$repo» нет"); continue ;;
+                        esac
+                        [ -r "$rf" ] || { voids+=("RULE-UNKNOWN $line: предиката $rf нет"); continue; }
+                        # shellcheck disable=SC2016
+                        why="$(bash -c ". \"\$1\" > /dev/null 2>&1 || exit 9; $ex" _ "$rf" "$b")" || { voids+=("RULE-UNKNOWN $line: предикат $rf не исполнился"); continue; }
+                        [ -z "$why" ] || reasons+=("PREMISE-FALSE $line: $why (${rf#"$top"/})")
+                        got="$(ghget "repos/$slug/pulls?head=${slug%%/*}:$b&state=closed&per_page=100" '[.[] | select(.merged_at != null) | "#\(.number)"] | join(" ")')"; rc=$?
+                        if [ "$rc" != 0 ] && [ "$rc" != 3 ]; then voids+=("GH-UNREADABLE $line: влитые PR ветки")
+                        elif [ -n "$got" ]; then reasons+=("PREMISE-FALSE $line: ветка $b уже влита ($got) и снята — новое имя, не прежнее (урок ed1f2016)"); fi ;;
+                    commit-subject)
+                        read -r _ _ _ subj <<< "$line"
+                        if [ -z "$b" ] || [ -z "${subj:-}" ]; then voids+=("PREMISE-FORM $line"); continue; fi
+                        if ! [[ "$subj" =~ ^#([0-9]+)\  ]]; then reasons+=("PREMISE-FALSE $line: первая строка не «#<N> …»"); continue; fi
+                        sn="${BASH_REMATCH[1]}"   # не n: n — счёт предусловий
+                        case "$repo" in
+                            kaname)
+                                [[ "$b" =~ ^[0-9]+$ ]] && [ "$sn" != "$b" ] \
+                                    && reasons+=("PREMISE-FALSE $line: хук commit-msg kaname — первая строка на ветке «$b» несёт номер ВЕТКИ: «#$b …», задача — строкой Refs в теле") ;;
+                            corelib)
+                                rf="$top/scripts/hooks/git-rule.sh"
+                                [ -r "$rf" ] || { voids+=("RULE-UNKNOWN $line: предиката $rf нет"); continue; }
+                                # shellcheck disable=SC2016
+                                why="$(bash -c '. "$1" > /dev/null 2>&1 || exit 9; git_rule_form "$3" 0 "$2"' _ "$rf" "$b" "$subj")" || { voids+=("RULE-UNKNOWN $line: предикат $rf не исполнился"); continue; }
+                                [ -z "$why" ] || reasons+=("PREMISE-FALSE $line: $(tr '\n' ' ' <<< "$why")") ;;
+                            kacho-workspace | kacho) ;;
+                            *) voids+=("RULE-UNKNOWN $line: правила первой строки для «$repo» нет") ;;
+                        esac ;;
+                    push-form)
+                        read -r _ _ cmd <<< "$line"
+                        [[ "${cmd:-}" == *"git push"* ]] || { voids+=("PREMISE-FORM $line: в команде нет «git push»"); continue; }
+                        pf=()
+                        [[ "$cmd" =~ (^|[[:space:]])(bash|sh)[[:space:]]+-c([[:space:]]|$) ]] && pf+=("обёртка «${BASH_REMATCH[2]} -c» — слот судит слова argv, строка оболочки даёт 77")
+                        [[ "$cmd" =~ (^|[[:space:];&])cd[[:space:]] ]] && [[ "$cmd" == *"&&"* ]] && pf+=("«cd … &&» — каталог отправки задаёт git -C, не цепочка оболочки")
+                        [[ "$cmd" =~ \;[[:space:]]*echo[[:space:]]+\$\? ]] && pf+=("«; echo \$?» — код отправки теряется за echo; код — из .rc (scripts/detach.sh)")
+                        if ! git -C "$top" symbolic-ref -q HEAD > /dev/null 2>&1 && ! [[ "$cmd" =~ (^|[[:space:]])KACHO_TASK=[1-9][0-9]*([[:space:]]|$) ]]; then
+                            pf+=("голова копии отсоединена — номер задачи слот берёт лишь из KACHO_TASK: env KACHO_TASK=<N> …")
+                        fi
+                        [ "$repo" = kaname ] && [[ "$cmd" == *KACHO_HOME_KACHO* ]] && [[ "$cmd" != *--local* ]] \
+                            && pf+=("kaname с пробой приёмок (KACHO_HOME_KACHO): хук с соседним клоном в Job не работает — --local \"<причина>\" перед классом")
+                        [ "${#pf[@]}" -eq 0 ] || reasons+=("PREMISE-FALSE $line: слот отдаст 77 до отправки — $(IFS=';'; echo "${pf[*]}")") ;;
+                esac ;;
             verdict)
                 if ! [ -r "$a" ] || ! [[ "$b" =~ ^(accept|return)$ ]]; then voids+=("PREMISE-FORM $line"); continue; fi
                 v="$(sed -n '/^verdict:/,/^[^ ]/{s/^  value: *//p}' "$a" | head -1)"
