@@ -37,9 +37,9 @@ assert() {
 }
 # run <команда> [хук] — код хука на настоящем входе; вывод в $WORK/out.
 run() {
-    python3 -c 'import json,sys; d={"tool_name":"Bash","tool_input":{"command":sys.argv[1]},"cwd":"/tmp"}
+    python3 -c 'import json,sys; d={"tool_name":"Bash","tool_input":{"command":sys.argv[1]},"cwd":sys.argv[3]}
 if sys.argv[2]: d["agent_type"]=sys.argv[2]
-print(json.dumps(d))' "$1" "$AGENT" > "$WORK/in.json"
+print(json.dumps(d))' "$1" "$AGENT" "${CWD:-/tmp}" > "$WORK/in.json"
     CLAUDE_PROJECT_DIR=/ws bash "${2:-$HOOK}" < "$WORK/in.json" > "$WORK/out" 2>&1
     echo $?
 }
@@ -189,6 +189,77 @@ passes 'gh pr merge 7 --merge --match-head-commit 4e96de2b'
 passes 'gh pr merge 7 --merge --match-head-commit=4e96de2b'
 AGENT=""
 
+echo "== коммит не в ту копию (ws#1237): основной клон на main, копия полосы, клон на ветке"
+# Песочница той же формы, что воркспейс: основной клон `ws` на main с отслеживаемым tmp/,
+# под tmp/ — связанная копия чужого репозитория (как tmp/kn-878-int у kaname), рядом
+# основной клон на ветке. Коммиты песочницы — `-c user.*`: личной настройки git нет.
+S="$WORK/sb"
+g() { git -c user.email=p@x -c user.name=p -c init.defaultBranch=main "$@" > /dev/null 2>&1; }
+mkdir -p "$S/ws/tmp" "$S/kn"; touch "$S/ws/tmp/README.md"
+g -C "$S/ws" init; g -C "$S/ws" add tmp/README.md; g -C "$S/ws" commit -m init
+g -C "$S/kn" init; g -C "$S/kn" commit --allow-empty -m init
+g -C "$S/kn" worktree add -b 878 "$S/ws/tmp/kn-878-int"
+mkdir -p "$S/ws/tmp/kn-878-int/internal/repo/kaname/pg/relverdict"
+g -C "$S" clone -q "$S/kn" "$S/br"; g -C "$S/br" checkout -b 1237-x
+g -C "$S/kn" checkout -b other; g -C "$S/kn" worktree add "$S/ws/tmp/kn-main" main
+assert "main 878 1237-x" "$(git -C "$S/ws" branch --show-current) $(git -C "$S/ws/tmp/kn-878-int" branch --show-current) $(git -C "$S/br" branch --show-current)" "песочница собрана: ствол, копия полосы, клон на ветке"
+# denies_commit <класс-текст> <команда>: отказ 2, класс назван, норма `git -C` в тексте.
+denies_commit() {
+    local rc named fix
+    rc="$(run "$2")"
+    named="нет"; grep -qF -- "$1" "$WORK/out" && named="да"
+    fix="нет"; grep -qF 'git -C <абсолютный путь своей копии> add|commit' "$WORK/out" && fix="да"
+    assert "2 да да" "$rc $named $fix" "отказ [cwd ${CWD#"$S"}] ($1): $(printf '%s' "$2" | tr '\n' ' ' | cut -c1-150)"
+    denied=$((denied + 1))
+}
+CU='git add/commit после относительного cd или -C'
+CT='git add/commit в стволе основного клона'
+# Настоящий вход — дословная строка исполнителя kaname#878 2026-10-18 (журнал задачи
+# ws#1237), корень воркспейса заменён корнем песочницы: шесть `..` от relverdict
+# выводят в tmp/ основного клона, и коммит ложится в его main.
+R6="$(real <<'EOF'
+cd @WS@/tmp/kn-878-int/internal/repo/kaname/pg/relverdict && cat > zz_debug878_integration_test.go <<'EOT'
+package relverdict_test
+EOT
+cd ../../../../../.. && git add -A && git commit -q -m "debug 878 (не отправляется)" && git log -1 --format=%H
+EOF
+)"
+R6="${R6//@WS@/$S/ws}"
+CWD="$S/ws"
+denies_commit "$CT" "$R6"
+denies_commit "$CT" 'git add -A && git commit -m x'
+denies_commit "$CT" "cd $S/ws/tmp && git add -A"
+denies_commit "$CT" "git -C $S/ws commit -qam x"
+denies_commit "$CT" "K=$S/ws; cd \$K && git add -A"
+denies_commit "$CU" 'cd tmp/kn-878-int && git add -A && git commit -m x'
+denies_commit "$CU" 'git -C tmp/kn-878-int commit -m x'
+denies_commit "$CU" 'pushd tmp/kn-878-int && git add -A'
+denies_commit "$CU" 'bash -c "cd tmp/kn-878-int && git commit -m x"'
+denies_commit "$CU" 'cd tmp/kn-878-int; timeout 30 git commit -m x'
+CWD="$S/ws/tmp/kn-878-int"
+denies_commit "$CU" 'cd .. && git add -A'
+echo "== законные близнецы коммита — пропуск без слова"
+CWD="$S/ws"
+passes "git -C $S/ws/tmp/kn-878-int add -A && git -C $S/ws/tmp/kn-878-int commit -m x"
+passes "K=$S/ws/tmp/kn-878-int; cd \$K && git add -A && git commit -m x"
+passes "export K=$S/ws/tmp/kn-878-int; git -C \"\${K}\" commit -m x"
+passes "cd $S/ws && git -C tmp/kn-878-int commit -m x"
+passes "cd $S/ws/tmp/kn-878-int/internal && cd repo && git add -A"
+passes "git -C $S/br commit -m x"
+passes "git -C $S/ws/tmp/kn-main commit -m x"
+passes 'cd tmp/kn-878-int && git status --short && git log -1'
+passes 'git -C tmp/kn-878-int diff --stat'
+passes 'git status --short'
+CWD="$S/ws/tmp/kn-878-int"
+passes 'git add -A && git commit -m x'
+CWD=/tmp
+passes 'git commit -m x'
+CWD="$S/ws"
+boundary "иная запись истории"         'git merge --no-edit origin/x'
+boundary "переменная без присваивания" 'cd "$Q" && git add -A && git commit -m x'
+boundary "каталог из подстановки"      'cd "$(git rev-parse --show-toplevel)" && git add -A'
+CWD=/tmp
+
 echo "== граница (ГРАНИЦА шапки guard.py) — известно, не ловится"
 boundary "вызов внутри скрипта"        'bash ./merge-base.sh'
 boundary "eval: строка не разбирается" 'eval "gh api -X POST repos/x/y/merges"'
@@ -261,7 +332,16 @@ mutant "--disable-auto — вливание"       '    if "--disable-auto" in f
 mutant "подстановка не судится"          '            self.text(s)' '            pass' 'x=$(gh api -X POST repos/x/y/merges)' ci-watcher
 mutant "bash -c не разбирается"          '                self.text(cmd)' '                pass' 'bash -c "gh api -X POST repos/x/y/merges"' ci-watcher
 mutant "heredoc в оболочку не судится"  '                    self.text(hbody)' '                    pass' $'bash '"$LT"$'EOF\ngh api -X POST repos/x/y/merges\nEOF' ci-watcher
-mutant "без agent_type — git-operator"  '    w = Walker(agent_type or None)' '    w = Walker(agent_type or OPERATOR)' 'gh api -X POST repos/x/y/issues/1/comments -f body=hi'
+mutant "без agent_type — git-operator"  '    w = Walker(agent_type or None, cwd)' '    w = Walker(agent_type or OPERATOR, cwd)' 'gh api -X POST repos/x/y/issues/1/comments -f body=hi'
+CWD="$S/ws"
+mutant "ствол не судится"                '        trunk = trunk_clone(d)' '        trunk = None' 'git add -A && git commit -m x'
+mutant "копия на main — как основной клон" '    if os.path.realpath(gitdir) != os.path.realpath(common) or branch not in TRUNKS:' '    if branch not in TRUNKS:' "git -C $S/ws/tmp/kn-main commit -m x"
+mutant "относительный шаг не судится"    '        if how == "rel":' '        if False:' 'cd tmp/kn-878-int && git add -A'
+mutant "якорь не снимает относительность" '        if how in ("inherited", "rel"):' '        if True:' "cd $S/ws && git -C tmp/kn-878-int commit -m x"
+mutant "присваивание строки не читается" '        if self.assign(ws):' '        if False:' "K=$S/ws; cd \$K && git add -A"
+mutant "подстановка — относительный путь" '        if hg.SQ in w or "__SUBST__" in w:' '        if hg.SQ in w:' 'cd "$(git rev-parse --show-toplevel)" && git add -A'
+mutant "cwd входа не читается"           '    found = judge(cmd, data.get("agent_type"), data.get("cwd"))' '    found = judge(cmd, data.get("agent_type"), None)' 'git add -A'
+CWD=/tmp
 
 total=$((pass + fail))
 echo "[CENSUS] gh-api-guard: рассмотрено утверждений $total, сошлось $pass, разошлось $fail; отказов проверено $denied, пропусков $passed, мутантов $muts; граница (не ловится, заявлено в шапке) $bound"

@@ -30,9 +30,25 @@ kacho#3144, kaname#703), а агенты этого не увидели — их
                     без `--match-head-commit`, либо с `--auto` или `--admin`.
                     `gh pr merge --disable-auto` ничего не вливает — пропуск.
 
+Тот же предмет — запись мимо посадки — у коммита не в ту копию (ws#1237): исполнитель
+kaname#878 сделал `cd <относительный путь> && git add -A && git commit`, каталог вызова
+Bash был корнем воркспейса, и коммит лёг в main воркспейса (снят update-ref). Классы:
+  commit-unanchored — `git add` / `git commit`, чей каталог выведен от каталога вызова
+                    ОТНОСИТЕЛЬНЫМ шагом (`cd tmp/x`, `pushd ..`, `git -C tmp/x`) раньше
+                    любого абсолютного: каталог вызова у сабагента сбрасывается, и
+                    относительный путь разрешается не от копии. Абсолютный `cd` или
+                    `-C` (литерал либо переменная, присвоенная абсолютным путём в той же
+                    строке) — якорь, после него относительный шаг законен;
+  commit-trunk    — `git add` / `git commit` в ОСНОВНОМ клоне (git-dir равен общему),
+                    стоящем на `main`/`master`: ствол коммитом не пишется ни у кого —
+                    работа в ветке своей копии под tmp/. Каталог вычисляется от поля
+                    `cwd` входа хука тем же разбором; не вычислим (`cd "$X"` без
+                    присваивания в строке) — класс не судится.
+
 РАЗРЕШЕНО: `gh api <путь>` без тела и метода (GET), `gh api --method GET … -f q=…`
 (поля уходят строкой запроса), `gh api graphql -f query='query{…}'`, `compare`,
-`git merge-base`; у git-operator — изменяющие вызовы, кроме путей вливания.
+`git merge-base`; у git-operator — изменяющие вызовы, кроме путей вливания;
+`git -C <абсолютная копия> add|commit` в связанной копии (worktree) либо в клоне на ветке.
 
 Кто вызвал — поле agent_type входа хука; его нет — вызов судится как не git-operator
 (закрыто по умолчанию: отсутствие поля не выдаёт право записи).
@@ -48,7 +64,10 @@ kacho#3144, kaname#703), а агенты этого не увидели — их
 строку, а не текст файла); команда, собранная во время исполнения, — `eval "gh api …"`,
 `echo … | xargs gh api …`, `$GH api …`; иной клиент того же API — `curl -X POST
 https://api.github.com/…` и интерпретатор (`python3 -c …`); `git push` в ветку эпика
-(другой класс: его держат хук отправки и защита ветки).
+(другой класс: его держат хук отправки и защита ветки); коммит — иные записи истории
+(`merge`, `cherry-pick`, `am`, `revert`), `--git-dir`/`--work-tree`, каталог из
+`$(…)` и из переменной без присваивания в строке; `cd` внутри подоболочки `( … )`
+считается действующим и после неё.
 """
 
 import importlib.util
@@ -81,7 +100,15 @@ CLASS_TEXT = {
     "graphql-write": "gh api graphql с mutation либо запросом, не видимым в строке",
     "merge-endpoint": "путь вливания repos/*/merges или pulls/*/merge",
     "pr-merge": "gh pr merge вне правила вливания",
+    "commit-unanchored": "git add/commit после относительного cd или -C",
+    "commit-trunk": "git add/commit в стволе основного клона",
 }
+TRUNKS = {"main", "master"}
+COMMIT_SUBS = {"add", "commit"}
+# глобальные ключи git со значением отдельным словом (кроме -C, он — шаг каталога)
+GIT_VALUED = {"-c", "--namespace", "--config-env", "--super-prefix", "--exec-path",
+              "--list-cmds", "--attr-source"}
+VAR = re.compile(r"\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))")
 
 
 class Finding:
@@ -195,12 +222,131 @@ def judge_pr_merge(args, agent, shown):
     return None
 
 
+def trunk_clone(d):
+    """(верх клона, ветка), если `d` — в основном клоне на main/master; иначе None.
+
+    Основной клон — git-dir равен общему (у связанной копии worktree git-dir свой).
+    Окружение git вызова снимается: страж судит каталог, а не чужой GIT_DIR. Каталога
+    нет, не репозиторий, git не ответил за 3 с — None: судить нечем, отказа нет.
+    """
+    if not os.path.isdir(d):
+        return None
+    import subprocess  # здесь, а не в шапке: 4–7 мс импорта — лишь строкам с add/commit
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    try:
+        r = subprocess.run(["git", "-C", d, "rev-parse", "--path-format=absolute",
+                            "--git-dir", "--git-common-dir", "--show-toplevel",
+                            "--abbrev-ref", "HEAD"],
+                           capture_output=True, text=True, timeout=3, env=env)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    out = r.stdout.split("\n")
+    if r.returncode != 0 or len(out) < 4:
+        return None
+    gitdir, common, top, branch = out[:4]
+    if os.path.realpath(gitdir) != os.path.realpath(common) or branch not in TRUNKS:
+        return None
+    return top, branch
+
+
 class Walker:
     """Обходит простые команды строки тем же разбором, что no-wait-guard."""
 
-    def __init__(self, agent):
+    def __init__(self, agent, cwd=None):
         self.agent = agent
         self.found = []
+        # каталог по ходу строки: путь | None (не вычислим); как он выведен от каталога
+        # вызова — inherited (шагов не было) | abs (был абсолютный якорь) | rel (первый
+        # шаг — относительный) | unknown (шаг из невычислимой переменной)
+        self.cwd = cwd if cwd and os.path.isabs(cwd) else None
+        self.how = "inherited"
+        self.rel = ""
+        self.vars = {}
+
+    def value(self, w):
+        """Слово пути с подставленными переменными строки: (путь | None, был ли `$`)."""
+        w = w.replace(hg.DQ, "$")
+        if hg.SQ in w or "__SUBST__" in w:  # `$(…)`: каталог из исполнения не вычислим
+            return None, True
+        if "$" not in w:
+            return w, False
+
+        def sub(m):
+            name = m.group(1) or m.group(2)
+            v = self.vars[name] if name in self.vars else os.environ.get(name)
+            if v is None:
+                raise KeyError(name)
+            return v
+        try:
+            out = VAR.sub(sub, w)
+        except KeyError:
+            return None, True
+        return (None, True) if "$" in out else (out, True)
+
+    def step(self, base, how, rel, word):
+        """Шаг каталога `word` от (base, how): новые (каталог, how, первый rel)."""
+        if word in ("", "~") or word.startswith("~/"):
+            home = os.environ.get("HOME", "")
+            return os.path.normpath(home + word[1:]) if home else None, "abs", rel
+        path, had_var = self.value(word)
+        if path is None:
+            return None, "unknown", rel
+        if os.path.isabs(path):
+            return os.path.normpath(path), "abs", rel
+        if had_var:  # `$X/…` с относительным X — не путь из строки, а из окружения
+            return None, "unknown", rel
+        joined = os.path.normpath(os.path.join(base, path)) if base else None
+        if how in ("inherited", "rel"):
+            return joined, "rel", rel or word
+        return joined, how, rel
+
+    def assign(self, ws):
+        """`K=/abs …` отдельной командой — переменная строки (`export K=…` — тоже)."""
+        if ws[:1] == ["export"]:
+            ws = ws[1:]
+        if not ws or not all(hg.ASSIGN.match(w) for w in ws):
+            return False
+        for w in ws:
+            name, val = w.split("=", 1)
+            path, _ = self.value(val)
+            self.vars[name] = path
+        return True
+
+    def git_commit(self, args, shown):
+        """`git [-C d]… add|commit …`: где ляжет коммит и выведено ли это от якоря."""
+        d, how, rel = self.cwd, self.how, self.rel
+        i, sub, other = 0, None, False
+        while i < len(args):
+            a = args[i]
+            if a == "-C" and i + 1 < len(args):
+                d, how, rel = self.step(d, how, rel, args[i + 1])
+                i += 2
+                continue
+            if a.startswith(("--git-dir", "--work-tree")):
+                other = True
+                i += 1 if "=" in a else 2
+                continue
+            if a in GIT_VALUED:
+                i += 2
+                continue
+            if a.startswith("-"):
+                i += 1
+                continue
+            sub = a
+            break
+        if sub not in COMMIT_SUBS or other:
+            return None
+        if how == "rel":
+            return Finding("commit-unanchored", shown,
+                           "первый шаг каталога — относительный «%s»: разрешён от каталога "
+                           "вызова %s → %s, а не от копии" % (rel, self.cwd or "?", d or "?"))
+        if how == "unknown" or not d:
+            return None
+        trunk = trunk_clone(d)
+        if trunk:
+            return Finding("commit-trunk", shown,
+                           "цель — основной клон %s на ветке %s" % trunk)
+        return None
 
     def text(self, text):
         text = text.replace(hg.SQ, "$").replace(hg.DQ, "$")
@@ -224,11 +370,29 @@ class Walker:
         self.simple(n.text)
 
     def simple(self, seg):
-        argv, _, _ = nwg.head(hg.words(seg))
+        ws = hg.words(seg)
+        if self.assign(ws):
+            return
+        argv, _, _ = nwg.head(ws)
         if not argv:
             return
         base = os.path.basename(argv[0])
         args = argv[1:]
+        if base in ("cd", "pushd"):
+            word = next((a for a in args if not a.startswith("-") or a == "-"), "")
+            if word == "-":
+                self.cwd, self.how = None, "unknown"
+            else:
+                self.cwd, self.how, self.rel = self.step(self.cwd, self.how, self.rel, word)
+            return
+        if base == "popd":
+            self.cwd, self.how = None, "unknown"
+            return
+        if base == "git":
+            f = self.git_commit(args, seg.strip())
+            if f:
+                self.found.append(f)
+            return
         if base == "timeout":  # head вернул timeout ≥ 600 вместе с командой
             self.simple(" ".join(nwg.shlex.quote(w) for w in argv[2:]))
             return
@@ -260,14 +424,32 @@ class Walker:
             self.found.append(f)
 
 
-def judge(cmd, agent_type=None):
-    w = Walker(agent_type or None)
+def judge(cmd, agent_type=None, cwd=None):
+    w = Walker(agent_type or None, cwd)
     w.text(cmd)
     return w.found
 
 
+def deny_commit(f, more):
+    lines = [
+        "GH-API-GUARD: отказ — коммит ляжет не в ту копию (ws#1237).",
+        "  форма: %s — %s" % (CLASS_TEXT[f.cls], hg.clip(f.text, 200)),
+        "  почему: %s" % f.why,
+        "Норма: `git -C <абсолютный путь своей копии> add|commit …`. Каталог вызова Bash у",
+        "сабагента сбрасывается, относительный `cd`/`-C` разрешается от него: так коммит",
+        "kaname#878 лёг в main воркспейса. Ствол основного клона (main/master) коммитом не",
+        "пишется — работа в ветке `<N>-<суффикс>` своей копии под tmp/.",
+    ]
+    if more:
+        lines.append("  ещё форм в строке: %d" % more)
+    sys.stderr.write("\n".join(lines) + "\n")
+    sys.exit(2)
+
+
 def deny(found):
     f = found[0]
+    if f.cls.startswith("commit-"):
+        deny_commit(f, len(found) - 1)
     lines = [
         "GH-API-GUARD: отказ — вызов меняет состояние хостинга мимо посадки.",
         "  форма: %s — %s" % (CLASS_TEXT[f.cls], hg.clip(f.text, 200)),
@@ -291,7 +473,7 @@ def deny(found):
 
 
 def broken(why):
-    msg = ("GH-API-GUARD СЛОМАН: %s. Изменяющие вызовы gh api этим вызовом НЕ проверялись — "
+    msg = ("GH-API-GUARD СЛОМАН: %s. Изменяющие вызовы gh api и коммиты этим вызовом НЕ проверялись — "
            "это не «чисто»; норма действует: gh api — только GET, вливание — только "
            "gh pr merge --match-head-commit у git-operator; починка — tooling-maintainer." % why)
     print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse",
@@ -301,7 +483,8 @@ def broken(why):
 
 def main():
     if sys.argv[1:2] == ["--judge"] and len(sys.argv) >= 3:
-        found = judge(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else None)
+        found = judge(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else None,
+                      sys.argv[4] if len(sys.argv) > 4 else os.getcwd())
         print(",".join(f.cls for f in found) or "-")
         return
     try:
@@ -313,7 +496,7 @@ def main():
     cmd = (data.get("tool_input") or {}).get("command")
     if not isinstance(cmd, str):
         broken("у вызова Bash нет tool_input.command")
-    found = judge(cmd, data.get("agent_type"))
+    found = judge(cmd, data.get("agent_type"), data.get("cwd"))
     if found:
         deny(found)
 
