@@ -1023,7 +1023,7 @@ s_q_dead() {  # мёртвый билет и билет переиспользо
     ( exit 0 ) & dp=$!; wait "$dp"
     sleep 60 & sp=$!; PIDS+=("$sp")
     plant main 1 "$dp" 12345 "PRO-Robotech/kacho-workspace#1"; plant main 2 "$sp" 1 "PRO-Robotech/kacho-workspace#2"
-    run_q 4301 --timeout 8; wait_q 4301; ST_Q 4301
+    run_q 4301 --timeout 6; wait_q 4301; ST_Q 4301
     ok q-dead "мёртвый pid и pid с иным starttime — билеты сняты, merged" eval '[ "$RC" = 0 ] && st_is merged && qlog 4301 | grep -F "сняты мёртвые билеты" | grep -qF "#1" && qlog 4301 | grep -F "сняты мёртвые билеты" | grep -qF "#2"'
     ok q-dead "билетов в очереди не осталось" eval '! ls "$(qdir_of main)"/*.t >/dev/null 2>&1'
     kill "$sp" 2>/dev/null
@@ -1046,7 +1046,7 @@ s_q_queued() {  # в очереди исход наступает сразу: к
     new_fx q-queued; mk_q 4301 4302 4303 4304
     sleep 60 & sp=$!; PIDS+=("$sp"); plant main 1 "$sp" "$(pstart "$sp")" "PRO-Robotech/kacho-workspace#1"
     echo red > "$Q/pr/4301/ci"
-    t0=$(date +%s); run_q 4301 --timeout 20; run_q 4302 --timeout 20; run_q 4303 --timeout 20; run_q 4304 --timeout 20
+    t0=$(date +%s); run_q 4301 --timeout 10; run_q 4302 --timeout 10; run_q 4303 --timeout 10; run_q 4304 --timeout 10
     enrolled 4303; : > "$Q/pr/4303/closed"   # закрыт ПОСЛЕ постановки: до неё исход дал бы первое чтение
     sleep 2; git -C "$Q/seed" checkout -q p4302; echo moved >> "$Q/seed/p4302.txt"; git -C "$Q/seed" add -A
     sandbox_run git -C "$Q/seed" commit -qm "#4302 ещё"; git -C "$Q/seed" push -q origin p4302; git -C "$Q/seed" checkout -q main
@@ -1054,7 +1054,7 @@ s_q_queued() {  # в очереди исход наступает сразу: к
     p="$(cat "$Q"/run/*__4304__*.pid)"; kill -TERM "$p"
     wait_q 4301; dt=$(( $(date +%s) - t0 )); wait_q 4302 4303 4304   # время — исхода красного, не соседей
     ST="$(qst 4301) | $(qst 4302) | $(qst 4303) | $(qst 4304)"; RC="${QRC[4301]}/${QRC[4302]}/${QRC[4303]}/${QRC[4304]}"
-    ok q-queued "красный CI в очереди — red сразу ($dt с < 15)" eval '[ "${QRC[4301]}" = 1 ] && qst 4301 | grep -q "^red ci-read код 1 в очереди" && [ "$dt" -lt 15 ]'
+    ok q-queued "красный CI в очереди — red сразу ($dt с < 8, предел 10)" eval '[ "${QRC[4301]}" = 1 ] && qst 4301 | grep -q "^red ci-read код 1 в очереди" && [ "$dt" -lt 8 ]'
     ok q-queued "голова ушла в очереди — head-moved" eval '[ "${QRC[4302]}" = 5 ] && qst 4302 | grep -q "^head-moved .* (в очереди)"'
     ok q-queued "запрос закрыт в очереди — red PR-NOT-OPEN" eval '[ "${QRC[4303]}" = 1 ] && qst 4303 | grep -q "в очереди: REASON.PR-NOT-OPEN"'
     ok q-queued "TERM в очереди — void, свой билет снят" eval '[ "${QRC[4304]}" = 2 ] && qst 4304 | grep -q "сигналом TERM" && ! ls "$(qdir_of main)"/*.4304*.t "$Q"/run/*__4304__*.ticket >/dev/null 2>&1'
@@ -1087,7 +1087,7 @@ s_q_push() {  # отправка догона: слот занят, хук от�
     run_q 4301; wait_q 4301; ST_Q 4301
     ok q-push "хук отправки отказал — red «догон базы: отправка … отказала кодом 1», ветка не тронута" eval '[ "$RC" = 1 ] && st_is red && st_has "отказала кодом 1" && st_has "pre-push ОТКАЗ" && [ "$(qhead 4301)" = "$h0" ]'
     new_fx q-push-noop; mk_q 4301; base_push main b.txt b; echo noop > "$Q/pr/4301/push"
-    run_q 4301 --void-limit 2 --timeout 20; wait_q 4301; ST_Q 4301
+    run_q 4301 --void-limit 2 --timeout 10; wait_q 4301; ST_Q 4301
     ok q-push "код 0, а голова ветки не новая — void счётом" eval '[ "$RC" = 2 ] && st_is void && st_has "голова ветки на origin не новая"'
     new_fx q-push-141; mk_q 4301; base_push main b.txt b; echo sigpipe > "$Q/pr/4301/push"
     run_q 4301; wait_q 4301; ST_Q 4301
@@ -1104,12 +1104,12 @@ s_q_limit() {  # предел догонов
 }
 s_q_stale_lag() {  # ci-read 4, а голова не отстаёт
     new_fx q-stale-lag; mk_q 4301; echo stale > "$Q/pr/4301/ci"
-    run_q 4301 --void-limit 2 --timeout 20; wait_q 4301; ST_Q 4301
+    run_q 4301 --void-limit 2 --timeout 10; wait_q 4301; ST_Q 4301
     ok q-stale-lag "ci-read 4, а локально отставания нет — void счётом, отправки нет" eval '[ "$RC" = 2 ] && st_is void && st_has "не отстаёт от origin/main" && [ ! -s "$Q/push.calls" ]'
 }
 s_q_fetch() {  # fetch догона не прошёл
     new_fx q-fetch; mk_q 4301; base_push main b.txt b; git -C "$Q/clone" remote set-url origin "$Q/absent.git"
-    run_q 4301 --void-limit 2 --timeout 20; wait_q 4301; ST_Q 4301
+    run_q 4301 --void-limit 2 --timeout 10; wait_q 4301; ST_Q 4301
     ok q-fetch "fetch догона не прошёл — void «догон базы: fetch …»" eval '[ "$RC" = 2 ] && st_is void && st_has "догон базы: fetch origin main"'
 }
 s_q_lock() {  # черёд — и flock очереди: держит его другой (билет пропал) — ждётся, не два вливания разом
