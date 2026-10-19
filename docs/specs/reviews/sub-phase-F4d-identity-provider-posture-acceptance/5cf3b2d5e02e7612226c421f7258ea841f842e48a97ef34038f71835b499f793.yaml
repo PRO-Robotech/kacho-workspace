@@ -64,8 +64,11 @@ authority:
 
 event:
   type: changes_requested
-  status: not_performed
-  published: false
+  status: performed
+  published: true
+  url: https://github.com/PRO-Robotech/kacho-workspace/issues/679#issuecomment-6256838447
+  published_at: '2026-10-19T00:05:39Z'
+  published_by: pointpu
   publication_mode: courier
   publication_expected_from_orchestrator: true
   body_for_courier: acceptance-reviewer · CHANGES_REQUESTED · 5cf3b2d5e02e7612226c421f7258ea841f842e48a97ef34038f71835b499f793
