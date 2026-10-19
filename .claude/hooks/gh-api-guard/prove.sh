@@ -194,6 +194,7 @@ echo "== коммит не в ту копию (ws#1237): основной кло
 # под tmp/ — связанная копия чужого репозитория (как tmp/kn-878-int у kaname), рядом
 # основной клон на ветке. Подпись песочницы — её HOME (scripts/lib/sandbox-git-home.sh).
 S="$WORK/sb"
+# shellcheck source-path=SCRIPTDIR
 # shellcheck source=../../../scripts/lib/sandbox-git-home.sh
 . "$HOOK_DIR/../../scripts/lib/sandbox-git-home.sh"
 sandbox_git_home "$WORK/home" || { echo "[VOID] gh-api-guard: подписи песочницы нет" >&2; exit 2; }
