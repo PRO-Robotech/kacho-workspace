@@ -22,6 +22,9 @@
 #                           встать; 69 — нет (в том числе открытого узла нет, см.
 #                           РАЗМЕЩЕНИЕ); 75 — идущих тяжёлых прогонов уже предел (см.
 #                           ПРЕДЕЛ) либо места под запрос профиля нет ни на одном узле
+#                           70 — ДЕФЕКТ ОБЁРТКИ: ответ кластера прочитан, а разбор
+#                           отказал; не недоступность — heavy-slot локально не уходит
+#                           (ws#1210). Ответ кластера идёт в jq файлом, не словом argv
 #   run.sh --profiles       профили, их запросы по репозиториям (ЗАПРОС ПО ЗАМЕРУ) и основание
 #
 # КЛАСТЕР. Кубконфиг берётся из KACHO_REMOTE_KUBECONFIG, иначе из первой строки
@@ -49,6 +52,8 @@
 # «<учётка>--<профиль>.yaml»; оба есть и расходятся — отказ (файл подменён). Узлы
 # с «-infra-», чужой профиль, ноль узлов, узлы не прочитаны — 69 до ПЕРВОЙ записи
 # (в том числе до уборки прежних запусков и в --available), текст называет шаг.
+# Перепись узлов прочитана, а не разобрана — 70 (дефект обёртки), а не 69: это не
+# «кластер не доказан» и не недоступность (ws#1210).
 # Проверка повторяется перед каждой фазой записи (ns, сеть, квота, Job, доставка,
 # снятие ns), если с прошлой прошло GUARD_TTL_S или отпечаток файла сменился. Не
 # доказан кластер при снятии — ns НЕ снимается (оно в прежнем кластере, а kubectl
@@ -679,7 +684,8 @@ red_collect() {
 kcfg_fp() { sha256sum < "$KCFG" 2>/dev/null | cut -d' ' -f1; }
 
 # node_guard — СТРАЖ в шапке: узлы выбранного контекста доказывают кластер профиля.
-# Код 0 — доказан (GUARD_AT и GUARD_FP обновлены); 1 — нет, причина и шаг в WHY.
+# Код 0 — доказан (GUARD_AT и GUARD_FP обновлены); 1 — нет, причина и шаг в WHY;
+# 2 — перепись прочитана, а разбор отказал (дефект обёртки, ws#1210).
 # Имена узлов в WHY не попадают — только числа.
 GUARD_AT=0; GUARD_FP=""
 node_guard() {
@@ -690,7 +696,7 @@ node_guard() {
     r="$(jq -r --arg p "$PROF-client-" '[.items[]? | (.metadata.name // "")]
           | [length, (map(select(startswith($p) and (test("-infra-") | not))) | length), (map(select(test("-infra-"))) | length)]
           | map(tostring) | join(" ")' <<< "$nj" 2>/dev/null)" \
-        || { WHY="перепись узлов не разобрана — кластер не доказан; $step"; return 1; }
+        || { WHY="перепись узлов прочитана, а разбор её отказал — кластер не доказан"; return 2; }
     read -r all good infra <<< "$r"
     if [ "${all:-0}" -eq 0 ]; then
         WHY="узлов в контексте ноль — кластер не доказан; $step"; return 1
@@ -704,15 +710,25 @@ node_guard() {
     return 0
 }
 # guard_write <фаза> — перед фазой записи: узлы переписываются заново, если файл
-# сменился или с прошлой переписи прошло GUARD_TTL_S. Код 1 — фазу не начинать.
+# сменился или с прошлой переписи прошло GUARD_TTL_S. Не 0 — фазу не начинать: код
+# стража (1 — не доказан, 2 — дефект обёртки), исход — guard_exit (ws#1210).
 guard_write() {
+    local rc
     if [ -n "$GUARD_FP" ] && [ "$(kcfg_fp)" = "$GUARD_FP" ] && [ $(( $(now) - GUARD_AT )) -lt "$GUARD_TTL_S" ]; then
         return 0
     fi
-    node_guard && return 0
-    say "$WHY — фаза «$1» не начата (не выполнилось)"
-    return 1
+    node_guard; rc=$?
+    [ "$rc" = 0 ] && return 0
+    if [ "$rc" = 2 ]; then
+        say "дефект обёртки run.sh: $WHY — фаза «$1» не начата; это не недоступность кластера (код 70, не выполнилось, не красное)"
+    else
+        say "$WHY — фаза «$1» не начата (не выполнилось)"
+    fi
+    return "$rc"
 }
+# guard_exit <код guard_write> — дефект обёртки 70, прочее 69: отказ разбора переписи
+# узлов не читается как «кластер недоступен» (heavy-slot по 69 уходит локально).
+guard_exit() { [ "$1" = 2 ] && exit 70; exit 69; }
 
 available() {
     local out err rc
@@ -727,7 +743,7 @@ available() {
         return 1
     fi
     rm -f "$err"
-    node_guard || return 1
+    node_guard || return $?
     return 0
 }
 
@@ -738,24 +754,45 @@ valid_max_par() {
 # busy_heavy — идущие тяжёлые ns, старшие первыми (время создания, затем имя).
 # Идущее — kacho.io/kind=heavy, не снимается, срок kacho.io/expires в будущем
 # (ns без срока — идущее: не знаем, что оно не занято) и ни один его Job не
-# завершён. Код 1 — перепись не прочитана.
+# завершён. Код 1 — перепись не прочитана (кластер); 2 — прочитана, а разбор отказал
+# (дефект обёртки, не кластера). Перепись — файлами, а не словом argv: слово argv
+# ограничено ядром (MAX_ARG_STRLEN, 128 КиБ), и большая перепись роняла jq с «Argument
+# list too long» (ws#1210).
 busy_heavy() {
     local nsj jbj
     nsj="$(kc get ns -l kacho.io/kind=heavy -o json 2>/dev/null)" || return 1
     jbj="$(kc get jobs -A -l kacho.io/kind=heavy -o json 2>/dev/null)" || return 1
-    jq -nr --argjson ns "$nsj" --argjson jb "$jbj" --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '
+    jq -nr --slurpfile NS <(printf '%s' "$nsj") --slurpfile JB <(printf '%s' "$jbj") --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '
+      $NS[0] as $ns | $JB[0] as $jb |
       [$jb.items[] | select([.status.conditions[]? | select(.status == "True" and (.type == "Complete" or .type == "Failed"))] | length > 0)
                    | .metadata.namespace] as $done
       | [$ns.items[]
          | select((.status.phase // "Active") != "Terminating")
          | select((.metadata.annotations["kacho.io/expires"] // "9999") > $now)
          | select(.metadata.name as $n | $done | any(. == $n) | not)]
-      | sort_by(.metadata.creationTimestamp // "", .metadata.name) | .[].metadata.name'
+      | sort_by(.metadata.creationTimestamp // "", .metadata.name) | .[].metadata.name' || return 2
+}
+# defect <что> — ДЕФЕКТ ОБЁРТКИ: ответ кластера прочитан, а run.sh его не обработал.
+# Это не недоступность кластера: код 70 (EX_SOFTWARE), и heavy-slot по нему локально
+# не уходит (ws#1210).
+defect() {
+    say "дефект обёртки run.sh: $1 — это не недоступность кластера (код 70, не выполнилось, не красное)"
+    exit 70
+}
+# busy_read [хвост] — перепись идущих в BUSY: не прочитана — 69, не разобрана — 70.
+busy_read() {
+    local rc
+    BUSY="$(busy_heavy)"; rc=$?
+    case "$rc" in
+        0) return 0 ;;
+        2) defect "перепись идущих тяжёлых ns прочитана, а разбор её отказал${1:-}" ;;
+        *) say "перепись идущих тяжёлых ns не прочитана${1:-}"; exit 69 ;;
+    esac
 }
 
 # placement <mCPU> <МиБ> — РАЗМЕЩЕНИЕ в шапке. Код 0 — годный узел есть; 69 — узла,
 # открытого для планирования, нет; 75 — такой есть, но места под запрос нет; 1 —
-# перепись не прочитана. Причина — в PLACE_WHY, перепись — в PLACE_CENSUS.
+# перепись не прочитана; 2 — прочитана, а разбор отказал (дефект обёртки, ws#1210). Причина — в PLACE_WHY, перепись — в PLACE_CENSUS.
 placement() {
     local nj pj r
     PLACE_WHY=""; PLACE_CENSUS=""
@@ -785,7 +822,7 @@ placement() {
       | [($ns | length), ($ns | map(select(.open | not)) | length),
          ($ns | map(select(.open)) | length),
          ($ns | map(select(.open and .fcpu >= $cpu and .fmem >= $mem)) | length)] | map(tostring) | join(" ")' 2>/dev/null)" \
-        || { PLACE_WHY="перепись узлов не разобрана"; return 1; }
+        || { PLACE_WHY="перепись узлов и pod прочитана, а разбор её отказал"; return 2; }
     local all closed open fit
     read -r all closed open fit <<< "$r"
     PLACE_CENSUS="узлов $all: закрыты для планирования $closed, открыты $open, из них с местом $fit"
@@ -810,8 +847,9 @@ case "${1:-}" in
         fi
         valid_max_par || exit 64
         available; arc=$?
+        [ "$arc" = 2 ] && defect "$WHY"
         [ "$arc" = 0 ] || { say "$WHY"; [ "$arc" = 64 ] && exit 64; exit 69; }
-        busy="$(busy_heavy)" || { say "перепись идущих тяжёлых ns не прочитана"; exit 69; }
+        busy_read; busy="$BUSY"
         n="$(grep -c . <<< "$busy")"
         if [ "$n" -ge "$MAX_PAR" ]; then say "кластер занят: идущих тяжёлых прогонов $n при пределе $MAX_PAR (KACHO_REMOTE_HEAVY_MAX)"; exit 75; fi
         # shellcheck disable=SC2086  # «mCPU МиБ» — два слова
@@ -819,6 +857,7 @@ case "${1:-}" in
         case "$prc" in
             0) ;;
             1) say "размещение не проверено: $PLACE_WHY"; exit 69 ;;
+            2) defect "размещение не проверено: $PLACE_WHY" ;;
             *) say "$PLACE_WHY"; exit "$prc" ;;
         esac
         echo "remote-heavy: кластер отвечает, создавать ns вправе; идущих тяжёлых прогонов $n из $MAX_PAR; $PLACE_CENSUS$avw"; exit 0 ;;
@@ -1113,7 +1152,7 @@ reap_local() {
             owner_alive "$tok" && continue
             if [ "$created" = 1 ] && [ -z "$keep" ] && [ "$ns" != kacho ] && [[ "$ns" =~ ^t[1-9][0-9]*-heavy-[a-z0-9-]+$ ]] \
                && [ "$(kc get ns "$ns" -o json 2>/dev/null | jq -r '.metadata.annotations["kacho.io/owner"] // ""')" = "$tok" ]; then
-                guard_write "уборка ns прежнего запуска" || exit 69
+                guard_write "уборка ns прежнего запуска" || guard_exit $?
                 kc delete ns "$ns" --wait=false >/dev/null 2>&1 && n_ns=$((n_ns + 1))
             fi
         else
@@ -1159,7 +1198,7 @@ sweep_heavy() {
     n_seen="$(sed -n 's/^seen //p' <<< "$plan")"
     while read -r x; do
         [ -n "$x" ] || continue
-        guard_write "уборка просроченного тяжёлого ns" || exit 69
+        guard_write "уборка просроченного тяжёлого ns" || guard_exit $?
         kc delete ns "$x" --wait=false >/dev/null 2>&1 && { n_ok=$((n_ok + 1)); own="$own $x"; }
     done <<< "$(sed -n 's/^own //p' <<< "$plan")"
     foreign="$(sed -n 's/^foreign //p' <<< "$plan" | tr '\n' ' ' | sed 's/ $//')"
@@ -1170,11 +1209,12 @@ sweep_heavy() {
 
 # ── кластер и уборка ─────────────────────────────────────────────────────────
 available; arc=$?
+[ "$arc" = 2 ] && defect "$WHY"
 [ "$arc" = 0 ] || { say "$WHY (не выполнилось)"; [ "$arc" = 64 ] && exit 64; exit 69; }
 reap_local
 sweep_heavy
 export REMOTE_HEAVY_OWNER="$OWNER"
-busy="$(busy_heavy)" || { say "перепись идущих тяжёлых ns не прочитана (не выполнилось)"; exit 69; }
+busy_read " (не выполнилось)"; busy="$BUSY"
 n="$(grep -c . <<< "$busy")"
 if [ "$n" -ge "$MAX_PAR" ]; then
     say "кластер занят: идущих тяжёлых прогонов $n при пределе $MAX_PAR (KACHO_REMOTE_HEAVY_MAX) — ns не создаётся (не выполнилось)"; exit 75
@@ -1187,6 +1227,7 @@ placement "$NEED_CPU" "$NEED_MIB"; prc=$?
 case "$prc" in
     0) ;;
     1) say "размещение не проверено: $PLACE_WHY (не выполнилось)"; exit 69 ;;
+    2) defect "размещение не проверено: $PLACE_WHY" ;;
     *) say "$PLACE_WHY — ns не создаётся (не выполнилось)"; exit "$prc" ;;
 esac
 
@@ -1207,7 +1248,12 @@ cleanup() {
         say "ns $NSNAME оставлено для разбора до $EXPIRES (--keep $KEEP_H); снять: kubectl --context <контекст -client> delete ns $NSNAME"
         return 0
     fi
-    if ! guard_write "снятие ns $NSNAME"; then
+    local grc
+    guard_write "снятие ns $NSNAME"; grc=$?
+    if [ "$grc" = 2 ]; then
+        say "ns $NSNAME НЕ снято: перепись узлов прочитана, а не разобрана (дефект обёртки выше) — кластер не доказан; сними: kubectl --kubeconfig <файл профиля> --context <контекст -client> delete ns $NSNAME — иначе его поймает перепись по kacho.io/expires ($EXPIRES)"
+        return 0
+    elif [ "$grc" != 0 ]; then
         say "ns $NSNAME НЕ снято: kubectl смотрит не в кластер профиля, а ns — в прежнем; верни файл профиля и сними: kubectl --kubeconfig <файл профиля> --context <контекст -client> delete ns $NSNAME — иначе его поймает перепись по kacho.io/expires ($EXPIRES)"
         return 0
     fi
@@ -1239,7 +1285,7 @@ jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg repo "$REPO" --arg exp "$EXPIR
     annotations: ({"kacho.io/expires": $exp, "kacho.io/owner": $owner} + (if $keep != "" then {"kacho.io/keep": $keep} else {} end))}}' > "$BOX/ns.json"
 # create, а не apply: существующее ns create не трогает, а apply переписал бы его
 # метки, и trap снял бы чужое.
-guard_write "создание ns" || exit 69
+guard_write "создание ns" || guard_exit $?
 if ! out="$(kc create -f "$BOX/ns.json" 2>&1 >/dev/null)"; then
     case "$out" in
         *AlreadyExists*|*"already exists"*) say "ns $NSNAME уже есть — run.sh не берёт чужое и не продолжает чужой прогон"; exit 64 ;;
@@ -1252,7 +1298,7 @@ say "ns $NSNAME создано: задача $TASK, $REPO@${SHA:0:12}, проф�
 
 # Вторая перепись: гонка двух запусков, прошедших первую разом, решается временем
 # создания — сверх предела выходит младший.
-busy="$(busy_heavy)" || { say "перепись идущих тяжёлых ns не прочитана (не выполнилось)"; exit 69; }
+busy_read " (не выполнилось)"; busy="$BUSY"
 pos="$(grep -nxF -- "$NSNAME" <<< "$busy" | cut -d: -f1)"
 [ -n "$pos" ] || { say "своего ns $NSNAME в переписи идущих нет (не выполнилось)"; exit 69; }
 if [ "$pos" -gt "$MAX_PAR" ]; then
@@ -1279,7 +1325,11 @@ apiaddr="$( { kc -n default get endpointslices -l kubernetes.io/service-name=kub
             [ -n "$SERVER_HOST" ] && getent ahosts "$SERVER_HOST" 2>/dev/null | awk '{print $1}'
           } | sort -u | jq -Rsc 'split("\n") | map(select(length > 0))')"
 [ "$(jq length <<< "$apiaddr")" -gt 0 ] || { say "адреса управления кластера не выведены — сеть ns не построить (не выполнилось)"; exit 69; }
-jq -n --arg ns "$NSNAME" --argjson dns "$dns" --argjson addr "$nodeaddr" --argjson svc "$svccidr" --argjson api "$apiaddr" '
+# Выводы из ответа кластера — файлами, а не словом argv (ws#1210): адресов узлов
+# столько, сколько узлов.
+jq -n --arg ns "$NSNAME" --slurpfile D <(printf '%s' "$dns") --slurpfile A <(printf '%s' "$nodeaddr") \
+    --slurpfile S <(printf '%s' "$svccidr") --slurpfile P <(printf '%s' "$apiaddr") '
+  $D[0] as $dns | $A[0] as $addr | $S[0] as $svc | $P[0] as $api |
   def cidr: if test("/") then "\(.)" elif test(":") then "\(.)/128" else "\(.)/32" end;
   ([$addr[], $svc[], $api[]] | map(cidr)) as $own |
   {apiVersion: "networking.k8s.io/v1", kind: "NetworkPolicy", metadata: {name: "heavy", namespace: $ns},
@@ -1290,19 +1340,24 @@ jq -n --arg ns "$NSNAME" --argjson dns "$dns" --argjson addr "$nodeaddr" --argjs
      {to: [{ipBlock: {cidr: "0.0.0.0/0", except: (["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10", "169.254.0.0/16"]
                                                    + ($own | map(select(test(":") | not))) | unique)}},
            {ipBlock: {cidr: "::/0", except: (["fc00::/7", "fe80::/10"] + ($own | map(select(test(":")))) | unique)}}]}]}}' > "$BOX/netpol.json"
-guard_write "сетевая политика ns" || exit 69
+guard_write "сетевая политика ns" || guard_exit $?
 kc create -f "$BOX/netpol.json" >/dev/null || { say "сетевая политика ns не поставлена (не выполнилось)"; exit 69; }
 # Служба ns kacho для пробы закрытости в pod: ClusterIP с TCP-портом, чьи pod не
 # закрыты собственной политикой ns kacho (иначе проба прошла бы и без нашей).
-DENY_PROBE="$(jq -nr --argjson svc "$(kc get svc -n kacho -o json 2>/dev/null || echo '{"items":[]}')" \
-                    --argjson np "$(kc get netpol -n kacho -o json 2>/dev/null || echo '{"items":[]}')" '
+# Перепись служб и политик ns kacho — файлами, а не словом argv; отказ её разбора —
+# 70 «дефект обёртки», а не пустая проба: иначе проба закрытости молча не исполнилась
+# бы (ws#1210). Годной службы нет — проба пуста законно, строка pod это называет.
+DENY_PROBE="$(jq -nr --slurpfile SV <(kc get svc -n kacho -o json 2>/dev/null || echo '{"items":[]}') \
+                    --slurpfile NP <(kc get netpol -n kacho -o json 2>/dev/null || echo '{"items":[]}') '
+  $SV[0] as $svc | $NP[0] as $np |
   def covers($s): (length == 0) or (to_entries | all(.[]; $s[.key] == .value));
   [$np.items[] | .spec.podSelector.matchLabels // {}] as $sel
   | [$svc.items[] | select((.spec.type // "ClusterIP") == "ClusterIP" and .spec.clusterIP != "None")
      | select((.spec.selector // {}) as $s | ($s | length > 0)
               and ($sel | any(.[]; covers($s)) | not))
      | {n: .metadata.name, p: ([.spec.ports[]? | select((.protocol // "TCP") == "TCP") | .port] | first)}
-     | select(.p != null)] | sort_by(.n) | (first // empty) | "\(.n).kacho.svc:\(.p)"')"
+     | select(.p != null)] | sort_by(.n) | (first // empty) | "\(.n).kacho.svc:\(.p)"')" \
+    || defect "перепись служб и политик ns kacho прочитана, а разбор её отказал — проба закрытости ns kacho не выбрана, прогон без неё не идёт"
 
 # Квота — сумма запросов профиля с запасом на init: ns не способно занять больше
 # одного прогона, даже если в нём появится второй pod.
@@ -1320,16 +1375,18 @@ jq -n --arg ns "$NSNAME" \
    spec: {limits: [{type: "Container",
      defaultRequest: {cpu: "100m", memory: "128Mi", "ephemeral-storage": "64Mi"},
      default: {cpu: "1", memory: "1Gi", "ephemeral-storage": "1Gi"}}]}}]}' > "$BOX/limits.json"
-guard_write "квота ns" || exit 69
+guard_write "квота ns" || guard_exit $?
 kc apply -f "$BOX/limits.json" >/dev/null || { say "квота ns не поставлена (не выполнилось)"; exit 69; }
 
 # ── Job ──────────────────────────────────────────────────────────────────────
 # spec_drift <запрошенный spec pod> <фактический> — расхождения изоляции строками;
 # пусто — сервер исполнил запрошенное (ИЗОЛЯЦИЯ в шапке). Поля, которые сервер
 # добавил сам (procMount: Default и прочие умолчания), расхождением не являются;
-# снятое, изменённое и расширенное — являются.
+# снятое, изменённое и расширенное — являются. Оба spec несут подготовку и команду —
+# файлами, а не словом argv (ws#1210).
 spec_drift() {
-    jq -nr --argjson q "$1" --argjson a "$2" '
+    jq -nr --slurpfile Q <(printf '%s' "$1") --slurpfile A <(printf '%s' "$2") '
+      $Q[0] as $q | $A[0] as $a |
       def ctrs($s): [($s.initContainers // [])[], ($s.containers // [])[]];
       def sc($c): ($c.securityContext // {});
       def caps($s): (($s.capabilities // {}).add // []);
@@ -1366,7 +1423,8 @@ userns_refused() {
 }
 
 # Команда — JSON-массивом через NUL: позиционные аргументы jq разбирал бы как свои
-# флаги (`bash -c …` терял `-c`, опыт 2026-10-08).
+# флаги (`bash -c …` терял `-c`, опыт 2026-10-08). В jq она идёт файлом: слова команды
+# порознь проходят в argv, а склеенные в одно слово превышают 128 КиБ (ws#1210).
 CMD_JSON="$(printf '%s\0' "${CMD[@]}" | jq -Rsc 'split("\u0000")[:-1]')" || { say "команда не переведена в JSON"; exit 69; }
 # shellcheck disable=SC2016  # раскрывается в pod, не здесь
 # Отказ подготовки — не код команды: он пишется в termination-log контейнера
@@ -1829,7 +1887,7 @@ jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg goimg "$GO_IMAGE" --arg dimg "
     --arg cr "${RUN_CPU_REQ}m" --arg cl "$CPU_LIM" --arg mr "${RUN_MEM_REQ}Mi" --arg ml "${RUN_MEM_LIM}Mi" --arg eph "$EPH" \
     --arg dcr "$DCR" --arg dcl "$DCL" --arg dmr "$DMR" --arg dml "$DML" \
     --arg pgimg "$PG_IMAGE" --arg pgsh "$PG_SH" --argjson pg "$PG" --arg pgcr "${PG_REQ_M}m" --arg pgmr "${PG_REQ_MIB}Mi" --arg dindsh "$DIND_SH" --arg deny "$DENY_PROBE" --arg helm "$HELM_PIN" --arg node "$NODE_PIN" --arg buf "$BUF_PIN" \
-    --arg pushin "$PUSH_INPUT" --arg gname "$GIT_NAME" --arg gemail "$GIT_EMAIL" --argjson cmd "$CMD_JSON" '
+    --arg pushin "$PUSH_INPUT" --arg gname "$GIT_NAME" --arg gemail "$GIT_EMAIL" --slurpfile cmdv <(printf '%s' "$CMD_JSON") '
 # kubelet раскрывает в command, args и value env контейнера $(ИМЯ) значением env и
 # сворачивает $$ в $ (ws#1142: составной Job потерял переменные и коды осей). Каждый
 # $ удваивается: kubelet свернёт его обратно, и байты дойдут до контейнера как есть.
@@ -1859,7 +1917,7 @@ def kesc_c: (if .command then .command |= map(kesc) else (.) end)
         env: [{name: "HEAVY_SHA", value: $sha}, {name: "HEAVY_MAIN", value: $main}],
         resources: {requests: {cpu: "100m", memory: "256Mi"}, limits: {cpu: "2", memory: "2Gi"}},
         volumeMounts: [{name: "work", mountPath: "/work"}]}]),
-     containers: ([{name: "run", image: $goimg, command: (["bash", "-c", $prep, "run"] + $cmd),
+     containers: ([{name: "run", image: $goimg, command: (["bash", "-c", $prep, "run"] + $cmdv[0]),
        env: ([{name: "HEAVY_WORKDIR", value: $wd}, {name: "HEAVY_DENY_PROBE", value: $deny}, {name: "HEAVY_HELM", value: $helm}, {name: "HEAVY_NODE", value: $node}, {name: "HEAVY_BUF", value: $buf}, {name: "HEAVY_PUSH_INPUT", value: $pushin}, {name: "HEAVY_GIT_NAME", value: $gname}, {name: "HEAVY_GIT_EMAIL", value: $gemail}, {name: "GOTOOLCHAIN", value: "local"},
               {name: "GOMODCACHE", value: "/cache/mod"}, {name: "GOCACHE", value: "/cache/build"},
               {name: "GOLANGCI_LINT_CACHE", value: "/cache/lint"}, {name: "CI", value: "true"}]
@@ -1879,7 +1937,7 @@ def kesc_c: (if .command then .command |= map(kesc) else (.) end)
                + (if $dind == 1 or $pg == 1 then [{name: "tools", emptyDir: {}}] else [] end))})}}}
   | .spec.template.spec |= ((.initContainers, .containers) |= map(kesc_c))' \
     > "$BOX/job.json"
-guard_write "Job" || exit 69
+guard_write "Job" || guard_exit $?
 kc create -f "$BOX/job.json" >/dev/null || { say "Job не создан (не выполнилось)"; exit 69; }
 T0="$(now)"
 REQ_SPEC="$(jq -c '.spec.template.spec' "$BOX/job.json")"
@@ -1956,7 +2014,7 @@ done
 # Сверка pod — до доставки: без исходников в pod нет ни строки кода ветки.
 verify_spec "pod $POD" "$(kc -n "$NSNAME" get pods -l job-name=run -o json 2>/dev/null \
                           | jq -c --arg p "$POD" '.items[] | select(.metadata.name == $p) | .spec' 2>/dev/null)"
-guard_write "доставка исходников" || exit 69
+guard_write "доставка исходников" || guard_exit $?
 kc -n "$NSNAME" exec -i "$POD" -c fetch -- sh -c 'cat > /work/in.bundle && touch /work/in.done' < "$BOX/src.bundle" & wait_bg $! \
     || { say "исходники не доставлены в pod (не выполнилось)"; exit 69; }
 say "исходники доставлены: $(( $(stat -c %s "$BOX/src.bundle") / 1048576 )) МиБ bundle за $(( $(now) - T0 )) с от создания Job"

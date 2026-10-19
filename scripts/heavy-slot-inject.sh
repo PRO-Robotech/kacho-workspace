@@ -580,6 +580,10 @@ if [ "${1:-}" = --available ]; then
     [ "${FAKE_AVAIL:-0}" = 2 ] && { echo "remote-heavy: открытого для планирования узла нет (узлов 2: закрыты для планирования 2)" >&2; exit 69; }
     [ "${FAKE_AVAIL:-0}" = 3 ] && { echo "remote-heavy: идущих тяжёлых прогонов 2 из 2" >&2; exit 75; }
     [ "${FAKE_AVAIL:-0}" = 4 ] && { sleep 30; exit 0; }
+    # 8 — дефект обёртки run.sh (70); 9 — сама обёртка не исполнилась так, как в журнале
+    # ws#1210 (bash: «jq: Argument list too long», 126): ни то, ни другое не недоступность.
+    [ "${FAKE_AVAIL:-0}" = 8 ] && { echo "remote-heavy: дефект обёртки run.sh: перепись идущих тяжёлых ns прочитана, а разбор её отказал" >&2; exit 70; }
+    [ "${FAKE_AVAIL:-0}" = 9 ] && { echo "run.sh: line 611: /usr/bin/jq: Argument list too long" >&2; exit 126; }
     # 6 — медленный, но живой ответ: 12 с (замер ws#1141 — кластер отвечал за 3,3–12,6 с).
     [ "${FAKE_AVAIL:-0}" = 6 ] && { sleep 12; exit 0; }
     # 7 — первый опрос висит, второй отвечает сразу: повтор после 124 (ws#1141).
@@ -622,6 +626,10 @@ rm -f "$W/argv"
 assert "0 да нет" "$(FAKE_AVAIL=1 rslot bash "$SLOT" lint -- go version) $(has "$W/err" 'локально — кластер недоступен') $([ -e "$W/argv" ] && echo да || echo нет)" "кластер не отвечает → локально, причина названа"
 rm -f "$W/argv"
 assert "0 да нет" "$(FAKE_AVAIL=2 rslot bash "$SLOT" go-race -- go version) $(has "$W/err" 'локально — кластер недоступен: открытого для планирования узла нет') $([ -e "$W/argv" ] && echo да || echo нет)" "открытого узла нет → локально сразу, причина названа (ws#991)"
+rm -f "$W/argv"
+# ws#1210: отказ проверки не сетевым признаком — не «недоступен»: 70, ни Job, ни локально
+assert "69 да нет нет" "$(FAKE_AVAIL=8 rslot bash "$SLOT" go-race -- go version) $(has "$W/err" 'отказала не сетевым признаком (код 70)') $([ -e "$W/argv" ] && echo да || echo нет) $(has "$W/out" 'go version go')" "дефект обёртки run.sh (70) → 69, команда не запускалась ни там, ни локально (ws#1210)"
+assert "69 да нет нет" "$(FAKE_AVAIL=9 rslot bash "$SLOT" lint -- go version) $(has "$W/err" 'не сетевым признаком (код 126)') $([ -e "$W/argv" ] && echo да || echo нет) $(has "$W/out" 'go version go')" "обёртка не исполнилась («Argument list too long», 126) → 69, не локально (ws#1210)"
 rm -f "$W/argv"
 assert "0 да нет" "$(rslot bash "$SLOT" ci-local -- git status) $(has "$W/err" 'внешнего пути не имеет') $([ -e "$W/argv" ] && echo да || echo нет)" "git первым словом (pre-push) → локально, причина названа"
 echo c >> "$R/f"
