@@ -2932,6 +2932,9 @@ if grep -q 'не отвечает' "$OUT"; then ok; else bad V1 "причина 
 #   PW2  близнец: все образы в кеше dind → 0, ни одного POST (тест стартует без загрузки)
 #   PW3  ИНЪЕКЦИЯ: реестр завис после первого слоя → 125 и «remote-heavy-pull:» в
 #        termination-log за время ≤ предела (число в выводе): слой, байты, последняя строка
+#   PWL1 слой заперт («locked for» в журнале dind, 919 2026-10-19): строки прогресса идут,
+#        байты стоят → 125 за предел, а не зависание; PWL2 демон отдал «locked for …
+#        unavailable» на каждой попытке → 125 с этой цитатой
 #   PW4  первая попытка зависла, вторая прошла → 0, попытка 1 названа застоем
 #   PW5  медленная, но идущая загрузка дольше застоя → 0 с первой попытки
 #   PW6  реестр: «manifest unknown» → 0, образ назван «в реестре нет», тест судит сам
@@ -2983,6 +2986,15 @@ class H(http.server.BaseHTTPRequestHandler):
         w({"status": "Downloading", "id": "a1b2c3d4e5f6", "progressDetail": {"current": 1048576, "total": 104857600}, "progress": "[>   ] 1.049MB/104.9MB"})
         if mode == "hang" or (mode == "hang-once" and n == 1):
             time.sleep(3600); return
+        if mode == "locked":
+            # Слой заперт чужой записью (919, 2026-10-19: «layer-sha256:… locked for 21m58s»):
+            # поток живой, строки идут, а байты стоят — та же строка прогресса снова и снова.
+            for _ in range(36000):
+                w({"status": "Downloading", "id": "a1b2c3d4e5f6", "progressDetail": {"current": 1048576, "total": 104857600}, "progress": "[>   ] 1.049MB/104.9MB"})
+                time.sleep(0.2)
+            return
+        if mode == "locked-err":
+            w({"errorDetail": {"message": "ref moby/1/layer-sha256:25b77f59fd95 locked for 21m58.3s (since 2026-10-19 16:22:53 +0000 UTC): unavailable"}, "error": "unavailable"}); return
         if mode == "absent":
             w({"errorDetail": {"message": "manifest unknown"}, "error": "manifest unknown"}); return
         for i in range(5 if mode == "slow" else 1):
@@ -3075,6 +3087,16 @@ if grep -q '^remote-heavy-pull: образ busybox:1.36 не загружен в
    && grep -q 'слой a1b2c3d4e5f6 «Downloading» 1048576/104857600 байт, скачано всего 1048576 байт; последняя строка docker pull «{"status": "Downloading"' "$PW/tl"; then ok
 else OUT="$PW/tl"; bad PW3 "в termination-log нет причины: образ, предел, попытки, слой, байты, последняя строка"; fi
 if grep -q 'remote-heavy: команда исполнилась' "$PW/PW3.out"; then bad PW3 "команда исполнилась после отказа загрузки"; else ok; fi
+# PWL1 — слой заперт (журнал dind «locked for»): строки прогресса идут, байты стоят →
+#        застой, затем предел: 125 «remote-heavy-pull», а не зависание до срока теста
+pw_daemon locked; pw_run PWL1 125 HEAVY_PULL_LIMIT_S=30 HEAVY_PULL_STALL_S=2 HEAVY_PULL_TRIES=2
+took="$(sed -n 's/^remote-heavy-pull: образ [^ ]* не загружен в dind за \([0-9]*\) с .*/\1/p' "$PW/tl")"
+echo "remote-heavy inject: PWL1 — запертый слой: отказ через ${took:-?} с (застой 2 с × 2 попытки, предел 30 с)"
+if [ -n "$took" ] && [ "$took" -le 6 ] && grep -q '(предел 30 с, застой 2 с, попыток 2): нет движения 2 с — слой a1b2c3d4e5f6 «Downloading» 1048576/104857600' "$PW/tl"; then ok; else OUT="$PW/tl"; bad PWL1 "повтор одной строки прогресса принят за движение — запертый слой не снят пределом"; fi
+# PWL2 — демон вернул отказ записи слоя «locked for … unavailable» на каждой попытке →
+#        попытки исчерпаны, 125 с цитатой отказа
+pw_daemon locked-err; pw_run PWL2 125 HEAVY_PULL_LIMIT_S=30 HEAVY_PULL_STALL_S=5 HEAVY_PULL_TRIES=3
+if grep -q '^remote-heavy-pull: образ busybox:1.36 не загружен в dind за [0-9]* с (предел 30 с, застой 5 с, попыток 3): ref moby/1/layer-sha256:25b77f59fd95 locked for 21m58.3s' "$PW/tl"; then ok; else OUT="$PW/tl"; bad PWL2 "отказ «locked for» не процитирован после исчерпания попыток"; fi
 pw_daemon hang-once; pw_run PW4 0 HEAVY_PULL_LIMIT_S=8 HEAVY_PULL_STALL_S=2 HEAVY_PULL_TRIES=3
 if grep -q 'busybox:1.36 — попытка 1 не удалась: нет движения 2 с' "$PW/PW4.out" && grep -q 'busybox:1.36 — загружен за .* (попытка 2)' "$PW/PW4.out"; then ok; else bad PW4 "застой первой попытки не снят повтором"; fi
 pw_daemon slow; pw_run PW5 0 HEAVY_PULL_LIMIT_S=30 HEAVY_PULL_STALL_S=3
