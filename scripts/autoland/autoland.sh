@@ -23,7 +23,8 @@
 #         либо это не установлено (ниже «КОПИЯ ДЕМОНА»), демон не запущен.
 #   autoland.sh status <файл .state>
 #       — печатает исход; код: 0 merged · 1 red · 2 void или демон умер · 3 идёт ·
-#         4 stale-base · 5 head-moved · 6 timeout.
+#         4 stale-base · 5 head-moved · 6 timeout. Идущий в очереди — второй строкой
+#         «очередь: позиция K из M (впереди: <репо>#<N>…)», счёт по живым билетам.
 #   autoland.sh run …  — тело демона (те же доводы), его зовёт start; пробы зовут его
 #         в переднем плане.
 #
@@ -35,6 +36,41 @@
 # по умолчанию 3 ч; --poll — пауза между чтениями CI, по умолчанию 180 с;
 # --void-limit — сколько раз подряд гейт может не вынести вердикта (код 2, кроме
 # лимита площадки), по умолчанию 3.
+#
+# ОЧЕРЕДЬ НА БАЗУ (ws#1263). Замер 2026-10-18..19: 26 stale-base на 22 PR (34 % запусков) —
+# демоны одной базы шли параллельно, посадка первого делала базу второго устаревшей.
+# Теперь демон после первого чтения запроса встаёт в очередь (репозиторий без учёта
+# регистра, база без приставки refs/heads/): билет $DIR/queue/<владелец>__<имя>__<sha1 базы
+# 12>/<номер>.<имя .state>.t — «pid starttime <репо>#<N> <голова 12>», номер — счётчик под
+# flock. Черёд — ни одного живого билета впереди и flock на .turn.lock очереди; держится
+# до исхода. Живой билет — pid есть И его starttime (/proc/<pid>/stat, поле 22) тот же:
+# мёртвый либо переиспользованный pid — билет снимается тем, кто его увидел, строкой в
+# журнал. Пока ждёт: локально раз в AUTOLAND_QUEUE_POLL с (5), запрос и ci-read — раз в
+# --poll: влит, закрыт, голова ушла, CI красный — исход сразу, не дожидаясь черёда.
+# ГРАНИЦА: демон прежней версии (без билета) очереди не виден — он доживает свой
+# --timeout; смена базы запроса после постановки очередь не меняет; SIGKILL демона посреди
+# гейта либо отправки догона ловушек не исполняет — осиротевший дочерний процесс (timeout
+# гейта, обёртка отправки) держит унаследованные дескрипторы замка запроса и .turn.lock, и
+# следующий демон той же базы ждёт черёда до его конца: не дольше AUTOLAND_GATE_TIMEOUT
+# (900 с) либо AUTOLAND_PUSH_TIMEOUT (3600 с); билет мёртвого pid снимается как обычно.
+# ДОГОН БАЗЫ — ТОЛЬКО при запуске без --reviews, --stand-report и --stand-expect (так демон
+# зовёт цепочка посадок, tmp/autoland/chains/chain.sh). С любым из них вердикты привязаны к
+# голове — REVIEW-STALE у landing-precheck.sh, STAND-REPORT-STALE и STAND-EXPECT-STALE у
+# stand-report.sh: догон сдвинул бы голову, снял бы их и потратил бы круг CI (опыт cv
+# ws#1263: догон отправлен, затем red REVIEW-STALE). Потому с ними базу демон не догоняет:
+# ci-read 4 — в очереди и в черёд — исход stale-base, как до ws#1263; ветка не трогается.
+# Без этих доводов — с получением черёда и на ci-read 4: в первом клоне репозитория (как у снятия)
+# fetch базы и ветки, `git rev-list --count <голова>..origin/<база>`; 0 — дальше; иначе в
+# копии очереди (worktree $DIR/queue/…/wt, отделённая голова) `git merge --no-ff` базы с заголовком
+# «#<задача ветки> merge <база>: догон базы перед вливанием #<N>», отправка
+# `git push origin HEAD:refs/heads/<ветка>` через `heavy-slot.sh --wait 300 ci-local --` — полный
+# хук отправки, без форсирующих флагов; удалась — когда голова ветки на origin стала новой
+# (код отправки — лишь при отказе: 141 после хука и есть снятый простоем ssh). Новая голова —
+# --head дальше: окно головы заново, CI ждётся на ней. Не более AUTOLAND_CATCHUP_LIMIT (2)
+# догонов. Исходы: конфликт слияния — stale-base «конфликт: <файлы>» (слияние снято, копия
+# снята); клона нет — stale-base с причиной ci-read и «клона нет»; ветка ушла во время
+# догона — head-moved; хук отказал — red; слот занят (74, 75) — ожидание без счёта VOID;
+# fetch, 69, 76, 77, 124 и «код 0, а голова не новая» — «не выполнилось» счётом.
 #
 # ЧТО ДЕЛАЕТ — по кругу, пока не наступит исход или предел:
 #   1. запрос (`gh api repos/<репо>/pulls/<N>`, GET): закрыт без вливания — red
@@ -93,7 +129,8 @@
 #   running <фаза> — идёт;
 #   merged <sha коммита слияния> снятие: …[; основной клон: <было> → <стало> | ff отказ — …];
 #   red <гейт> код <n>: <строки REASON дословно через « | »>;
-#   stale-base <строки REASON ci-read дословно> — базу демон НЕ догоняет;
+#   stale-base <строки REASON ci-read дословно либо причина догона> — базу догнать не вышло
+#        либо догон не положен (вердикты привязаны к голове: «догона нет: …»);
 #   head-moved <ожидалась> <стала>;
 #   timeout <предел>; последнее: <последний вердикт>;
 #   void <гейт> код <n> <k> раз подряд: <строки VOID дословно> — «не выполнилось»
@@ -101,7 +138,7 @@
 #        (testing-verdict: не зелёное и не красное), а также остановка сигналом и
 #        занятый замок.
 #
-# ЧЕГО НЕ ДЕЛАЕТ. Не чинит, не догоняет базу запроса слиянием (stale-base — наружу), не
+# ЧЕГО НЕ ДЕЛАЕТ. Не чинит, не разрешает конфликт догона (stale-base — наружу), не
 # переводит черновик в готовый, не применяет форсирующих флагов ни к вливанию, ни
 # к отправке, ни к снятию копии, и не обходит хуки (держит scripts/autoland/inject.sh,
 # раздел «статика»). Ожидание живёт в отсоединённом процессе: в вызове агента цикла
@@ -115,7 +152,11 @@
 #   AUTOLAND_TOOLING_TREE — дерево, чья выписка сверяется со стволом при start (по
 #                      умолчанию — каталог скрипта); AUTOLAND_LAG — main-clone-lag.sh;
 #   AUTOLAND_DIR     — каталог .state, журналов и замков (по умолчанию $WS/tmp/autoland);
-#   AUTOLAND_CLONES  — клоны для снятия через «:» (заданная пустой — ни одного);
+#   AUTOLAND_CLONES  — клоны для снятия и догона через «:» (заданная пустой — ни одного);
+#   AUTOLAND_PUSH    — вместо `heavy-slot.sh --wait 300 ci-local --` перед `git push` догона;
+#   AUTOLAND_PUSH_TIMEOUT — предел отправки догона, с (по умолчанию 3600);
+#   AUTOLAND_QUEUE_POLL — пауза локальной сверки очереди, с (по умолчанию 5);
+#   AUTOLAND_CATCHUP_LIMIT — догонов базы за жизнь демона (по умолчанию 2);
 #   AUTOLAND_GATE_TIMEOUT — предел одного гейта, с (по умолчанию 900);
 #   AUTOLAND_FF_FETCH_TIMEOUT — предел fetch догона основного клона, с (по умолчанию 8);
 #   AUTOLAND_INTERIM_LOCK — замок отправок (по умолчанию ~/.cache/heavy-slots/interim.lock);
@@ -128,6 +169,8 @@ GATE_TIMEOUT="${AUTOLAND_GATE_TIMEOUT:-900}"
 HEAD_SYNC="${AUTOLAND_HEAD_SYNC:-30}"; HEAD_SYNC_POLL="${AUTOLAND_HEAD_SYNC_POLL:-3}"
 FF_FETCH_TIMEOUT="${AUTOLAND_FF_FETCH_TIMEOUT:-8}"
 INTERIM_LOCK="${AUTOLAND_INTERIM_LOCK:-$HOME/.cache/heavy-slots/interim.lock}"
+QUEUE_POLL="${AUTOLAND_QUEUE_POLL:-5}"; CATCHUP_LIMIT="${AUTOLAND_CATCHUP_LIMIT:-2}"
+PUSH_TIMEOUT="${AUTOLAND_PUSH_TIMEOUT:-3600}"
 
 die() { printf 'autoland: ОТКАЗ — %s\n' "$1" >&2; exit "${2:-2}"; }
 
@@ -190,6 +233,8 @@ parse_args() {
     [[ "$VOID_LIMIT" =~ ^[0-9]+$ ]] && [ "$VOID_LIMIT" -ge 1 ] || die "--void-limit «$VOID_LIMIT» не число ≥ 1"
     [[ "$HEAD_SYNC" =~ ^[0-9]+$ ]] && [[ "$HEAD_SYNC_POLL" =~ ^[1-9][0-9]*$ ]] \
         || die "AUTOLAND_HEAD_SYNC «$HEAD_SYNC» / AUTOLAND_HEAD_SYNC_POLL «$HEAD_SYNC_POLL» не секунды"
+    [[ "$QUEUE_POLL" =~ ^[1-9][0-9]*$ ]] && [[ "$CATCHUP_LIMIT" =~ ^[0-9]+$ ]] && [[ "$PUSH_TIMEOUT" =~ ^[1-9][0-9]*$ ]] \
+        || die "AUTOLAND_QUEUE_POLL «$QUEUE_POLL», AUTOLAND_CATCHUP_LIMIT «$CATCHUP_LIMIT», AUTOLAND_PUSH_TIMEOUT «$PUSH_TIMEOUT» не числа"
 }
 
 paths() {
@@ -199,6 +244,41 @@ paths() {
     NAME="${key}__${HEAD:0:12}"
     STATE="$RUN_DIR/$NAME.state"; LOG="$RUN_DIR/$NAME.log"; PIDF="$RUN_DIR/$NAME.pid"
     LOCK="$RUN_DIR/$key.lock"; FIFO_NAME="$key.fifo"
+}
+
+# ── очередь на базу (ws#1263) ──────────────────────────────────────────────────
+norm_base() { printf '%s' "${1#refs/heads/}"; }
+queue_dir() {  # <репо> <база> → каталог очереди; репозиторий — без учёта регистра
+    local r="${1,,}" b; b="$(norm_base "$2")"
+    printf '%s/queue/%s__%s__%s' "$RUN_DIR" "${r%%/*}" "${r#*/}" "$(printf '%s' "$b" | sha1sum | cut -c1-12)"
+}
+proc_start() {  # <pid> → starttime процесса (поле 22 /proc/<pid>/stat); нет процесса — код 1
+    local s; s="$(cat "/proc/$1/stat" 2>/dev/null)" || return 1
+    s="${s##*) }"; read -r -a s <<< "$s"
+    [ -n "${s[19]:-}" ] && printf '%s' "${s[19]}"
+}
+ticket_live() {  # <билет> — pid жив и это тот же процесс (starttime совпал)
+    local pid st cur
+    read -r pid st _ < "$1" 2>/dev/null || return 1
+    [[ "$pid" =~ ^[0-9]+$ ]] || return 1
+    cur="$(proc_start "$pid")" || return 1
+    [ "$cur" = "$st" ]
+}
+Q_POS=0; Q_LEN=0; Q_AHEAD=""; Q_PRUNED=""
+queue_scan() {  # <каталог> <свой билет> <снимать мёртвые: 1|0> → Q_POS (0 — своего нет), Q_LEN, Q_AHEAD, Q_PRUNED
+    local qd="$1" mine="$2" prune="$3" f who
+    Q_POS=0; Q_LEN=0; Q_AHEAD=""; Q_PRUNED=""
+    for f in "$qd"/[0-9]*.t; do
+        [ -e "$f" ] || continue
+        who="$(cut -d' ' -f3 "$f" 2>/dev/null)"
+        if [ "$f" != "$mine" ] && ! ticket_live "$f"; then
+            if [ "$prune" = 1 ] && rm -f "$f"; then Q_PRUNED+="${Q_PRUNED:+, }${who:-?} ($(basename "$f"))"; fi
+            continue
+        fi
+        Q_LEN=$((Q_LEN + 1))
+        if [ "$f" = "$mine" ]; then Q_POS=$Q_LEN
+        elif [ "$Q_POS" -eq 0 ]; then Q_AHEAD+="${Q_AHEAD:+ }${who:-?}"; fi
+    done
 }
 
 # ── status ─────────────────────────────────────────────────────────────────────
@@ -211,7 +291,14 @@ if [ "${1:-}" = status ]; then
         head-moved) exit 5 ;; timeout) exit 6 ;;
         running)
             pid="$(cat "${f%.state}.pid" 2>/dev/null)"
-            if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then exit 3; fi
+            if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
+                tf="$(cat "${f%.state}.ticket" 2>/dev/null)"
+                if [ -n "$tf" ] && [ -e "$tf" ]; then
+                    queue_scan "$(dirname "$tf")" "$tf" 0
+                    [ "$Q_POS" -eq 0 ] || printf 'очередь: позиция %s из %s (впереди: %s)\n' "$Q_POS" "$Q_LEN" "${Q_AHEAD:-—}"
+                fi
+                exit 3
+            fi
             echo "autoland: демон pid «${pid:-—}» не жив, а исход не записан — не-выполнилось; журнал ${f%.state}.log"
             exit 2 ;;
         *) echo "autoland: исход «${line%% *}» не из перечня — не-выполнилось"; exit 2 ;;
@@ -259,7 +346,7 @@ mkdir -p "$RUN_DIR" || exit 2
 cd / || exit 2
 W="$(mktemp -d "${TMPDIR:-/tmp}/autoland.XXXXXX")" || exit 2
 DONE=0
-BG=""
+BG=""; TICKET=""; QDIR=""; TURN=0
 export GH_PROMPT_DISABLED=1 GH_NO_UPDATE_NOTIFIER=1
 
 log() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$*"; }
@@ -277,6 +364,7 @@ cleanup() {
     local rc=$?
     if [ "$DONE" -eq 0 ]; then state "void демон оборвался кодом $rc до исхода; журнал $LOG"; fi
     [ -z "$BG" ] || kill "$BG" 2>/dev/null
+    [ -z "$TICKET" ] || rm -f "$TICKET" "$RUN_DIR/$NAME.ticket"   # уход из очереди; flock черёда снимает выход
     rm -rf "$W"
     [ "$SELF" != "$RUN_DIR/$NAME.autoland.sh" ] || rm -f "$SELF"
 }
@@ -364,7 +452,7 @@ read_pr() {
     VOIDS[запрос]=0
     PR_STATE="$(jq -r .state "$W/pr.json")"; PR_MERGED="$(jq -r '.merged // false' "$W/pr.json")"
     PR_HEAD="$(jq -r .head.sha "$W/pr.json")"; PR_REF="$(jq -r '.head.ref // ""' "$W/pr.json")"
-    PR_BASE="$(jq -r '.base.ref // ""' "$W/pr.json")"; PR_MSHA="$(jq -r '.merge_commit_sha // ""' "$W/pr.json")"
+    PR_BASE="$(norm_base "$(jq -r '.base.ref // ""' "$W/pr.json")")"; PR_MSHA="$(jq -r '.merge_commit_sha // ""' "$W/pr.json")"
 }
 
 # ── снятие влитой ветки коммитным предикатом ───────────────────────────────────
@@ -490,11 +578,135 @@ landed() {  # запрос влит — проверка родителя, сн�
         log "коммит слияния $PR_MSHA: родитель $HEAD не подтверждён площадкой"
     fi
     prune "$PR_REF" "$PR_BASE"; sync_main_clone
-    finish merged "$PR_MSHA${note:+ $note}; $PRUNE${SYNC:+; $SYNC}"
+    finish merged "$PR_MSHA${note:+ $note}${CU_NOTE:+; догон базы: $CU_NOTE}; $PRUNE${SYNC:+; $SYNC}"
+}
+
+# ── очередь: билет, черёд, ожидание (ws#1263) ──────────────────────────────────
+enqueue() {  # билет в конец очереди (репо, база запроса)
+    local seq st
+    QDIR="$(queue_dir "$REPO" "$PR_BASE")"
+    mkdir -p "$QDIR" || return 1
+    printf '%s %s\n' "${REPO,,}" "$(norm_base "$PR_BASE")" > "$QDIR/key"
+    st="$(proc_start $$)" || return 1
+    seq="$( { flock -w 10 7 || exit 1; n=$(( $(cat "$QDIR/.seq" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$QDIR/.seq" && echo "$n"; } 7> "$QDIR/.seq.lock" )" \
+        && [[ "$seq" =~ ^[0-9]+$ ]] || return 1
+    TICKET="$QDIR/$(printf '%012d' "$seq").$NAME.t"
+    printf '%s %s %s#%s %s\n' "$$" "$st" "$REPO" "$PR" "${HEAD:0:12}" > "$TICKET" || { TICKET=""; return 1; }
+    printf '%s\n' "$TICKET" > "$RUN_DIR/$NAME.ticket"
+    log "очередь: билет $seq — $REPO, база $(norm_base "$PR_BASE") ($QDIR)"
+}
+try_turn() {  # черёд: живых билетов впереди нет и flock черёда взят
+    queue_scan "$QDIR" "$TICKET" 1
+    [ -z "$Q_PRUNED" ] || log "очередь: сняты мёртвые билеты — $Q_PRUNED"
+    if [ "$Q_POS" -eq 0 ]; then log "очередь: своего билета нет — встаю заново"; TICKET=""; enqueue || return 1; queue_scan "$QDIR" "$TICKET" 0; fi
+    [ "$Q_POS" -eq 1 ] || return 1
+    exec 8> "$QDIR/.turn.lock"
+    flock -n 8 || { exec 8>&-; return 1; }
+    TURN=1; log "очередь: черёд (в очереди $Q_LEN)"
+}
+queued_check() {  # в очереди: запрос и CI — исход сразу, не дожидаясь черёда
+    if ! read_pr; then void_step запрос "запрос не прочитан" "$PR_ERR"; return; fi
+    if [ "$PR_MERGED" = true ]; then
+        [ "$PR_HEAD" = "$HEAD" ] || finish head-moved "$HEAD $PR_HEAD (влит другой головой)"
+        landed "(влит не этим демоном)"
+    fi
+    if [ "$PR_STATE" != open ]; then finish red "запрос в очереди: REASON"$'\t'"PR-NOT-OPEN"$'\t'"состояние $PR_STATE без вливания"; fi
+    if [ "$PR_HEAD" != "$HEAD" ]; then finish head-moved "$HEAD $PR_HEAD (в очереди)"; fi
+    gate ci-read.sh "$REPO" "$PR" --head "$HEAD" --from-state
+    case "$GATE_RC" in
+        1) finish red "ci-read код 1 в очереди: $(quote ci-read.sh)" ;;
+        4) [ "$PINNED" = 0 ] || finish stale-base "ci-read код 4 в очереди: $(quote ci-read.sh); $PIN_NOTE" ;&
+        0 | 3 | 5) VOIDS[ci-read.sh]=0; LAST="ci-read код $GATE_RC: $(grep -m1 '^VERDICT' "$W/ci-read.sh.out")" ;;
+        *) on_void ci-read.sh ;;
+    esac
+}
+queue_turn() {  # ждёт черёда: очередь — раз в QUEUE_POLL с, запрос и CI — раз в POLL с
+    local next=0 now seen=""
+    while ! try_turn; do
+        [ "$seen" = "$Q_POS/$Q_LEN/$Q_AHEAD" ] || { seen="$Q_POS/$Q_LEN/$Q_AHEAD"; log "очередь: позиция $Q_POS из $Q_LEN (впереди: ${Q_AHEAD:-—})"; }
+        now="$(date +%s)"
+        [ "$now" -lt "$DEADLINE" ] || finish timeout "предел $TIMEOUT с в очереди: позиция $Q_POS из $Q_LEN (впереди: ${Q_AHEAD:-—}); последнее: $LAST"
+        if [ "$now" -ge "$next" ]; then next=$(( now + POLL )); queued_check; fi
+        state "running очередь: позиция $Q_POS из $Q_LEN (впереди: ${Q_AHEAD:-—}); последнее: $LAST"
+        sleep "$QUEUE_POLL" & BG=$!; wait "$BG"; BG=""
+    done
+}
+
+# ── догон базы (ws#1263) ───────────────────────────────────────────────────────
+CATCHUPS=0; CU_NOTE=""; CU_RC=0
+cu_drop() {  # <клон> <копия> — копия догона снимается (после слияния или его снятия она чиста)
+    git -C "$1" worktree remove "$2" 2> "$W/cu-wt.err" || log "догон базы: копия $2 не снята — $(head -c 200 "$W/cu-wt.err" | tr '\n' ' ')"
+}
+catchup() {  # <turn|stale> → CU_RC: 0 — отставания нет, дальше; 1 — круг заново; 2 — клона нет
+    local mode="$1" c base n cw msg new rh rc task
+    CU_RC=0; base="$(norm_base "$PR_BASE")"
+    c="$(clones | head -n1)"
+    if [ -z "$c" ]; then log "догон базы: клона $REPO нет — отставание не проверено"; CU_RC=2; return; fi
+    if ! GIT_TERMINAL_PROMPT=0 git -C "$c" fetch -q origin "+refs/heads/$base:refs/remotes/origin/$base" "refs/heads/$PR_REF" 2> "$W/cu.err" \
+        || ! git -C "$c" cat-file -e "$HEAD^{commit}" 2>> "$W/cu.err"; then
+        void_step догон "догон базы: fetch origin $base и $PR_REF в $c не дал голову ${HEAD:0:12}" "$(head -c 200 "$W/cu.err" | tr '\n' ' ')"
+        CU_RC=1; wait_change; return
+    fi
+    n="$(git -C "$c" rev-list --count "$HEAD..refs/remotes/origin/$base")"
+    if [ "$n" -eq 0 ]; then
+        log "догон базы: ${HEAD:0:12} не отстаёт от origin/$base"
+        [ "$mode" = stale ] || VOIDS[догон]=0
+        if [ "$mode" = stale ]; then
+            void_step догон "ci-read код 4, а голова ${HEAD:0:12} не отстаёт от origin/$base в $c" "$(quote ci-read.sh)"
+            CU_RC=1; wait_change
+        fi
+        return
+    fi
+    [ "$CATCHUPS" -lt "$CATCHUP_LIMIT" ] \
+        || finish stale-base "догон базы: предел $CATCHUP_LIMIT догонов исчерпан, голова ${HEAD:0:12} отстаёт от origin/$base на $n"
+    # Копия догона — одна на очередь: догоняет лишь держатель черёда, а постоянный путь
+    # сохраняет копии её TMPDIR класса ci-local (кэши хука отправки, ws#1087).
+    cw="$QDIR/wt"; git -C "$c" worktree prune 2>/dev/null
+    if [ -e "$cw" ]; then git -C "$c" worktree remove "$cw" 2>/dev/null || cw="$QDIR/wt.$$.$RANDOM"; fi
+    if ! git -C "$c" worktree add -q --detach "$cw" "$HEAD" 2> "$W/cu.err"; then
+        void_step догон "догон базы: копия в $c не заведена" "$(head -c 200 "$W/cu.err" | tr '\n' ' ')"; CU_RC=1; wait_change; return
+    fi
+    task="${SUBJECT%% *}"; [[ "$PR_REF" =~ ^([0-9]+)- ]] && task="#${BASH_REMATCH[1]}"
+    msg="$task merge $base: догон базы перед вливанием #$PR"
+    if ! git -C "$cw" merge --no-ff --no-edit -q -m "$msg" "refs/remotes/origin/$base" > "$W/cu-merge.out" 2>&1; then
+        local files; files="$(git -C "$cw" diff --name-only --diff-filter=U | join)"
+        git -C "$cw" merge --abort 2>/dev/null
+        cu_drop "$c" "$cw"
+        [ -n "$files" ] && finish stale-base "догон базы: слияние origin/$base в ${HEAD:0:12} — конфликт: $files"
+        void_step догон "догон базы: слияние origin/$base не записано" "$(grep -v '^[[:space:]]*$' "$W/cu-merge.out" | tail -n2 | join)"
+        CU_RC=1; wait_change; return
+    fi
+    new="$(git -C "$cw" rev-parse HEAD)"
+    local -a push=(bash "$WS/scripts/heavy-slot.sh" --wait 300 ci-local --)
+    [ -z "${AUTOLAND_PUSH:-}" ] || push=("$AUTOLAND_PUSH")
+    state "running догон базы: отправка ${new:0:12} (слияние origin/$base, отставание $n)"
+    ( cd "$cw" && timeout "$PUSH_TIMEOUT" "${push[@]}" git push origin "HEAD:refs/heads/$PR_REF" ) > "$W/cu-push.out" 2>&1; rc=$?
+    rh="$(GIT_TERMINAL_PROMPT=0 git -C "$c" ls-remote origin "refs/heads/$PR_REF" 2>/dev/null | cut -f1)"
+    cu_drop "$c" "$cw"
+    log "догон базы: отправка ${new:0:12} кодом $rc; голова ветки на origin ${rh:-—}; $(tail -n2 "$W/cu-push.out" | join)"
+    if [ "$rh" = "$new" ]; then
+        CATCHUPS=$((CATCHUPS + 1)); VOIDS[догон]=0; VOIDS[отправка]=0
+        CU_NOTE="${CU_NOTE:+$CU_NOTE, }${HEAD:0:12} → ${new:0:12}"
+        log "догон базы: ${HEAD:0:12} → ${new:0:12} (origin/$base была впереди на $n)"
+        HEAD="$new"; HEAD_SEEN=0; RUN_T0="$(date +%s)"
+        state "running догон базы: $CU_NOTE — ожидание CI новой головы"
+        CU_RC=1; return
+    fi
+    [ -z "$rh" ] || [ "$rh" = "$HEAD" ] || finish head-moved "$HEAD $rh (ветка ушла во время догона базы)"
+    case "$rc" in
+        74 | 75) LAST="догон базы: слот отправки занят (код $rc)"; state "running $LAST"; CU_RC=1; wait_change; return ;;
+        0 | 69 | 76 | 77 | 124 | 141)
+            void_step отправка "догон базы: отправка кодом $rc, голова ветки на origin не новая" "$(grep -v '^[[:space:]]*$' "$W/cu-push.out" | tail -n2 | join)"
+            CU_RC=1; wait_change; return ;;
+    esac
+    finish red "догон базы: отправка ${new:0:12} отказала кодом $rc: $(grep -v '^[[:space:]]*$' "$W/cu-push.out" | tail -n3 | join)"
 }
 
 LP_ARGS=()
 RUN_T0="$(date +%s)"; HEAD_SEEN=0
+# Вердикты, привязанные к голове (ws#1263, ⛔ 1 приёмки): с ними догона нет — stale-base.
+PINNED=0; [ -z "$REVIEWS$STAND_REPORT$STAND_EXPECT" ] || PINNED=1
+PIN_NOTE="догона нет: --reviews, --stand-report, --stand-expect привязаны к голове ${HEAD:0:12} (REVIEW-STALE, STAND-REPORT-STALE, STAND-EXPECT-STALE) — догон снял бы их"
 [ -z "$REVIEWS" ] || LP_ARGS+=(--reviews "$REVIEWS")
 [ -z "$STAND_REPORT" ] || LP_ARGS+=(--stand-report "$STAND_REPORT" --stand-expect "$STAND_EXPECT")
 
@@ -513,11 +725,20 @@ while :; do
     [ "$PR_HEAD" = "$HEAD" ] || finish head-moved "$HEAD $PR_HEAD"
     HEAD_SEEN=1
 
+    if [ "$TURN" = 0 ]; then  # очередь на базу, затем догон перед стартом — лишь без вердиктов о голове (ws#1263)
+        if [ -z "$TICKET" ] && ! enqueue; then void_step очередь "билет очереди не заведён" "${QDIR:-—}"; wait_change; continue; fi
+        queue_turn
+        if [ "$PINNED" = 0 ]; then catchup turn; [ "$CU_RC" != 1 ] || continue; fi
+    fi
+
     gate ci-read.sh "$REPO" "$PR" --head "$HEAD" --from-state
     case "$GATE_RC" in
         0) VOIDS[ci-read.sh]=0 ;;
         1) finish red "ci-read код 1: $(quote ci-read.sh)" ;;
-        4) finish stale-base "$(quote ci-read.sh)" ;;
+        4) if [ "$PINNED" = 1 ]; then finish stale-base "$(quote ci-read.sh); $PIN_NOTE"; fi
+           log "ci-read код 4 в черёд: база ушла мимо очереди — догон базы"; catchup stale
+           [ "$CU_RC" != 2 ] || finish stale-base "$(quote ci-read.sh); догон базы невозможен: клона $REPO нет"
+           continue ;;
         3 | 5) VOIDS[ci-read.sh]=0
                LAST="ci-read код $GATE_RC: $(grep -m1 '^VERDICT' "$W/ci-read.sh.out")"
                state "running ожидание CI — $LAST"; wait_change; continue ;;
