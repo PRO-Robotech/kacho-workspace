@@ -53,7 +53,7 @@ set -euo pipefail
 
 WS="$(tooling_gate_workspace_root)"
 NAME="check-25-push-refuses-binary-and-large-added-files"
-KIT=(pre-push prepush-attribution.sh attribution-rule.sh prepush-added-files.sh)
+KIT=(pre-push prepush-attribution.sh attribution-rule.sh prepush-added-files.sh branch-name-rule.sh)
 
 missing=()
 for f in "${KIT[@]}"; do
