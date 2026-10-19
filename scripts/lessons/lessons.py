@@ -51,7 +51,8 @@ landed (PR) → verified (путь инъекции, которая красне
 landed|verified — «механизм не держит»; open старше суток — «старше суток».
 
 Коды: scan — 0 прочитано, 2 читать нечего (журналов нет: это не «уроков 0»);
-status — 0 делать нечего, 1 есть что делать (перечень), 2 читать нечего;
+status — 0 делать нечего, 1 есть что делать (перечень), 2 читать нечего; `status <ключ>` судит один
+класс: 0 — закрыт исходом, 1 — есть что делать, 2 — класса нет, 64 — ключей больше одного (ws#1250);
 signal — 0 молчать, 1 печатать (строка сигнала на stdout); mark, rekey — 0 записано, 1 отказ;
 3 — сбой сборщика (неразобранный синоним, исключение): хук печатает «НЕ СОБРАНЫ».
 """
@@ -684,18 +685,38 @@ def main():
     if not store.lessons and cmd == 'status' and not os.path.isfile(store.ledger):
         die('ведомости нет: %s — сбор не вёлся' % store.ledger)
     head = line_of(need, fails, stale, unkeyed, glue, fresh)
-    body = []
-    for k, rs, st in need:
-        body.append('NEED-MECHANISM %s — случаев %d (%s): %s' % (k, len(rs), st, rs[-1]['raw'][:140]))
-    for k, late, ref in fails:
-        body.append('MECHANISM-FAILS %s — повтор после %s: %d, последний: %s' % (k, ref, len(late), late[-1]['raw'][:140]))
-    for k, rs in stale:
-        body.append('STALE %s — открыт дольше суток: %s' % (k, rs[0]['raw'][:140]))
-    for k, rs in unkeyed:
-        body.append('UNKEYED %s — урок без ключа в тексте (без места; ключ — rekey %s <ключ>): %s/%s: %s' % (k, k, rs[0]['sid'][:8], rs[0]['agent'], rs[0]['raw'][:140]))
-    for k, rs, g in glue:
-        body.append('GLUED %s — ключ из одного слова склеил уроков %d, мест %d (не синоним aliases.tsv); развести — rekey ?<id> <ключ из ≥ 2 слов>: %s' % (k, len(rs), len(g), glue_ids(g)))
+    # rows — (ключ, строка): перечень класса берётся по КЛЮЧУ, а не разбором строки — ключ сам
+    # может нести « — » (ws#1250 B1: 76 из 1446 ключей живой ведомости 2026-10-19, class_of).
+    rows = [(k, 'NEED-MECHANISM %s — случаев %d (%s): %s' % (k, len(rs), st, rs[-1]['raw'][:140])) for k, rs, st in need]
+    rows += [(k, 'MECHANISM-FAILS %s — повтор после %s: %d, последний: %s' % (k, ref, len(late), late[-1]['raw'][:140])) for k, late, ref in fails]
+    rows += [(k, 'STALE %s — открыт дольше суток: %s' % (k, rs[0]['raw'][:140])) for k, rs in stale]
+    rows += [(k, 'UNKEYED %s — урок без ключа в тексте (без места; ключ — rekey %s <ключ>): %s/%s: %s' % (k, k, rs[0]['sid'][:8], rs[0]['agent'], rs[0]['raw'][:140])) for k, rs in unkeyed]
+    rows += [(k, 'GLUED %s — ключ из одного слова склеил уроков %d, мест %d (не синоним aliases.tsv); развести — rekey ?<id> <ключ из ≥ 2 слов>: %s' % (k, len(rs), len(g), glue_ids(g))) for k, rs, g in glue]
+    body = [b for _, b in rows]
     todo = bool(need or fails or stale or unkeyed or glue)
+    if cmd == 'status' and rest:
+        # `status <ключ>` судит ОДИН класс (ws#1250): код 0 — закрыт исходом (не open и ни в одном
+        # перечне), 1 — ещё есть что делать, 2 — класса в ведомости нет. Чужой остаток не красит.
+        # Ключ ОДИН: второй — отказ формы кодом 64, а не 1 «есть что делать» (сводного кода по
+        # нескольким классам нет — 0 и 2 рядом не сводятся без потери смысла).
+        if len(rest) != 1:
+            print('lessons: ОТКАЗ — status [<ключ>]: ключ один, второй ключ «%s» не судится; по классу — отдельный вызов' % rest[1], file=sys.stderr)
+            sys.exit(64)
+        keys = {class_of(r, aliases, store.rekeys) for r in store.lessons}
+        k = rest[0] if rest[0] in keys else canon(rest[0], aliases)
+        if k not in keys:
+            print('lessons: класса «%s» в ведомости нет — судить нечего' % rest[0])
+            return 2
+        st, ref, _ = current(store, k)
+        why = [b for k2, b in rows if k2 == k]
+        if st == 'open' and not why:
+            why = ['OPEN %s — исхода нет (mark <ключ> <статус> <ссылка>)' % k]
+        print('lessons: класс «%s» — %s%s; случаев %d' % (k, st, ' ' + ref if ref else '', len(by.get(k) or [])))
+        if why:
+            print('\n'.join(why))
+            return 1
+        print('lessons: закрыт исходом')
+        return 0
     if cmd == 'status':
         print('[CENSUS] lessons: уроков %d, классов %d' % (len(store.lessons), len([k for k in by if not k.startswith('?')])))
         if todo:

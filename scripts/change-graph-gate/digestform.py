@@ -229,9 +229,11 @@ def identity(path):
 
 
 def source_clone(home, repo):
-    """(корень клона, None) либо (None, причина). Кандидатов два, и обхода
-    каталогов среди них нет: `KACHO_HOME_<ИМЯ>` и `project/<имя>` от корня. Клон
-    опознаётся по origin, а не по имени каталога; причина перечисляет каждого
+    """(корень клона, None) либо (None, причина). Кандидатов три, и обхода
+    каталогов среди них нет: `KACHO_HOME_<ИМЯ>`, `project/<имя>` от корня и
+    `project/<имя>` канонической копии воркспейса, когда корень — копия полосы или
+    хука отправки под её `tmp/` (`scripts/lib/product_clone.canonical`; ws#1250).
+    Клон опознаётся по origin, а не по имени каталога; причина перечисляет каждого
     отвергнутого кандидата."""
     name = repo.rsplit("/", 1)[-1]
     env = "KACHO_HOME_" + re.sub(r"[^A-Za-z0-9]", "_", name).upper()
@@ -239,6 +241,11 @@ def source_clone(home, repo):
     if os.environ.get(env):
         candidates.append((os.environ[env], "$" + env))
     candidates.append((os.path.join(home, "project", name), "project/" + name))
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lib"))
+    import product_clone
+    ws = product_clone.canonical(home)
+    if ws and os.path.realpath(ws) != os.path.realpath(home):
+        candidates.append((os.path.join(ws, "project", name), "project/%s канонической копии" % name))
     tried = []
     for path, whence in candidates:
         rc, top = git(path, "rev-parse", "--show-toplevel") if os.path.isdir(path) \

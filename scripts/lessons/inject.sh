@@ -20,7 +20,9 @@
 #                 итог workflow ↔ lessons.md той же волны и полосы — один, повтор одного агента
 #                 (два блока одной строкой) — один, пересказчик (задание называет журнал
 #                 автора) при том же тексте у автора — не случай;
-#   ключ, идемпотентность, порог 2, статусы — как прежде;
+#   ключ, идемпотентность, порог 2, статусы — как прежде; `status <ключ>` судит один класс
+#                 (ws#1250): с исходом — 0 при чужом остатке, открытый — 1, нет класса — 2,
+#                 ключ с « — » (edited с повтором, landed с поздним повтором) — 1, два ключа — 64;
 #   rekey       — `rekey ?<id> <ключ>`: урок без ключа в тексте уходит из UNKEYED в класс ключа
 #                 (ws#1230); ключ события проходит ту же `canon` (синонимы — пересчётом: строка
 #                 aliases.tsv, дописанная ПОСЛЕ события, сводит и его); из двух событий одному
@@ -28,7 +30,8 @@
 #                 урок с ключом в тексте, нет урока, префикс id у двух уроков, ключ с «·»,
 #                 начатый «?», пустой; событие на урок с ключом в тексте ключ не меняет;
 #   общий ключ  — (ws#1248, набор suite_key, настоящие строки ведомости) ключ из одного слова с
-#                 ≥ 2 местами — GLUED в status с id по месту, не повтор, mark — отказ с id и
+#                 ≥ 2 местами — GLUED в status с id по месту (и в `status <ключ>` — 1 строкой
+#                 GLUED, не «OPEN … mark»), не повтор, mark — отказ с id и
 #                 подсказкой rekey, «*» пропускает; rekey разводит урок с общим ключом в тексте,
 #                 новый ключ из одного слова — отказ; близнец на каждое условие: одно место, два
 #                 слова, дефис, синоним, один урок, счётчик волны, префикс «оркестровка:» (и с
@@ -81,6 +84,12 @@ def agent(aid, *texts, task='задание'):
             f.write(asst(t, now - 3600) + '\n')
 if kind == 'idle':
     agent('i1', ret('одиночный класс · место правки'))
+    sys.exit(0)
+if kind == 'dash':  # ключ, сам несущий « — » (76 из 1446 ключей живой ведомости 2026-10-19), и близнец без него
+    agent('d1', ret('аа — бб · место'))
+    agent('d2', ret('аа — бб · место'))
+    agent('d3', ret('вв гг · место'))
+    agent('d4', ret('вв гг · место'))
     sys.exit(0)
 agent('a1', ret('Код 77 в цепочке · heavy-slot'))
 agent('a2', ret('«код 77» при отправке · задание полосе'))
@@ -135,14 +144,14 @@ with open(os.path.join(root, 'aliases.tsv'), 'w') as f:
     f.write('# проба\n\\b77\\b\tкод-77\nимя ветки\tимя-ветки\n')
 PY
 }
-late_case() {  # случай класса код-77 ПОСЛЕ влитого механизма
-    python3 - "$1" <<'PY'
+late_case() {  # late_case <каталог> [<агент> <урок>] — случай класса (код-77) ПОСЛЕ влитого механизма
+    python3 - "$1" "${2:-a9}" "${3:-код 77 снова · цепочка}" <<'PY'
 import json, os, sys, time
-p = os.path.join(sys.argv[1], 'proj', 'S1', 'subagents', 'agent-a9.jsonl')
+p = os.path.join(sys.argv[1], 'proj', 'S1', 'subagents', 'agent-%s.jsonl' % sys.argv[2])
 t = time.strftime('%Y-%m-%dT%H:%M:%S.000Z', time.gmtime(time.time() + 60))
 with open(p, 'w') as f:
     f.write(json.dumps({'type': 'assistant', 'timestamp': t, 'message': {'role': 'assistant', 'stop_reason': 'end_turn',
-        'content': [{'type': 'text', 'text': '### ВОЗВРАТ\n- урок: код 77 снова · цепочка\n'}]}}, ensure_ascii=False) + '\n')
+        'content': [{'type': 'text', 'text': '### ВОЗВРАТ\n- урок: %s\n' % sys.argv[3]}]}}, ensure_ascii=False) + '\n')
 PY
 }
 
@@ -214,6 +223,35 @@ for l in open(sys.argv[1]):
     L "$D/w" mark код-77 mechanism ws#1 > /dev/null
     out="$(L "$D/w" status)"
     hasnt 'NEED-MECHANISM код-77' "после mechanism класс механизма не просит"
+    # status <ключ> (ws#1250): судит один класс; чужой остаток (имя-ветки просит механизм) не красит.
+    out="$(L "$D/w" status код-77)"; rc=$?
+    chk "0 да" "$rc $(grep -qF 'закрыт исходом' <<< "$out" && echo да || echo нет)" "status <ключ>: класс с исходом mechanism — код 0 при чужом остатке"
+    out="$(L "$D/w" status имя-ветки)"; rc=$?
+    chk "1 да нет" "$rc $(grep -qF 'NEED-MECHANISM имя-ветки' <<< "$out" && echo да || echo нет) $(grep -qF 'одинаковый-урок' <<< "$out" && echo да || echo нет)" "status <ключ> близнец: открытый класс с повтором — код 1, перечень только его"
+    out="$(L "$D/w" status head-moved)"; rc=$?
+    chk "1 да" "$rc $(grep -qF 'OPEN head-moved' <<< "$out" && echo да || echo нет)" "status <ключ>: открытый класс без перечня (один случай, свежий) — код 1 «исхода нет»"
+    out="$(L "$D/w" status нет-такого-класса)"; rc=$?
+    chk "2" "$rc" "status <ключ>: класса нет — код 2, не «закрыт»"
+    out="$(L "$D/w" status код-77 имя-ветки)"; rc=$?
+    chk "64 да" "$rc $(grep -qF 'второй ключ «имя-ветки»' <<< "$out" && echo да || echo нет)" "status <ключ> <ключ>: отказ формы — код 64 с названным вторым ключом, не 1 «есть что делать»"
+    # B1 (ws#1250): ключ, сам несущий « — », — перечень класса берётся по ключу, а не разбором
+    # строки до первого « — »; иначе edited с повтором и landed с поздним повтором — «закрыт» (0).
+    mkfix "$D/k" dash
+    L "$D/k" scan > /dev/null
+    L "$D/k" mark 'аа — бб' edited ws#1 > /dev/null; L "$D/k" mark 'вв гг' edited ws#1 > /dev/null
+    out="$(L "$D/k" status)"
+    has 'NEED-MECHANISM аа — бб — случаев 2' "B1: общий status — ключ с « — » в статусе edited просит механизм"
+    out="$(L "$D/k" status 'аа — бб')"; rc=$?
+    chk "1 да" "$rc $(grep -qF 'NEED-MECHANISM аа — бб' <<< "$out" && echo да || echo нет)" "B1: status 'аа — бб' (edited, 2 случая) — код 1 и NEED-MECHANISM, не «закрыт исходом»"
+    out="$(L "$D/k" status 'вв гг')"; rc=$?
+    chk "1 да" "$rc $(grep -qF 'NEED-MECHANISM вв гг' <<< "$out" && echo да || echo нет)" "B1 близнец: status 'вв гг' без « — » — код 1"
+    L "$D/k" mark 'аа — бб' landed ws#2 > /dev/null; L "$D/k" mark 'вв гг' landed ws#2 > /dev/null
+    late_case "$D/k" d5 'аа — бб · повтор'
+    L "$D/k" scan > /dev/null
+    out="$(L "$D/k" status 'аа — бб')"; rc=$?
+    chk "1 да" "$rc $(grep -qF 'MECHANISM-FAILS аа — бб' <<< "$out" && echo да || echo нет)" "B1: status 'аа — бб' (landed, поздний повтор) — код 1 и MECHANISM-FAILS"
+    out="$(L "$D/k" status 'вв гг')"; rc=$?
+    chk "0 да" "$rc $(grep -qF 'закрыт исходом' <<< "$out" && echo да || echo нет)" "B1 близнец: status 'вв гг' (landed, повтора нет) — код 0 «закрыт исходом»"
     L "$D/w" mark код-77 landed ws#2 > /dev/null
     late_case "$D/w"
     L "$D/w" scan > /dev/null
@@ -472,6 +510,10 @@ suite_key() {
     hasnt 'NEED-MECHANISM инструмент' "склеенный класс — не повтор: механизма не просит"
     has 'NEED-MECHANISM среда — случаев 2' "близнец: одно слово с одним местом — повтор, механизм просит"
     has 'ключ слишком общий 4' "строка сигнала называет число склеенных классов"
+    # status <ключ> (ws#1250) и склейка (ws#1248): склеенный класс судится строкой GLUED, а не
+    # «OPEN … mark» — mark его отказывает; исход есть только после rekey.
+    out="$(K "$D/k" status инструмент)"; rc=$?
+    chk "1 да нет" "$rc $(grep -qF 'GLUED инструмент' <<< "$out" && echo да || echo нет) $(grep -qF 'OPEN инструмент' <<< "$out" && echo да || echo нет)" "status <ключ> склеенного класса — код 1 строкой GLUED, без подсказки mark"
     n1="$(st "$D/k")"
     out="$(K "$D/k" mark инструмент edited ws#1)"; rc=$?
     chk 1 "$rc" "mark склеенного класса — отказ, код 1"
@@ -616,6 +658,12 @@ mutant hook-void-unthrottled hook '        exit 0
     mkdir -p'
 mutant hook-stop-active-ignored hook "*'\"stop_hook_active\":true'* | *'\"stop_hook_active\": true'*) exit 0 ;;" "*'\"stop_hook_active\":never'*) exit 0 ;;"
 }
+# status <ключ> (ws#1250): ключ не читается — чужой остаток красит; класс без исхода — «закрыт»
+mutant status-key-ignored py "    if cmd == 'status' and rest:" "    if False:"
+mutant status-key-open-closed py "        if st == 'open' and not why:" "        if False:"
+# B1 (ws#1250): перечень класса — разбором строки до первого « — » (ключ с « — » слеп); отказ формы — кодом 1
+mutant status-key-parsed-from-text py "        why = [b for k2, b in rows if k2 == k]" "        why = [b for b in body if b.split(' — ')[0].split(' ', 1)[-1] == k]"
+mutant status-two-keys-code-1 py "            sys.exit(64)" "            sys.exit(1)"
 # (6) хук конца хода: перечень не чаще раза в сутки — и не реже
 mutant signal-unthrottled py "    if last.get('sig') == sig and now - float(last.get('ts') or 0) < DAY:" "    if False:"
 mutant signal-throttle-forever py "now - float(last.get('ts') or 0) < DAY:" "now - float(last.get('ts') or 0) < 1e12:"
@@ -637,7 +685,7 @@ MSUITE=suite_key mutant key-place-not-normalized py "        return norm(raw.spl
 # Склейка — повтор; строки GLUED нет; число в сигнале и в report не названо.
 MSUITE=suite_key mutant key-glued-is-repeat py "            glue.append((k, rs, g))  # склейка — не повтор: ни механизма, ни «не держит»
             continue" "            glue.append((k, rs, g))"
-MSUITE=suite_key mutant key-no-glued-line py "        body.append('GLUED %s" "        0 and body.append('GLUED %s"
+MSUITE=suite_key mutant key-no-glued-line py "    rows += [(k, 'GLUED %s" "    rows += [] and [(k, 'GLUED %s"
 MSUITE=suite_key mutant key-head-silent py "    if glue:
         s += ' · ключ слишком общий" "    if False:
         s += ' · ключ слишком общий"

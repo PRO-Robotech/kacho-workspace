@@ -19,7 +19,7 @@
 #   moved-merge  — голова ушла в момент вливания (хостинг отказал) → head-moved;
 #   allow-ok     — landing-precheck 1 с причиной из --allow → merged;
 #   allow-bad    — причины из --allow и вне его → red с недопущенной, вливания нет;
-#   stale        — ci-read 4 → stale-base, вливания нет (базу демон не догоняет);
+#   stale        — ci-read 4, клона нет → stale-base «клона нет», вливания нет;
 #   mr-red       — merge-readiness 1 → red;
 #   timeout      — ci-read 3 всё время → timeout по пределу;
 #   void         — merge-readiness 2 трижды → void; близнец void-twin: 2, 2, 0 → merged;
@@ -46,7 +46,9 @@
 #                  голова впереди влитой — ни ветка, ни копия не сняты; prune-remote:
 #                  ветку на origin хостинг не снял — демон снимает её сам; prune-busy (ws#1244 L5):
 #                  в чистой копии идёт процесс (cwd внутри) либо открыт её файл — копия и ветка
-#                  на месте, в .state «оставлено: процессы <pid>»; близнец — prune;
+#                  на месте, в .state «оставлено: процессы <pid>»; близнец — prune; exe (ws#1250):
+#                  процесс исполняет файл копии при cwd вне её — оставлена; prune-busy-glob: копия
+#                  «w[1]» с процессом внутри оставлена, процесс в чужом «w1» её не держит (шаблон);
 #   empty-code   — landing-precheck 1 с причиной БЕЗ кода (REASON<TAB><TAB>текст) — red и без
 #                  --allow, и с непустым --allow;
 #   lp-head      — landing-precheck судил другую голову (его CENSUS) → head-moved; строки
@@ -75,6 +77,37 @@
 #                  ствол впереди лишь вне оснастки — start 0; fetch не прошёл при нуле — 4;
 #   head-sync    — площадка два чтения отдаёт прежнюю голову — повтор, merged (ws#1227); близнец:
 #                  голова иная всё время — head-moved по окну; ушла ПОСЛЕ совпадения — сразу;
+#   q3           — три PR одной базы (ws#1263; «CI» 1, 2, 3 с): merged все три, stale-base
+#                  событий (ci-read 4 в черёд и исход stale-base) 0, отказов вливания «база
+#                  устарела» 0, второй и третий ждали (позиция 2), два догона через обёртку
+#                  отправки, вливания в порядке билетов; число печатается и на зелёном
+#                  (прежний демон на той же сцене: merged 1 из 3, stale-base 2);
+#   q-spelling   — близнец «почти совпадение»: база «refs/heads/main» и репозиторий иным
+#                  регистром — та же очередь (второй ждал), оба merged;
+#   q-diff-base  — близнец: базы main и epic — очереди разные, позиции 2 нет ни у одного;
+#   q-dead       — билеты мёртвого pid и pid с иным starttime сняты строкой журнала, merged;
+#   q-live       — живой билет впереди: status 3 и «очередь: позиция 2 из 2 (впереди: …)»,
+#                  предел — timeout «в очереди», свой билет снят, чужой на месте;
+#   q-queued     — в очереди исход сразу: красный CI — red, голова ушла — head-moved, запрос
+#                  закрыт — red PR-NOT-OPEN, TERM — void и билет снят; вливаний нет;
+#   q-stale-ext  — база ушла мимо очереди после черёда: ci-read 4 → догон → merged;
+#   q-conflict   — конфликт слияния базы: stale-base «конфликт: <файл>», ветка не тронута,
+#                  копии догона нет, отправки нет;
+#   q-push       — отправка догона: 74 — ожидание без счёта VOID; хук отказал — red; код 0 без
+#                  отправки — void; 141 после отправки — merged; ветка ушла — head-moved;
+#   q-limit, q-stale-lag, q-fetch — предел догонов 0 — stale-base; ci-read 4 без отставания —
+#                  void; fetch догона не прошёл — void;
+#   q-lock       — flock черёда занят без билета — позиция 1 ждёт, затем merged;
+#   q-pinned     — ⛔ 1 приёмки: база ушла, демон с --reviews либо --stand-report/--stand-expect
+#                  — stale-base «догона нет» (в черёд и сразу в очереди за живым билетом), код 4,
+#                  ветка не тронута, отправок 0; близнец без доводов — догон и merged;
+#   q-pin-twins  — двойник landing-precheck привязан к голове, как настоящий: свежие вердикты —
+#                  merged, ревью о другой голове — red REVIEW-STALE, отчёт и ожидаемое — red
+#                  STAND-REPORT-STALE и STAND-EXPECT-STALE;
+#   real-states  — status по КАЖДОМУ настоящему .state основного клона ($WS/tmp/autoland;
+#                  AUTOLAND_REAL_DIR): код — по исходу и живости демона, без билета — без
+#                  строки очереди, билетов и очереди status не заводит; каталога нет (CI) —
+#                  «без предмета» строкой и в итоге, не зелёное;
 #   status       — коды status для каждого исхода (4, 5, 6 — тоже) и для слова вне перечня;
 #   census       — перепись процессов судит СВОЁ по метке AUTOLAND_PROBE_ID: свой процесс
 #                  с иным порядком доводов виден, чужой с «--pr N --head» — нет; reap снимает
@@ -97,7 +130,14 @@
 # main-clone-lag.sh — ноль говорит, число не печатается, копия как клон, «не
 # установлено» молчит, неудачный fetch при нуле молчит и при числе не назван, fetch без предела,
 # --own судит основной клон, пути не судятся; у start — сверки копии нет; окно головы снято,
-# совпадение не запоминается, окно без предела.
+# совпадение не запоминается, окно без предела; у очереди и догона (ws#1263) — без очереди, без
+# догона при черёде и на ci-read 4, билет не снят при исходе, база и регистр репозитория не
+# приведены, ключ очереди без базы, живость по kill -0, мёртвые билеты не снимаются, позиция
+# не печатается, в очереди запрос и CI не читаются, голова и закрытие в очереди не судятся,
+# flock черёда снят, конфликт не снят, 74 как отказ, удача отправки по коду, ушедшая ветка не
+# судится, предел догонов снят, ci-read 4 без отставания без счёта, fetch догона не судится;
+# догон при --reviews, при --stand-*, при черёде с вердиктами, на ci-read 4 с вердиктами, ожидание
+# в очереди вместо stale-base с вердиктами.
 # Обход git заперт GIT_CEILING_DIRECTORIES над $T: проба зелена и при TMPDIR внутри клона.
 #
 # СЛЕДОВ НЕТ (testing.md#no-residue). Песочница — на всю пробу: кэш (XDG_CACHE_HOME,
@@ -124,6 +164,8 @@ done
 LP_REAL="$(cd "$HERE/.." && pwd)/landing-precheck.sh"
 LAG_REAL="$(cd "$HERE/.." && pwd)/main-clone-lag.sh"; LAG="$LAG_REAL"   # нет файла — сцена lag красная, не VOID
 MEMCAP="$(cd "$HERE/.." && pwd)/session-memcap.sh"
+# Настоящие .state машины — у основного клона дерева пробы (копия своих не держит); до запора обхода git.
+REAL_DIR="${AUTOLAND_REAL_DIR:-$(dirname "$(git -C "$HERE" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || echo "$HERE/../../.git")")/tmp/autoland}"
 [ -r "$LP_REAL" ] || { echo "VOID: нет $LP_REAL (метки рецепта «ЗАПУСК»)" >&2; exit 2; }
 
 T="$(mktemp -d "${TMPDIR:-/tmp}/autoland-inject.XXXXXX")" || exit 2
@@ -273,7 +315,7 @@ run_al() {  # доводы сверх обязательных
     ST="$(cat "$FX"/run/*.state 2>/dev/null | head -n1)"
 }
 
-fails=0
+fails=0; NOSUBJ=0
 ok() {  # <сцена> <что> <команда…>
     local s="$1" what="$2"; shift 2
     if "$@"; then return 0; fi
@@ -604,6 +646,33 @@ s_prune_busy() {  # ws#1244 L5: 2026-10-18 снята копия, где шли 
     run_al
     ok prune-busy-fd "merged, копия с открытым файлом (cwd вне) оставлена, pid назван" eval 'st_is merged && st_has "оставлено: процессы $bf" && [ -d "$G/wt" ]'
     kill "$bf" 2>/dev/null; wait "$bf" 2>/dev/null
+    # ws#1250 K4: исполняемый файл из копии при cwd вне её и без открытых файлов в ней.
+    local bx _
+    new_fx prune-busy-exe; mk_git
+    # Копия bash, а не sleep: sleep здесь — многовызовный двоичный файл, под чужим именем он не
+    # исполняется. read ждёт на очереди вне копии — exe единственная связь процесса с копией.
+    cp "$(command -v bash)" "$G/wt/xs"; mkfifo "$FX/exe.fifo"
+    # shellcheck disable=SC2016  # тело -c раскрывает исполняемая копия bash
+    (cd / && exec "$G/wt/xs" -c 'read -r -t 60 <> "$0"' "$FX/exe.fifo") < /dev/null > /dev/null 2>&1 & bx=$!
+    for _ in $(seq 1 25); do [ "$(readlink "/proc/$bx/exe" 2>/dev/null)" = "$G/wt/xs" ] && break; sleep 0.1; done
+    run_al
+    ok prune-busy-exe "merged, копия с исполняемым файлом процесса (cwd вне) оставлена, pid назван" eval 'st_is merged && st_has "оставлено: процессы $bx" && [ -d "$G/wt" ]'
+    kill "$bx" 2>/dev/null; wait "$bx" 2>/dev/null
+}
+s_prune_busy_glob() {  # ws#1250 K4: путь копии со знаками шаблона — свой процесс виден, чужой «a1» нет
+    local bo bf
+    new_fx prune-busy-glob; mk_git
+    git -C "$G/clone" worktree move "$G/wt" "$G/w[1]"; mkdir -p "$G/w1"
+    (cd "$G/w1" && exec sleep 60) & bf=$!
+    run_al
+    ok prune-busy-glob "близнец: процесс в чужом каталоге w1 копию w[1] не держит — снята" eval 'st_is merged && [ ! -d "$G/w[1]" ] && ! st_has "процессы $bf"'
+    kill "$bf" 2>/dev/null; wait "$bf" 2>/dev/null
+    new_fx prune-busy-glob-own; mk_git
+    git -C "$G/clone" worktree move "$G/wt" "$G/w[1]"
+    (cd "$G/w[1]" && exec sleep 60) & bo=$!
+    run_al
+    ok prune-busy-glob-own "копия w[1] с процессом внутри оставлена, pid назван" eval 'st_is merged && st_has "оставлено: процессы $bo" && [ -d "$G/w[1]" ]'
+    kill "$bo" 2>/dev/null; wait "$bo" 2>/dev/null
 }
 s_prune_origin_ahead() {
     new_fx prune-origin-ahead; mk_git origin-ahead; run_al
@@ -819,20 +888,368 @@ s_static() {
     ST="статика"; RC=-
     ok static "нет форсирующих флагов и обхода хуков" eval '! grep -qE -- "(^|[[:space:]])(--force|--force-with-lease|--admin|--no-verify|--auto|--squash|--rebase)([[:space:]]|$|\")" <<< "$code"'
     ok static "git push без -f" eval '! grep -qE -- "push[^|;]*[[:space:]]-f([[:space:]]|$)" <<< "$code"'
-    ok static "базу не догоняет: нет git rebase/pull, merge — лишь ff основного клона до origin/main" eval '! grep -qP -- "git( -C \"[^\"]*\")? (rebase|pull|merge(?! --ff-only -q origin/main))([[:space:]]|$)" <<< "$code"'
+    ok static "нет git rebase/pull; merge — лишь ff основного клона и догон базы --no-ff в копии догона (и его снятие)" \
+        eval '! grep -qP -- "git( -C \"[^\"]*\")? (rebase|pull|merge(?! --ff-only -q origin/main >| --no-ff --no-edit -q -m \"\\\$msg\" \"refs/remotes/origin/\\\$base\"| --abort 2>))([[:space:]]|$)" <<< "$code"'
     ok static "gh api только GET" eval '! grep -E -- "GH\" api" <<< "$code" | grep -qE -- "(-X|--method|[[:space:]]-[fF][[:space:]])"' 
+}
+
+# ── очередь на базу и догон базы (ws#1263): настоящий git, двойник площадки поверх него ──
+# Площадка ghq читает голову ветки из голого origin, вливает настоящим слиянием и, как
+# правило ветки «база свежая», отказывает голове без базы; ci-read-двойник отвечает 4,
+# когда база не предок головы, иначе 3 до «CI» головы (pr/<N>/ci_s с от первого чтения)
+# и 0 после. Отправка догона — двойник обёртки, режимом pr/<N>/push.
+mkdir -p "$T/gates-q"
+cat > "$T/ghq" <<'GH'
+#!/usr/bin/env bash
+Q="$AL_Q"; o="$Q/origin.git"; printf 'gh %s\n' "$*" >> "$Q/gh.calls"
+case "$1" in
+  api)
+    case "$2" in
+      repos/*/pulls/*)
+        n="${2##*/}"; d="$Q/pr/$n"; read -r ref base < "$d/meta"
+        if [ -s "$d/merged" ]; then read -r h m < "$d/merged"; st=closed; mg=true
+        else h="$(git -C "$o" rev-parse -q --verify "refs/heads/$ref")"; m=""; mg=false; st=open; [ ! -f "$d/closed" ] || st=closed; fi
+        jq -n --arg h "$h" --arg ref "$ref" --arg b "$base" --arg st "$st" --argjson mg "$mg" --arg m "$m" \
+          '{state: $st, merged: $mg, merge_commit_sha: (if $mg then $m else null end), draft: false, head: {sha: $h, ref: $ref}, base: {ref: $b}}' ;;
+      repos/*/commits/*) p="$(git -C "$o" rev-list --parents -n1 "${2##*/}")" || exit 1
+        jq -n --arg p "${p#* }" '{parents: ($p | split(" ") | map({sha: .}))}' ;;
+      *) exit 1 ;;
+    esac ;;
+  pr)
+    [ "$2" = merge ] || exit 1
+    n="$3"; d="$Q/pr/$n"; read -r ref base < "$d/meta"; base="${base#refs/heads/}"
+    want=""; prev=""; for a in "$@"; do [ "$prev" != --match-head-commit ] || want="$a"; prev="$a"; done
+    exec 9> "$Q/merge.lock"; flock 9
+    cur="$(git -C "$o" rev-parse -q --verify "refs/heads/$ref")"
+    [ -n "$want" ] && [ "$want" = "$cur" ] || { echo "GraphQL: Head branch was modified. (mergePullRequest)" >&2; exit 1; }
+    if ! git -C "$o" merge-base --is-ancestor "refs/heads/$base" "$cur"; then
+      echo "$n" >> "$Q/merge.refused"; echo "GraphQL: Head branch is out of date with the base branch (mergePullRequest)" >&2; exit 1
+    fi
+    m="$Q/merger"
+    git -C "$m" fetch -q origin && git -C "$m" checkout -q --detach "origin/$base" \
+      && git -C "$m" merge -q --no-ff "$cur" -m "#4000 merge #$n: проба" && git -C "$m" push -q origin "HEAD:refs/heads/$base" || exit 1
+    echo "$cur $(git -C "$m" rev-parse HEAD)" > "$d/merged"
+    git -C "$o" update-ref -d "refs/heads/$ref"
+    echo "$n" >> "$Q/merge.order"; echo "✓ Merged pull request #$n" ;;
+  *) exit 1 ;;
+esac
+GH
+cat > "$T/gates-q/ci-read.sh" <<'CI'
+#!/usr/bin/env bash
+Q="$AL_Q"; n="$2"; h="$4"; o="$Q/origin.git"; d="$Q/pr/$n"; read -r _ base < "$d/meta"; base="${base#refs/heads/}"
+[ ! -f "$d/ci.hook" ] || bash "$d/ci.hook" "$h"
+if [ "$(cat "$d/ci" 2>/dev/null)" = stale ] || ! git -C "$o" merge-base --is-ancestor "refs/heads/$base" "$h" 2>/dev/null; then
+  echo "$n ${h:0:12} 4" >> "$Q/ci.calls"; printf 'REASON\tBASE-STALE\tmerge-base ≠ голове базы %s\nVERDICT\tstale\tкод 4\n' "$base"; exit 4
+fi
+if [ "$(cat "$d/ci" 2>/dev/null)" = red ]; then echo "$n ${h:0:12} 1" >> "$Q/ci.calls"; printf 'REASON\tCI-FAILED\tпроба\nVERDICT\tred\tкод 1\n'; exit 1; fi
+[ -f "$d/ci.$h" ] || date +%s > "$d/ci.$h"
+if [ $(( $(date +%s) - $(cat "$d/ci.$h") )) -lt "$(cat "$d/ci_s" 2>/dev/null || echo 0)" ]; then
+  echo "$n ${h:0:12} 3" >> "$Q/ci.calls"; printf 'VERDICT\trunning\tкод 3\n'; exit 3
+fi
+echo "$n ${h:0:12} 0" >> "$Q/ci.calls"; printf 'VERDICT\tgreen\tкод 0\n'
+CI
+# Двойник landing-precheck несёт привязку к голове настоящего (⛔ 1 приёмки ws#1263): вердикт
+# ревью о другой голове — REVIEW-STALE (landing-precheck.sh, пункт ревью), отчёт стенда и
+# ожидаемое о другой голове — STAND-REPORT-STALE и STAND-EXPECT-STALE (stand-report.sh), код 1.
+cat > "$T/gates-q/landing-precheck.sh" <<'LP'
+#!/usr/bin/env bash
+Q="$AL_Q"; repo="$1"; n="$2"; shift 2; read -r ref _ < "$Q/pr/$n/meta"; h="$(git -C "$Q/origin.git" rev-parse -q --verify "refs/heads/$ref")"
+rv=""; sr=""; se=""; r=0
+while [ $# -gt 0 ]; do case "$1" in --reviews) rv="$2"; shift 2 ;; --stand-report) sr="$2"; shift 2 ;; --stand-expect) se="$2"; shift 2 ;; *) shift ;; esac; done
+printf 'CENSUS\t%s#%s голова %s (проба)\n' "$repo" "$n" "${h:0:12}"
+if [ -n "$rv" ]; then
+  while IFS=$'\t' read -r role sha; do
+    [ "$sha" = "$h" ] || { printf 'REASON\tREVIEW-STALE\tроль %s: вердикт на %s, голова PR %s — смотреть дельту на новой голове\n' "$role" "${sha:0:12}" "${h:0:12}"; r=1; }
+  done < <(jq -r '.[] | [.role, .sha] | @tsv' "$rv")
+fi
+if [ -n "$sr$se" ]; then
+  s="$(jq -r .head "$sr")"; [ "$s" = "$h" ] || { printf 'REASON\tSTAND-REPORT-STALE\tотчёт о %s, судится %s\n' "${s:0:12}" "${h:0:12}"; r=1; }
+  s="$(jq -r .head "$se")"; [ "$s" = "$h" ] || { printf 'REASON\tSTAND-EXPECT-STALE\tожидаемое выведено для %s, судится %s\n' "${s:0:12}" "${h:0:12}"; r=1; }
+fi
+printf 'VERDICT\tкод %s\n' "$r"; exit "$r"
+LP
+printf '#!/usr/bin/env bash\nprintf "VERDICT\\tкод 0\\n"\n' > "$T/gates-q/merge-readiness.sh"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$T/gates-q/branch-audit.sh"
+cat > "$T/pushq" <<'PUSH'
+#!/usr/bin/env bash
+Q="$AL_Q"; ref="${!#}"; ref="${ref##*refs/heads/}"; n="${ref#p}"; d="$Q/pr/$n"
+printf 'push %s @%s\n' "$*" "$(git rev-parse HEAD)" >> "$Q/push.calls"
+mode="$(cat "$d/push" 2>/dev/null)"
+case "$mode" in
+  busy-once) rm -f "$d/push"; echo "heavy-slot: слот занят, очередь 1" >&2; exit 74 ;;
+  refuse) echo "pre-push ОТКАЗ — проверка хука красная (проба)" >&2; exit 1 ;;
+  noop) exit 0 ;;
+  sigpipe) "$@"; exit 141 ;;
+  move) bash "$d/move.sh" ;;
+esac
+exec "$@"
+PUSH
+chmod +x "$T/ghq" "$T/pushq" "$T/gates-q"/*.sh
+
+declare -A QP=() QRC=()
+mk_q() {  # <N>… — origin с main, ветка p<N> на PR, свой файл каждой; клон догона и клон площадки
+    local n s
+    Q="$FX/q"; mkdir -p "$Q/pr"; s="$Q/seed"
+    git init -q --bare -b main "$Q/origin.git"
+    git clone -q "$Q/origin.git" "$s" 2>/dev/null; git -C "$s" symbolic-ref HEAD refs/heads/main
+    echo base > "$s/f"; git -C "$s" add f; sandbox_run git -C "$s" commit -qm base; git -C "$s" push -q origin main
+    for n in "$@"; do
+        git -C "$s" checkout -q -b "p$n" main; echo "$n" > "$s/p$n.txt"; git -C "$s" add "p$n.txt"
+        sandbox_run git -C "$s" commit -qm "#$n предмет"; git -C "$s" push -q origin "p$n"
+        mkdir -p "$Q/pr/$n"; echo "p$n main" > "$Q/pr/$n/meta"
+    done
+    git -C "$s" checkout -q main
+    git clone -q "$Q/origin.git" "$Q/clone" 2>/dev/null; git clone -q "$Q/origin.git" "$Q/merger" 2>/dev/null
+    : > "$Q/ci.calls"; : > "$Q/push.calls"; QP=(); QRC=()
+}
+qhead() { git -C "$Q/origin.git" rev-parse "refs/heads/p$1"; }
+base_push() {  # <база> <файл> <текст> — коммит в базу мимо очереди (посадка вне демона)
+    local s="$Q/seed"
+    git -C "$s" fetch -q origin; git -C "$s" checkout -q -B "$1" "origin/$1"; echo "$3" > "$s/$2"; git -C "$s" add "$2"
+    sandbox_run git -C "$s" commit -qm "#4000 база: $2"; git -C "$s" push -q origin "HEAD:refs/heads/$1"
+}
+run_q() {  # <N> [доводы…] — демон N в фоне; QREPO_<N> — иное написание репозитория
+    local n="$1" r; shift; r="QREPO_$n"; r="${!r:-$REPO}"
+    # Демон и площадка пишут коммиты слияния — подписью песочницы (её HOME); обёртки
+    # инструментов в ~/.local, резолвящие себя от HOME, видны и оттуда (ссылкой, не копией).
+    [ -e "$SANDBOX_GIT_HOME/.local" ] || [ ! -d "$HOME/.local" ] || ln -s "$HOME/.local" "$SANDBOX_GIT_HOME/.local"
+    sandbox_run env AL_Q="$Q" AUTOLAND_GH="$T/ghq" AUTOLAND_GATES="$T/gates-q" AUTOLAND_DIR="$Q/run" AUTOLAND_WS="$T/ws0" \
+        AUTOLAND_CLONES="${QCLONE-$Q/clone}" CI_STATE_DIR="$Q/cs" AUTOLAND_INTERIM_LOCK="$T/interim.lock" AUTOLAND_PUSH="$T/pushq" \
+        AUTOLAND_HEAD_SYNC=0 AUTOLAND_HEAD_SYNC_POLL=1 AUTOLAND_QUEUE_POLL=1 AUTOLAND_CATCHUP_LIMIT="${QLIMIT:-2}" \
+        timeout "${RUN_LIMIT:-90}" bash "$AL" run --repo "$r" --pr "$n" --head "$(qhead "$n")" --subject "#4000 merge #$n: проба" --poll 1 "$@" \
+        > "$Q/out.$n" 2>&1 &
+    QP[$n]=$!; PIDS+=("$!")
+}
+enrolled() {  # <N> — демон N встал в очередь (его билет есть), не дольше 10 с
+    local i; for i in $(seq 1 50); do compgen -G "$Q/run/*__$1__*.ticket" > /dev/null && return 0; sleep 0.2; done; return 1
+}
+wait_q() { local n; for n in "$@"; do wait "${QP[$n]}"; QRC[$n]=$?; done; }
+qst() { cat "$Q"/run/*__"$1"__*.state 2>/dev/null | head -n1; }   # первая строка .state демона N
+qlog() { cat "$Q/out.$1" 2>/dev/null; return 0; }   # журнал демона в переднем плане — его вывод
+# stale-base событие — ci-read 4, полученный в черёд (вне очереди он лишь сведение), и исход stale-base
+stale_events() { cat "$Q"/out.* 2>/dev/null | grep -cE 'ci-read код 4 в черёд|ИСХОД: stale-base'; }
+qdir_of() { printf '%s/run/queue/pro-robotech__kacho-workspace__%s' "$Q" "$(printf '%s' "$1" | sha1sum | cut -c1-12)"; }
+plant() {  # <база> <номер> <pid> <starttime> <кто> — билет впереди демона пробы
+    local d; d="$(qdir_of "$1")"; mkdir -p "$d"
+    printf '%s %s %s %s\n' "$3" "$4" "$5" "000000000000" > "$d/$(printf '%012d' "$2").planted-$2.t"
+    [ "$(cat "$d/.seq" 2>/dev/null || echo 0)" -ge "$2" ] || echo "$2" > "$d/.seq"
+}
+pstart() { local s; s="$(cat "/proc/$1/stat")"; s="${s##*) }"; read -r -a s <<< "$s"; printf '%s' "${s[19]}"; }
+ST_Q() { ST="$(qst "$1")"; RC="${QRC[$1]:--}"; }
+
+s_q3() {  # три PR одной базы: без очереди посадка первого делает базу двух других устаревшей
+    local t0 dt st mg cu
+    new_fx q3; mk_q 4301 4302 4303; echo 1 > "$Q/pr/4301/ci_s"; echo 2 > "$Q/pr/4302/ci_s"; echo 3 > "$Q/pr/4303/ci_s"
+    t0=$(date +%s); run_q 4301; enrolled 4301; run_q 4302; enrolled 4302; run_q 4303; wait_q 4301 4302 4303; dt=$(( $(date +%s) - t0 ))
+    st="$(stale_events)"; mg=0; for n in 4301 4302 4303; do [ "${QRC[$n]}" != 0 ] || mg=$((mg + 1)); done
+    cu="$(cat "$Q"/out.* | grep -c 'догон базы: [0-9a-f]\{12\} → [0-9a-f]\{12\} (origin/')"
+    ST="$(qst 4302) | $(qst 4303)"; RC="${QRC[4301]}/${QRC[4302]}/${QRC[4303]}"
+    echo "  [число] q3: три PR одной базы — stale-base событий (ci-read 4 в черёд и исход stale-base) $st, отказов вливания «база устарела» $(cat "$Q/merge.refused" 2>/dev/null | wc -l), merged $mg из 3, догонов $cu, $dt с"
+    ok q3 "три PR одной базы — merged все три, код 0" eval '[ "$mg" -eq 3 ]'
+    ok q3 "stale-base событий 0: ни одного ci-read 4 в черёд" eval '[ "$st" -eq 0 ]'
+    ok q3 "отказов вливания «база устарела» 0" eval '[ ! -s "$Q/merge.refused" ]'
+    ok q3 "второй и третий ждали в очереди (позиция 2)" eval 'qlog 4302 | grep -q "очередь: позиция 2 из" && qlog 4303 | grep -q "очередь: позиция 2 из"'
+    ok q3 "догонов 2, обе отправки — обёрткой отправки" eval '[ "$cu" -eq 2 ] && [ "$(grep -c "^push " "$Q/push.calls")" -eq 2 ]'
+    ok q3 "вливания в порядке билетов" eval '[ "$(tr "\n" " " < "$Q/merge.order")" = "4301 4302 4303 " ]'
+    ok q3 "main несёт все три предмета" eval '( for n in 4301 4302 4303; do git -C "$Q/origin.git" cat-file -e "main:p$n.txt" 2>/dev/null || exit 1; done )'
+    ok q3 "исход называет догон «догон базы: <было> → <стало>»" eval 'qst 4303 | grep -q "догон базы: [0-9a-f]\{12\} → [0-9a-f]\{12\}"'
+    ok q3 "очередь пуста: билетов нет; копий догона в клоне нет" eval '! ls "$Q"/run/queue/*/*.t >/dev/null 2>&1 && [ "$(git -C "$Q/clone" worktree list | wc -l)" -eq 1 ]'
+}
+s_q_spelling() {  # близнец «почти совпадение»: та же база иным написанием — та же очередь
+    new_fx q-spelling; mk_q 4301 4302; echo 2 > "$Q/pr/4301/ci_s"; echo 1 > "$Q/pr/4302/ci_s"
+    echo "p4302 refs/heads/main" > "$Q/pr/4302/meta"
+    run_q 4301; enrolled 4301; QREPO_4302=pro-robotech/kacho-workspace run_q 4302; wait_q 4301 4302; ST_Q 4302
+    ok q-spelling "«main» и «refs/heads/main», репозиторий иным регистром — одна очередь: второй ждал (позиция 2)" eval 'qlog 4302 | grep -q "очередь: позиция 2 из 2"'
+    ok q-spelling "оба merged, stale-base событий 0" eval '[ "${QRC[4301]}" = 0 ] && [ "${QRC[4302]}" = 0 ] && [ "$(stale_events)" -eq 0 ]'
+}
+s_q_diff_base() {  # близнец: разные базы — параллельно, без ожидания
+    new_fx q-diff-base; mk_q 4301 4302; git -C "$Q/seed" push -q origin main:refs/heads/epic
+    echo "p4302 epic" > "$Q/pr/4302/meta"; echo 2 > "$Q/pr/4301/ci_s"; echo 2 > "$Q/pr/4302/ci_s"
+    run_q 4301; enrolled 4301; run_q 4302; wait_q 4301 4302; ST_Q 4302
+    ok q-diff-base "базы main и epic — очереди разные: позиции 2 нет ни у одного" eval '! qlog 4301 | grep -q "позиция 2" && ! qlog 4302 | grep -q "позиция 2"'
+    ok q-diff-base "оба merged" eval '[ "${QRC[4301]}" = 0 ] && [ "${QRC[4302]}" = 0 ]'
+}
+s_q_dead() {  # мёртвый билет и билет переиспользованного pid снимаются; близнец — живой ждётся
+    local dp sp
+    new_fx q-dead; mk_q 4301
+    ( exit 0 ) & dp=$!; wait "$dp"
+    sleep 60 & sp=$!; PIDS+=("$sp")
+    plant main 1 "$dp" 12345 "PRO-Robotech/kacho-workspace#1"; plant main 2 "$sp" 1 "PRO-Robotech/kacho-workspace#2"
+    run_q 4301 --timeout 6; wait_q 4301; ST_Q 4301
+    ok q-dead "мёртвый pid и pid с иным starttime — билеты сняты, merged" eval '[ "$RC" = 0 ] && st_is merged && qlog 4301 | grep -F "сняты мёртвые билеты" | grep -qF "#1" && qlog 4301 | grep -F "сняты мёртвые билеты" | grep -qF "#2"'
+    ok q-dead "билетов в очереди не осталось" eval '! ls "$(qdir_of main)"/*.t >/dev/null 2>&1'
+    kill "$sp" 2>/dev/null
+}
+s_q_live() {  # близнец: билет живого процесса впереди — ждётся; status называет позицию; предел — timeout в очереди
+    local sp t0 out c=- i
+    new_fx q-live; mk_q 4301
+    sleep 60 & sp=$!; PIDS+=("$sp"); plant main 1 "$sp" "$(pstart "$sp")" "PRO-Robotech/kacho-workspace#1"
+    run_q 4301 --timeout 5
+    for i in $(seq 1 30); do [[ "$(qst 4301)" == "running очередь"* ]] && break; sleep 0.2; done
+    out="$(bash "$AL" status "$Q"/run/*__4301__*.state 2>&1)"; c=$?
+    wait_q 4301; ST_Q 4301
+    ok q-live "status ждущего — код 3 и «очередь: позиция 2 из 2 (впереди: …#1)» ($c: $out)" eval '[ "$c" = 3 ] && grep -qxF "очередь: позиция 2 из 2 (впереди: PRO-Robotech/kacho-workspace#1)" <<< "$out"'
+    ok q-live "живой билет впереди — ждётся до предела: timeout «в очереди: позиция 2 из 2», код 6" eval '[ "$RC" = 6 ] && st_is timeout && st_has "в очереди: позиция 2 из 2"'
+    ok q-live "свой билет снят при исходе, чужой живой — на месте" eval '[ "$(ls "$(qdir_of main)"/*.t | wc -l)" -eq 1 ] && ! ls "$Q"/run/*.ticket >/dev/null 2>&1'
+    kill "$sp" 2>/dev/null
+}
+s_q_queued() {  # в очереди исход наступает сразу: красный CI, голова ушла, запрос закрыт, TERM
+    local sp t0 dt p
+    new_fx q-queued; mk_q 4301 4302 4303 4304
+    sleep 60 & sp=$!; PIDS+=("$sp"); plant main 1 "$sp" "$(pstart "$sp")" "PRO-Robotech/kacho-workspace#1"
+    echo red > "$Q/pr/4301/ci"
+    t0=$(date +%s); run_q 4301 --timeout 10; run_q 4302 --timeout 10; run_q 4303 --timeout 10; run_q 4304 --timeout 10
+    enrolled 4303; : > "$Q/pr/4303/closed"   # закрыт ПОСЛЕ постановки: до неё исход дал бы первое чтение
+    sleep 2; git -C "$Q/seed" checkout -q p4302; echo moved >> "$Q/seed/p4302.txt"; git -C "$Q/seed" add -A
+    sandbox_run git -C "$Q/seed" commit -qm "#4302 ещё"; git -C "$Q/seed" push -q origin p4302; git -C "$Q/seed" checkout -q main
+    for _ in $(seq 1 30); do [[ "$(qst 4304)" == "running очередь"* ]] && break; sleep 0.2; done
+    p="$(cat "$Q"/run/*__4304__*.pid)"; kill -TERM "$p"
+    wait_q 4301; dt=$(( $(date +%s) - t0 )); wait_q 4302 4303 4304   # время — исхода красного, не соседей
+    ST="$(qst 4301) | $(qst 4302) | $(qst 4303) | $(qst 4304)"; RC="${QRC[4301]}/${QRC[4302]}/${QRC[4303]}/${QRC[4304]}"
+    ok q-queued "красный CI в очереди — red сразу ($dt с < 8, предел 10)" eval '[ "${QRC[4301]}" = 1 ] && qst 4301 | grep -q "^red ci-read код 1 в очереди" && [ "$dt" -lt 8 ]'
+    ok q-queued "голова ушла в очереди — head-moved" eval '[ "${QRC[4302]}" = 5 ] && qst 4302 | grep -q "^head-moved .* (в очереди)"'
+    ok q-queued "запрос закрыт в очереди — red PR-NOT-OPEN" eval '[ "${QRC[4303]}" = 1 ] && qst 4303 | grep -q "в очереди: REASON.PR-NOT-OPEN"'
+    ok q-queued "TERM в очереди — void, свой билет снят" eval '[ "${QRC[4304]}" = 2 ] && qst 4304 | grep -q "сигналом TERM" && ! ls "$(qdir_of main)"/*.4304*.t "$Q"/run/*__4304__*.ticket >/dev/null 2>&1'
+    ok q-queued "вливаний нет" eval '[ ! -s "$Q/merge.order" ]'
+    kill "$sp" 2>/dev/null
+}
+s_q_stale_ext() {  # база ушла МИМО очереди после черёда: ci-read 4 → догон → merged
+    new_fx q-stale-ext; mk_q 4301
+    # Первое чтение CI — коммит в main мимо очереди (окружение демона несёт подпись песочницы).
+    printf 'f=%q; s=%q; [ -f "$f" ] && exit 0; : > "$f"\n{ git -C "$s" fetch -q origin; git -C "$s" checkout -q -B main origin/main; echo ext > "$s/ext.txt"; git -C "$s" add ext.txt; git -C "$s" commit -qm "#4000 база мимо очереди"; git -C "$s" push -q origin HEAD:refs/heads/main; } > /dev/null 2>&1\n' \
+        "$Q/pr/4301/hooked" "$Q/seed" > "$Q/pr/4301/ci.hook"
+    run_q 4301; wait_q 4301; ST_Q 4301
+    ok q-stale-ext "ci-read 4 от посадки мимо очереди — догон и merged" eval '[ "$RC" = 0 ] && st_is merged && st_has "догон базы: " && [ "$(stale_events)" -eq 1 ]'
+    ok q-stale-ext "main несёт и чужую посадку, и предмет" eval 'git -C "$Q/origin.git" cat-file -e main:ext.txt && git -C "$Q/origin.git" cat-file -e main:p4301.txt'
+}
+s_q_conflict() {  # конфликт слияния базы — stale-base «конфликт: <файл>», слияние снято, копия снята
+    local h0
+    new_fx q-conflict; mk_q 4301; base_push main p4301.txt other; h0="$(qhead 4301)"
+    run_q 4301; wait_q 4301; ST_Q 4301
+    ok q-conflict "stale-base, конфликт назван файлом, код 4" eval '[ "$RC" = 4 ] && st_is stale-base && st_has "конфликт: p4301.txt"'
+    ok q-conflict "ветка на origin не тронута, копии догона нет" eval '[ "$(qhead 4301)" = "$h0" ] && [ "$(git -C "$Q/clone" worktree list | wc -l)" -eq 1 ] && [ ! -e "$(qdir_of main)/wt" ]'
+    ok q-conflict "отправки не было, вливания нет" eval '[ ! -s "$Q/push.calls" ] && [ ! -s "$Q/merge.order" ]'
+}
+s_q_push() {  # отправка догона: слот занят, хук отказал, код 0 без отправки, 141 после отправки, ветка ушла
+    local h0
+    new_fx q-push-busy; mk_q 4301; base_push main b.txt b; echo busy-once > "$Q/pr/4301/push"
+    run_q 4301 --void-limit 1; wait_q 4301; ST_Q 4301
+    ok q-push "слот занят (74) — ожидание без счёта VOID, затем merged" eval '[ "$RC" = 0 ] && st_is merged && [ "$(grep -c "^push " "$Q/push.calls")" -eq 2 ]'
+    new_fx q-push-refuse; mk_q 4301; base_push main b.txt b; echo refuse > "$Q/pr/4301/push"; h0="$(qhead 4301)"
+    run_q 4301; wait_q 4301; ST_Q 4301
+    ok q-push "хук отправки отказал — red «догон базы: отправка … отказала кодом 1», ветка не тронута" eval '[ "$RC" = 1 ] && st_is red && st_has "отказала кодом 1" && st_has "pre-push ОТКАЗ" && [ "$(qhead 4301)" = "$h0" ]'
+    new_fx q-push-noop; mk_q 4301; base_push main b.txt b; echo noop > "$Q/pr/4301/push"
+    run_q 4301 --void-limit 2 --timeout 10; wait_q 4301; ST_Q 4301
+    ok q-push "код 0, а голова ветки не новая — void счётом" eval '[ "$RC" = 2 ] && st_is void && st_has "голова ветки на origin не новая"'
+    new_fx q-push-141; mk_q 4301; base_push main b.txt b; echo sigpipe > "$Q/pr/4301/push"
+    run_q 4301; wait_q 4301; ST_Q 4301
+    ok q-push "141 после отправки — удача по голове ветки на origin, merged" eval '[ "$RC" = 0 ] && st_is merged && st_has "догон базы: "'
+    new_fx q-push-move; mk_q 4301; base_push main b.txt b; echo move > "$Q/pr/4301/push"
+    printf 'cd %q && git checkout -q p4301 && echo m >> p4301.txt && git commit -qam "#4301 сдвиг" && git push -q origin p4301 && git checkout -q main\n' "$Q/seed" > "$Q/pr/4301/move.sh"
+    run_q 4301; wait_q 4301; ST_Q 4301
+    ok q-push "ветка ушла во время догона — head-moved «во время догона базы»" eval '[ "$RC" = 5 ] && st_is head-moved && st_has "во время догона базы"'
+}
+s_q_limit() {  # предел догонов
+    new_fx q-limit; mk_q 4301; base_push main b.txt b
+    QLIMIT=0 run_q 4301; wait_q 4301; ST_Q 4301
+    ok q-limit "предел догонов 0 при отставании — stale-base «предел 0 догонов», отправки нет" eval '[ "$RC" = 4 ] && st_has "предел 0 догонов" && [ ! -s "$Q/push.calls" ]'
+}
+s_q_stale_lag() {  # ci-read 4, а голова не отстаёт
+    new_fx q-stale-lag; mk_q 4301; echo stale > "$Q/pr/4301/ci"
+    run_q 4301 --void-limit 2 --timeout 10; wait_q 4301; ST_Q 4301
+    ok q-stale-lag "ci-read 4, а локально отставания нет — void счётом, отправки нет" eval '[ "$RC" = 2 ] && st_is void && st_has "не отстаёт от origin/main" && [ ! -s "$Q/push.calls" ]'
+}
+s_q_fetch() {  # fetch догона не прошёл
+    new_fx q-fetch; mk_q 4301; base_push main b.txt b; git -C "$Q/clone" remote set-url origin "$Q/absent.git"
+    run_q 4301 --void-limit 2 --timeout 10; wait_q 4301; ST_Q 4301
+    ok q-fetch "fetch догона не прошёл — void «догон базы: fetch …»" eval '[ "$RC" = 2 ] && st_is void && st_has "догон базы: fetch origin main"'
+}
+s_q_lock() {  # черёд — и flock очереди: держит его другой (билет пропал) — ждётся, не два вливания разом
+    local t0 dt lp d
+    new_fx q-lock; mk_q 4301; d="$(qdir_of main)"; mkdir -p "$d"
+    flock "$d/.turn.lock" sleep 3 & lp=$!; PIDS+=("$lp"); sleep 0.3
+    t0=$(date +%s); run_q 4301; wait_q 4301; dt=$(( $(date +%s) - t0 )); ST_Q 4301
+    ok q-lock "flock черёда занят без билета — позиция 1 ждёт его снятия ($dt с ≥ 2), затем merged" eval '[ "$RC" = 0 ] && st_is merged && [ "$dt" -ge 2 ]'
+    wait "$lp" 2>/dev/null
+}
+pin_files() {  # <N> <sha> — вердикт ревью, отчёт стенда и ожидаемое о голове sha: $Q/pin.<N>.*.json
+    jq -n --arg h "$2" '[{role: "go-style-reviewer", sha: $h, verdict: "accept", blocking: []}]' > "$Q/pin.$1.reviews.json"
+    jq -n --arg h "$2" '{head: $h}' > "$Q/pin.$1.report.json"; jq -n --arg h "$2" '{head: $h, jobs: []}' > "$Q/pin.$1.expect.json"
+}
+s_q_pinned() {  # ⛔ 1 приёмки: с --reviews либо --stand-* база не догоняется — stale-base, ветка не тронута; близнец без них — догон, merged
+    local sp n b; local -A h0=()
+    new_fx q-pinned; mk_q 4301 4302 4303 4304
+    for b in epic e3 e4; do git -C "$Q/seed" push -q origin main:"refs/heads/$b"; done
+    echo "p4302 epic" > "$Q/pr/4302/meta"; echo "p4303 e3" > "$Q/pr/4303/meta"; echo "p4304 e4" > "$Q/pr/4304/meta"
+    for b in main epic e3 e4; do base_push "$b" b.txt "$b"; done
+    for n in 4301 4302 4303 4304; do h0[$n]="$(qhead "$n")"; pin_files "$n" "${h0[$n]}"; done
+    sleep 60 & sp=$!; PIDS+=("$sp"); plant e4 1 "$sp" "$(pstart "$sp")" "PRO-Robotech/kacho-workspace#1"   # 4304 — в очереди за живым
+    run_q 4301 --reviews "$Q/pin.4301.reviews.json"
+    run_q 4302 --stand-report "$Q/pin.4302.report.json" --stand-expect "$Q/pin.4302.expect.json"
+    run_q 4303; run_q 4304 --reviews "$Q/pin.4304.reviews.json" --timeout 10
+    wait_q 4301 4302 4303 4304
+    ST="$(qst 4301) | $(qst 4302) | $(qst 4303) | $(qst 4304)"; RC="${QRC[4301]}/${QRC[4302]}/${QRC[4303]}/${QRC[4304]}"
+    ok q-pinned "--reviews при отставании — stale-base в черёд «догона нет», код 4, ветка не тронута" \
+        eval '[ "${QRC[4301]}" = 4 ] && qst 4301 | grep -q "^stale-base .*BASE-STALE.*догона нет" && [ "$(qhead 4301)" = "${h0[4301]}" ]'
+    ok q-pinned "--stand-report/--stand-expect при отставании — stale-base «догона нет», код 4, ветка не тронута" \
+        eval '[ "${QRC[4302]}" = 4 ] && qst 4302 | grep -q "^stale-base .*догона нет" && [ "$(qhead 4302)" = "${h0[4302]}" ]'
+    ok q-pinned "--reviews в очереди за живым билетом — stale-base сразу «ci-read код 4 в очереди», не timeout" \
+        eval '[ "${QRC[4304]}" = 4 ] && qst 4304 | grep -q "^stale-base ci-read код 4 в очереди: .*догона нет" && [ "$(qhead 4304)" = "${h0[4304]}" ]'
+    ok q-pinned "отправок догона у PR с вердиктами 0" eval '! grep -qE "refs/heads/p430[124] @" "$Q/push.calls"'
+    ok q-pinned "близнец без доводов — догон базы и merged" eval '[ "${QRC[4303]}" = 0 ] && qst 4303 | grep -q "^merged .*догон базы: " && grep -q "refs/heads/p4303 @" "$Q/push.calls"'
+    ok q-pinned "влит лишь близнец" eval '[ "$(tr "\n" " " < "$Q/merge.order" 2>/dev/null)" = "4303 " ]'
+    kill "$sp" 2>/dev/null
+}
+s_q_pin_twins() {  # двойник landing-precheck судит привязку к голове: свежие вердикты — merged, о другой голове — red
+    new_fx q-pin-twins; mk_q 4301 4302 4303
+    for b in epic e3; do git -C "$Q/seed" push -q origin main:"refs/heads/$b"; done
+    echo "p4302 epic" > "$Q/pr/4302/meta"; echo "p4303 e3" > "$Q/pr/4303/meta"
+    pin_files 4301 "$(qhead 4301)"; pin_files 4302 "$HEAD_A"; pin_files 4303 "$HEAD_A"
+    run_q 4301 --reviews "$Q/pin.4301.reviews.json" --stand-report "$Q/pin.4301.report.json" --stand-expect "$Q/pin.4301.expect.json"
+    run_q 4302 --reviews "$Q/pin.4302.reviews.json"
+    run_q 4303 --stand-report "$Q/pin.4303.report.json" --stand-expect "$Q/pin.4303.expect.json"
+    wait_q 4301 4302 4303
+    ST="$(qst 4301) | $(qst 4302) | $(qst 4303)"; RC="${QRC[4301]}/${QRC[4302]}/${QRC[4303]}"
+    ok q-pin-twins "вердикты о голове PR, база не ушла — merged" eval '[ "${QRC[4301]}" = 0 ] && qst 4301 | grep -q "^merged "'
+    ok q-pin-twins "вердикт ревью о другой голове — red REVIEW-STALE с ролью" eval '[ "${QRC[4302]}" = 1 ] && qst 4302 | grep -q "^red landing-precheck код 1: REASON.REVIEW-STALE.роль go-style-reviewer: вердикт на aaaaaaaaaaaa"'
+    ok q-pin-twins "отчёт и ожидаемое о другой голове — red STAND-REPORT-STALE и STAND-EXPECT-STALE" eval '[ "${QRC[4303]}" = 1 ] && qst 4303 | grep -q "STAND-REPORT-STALE" && qst 4303 | grep -q "STAND-EXPECT-STALE"'
+    ok q-pin-twins "отправок нет, влит лишь 4301" eval '[ ! -s "$Q/push.calls" ] && [ "$(tr "\n" " " < "$Q/merge.order")" = "4301 " ]'
+}
+s_real_states() {  # прогон по настоящим .state машины: status судит каждый, не пишет ничего
+    local dir="$REAL_DIR" n=0 bad=0 f out c first exp pid before after
+    ST="настоящие .state $dir"; RC=-
+    if ! compgen -G "$dir/*.state" > /dev/null; then
+        echo "  [без предмета] real-states: в $dir нет .state — прогон по настоящим формам не исполнен"; NOSUBJ=$((NOSUBJ + 1)); return
+    fi
+    before="$(find "$dir" -maxdepth 1 \( -name '*.ticket' -o -name queue \) -printf '%f\n' | sort | tr '\n' ' ')"
+    for f in "$dir"/*.state; do
+        n=$((n + 1)); out="$(bash "$AL" status "$f" 2>&1)"; c=$?; first="$(head -n1 <<< "$out")"
+        case "${first%% *}" in
+            merged) exp=0 ;; red) exp=1 ;; void) exp=2 ;; stale-base) exp=4 ;; head-moved) exp=5 ;; timeout) exp=6 ;;
+            running) pid="$(cat "${f%.state}.pid" 2>/dev/null)"; exp=2; [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null && exp=3 ;;
+            *) exp=2 ;;
+        esac
+        if [ "$c" != "$exp" ]; then bad=$((bad + 1)); echo "    расхождение: $(basename "$f") — код $c, ожидался $exp: ${first:0:120}"; fi
+        if [ "$exp" = 3 ] && [ ! -e "${f%.state}.ticket" ] && grep -q '^очередь:' <<< "$out"; then bad=$((bad + 1)); echo "    очередь у демона без билета: $(basename "$f")"; fi
+    done
+    after="$(find "$dir" -maxdepth 1 \( -name '*.ticket' -o -name queue \) -printf '%f\n' | sort | tr '\n' ' ')"
+    echo "  [перепись] real-states: .state $n в $dir; расхождений $bad"
+    ok real-states "status по каждому настоящему .state ($n): код — по исходу и живости демона, расхождений 0" eval '[ "$n" -gt 0 ] && [ "$bad" -eq 0 ]'
+    ok real-states "status очередь не заводит и билетов не пишет" eval '[ "$before" = "$after" ]'
 }
 
 ALL=(s_green s_red s_moved_start s_moved_gates s_moved_merge s_allow_ok s_allow_bad s_stale s_mr_red s_timeout
      s_void s_void_twin s_ratelimit s_pr_unread s_draft s_closed s_already s_fifo s_fifo_nowriter s_args s_detach s_recipe
-     s_prune s_prune_dirty s_prune_ahead s_prune_remote s_prune_origin_ahead s_prune_not_in_base s_prune_busy
+     s_prune s_prune_dirty s_prune_ahead s_prune_remote s_prune_origin_ahead s_prune_not_in_base s_prune_busy s_prune_busy_glob
      s_ff s_ff_overlap s_ff_worktree s_ff_foreign s_ff_hang s_ff_epic s_lag s_lag_own s_lag_nofetch s_lag_hang
      s_start_stale s_head_sync
-     s_status s_empty_code s_lp_head s_census s_guard s_static)
+     s_status s_empty_code s_lp_head s_census s_guard s_static
+     s_q3 s_q_spelling s_q_diff_base s_q_dead s_q_live s_q_queued s_q_stale_ext s_q_conflict s_q_push s_q_limit s_q_stale_lag s_q_fetch s_q_lock
+     s_q_pinned s_q_pin_twins s_real_states)
 
 AL="$AL_REAL"
 echo "== контроль: сцен ${#ALL[@]}"
-for s in "${ALL[@]}"; do before=$fails; "$s"; [ "$fails" -ne "$before" ] || echo "  [ok] ${s#s_}"; done
+for s in "${ALL[@]}"; do before=$fails; ns=$NOSUBJ; "$s"; [ "$fails" -ne "$before" ] || [ "$NOSUBJ" -ne "$ns" ] || echo "  [ok] ${s#s_}"; done
 control_fails=$fails
 echo "== контроль: провалов $control_fails"
 
@@ -865,10 +1282,10 @@ mutant admin-added s_green,s_static '-R "$REPO" --merge --match-head-commit' '-R
 mutant delete-branch-dropped s_green ' --delete-branch >' ' >'
 mutant allow-all s_allow_bad 'index(allow, "," $2 ",") == 0' '0'
 mutant head-check-before-merge-dropped s_moved_gates '[ "$PR_HEAD" = "$HEAD" ] || finish head-moved "$HEAD $PR_HEAD"  # голова перед вливанием' ':'
-mutant stale-as-wait s_stale '4) finish stale-base' '4) wait_change; continue ;; 44) finish stale-base'
-mutant red-as-wait s_red '1) finish red "ci-read' '1) wait_change; continue ;; 11) finish red "ci-read'
+mutant stale-as-wait s_stale '4) if [ "$PINNED" = 1 ]; then finish' '4) wait_change; continue ;; 44) if [ "$PINNED" = 1 ]; then finish'
+mutant red-as-wait s_red '1) finish red "ci-read код 1:' '1) wait_change; continue ;; 11) finish red "ci-read код 1:'
 mutant void-limit-dropped s_void,s_pr_unread '[ "${VOIDS[$k]}" -lt "$VOID_LIMIT" ] ||' 'true ||'
-mutant ci-read-without-head s_green '--head "$HEAD" --from-state' '--from-state'
+mutant ci-read-without-head s_green $'--head "$HEAD" --from-state\n    case "$GATE_RC" in\n        0)' $'--from-state\n    case "$GATE_RC" in\n        0)'
 mutant prune-ahead-predicate-dropped s_prune_ahead 'if ! { [ "$lh" = "$HEAD" ] || git -C "$c" merge-base --is-ancestor "$lh" "$HEAD" 2>/dev/null; }; then' 'if false; then'
 mutant closed-as-open s_closed '[ "$PR_STATE" = open ] ||' 'true ||'
 mutant subject-unchecked s_args '[[ "$SUBJECT" =~ ^#[0-9]+\ merge\ #${PR}:\ [^[:space:]] ]]' 'true'
@@ -879,6 +1296,8 @@ mutant lp-nohead-ignored s_lp_head 'if [ -z "$lph" ]; then' 'if false; then'
 mutant prune-origin-ahead-dropped s_prune_origin_ahead 'if [ "$rh" = "$HEAD" ] || git -C "$c" merge-base --is-ancestor "$rh" "$HEAD" 2>/dev/null; then' 'if true; then'
 mutant prune-busy-unchecked s_prune_busy 'busy="$(wt_procs "$wt")"' 'busy=""'
 mutant prune-busy-fd-unchecked s_prune_busy 'find /proc/[0-9]*/fd -mindepth 1' 'false /proc/[0-9]*/fd -mindepth 1'
+mutant prune-busy-exe-unchecked s_prune_busy 'find /proc/[0-9]*/cwd /proc/[0-9]*/exe -maxdepth 0' 'find /proc/[0-9]*/cwd -maxdepth 0'
+mutant prune-busy-glob-unescaped s_prune_busy_glob "e=\"\$(printf '%s' \"\$d\" | sed 's/[][*?\\\\]/\\\\&/g')\"" 'e="$d"'
 mutant prune-base-ancestor-dropped s_prune_not_in_base 'if ! git -C "$c" merge-base --is-ancestor "$HEAD" "origin/$base" 2>/dev/null; then' 'if false; then'
 mutant status-stale-as-merged s_status 'stale-base) exit 4 ;;' 'stale-base) exit 0 ;;'
 mutant status-moved-as-merged s_status 'head-moved) exit 5 ;;' 'head-moved) exit 0 ;;'
@@ -908,6 +1327,33 @@ mutant start-lag-unchecked s_start_stale 'lag="$(bash "$lag_sh" --own' 'lag="$(t
 mutant head-sync-dropped s_head_sync '[ "$HEAD_SEEN" = 0 ] && [ $(( $(date +%s) - RUN_T0 )) -lt "$HEAD_SYNC" ]' 'false'
 mutant head-seen-ignored s_head_sync '[ "$HEAD_SEEN" = 0 ] && [ $(( $(date +%s)' '[ $(( $(date +%s)'
 mutant head-sync-unbounded s_head_sync ' -lt "$HEAD_SYNC" ]; then' ' -ge 0 ]; then' 
+# очередь на базу и догон (ws#1263)
+mutant queue-dropped s_q3 $'queue_turn\n        if [ "$PINNED" = 0 ]; then catchup turn' $'TURN=1\n        if [ "$PINNED" = 0 ]; then catchup turn'
+mutant catchup-at-turn-dropped s_q3 'catchup turn; [ "$CU_RC" != 1 ] || continue' ':'
+mutant ticket-kept-at-exit s_q3,s_q_queued '[ -z "$TICKET" ] || rm -f "$TICKET" "$RUN_DIR/$NAME.ticket"' ':'
+mutant catchup-on-stale-dropped s_q_stale_ext 'мимо очереди — догон базы"; catchup stale' 'мимо очереди — догон базы"; CU_RC=2'
+mutant base-spelling-not-normalized s_q_spelling "norm_base() { printf '%s' \"\${1#refs/heads/}\"; }" "norm_base() { printf '%s' \"\$1\"; }"
+mutant repo-case-not-normalized s_q_spelling 'local r="${1,,}" b;' 'local r="$1" b;'
+mutant queue-key-without-base s_q_diff_base "\"\$(printf '%s' \"\$b\" | sha1sum | cut -c1-12)\"" '"all"'
+mutant liveness-by-kill0-only s_q_dead '    [ "$cur" = "$st" ]' '    true'
+mutant dead-tickets-kept s_q_dead 'if [ "$f" != "$mine" ] && ! ticket_live "$f"; then' 'if false; then'
+mutant status-position-dropped s_q_live "[ \"\$Q_POS\" -eq 0 ] || printf 'очередь: позиция" "[ \"\$Q_POS\" -ge 0 ] || printf 'очередь: позиция"
+mutant queued-check-dropped s_q_queued 'next=$(( now + POLL )); queued_check; fi' 'next=$(( now + POLL )); fi'
+mutant queued-head-unchecked s_q_queued 'if [ "$PR_HEAD" != "$HEAD" ]; then finish head-moved "$HEAD $PR_HEAD (в очереди)"; fi' ':'
+mutant queued-closed-as-open s_q_queued 'if [ "$PR_STATE" != open ]; then finish red "запрос в очереди' 'if false; then finish red "запрос в очереди'
+mutant turn-lock-dropped s_q_lock 'flock -n 8 || { exec 8>&-; return 1; }' ':'
+mutant conflict-merge-not-aborted s_q_conflict 'git -C "$cw" merge --abort 2>/dev/null' ':'
+mutant push-busy-as-failure s_q_push '74 | 75) LAST=' '7444 | 75) LAST='
+mutant push-success-by-code s_q_push 'if [ "$rh" = "$new" ]; then' 'if [ "$rc" -eq 0 ]; then'
+mutant push-moved-branch-unchecked s_q_push '[ -z "$rh" ] || [ "$rh" = "$HEAD" ] || finish head-moved' ': ||'
+mutant catchup-limit-dropped s_q_limit '[ "$CATCHUPS" -lt "$CATCHUP_LIMIT" ]' 'true'
+mutant stale-without-lag-not-counted s_q_stale_lag 'void_step догон "ci-read код 4, а голова' ': догон "ci-read код 4, а голова'
+mutant pinned-reviews-catch-up s_q_pinned '[ -z "$REVIEWS$STAND_REPORT$STAND_EXPECT" ] || PINNED=1' '[ -z "$STAND_REPORT$STAND_EXPECT" ] || PINNED=1'
+mutant pinned-stand-catch-up s_q_pinned '[ -z "$REVIEWS$STAND_REPORT$STAND_EXPECT" ] || PINNED=1' '[ -z "$REVIEWS" ] || PINNED=1'
+mutant pinned-catchup-at-turn s_q_pinned 'if [ "$PINNED" = 0 ]; then catchup turn' 'if true; then catchup turn'
+mutant pinned-stale-at-turn-catches-up s_q_pinned 'if [ "$PINNED" = 1 ]; then finish stale-base' 'if false; then finish stale-base'
+mutant pinned-stale-in-queue-waits s_q_pinned '[ "$PINNED" = 0 ] || finish stale-base "ci-read код 4 в очереди' 'true || finish stale-base "ci-read код 4 в очереди'
+mutant catchup-fetch-unchecked s_q_fetch 'if ! GIT_TERMINAL_PROMPT=0 git -C "$c" fetch' 'if false && git -C "$c" fetch'
 
 reap
 for _ in 1 2 3 4 5 6 7 8 9 10; do [ "$(probe_procs)" -eq 0 ] && break; sleep 0.3; done
@@ -920,7 +1366,7 @@ if ! [[ "$CS_BEFORE$cs_after" =~ ^[0-9]+$ ]]; then
 fi
 [ "$cs_after" -le "$CS_BEFORE" ] || { echo "  [FAIL] след: проба завела файлы в кэше машины $REAL_CS"; residue=1; }
 [ "$procs_after" -eq 0 ] || { echo "  [FAIL] след: живых демонов пробы $procs_after"; residue=1; }
-echo "== итог: сцен ${#ALL[@]}, провалов контроля $control_fails; мутантов $mutants, выжило $survived, не легло $voidm; следов $residue"
+echo "== итог: сцен ${#ALL[@]} (без предмета $NOSUBJ), провалов контроля $control_fails; мутантов $mutants, выжило $survived, не легло $voidm; следов $residue"
 [ "$voidm" -eq 0 ] || exit 2
 [ "$control_fails" -eq 0 ] && [ "$survived" -eq 0 ] && [ "$residue" -eq 0 ] || exit 1
 exit 0
