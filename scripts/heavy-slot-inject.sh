@@ -711,8 +711,8 @@ echo "── первая строка вывода слота — ревизи�
 # журналу не установить. Первая строка stderr слота — «HEAD <sha> class=… at=… dir=…»; в журнале
 # слотов строка enter — с head=.
 hr="$(git -C "$R" rev-parse HEAD)"; b="$(jn "head=${hr:0:12}")"
-rc="$(rslot bash "$SLOT" docker -- true)"
-assert "0 HEAD $hr class=docker да $((b + 1))" "$rc $(head -n 1 "$W/err" | cut -d' ' -f1-3) $(head -n 1 "$W/err" | grep -qE ' at=20[0-9-]+T[0-9:]+' && echo да || echo нет) $(jn "head=${hr:0:12}")" "git-каталог: первая строка — HEAD с полной ревизией, класс, время; enter в журнале несёт head="
+rc="$(rslot bash "$SLOT" docker -- true)"; l1="$(head -n 1 "$W/err")"
+assert "0 HEAD $hr class=docker да $((b + 1))" "$rc $(cut -d' ' -f1-3 <<< "$l1") $(grep -qE ' at=20[0-9-]+T[0-9:]+' <<< "$l1" && echo да || echo нет) $(jn "head=${hr:0:12}")" "git-каталог: первая строка — HEAD с полной ревизией, класс, время; enter в журнале несёт head="
 rc="$(RDIR="$W/nogit" rslot bash "$SLOT" docker -- true)"
 assert "0 HEAD — class=docker" "$rc $(head -n 1 "$W/err" | cut -d' ' -f1-3)" "близнец: каталог не git — первая строка та же, ревизии нет («—»), без отказа"
 b="$(jn ' local class=lint proof=rc=69 remote-heavy: кластер не отвечает')"
