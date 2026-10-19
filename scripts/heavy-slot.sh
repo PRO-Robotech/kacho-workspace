@@ -17,6 +17,9 @@
 #   heavy-slot.sh --classes     классы, бюджеты и основание каждого
 #   heavy-slot.sh --budget <класс>  бюджет класса в МиБ (читает session-memcap.sh)
 #   heavy-slot.sh --book <класс> -- <команда>  бронь, которую слот поставит этой команде из этого каталога
+#   heavy-slot.sh --route <класс> -- <команда>  маршрут, который слот выбрал бы этой команде из этого
+#               каталога, — строкой ROUTE<TAB>external|local|none<TAB>основание, код 0; команда не
+#               исполняется, кластер не спрашивается, журнала нет (ws#1192; «ВНЕШНИЙ КЛАСТЕР» ниже)
 #   heavy-slot.sh --status      занятые слоты, билеты очереди и внешнего входа, память машины, хвост журнала
 #   heavy-slot.sh --cancel <билет | журнал заявки>  снять СВОЮ заявку (ждущую, отложенную, внешнего входа) и её --enqueue
 #   heavy-slot.sh --prune-tmp   снять TMPDIR копий класса ci-local, не тронутые > 7 суток
@@ -1026,9 +1029,10 @@ book_cmd() {
 # его внутренняя форма: принимается лишь у ребёнка --enqueue (stdout — <база>.log, родитель —
 # лидер своего сеанса), иначе 64.
 # --resume <билет> — повтор после 74/75 на месте отложенного билета (шапка, ws#1115).
-WAIT_ARG=""; LOCAL_WHY=""; LOCAL_SET=""; ENQ_DIR=""; QUEUED=""; RESUME=""
+WAIT_ARG=""; LOCAL_WHY=""; LOCAL_SET=""; ENQ_DIR=""; QUEUED=""; RESUME=""; ROUTE_ONLY=""
 while :; do
     case "${1:-}" in
+        --route) ROUTE_ONLY=1; shift ;;
         --resume)
             RESUME="${2:-}"
             [[ "$RESUME" =~ ^[0-9]{1,12}$ ]] || { say "--resume «$RESUME» — номер билета из отказа 74/75 (целое)"; exit 64; }
@@ -1058,6 +1062,10 @@ while :; do
         *) break ;;
     esac
 done
+if [ -n "$ROUTE_ONLY" ] && { [ -n "$WAIT_ARG$LOCAL_SET$ENQ_DIR$QUEUED$RESUME" ] || [[ "${1:-}" == --* ]] || [ -z "${1:-}" ]; }; then
+    say "--route — чистое суждение о маршруте: heavy-slot.sh --route <класс> -- <команда>, без --wait, --local, --enqueue, --resume"
+    exit 64
+fi
 case "${1:-}" in
     --classes) print_classes; exit 0 ;;
     --budget)  class_budget "${2:-}" || { say "класса «${2:-}» нет"; exit 64; }; exit 0 ;;
@@ -1161,7 +1169,7 @@ done
 
 # ── ревизия первой строкой вывода (ws#1244; шапка, «РЕВИЗИЯ») ────────────────────
 HEAD_REV=""
-if [ -z "$ENQ_DIR" ]; then
+if [ -z "$ENQ_DIR" ] && [ -z "$ROUTE_ONLY" ]; then
     HEAD_REV="$(git -C "$PWD" rev-parse -q --verify HEAD 2>/dev/null)" || HEAD_REV=""
     printf 'HEAD %s class=%s at=%s dir=%s\n' "${HEAD_REV:-—}" "$CLASS" "$(date -Is)" "$PWD" >&2
 fi
@@ -1241,7 +1249,8 @@ fi
 # машины не занимают. Нагрузка судится ЗА обёртками (env, nice, ionice, timeout,
 # nohup, setsid, stdbuf, command, time — функция payload): обёртка тяжёлое локально не
 # уводит. Удалённый прогон судит КОММИТ, поэтому условий пять: нагрузка переносима
-# (go, make, линтеры, ci-local.sh), каталог — клон kacho, kaname или corelib,
+# (go, make, линтеры, ci-local.sh, скрипт клона из ведомости PORTABLE — ws#1192), каталог —
+# клон kacho, kaname или corelib,
 # отслеживаемые файлы без правок, номер задачи — из KACHO_TASK либо ведущих цифр
 # имени ветки, кластер принимает (`run.sh --available --profile <класс>`, ws#991).
 # Без внешнего пути вообще — хук отправки (`git push`, ws#1106) и клон не продукта —
@@ -1456,26 +1465,32 @@ stand_script() {
 # словам строки дочерней оболочки и по тексту вызванного скрипта (stand_sign); строка
 # оболочки без внешней формы (stand-ns-*) — не опознана: цель может прийти переменной
 # (`bash -c 'make "$G"'`).
-stand_route() {
-    local a tok prev="" mk="" safe="" toks s
+# stand_static — статическая часть суждения класса stand, ОДНА у прогона и у --route: 0 — команда
+# локального стенда не поднимает (ST_SAFE — она в форме stand-ns-*); 1 — поднимает (ST_MK, признак
+# содержимого ST_SIGN) либо её строку оболочки слот не судит: при доступном кластере это 77.
+stand_static() {
+    local a tok prev="" toks s
+    ST_MK=""; ST_SAFE=""; ST_SIGN=""
     for a in "${CMD_R[@]}"; do
         mapfile -t toks < <(printf '%s\n' "$a" | tr ' \t;&|()"'"'"'`' '\n')
         for tok in "${toks[@]}"; do
             [ -n "$tok" ] || continue
             case "$(basename -- "$tok")" in
-                dev-up|dev-prod-up|own-up|stack-up|cert-manager-up|create-cluster.sh) mk=1 ;;
-                create) [ "$(basename -- "$prev")" = kind ] && mk=1 ;;
-                stand-ns-*) safe=1 ;;
+                dev-up|dev-prod-up|own-up|stack-up|cert-manager-up|create-cluster.sh) ST_MK=1 ;;
+                create) [ "$(basename -- "$prev")" = kind ] && ST_MK=1 ;;
+                stand-ns-*) ST_SAFE=1 ;;
             esac
             [ "${tok#-}" = "$tok" ] && prev="$tok"
         done
     done
     payload
-    ST_SIGN=""
-    if [ -z "$mk" ] && [ -z "$safe" ] && [ -z "$PAY_SH" ] && [ -n "$PAY_I" ]; then
-        s="$(stand_script "${CMD_R[$PAY_I]}")" && ST_SIGN="$(stand_sign "$s")" && mk=1
+    if [ -z "$ST_MK" ] && [ -z "$ST_SAFE" ] && [ -z "$PAY_SH" ] && [ -n "$PAY_I" ]; then
+        s="$(stand_script "${CMD_R[$PAY_I]}")" && ST_SIGN="$(stand_sign "$s")" && ST_MK=1
     fi
-    if [ -z "$mk" ] && { [ -z "$PAY_SH" ] && [ "${PAY#\?}" = "$PAY" ] || [ -n "$safe" ]; }; then
+    [ -z "$ST_MK" ] && { [ -z "$PAY_SH" ] && [ "${PAY#\?}" = "$PAY" ] || [ -n "$ST_SAFE" ]; }
+}
+stand_route() {
+    if stand_static; then
         WHY_LOCAL="команда стенда не поднимает локальный стенд"; return 1
     fi
     if ! cluster_check; then
@@ -1484,7 +1499,7 @@ stand_route() {
     fi
     task_of
     [[ "$TASK" =~ ^[1-9][0-9]*$ ]] || TASK="<задача>"
-    [ -n "$mk" ] || refuse_external "строку оболочки «${PAY_SH:-$PAY}» слот не судит (цель стенда может прийти переменной) — дай команду словами argv; стенд — в deploy/ продукта make stand-ns-up NS=t$TASK-<коротко>"
+    [ -n "$ST_MK" ] || refuse_external "строку оболочки «${PAY_SH:-$PAY}» слот не судит (цель стенда может прийти переменной) — дай команду словами argv; стенд — в deploy/ продукта make stand-ns-up NS=t$TASK-<коротко>"
     refuse_external "${ST_SIGN:+подъём стенда — по признаку содержимого $ST_SIGN; }в deploy/ продукта make stand-ns-up NS=t$TASK-<коротко> (либо stand-ns-run NS=… CMD='…' — снятие само), снятие — make stand-ns-down NS=… этой же задачей, после — stand-ns-census и residue-census 0"
 }
 # ── внешний вход по одному (ws#1176; шапка у EXT_GATE) ──────────────────────────
@@ -1565,25 +1580,63 @@ ext_run() {
     return "$rc"
 }
 
-remote_route() {
-    local top url repo rel fix="" known=""
-    case "$CLASS" in go-race|integration|lint|ci-local) ;; stand) stand_route; return 1 ;; *) WHY_LOCAL="класс «$CLASS» внешнего пути не имеет"; return 1 ;; esac
+# PORTABLE — скрипты клона, которые Job исполняет как есть (ws#1192 б): «<репозиторий>|<путь в
+# дереве>|<классы через запятую>». Скрипт переносим, лишь когда он — ОТСЛЕЖИВАЕМЫЙ файл клона этого
+# репозитория (Job исполняет коммит, а не файл машины), назван относительным путём из рабочего
+# каталога (путь машины в pod не существует) и класс — из записи. Запись — форма шага конвейера:
+# integrationshard ci.yml kaname зовёт `.github/scripts/run-integration.sh` (testcontainers — dind
+# профиля integration); до записи слот отвечал на неё 77, и пробы уходили во внешний кластер лишь
+# пересборкой команды мимо скрипта (ws#1192, посадка kaname#871).
+PORTABLE='kaname|.github/scripts/run-integration.sh|integration'
+# portable_script — 0, если слово нагрузки (PAY_I) — скрипт ведомости PORTABLE этого клона и класса.
+portable_script() {
+    local w="${CMD_R[${PAY_I:-0}]:-}" real r p c
+    [ -n "$PAY_I" ] && [ -z "$PAY_SH" ] || return 1
+    case "$w" in /*|'') return 1 ;; esac
+    [ "$w" != "${w#*/}" ] || return 1
+    real="$(cd "$PWD" && realpath -e -- "$w" 2>/dev/null)" || return 1
+    while IFS='|' read -r r p c; do
+        [ "$r" = "$RS_REPO" ] || continue
+        [[ ",$c," == *",$CLASS,"* ]] || continue
+        [ "$real" = "$RS_TOP/$p" ] || continue
+        git -C "$RS_TOP" ls-files --error-unmatch -- "$p" > /dev/null 2>&1 || continue
+        return 0
+    done <<< "$PORTABLE"
+    return 1
+}
+# route_static — статическая часть маршрута Job-ом, ОДНА у прогона и у --route: класс с внешним
+# путём, клон kacho, kaname или corelib (RS_TOP, RS_REPO), нагрузка опознана (RS_KNOWN). 1 — внешнего
+# пути у команды нет (WHY_LOCAL); неопознанная нагрузка пути не закрывает: при доступном кластере —
+# 77, при недоступном — локально с доказательством.
+route_static() {
+    local url
+    RS_KNOWN=""; RS_TOP=""; RS_REPO=""
+    case "$CLASS" in go-race|integration|lint|ci-local) ;; *) WHY_LOCAL="класс «$CLASS» внешнего пути не имеет"; return 1 ;; esac
     payload
     case "$PAY" in
-        go|make|golangci-lint|gosec|govulncheck|ci-local.sh) known=1 ;;
+        go|make|golangci-lint|gosec|govulncheck|ci-local.sh) RS_KNOWN=1 ;;
         git)
             if [ "$CLASS" != ci-local ] || ! git_push_form; then
                 WHY_LOCAL="команда «git» без push (не хук отправки) внешнего пути не имеет"; return 1
             fi
-            known=1 ;;
+            RS_KNOWN=1 ;;
     esac
-    top="$(git -C "$GDIR" rev-parse --show-toplevel 2>/dev/null)" || { WHY_LOCAL="рабочий каталог — не клон git: внешнего пути нет"; return 1; }
-    url="$(git -C "$top" remote get-url origin 2>/dev/null)"
-    repo="${url%.git}"; repo="${repo##*/}"
+    RS_TOP="$(git -C "$GDIR" rev-parse --show-toplevel 2>/dev/null)" || { WHY_LOCAL="рабочий каталог — не клон git: внешнего пути нет"; return 1; }
+    RS_TOP="$(cd "$RS_TOP" && pwd -P)"
+    url="$(git -C "$RS_TOP" remote get-url origin 2>/dev/null)"
+    RS_REPO="${url%.git}"; RS_REPO="${RS_REPO##*/}"
     case "$url" in
         *PRO-Robotech/kacho|*PRO-Robotech/kacho.git|*PRO-Robotech/kaname|*PRO-Robotech/kaname.git|*PRO-Robotech/corelib|*PRO-Robotech/corelib.git) ;;
         *) WHY_LOCAL="клон не kacho, kaname или corelib: внешнего пути нет"; return 1 ;;
     esac
+    [ -n "$RS_KNOWN" ] || ! portable_script || RS_KNOWN=1
+    return 0
+}
+remote_route() {
+    local top repo rel fix="" known=""
+    [ "$CLASS" != stand ] || { stand_route; return 1; }
+    route_static || return 1
+    top="$RS_TOP"; repo="$RS_REPO"; known="$RS_KNOWN"
     [ -n "$(git -C "$top" status --porcelain --untracked-files=no 2>/dev/null)" ] &&
         fix="закоммить правки отслеживаемых файлов (кластер судит коммит) и повтори ту же команду — слот уведёт её Job-ом"
     task_of
@@ -1597,7 +1650,7 @@ remote_route() {
     tooling_gate
     ext_enter
     cluster_check "$CLASS" "$repo" || return 1
-    [ -n "$known" ] || refuse_external "нагрузка «${PAY_SH:-$PAY}» за обёрткой не опознана как переносимая (go, make, golangci-lint, gosec, govulncheck, ci-local.sh) — дай её словами argv: heavy-slot.sh $CLASS -- go …; слот уведёт её Job-ом"
+    [ -n "$known" ] || refuse_external "нагрузка «${PAY_SH:-$PAY}» за обёрткой не опознана как переносимая (go, make, golangci-lint, gosec, govulncheck, ci-local.sh; скрипт клона из ведомости PORTABLE — относительным путём) — дай её словами argv: heavy-slot.sh $CLASS -- go …; слот уведёт её Job-ом"
     [ -n "$fix" ] && refuse_external "$fix"
     if [ -n "$GIT_IDX" ]; then
         HOOKS_ORIG="$(cd "$GDIR" && cd "$(git rev-parse --git-path hooks 2>/dev/null)" 2>/dev/null && pwd -P)"
@@ -1610,6 +1663,38 @@ remote_route() {
     rel="$(realpath --relative-to="$top" "$PWD")"
     ROUTE=(bash "$REMOTE_RUN" --task "$TASK" --repo "$repo" --ref "$(git -C "$top" rev-parse HEAD)" --src "$top" --workdir "$rel" --profile "$CLASS" --)
     return 0
+}
+# route_print — `--route` (ws#1192): маршрут, который прогон выбрал бы этой команде, теми же
+# route_static и stand_static, без кластера, run.sh, журнала и исполнения. external — Job
+# внешнего кластера либо стенд в ns внешнего кластера (stand-ns-* в клоне kacho с механизмом
+# stand-ns); local — команда идёт на машине при любом кластере (класс без внешнего пути, клон не
+# продукта, команда стенда без признака: где её стенд, слот не судит); none — при доступном
+# кластере слот откажет 77 (нагрузка не опознана, подъём локального стенда, строка оболочки).
+route_print() {
+    local kind why top url
+    if [ "$CLASS" = stand ]; then
+        if stand_static; then
+            top="$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null)"; url="$(git -C "${top:-.}" remote get-url origin 2>/dev/null)"
+            case "$url" in *PRO-Robotech/kacho|*PRO-Robotech/kacho.git) ;; *) url="" ;; esac
+            if [ -n "$ST_SAFE" ] && [ -n "$url" ] && git -C "$top" ls-files --error-unmatch -- deploy/Makefile deploy/scripts/stand-ns.sh > /dev/null 2>&1; then
+                kind=external; why="стенд — ns внешнего кластера (stand-ns клона kacho), команда — на машине под слотом stand"
+            elif [ -n "$ST_SAFE" ]; then
+                kind=local; why="форма stand-ns-*, а механизма stand-ns (отслеживаемые deploy/Makefile и deploy/scripts/stand-ns.sh клона kacho) нет"
+            else
+                kind=local; why="команда стенда не поднимает локальный стенд; где её стенд, слот не судит"
+            fi
+        elif [ -n "$ST_MK" ]; then
+            kind=none; why="подъём локального стенда${ST_SIGN:+ (признак содержимого $ST_SIGN)} — при доступном кластере 77: стенд — make stand-ns-up в ns внешнего кластера"
+        else
+            kind=none; why="строку оболочки «${PAY_SH:-$PAY}» слот не судит — при доступном кластере 77"
+        fi
+    elif route_static; then
+        if [ -n "$RS_KNOWN" ]; then kind=external; why="Job внешнего кластера: профиль $CLASS, репозиторий $RS_REPO (при недоступном кластере — локально с доказательством)"
+        else kind=none; why="нагрузка «${PAY_SH:-$PAY}» не опознана как переносимая (go, make, линтеры, ci-local.sh; скрипт ведомости PORTABLE относительным путём) — при доступном кластере 77"; fi
+    else
+        kind=local; why="$WHY_LOCAL"
+    fi
+    printf 'ROUTE\t%s\t%s\n' "$kind" "$why"
 }
 # push_remote — отправка с хуком Job-ом (шапка, «ХУК ОТПРАВКИ»). Возвращает 0, если
 # переходник отклонил отправку кодом 78 (не голова копии) — тогда слот идёт локально;
@@ -1717,6 +1802,7 @@ stand_ns_light() {
 }
 CMD_R=("$@"); WHY_LOCAL=""; ROUTE=(); GIT_IDX=""; GDIR="$PWD"
 WAIT_T0="$(now)"   # начало срока заявки: внешний вход, кластер и очередь памяти считают от него (ws#1244)
+if [ -n "$ROUTE_ONLY" ]; then route_print; exit 0; fi
 if [ "$CLASS" = stand ] && stand_ns_light; then
     busy=0
     for f in "$DIR"/active/*.slot; do [ -e "$f" ] && busy=$(( busy + 1 )); done
