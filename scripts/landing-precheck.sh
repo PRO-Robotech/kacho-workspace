@@ -107,7 +107,9 @@
 #                             1) имени нет в наборе обязательных контекстов, которым
 #                             судит ЭТОТ PR `merge-readiness.sh` (набор он отдаёт
 #                             файлом MERGE_READINESS_REQUIRED_OUT; набор не получен
-#                             или пуст — любой skipped причина);
+#                             или пуст без основания `<файл>.basis` — любой skipped
+#                             причина; пуст С основанием — установленный ноль: база
+#                             без контекстов судится ci-read по ведомости, ws#1215);
 #                             2) прогон workflow этого check-run найден
 #                             (`actions/runs?head_sha=`, ключ — check_suite.id), его
 #                             событие — pull_request в базу запроса либо push ветки
@@ -339,7 +341,7 @@ else
     MR="$W/mr/scripts/merge-readiness.sh"
     MR_SRC="origin/main@$(git -C "$WS" rev-parse --short=12 origin/main)"
 fi
-rm -f "$W/required"
+rm -f "$W/required" "$W/required.basis"
 MERGE_READINESS_REQUIRED_OUT="$W/required" bash "$MR" "$REPO" "$PR" > "$W/mr.out" 2>&1
 MR_CODE=$?
 
@@ -442,11 +444,16 @@ own_runs = [r for r in runs if r.get("head_sha", head) == head]
 if not own_runs:
     reason("CI-EMPTY", f"на {head[:12]} ни одного check-run — «проверок 0» не зелёное")
 # Набор обязательных — тот, которым судит этот PR merge-readiness (файл пишет он).
-required = None
+# Пустой набор — установленный ноль, ТОЛЬКО когда merge-readiness назвал основание
+# (`required.basis`: путь базы без контекстов судит ci-read защитой и наборами правил
+# базы — ws#1215, kaname#900). Пустой без основания — не «все необязательны».
+required, req_basis = None, ""
 if os.path.exists(f"{W}/required"):
     required = {l.rstrip("\n") for l in open(f"{W}/required", encoding="utf-8") if l.strip()}
-    if not required:
-        required = None  # пустой набор — не «все необязательны»
+    if os.path.exists(f"{W}/required.basis"):
+        req_basis = open(f"{W}/required.basis", encoding="utf-8").read().strip()
+    if not required and not req_basis:
+        required = None
 
 # skipped законен, ТОЛЬКО если условие `if` задания в файле workflow на ГОЛОВЕ
 # невыполнимо для события его прогона. Условие читается из файла на head sha и
@@ -769,7 +776,7 @@ for r in bad:
         continue
     why = f" ({skip_why[id(r)]})" if id(r) in skip_why else ""
     reason("CI-NOT-SUCCESS", f"{r.get('name')} — {r.get('conclusion')}{why}")
-census.append(f"ci: check-runs на голове {len(own_runs)}, судится последних {len(judged)}, вытеснено поздним прогоном той же проверки {len(superseded)}, success {len(judged) - len(pending) - len(bad)}, идут {len(pending)}, не-success {len(bad) - len(skipped_lawful)}, skipped по невыполнимому if {len(skipped_lawful)}; набор обязательных {len(required) if required is not None else 'НЕ ПОЛУЧЕН'}")
+census.append(f"ci: check-runs на голове {len(own_runs)}, судится последних {len(judged)}, вытеснено поздним прогоном той же проверки {len(superseded)}, success {len(judged) - len(pending) - len(bad)}, идут {len(pending)}, не-success {len(bad) - len(skipped_lawful)}, skipped по невыполнимому if {len(skipped_lawful)}; набор обязательных {len(required) if required is not None else 'НЕ ПОЛУЧЕН'}{f' — установленный ноль ({req_basis})' if required == set() else ''}")
 for name in sorted({r.get("name") for r in superseded}):
     gone = [r for r in superseded if r.get("name") == name]
     gone = sorted(gone, key=lambda r: r.get("started_at") or "")

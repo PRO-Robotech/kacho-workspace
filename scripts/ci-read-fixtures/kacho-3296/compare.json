@@ -1,0 +1,8 @@
+{
+  "status": "ahead",
+  "ahead_by": 1,
+  "behind_by": 0,
+  "merge_base_commit": {
+    "sha": "a95248464901b794c4c3309948676cc29150d0de"
+  }
+}
