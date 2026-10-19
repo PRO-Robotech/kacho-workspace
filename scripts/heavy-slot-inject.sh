@@ -772,6 +772,37 @@ be="$(jn ' enter id=')"; rm -f "$HL"
 assert "0 1 да $((be + 1))" "$(rslot env FAKE_AVAIL=1 FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- git push -q "$W/bare.git" HEAD:refs/heads/1115-w) $(grep -c '^job=нет ' "$HL" 2>/dev/null) $(has_ref 1115-w) $(jn ' enter id=')" "близнец: кластер недоступен → хук локально слотом (enter в журнале)"
 be="$(jn ' enter id=')"; b78="$(jn 'route=push rc=1 hook_rc=78 ')"; rm -f "$HL"
 assert "0 0 1 да $((be + 1)) $((b78 + 1))" "$(rslot env FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- git push -q "$W/bare.git" HEAD~1:refs/heads/1115-v) $(grep -c '^job=1 ' "$HL" 2>/dev/null) $(grep -c '^job=нет ' "$HL" 2>/dev/null) $(has_ref 1115-v) $(jn ' enter id=') $(jn 'route=push rc=1 hook_rc=78 ')" "отправка не головы копии: переходник — 78, Job не звался, та же отправка локально слотом с хуком"
+echo "── отправка в строке оболочки из каталога вне копии → 77 с формой argv, а не «клон не kacho…» и не локально (ws#1185 (л), (м))"
+# Признак 2026-10-18 (журнал слотов): `heavy-slot.sh ci-local -- bash -c "cd <копия kaname> && git push …"`
+# из корня воркспейса и из tmp/ — «клон не kacho, kaname или corelib», хук шёл локально.
+mkdir -p "$W/outside"; rm -f "$HL"
+rc="$(RDIR="$W/outside" rslot env FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- bash -c "cd '$R' && git push -q '$W/bare.git' HEAD:refs/heads/1185-l")"
+assert "77 да нет нет" "$rc $(has "$W/err" 'словами argv') $(has_ref 1185-l) $([ -s "$HL" ] && echo да || echo нет)" "bash -c «cd <копия> && git push» из каталога вне копии → 77 с формой argv; хук не исполнялся, ссылки нет"
+rm -f "$HL"
+rc="$(RDIR="$W/outside" rslot env FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- git -C "$R" push -q "$W/bare.git" HEAD:refs/heads/1185-m)"
+assert "0 1 да" "$rc $(grep -c '^job=1 ' "$HL" 2>/dev/null || echo 0) $(has_ref 1185-m)" "близнец: та же отправка словами argv (git -C <копия>) из того же каталога → хук Job-ом, ссылка дошла"
+rc="$(RDIR="$W/outside" rslot bash "$SLOT" ci-local -- bash -c 'git --version >/dev/null')"
+assert "0 нет" "$rc $(has "$W/err" 'словами argv')" "близнец: строка оболочки без git push — прежний путь, 77 формы argv нет"
+# Формы git с опциями ПЕРЕД push внутри строки (приёмка ws#1185: мутант образца
+# `git[[:space:]]push` их пропускал, пробы выше — нет): -C <копия>, -c ключ=значение, --no-pager.
+n=0
+for form in "git -C '$R' push -q '$W/bare.git' HEAD:refs/heads/1185-o" \
+    "cd '$R'; git -c push.default=current --no-pager push -q '$W/bare.git' HEAD:refs/heads/1185-o"; do
+    n=$((n + 1)); rm -f "$HL"
+    rc="$(RDIR="$W/outside" rslot env FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- bash -c "$form")"
+    assert "77 да нет нет" "$rc $(has "$W/err" 'словами argv') $(has_ref 1185-o) $([ -s "$HL" ] && echo да || echo нет)" "форма $n: bash -c «${form%% push*} push …» из каталога вне копии → 77 с формой argv"
+done
+# shellcheck disable=SC2016  # образец мутанта — текст слота
+sed "s/git\[\[:space:\]\](\[^;&|\]\*\[\[:space:\]\])?push/git[[:space:]]push/" "$SLOT" > "$W/slot-mut-1185l2.sh"
+rm -f "$HL"
+assert "1 0 да" "$(grep -cF "git[[:space:]]push([[:space:]]|\$)'" "$W/slot-mut-1185l2.sh") $(RDIR="$W/outside" rslot env FAKE_EXEC=1 HOOK_LOG="$HL" bash "$W/slot-mut-1185l2.sh" ci-local -- bash -c "git -C '$R' push -q '$W/bare.git' HEAD:refs/heads/1185-p") $(has_ref 1185-p)" "мутант «образец — лишь git push подряд»: форма git -C <копия> push уходит локально (формы 1–2 выше его ловят)"
+git init -q "$W/other"; git -C "$W/other" remote add origin https://github.com/PRO-Robotech/kacho-workspace.git
+echo o > "$W/other/f"; git -C "$W/other" add f; sandbox_git -C "$W/other" commit -q -m o
+assert "0 да" "$(RDIR="$W/other" rslot bash "$SLOT" lint -- go version) $(has "$W/err" 'клон не kacho, kaname или corelib')" "близнец: клон вне трёх репозиториев — прежний отказ внешнего пути тем же текстом"
+# shellcheck disable=SC2016  # образец мутанта — текст слота
+sed 's/&& \[\[ "\$PAY_SH" =~ \$shpush \]\]/\&\& false/' "$SLOT" > "$W/slot-mut-1185l.sh"
+rm -f "$HL"
+assert "1 0 да" "$(grep -c '&& false; then' "$W/slot-mut-1185l.sh") $(RDIR="$W/outside" rslot env FAKE_EXEC=1 HOOK_LOG="$HL" bash "$W/slot-mut-1185l.sh" ci-local -- bash -c "cd '$R' && git push -q '$W/bare.git' HEAD:refs/heads/1185-n") $(has_ref 1185-n)" "мутант «строку оболочки не судить»: признак 2026-10-18 возвращается — хук локально, ссылка ушла мимо кластера (проба выше его ловит)"
 rm -f "$W/argv" "$W/argv.avail"
 assert "77 да нет нет" "$(rslot bash "$SLOT" stand -- bash -c 'touch "$1"' x "$W/st1" dev-up) $(has "$W/err" 'во внешний кластер: в deploy/ продукта make stand-ns-up NS=t984-') $([ -e "$W/st1" ] && echo да || echo нет) $([ -e "$W/argv" ] && echo да || echo нет)" "стенд: dev-up при доступном кластере → 77 с формой своего ns, команда не запускалась"
 assert "--available" "$(tr '\n' ' ' < "$W/argv.avail" | sed 's/ $//')" "стенд судит кластер без профиля: стенд ставит stand-ns.sh, не Job профиля"

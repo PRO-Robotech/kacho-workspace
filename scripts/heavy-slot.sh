@@ -1360,6 +1360,17 @@ remote_route() {
                 WHY_LOCAL="команда «git» без push (не хук отправки) внешнего пути не имеет"; return 1
             fi
             known=1 ;;
+        *" -c")
+            # Отправка в строке оболочки (`bash -c "cd <копия> && git push …"`, ws#1185 (л),
+            # (м)): строку слот не разбирает и судил бы каталог ВЫЗОВА — из корня воркспейса
+            # или tmp/ это «клон не kacho, kaname или corelib», и хук копии kaname уходил
+            # локально мимо кластера. Слова argv — внешний путь.
+            local shpush='(^|[;&|({[:space:]])git[[:space:]]([^;&|]*[[:space:]])?push([[:space:]]|$)'
+            if [ "$CLASS" = ci-local ] && [[ "$PAY_SH" =~ $shpush ]]; then
+                ext_enter
+                cluster_check "$CLASS" || return 1
+                refuse_external "отправка в строке «$PAY» — слот судит каталог вызова ($PWD), а не «cd» внутри строки; дай её словами argv из каталога копии: cd <копия> && heavy-slot.sh ci-local -- git push origin HEAD:refs/heads/<ветка> (либо scripts/push-chain.sh)"
+            fi ;;
     esac
     top="$(git -C "$GDIR" rev-parse --show-toplevel 2>/dev/null)" || { WHY_LOCAL="рабочий каталог — не клон git: внешнего пути нет"; return 1; }
     url="$(git -C "$top" remote get-url origin 2>/dev/null)"

@@ -35,8 +35,8 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 PASS=0; FAIL=0; CASES=0; NOTRUN=0
 
-run() { # run <tool> <path> → stderr гейта
-  printf '{"tool_name":"%s","tool_input":{"file_path":"%s"},"cwd":"%s"}' "$1" "$2" "$TMP" \
+run() { # run <tool> <path> → stderr гейта; NS — new_string правки (Edit), без кавычек
+  printf '{"tool_name":"%s","tool_input":{"file_path":"%s"%s},"cwd":"%s"}' "$1" "$2" "${NS:+,\"new_string\":\"$NS\"}" "$TMP" \
     | bash "$HOOK" 2>&1 || true
 }
 
@@ -861,6 +861,37 @@ export async function load() {
 }
 TS
 ); expect_silent F1 Write "$P" "отказ доложен и переброшен; форма в комментарии"
+
+echo "== E2. правка порождённого рукой (ws#1185 (б)) =="
+# Синтетический клон: Makefile корня называет файл в блоке комментариев и цель make
+# gen-docs; блок документа размечен парой меток, второй документ порождён целиком.
+mkdir -p "$TMP/gen" && git -C "$TMP/gen" init -q
+# shellcheck disable=SC2016  # обратные кавычки — разметка текста, не подстановка
+printf '# gen-docs — порождает GUIDE.md, блок величин.\n# Вызов: `make gen-docs`\n.PHONY: gen-docs\ngen-docs:\n\t@true\n' > "$TMP/gen/Makefile"
+printf '# Руководство\n\nПроза рукой.\n\n<!-- ПОРОЖДЕНО: величины — начало -->\nВЕЛИЧИНА_А обязательна\n<!-- ПОРОЖДЕНО: величины — конец -->\n\nХвост рукой.\n' > "$TMP/gen/GUIDE.md"
+# shellcheck disable=SC2016
+printf '<!-- ЭТОТ ФАЙЛ ПОРОЖДЁН. Порождает: `make notices` -->\n# Уведомления\n' > "$TMP/gen/NOTICES.md"
+printf '# Рядом\n\nОбычный документ.\n' > "$TMP/gen/NEAR.md"
+out="$(NS="ВЕЛИЧИНА_А обязательна" run Edit "$TMP/gen/GUIDE.md")"
+CASES=$((CASES+1))
+if grep -q '\[E2\]' <<<"$out" && grep -q 'GUIDE.md:5' <<<"$out" && grep -q 'make gen-docs' <<<"$out"; then
+  echo "  ✔ (+) E2 Edit внутри порождённого блока — координата метки и цель make gen-docs из Makefile"; PASS=$((PASS+1))
+else echo "  ✘ (+) E2 Edit внутри порождённого блока — нет находки, координаты или цели: $out"; FAIL=$((FAIL+1)); fi
+NS="Хвост рукой." expect_silent E2 Edit "$TMP/gen/GUIDE.md" "близнец: Edit прозы того же файла вне блока"
+out="$(run Write "$TMP/gen/NOTICES.md")"
+CASES=$((CASES+1))
+if grep -q '\[E2\]' <<<"$out" && grep -q 'NOTICES.md:1' <<<"$out" && grep -q 'make notices' <<<"$out"; then
+  echo "  ✔ (+) E2 Write порождённого целиком — цель из метки шапки"; PASS=$((PASS+1))
+else echo "  ✘ (+) E2 Write порождённого целиком: $out"; FAIL=$((FAIL+1)); fi
+expect_silent E2 Write "$TMP/gen/NEAR.md" "близнец: непорождаемый документ рядом"
+# Блок в первых пяти строках: его метка «— конец» — метка блока, а не всего файла.
+printf '# Сверху\n<!-- ПОРОЖДЕНО: перечень — начало -->\nПУНКТ_Б\n<!-- ПОРОЖДЕНО: перечень — конец -->\n\nПроза ниже блока.\n' > "$TMP/gen/TOP.md"
+NS="Проза ниже блока." expect_silent E2 Edit "$TMP/gen/TOP.md" "близнец: блок в строках 2-4, Edit прозы ниже него"
+out="$(NS="ПУНКТ_Б" run Edit "$TMP/gen/TOP.md")"
+CASES=$((CASES+1))
+if grep -q '\[E2\]' <<<"$out" && grep -q 'TOP.md:2' <<<"$out"; then
+  echo "  ✔ (+) E2 Edit внутри блока в строках 2-4 — координата метки «начало»"; PASS=$((PASS+1))
+else echo "  ✘ (+) E2 Edit внутри блока в строках 2-4: $out"; FAIL=$((FAIL+1)); fi
 
 echo "== G. событие инструмента =="
 

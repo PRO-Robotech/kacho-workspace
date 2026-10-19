@@ -38,6 +38,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -100,7 +101,7 @@ PREDICATES_BY_ROLE: dict[str, tuple[str, ...]] = {
     "python":      ("C1",),
     "newman-json": ("C1",),
     "yaml":        ("D1", "D2"),
-    "markdown":    ("E1",),
+    "markdown":    ("E1", "E2"),
     "ts":          ("F1",),
     "sql":         ("G1",),
 }
@@ -228,7 +229,81 @@ def classify(path: str) -> str:
     return ""
 
 
-def analyse(path: str, tool: str) -> tuple[list[tp.Finding], dict]:
+# --- E2: правка порождённого блока рукой (событие + содержимое) -----------------
+#
+# Признак (ws#1185 (б), kaname 2026-10-18): INSTALL.md правили рукой мимо `make
+# operator-docs`, и блок расходился с таблицей стража — краснел хук отправки, минуты
+# спустя. Порождённое узнаётся по МЕТКЕ самого файла, а не по перечню путей: HTML-
+# комментарий со словом «ПОРОЖДЕНО/ПОРОЖДЁН» — в шапке (весь файл) либо парой
+# «… — начало» / «… — конец» (блок). Цель генератора ВЫВОДИТСЯ: `make <цель>` в тексте
+# метки, иначе — в блоке комментариев Makefile корня git, где назван этот файл.
+GEN_MARK = re.compile(r"<!--[^\n]*ПОРОЖД[ЕЁ]Н")
+MAKE_TARGET = re.compile(r"make ([A-Za-z0-9_.-]+)")
+BLOCK_MARK = re.compile(r"(начало|конец)")
+
+
+def generator_target(path: str, mark: str) -> str:
+    m = MAKE_TARGET.search(mark)
+    if m:
+        return m.group(1)
+    try:
+        top = subprocess.run(["git", "-C", os.path.dirname(os.path.abspath(path)), "rev-parse", "--show-toplevel"],
+                             capture_output=True, text=True, timeout=5).stdout.strip()
+        mk = Path(top, "Makefile").read_text(encoding="utf-8", errors="replace") if top else ""
+    except (OSError, subprocess.SubprocessError):
+        mk = ""
+    targets = set(re.findall(r"^([A-Za-z0-9_.-]+):", mk, re.M))
+    block: list[str] = []
+    for line in mk.split("\n") + [""]:
+        if line.startswith("#"):
+            block.append(line)
+            continue
+        text = "\n".join(block)
+        block = []
+        if os.path.basename(path) in text:
+            for t in MAKE_TARGET.findall(text):
+                if t in targets:
+                    return t
+    return ""
+
+
+def generated_edit(path: str, raw: str, tool_input: dict) -> tuple[int, str] | None:
+    """(строка метки, текст метки), если правка задела порождённое; иначе None."""
+    lines = raw.split("\n")
+    # Метка всего файла — метка шапки, не метка блока: «начало» и «конец» — пара блока,
+    # блок в первых пяти строках файла целиком порождённым не делает.
+    whole = next((i for i, ln in enumerate(lines[:5]) if GEN_MARK.search(ln) and not BLOCK_MARK.search(ln)), None)
+    if whole is not None:
+        end = next((j for j in range(whole, len(lines)) if "-->" in lines[j]), whole)
+        return whole + 1, "\n".join(lines[whole:end + 1])
+    blocks, start = [], None
+    for i, ln in enumerate(lines):
+        if GEN_MARK.search(ln) and "начало" in ln:
+            start = i
+        elif GEN_MARK.search(ln) and "конец" in ln and start is not None:
+            blocks.append((start, i))
+            start = None
+    if start is not None:
+        blocks.append((start, len(lines) - 1))
+    if not blocks:
+        return None
+    news = [tool_input.get("new_string")] if tool_input.get("new_string") else \
+        [e.get("new_string") for e in tool_input.get("edits") or [] if e.get("new_string")]
+    if not news:  # Write: переписан весь файл, и блок вместе с ним
+        return blocks[0][0] + 1, lines[blocks[0][0]]
+    for n in news:
+        pos = raw.find(n)
+        if pos < 0:
+            continue
+        a0 = raw.count("\n", 0, pos)
+        a1 = a0 + n.count("\n")
+        for a, b in blocks:
+            if a0 <= b and a1 >= a:
+                return a + 1, lines[a]
+    return None
+
+
+def analyse(path: str, tool: str, tool_input: dict | None = None) -> tuple[list[tp.Finding], dict]:
     """Возвращает находки и перепись. Перепись печатается ВСЕГДА."""
     kind = classify(path)
     census: dict = {"kind": kind, "predicates_total": TOTAL_PREDICATES}
@@ -296,6 +371,18 @@ def analyse(path: str, tool: str) -> tuple[list[tp.Finding], dict]:
     elif kind == "markdown":
         src = tp.Source(path, raw, tp.strip_md(raw))
         findings += tp.e_markdown(src)
+        hit = generated_edit(path, raw, tool_input or {})
+        src.considered["E2"] = 1 if GEN_MARK.search(raw) else 0
+        if hit:
+            target = generator_target(path, hit[1])
+            findings.append(tp.Finding(
+                "E2", "правка порождённого рукой", path, hit[0], hit[1].split("\n")[0][:80],
+                "порождённое сверяет гейт генератора: правка рукой разойдётся с источником и "
+                "покраснеет на хуке отправки, минуты спустя (ws#1185 (б))",
+                ("правь источник и порождай: make %s" % target)
+                if target else "цель генератора не выведена: ищи её grep -n '%s' Makefile корня" % os.path.basename(path),
+                "doc-truthfulness §3 «Два места об одном предмете, и одно из них верно»",
+            ))
     elif kind == "ts":
         src = tp.Source(path, raw, tp.strip_c_like(raw))
         findings += tp.f_typescript(src)
@@ -452,7 +539,7 @@ def main() -> None:
         sys.exit(0)
 
     try:
-        findings, census = analyse(path, tool)
+        findings, census = analyse(path, tool, payload.get("tool_input") or {})
         findings, stale = apply_allowances(path, findings)
         findings += stale
     except GuardBroken as e:

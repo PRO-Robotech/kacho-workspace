@@ -418,6 +418,22 @@ def rev_commit(rev: str) -> str:
     return out
 
 
+def stale_local_base(base: str, base_sha: str) -> None:
+    """База — локальная ветка, разошедшаяся с `origin/<база>`: отказ с верной формой (ws#1185 (а)).
+
+    Признак 2026-10-18: форма `main <ветка>` на отставшем локальном `main` захватывала уже
+    влитые коммиты, и номер их первых строк кончался 404 вместо тела. Форма, которая
+    работает, — `origin/<база> <sha головы>`; её и называет отказ.
+    """
+    if not git("rev-parse", "--verify", "-q", "refs/heads/%s^{commit}" % base, check=False).strip():
+        return  # не локальная ветка: `origin/<база>`, sha, метка — судить нечего
+    remote = git("rev-parse", "--verify", "-q", "refs/remotes/origin/%s^{commit}" % base, check=False).strip()
+    if remote and remote != base_sha:
+        raise Refused("база «%s» — локальная ветка, разошедшаяся с origin/%s (%s ≠ %s): диапазон захватил бы "
+                      "чужие либо уже влитые коммиты; форма: pr-body.sh <владелец/имя> origin/%s <sha головы>"
+                      % (base, base, base_sha[:12], remote[:12], base))
+
+
 def lanes(tip: str, excl: list[str], meta: dict) -> list:
     """Линия первого родителя `tip` за вычетом `excl`, старшим вперёд: [(sha, [ветви слияния])].
 
@@ -454,6 +470,7 @@ def pr_body(argv: list[str]) -> int:
         raise Unmet("usage: pr-body.sh <владелец/имя> <база> <голова>")
     repo, base, head = need_repo(argv[0]), argv[1], argv[2]
     base_sha, head_sha = rev_commit(base), rev_commit(head)
+    stale_local_base(base, base_sha)
     span = "%s..%s" % (base, head)
 
     meta, order, msgs = {}, [], {}

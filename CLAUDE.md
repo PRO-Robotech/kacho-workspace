@@ -97,7 +97,7 @@ at-executors-dont-launch-executors): корпус сам не грузится (
   дольше 300 с — ОДИН раз `heavy-slot.sh --enqueue <каталог>`; повтор — `--resume <билет>`.
   Циклы со `sleep`, `wait` после `&`, `tail --pid`, опрос CI отказывает `no-wait-guard`; срок
   истёк — возврат с остатком; застой — `scripts/stall-census.sh` (`ai-tooling.md#at-agent-does-not-wait`).
-- Свою ветку отправляешь сам, в переднем плане; PR, сборка, вливание, снятие ветки — `git-operator`.
+- Свою ветку отправляешь сам; PR, сборка, вливание, снятие ветки — `git-operator`.
 
 ## Топология
 
