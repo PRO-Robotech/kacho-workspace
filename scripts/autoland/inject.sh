@@ -66,6 +66,13 @@
 #   lag-nofetch  — fetch не прошёл: известное отставание 0 — код 2, больше 0 — код 1 с
 #                  «fetch не прошёл»; lag-hang: сеть висит — хук укладывается в бюджет
 #                  SessionStart из settings.json и несёт «не установлено»;
+#   lag-own      — main-clone-lag.sh --own <выписка> -- <пути> (ws#1228): ствол впереди по пути —
+#                  TOOLING-LAG с числом и путём (1); путь не тронут — молчит; копия на origin/main
+#                  при отставшем основном клоне — судится копия; «--» без путей — 2;
+#   start-stale  — дерево скрипта отстаёт по scripts/autoland/ — start 4, демона нет; близнец:
+#                  ствол впереди лишь вне оснастки — start 0; fetch не прошёл при нуле — 4;
+#   head-sync    — площадка два чтения отдаёт прежнюю голову — повтор, merged (ws#1227); близнец:
+#                  голова иная всё время — head-moved по окну; ушла ПОСЛЕ совпадения — сразу;
 #   status       — коды status для каждого исхода (4, 5, 6 — тоже) и для слова вне перечня;
 #   census       — перепись процессов судит СВОЁ по метке AUTOLAND_PROBE_ID: свой процесс
 #                  с иным порядком доводов виден, чужой с «--pr N --head» — нет; reap снимает
@@ -86,7 +93,9 @@
 # шаг ff выключен, отказ ff как red, пересечение не названо, копия как основной клон,
 # чужой репозиторий как свой, fetch догона без предела, база запроса не судится; у
 # main-clone-lag.sh — ноль говорит, число не печатается, копия как клон, «не
-# установлено» молчит, неудачный fetch при нуле молчит и при числе не назван, fetch без предела.
+# установлено» молчит, неудачный fetch при нуле молчит и при числе не назван, fetch без предела,
+# --own судит основной клон, пути не судятся; у start — сверки копии нет; окно головы снято,
+# совпадение не запоминается, окно без предела.
 # Обход git заперт GIT_CEILING_DIRECTORIES над $T: проба зелена и при TMPDIR внутри клона.
 #
 # СЛЕДОВ НЕТ (testing.md#no-residue). Песочница — на всю пробу: кэш (XDG_CACHE_HOME,
@@ -188,7 +197,13 @@ printf 'gh %s\n' "$*" >> "$FX/gh.calls"
 case "$1" in
   api)
     case "$2" in
-      repos/*/pulls/*) cat "$FX/pull.json" ;;
+      repos/*/pulls/*)
+        # pull.lag «<k> <голова>» — первые k чтений отдают прежнюю голову (площадка ещё не видит push)
+        if [ -s "$FX/pull.lag" ]; then
+          read -r k old < "$FX/pull.lag"; i=$(( $(cat "$FX/pull.lag.n" 2>/dev/null || echo 0) + 1 )); echo "$i" > "$FX/pull.lag.n"
+          if [ "$i" -le "$k" ]; then jq --arg h "$old" '.head.sha = $h' "$FX/pull.json"; exit 0; fi
+        fi
+        cat "$FX/pull.json" ;;
       repos/*/commits/*) printf '{"parents":[{"sha":"%s"},{"sha":"%s"}]}\n' "$BASE" "$(jq -r .head.sha "$FX/pull.json")" ;;
       *) echo "двойник: путь $2 не моделируется" >&2; exit 1 ;;
     esac ;;
@@ -249,6 +264,7 @@ RC=0; ST=""
 run_al() {  # доводы сверх обязательных
     AL_FX="$FX" AUTOLAND_GH="$T/gh" AUTOLAND_GATES="${GATES-$T/gates}" AUTOLAND_DIR="$FX/run" \
         AUTOLAND_WS="${WS0:-$T/ws0}" AUTOLAND_CLONES="$CLONES" CI_STATE_DIR="$FX/cs" AUTOLAND_INTERIM_LOCK="$T/interim.lock" \
+        AUTOLAND_HEAD_SYNC="${HEAD_SYNC:-0}" AUTOLAND_HEAD_SYNC_POLL=1 \
         timeout "${RUN_LIMIT:-120}" bash "$AL" run --repo "$REPO" --pr "$PR" --head "$RUN_HEAD" --subject "$SUBJ" --poll 1 "$@" \
         > "$FX/out" 2>&1
     RC=$?
@@ -425,7 +441,9 @@ s_detach() {
     new_fx detach; echo 3 > "$FX/ci-read.sh.seq"
     export AL_FX="$FX"
     t0=$(date +%s)
+    mk_tooling_tree "$FX/tt"
     out="$(AUTOLAND_GH="$T/gh" AUTOLAND_GATES="$T/gates" AUTOLAND_DIR="$FX/run" AUTOLAND_WS="$T/ws0" AUTOLAND_CLONES="" \
+        AUTOLAND_TOOLING_TREE="$FX/tt/ws" AUTOLAND_LAG="$LAG" \
         CI_STATE_DIR="$FX/cs" AUTOLAND_INTERIM_LOCK="$T/interim.lock" bash "$AL" start --repo "$REPO" --pr "$PR" --head "$HEAD_A" \
         --subject "$SUBJ" --poll 1 --timeout 60)"; rc=$?
     dt=$(( $(date +%s) - t0 ))
@@ -451,6 +469,58 @@ s_detach() {
     printf 'running ожидание CI\n' > "$FX/dead.state"; echo 999999999 > "$FX/dead.pid"
     ok detach "running без живого демона — status 2" eval 'bash "$AL" status "$FX/dead.state" >/dev/null; [ $? -eq 2 ]'
     unset AL_FX
+}
+# ── копия демона сверяется со стволом при start (ws#1228) ─────────────────────
+mk_tooling_tree() {  # <каталог> — голый origin, выписка main (ws) и клон для толчков ствола (up)
+    local d="$1"; mkdir -p "$d"
+    git init -q --bare -b main "$d/origin.git"
+    git clone -q "$d/origin.git" "$d/ws" 2>/dev/null; git -C "$d/ws" symbolic-ref HEAD refs/heads/main
+    mkdir -p "$d/ws/scripts/autoland" "$d/ws/docs"
+    echo a > "$d/ws/scripts/autoland/autoland.sh"; echo a > "$d/ws/scripts/main-clone-lag.sh"; echo a > "$d/ws/docs/x.md"
+    git -C "$d/ws" add -A; sandbox_run git -C "$d/ws" commit -qm base; git -C "$d/ws" push -q origin main
+    git clone -q "$d/origin.git" "$d/up" 2>/dev/null
+}
+tt_push() {  # <каталог дерева> <путь> — коммит в origin/main, трогающий путь
+    echo "$RANDOM" >> "$1/up/$2"; git -C "$1/up" add -A; sandbox_run git -C "$1/up" commit -qm "$2"; git -C "$1/up" push -q origin HEAD:main
+}
+start_tt() {  # <дерево> <файл вывода> — start с этим деревом оснастки; код в RC
+    AL_FX="$FX" AUTOLAND_GH="$T/gh" AUTOLAND_GATES="$T/gates" AUTOLAND_DIR="$FX/run" AUTOLAND_WS="$T/ws0" AUTOLAND_CLONES="" \
+        AUTOLAND_TOOLING_TREE="$1" AUTOLAND_LAG="$LAG" CI_STATE_DIR="$FX/cs" AUTOLAND_INTERIM_LOCK="$T/interim.lock" \
+        bash "$AL" start --repo "$REPO" --pr "$PR" --head "$HEAD_A" --subject "$SUBJ" --poll 1 --timeout 30 > "$2" 2>&1
+    RC=$?
+    local pid; pid="$(awk -F'\t' '$1 == "pid" {print $2}' "$2")"; [[ "$pid" =~ ^[0-9]+$ ]] && PIDS+=("$pid")
+}
+s_start_stale() {
+    new_fx start-stale; echo 3 > "$FX/ci-read.sh.seq"; mk_tooling_tree "$FX/tt"
+    tt_push "$FX/tt" scripts/autoland/autoland.sh
+    start_tt "$FX/tt/ws" "$FX/s1"; ST="$(head -c 300 "$FX/s1")"
+    ok start-stale "дерево скрипта отстаёт по scripts/autoland/ на 1 — код 4, число и пути названы" \
+        eval '[ "$RC" -eq 4 ] && grep -qF "отстаёт от origin/main на 1 коммит(ов) по путям scripts/autoland/ scripts/main-clone-lag.sh" "$FX/s1"'
+    ok start-stale "демон не запущен: ни .state, ни .pid, ни копии" eval '! ls "$FX"/run/*.state "$FX"/run/*.pid "$FX"/run/*.autoland.sh >/dev/null 2>&1'
+    git -C "$FX/tt/ws" merge -q --ff-only origin/main; tt_push "$FX/tt" docs/x.md
+    start_tt "$FX/tt/ws" "$FX/s2"; ST="$(head -c 300 "$FX/s2")"
+    ok start-stale "близнец: ствол впереди лишь вне оснастки (docs/) — start код 0, демон идёт" eval '[ "$RC" -eq 0 ] && grep -q "^pid" "$FX/s2"'
+    reap; rm -rf "$FX/run"
+    git -C "$FX/tt/ws" merge -q --ff-only origin/main; git -C "$FX/tt/ws" remote set-url origin "$FX/tt/absent.git"
+    start_tt "$FX/tt/ws" "$FX/s3"; ST="$(head -c 300 "$FX/s3")"
+    ok start-stale "fetch не прошёл при нуле — «не установлено», код 4, демон не запущен" \
+        eval '[ "$RC" -eq 4 ] && grep -qF "не установлено" "$FX/s3" && ! ls "$FX"/run/*.pid >/dev/null 2>&1'
+    reap
+}
+s_head_sync() {
+    local t0 dt
+    new_fx head-sync; printf '2 %s\n' "$HEAD_B" > "$FX/pull.lag"
+    t0=$(date +%s); HEAD_SYNC=20 run_al; dt=$(( $(date +%s) - t0 ))
+    ok head-sync "площадка два чтения отдаёт прежнюю голову — повтор, затем merged, код 0" eval '[ "$RC" -eq 0 ] && st_is merged'
+    ok head-sync "повтор назван в журнале демона" eval 'grep -qF "площадка ещё не видит отправку" "$FX"/run/*.log "$FX/out" 2>/dev/null'
+    new_fx head-sync-twin "$HEAD_B"; RUN_HEAD="$HEAD_A"
+    t0=$(date +%s); RUN_LIMIT=25 HEAD_SYNC=3 run_al; dt=$(( $(date +%s) - t0 ))
+    ok head-sync "близнец: голова иная всё время — head-moved, код 5, за предел окна ($dt с, окно 3)" \
+        eval '[ "$RC" -eq 5 ] && [ "$ST" = "head-moved $HEAD_A $HEAD_B" ] && [ "$dt" -ge 2 ] && [ "$dt" -lt 15 ]'
+    new_fx head-seen; echo 3 > "$FX/ci-read.sh.seq"; move_head_hook "$FX/ci-read.sh.hook"
+    t0=$(date +%s); HEAD_SYNC=20 run_al --timeout 60; dt=$(( $(date +%s) - t0 ))
+    ok head-sync "голова ушла ПОСЛЕ совпадения — head-moved сразу ($dt с < 10), окно не ждётся" \
+        eval '[ "$RC" -eq 5 ] && st_is head-moved && [ "$dt" -lt 10 ]'
 }
 mk_ws_sandbox() {  # <каталог> <с метками рецепта: 1|0> — origin/main несёт scripts/ с двойниками
     local d="$1" g
@@ -628,6 +698,21 @@ s_lag() {
     ctx="$(SESSION_MEMCAP_MEMINFO="$FX/meminfo" CLAUDE_PROJECT_DIR="$G/wt" bash "$hk" --hook 2>/dev/null | lag_ctx)"
     ok lag "после догона хук строки отставания не несёт" eval '! grep -qF MAIN-CLONE-LAG <<< "$ctx"'
 }
+s_lag_own() {  # --own и пути (ws#1228): судится выписка каталога, счёт — по путям
+    local out rc
+    new_fx lag-own; mk_ws_main; ST="--own"; RC=-
+    bash "$FX/merged.hook" > /dev/null 2>&1
+    out="$(bash "$LAG" --own "$G/ws" -- incoming.txt 2>&1)"; rc=$?
+    ok lag-own "ствол впереди по incoming.txt — TOOLING-LAG с числом и путём, код 1 (код $rc)" \
+        eval '[ "$rc" -eq 1 ] && grep -qF "TOOLING-LAG: выписка $G/ws (main) отстаёт от origin/main на " <<< "$out" && grep -qF "по путям incoming.txt" <<< "$out"'
+    out="$(bash "$LAG" --own "$G/ws" -- scripts/autoland/ 2>&1)"; rc=$?
+    ok lag-own "близнец: путь, которого ствол не трогал, — молчит, код 0 (код $rc)" eval '[ "$rc" -eq 0 ] && [ -z "$out" ]'
+    git -C "$G/ws" worktree add -q -b 4001-own "$G/wto" origin/main 2>/dev/null
+    out="$(bash "$LAG" --own "$G/wto" -- incoming.txt 2>&1)"; rc=$?
+    ok lag-own "копия на origin/main при отставшем основном клоне — судится копия, молчит (код $rc)" eval '[ "$rc" -eq 0 ] && [ -z "$out" ]'
+    out="$(bash "$LAG" --own "$G/ws" -- 2>&1)"; rc=$?
+    ok lag-own "«--» без путей — «не установлено», код 2 (код $rc)" eval '[ "$rc" -eq 2 ] && grep -qF "не установлено" <<< "$out"'
+}
 s_lag_nofetch() {
     local out rc absent="$FX/absent/PRO-Robotech/kacho-workspace.git"
     new_fx lag-nofetch; mk_ws_main; ST="сигнал при неудачном fetch"; RC=-
@@ -725,7 +810,8 @@ s_static() {
 ALL=(s_green s_red s_moved_start s_moved_gates s_moved_merge s_allow_ok s_allow_bad s_stale s_mr_red s_timeout
      s_void s_void_twin s_ratelimit s_pr_unread s_draft s_closed s_already s_fifo s_fifo_nowriter s_args s_detach s_recipe
      s_prune s_prune_dirty s_prune_ahead s_prune_remote s_prune_origin_ahead s_prune_not_in_base
-     s_ff s_ff_overlap s_ff_worktree s_ff_foreign s_ff_hang s_ff_epic s_lag s_lag_nofetch s_lag_hang
+     s_ff s_ff_overlap s_ff_worktree s_ff_foreign s_ff_hang s_ff_epic s_lag s_lag_own s_lag_nofetch s_lag_hang
+     s_start_stale s_head_sync
      s_status s_empty_code s_lp_head s_census s_guard s_static)
 
 AL="$AL_REAL"
@@ -798,6 +884,12 @@ mutant lag-zero-speaks s_lag '[ "$n" -gt 0 ] || exit 0' 'true' "$LAG_REAL"
 mutant lag-count-dropped s_lag '"$main" "$br" "$n"' '"$main" "$br" "?"' "$LAG_REAL"
 mutant lag-worktree-as-clone s_lag 'rev-parse --path-format=absolute --git-common-dir' 'rev-parse --absolute-git-dir' "$LAG_REAL"
 mutant lag-unknown-is-silent s_lag 'unknown() { printf' 'unknown() { exit 0; printf' "$LAG_REAL"
+mutant lag-own-judges-main-clone s_lag_own 'main="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)"' 'main="$(dirname "$(git -C "$dir" rev-parse --path-format=absolute --git-common-dir)")"' "$LAG_REAL"
+mutant lag-paths-dropped s_lag_own,s_start_stale '${paths[0]+-- "${paths[@]}"}' '' "$LAG_REAL"
+mutant start-lag-unchecked s_start_stale 'lag="$(bash "$lag_sh" --own' 'lag="$(true "$lag_sh" --own'
+mutant head-sync-dropped s_head_sync '[ "$HEAD_SEEN" = 0 ] && [ $(( $(date +%s) - RUN_T0 )) -lt "$HEAD_SYNC" ]' 'false'
+mutant head-seen-ignored s_head_sync '[ "$HEAD_SEEN" = 0 ] && [ $(( $(date +%s)' '[ $(( $(date +%s)'
+mutant head-sync-unbounded s_head_sync ' -lt "$HEAD_SYNC" ]; then' ' -ge 0 ]; then' 
 
 reap
 for _ in 1 2 3 4 5 6 7 8 9 10; do [ "$(probe_procs)" -eq 0 ] && break; sleep 0.3; done

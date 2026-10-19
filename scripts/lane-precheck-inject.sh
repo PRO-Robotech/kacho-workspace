@@ -354,6 +354,136 @@ assert "2 да" "$(runp) $(has 'VOID PREMISE-FORM task o/r')" "без #<N> — �
 prem '# только комментарий'
 assert "2" "$(runp)" "ноль предусловий — не «все верны» → код 2"
 
+# ── ws#1227: задача открыта и о предмете; голова — текущая (ls-remote); предмет жив ──
+printf '%s' '{"number":20,"state":"open","title":"lane-precheck: состояние задачи, предмет жив"}' > "$W/c/repos_o_r_issues_20.json"
+printf '%s' '{"number":21,"state":"closed","title":"старая задача о квотах"}' > "$W/c/repos_o_r_issues_21.json"
+printf '%s' '{"number":22,' > "$W/c/repos_o_r_issues_22.json"
+prem 'task o/r#20 open title~состояние задачи'
+assert "0 да" "$(runp) $(has 'предусловий 1; ложных 0, не судимо 0')" "близнец: задача открыта, заголовок несёт подстроку → 0"
+prem 'task o/r#20 title~СОСТОЯНИЕ'
+assert "0" "$(runp)" "подстрока заголовка — без учёта регистра, состояние по умолчанию open → 0"
+prem 'task o/r#20 title~квоты'
+assert "1 да" "$(runp) $(has 'задача не о предмете — заголовок «lane-precheck: состояние задачи, предмет жив» без «квоты»')" "заголовок без подстроки — PREMISE-FALSE «не о предмете» (урок ae22eb25)"
+prem 'task o/r#21'
+assert "1 да" "$(runp) $(has 'PREMISE-FALSE task o/r#21: задача closed, задание ждёт open')" "закрытая задача — PREMISE-FALSE (урок fa7858a6: #832 закрыта)"
+prem 'task o/r#21 closed title~квот'
+assert "0" "$(runp)" "близнец: задание само о закрытой задаче → 0"
+prem 'task o/r#22'
+assert "2 да" "$(runp) $(has 'VOID GH-UNREADABLE task o/r#22')" "ответ трекера не разобран → VOID, не зелёное"
+mkdir -p "$W/gb/o"; ln -s "$W/srv/kacho-workspace.git" "$W/gb/o/r.git"
+runl() { LANE_PRECHECK_GIT_BASE="$W/gb" bash "$P" --premise "$W/premise.txt" > "$W/out" 2>&1; echo $?; }
+prem 'head o/r 1-lane ls-remote'
+assert "0 да" "$(runl) $(has "HEAD o/r 1-lane $(git -C "$W/srv/kacho-workspace.git" rev-parse 1-lane)")" "head … ls-remote — текущая голова напечатана для задания, код 0 (урок 9d4363aa)"
+prem 'head o/r 2-gone ls-remote'
+assert "1 да" "$(runl) $(has 'PREMISE-FALSE head o/r 2-gone ls-remote: ветки 2-gone на origin нет')" "ls-remote: ветки нет → PREMISE-FALSE"
+prem 'head o/x 1-lane ls-remote'
+assert "2 да" "$(runl) $(has 'VOID GIT-UNREADABLE head o/x 1-lane ls-remote')" "ls-remote: origin не ответил → VOID"
+prem "alive $L main a"
+assert "0" "$(runp)" "близнец: фраза есть в дереве базы → предмет жив, 0"
+prem "alive $L main фраза-которой-нет"
+assert "1 да" "$(runp) $(has 'предмет снят до раздачи')" "фразы нет в базе → PREMISE-FALSE «снят до раздачи» (урок f487bb7c)"
+prem "alive $W/nope main x"
+assert "2 да" "$(runp) $(has 'VOID PREMISE-FORM alive')" "клона нет → VOID"
+
+# ── ws#1226: имя ветки и первая строка — правилом репозитория; форма отправки ──
+# Клоны с origin продукта (сети нет: адрес лишь читается). Предикат kaname — форма
+# branch_rule_is_number из scripts/hooks/branch-rule.sh kaname (@bbbe33524), дословно.
+mkcl() { git init -q -b "${3:-main}" "$1"; git -C "$1" remote add origin "https://github.com/PRO-Robotech/$2.git"; }
+mkcl "$W/kn" kaname 3180; mkdir -p "$W/kn/scripts/hooks"
+printf '%s\n' 'branch_rule_is_number() { [[ "$1" =~ ^[0-9]+$ ]]; }' > "$W/kn/scripts/hooks/branch-rule.sh"
+mkcl "$W/wsc" kacho-workspace 1228-x; mkcl "$W/oth" other
+printf '%s' '[{"number":1201,"merged_at":"2026-10-18T00:00:00Z"}]' > "$W/c/repos_PRO-Robotech_kacho-workspace_pulls?head=PRO-Robotech:1200-old&state=closed&per_page=100.json"
+printf '%s' '[{"number":5,"merged_at":null}]' > "$W/c/repos_PRO-Robotech_kacho-workspace_pulls?head=PRO-Robotech:1199-closed&state=closed&per_page=100.json"
+prem "branchname $W/kn 893-acc"
+assert "1 да" "$(runp) $(has 'имя не номер задачи kaname')" "kaname 893-acc → PREMISE-FALSE по предикату клона (урок a261e3e4)"
+prem "branchname $W/kn w10-kn-x"
+assert "1" "$(runp)" "kaname w10-kn-x → PREMISE-FALSE (урок 6ea1bffe)"
+prem "branchname $W/kn 893"
+assert "0 да" "$(runp) $(has 'предусловий 1; ложных 0, не судимо 0')" "близнец: kaname 893 → 0"
+prem "branchname $W/wsc 1226-lane-precheck" "branchname $W/wsc 1199-closed"
+assert "0" "$(runp)" "близнец: воркспейс <N>-<суть>; закрытый НЕвлитый PR ветки — не помеха → 0"
+prem "branchname $W/wsc w10-x"
+assert "1 да" "$(runp) $(has 'не по форме «<N>-<суффикс>»: не начинается с номера задачи')" "воркспейс w10-x → PREMISE-FALSE с причиной хука (общий предикат branch-name-rule.sh)"
+prem "branchname $W/wsc 1200-old"
+assert "1 да" "$(runp) $(has 'ветка 1200-old уже влита (#1201)')" "ветка с этим именем уже влита → PREMISE-FALSE (урок ed1f2016)"
+prem "branchname $W/oth 1-x"
+assert "2 да" "$(runp) $(has 'VOID RULE-UNKNOWN')" "правила для репозитория нет → VOID, не зелёное"
+mv "$W/kn/scripts/hooks/branch-rule.sh" "$W/kn/br.away"; prem "branchname $W/kn 893"
+assert "2 да" "$(runp) $(has 'предиката')" "предиката в клоне нет → VOID"
+mv "$W/kn/br.away" "$W/kn/scripts/hooks/branch-rule.sh"
+prem "commit-subject $W/kn 3180 #3274 правка пробы"
+assert "1 да" "$(runp) $(has 'несёт номер ВЕТКИ: «#3180 …»')" "kaname: первая строка #3274 на ветке 3180 → PREMISE-FALSE (уроки 3da5d886, 5ed6b2bb)"
+prem "commit-subject $W/kn 3180 #3180 правка пробы"
+assert "0 да" "$(runp) $(has 'предусловий 1; ложных 0, не судимо 0')" "близнец: #3180 на ветке 3180 → 0, счёт предусловий не сбит номером строки"
+prem "commit-subject $W/wsc 1228-x #1225 механизм ожидания"
+assert "0" "$(runp)" "воркспейс: номер задачи на ветке другой задачи пачки — законно → 0"
+prem "commit-subject $W/wsc 1228-x механизм без номера"
+assert "1 да" "$(runp) $(has 'первая строка не «#<N> …»')" "первая строка без «#<N> » → PREMISE-FALSE"
+git -C "$W/kn" commit -q --allow-empty -m x 2>/dev/null || sandbox_git -C "$W/kn" commit -q --allow-empty -m x
+cp -r "$W/kn" "$W/knd"; git -C "$W/knd" checkout -q --detach
+prem "push-form $W/kn bash -c 'git push origin HEAD:refs/heads/3180'"
+assert "1 да" "$(runp) $(has 'обёртка «bash -c»')" "bash -c вокруг git push → PREMISE-FALSE «слот отдаст 77» (урок b9c180f6)"
+prem "push-form $W/kn cd /x && git push origin HEAD:refs/heads/3180; echo \$?"
+assert "1 да да" "$(runp) $(has '«cd … &&»') $(has '«; echo $?»')" "cd … && и ; echo \$? → обе причины одной строкой"
+prem "push-form $W/knd /ws/scripts/heavy-slot.sh ci-local -- git push origin HEAD:refs/heads/3180"
+assert "1 да" "$(runp) $(has 'голова копии отсоединена')" "отсоединённая голова без KACHO_TASK → PREMISE-FALSE (урок 36369ea7)"
+prem "push-form $W/knd env KACHO_TASK=3180 /ws/scripts/heavy-slot.sh ci-local -- git push origin HEAD:refs/heads/3180"
+assert "0" "$(runp)" "близнец: та же отправка с KACHO_TASK=<N> → 0"
+prem "push-form $W/kn env KACHO_HOME_KACHO=/k /ws/scripts/heavy-slot.sh ci-local -- git push origin HEAD:refs/heads/3180"
+assert "1 да" "$(runp) $(has '--local')" "kaname с KACHO_HOME_KACHO без --local → PREMISE-FALSE"
+prem "push-form $W/kn env KACHO_HOME_KACHO=/k /ws/scripts/heavy-slot.sh --local \"проба приёмок\" ci-local -- git push origin HEAD:refs/heads/3180"
+assert "0" "$(runp)" "близнец: та же с --local → 0"
+
+echo "== текст задания (ws#1225)"
+tt() { printf '%s\n' "$@" > "$W/task.txt"; bash "$P" --task-text "$W/task.txt" > "$W/out" 2>&1; echo $?; }
+assert "1 да" "$(tt 'Ожидание хука: 270 с на паузу между чтениями журнала.') $(has 'REASON TASK-WAIT строка 1')" "«270 с на паузу» → TASK-WAIT со строкой (урок c375d889)"
+assert "1 да" "$(tt 'Проверь .rc, затем sleep 50 и снова.') $(has 'TASK-WAIT')" "sleep 50 в задании → TASK-WAIT (урок 04a0cb11)"
+assert "1 да" "$(tt 'Отправь и не жди дольше трёх пауз.') $(has 'TASK-WAIT')" "«не жди дольше трёх пауз» → TASK-WAIT"
+assert "1 да" "$(tt 'Каждый Bash ≤ 60 с.' 'Хук: вызов до 270 с.') $(has 'TASK-LIMITS пределы одного вызова разные: 60 270 с')" "два предела вызова (60 и 270 с) → TASK-LIMITS"
+assert "1 да" "$(tt 'Отправка полным хуком: heavy-slot.sh ci-local -- git push origin HEAD:refs/heads/1-x.') $(has 'TASK-RETURN строка 1')" "долгий шаг без возврата «идёт» → TASK-RETURN (урок 525a21f5)"
+assert "0 да" "$(tt 'Каждый Bash ≤ 60 с; Не жди.' 'Отправка полным хуком: heavy-slot.sh ci-local -- git push origin HEAD:refs/heads/1-x.' 'Долгое — scripts/detach.sh start <каталог> -- …; верни «идёт: pid, журнал, срок», исход — detach.sh status.') $(has 'строк 3; причин 0')" "близнец: один предел, «Не жди» как норма, возврат «идёт» назван → 0"
+: > "$W/task.txt"
+assert "2" "$(bash "$P" --task-text "$W/task.txt" > "$W/out" 2>&1; echo $?)" "пустой текст — ноль строк, не «причин нет» → 2"
+# Класс «заказ ожидания или паузы числом внутри вызова» (возврат check-verifier по #1225):
+# формы урока 525a21f5, на которых перечень форм молчал (rc 0 @7e9fb34e7), — каждая строкой.
+for f in 'ожидание `.rc` в пределах 10 мин под no-wait-guard' 'дождись .rc в пределах 10 минут' 'жди .rc до 10 мин' \
+    'ждать 270 с между чтениями .rc' 'пауза в 270 с, затем повтор' 'повторяй чтение каждые 270 с' 'жди не дольше 10 мин'; do
+    assert "1 да" "$(tt "$f") $(has 'REASON TASK-WAIT строка 1')" "класс ожидания числом: «$f» → TASK-WAIT"
+done
+# Близнецы: число не о заказе (предел вызова, порог-запрет, прогноз срока) и норма без числа.
+for f in 'Не жди' 'Каждый Bash ≤ 60 с' 'Ни один вызов не держит ожидание дольше 10 минут' 'Каждый Bash ≤ 60 с; Не жди.' \
+    'ожидаемое окончание через 20 мин'; do
+    assert "0 да" "$(tt "$f") $(has 'строк 1; причин 0')" "близнец: «$f» → 0"
+done
+assert "0 да" "$(bash "$P" --task-text "$HERE/../CLAUDE.md" > "$W/out" 2>&1; echo $?) $(has '; причин 0')" "близнец: CLAUDE.md целиком (норма «Не жди», «дольше 300 с — --enqueue; повтор») → 0"
+
+echo "== мутанты lane-precheck (по одной правке; проба выше обязана покраснеть)"
+mut() {  # <имя> <было> <стало> <файл предусловий|--task-text строки…> — печатает код мутанта
+    local m="$W/mut-lp.sh"
+    python3 - "$P" "$m" "$2" "$3" <<'PYM' || { echo "VOID"; return; }
+import sys
+s, d, a, b = sys.argv[1:5]
+t = open(s, encoding="utf-8").read()
+if t.count(a) != 1:
+    sys.exit(1)
+open(d, "w", encoding="utf-8").write(t.replace(a, b))
+PYM
+    # Мутант — в своём каталоге рядом со ссылками на lib/ и hooks/: HERE мутанта находит их, дерево не тронуто.
+    mkdir -p "$W/ms"; ln -sfn "$(dirname "$P")/lib" "$W/ms/lib"; ln -sfn "$(dirname "$P")/hooks" "$W/ms/hooks"
+    mv "$m" "$W/ms/lane-precheck.sh"; m="$W/ms/lane-precheck.sh"
+    if [ "$4" = --task-text ]; then shift 4; printf '%s\n' "$@" > "$W/task.txt"; bash "$m" --task-text "$W/task.txt" > "$W/out" 2>&1; echo $?
+    else shift 3; printf '%s\n' "$@" > "$W/premise.txt"; bash "$m" --premise "$W/premise.txt" > "$W/out" 2>&1; echo $?; fi
+}
+assert "0" "$(mut state 'elif [ "$gstate" != "$want_state" ]; then' 'elif false; then' 'task o/r#21')" "мутант «состояние не судится»: закрытая задача проходит — проба выше его ловит"
+assert "0" "$(mut title '[[ "${gtitle,,}" != *"${want_title,,}"* ]]' 'false' 'task o/r#20 title~квоты')" "мутант «заголовок не судится»: задача не о предмете проходит"
+assert "0" "$(mut merged 'elif [ -n "$got" ]; then reasons+=("PREMISE-FALSE $line: ветка $b уже влита' 'elif false; then reasons+=("PREMISE-FALSE $line: ветка $b уже влита' "branchname $W/wsc 1200-old")" "мутант «влитая ветка не судится»: прежнее имя проходит"
+assert "0" "$(mut detached '! git -C "$top" symbolic-ref -q HEAD > /dev/null 2>&1 &&' 'false &&' "push-form $W/knd /ws/scripts/heavy-slot.sh ci-local -- git push origin HEAD:refs/heads/3180")" "мутант «отсоединённая голова не судится»: отправка без KACHO_TASK проходит"
+assert "0" "$(mut wait '|| { [[ "$w" =~ (^|[^[:alpha:]])(ожида|жд|дожд|подожд|выжд|обожд|пауз|повтор) ]] \' '|| { false \' --task-text 'повторяй чтение каждые 270 с')" "мутант «основа ожидания не судится»: «каждые 270 с» проходит"
+assert "1" "$(mut limit 'while [[ "$w" =~ (bash|вызов[[:alpha:]]*)' 'while false && [[ "$w" =~ (bash|вызов[[:alpha:]]*)' --task-text 'Каждый Bash ≤ 60 с; Не жди.')" "мутант «предел вызова не снят»: близнец «Bash ≤ 60 с; Не жди» краснеет — проба выше его ловит"
+assert "1" "$(mut thresh 'while [[ "$w" =~ (^|[^[:alpha:]_])${cmp}' 'while false && [[ "$w" =~ (^|[^[:alpha:]_])${cmp}' --task-text 'Ни один вызов не держит ожидание дольше 10 минут')" "мутант «порог-запрет не снят»: норма CLAUDE.md краснеет"
+assert "0" "$(mut ne 'while [[ "$w" =~ (^|[^[:alpha:]])не[[:space:]]+$cmp ]]' 'while false' --task-text 'жди не дольше 10 мин')" "мутант «не дольше» прочитан порогом: разрешённый срок проходит"
+assert "1" "$(mut forecast 'w="${l//ожидаем/_}"' 'w="$l"' --task-text 'ожидаемое окончание через 20 мин')" "мутант «прогноз не снят»: «ожидаемое окончание» краснеет"
+
 echo "== вход"
 assert "2" "$(run "$W/srv" 1-lane main --issue o/r#7)" "не рабочая копия → код 2"
 assert "2" "$(run "$L" 1-lane)" "неполный вызов → код 2"

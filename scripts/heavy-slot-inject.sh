@@ -309,6 +309,7 @@ t0="$(date +%s%N)"
 rc="$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_ENQ_S=40 HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" --enqueue "$W/enq" docker -- touch "$W/q1")"
 ms=$(( ($(date +%s%N) - t0) / 1000000 )); RC1="$(rcof)"
 assert "0 да да нет" "$rc $([ "$ms" -lt 3000 ] && echo да || echo "нет(${ms}мс)") $(case "$RC1" in "$W/enq/hs-docker-"*.rc) echo да ;; *) echo "нет($RC1)" ;; esac) $([ -e "$RC1" ] && echo да || echo нет)" "занятый слот: --enqueue возвращает 0 «поставлено» за < 3 с, .rc под уникальным именем ещё не записан"
+assert "да" "$(has "$W/err" 'занято слотов 1 из 3 при постановке')" "постановка печатает занятость слотов сразу (1 из 3), а не по 74 следующего шага (ws#1225)"
 # Ждать ЖИВОГО билета: отложенные 74/75 выше (resume_until) в очереди тоже лежат.
 for _ in $(seq 1 20); do [ -n "$(grep -L '^resume_until=' "$HEAVY_SLOT_DIR"/queue/* 2>/dev/null)" ] && break; sleep 0.2; done
 assert "74 да" "$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" docker -- true) $(has "$W/err" 'СЛОТ ЗАНЯТ, очередь 1')" "вошедший позже видит поставленное задание ВПЕРЕДИ (очередь 1): билет держится всё ожидание"
@@ -642,6 +643,61 @@ assert "17 да" "$(rslot bash "$SLOT" go-race -- timeout 60 make -v) $(has "$W/
 rm -f "$W/argv"
 assert "0 нет нет" "$(rslot bash "$SLOT" docker -- true) $(has "$W/err" 'локально') $([ -e "$W/argv" ] && echo да || echo нет)" "класс docker маршрут не судит: ни run.sh, ни строки"
 assert "64 да" "$(cd "$R" && env "${REAL[@]}" HEAVY_SLOT_REMOTE_RUN="$W/fake-run.sh" bash "$SLOT" lint -- go version 2>"$W/err" >/dev/null; echo $?) $(has "$W/err" 'HEAVY_SLOT_REMOTE_RUN')" "над настоящей памятью двойник run.sh — ручка, 64"
+
+echo "── оснастка внешнего маршрута сверяется со стволом до проверки кластера (ws#1228)"
+# Дерево оснастки — песочница: голый origin и выписка main со scripts/heavy-slot.sh и
+# scripts/remote-heavy/run.sh. Каждая порча меняет ОДИН факт: коммит origin/main по пути
+# оснастки (отставание) против коммита вне её (близнец), недоступный origin при нуле.
+# Мутанты — копии слота в $W/tmut рядом с настоящим main-clone-lag.sh: «сверять нечем»
+# не подменяет причину красного.
+TT="$W/ttree"; mkdir -p "$TT"
+git init -q --bare -b main "$TT/origin.git"
+git clone -q "$TT/origin.git" "$TT/ws" 2>/dev/null; git -C "$TT/ws" symbolic-ref HEAD refs/heads/main
+mkdir -p "$TT/ws/scripts/remote-heavy" "$TT/ws/docs"
+echo a > "$TT/ws/scripts/heavy-slot.sh"; echo a > "$TT/ws/scripts/remote-heavy/run.sh"; echo a > "$TT/ws/docs/x.md"
+git -C "$TT/ws" add -A; sandbox_git -C "$TT/ws" commit -qm base; git -C "$TT/ws" push -q origin main 2>/dev/null
+git clone -q "$TT/origin.git" "$TT/up" 2>/dev/null
+ttpush() { echo "$RANDOM" >> "$TT/up/$1"; git -C "$TT/up" add -A; sandbox_git -C "$TT/up" commit -qm "$1"; git -C "$TT/up" push -q origin HEAD:main 2>/dev/null; }
+ttslot() { rm -f "$W/argv"; rslot env HEAVY_SLOT_TOOLING_TREE="$TT/ws" bash "${1:-$SLOT}" lint -- go version; }
+argv_seen() { [ -e "$W/argv" ] || [ -e "$W/argv.avail" ] && echo да || echo нет; }
+rm -f "$W/argv.avail"
+assert "17 да" "$(ttslot) $(has "$W/argv" '--profile')" "контроль: дерево оснастки на origin/main — сверка молчит, маршрут во внешний кластер (17)"
+ttpush docs/x.md
+rm -f "$W/argv.avail"
+assert "17 нет" "$(ttslot) $(has "$W/err" 'TOOLING-LAG')" "близнец: origin/main впереди лишь вне оснастки (docs/) — слоту не мешает (17)"
+ttpush scripts/remote-heavy/run.sh
+rm -f "$W/argv.avail"
+assert "69 да да нет нет" "$(ttslot) $(has "$W/err" 'отстаёт от origin/main на 1 коммит(ов) по путям scripts/remote-heavy/ scripts/heavy-slot.sh') $(has "$W/err" "merge --ff-only origin/main") $(argv_seen) $(has "$W/out" 'go version go')" "дерево оснастки отстаёт по run.sh на 1 — 69 с числом, путями и командой догона; ни проверки кластера, ни Job, ни локального запуска"
+assert "1" "$(grep -c ' stale-tooling class=lint rc=1 ' "$HEAVY_SLOT_DIR/journal.log" 2>/dev/null)" "отказ записан в журнал слота строкой stale-tooling"
+assert "0 да" "$(FAKE_AVAIL=1 rslot env HEAVY_SLOT_TOOLING_TREE="$TT/ws" bash "$SLOT" --local "сверка ws#1228" lint -- true) $(has "$W/err" 'локально по флагу --local')" "обход — только --local с причиной: маршрут и сверка не судятся"
+git -C "$TT/ws" merge -q --ff-only origin/main
+rm -f "$W/argv.avail"
+assert "17" "$(ttslot)" "после догона дерева — снова во внешний кластер (17)"
+git -C "$TT/ws" remote set-url origin "$TT/absent.git"
+rm -f "$W/argv.avail"
+assert "69 да нет" "$(ttslot) $(has "$W/err" 'отставание не установлено') $(argv_seen)" "fetch не прошёл при нуле — «не установлено», 69, не зелёное и не локально"
+git -C "$TT/ws" remote set-url origin "$TT/origin.git"
+assert "64 да" "$(cd "$R" && env "${REAL[@]}" HEAVY_SLOT_TOOLING_TREE="$TT/ws" bash "$SLOT" lint -- go version 2>"$W/err" >/dev/null; echo $?) $(has "$W/err" 'HEAVY_SLOT_TOOLING_TREE')" "над настоящей памятью дерево оснастки — ручка, 64"
+mkdir -p "$W/tmut"; cp "$HERE/main-clone-lag.sh" "$W/tmut/main-clone-lag.sh"
+tmut() { python3 - "$SLOT" "$W/tmut/heavy-slot.sh" "$1" "$2" <<'PYM'
+import sys
+s, d, a, b = sys.argv[1:5]
+t = open(s, encoding="utf-8").read()
+if t.count(a) != 1:
+    sys.exit(1)
+open(d, "w", encoding="utf-8").write(t.replace(a, b))
+PYM
+echo $?; }
+ttpush scripts/heavy-slot.sh
+assert "0 17" "$(tmut '    tooling_gate
+    ext_enter' '    ext_enter') $(ttslot "$W/tmut/heavy-slot.sh")" "мутант «сверки нет»: отставший слот уходит во внешний кластер — проба отставания выше его ловит"
+git -C "$TT/ws" merge -q --ff-only origin/main; ttpush docs/x.md
+assert "0 69" "$(tmut ' -- "${TOOLING_PATHS[@]}" 2>&1)' ' 2>&1)') $(ttslot "$W/tmut/heavy-slot.sh")" "мутант «пути не судятся»: отставание вне оснастки отказывает — проба близнеца выше его ловит"
+git -C "$TT/ws" merge -q --ff-only origin/main; git -C "$TT/ws" remote set-url origin "$TT/absent.git"
+assert "0 17" "$(tmut '    [ "$rc" -eq 0 ] && return 0
+    out=' '    [ "$rc" -ne 1 ] && return 0
+    out=') $(ttslot "$W/tmut/heavy-slot.sh")" "мутант «не установлено молчит»: fetch не прошёл — маршрут как зелёный; проба «не установлено» выше его ловит"
+git -C "$TT/ws" remote set-url origin "$TT/origin.git"
 
 echo "── тяжёлое только во внешнем кластере, локально — по доказательству недоступности (ws#1105)"
 # Решение владельца 2026-10-16: «тяжелые тесты только на внешнем кластере, если он

@@ -101,6 +101,15 @@ pairs:
   - path: scripts/hooks/pre-push
     decision: own
     note: локальный прогон СВОЕГО ci.yml — состав проверок у каждого дерева свой, как у ci.yml (решение 2026-09-30, kacho-workspace#888); расхождение по стволам — `git show origin/main:scripts/hooks/pre-push | grep -c <имя>`, prepush-groups.sh у платформы 2 и у фундамента 0, git-rule-push.sh наоборот; побайтовое совпадение ловит сам гейт
+  - path: scripts/hooks/prepush-added-files.sh
+    decision: own
+    note: страж новых blob'ов СВОЕЙ отправки (kacho#3286, corelib#117) — у каждого ствола свой страж, лицензия, номер задачи, переменная обхода расходятся (BUSL-1.1 и KACHO_SKIP_PREPUSH у платформы, Apache-2.0 и CORELIB_SKIP_PREPUSH у фундамента); расхождение — `git show origin/main:scripts/hooks/prepush-added-files.sh | grep -o -e '[A-Z]*_SKIP_PREPUSH' -e 'SPDX.*'` по стволам; побайтовое совпадение ловит сам гейт
+  - path: scripts/hooks/prepush-added-files-inject.sh
+    decision: own
+    note: проба СВОЕГО стража новых blob'ов (kacho#3286, corelib#117) — у каждого ствола свой страж, лицензия, номер задачи, переменная обхода расходятся; кейс черновиков `wip/*` есть лишь у платформы; расхождение — `git show origin/main:scripts/hooks/prepush-added-files-inject.sh | grep -c 'wip/'` по стволам, у платформы 2 и у фундамента 0
+  - path: scripts/hooks/prepush-added-files.allow
+    decision: own
+    note: исключения СВОЕГО дерева для стража новых blob'ов (kacho#3286, corelib#117) — у каждого ствола свой страж, лицензия, номер задачи, переменная обхода расходятся, и перечень исключений — перепись своего дерева (у платформы вендоренные чарты и фикстуры); расхождение — `git show origin/main:scripts/hooks/prepush-added-files.allow | grep -c -e '^binary' -e '^size'` по стволам, у платформы 5 и у фундамента 0
 
   # ── долг: копия, и она признана ─────────────────────────────────────────────
   - path: proto/corelib/api/v1/operation.proto

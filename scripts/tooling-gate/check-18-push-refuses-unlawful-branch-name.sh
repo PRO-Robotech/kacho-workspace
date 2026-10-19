@@ -75,7 +75,7 @@ box="$(mktemp -d "$TMP/b.XXXXXX")"
 mkdir -p "$box/scripts/hooks" "$box/scripts/stub"
 cp "$WS/$HOOK" "$box/scripts/hooks/pre-push"
 cp "$WS/scripts/hooks/attribution-rule.sh" "$WS/scripts/hooks/prepush-attribution.sh" \
-    "$WS/scripts/hooks/prepush-added-files.sh" \
+    "$WS/scripts/hooks/prepush-added-files.sh" "$WS/scripts/hooks/branch-name-rule.sh" \
     "$box/scripts/hooks/" 2>/dev/null || true
 chmod +x "$box/scripts/hooks/pre-push"
 printf '#!/usr/bin/env bash\necho "%s"\nexit 0\n' "$MARK" > "$box/scripts/stub/run-all.sh"
