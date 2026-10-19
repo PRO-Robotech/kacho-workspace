@@ -96,6 +96,12 @@
 #   q-limit, q-stale-lag, q-fetch — предел догонов 0 — stale-base; ci-read 4 без отставания —
 #                  void; fetch догона не прошёл — void;
 #   q-lock       — flock черёда занят без билета — позиция 1 ждёт, затем merged;
+#   q-pinned     — ⛔ 1 приёмки: база ушла, демон с --reviews либо --stand-report/--stand-expect
+#                  — stale-base «догона нет» (в черёд и сразу в очереди за живым билетом), код 4,
+#                  ветка не тронута, отправок 0; близнец без доводов — догон и merged;
+#   q-pin-twins  — двойник landing-precheck привязан к голове, как настоящий: свежие вердикты —
+#                  merged, ревью о другой голове — red REVIEW-STALE, отчёт и ожидаемое — red
+#                  STAND-REPORT-STALE и STAND-EXPECT-STALE;
 #   real-states  — status по КАЖДОМУ настоящему .state основного клона ($WS/tmp/autoland;
 #                  AUTOLAND_REAL_DIR): код — по исходу и живости демона, без билета — без
 #                  строки очереди, билетов и очереди status не заводит; каталога нет (CI) —
@@ -127,7 +133,9 @@
 # приведены, ключ очереди без базы, живость по kill -0, мёртвые билеты не снимаются, позиция
 # не печатается, в очереди запрос и CI не читаются, голова и закрытие в очереди не судятся,
 # flock черёда снят, конфликт не снят, 74 как отказ, удача отправки по коду, ушедшая ветка не
-# судится, предел догонов снят, ci-read 4 без отставания без счёта, fetch догона не судится.
+# судится, предел догонов снят, ci-read 4 без отставания без счёта, fetch догона не судится;
+# догон при --reviews, при --stand-*, при черёде с вердиктами, на ci-read 4 с вердиктами, ожидание
+# в очереди вместо stale-base с вердиктами.
 # Обход git заперт GIT_CEILING_DIRECTORIES над $T: проба зелена и при TMPDIR внутри клона.
 #
 # СЛЕДОВ НЕТ (testing.md#no-residue). Песочница — на всю пробу: кэш (XDG_CACHE_HOME,
@@ -911,10 +919,25 @@ if [ $(( $(date +%s) - $(cat "$d/ci.$h") )) -lt "$(cat "$d/ci_s" 2>/dev/null || 
 fi
 echo "$n ${h:0:12} 0" >> "$Q/ci.calls"; printf 'VERDICT\tgreen\tкод 0\n'
 CI
+# Двойник landing-precheck несёт привязку к голове настоящего (⛔ 1 приёмки ws#1263): вердикт
+# ревью о другой голове — REVIEW-STALE (landing-precheck.sh, пункт ревью), отчёт стенда и
+# ожидаемое о другой голове — STAND-REPORT-STALE и STAND-EXPECT-STALE (stand-report.sh), код 1.
 cat > "$T/gates-q/landing-precheck.sh" <<'LP'
 #!/usr/bin/env bash
-Q="$AL_Q"; read -r ref _ < "$Q/pr/$2/meta"; h="$(git -C "$Q/origin.git" rev-parse -q --verify "refs/heads/$ref")"
-printf 'CENSUS\t%s#%s голова %s (проба)\nVERDICT\tкод 0\n' "$1" "$2" "${h:0:12}"
+Q="$AL_Q"; repo="$1"; n="$2"; shift 2; read -r ref _ < "$Q/pr/$n/meta"; h="$(git -C "$Q/origin.git" rev-parse -q --verify "refs/heads/$ref")"
+rv=""; sr=""; se=""; r=0
+while [ $# -gt 0 ]; do case "$1" in --reviews) rv="$2"; shift 2 ;; --stand-report) sr="$2"; shift 2 ;; --stand-expect) se="$2"; shift 2 ;; *) shift ;; esac; done
+printf 'CENSUS\t%s#%s голова %s (проба)\n' "$repo" "$n" "${h:0:12}"
+if [ -n "$rv" ]; then
+  while IFS=$'\t' read -r role sha; do
+    [ "$sha" = "$h" ] || { printf 'REASON\tREVIEW-STALE\tроль %s: вердикт на %s, голова PR %s — смотреть дельту на новой голове\n' "$role" "${sha:0:12}" "${h:0:12}"; r=1; }
+  done < <(jq -r '.[] | [.role, .sha] | @tsv' "$rv")
+fi
+if [ -n "$sr$se" ]; then
+  s="$(jq -r .head "$sr")"; [ "$s" = "$h" ] || { printf 'REASON\tSTAND-REPORT-STALE\tотчёт о %s, судится %s\n' "${s:0:12}" "${h:0:12}"; r=1; }
+  s="$(jq -r .head "$se")"; [ "$s" = "$h" ] || { printf 'REASON\tSTAND-EXPECT-STALE\tожидаемое выведено для %s, судится %s\n' "${s:0:12}" "${h:0:12}"; r=1; }
+fi
+printf 'VERDICT\tкод %s\n' "$r"; exit "$r"
 LP
 printf '#!/usr/bin/env bash\nprintf "VERDICT\\tкод 0\\n"\n' > "$T/gates-q/merge-readiness.sh"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$T/gates-q/branch-audit.sh"
@@ -1120,6 +1143,49 @@ s_q_lock() {  # черёд — и flock очереди: держит его др
     ok q-lock "flock черёда занят без билета — позиция 1 ждёт его снятия ($dt с ≥ 2), затем merged" eval '[ "$RC" = 0 ] && st_is merged && [ "$dt" -ge 2 ]'
     wait "$lp" 2>/dev/null
 }
+pin_files() {  # <N> <sha> — вердикт ревью, отчёт стенда и ожидаемое о голове sha: $Q/pin.<N>.*.json
+    jq -n --arg h "$2" '[{role: "go-style-reviewer", sha: $h, verdict: "accept", blocking: []}]' > "$Q/pin.$1.reviews.json"
+    jq -n --arg h "$2" '{head: $h}' > "$Q/pin.$1.report.json"; jq -n --arg h "$2" '{head: $h, jobs: []}' > "$Q/pin.$1.expect.json"
+}
+s_q_pinned() {  # ⛔ 1 приёмки: с --reviews либо --stand-* база не догоняется — stale-base, ветка не тронута; близнец без них — догон, merged
+    local sp n b; local -A h0=()
+    new_fx q-pinned; mk_q 4301 4302 4303 4304
+    for b in epic e3 e4; do git -C "$Q/seed" push -q origin main:"refs/heads/$b"; done
+    echo "p4302 epic" > "$Q/pr/4302/meta"; echo "p4303 e3" > "$Q/pr/4303/meta"; echo "p4304 e4" > "$Q/pr/4304/meta"
+    for b in main epic e3 e4; do base_push "$b" b.txt "$b"; done
+    for n in 4301 4302 4303 4304; do h0[$n]="$(qhead "$n")"; pin_files "$n" "${h0[$n]}"; done
+    sleep 60 & sp=$!; PIDS+=("$sp"); plant e4 1 "$sp" "$(pstart "$sp")" "PRO-Robotech/kacho-workspace#1"   # 4304 — в очереди за живым
+    run_q 4301 --reviews "$Q/pin.4301.reviews.json"
+    run_q 4302 --stand-report "$Q/pin.4302.report.json" --stand-expect "$Q/pin.4302.expect.json"
+    run_q 4303; run_q 4304 --reviews "$Q/pin.4304.reviews.json" --timeout 10
+    wait_q 4301 4302 4303 4304
+    ST="$(qst 4301) | $(qst 4302) | $(qst 4303) | $(qst 4304)"; RC="${QRC[4301]}/${QRC[4302]}/${QRC[4303]}/${QRC[4304]}"
+    ok q-pinned "--reviews при отставании — stale-base в черёд «догона нет», код 4, ветка не тронута" \
+        eval '[ "${QRC[4301]}" = 4 ] && qst 4301 | grep -q "^stale-base .*BASE-STALE.*догона нет" && [ "$(qhead 4301)" = "${h0[4301]}" ]'
+    ok q-pinned "--stand-report/--stand-expect при отставании — stale-base «догона нет», код 4, ветка не тронута" \
+        eval '[ "${QRC[4302]}" = 4 ] && qst 4302 | grep -q "^stale-base .*догона нет" && [ "$(qhead 4302)" = "${h0[4302]}" ]'
+    ok q-pinned "--reviews в очереди за живым билетом — stale-base сразу «ci-read код 4 в очереди», не timeout" \
+        eval '[ "${QRC[4304]}" = 4 ] && qst 4304 | grep -q "^stale-base ci-read код 4 в очереди: .*догона нет" && [ "$(qhead 4304)" = "${h0[4304]}" ]'
+    ok q-pinned "отправок догона у PR с вердиктами 0" eval '! grep -qE "refs/heads/p430[124] @" "$Q/push.calls"'
+    ok q-pinned "близнец без доводов — догон базы и merged" eval '[ "${QRC[4303]}" = 0 ] && qst 4303 | grep -q "^merged .*догон базы: " && grep -q "refs/heads/p4303 @" "$Q/push.calls"'
+    ok q-pinned "влит лишь близнец" eval '[ "$(tr "\n" " " < "$Q/merge.order" 2>/dev/null)" = "4303 " ]'
+    kill "$sp" 2>/dev/null
+}
+s_q_pin_twins() {  # двойник landing-precheck судит привязку к голове: свежие вердикты — merged, о другой голове — red
+    new_fx q-pin-twins; mk_q 4301 4302 4303
+    for b in epic e3; do git -C "$Q/seed" push -q origin main:"refs/heads/$b"; done
+    echo "p4302 epic" > "$Q/pr/4302/meta"; echo "p4303 e3" > "$Q/pr/4303/meta"
+    pin_files 4301 "$(qhead 4301)"; pin_files 4302 "$HEAD_A"; pin_files 4303 "$HEAD_A"
+    run_q 4301 --reviews "$Q/pin.4301.reviews.json" --stand-report "$Q/pin.4301.report.json" --stand-expect "$Q/pin.4301.expect.json"
+    run_q 4302 --reviews "$Q/pin.4302.reviews.json"
+    run_q 4303 --stand-report "$Q/pin.4303.report.json" --stand-expect "$Q/pin.4303.expect.json"
+    wait_q 4301 4302 4303
+    ST="$(qst 4301) | $(qst 4302) | $(qst 4303)"; RC="${QRC[4301]}/${QRC[4302]}/${QRC[4303]}"
+    ok q-pin-twins "вердикты о голове PR, база не ушла — merged" eval '[ "${QRC[4301]}" = 0 ] && qst 4301 | grep -q "^merged "'
+    ok q-pin-twins "вердикт ревью о другой голове — red REVIEW-STALE с ролью" eval '[ "${QRC[4302]}" = 1 ] && qst 4302 | grep -q "^red landing-precheck код 1: REASON.REVIEW-STALE.роль go-style-reviewer: вердикт на aaaaaaaaaaaa"'
+    ok q-pin-twins "отчёт и ожидаемое о другой голове — red STAND-REPORT-STALE и STAND-EXPECT-STALE" eval '[ "${QRC[4303]}" = 1 ] && qst 4303 | grep -q "STAND-REPORT-STALE" && qst 4303 | grep -q "STAND-EXPECT-STALE"'
+    ok q-pin-twins "отправок нет, влит лишь 4301" eval '[ ! -s "$Q/push.calls" ] && [ "$(tr "\n" " " < "$Q/merge.order")" = "4301 " ]'
+}
 s_real_states() {  # прогон по настоящим .state машины: status судит каждый, не пишет ничего
     local dir="$REAL_DIR" n=0 bad=0 f out c first exp pid before after
     ST="настоящие .state $dir"; RC=-
@@ -1150,7 +1216,7 @@ ALL=(s_green s_red s_moved_start s_moved_gates s_moved_merge s_allow_ok s_allow_
      s_start_stale s_head_sync
      s_status s_empty_code s_lp_head s_census s_guard s_static
      s_q3 s_q_spelling s_q_diff_base s_q_dead s_q_live s_q_queued s_q_stale_ext s_q_conflict s_q_push s_q_limit s_q_stale_lag s_q_fetch s_q_lock
-     s_real_states)
+     s_q_pinned s_q_pin_twins s_real_states)
 
 AL="$AL_REAL"
 echo "== контроль: сцен ${#ALL[@]}"
@@ -1187,7 +1253,7 @@ mutant admin-added s_green,s_static '-R "$REPO" --merge --match-head-commit' '-R
 mutant delete-branch-dropped s_green ' --delete-branch >' ' >'
 mutant allow-all s_allow_bad 'index(allow, "," $2 ",") == 0' '0'
 mutant head-check-before-merge-dropped s_moved_gates '[ "$PR_HEAD" = "$HEAD" ] || finish head-moved "$HEAD $PR_HEAD"  # голова перед вливанием' ':'
-mutant stale-as-wait s_stale '4) log "ci-read код 4 в черёд' '4) wait_change; continue ;; 44) log "ci-read код 4 в черёд'
+mutant stale-as-wait s_stale '4) if [ "$PINNED" = 1 ]; then finish' '4) wait_change; continue ;; 44) if [ "$PINNED" = 1 ]; then finish'
 mutant red-as-wait s_red '1) finish red "ci-read код 1:' '1) wait_change; continue ;; 11) finish red "ci-read код 1:'
 mutant void-limit-dropped s_void,s_pr_unread '[ "${VOIDS[$k]}" -lt "$VOID_LIMIT" ] ||' 'true ||'
 mutant ci-read-without-head s_green $'--head "$HEAD" --from-state\n    case "$GATE_RC" in\n        0)' $'--from-state\n    case "$GATE_RC" in\n        0)'
@@ -1231,7 +1297,7 @@ mutant head-sync-dropped s_head_sync '[ "$HEAD_SEEN" = 0 ] && [ $(( $(date +%s) 
 mutant head-seen-ignored s_head_sync '[ "$HEAD_SEEN" = 0 ] && [ $(( $(date +%s)' '[ $(( $(date +%s)'
 mutant head-sync-unbounded s_head_sync ' -lt "$HEAD_SYNC" ]; then' ' -ge 0 ]; then' 
 # очередь на базу и догон (ws#1263)
-mutant queue-dropped s_q3 $'queue_turn\n        catchup turn' $'TURN=1\n        catchup turn'
+mutant queue-dropped s_q3 $'queue_turn\n        if [ "$PINNED" = 0 ]; then catchup turn' $'TURN=1\n        if [ "$PINNED" = 0 ]; then catchup turn'
 mutant catchup-at-turn-dropped s_q3 'catchup turn; [ "$CU_RC" != 1 ] || continue' ':'
 mutant ticket-kept-at-exit s_q3,s_q_queued '[ -z "$TICKET" ] || rm -f "$TICKET" "$RUN_DIR/$NAME.ticket"' ':'
 mutant catchup-on-stale-dropped s_q_stale_ext 'мимо очереди — догон базы"; catchup stale' 'мимо очереди — догон базы"; CU_RC=2'
@@ -1251,6 +1317,11 @@ mutant push-success-by-code s_q_push 'if [ "$rh" = "$new" ]; then' 'if [ "$rc" -
 mutant push-moved-branch-unchecked s_q_push '[ -z "$rh" ] || [ "$rh" = "$HEAD" ] || finish head-moved' ': ||'
 mutant catchup-limit-dropped s_q_limit '[ "$CATCHUPS" -lt "$CATCHUP_LIMIT" ]' 'true'
 mutant stale-without-lag-not-counted s_q_stale_lag 'void_step догон "ci-read код 4, а голова' ': догон "ci-read код 4, а голова'
+mutant pinned-reviews-catch-up s_q_pinned '[ -z "$REVIEWS$STAND_REPORT$STAND_EXPECT" ] || PINNED=1' '[ -z "$STAND_REPORT$STAND_EXPECT" ] || PINNED=1'
+mutant pinned-stand-catch-up s_q_pinned '[ -z "$REVIEWS$STAND_REPORT$STAND_EXPECT" ] || PINNED=1' '[ -z "$REVIEWS" ] || PINNED=1'
+mutant pinned-catchup-at-turn s_q_pinned 'if [ "$PINNED" = 0 ]; then catchup turn' 'if true; then catchup turn'
+mutant pinned-stale-at-turn-catches-up s_q_pinned 'if [ "$PINNED" = 1 ]; then finish stale-base' 'if false; then finish stale-base'
+mutant pinned-stale-in-queue-waits s_q_pinned '[ "$PINNED" = 0 ] || finish stale-base "ci-read код 4 в очереди' 'true || finish stale-base "ci-read код 4 в очереди'
 mutant catchup-fetch-unchecked s_q_fetch 'if ! GIT_TERMINAL_PROMPT=0 git -C "$c" fetch' 'if false && git -C "$c" fetch'
 
 reap

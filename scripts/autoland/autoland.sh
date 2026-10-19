@@ -48,8 +48,18 @@
 # журнал. Пока ждёт: локально раз в AUTOLAND_QUEUE_POLL с (5), запрос и ci-read — раз в
 # --poll: влит, закрыт, голова ушла, CI красный — исход сразу, не дожидаясь черёда.
 # ГРАНИЦА: демон прежней версии (без билета) очереди не виден — он доживает свой
-# --timeout; смена базы запроса после постановки очередь не меняет.
-# ДОГОН БАЗЫ — с получением черёда и на ci-read 4: в первом клоне репозитория (как у снятия)
+# --timeout; смена базы запроса после постановки очередь не меняет; SIGKILL демона посреди
+# гейта либо отправки догона ловушек не исполняет — осиротевший дочерний процесс (timeout
+# гейта, обёртка отправки) держит унаследованные дескрипторы замка запроса и .turn.lock, и
+# следующий демон той же базы ждёт черёда до его конца: не дольше AUTOLAND_GATE_TIMEOUT
+# (900 с) либо AUTOLAND_PUSH_TIMEOUT (3600 с); билет мёртвого pid снимается как обычно.
+# ДОГОН БАЗЫ — ТОЛЬКО при запуске без --reviews, --stand-report и --stand-expect (так демон
+# зовёт цепочка посадок, tmp/autoland/chains/chain.sh). С любым из них вердикты привязаны к
+# голове — REVIEW-STALE у landing-precheck.sh, STAND-REPORT-STALE и STAND-EXPECT-STALE у
+# stand-report.sh: догон сдвинул бы голову, снял бы их и потратил бы круг CI (опыт cv
+# ws#1263: догон отправлен, затем red REVIEW-STALE). Потому с ними базу демон не догоняет:
+# ci-read 4 — в очереди и в черёд — исход stale-base, как до ws#1263; ветка не трогается.
+# Без этих доводов — с получением черёда и на ci-read 4: в первом клоне репозитория (как у снятия)
 # fetch базы и ветки, `git rev-list --count <голова>..origin/<база>`; 0 — дальше; иначе в
 # копии очереди (worktree $DIR/queue/…/wt, отделённая голова) `git merge --no-ff` базы с заголовком
 # «#<задача ветки> merge <база>: догон базы перед вливанием #<N>», отправка
@@ -119,7 +129,8 @@
 #   running <фаза> — идёт;
 #   merged <sha коммита слияния> снятие: …[; основной клон: <было> → <стало> | ff отказ — …];
 #   red <гейт> код <n>: <строки REASON дословно через « | »>;
-#   stale-base <строки REASON ci-read дословно либо причина догона> — базу догнать не вышло;
+#   stale-base <строки REASON ci-read дословно либо причина догона> — базу догнать не вышло
+#        либо догон не положен (вердикты привязаны к голове: «догона нет: …»);
 #   head-moved <ожидалась> <стала>;
 #   timeout <предел>; последнее: <последний вердикт>;
 #   void <гейт> код <n> <k> раз подряд: <строки VOID дословно> — «не выполнилось»
@@ -601,7 +612,8 @@ queued_check() {  # в очереди: запрос и CI — исход сра�
     gate ci-read.sh "$REPO" "$PR" --head "$HEAD" --from-state
     case "$GATE_RC" in
         1) finish red "ci-read код 1 в очереди: $(quote ci-read.sh)" ;;
-        0 | 3 | 4 | 5) VOIDS[ci-read.sh]=0; LAST="ci-read код $GATE_RC: $(grep -m1 '^VERDICT' "$W/ci-read.sh.out")" ;;
+        4) [ "$PINNED" = 0 ] || finish stale-base "ci-read код 4 в очереди: $(quote ci-read.sh); $PIN_NOTE" ;&
+        0 | 3 | 5) VOIDS[ci-read.sh]=0; LAST="ci-read код $GATE_RC: $(grep -m1 '^VERDICT' "$W/ci-read.sh.out")" ;;
         *) on_void ci-read.sh ;;
     esac
 }
@@ -689,6 +701,9 @@ catchup() {  # <turn|stale> → CU_RC: 0 — отставания нет, дал
 
 LP_ARGS=()
 RUN_T0="$(date +%s)"; HEAD_SEEN=0
+# Вердикты, привязанные к голове (ws#1263, ⛔ 1 приёмки): с ними догона нет — stale-base.
+PINNED=0; [ -z "$REVIEWS$STAND_REPORT$STAND_EXPECT" ] || PINNED=1
+PIN_NOTE="догона нет: --reviews, --stand-report, --stand-expect привязаны к голове ${HEAD:0:12} (REVIEW-STALE, STAND-REPORT-STALE, STAND-EXPECT-STALE) — догон снял бы их"
 [ -z "$REVIEWS" ] || LP_ARGS+=(--reviews "$REVIEWS")
 [ -z "$STAND_REPORT" ] || LP_ARGS+=(--stand-report "$STAND_REPORT" --stand-expect "$STAND_EXPECT")
 
@@ -707,17 +722,18 @@ while :; do
     [ "$PR_HEAD" = "$HEAD" ] || finish head-moved "$HEAD $PR_HEAD"
     HEAD_SEEN=1
 
-    if [ "$TURN" = 0 ]; then  # очередь на базу, затем догон перед стартом (ws#1263)
+    if [ "$TURN" = 0 ]; then  # очередь на базу, затем догон перед стартом — лишь без вердиктов о голове (ws#1263)
         if [ -z "$TICKET" ] && ! enqueue; then void_step очередь "билет очереди не заведён" "${QDIR:-—}"; wait_change; continue; fi
         queue_turn
-        catchup turn; [ "$CU_RC" != 1 ] || continue
+        if [ "$PINNED" = 0 ]; then catchup turn; [ "$CU_RC" != 1 ] || continue; fi
     fi
 
     gate ci-read.sh "$REPO" "$PR" --head "$HEAD" --from-state
     case "$GATE_RC" in
         0) VOIDS[ci-read.sh]=0 ;;
         1) finish red "ci-read код 1: $(quote ci-read.sh)" ;;
-        4) log "ci-read код 4 в черёд: база ушла мимо очереди — догон базы"; catchup stale
+        4) if [ "$PINNED" = 1 ]; then finish stale-base "$(quote ci-read.sh); $PIN_NOTE"; fi
+           log "ci-read код 4 в черёд: база ушла мимо очереди — догон базы"; catchup stale
            [ "$CU_RC" != 2 ] || finish stale-base "$(quote ci-read.sh); догон базы невозможен: клона $REPO нет"
            continue ;;
         3 | 5) VOIDS[ci-read.sh]=0
