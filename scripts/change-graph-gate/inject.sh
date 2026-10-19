@@ -977,6 +977,16 @@ d="$(sandbox c5-anchor-noclone)"; world5src "$d" "2001-01-02T00:00:00Z"
 rm -rf "$SRC"
 says "$d" 2 "клон $FOREPO" "клона источника нет -> без предмета, а не находка"
 
+# Копия полосы (ws#1250): корень — копия под `<каноническая>/tmp/`, своего клона источника у неё
+# нет, он — в project/ канонической копии (так у полос и копии хука отправки без слота).
+d="$(sandbox c5-anchor-canon)"; world5src "$d" "2001-01-02T00:00:00Z"
+CN5="$TMP/canon5"; rm -rf "$CN5"; git init -q "$CN5"; mkdir -p "$CN5/tmp" "$CN5/project"
+mv "$SRC" "$CN5/project/src"; mv "$d" "$CN5/tmp/lane"; d="$CN5/tmp/lane"
+says "$d" 0 "признано 1" "копия полосы: клон источника в project/ канонической копии -> найден, запись унаследована"
+rm -rf "$CN5/project/src"
+says "$d" 2 "канонической копии" "близнец: у канонической копии клона нет -> без предмета, кандидат назван"
+rm -rf "$CN5"
+
 d="$(sandbox c5-anchor-identity)"; world5src "$d" "2001-01-02T00:00:00Z"
 git -C "$SRC" remote set-url origin "https://github.com/PRO-Robotech/other.git"
 says "$d" 2 "это копия PRO-Robotech/other" "клон на месте источника — другого репозитория -> отвергнут, без предмета"
