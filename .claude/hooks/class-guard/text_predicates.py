@@ -704,3 +704,109 @@ def f_typescript(src: Source) -> list[Finding]:
             "code-authoring §«Чужой ответ: классификация и бюджет» · security.md §«Hardening-инварианты» п.8",
         ))
     return f
+
+
+# ---------------------------------------------------------------------------
+# G. SQL-миграция — по разбору без комментариев и без тел строковых литералов
+# ---------------------------------------------------------------------------
+
+
+def strip_sql(text: str) -> list[str]:
+    """Снимает `--` и `/* */` и ТЕЛА строковых литералов `'…'` (кавычки остаются).
+
+    Литерал — данные: `COMMENT ON TABLE … IS 'INSERT INTO x_pending SELECT …'`
+    описывает очередь, а не наполняет её. Тело `$$ … $$` — код функции и остаётся.
+    Номера строк сохранены: снятое заменено пробелами.
+    """
+    out, cur, i, n = [], [], 0, len(text)
+    mode = ""  # "" | "'" | "/*"
+    while i < n:
+        ch = text[i]
+        if ch == "\n":
+            out.append("".join(cur))
+            cur = []
+            if mode == "--":
+                mode = ""
+            i += 1
+            continue
+        if mode == "--":
+            cur.append(" ")
+        elif mode == "/*":
+            if text.startswith("*/", i):
+                cur.append("  ")
+                mode = ""
+                i += 2
+                continue
+            cur.append(" ")
+        elif mode == "'":
+            if ch == "'" and text.startswith("''", i):
+                cur.append("  ")
+                i += 2
+                continue
+            if ch == "'":
+                mode = ""
+                cur.append(ch)
+            else:
+                cur.append(" ")
+        elif text.startswith("--", i):
+            mode = "--"
+            cur.append(" ")
+        elif text.startswith("/*", i):
+            mode = "/*"
+            cur.append("  ")
+            i += 2
+            continue
+        elif ch == "'":
+            mode = "'"
+            cur.append(ch)
+        else:
+            cur.append(ch)
+        i += 1
+    out.append("".join(cur))
+    return out
+
+
+# --- G2: окно отложенного пересчёта без предиката закрытия ------------------
+#
+# Признак — миграция ставит в очередь существующие строки: `INSERT INTO <очередь>
+# … SELECT`, где очередь по имени `*_pending`, `*_queue`, `*_backlog`. Это и есть
+# отложенный пересчёт: до опустения очереди строки несут непересчитанное значение.
+# Требование — в тексте миграции (комментарий годится: это объявление) назван
+# предикат закрытия окна запросом длины этой очереди, `count(*) FROM <очередь>`.
+# Вставка `VALUES` (страж одной строки) окна миграцией не открывает — не кандидат.
+_QUEUE_INSERT = re.compile(
+    r"\bINSERT\s+INTO\s+(?:\"?[A-Za-z_]\w*\"?\.)?\"?([A-Za-z_]\w*_(?:pending|queue|backlog))\"?"
+    r"\s*(?:\([^)]*\))?\s*SELECT\b",
+    re.I,
+)
+
+
+def g_sql(src: Source) -> list[Finding]:
+    f: list[Finding] = []
+    code = src.code
+    seen: set[str] = set()
+    for m in _QUEUE_INSERT.finditer(code):
+        q = m.group(1)
+        src.note("G2")
+        if q.lower() in seen:
+            continue
+        seen.add(q.lower())
+        closes = re.compile(
+            r"count\s*\(\s*(?:\*|1)\s*\)\s+FROM\s+(?:\"?[A-Za-z_]\w*\"?\.)?\"?" + re.escape(q) + r"\b",
+            re.I,
+        )
+        if closes.search(src.raw):
+            continue
+        ln = code.count("\n", 0, m.start()) + 1
+        f.append(Finding(
+            "G2", "окно отложенного пересчёта без предиката закрытия", src.path, ln,
+            f"INSERT INTO {q} … SELECT",
+            "строки, поставленные миграцией в очередь, несут непересчитанное значение, пока "
+            "очередь не опустеет; разбор лишь на старте службы держит окно до следующего "
+            "старта, а длину очереди не видит никто (kaname#878, ревью DB-878-I2)",
+            f"назвать в миграции предикат закрытия окна — `SELECT count(*) FROM {q}` → 0 "
+            "на каждой установке — и кто опустошает очередь кроме старта; длину — в "
+            "перепись прохода и метрику",
+            "code-authoring §«Темп производителя против темпа применения» п.3",
+        ))
+    return f

@@ -876,6 +876,64 @@ SQL
 cp "$TMP/migrations/0007_x.sql" "$TMP/migrations/0012_y.sql"
 expect_silent G1 Write "$TMP/migrations/0012_y.sql" "Write новой миграции"
 
+# G2 — окно отложенного пересчёта (ws#1237). Обе стороны — дословные операторы миграции
+# kaname 20261018030000_rule_selector_carries_its_verbs.sql: (+) редакция @93131d620
+# (очередь без предиката закрытия, разбор только на старте — ревью DB-878-I2), (−) она же
+# в стволе kaname с предикатом закрытия в шапке.
+P=$(w migrations/20261018030000_a.sql <<'SQL'
+-- +goose Up
+CREATE TABLE kaname.role_selector_verbs_pending (
+    role_id     text PRIMARY KEY REFERENCES kaname.roles (id) ON DELETE CASCADE,
+    enqueued_at timestamptz NOT NULL DEFAULT now()
+);
+
+COMMENT ON TABLE kaname.role_selector_verbs_pending IS 'Роли, чьи строки селекторов несут глаголы, выведенные миграцией 20261018030000 объединением по роли, а не вычисленные по правилу (kaname#878).';
+
+INSERT INTO kaname.role_selector_verbs_pending (role_id)
+SELECT DISTINCT s.role_id FROM kaname.role_rule_selectors s;
+SQL
+); expect_fires G2 Write "$P" "очередь пересчёта без предиката закрытия (kaname @93131d620)"
+P=$(w migrations/20261018030000_b.sql <<'SQL'
+-- ПРЕДИКАТ СНЯТИЯ переходного механизма (страж 6, функция верхней границы для
+-- него, цикл пересчёта очереди): очередь пуста на всех установках и
+-- писателей прежней версии не осталось —
+--   SELECT count(*) FROM kaname.role_selector_verbs_pending  →  0
+-- на каждой установке после выкатки этой версии.
+-- +goose Up
+CREATE TABLE kaname.role_selector_verbs_pending (
+    role_id     text PRIMARY KEY REFERENCES kaname.roles (id) ON DELETE CASCADE,
+    enqueued_at timestamptz NOT NULL DEFAULT now()
+);
+
+INSERT INTO kaname.role_selector_verbs_pending (role_id)
+SELECT DISTINCT s.role_id FROM kaname.role_rule_selectors s;
+SQL
+); expect_silent G2 Write "$P" "та же очередь с предикатом закрытия (ствол kaname)"
+P=$(w migrations/0013_values.sql <<'SQL'
+-- +goose Up
+-- INSERT INTO kaname.x_pending (role_id) SELECT id FROM kaname.roles;
+COMMENT ON TABLE kaname.x_pending IS 'наполняет INSERT INTO kaname.x_pending SELECT … службы';
+CREATE FUNCTION kaname.x_guard() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    INSERT INTO kaname.x_pending (role_id) VALUES (NEW.role_id) ON CONFLICT (role_id) DO NOTHING;
+    RETURN NEW;
+END;
+$$;
+SQL
+); expect_silent G2 Write "$P" "VALUES одной строки, форма в комментарии и в литерале"
+P=$(w migrations/0014_multi.sql <<'SQL'
+-- +goose Up
+insert into "vpc"."route_recompute_queue"
+    (network_id,
+     reason)
+select n.id, 'backfill' from vpc.networks n;
+SQL
+); expect_fires G2 Write "$P" "кавычки в имени, нижний регистр, столбцы в несколько строк"
+P=$(w queries/list.sql <<'SQL'
+INSERT INTO kaname.role_selector_verbs_pending (role_id) SELECT id FROM kaname.roles;
+SQL
+); expect_silent G2 Write "$P" "вне каталога миграций (запрос sqlc)"
+
 # ══ Живое дерево: спрашивается СВОЙСТВО стража, а не расклад чужого дерева ══
 #
 # Синтетическая пара доказывает, что предикат различает две конструкции. Она НЕ
