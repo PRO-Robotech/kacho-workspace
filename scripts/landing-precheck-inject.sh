@@ -473,8 +473,9 @@ echo "== (з) отчёт прогона на внешнем кластере (ws
 # Ожидаемое — форма вывода `stand-report.sh expect` при ready: полный выбор, все задания
 # ведомости STAND kacho (полнота судится против неё же).
 SLEDGER='["ci.yaml:unit-shard","ci.yaml:integration","e2e-newman.yml:shard","console-e2e.yml:probes","production-posture.yml:stand"]'
-sexpect() {  # sexpect <голова> — ожидаемое ready kacho
-    jq -n --arg h "$1" --argjson l "$SLEDGER" '{head: $h, repo: "PRO-Robotech/kacho", source: "affected", base: "origin/1266", draft: "false", full: true, reason: "ready", ledger: $l, jobs: $l}'
+sexpect() {  # sexpect <голова> — ожидаемое ready kacho; маршрут каждого задания — внешний (ws#1192)
+    jq -n --arg h "$1" --argjson l "$SLEDGER" '{head: $h, repo: "PRO-Robotech/kacho", source: "affected", base: "origin/1266", draft: "false", full: true, reason: "ready", ledger: $l, jobs: $l,
+      routes: ($l | map({key: ., value: {route: "external"}}) | from_entries)}'
 }
 ssuites() {  # ssuites <голова> — полный зелёный отчёт, набор на каждое задание ведомости
     jq -n --arg h "$1" --argjson l "$SLEDGER" '{head: $h, mode: "full", context: "probe-client", ns: "t3036-w1", residue: 0, planned: ($l | length),
@@ -500,6 +501,8 @@ twin; sreport "$HEAD_SHA" . '.repo = "PRO-Robotech/kaname" | .source = "full" | 
 expect 1 $'REASON\tSTAND-REPORT\tSTAND-EXPECT-REPO' "ожидаемое выведено для другого репозитория, чем у запроса — посадки нет"
 twin; sreport "$HEAD_SHA" . '.jobs = []'; run 0 --stand-report "$W/case/stand.json" "${SE[@]}"
 expect 1 $'REASON\tSTAND-REPORT\tSTAND-EXPECT-LEDGER' "ожидаемое ready «full: true, jobs: []» — посадки нет"
+twin; sreport "$HEAD_SHA" . '.routes["e2e-newman.yml:shard"].route = "local"'; run 0 --stand-report "$W/case/stand.json" "${SE[@]}"
+expect 1 $'REASON\tSTAND-REPORT\tSTAND-EXPECT-ROUTE' "у задания ожидаемого маршрут не внешний — посадки нет (ws#1192)"
 twin; sreport "$HEAD_SHA" .; run 0 --stand-report "$W/case/нет.json" "${SE[@]}"; expect 1 $'REASON\tSTAND-REPORT\tSTAND-REPORT-MISSING' "отчёта нет — посадки нет"
 twin; sreport "$HEAD_SHA" .; run 0 --stand-report "$W/case/stand.json"
 expect 2 $'VOID\tотчёт стенда' "без ожидаемого stand-report.sh код 2 — посадка VOID, а не «причин нет»"

@@ -645,6 +645,62 @@ rm -f "$W/argv"
 assert "0 нет нет" "$(rslot bash "$SLOT" docker -- true) $(has "$W/err" 'локально') $([ -e "$W/argv" ] && echo да || echo нет)" "класс docker маршрут не судит: ни run.sh, ни строки"
 assert "64 да" "$(cd "$R" && env "${REAL[@]}" HEAVY_SLOT_REMOTE_RUN="$W/fake-run.sh" bash "$SLOT" lint -- go version 2>"$W/err" >/dev/null; echo $?) $(has "$W/err" 'HEAVY_SLOT_REMOTE_RUN')" "над настоящей памятью двойник run.sh — ручка, 64"
 
+echo "── переносимый скрипт клона: контейнерные пробы kaname уходят Job-ом сами (ws#1192 б)"
+# Вход — форма шага integrationshard ci.yml kaname: `.github/scripts/run-integration.sh` с
+# INTEGRATION_SHARD; до правки слот отвечал 77 «нагрузка не опознана». Скрипт — ОТСЛЕЖИВАЕМЫЙ
+# файл клона kaname (Job исполняет коммит), путь — относительный (путь машины в pod не существует).
+mkdir -p "$R/.github/scripts"
+printf '#!/usr/bin/env bash\necho integration\n' > "$R/.github/scripts/run-integration.sh"
+printf '#!/usr/bin/env bash\necho other\n' > "$R/.github/scripts/other.sh"
+chmod +x "$R/.github/scripts/"*.sh; git -C "$R" add .github; sandbox_git -C "$R" commit -q -m scripts
+rm -f "$W/argv"
+assert "17 да" "$(rslot bash "$SLOT" integration -- .github/scripts/run-integration.sh) $(has "$W/argv" '.github/scripts/run-integration.sh')" "скрипт контейнерных проб kaname формой шага CI → run.sh профилем integration"
+rm -f "$W/argv"
+assert "17 да" "$(rslot bash "$SLOT" integration -- env INTEGRATION_SHARD=0/3 bash .github/scripts/run-integration.sh) $(has "$W/argv" 'INTEGRATION_SHARD=0/3')" "тот же скрипт за env и bash, шард в argv → run.sh"
+rm -f "$W/argv"
+assert "77 да да нет" "$(rslot bash "$SLOT" integration -- "$R/.github/scripts/run-integration.sh") $(has "$W/err" 'не опознана как переносимая') $(has "$W/err" 'относительным путём') $([ -e "$W/argv" ] && echo да || echo нет)" "близнец: тот же скрипт абсолютным путём машины → 77, Job не создан"
+assert "77 да" "$(rslot bash "$SLOT" integration -- .github/scripts/other.sh) $(has "$W/err" 'не опознана как переносимая')" "близнец: другой отслеживаемый скрипт клона → 77"
+assert "77 да" "$(rslot bash "$SLOT" lint -- .github/scripts/run-integration.sh) $(has "$W/err" 'не опознана как переносимая')" "близнец: тот же скрипт классом lint (ведомость — integration) → 77"
+R3="$W/rclone-kc"; git init -q -b 984-y "$R3"; git -C "$R3" remote add origin https://github.com/PRO-Robotech/kacho.git
+mkdir -p "$R3/.github/scripts"; cp "$R/.github/scripts/run-integration.sh" "$R3/.github/scripts/"; git -C "$R3" add .github; sandbox_git -C "$R3" commit -q -m s
+assert "77 да" "$(RDIR="$R3" rslot bash "$SLOT" integration -- .github/scripts/run-integration.sh) $(has "$W/err" 'не опознана как переносимая')" "близнец: скрипт того же имени в клоне kacho → 77"
+R4="$W/rclone-un"; git init -q -b 984-z "$R4"; git -C "$R4" remote add origin https://github.com/PRO-Robotech/kaname.git
+echo a > "$R4/f"; git -C "$R4" add f; sandbox_git -C "$R4" commit -q -m p; mkdir -p "$R4/.github/scripts"; cp "$R/.github/scripts/run-integration.sh" "$R4/.github/scripts/"
+assert "77 да" "$(RDIR="$R4" rslot bash "$SLOT" integration -- .github/scripts/run-integration.sh) $(has "$W/err" 'не опознана как переносимая')" "близнец: скрипт не отслеживается (Job его не увидит) → 77"
+sed 's|^        \[ "\$real" = "\$RS_TOP/\$p" \] \|\| continue$|        :|' "$SLOT" > "$W/slot-mut-port.sh"
+assert "1 17" "$(diff "$SLOT" "$W/slot-mut-port.sh" | grep -c '^<') $(rslot bash "$W/slot-mut-port.sh" integration -- .github/scripts/other.sh)" "мутант «путь скрипта не сверяется»: другой скрипт уходит Job-ом — близнец выше его ловит"
+
+echo "── маршрут без исполнения: --route — чистое суждение того же механизма (ws#1192 в)"
+# stand-report.sh expect спрашивает здесь маршрут каждого задания ведомости ДО прогона. Суждение
+# статическое: кластер не спрашивается, run.sh не зовётся, команда не исполняется, журнала нет.
+route() { (cd "$1" && shift && env HEAVY_SLOT_REMOTE_RUN="$W/fake-run.sh" FAKE_ARGV="$W/argv" bash "${RSLOT:-$SLOT}" --route "$@" 2> "$W/err" > "$W/out"); echo "$? $(cut -f2 "$W/out" | head -n 1)"; }
+rm -f "$W/argv" "$W/argv.avail" "$W/route-ran"; jl0="$(wc -l < "$HEAVY_SLOT_DIR/journal.log" 2>/dev/null || echo 0)"
+assert "0 external да" "$(route "$R" go-race -- go test ./...) $(has "$W/out" 'Job внешнего кластера')" "go test классом go-race в клоне kaname → external (Job)"
+assert "нет нет $jl0" "$([ -e "$W/argv.avail" ] && echo да || echo нет) $([ -e "$W/argv" ] && echo да || echo нет) $(wc -l < "$HEAVY_SLOT_DIR/journal.log" 2>/dev/null || echo 0)" "--route не спрашивает кластер, не зовёт run.sh и не пишет журнал"
+printf 'all:\n\t@touch "%s"\n' "$W/route-ran" > "$W/route.mk"
+assert "0 external нет" "$(route "$R" go-race -- make -s -f "$W/route.mk") $([ -e "$W/route-ran" ] && echo да || echo нет)" "--route команду не исполняет: make с рецептом-меткой → external, метки нет"
+assert "0 external" "$(route "$R" integration -- env INTEGRATION_SHARD=0/3 .github/scripts/run-integration.sh)" "скрипт контейнерных проб kaname → external"
+assert "0 none да" "$(route "$R" integration -- bash .github/scripts/other.sh) $(has "$W/out" 'не опознана как переносимая')" "неопознанная нагрузка → none (при доступном кластере было бы 77)"
+assert "0 local да" "$(route "$R" docker -- true) $(has "$W/out" 'внешнего пути не имеет')" "класс без внешнего пути → local"
+assert "0 local да" "$(route "$W" lint -- go version) $(has "$W/out" 'не клон git')" "каталог не клон → local"
+RO="$W/rclone-other"; git init -q -b 984-o "$RO"; git -C "$RO" remote add origin https://github.com/PRO-Robotech/elsewhere.git
+assert "0 local да" "$(route "$RO" lint -- go version) $(has "$W/out" 'клон не kacho, kaname или corelib')" "близнец: клон чужого репозитория → local"
+RK="$W/rclone-sn"; git init -q -b 984-s "$RK"; git -C "$RK" remote add origin https://github.com/PRO-Robotech/kacho.git
+mkdir -p "$RK/deploy/scripts"; printf 'stand-ns-run:\n\t@true\n' > "$RK/deploy/Makefile"; printf '#!/usr/bin/env bash\ntrue\n' > "$RK/deploy/scripts/stand-ns.sh"
+git -C "$RK" add deploy; sandbox_git -C "$RK" commit -q -m sn
+assert "0 external да" "$(route "$RK" stand -- make -C deploy stand-ns-run 'NS=t<задача>-w1' 'CMD=<шаги>') $(has "$W/out" 'stand-ns')" "stand-ns-run в клоне kacho с механизмом stand-ns → external (стенд — ns внешнего кластера)"
+assert "0 none да" "$(route "$RK" stand -- make -C deploy dev-up) $(has "$W/out" 'подъём локального стенда')" "подъём локального стенда → none (при доступном кластере было бы 77)"
+assert "0 local да" "$(route "$RK" stand -- python3 -c pass) $(has "$W/out" 'не поднимает локальный стенд')" "команда стенда без признака → local: где её стенд, слот не судит"
+# shellcheck disable=SC2016  # строка дочерней оболочки — предмет суждения, раскрывать её нечему
+assert "0 none да" "$(route "$RK" stand -- bash -c 'make "$G"') $(has "$W/out" 'строку оболочки')" "строка оболочки без формы stand-ns-* → none (цель может прийти переменной)"
+RK2="$W/rclone-sn2"; git init -q -b 984-t "$RK2"; git -C "$RK2" remote add origin https://github.com/PRO-Robotech/kacho.git
+mkdir -p "$RK2/deploy"; cp "$RK/deploy/Makefile" "$RK2/deploy/"; git -C "$RK2" add deploy; sandbox_git -C "$RK2" commit -q -m sn
+assert "0 local да" "$(route "$RK2" stand -- make -C deploy stand-ns-run 'NS=t<задача>-w1' 'CMD=<шаги>') $(has "$W/out" 'stand-ns')" "близнец: та же команда, в клоне нет deploy/scripts/stand-ns.sh → local"
+assert "64" "$(cd "$R" && bash "$SLOT" --route --enqueue "$W" go-race -- go version 2>/dev/null >/dev/null; echo $?)" "--route с --enqueue → 64"
+assert "64" "$(cd "$R" && bash "$SLOT" --route 2>/dev/null >/dev/null; echo $?)" "--route без класса → 64"
+sed 's|^        if \[ -n "\$RS_KNOWN" \]; then kind=external|        if true; then kind=external|' "$SLOT" > "$W/slot-mut-rt.sh"
+assert "1 0 external" "$(diff "$SLOT" "$W/slot-mut-rt.sh" | grep -c '^<') $(RSLOT="$W/slot-mut-rt.sh" route "$R" integration -- bash .github/scripts/other.sh)" "мутант «нагрузка не судится»: неопознанная → external — утверждение выше его ловит"
+
 echo "── оснастка внешнего маршрута сверяется со стволом до проверки кластера (ws#1228)"
 # Дерево оснастки — песочница: голый origin и выписка main со scripts/heavy-slot.sh и
 # scripts/remote-heavy/run.sh. Каждая порча меняет ОДИН факт: коммит origin/main по пути
