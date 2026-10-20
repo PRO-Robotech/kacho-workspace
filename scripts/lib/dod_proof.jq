@@ -44,9 +44,29 @@ def _dod_lines_outside_code:
     .out // empty
   );
 
+# ЧАСТИЧНОЕ доказательство (ws#1242) — строка, чей остаток после ревизии ЛИБО следующая непустая
+# строка (не другая строка-доказательство) несёт признак объёма меньше задачи: «частичн…»;
+# «только» перед «пункт…», «п.», «пп.»; «пункт…/п./пп. <номера> из <N>»; «<K> из <N> пункт…» при K ≠ N
+# («6 из 6 пунктов» — полное)
+# (`DoD-proof @<sha> — частично: пункт 0`, `— только п. 0`, `— пп. 1–5 из 6`, на строке ниже —
+# `частично: пункт 2`). Доказательством DoD задачи оно НЕ является ни у одного из пяти судей —
+# иначе тело PR ставило Closes задаче пачки по первому пункту (#1241 → «Closes #1242»).
+def _dod_partial_tail:
+  test("частичн|только\\s+(?:пункт|пп?\\.)|(?:пункт[[:alpha:]]*|пп?\\.)\\s*[0-9][^\n]*?\\sиз\\s+[0-9]|(?<![0-9])([0-9]+)\\s+из\\s+(?!\\1(?![0-9]))[0-9]+\\s+пункт"; "i");
+def _dod_mark_re: "^([#]{1,6} +)?([*]{2})?DoD-proof @(?<rev>[0-9a-f]{7,40})(?<rest>.*)$";
+def _dod_marks:
+  [_dod_lines_outside_code] as $l
+  | [range(0; $l | length) as $i
+     | $l[$i] | capture(_dod_mark_re)
+     | . + {next: ([$l[$i + 1:][] | select(test("\\S"))][0] // "")}
+     | .next |= (if test(_dod_mark_re) then "" else . end)
+     | .partial = ((.rest + "\n" + .next) | _dod_partial_tail)];
+
 # Ревизии всех строк-доказательств текста, по порядку; пустой массив — доказательства нет.
-def dod_proof_revisions:
-  [_dod_lines_outside_code | capture("^([#]{1,6} +)?([*]{2})?DoD-proof @(?<rev>[0-9a-f]{7,40})") | .rev];
+def dod_proof_revisions: [_dod_marks[] | select(.partial | not) | .rev];
+
+# Ревизии частичных строк — только для текста отказа («частичное, не Closes»).
+def dod_proof_partial_revisions: [_dod_marks[] | select(.partial) | .rev];
 
 # Есть ли в тексте строка-доказательство.
 def dod_proof: dod_proof_revisions | length > 0;

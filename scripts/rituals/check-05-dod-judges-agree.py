@@ -19,7 +19,9 @@ ws#1162 merge-readiness засчитывал любую распознанную
   * @B — ревизия базы, предок головы — не засчитан никем;
   * @X — то же дерево, но коммит вне диапазона — не засчитан никем (судят коммит, не дерево);
   * @deadbeef1 — ревизии нет — не засчитан никем;
-  * доказательства нет — не засчитан никем.
+  * доказательства нет — не засчитан никем;
+  * @H частичное (ws#1242: «частично: пункт 0», признак строкой ниже, «пп. 1–5 из 6») — не
+    засчитан никем.
 Исход судьи читается по его НАЗВАННОЙ строке, а не по одному коду: merge-readiness — код 0 и
 «с доказательством DoD: 1 · без: 0» либо код 1 и «Closes без доказательства DoD»;
 landing-precheck — CENSUS «закрытие: Closes 1, с доказательством 1» либо REASON
@@ -152,7 +154,7 @@ def body(pr):
     commits = [{"sha": s, "commit": {"message": m}, "parents": [{"sha": p}]}
                for s, m, p in ((sha["C1"], "#41 правка", sha["B"]), (sha["H"], "#41 пустой коммит головы", sha["C1"]))]
 
-    def world(proof):
+    def world(proof, tail="\nкоманда — код 0"):
         return {
             "repo": R, "pr": PR_N, "base": sha["B"], "head": sha["H"], "commits": commits,
             "prview": {"state": "OPEN", "baseRefName": "main", "headRefName": "41-x", "headRefOid": sha["H"],
@@ -168,7 +170,7 @@ def body(pr):
                       "sub_issues_summary": {"total": 0, "completed": 0},
                       "html_url": "https://github.com/%s/issues/41" % R},
             "comments": [{"id": 1, "body": "обсуждение", "html_url": "https://github.com/%s/issues/41#issuecomment-1" % R}]
-            + ([{"id": 2, "body": "DoD-proof @%s\nкоманда — код 0" % proof,
+            + ([{"id": 2, "body": "DoD-proof @%s%s" % (proof, tail),
                  "html_url": "https://github.com/%s/issues/41#issuecomment-2" % R}] if proof else []),
         }
 
@@ -180,8 +182,16 @@ def body(pr):
         ("@deadbeef1 — ревизии нет", "deadbeef1", False),
         ("доказательства нет", None, False),
     )
-    for label, proof, want in cases:
-        got = verdicts(pr, d, world(proof), sha)
+    # ws#1242: частичное доказательство (пункт задачи) — не засчитано никем, на голове тоже.
+    partial = (
+        ("@H — частично: пункт 0", " — частично: пункт 0\nкод 0"),
+        ("@H, частичность на следующей строке", "\nчастично: пункт 2\nкод 0"),
+        ("@H — пп. 1–5 из 6", " — пп. 1–5 из 6\nкод 0"),
+    )
+    cases = cases + tuple((label, sha["H"][:12], False, tail) for label, tail in partial)
+    for case in cases:
+        label, proof, want = case[:3]
+        got = verdicts(pr, d, world(proof, *case[3:]), sha)
         bad = {k: v for k, v in got.items() if v is not want}
         pr.ok("%s: все трое — %s" % (label, "засчитан" if want else "не засчитан"), not bad,
               "; ".join("%s → %s" % (k, v) for k, v in bad.items()))
