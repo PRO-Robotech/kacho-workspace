@@ -88,15 +88,31 @@
 #      (близнец Q1), AL5w страж фазы записи после смены файла (близнец W9b);
 #      AL6 политики ns kacho длиннее слова → проба закрытости svc-a, близнец AL6b
 #      малая перепись → та же проба; AL7 политики ns kacho не JSON → 70, Job нет
-#   M2 потолок по умолчанию 40, а не 6 (ws#1293): 6 идущих без запроса → 0, потолок
+#   M2 потолок по умолчанию 25, а не 6 (ws#1293): 6 идущих без запроса → 0, потолок
 #      назван (C1–C5, V2 судят потолок явным 2)
 #   CP ЁМКОСТЬ (ws#1293), фикстуры JSON узлов и pod: CP5 — 5 узлов, 6 идущих ci-local
 #      kaname сели → 0, «тяжёлых 6, помещается 15 (узлов 5», прогон 0; CP2 — близнец,
 #      2 узла: 6 идущих → 75 «помещается 6», 5 идущих → 0; CPB — раскладка по узлам:
 #      идущий pod без узла и новый в сумме кластера ложатся, по узлам нет → 75 и прогон
 #      без ns, близнец CPBb (на 100m больше места) → 0; CPN — ns без pod держит место
-#      запросом нового → 75, близнец без него → 0; CPR — гонка: старший без pod
-#      занял место — своё ns снято, 75, Job нет; близнец CPRb без гонки → 0
+#      (своим запросом; имя без профиля — наибольшим таблицы) → 75, близнец без него → 0;
+#      CPR — гонка: старший без pod занял место — своё ns снято, 75, Job нет; близнец
+#      CPRb без гонки → 0
+#   D8 СВОЙ запрос ns без pod (приёмка ws#1293, круг 1): узел 15 500m / 30 189 МиБ, фон
+#      30 189 − 16 000 МиБ, новый ci-local kaname. D8k — старшее ns ci-local kacho (имя
+#      и метка kacho.io/repo, без аннотаций) → 75 и прогон без ns; близнец D8t —
+#      старшее ci-local kaname → 0 и ns создано; D8u — имя без профиля → наибольший
+#      запрос таблицы → 75; D8a — аннотации запроса ci-local kacho при имени без
+#      профиля → 75, близнец D8ab — аннотации ci-local kaname → 0; D8r — гонка тем же
+#      правилом: старший ci-local kacho создан мгновением раньше → своё ns снято, 75,
+#      Job нет, близнец D8rb — старший ci-local kaname → 0; K5-req — run.sh ставит
+#      аннотации kacho.io/request-cpu и kacho.io/request-mib своего запроса
+#   D9 разнесение pod без узла (как планировщик по умолчанию): 2 узла, 8 идущих pod без
+#      узла по 3 800 МиБ, новый ci-local kacho → 75 (4 + 4, свободно 14 989 < 15 104);
+#      близнец D9b по 3 700 МиБ → 0 (first-fit дал бы 0 и в D9)
+#   DT pod Terminating (deletionTimestamp, Running) держит место: → 75; близнец DTb —
+#      тот же pod Succeeded → 0. PN pod Pending с nodeName держит место → 75; близнец
+#      PNb — тот же pod без узла в чужом ns → 0
 #   Q1 стенд (pod ns kacho) на всех узлах, место есть → --available 0 и прогон 0
 #      (стенд узел не запирает)
 #   QR запрос по замеру (ws#1195): память pod — p90 пика строки PEAKS профиля и
@@ -367,10 +383,12 @@ case "$1 ${2:-}" in
             # C4/C5 под нагрузкой краснели по жребию (приёмка ws#1210, круг 1).
             t0="$(date -u +%s)"
             jq --arg t "$(date -u -d "@$t0" +%Y-%m-%dT%H:%M:%SZ)" '.metadata.creationTimestamp = $t | .status.phase = "Active"' "$3" > "$S/ns/$name"
-            # гонка: другой запуск создал своё ns секундой раньше
+            # гонка: другой запуск создал своё ns секундой раньше; FAKE_RACE_REPO — его
+            # метка kacho.io/repo (D8r: запрос старшего — по имени и метке)
             if [ -n "${FAKE_RACE:-}" ]; then
                 jq -n --arg n "$FAKE_RACE" --arg t "$(date -u -d "@$(( t0 - 1 ))" +%Y-%m-%dT%H:%M:%SZ)" --arg e "$(date -u -d '+1 hour' +%Y-%m-%dT%H:%M:%SZ)" \
-                    '{kind: "Namespace", metadata: {name: $n, creationTimestamp: $t, labels: {"kacho.io/kind": "heavy"}, annotations: {"kacho.io/expires": $e}}, status: {phase: "Active"}}' > "$S/ns/$FAKE_RACE"
+                    --arg r "${FAKE_RACE_REPO:-}" \
+                    '{kind: "Namespace", metadata: {name: $n, creationTimestamp: $t, labels: ({"kacho.io/kind": "heavy"} + (if $r != "" then {"kacho.io/repo": $r} else {} end)), annotations: {"kacho.io/expires": $e}}, status: {phase: "Active"}}' > "$S/ns/$FAKE_RACE"
             fi
         elif [ "$kind" = NetworkPolicy ]; then
             cp "$3" "$S/netpol.json"
@@ -1956,6 +1974,10 @@ if [ -f "$f" ]; then
     if [ "$d" -le 60 ]; then ok; else bad K5 "kacho.io/expires=$exp, ждали ≈ +5400 + 1800 + 600 с + 2 ч"; fi
     labels="$(jq -r '.metadata.labels | "\(.["kacho.io/task"]) \(.["kacho.io/stand"]) \(.["kacho.io/kind"])"' "$f")"
     if [ "$labels" = "1 test heavy" ]; then ok; else bad K5 "метки «$labels», ждали «1 test heavy»"; fi
+    # K5-req — аннотации запроса (ЁМКОСТЬ, ws#1293) — запрос pod прогона из --profiles
+    k5_want="$(bash "$RUN" --profiles 2>/dev/null | awk '$1 == "lint" && $2 == "kaname" { for (i = 1; i <= NF; i++) { if ($i == "cpu" && c == "") c = $(i+1); if ($i == "память" && m == "") m = $(i+1) } sub(/m$/, "", c); print c, m; exit }')"
+    k5_req="$(jq -r '"\(.metadata.annotations["kacho.io/request-cpu"] // "") \(.metadata.annotations["kacho.io/request-mib"] // "")"' "$f")"
+    if [[ "$k5_want" =~ ^[0-9]+\ [0-9]+$ ]] && [ "$k5_req" = "$k5_want" ]; then ok; else bad K5-req "аннотации запроса «$k5_req», ждали «$k5_want» (запрос lint kaname из --profiles)"; fi
 else
     bad K5 "ns с --keep снято"
 fi
@@ -2089,12 +2111,12 @@ expect_rc V2 75
 fresh; seed_ns t7-heavy-a '+1 hour'
 go_run v2b env KACHO_REMOTE_HEAVY_MAX=2 bash "$RUN" --available
 expect_rc V2b 0
-# M2 — потолок по умолчанию 40, а не 6 (ws#1293): число прогонов даёт ЁМКОСТЬ (CP ниже);
+# M2 — потолок по умолчанию 25, а не 6 (ws#1293): число прогонов даёт ЁМКОСТЬ (CP ниже);
 # 6 идущих при --available без запроса → 0, потолок назван строкой ёмкости
 fresh; for x in a b c d e f; do seed_ns "t7-heavy-$x" '+1 hour'; done
 go_run m2 bash "$RUN" --available
 expect_rc M2 0
-if grep -q 'ёмкость: тяжёлых 6, помещается без предела (запрос не назван).*потолок 40 (KACHO_REMOTE_HEAVY_MAX)' "$OUT"; then ok; else bad M2-why "потолок по умолчанию не 40 либо строка ёмкости не напечатана"; fi
+if grep -q 'ёмкость: тяжёлых 6, помещается без предела (запрос не назван).*потолок 25 (KACHO_REMOTE_HEAVY_MAX)' "$OUT"; then ok; else bad M2-why "потолок по умолчанию не 25 либо строка ёмкости не напечатана"; fi
 # M1 — потолок вне 1..64 → 64; близнец M1b — 64 → 0
 fresh
 go_run m1 env KACHO_REMOTE_HEAVY_MAX=0 "${B[@]}" -- true
@@ -2483,7 +2505,7 @@ NODES5="$(for x in n1 n2 n3 n4 n5; do node_j "$x" 1 0 ""; done | items)"
 fresh; cp_seed n1 n1 n2 n2 n3 n4
 go_run cp5 env FAKE_NODES="$NODES5" FAKE_CLUSTER_PODS="$(printf '%s' "$CP_PODS" | items)" bash "$RUN" --available --profile ci-local --repo kaname
 expect_rc CP5 0
-if grep -q 'ёмкость: тяжёлых 6, помещается 15 (узлов 5, свободно [0-9,]* CPU / [0-9,]* ГиБ), потолок 40' "$OUT"; then ok; else bad CP5-line "строка «тяжёлых 6, помещается 15 (узлов 5, …), потолок 40» не напечатана"; fi
+if grep -q 'ёмкость: тяжёлых 6, помещается 15 (узлов 5, свободно [0-9,]* CPU / [0-9,]* ГиБ), потолок 25' "$OUT"; then ok; else bad CP5-line "строка «тяжёлых 6, помещается 15 (узлов 5, …), потолок 25» не напечатана"; fi
 fresh; cp_seed n1 n1 n2 n2 n3 n4
 go_run cp5r env FAKE_EXIT=0 FAKE_NODES="$NODES5" FAKE_CLUSTER_PODS="$(printf '%s' "$CP_PODS" | items)" "${CPB_RUN[@]}" --short cp5r -- true
 expect_rc CP5-run 0
@@ -2518,8 +2540,9 @@ cpb() {  # cpb <случай> <фон n1, m> <код>
 }
 cpb out "$(( 15500 - 2 * cp_cpu + 100 ))" 75
 cpb in "$(( 15500 - 2 * cp_cpu ))" 0
-# CPN — идущее ns без pod (Job pod ещё не создал) держит место запросом нового: один
-# узел, свободно запрос × 2 − 100m → 75; близнец CPNb без идущего → 0
+# CPN — идущее ns без pod (Job pod ещё не создал) держит место своим запросом (имя без
+# профиля и без аннотаций — наибольшим таблицы): один узел, свободно запрос × 2 − 100m
+# → 75; близнец CPNb без идущего → 0
 cpn_pods="$(pod_j sys n1 Running "$(( 15500 - 2 * cp_cpu + 100 ))m" 1Gi | items)"
 fresh; seed_ns t7-heavy-nopod '+1 hour'
 go_run cpn env FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$cpn_pods" bash "$RUN" --available --profile ci-local --repo kaname
@@ -2529,7 +2552,7 @@ go_run cpnb env FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$cpn_pods" bash "$RUN" -
 expect_rc CPNb 0
 # CPR — гонка ёмкостью: первая перепись идущих не видит, чужое ns создано мгновением
 # раньше своего (FAKE_RACE, без pod); со старшим места нет → 75, своё ns снято, Job нет;
-# близнец CPRb без гонки → 0. Потолок не держит: он 40.
+# близнец CPRb без гонки → 0. Потолок не держит: он 25.
 fresh
 go_run cpr env FAKE_EXIT=0 FAKE_RACE=t9-heavy-racer FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$cpn_pods" "${CPB_RUN[@]}" --short cpr -- true
 expect_rc CPR 75
@@ -2539,6 +2562,88 @@ if grep -q 'со старшими идущими места под запрос'
 fresh
 go_run cprb env FAKE_EXIT=0 FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$cpn_pods" "${CPB_RUN[@]}" --short cprb -- true
 expect_rc CPRb 0
+
+# ── D8: СВОЙ запрос идущего ns без pod (приёмка ws#1293, круг 1) ─────────────
+# Узел 15 500m и 30 189 МиБ, фон 100m и 30 189 − 16 000 МиБ: свободно 16 000 МиБ —
+# место под ОДИН ci-local kacho, но не под него и ci-local kaname разом; ci-local kaname
+# двоим места хватает. Запросы — из --profiles, не выписаны.
+ck_mib="$(bash "$RUN" --profiles 2>/dev/null | awk '$1 == "ci-local" && $2 == "kacho" { for (i = 1; i <= NF; i++) if ($i == "память") { print $(i+1); exit } }')"
+if [[ "$ck_mib" =~ ^[0-9]+$ ]] && [ "$ck_mib" -le 16000 ] && [ $(( ck_mib + cp_mib )) -gt 16000 ] && [ $(( 2 * cp_mib )) -le 16000 ] && [ "$cp_cpu" -le 7700 ]; then ok
+else OUT=""; bad D8-premise "запрос ci-local kacho «$ck_mib» и kaname «$cp_mib» не разводят случаи D8 на 16 000 МиБ свободных"; fi
+d8_pods="$(pod_j sys n1 Running 100m "$(( 30189 - 16000 ))Mi" | items)"
+# seed_req <ns> <репозиторий|-> [<cpu> <МиБ>] — идущее ns без pod с меткой репозитория и,
+# если названы, аннотациями запроса
+seed_req() {
+    seed_ns "$1" '+1 hour'
+    jq --arg r "$2" --arg c "${3:-}" --arg m "${4:-}" '
+      (if $r != "-" then .metadata.labels["kacho.io/repo"] = $r else . end)
+      | (if $c != "" then .metadata.annotations += {"kacho.io/request-cpu": $c, "kacho.io/request-mib": $m} else . end)' \
+      "$BOX/state/ns/$1" > "$BOX/x.json" && mv "$BOX/x.json" "$BOX/state/ns/$1"
+}
+d8() {  # d8 <случай> <код> <seed_req-аргументы…> — --available и прогон ci-local kaname
+    local id="$1" want="$2"; shift 2
+    fresh; seed_req "$@"
+    go_run "d8-$id" env FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$d8_pods" bash "$RUN" --available --profile ci-local --repo kaname
+    expect_rc "D8$id" "$want"
+    fresh; seed_req "$@"
+    go_run "d8r-$id" env FAKE_EXIT=0 FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$d8_pods" "${CPB_RUN[@]}" --short "d8$id" -- true
+    expect_rc "D8$id-run" "$want"
+    if [ "$want" = 0 ]; then
+        if [ "$(created)" = да ]; then ok; else bad "D8$id-run" "ns не создано при месте под старшего и нового"; fi
+    else
+        if [ "$(created)" = нет ]; then ok; else bad "D8$id-run" "ns создано, хотя старший своим запросом место занял"; fi
+    fi
+}
+d8 k 75 t7-heavy-ci-local-ab12 kacho
+d8 t 0 t7-heavy-ci-local-ab12 kaname
+d8 u 75 t7-heavy-zz -
+d8 a 75 t7-heavy-zz - "${cp_cpu}" "$ck_mib"
+d8 ab 0 t7-heavy-zz - "${cp_cpu}" "$cp_mib"
+# D8r — гонка тем же правилом: первая перепись пуста, старший ci-local kacho (имя и
+# метка) создан мгновением раньше своего → своё ns снято, 75, Job нет; близнец D8rb —
+# старший ci-local kaname → 0
+fresh
+go_run d8race env FAKE_EXIT=0 FAKE_RACE=t9-heavy-ci-local-r1 FAKE_RACE_REPO=kacho FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$d8_pods" "${CPB_RUN[@]}" --short d8race -- true
+expect_rc D8r 75
+own_gone D8r t1-heavy-d8race
+no_job D8r
+if grep -q 'со старшими идущими места под запрос' "$OUT"; then ok; else bad D8r-why "причина гонки ёмкостью не названа"; fi
+fresh
+go_run d8raceb env FAKE_EXIT=0 FAKE_RACE=t9-heavy-ci-local-r1 FAKE_RACE_REPO=kaname FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$d8_pods" "${CPB_RUN[@]}" --short d8raceb -- true
+expect_rc D8rb 0
+
+# ── D9: pod без узла — разнесением, а не first-fit ──────────────────────────
+# Два узла по 15 500m и 30 189 МиБ, 8 идущих ns, у каждого pod без узла (100m); новый
+# ci-local kacho. Разнесение кладёт 4 + 4: по 3 800 МиБ свободно 30 189 − 15 200 =
+# 14 989 < запроса → 75; по 3 700 — 15 389 → 0. First-fit (7 на n1, 1 на n2) оставил
+# бы n2 почти пустым и дал 0 в обоих.
+if [ $(( 30189 - 4 * 3800 )) -lt "$ck_mib" ] && [ $(( 30189 - 4 * 3700 )) -ge "$ck_mib" ] && [ $(( 30189 - 3800 )) -ge "$ck_mib" ]; then ok
+else OUT=""; bad D9-premise "запрос ci-local kacho «$ck_mib» не разводит D9 и D9b"; fi
+d9() {  # d9 <случай> <МиБ pod> <код>
+    local i pods=""
+    fresh
+    for i in 1 2 3 4 5 6 7 8; do seed_ns "t7-heavy-sp$i" '+1 hour'; pods="$pods$(pod_pend_j "t7-heavy-sp$i" 100m "$2Mi")"$'\n'; done
+    go_run "d9-$1" env FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$(printf '%s' "$pods" | items)" bash "$RUN" --available --profile ci-local --repo kacho
+    expect_rc "D9$1" "$3"
+}
+d9 "" 3800 75
+d9 b 3700 0
+
+# ── DT, PN: pod Terminating и Pending с узлом держат место ──────────────────
+# Один узел; pod фона 100m и 30 189 − запрос ci-local kaname + 1 МиБ — места под
+# новый нет, пока pod считается. DT — pod Running с deletionTimestamp (Terminating) →
+# 75, близнец DTb — тот же pod Succeeded → 0; PN — pod Pending с nodeName → 75,
+# близнец PNb — тот же pod без узла (ns sys, не тяжёлое) → 0.
+dt_mib=$(( 30189 - cp_mib + 1 ))
+dtp() {  # dtp <случай> <код> <pod JSON>
+    fresh
+    go_run "dt-$1" env FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$(printf '%s\n' "$3" | items)" bash "$RUN" --available --profile ci-local --repo kaname
+    expect_rc "$1" "$2"
+}
+dtp DT 75 "$(pod_j sys n1 Running 100m "${dt_mib}Mi" | jq -c '.metadata.deletionTimestamp = "2026-10-21T00:00:00Z"')"
+dtp DTb 0 "$(pod_j sys n1 Succeeded 100m "${dt_mib}Mi" | jq -c '.metadata.deletionTimestamp = "2026-10-21T00:00:00Z"')"
+dtp PN 75 "$(pod_j sys n1 Pending 100m "${dt_mib}Mi")"
+dtp PNb 0 "$(pod_pend_j sys 100m "${dt_mib}Mi")"
 
 # ── команда доходит до контейнера байт в байт (ws#1142) ────────────────────
 # Составной Job потерял переменные и коды осей: kubelet свернул $$ в $ и раскрыл
