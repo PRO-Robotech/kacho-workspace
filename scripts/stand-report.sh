@@ -147,12 +147,16 @@ export STAND_AREA_JSON='{
 # головы: [путь, [подкоманда…], {окружение}]]. Форма — шаг CI задания (kaname: integrationshard
 # зовёт run-integration.sh; unit — go test -race -short); стенд kacho — ns внешнего кластера
 # (stand-ns-run), стенд own kaname — его задание шагами ghjob, стенд в ns задачи ставит сам механизм.
+# Пробы консоли — ПЕРЕПИСЬ всего набора: `--max-failures=0` снимает `maxFailures: 5` конфига, предел
+# времени шага CI, а не вердикта (ws#1284: прогон kacho#3305 исполнил 179 из 320 и встал на пяти
+# падениях); перепись — без остановки на красном (CLAUDE.md «Перепись — потом массово»). Форма
+# печатается словами оболочки (shlex.join) — копируется как есть.
 export STAND_ROUTE_JSON='{
   "PRO-Robotech/kacho": {
     "ci.yaml:unit-shard": ["go-race", ["make", "test-unit", "SHARD=<шард>"]],
     "ci.yaml:integration": ["integration", ["make", "test-integration"]],
     "e2e-newman.yml:shard": ["stand", ["make", "-C", "deploy", "stand-ns-run", "NS=t<задача>-w<k>", "CMD=<шаги шарда>"]],
-    "console-e2e.yml:probes": ["stand", ["make", "-C", "deploy", "stand-ns-run", "NS=t<задача>-w<k>", "CMD=<пробы консоли>"]],
+    "console-e2e.yml:probes": ["stand", ["make", "-C", "deploy", "stand-ns-run", "NS=t<задача>-w<k>", "DIR=ui-future/e2e", "CMD=npx playwright test --max-failures=0"]],
     "production-posture.yml:stand": ["stand", ["make", "-C", "deploy", "stand-ns-run", "NS=t<задача>-w<k>", "STACK=<стек матрицы>", "CMD=<перепись посадки>"]]
   },
   "PRO-Robotech/kaname": {
@@ -182,7 +186,7 @@ if [ "${1:-}" = expect ]; then
     [ -z "$dirty" ] || void "в копии «$CO» правки вне коммита ($(printf '%s\n' "$dirty" | grep -c .) путей) — выбор был бы не о голове"
     url="$(git -C "$CO" remote get-url origin 2>/dev/null)" || void "у копии «$CO» нет origin — репозиторий не установить"
     CO="$CO" HEAD="$HEAD" BASE="$BASE" DRAFT="$DRAFT" URL="$url" SLOT="$SLOT" WS="$(dirname "$HERE")" exec python3 - <<'PY'
-import importlib.util, json, os, re, shutil, subprocess, sys, tempfile
+import importlib.util, json, os, re, shlex, shutil, subprocess, sys, tempfile
 STAND = json.loads(os.environ['STAND_JSON'])  # ведомость — в шапке скрипта, общая с check
 co, head, base, url, draft = os.environ['CO'], os.environ['HEAD'], os.environ['BASE'], os.environ['URL'], os.environ['DRAFT']
 
@@ -289,7 +293,7 @@ for j in jobs:
             route, rwhy = ask_mech(r[2])
     routes[j] = {'route': route, 'why': rwhy, 'class': cls, 'form': form}
     print('ROUTE\t%s\t%s\t%s\t%s\tформа: heavy-slot.sh %s -- %s' % (j, LABEL[route], 'выбрано' if j in want else 'не выбрано', rwhy, cls or '—',
-          ' '.join(form) or '—'), file=sys.stderr)
+          shlex.join(form) or '—'), file=sys.stderr)
     if j in want and route != 'external':
         bad.append('%s — %s: %s' % (j, LABEL[route], rwhy))
 if bad:

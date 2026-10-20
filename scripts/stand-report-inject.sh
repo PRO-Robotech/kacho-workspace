@@ -189,6 +189,8 @@ judge() {  # judge <скрипт> <каталог случая> → 0 сошло
         [ "$code" = "$(cat "$c/code")" ] || return 1
         # ROUTE — строка на КАЖДОЕ задание ведомости с меткой маршрута (ws#1192).
         [ ! -f "$c/routes" ] || [ "$(routes "$c")" = "$(cat "$c/routes")" ] || return 1
+        # Форма задания — строкой ROUTE, словами оболочки (ws#1284): formre — образец всей строки.
+        [ ! -f "$c/formre" ] || grep -qP "$(cat "$c/formre")" "$c/err" || return 1
         if [ "$code" = 0 ]; then
             [ "$(jq -c .jobs <<< "$out" 2>/dev/null)" = "$(cat "$c/want")" ] || return 1
             # маршрут каждого задания ожидаемого — внешний и в самом JSON (его судит check)
@@ -293,6 +295,8 @@ printf '%s' 'heavy-slot\.sh --route [^\t]*не ответил' > "$C/voidre"
 ecase "expect kacho: ready, механизм stand-ns в голове — пять заданий, все внешние" PRO-Robotech/kacho; ecommit; printf -- '--base\norigin/main\n--draft\nfalse\n' > "$C/args"; want 0 "$LEDGER"
 KC5='ci.yaml:integration	внешний кластер;ci.yaml:unit-shard	внешний кластер;console-e2e.yml:probes	внешний кластер;e2e-newman.yml:shard	внешний кластер;production-posture.yml:stand	внешний кластер;'
 printf '%s' "$KC5" > "$C/routes"
+# ws#1284: пробы консоли — перепись без предела падений, из каталога набора, форма копируется как есть
+printf '%s' "^ROUTE\tconsole-e2e\\.yml:probes\tвнешний кластер\t[^\t]*\t[^\t]*\tформа: heavy-slot\\.sh stand -- make -C deploy stand-ns-run 'NS=t<задача>-w<k>' DIR=ui-future/e2e 'CMD=npx playwright test --max-failures=0'\$" > "$C/formre"
 ecase "expect kacho: stand-ns в голове нет — VOID, три задания стенда локальные" PRO-Robotech/kacho; rm "$C/co/deploy/scripts/stand-ns.sh"; ecommit; printf -- '--base\norigin/main\n--draft\nfalse\n' > "$C/args"; want 2 -
 printf '%s' "$(sed 's/console-e2e.yml:probes	внешний кластер/console-e2e.yml:probes	локальный/; s/e2e-newman.yml:shard	внешний кластер/e2e-newman.yml:shard	локальный/; s/production-posture.yml:stand	внешний кластер/production-posture.yml:stand	локальный/' <<< "$KC5")" > "$C/routes"
 printf '%s' 'маршрута во внешний кластер нет[^\t]*e2e-newman\.yml:shard — локальный: [^\t]*stand-ns' > "$C/voidre"
@@ -382,6 +386,7 @@ while IFS=$'\t' read -r name expr; do
     else survived=$((survived + 1)); echo "  MUTANT $name → RESULT SURVIVED"; fi
 done <<'MUT'
 stale-dropped	s/if d\['head'\] != head:/if False:/
+full-run-capped	s/ --max-failures=0"/"/
 full-not-required	s/if d\['mode'\] != want:/if False:/
 planned-not-compared	s/if planned < 0 or planned != len(suites):/if planned < 0:/
 green-partial-ok	s/if tot < 1 or ex != tot:/if tot < 1 or ex > tot:/
