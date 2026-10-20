@@ -267,7 +267,7 @@ if [ -n "$task_text" ]; then
         for c in "${coords[@]+"${coords[@]}"}"; do
             read -r cn ck cv <<< "$c"; hit=""
             for x in "${cen[@]+"${cen[@]}"}"; do
-                read -r xk xa xb xp _ <<< "$x"
+                read -r xk xa _ xp _ <<< "$x"
                 if [ "$ck" = task ] && { [ "$xk" = task ] || [ "$xk" = pr ]; }; then
                     xr="${xa%%#*}"; ct="${cv%%#*}"; ct="${ct##*/}"; [ "$ct" = ws ] && ct=kacho-workspace
                     [ "${xa##*#}" = "${cv##*#}" ] && { [ "${xr##*/}" = "$ct" ] || [ "$xr" = "${cv%%#*}" ]; } && hit=1
