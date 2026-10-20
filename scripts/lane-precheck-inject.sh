@@ -542,6 +542,14 @@ assert "2 да" "$(tta 'Приёмка: дом — b.md, задача o/r#22.' "
 assert "0 да" "$(tt "$ACC") $(has 'агент не назван')" "близнец: то же задание без --agent — перепись не требуется, агент назван в переписи"
 assert "0" "$(printf '%s\n' "$ACC" > "$W/task.txt"; bash "$P" --task-text "$W/task.txt" --agent go-implementer > "$W/out" 2>&1; echo $?)" "близнец: задание другому агенту — перепись не требуется"
 
+echo "== строка слияния в задании — форма «#<N> merge #<M>» (ws#1278)"
+assert "1 да" "$(tt 'Слей ветку коммитом «#808 merge 746: сборка».') $(has 'REASON TASK-MERGE-FORM строка 1: «#808 merge 746:»')" "«#808 merge 746: …» (урок: хук ветки отверг) → TASK-MERGE-FORM со строкой"
+assert "1 да" "$(tt 'Сводка.' 'git commit -m "#808 merge 1272-wave-premise: цепочка"') $(has 'TASK-MERGE-FORM строка 2: «#808 merge 1272-wave-premise:»')" "вливаемая — именем ветки → TASK-MERGE-FORM"
+assert "1 да нет" "$(tt 'Сначала «#808 merge #746: a», затем «#808 merge 747: b».') $(has 'TASK-MERGE-FORM строка 1: «#808 merge 747:»') $(has '«#808 merge #746')" "две строки слияния в строке задания — судится каждая, законная молчит"
+assert "0 да" "$(tt 'Слей ветку коммитом «#808 merge #746: сборка».') $(has 'строк 1; причин 0')" "близнец: «#808 merge #746: …» → 0"
+assert "0 да" "$(tt 'Догон базы — «#808 merge main: догон базы».' 'git commit -m "#808 merge #746"') $(has 'строк 2; причин 0')" "близнец: «merge main» и «merge #746» без хвоста → 0"
+assert "0 да" "$(tt 'Форма — «#<N> merge #<M>: …»; номер задачи kacho#808 merge-ветки не трогает.') $(has 'причин 0')" "близнец: шаблон формы без чисел и ссылка репо#N — не строка слияния → 0"
+
 echo "== мутанты lane-precheck (по одной правке; проба выше обязана покраснеть)"
 mut() {  # <имя> <было> <стало> <файл предусловий|--task-text строки…> — печатает код мутанта
     local m="$W/mut-lp.sh"
@@ -576,6 +584,8 @@ mut_a() {  # <имя> <было> <стало> <строки задания…> �
 assert "0" "$(mut_a census '[ -z "$miss" ] || reasons+=("TASK-COORD-CENSUS' 'true || reasons+=("TASK-COORD-CENSUS' 'Приёмка: смена контракта ListUsers.')" "мутант «перепись не требуется»: задание без переписи проходит — проба выше его ловит"
 assert "0" "$(mut_a verify 'if [ "${#cen[@]}" -gt 0 ]; then' 'if false; then' "$ACC" "- \`path $L 1-lane docs/x-acceptance.md\`" '- `task o/r#20 open`' '- `branch o/r 1-lane`')" "мутант «перепись не сверяется»: дом по памяти проходит"
 assert "0" "$(mut_a mention 'reasons+=("TASK-COORD-UNCENSUSED' ': || reasons+=("TASK-COORD-UNCENSUSED' "$ACC" "${CEN[@]}" 'Сосед — o/r#21.')" "мутант «упоминание вне переписи не судится»: o/r#21 проходит"
+assert "0" "$(mut merge-form '|| reasons+=("TASK-MERGE-FORM' '|| : || reasons+=("TASK-MERGE-FORM' --task-text 'Слей ветку коммитом «#808 merge 746: сборка».')" "мутант «форма слияния не судится»: «#808 merge 746» проходит — проба выше его ловит"
+assert "1" "$(mut merge-lawful '(#[0-9]+|main)([^0-9A-Za-z_]|$)' '(#[0-9]+)([^0-9A-Za-z_]|$)' --task-text 'Догон базы — «#808 merge main: догон базы».')" "мутант «merge main не узнан»: законная форма краснеет — проба выше его ловит"
 
 assert "0" "$(LANE_PRECHECK_GIT_BASE="$W/gb" mut pushed '[ "$kind" = pushed ] && [ "$got" != "$want" ]' 'false' "pushed o/r 1-lane $BASE_SHA")" "мутант «голова отправки не сверяется»: непредъявленная голова проходит — проба выше его ловит"
 
