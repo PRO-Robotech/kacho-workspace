@@ -15,7 +15,7 @@
 # usage: lane-precheck.sh <каталог копии> <ветка> <база> [--issue <владелец/репо>#<N>]…
 #                          [--hook-log <файл>]
 #        lane-precheck.sh --premise <файл предусловий>
-#        lane-precheck.sh --task-text <файл текста задания>
+#        lane-precheck.sh --task-text <файл текста задания> [--agent <агент>]
 #
 # РЕЖИМ ПРЕДУСЛОВИЙ (ws#1071, база диспетчера §3) — ДО раздачи задания: задание с
 # ложным предусловием не уходит. Строка файла — одно предусловие закрытого словаря
@@ -36,8 +36,27 @@
 #                                                 урок 9d4363aa: sha задания устарела после «merge
 #                                                 main»); печатается строкой `HEAD <репо> <ветка> <sha>`
 #                                                 для задания; ветки нет — ложно, origin молчит — VOID;
+#   pushed <владелец/репо> <ветка> <sha40>        отправка ДОЕХАЛА: `git ls-remote` origin = sha целиком —
+#                                                 предусловие ЛЮБОГО шага, зависящего от отправки (событие
+#                                                 одобрения, PR, ревью по дельте, autoland start; ws#1242:
+#                                                 трижды 2026-10-19 шаг выдан до .rc отправки); другая
+#                                                 голова или ветки нет — ложно, origin молчит — VOID;
+#                                                 цепочка «отправка → шаг» — scripts/push-then.sh;
+#   cherry-vet <клон> <ветка>                      вишни пачки собираются ПРОБАМИ: на голове ветки — `go vet
+#                                                 -tags=integration` по пакетам её Go-диффа от merge-base с
+#                                                 origin/main (ws#1242: b3d4f0781 на #771 — `go build`
+#                                                 зелёный, зависимость была лишь в ветке-источнике); дерево
+#                                                 — временной копией `git worktree add --detach`, снятой тем
+#                                                 же шагом; отказ vet — ложно; пакет, чьи файлы теги
+#                                                 отсекают все (tools.go с //go:build tools), и testdata —
+#                                                 вне суда, счётом; нет go, ветки, origin/main, пакетов
+#                                                 для vet — VOID (без слота: vet своих пакетов —
+#                                                 быстрое, heavy-guard его не судит);
 #   alive <клон> <ревизия> <фраза…>               предмет жив: фраза есть в дереве ревизии (`git grep
 #                                                 -F`); нет — «снят до раздачи» (урок f487bb7c);
+#   path <клон> <ревизия> <путь>                  дом есть: файл или каталог в дереве ревизии (`git
+#                                                 cat-file -e`); нет — «дома нет» (ws#1271: дом приёмки
+#                                                 назван по задаче продукта, файл жил в воркспейсе);
 #   branchname <клон> <ветка>                     имя — по правилу репозитория клона (ws#1226, его же
 #                                                 предикат: kaname — scripts/hooks/branch-rule.sh клона,
 #                                                 corelib — git-rule.sh клона, воркспейс и kacho —
@@ -73,7 +92,21 @@
 #   TASK-RETURN        задание с долгим шагом (полный хук отправки, слот, --enqueue, autoland)
 #                      не называет возврат «идёт» (detach.sh, «идёт: pid, журнал, срок»,
 #                      «отсоединённо»): исполнитель стал бы дежурить.
-# Код 0 — причин нет; 1 — есть; 2 — прочитано ноль строк.
+#   TASK-MERGE-FORM    строка слияния `#<N> merge <X>` с X не `#<M>` и не `main` (ws#1278, урок
+#                      «#808 merge 746: …» — хук ветки kaname отверг коммит исполнителя): форма —
+#                      предикат branch_rule_merge_form хука kaname; ссылка `репо#N` строкой
+#                      слияния не считается.
+# Задание АВТОРУ ПРИЁМКИ (`--agent acceptance-author`, ws#1271; уроки 18–19.10 — дом, номер,
+# ветка, чужая координата по памяти: 28 случаев) несёт ПЕРЕПИСЬ координат — строки словаря
+# предусловий в тексте (ведущие `-`, `*` и обратные кавычки снимаются), сверяемые тем же судом
+# `--premise` до раздачи:
+#   TASK-COORD-CENSUS     в переписи нет вида: дом (path), задача (task), ветка или база
+#                         (branch | head);
+#   TASK-COORD-UNCENSUSED координата вне переписи — номер задачи с репозиторием (`o/r#N`,
+#                         `r#N`, `ws#N` — kacho-workspace) либо путь приёмки (`…acceptance….md`):
+#                         названа по памяти;
+#   TASK-COORD-FALSE      сверка переписи ложна (причины `--premise` дословно); не судима — код 2.
+# Код 0 — причин нет; 1 — есть; 2 — прочитано ноль строк либо перепись не судима.
 #
 # ЧТО СУДИТ (каждый пункт — своя причина, строкой `REASON <КОД> <текст>`):
 #   HEAD-NOT-ON-ORIGIN  ветки нет на origin (`git ls-remote`, а не память);
@@ -142,17 +175,18 @@
 set -uo pipefail
 
 usage() {
-    echo "usage: lane-precheck.sh <каталог копии> <ветка> <база> [--issue <владелец/репо>#<N>]… [--hook-log <файл>] | --premise <файл> | --task-text <файл>" >&2
+    echo "usage: lane-precheck.sh <каталог копии> <ветка> <база> [--issue <владелец/репо>#<N>]… [--hook-log <файл>] | --premise <файл> | --task-text <файл> [--agent <агент>]" >&2
     exit 2
 }
 
-issues=() hook_log="" premise="" task_text="" pos=()
+issues=() hook_log="" premise="" task_text="" agent="" pos=()
 while [ $# -gt 0 ]; do
     case "$1" in
         --issue) [ $# -ge 2 ] || usage; issues+=("$2"); shift 2 ;;
         --hook-log) [ $# -ge 2 ] || usage; hook_log="$2"; shift 2 ;;
         --premise) [ $# -ge 2 ] || usage; premise="$2"; shift 2 ;;
         --task-text) [ $# -ge 2 ] || usage; task_text="$2"; shift 2 ;;
+        --agent) [ $# -ge 2 ] || usage; agent="$2"; shift 2 ;;
         -h | --help) usage ;;
         *) pos+=("$1"); shift ;;
     esac
@@ -182,11 +216,33 @@ ghget() {
 if [ -n "$task_text" ]; then
     [ "${#pos[@]}" -eq 0 ] && [ -z "$premise" ] || usage
     [ -r "$task_text" ] || { echo "lane-precheck: текста задания $task_text нет; вердикта нет" >&2; exit 2; }
-    reasons=() n=0 limits=() longstep="" ret=""
+    reasons=() n=0 limits=() longstep="" ret="" cen=() cenk="" coords=() void=""
     num='[0-9]+([.,][0-9]+)?'; sec='(с|сек[[:alpha:]]*|s|мин(ут[[:alpha:]]*)?|m)([^[:alnum:]]|$)'
     cmp='(дольше|больше|более|свыше)'
+    mrg='(^|[^0-9A-Za-z_#/])(#[0-9]+ merge [^[:space:]]*)' mok='^#[0-9]+ merge (#[0-9]+|main)([^0-9A-Za-z_]|$)'
     while IFS= read -r line || [ -n "$line" ]; do
         n=$((n + 1)); l="${line,,}"
+        # Строка слияния (ws#1278): за `#<N> merge` — `#<M>` либо `main`, как судит хук ветки.
+        r="$line"
+        while [[ "$r" =~ $mrg ]]; do
+            mp="${BASH_REMATCH[1]}" mc="${BASH_REMATCH[2]}"
+            [[ "$mc" =~ $mok ]] || reasons+=("TASK-MERGE-FORM строка $n: «$mc» — строка слияния по форме «#<N> merge #<M>: …» либо «#<N> merge main: …»: иначе хук ветки отвергнет коммит")
+            r="${r/"$mp$mc"/ }"
+        done
+        # Перепись координат (ws#1271): строка словаря предусловий — не упоминание.
+        s="${line#"${line%%[![:space:]*-]*}"}"; s="${s//\`/}"
+        if [[ "$s" =~ ^(task|pr|branch|head|path|alive)[[:space:]] ]]; then
+            cen+=("$s"); cenk+=" ${BASH_REMATCH[1]}"
+        else
+            r="$line"
+            while [[ "$r" =~ (^|[^A-Za-z0-9_./-])(([A-Za-z0-9_.-]+/)?[A-Za-z][A-Za-z0-9_.-]*#[0-9]+) ]]; do
+                coords+=("$n task ${BASH_REMATCH[2]}"); r="${r/"${BASH_REMATCH[2]}"/ }"
+            done
+            r="$line"
+            while [[ "$r" =~ ([A-Za-z0-9_./-]*acceptance[A-Za-z0-9_.-]*\.md) ]]; do
+                coords+=("$n path ${BASH_REMATCH[1]}"); r="${r/"${BASH_REMATCH[1]}"/ }"
+            done
+        fi
         # w — строка без чисел, которые не заказывают ожидание: предел вызова, порог
         # сравнения без «не» перед ним, «ожидаем*» (прогноз срока, не заказ).
         w="${l//ожидаем/_}"
@@ -214,10 +270,38 @@ if [ -n "$task_text" ]; then
     distinct="$(printf '%s\n' "${limits[@]+"${limits[@]}"}" | sed '/^$/d' | sort -un | tr '\n' ' ')"
     [ "$(wc -w <<< "$distinct")" -le 1 ] || reasons+=("TASK-LIMITS пределы одного вызова разные: ${distinct% } с — предел вызова задаётся одним числом")
     [ -z "$longstep" ] || [ -n "$ret" ] || reasons+=("TASK-RETURN строка $longstep: долгий шаг без возврата «идёт» — задание называет форму: scripts/detach.sh start …, возврат «идёт: pid, журнал, срок», исход отдельным шагом")
-    echo "lane-precheck --task-text: файл $task_text; строк $n; причин ${#reasons[@]}"
+    if [ "$agent" = acceptance-author ]; then
+        miss=""
+        [[ "$cenk " == *" path "* ]] || miss+=" дом (path <клон> <ревизия> <путь>);"
+        [[ "$cenk " == *" task "* ]] || miss+=" задача (task <владелец/репо>#<N>);"
+        [[ "$cenk " =~ \ (branch|head)\  ]] || miss+=" ветка или база (branch | head);"
+        [ -z "$miss" ] || reasons+=("TASK-COORD-CENSUS задание автору приёмки без переписи координат:${miss%;} — строками словаря --premise в тексте, сверка до раздачи")
+        for c in "${coords[@]+"${coords[@]}"}"; do
+            read -r cn ck cv <<< "$c"; hit=""
+            for x in "${cen[@]+"${cen[@]}"}"; do
+                read -r xk xa _ xp _ <<< "$x"
+                if [ "$ck" = task ] && { [ "$xk" = task ] || [ "$xk" = pr ]; }; then
+                    xr="${xa%%#*}"; ct="${cv%%#*}"; ct="${ct##*/}"; [ "$ct" = ws ] && ct=kacho-workspace
+                    [ "${xa##*#}" = "${cv##*#}" ] && { [ "${xr##*/}" = "$ct" ] || [ "$xr" = "${cv%%#*}" ]; } && hit=1
+                elif [ "$ck" = path ] && [ "$xk" = path ] && [ -n "${xp:-}" ]; then
+                    [[ "$cv" == *"${xp%/}" || "${xp%/}" == *"$cv" ]] && hit=1
+                fi
+            done
+            [ -n "$hit" ] || reasons+=("TASK-COORD-UNCENSUSED строка $cn: «$cv» вне переписи — координата по памяти; внеси её строкой $ck в перепись")
+        done
+        if [ "${#cen[@]}" -gt 0 ]; then
+            pf="$(mktemp)"; printf '%s\n' "${cen[@]}" > "$pf"
+            po="$(bash "${BASH_SOURCE[0]}" --premise "$pf" 2>&1)"; prc=$?; rm -f "$pf"
+            if [ "$prc" = 1 ]; then reasons+=("TASK-COORD-FALSE перепись не сошлась: $(sed -n 's/^REASON //p' <<< "$po" | paste -sd ';' -)")
+            elif [ "$prc" != 0 ]; then void="перепись не судима (код $prc): $(sed -n 's/^VOID //p' <<< "$po" | paste -sd ';' -)"; fi
+        fi
+    fi
+    echo "lane-precheck --task-text: файл $task_text; строк $n; причин ${#reasons[@]}; агент ${agent:-не назван}; строк переписи ${#cen[@]}"
     for x in "${reasons[@]+"${reasons[@]}"}"; do echo "REASON $x"; done
+    [ -z "$void" ] || echo "VOID $void"
     [ "$n" -gt 0 ] || exit 2
     [ "${#reasons[@]}" -eq 0 ] || exit 1
+    [ -z "$void" ] || exit 2
     exit 0
 fi
 
@@ -259,15 +343,17 @@ if [ -n "$premise" ]; then
                 ghget "repos/$a/branches/$b" .name > /dev/null; rc=$?
                 if [ "$rc" = 3 ]; then reasons+=("PREMISE-FALSE $line: ветки на origin нет")
                 elif [ "$rc" != 0 ]; then voids+=("GH-UNREADABLE $line"); fi ;;
-            head)
+            head | pushed)
                 read -r _ _ _ want _ <<< "$line"
-                if [ "${want:-}" = ls-remote ]; then
-                    if [ -z "$a" ] || ! [[ "$a" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || ! [[ "$b" =~ ^[A-Za-z0-9._/-]+$ ]]; then voids+=("PREMISE-FORM $line"); continue; fi
+                if [ "${want:-}" = ls-remote ] || [ "$kind" = pushed ]; then
+                    if [ -z "$a" ] || ! [[ "$a" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || ! [[ "$b" =~ ^[A-Za-z0-9._/-]+$ ]] \
+                        || { [ "$kind" = pushed ] && ! [[ "${want:-}" =~ ^[0-9a-f]{40}$ ]]; }; then voids+=("PREMISE-FORM $line"); continue; fi
                     out="$(GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh -o BatchMode=yes}" timeout 20 \
                         git ls-remote "${LANE_PRECHECK_GIT_BASE:-https://github.com}/$a.git" "refs/heads/$b" 2>/dev/null)" \
                         || { voids+=("GIT-UNREADABLE $line: ls-remote origin не ответил"); continue; }
                     got="$(awk -v r="refs/heads/$b" '$2 == r { print $1 }' <<< "$out")"
                     if [ -z "$got" ]; then reasons+=("PREMISE-FALSE $line: ветки $b на origin нет")
+                    elif [ "$kind" = pushed ] && [ "$got" != "$want" ]; then reasons+=("PREMISE-FALSE $line: голова $b на origin $got, отправка $want не доехала — зависимый шаг не выдаётся")
                     else heads+=("HEAD $a $b $got"); fi
                     continue
                 fi
@@ -284,11 +370,54 @@ if [ -n "$premise" ]; then
                 if [ "$rc" != 0 ]; then voids+=("GH-UNREADABLE $line"); continue; fi
                 if ! got="$(printf '%s' "$got" | dod_revs)"; then voids+=("DOD-LIB $line: распознаватель $HERE/lib/dod_proof.jq не судил"); continue; fi
                 if [ -z "$got" ]; then reasons+=("PREMISE-FALSE $line: комментария «DoD-proof @<sha>» нет"); fi ;;
+            cherry-vet)
+                if ! top="$(git -C "$a" rev-parse --show-toplevel 2>/dev/null)" || [ -z "$b" ]; then voids+=("PREMISE-FORM $line: клона «$a» либо ветки нет"); continue; fi
+                command -v go > /dev/null 2>&1 || { voids+=("GO-ABSENT $line: go нет — vet не судим"); continue; }
+                csha="$(git -C "$top" rev-parse -q --verify "$b^{commit}" 2>/dev/null)" || { voids+=("PREMISE-FORM $line: ветки «$b» в клоне нет"); continue; }
+                cbase="$(git -C "$top" merge-base "$csha" refs/remotes/origin/main 2>/dev/null)" || { voids+=("PREMISE-FORM $line: origin/main в клоне нет — дифф не от чего"); continue; }
+                cwt="$(mktemp -d)"
+                if ! git -C "$top" worktree add -q --detach "$cwt/t" "$csha" > /dev/null 2>&1; then voids+=("WORKTREE $line: копия головы не заводится"); rm -rf "$cwt"; continue; fi
+                # Пакеты диффа — каталоги изменённых .go, живые на голове; модуль — ближайший go.mod вверх.
+                declare -A cmods=(); cpk=0 ccut=0 ctd=0
+                while IFS= read -r f; do
+                    d="$(dirname "$f")"; [ -d "$cwt/t/$d" ] || continue
+                    # testdata — не пакет для go (каталог игнорируется сборкой): вне суда, счётом.
+                    case "/$d/" in */testdata/*) ctd=$((ctd + 1)); continue ;; esac
+                    m="$d"; while [ "$m" != . ] && [ ! -f "$cwt/t/$m/go.mod" ]; do m="$(dirname "$m")"; done
+                    [ -f "$cwt/t/$m/go.mod" ] || continue
+                    if [ "$d" = "$m" ]; then rel=.; elif [ "$m" = . ]; then rel="./$d"; else rel="./${d#"$m"/}"; fi
+                    case " ${cmods[$m]:-} " in *" $rel "*) ;; *) cmods[$m]="${cmods[$m]:-} $rel"; cpk=$((cpk + 1)) ;; esac
+                done < <(git -C "$top" diff --name-only "$cbase" "$csha" -- '*.go')
+                # Пакет, где теги -tags=integration отсекают ВСЕ файлы (tools.go с //go:build tools),
+                # vet отверг бы «build constraints exclude all Go files» — не предмет: вне суда, счётом.
+                for m in "${!cmods[@]}"; do
+                    keep=""
+                    for rel in ${cmods[$m]}; do
+                        nf="$(cd "$cwt/t/$m" && go list -e -tags=integration -f '{{len .GoFiles}} {{len .CgoFiles}} {{len .TestGoFiles}} {{len .XTestGoFiles}}' "$rel" 2>/dev/null | awk '{ print $1 + $2 + $3 + $4 }')"
+                        if [ "${nf:-0}" -gt 0 ]; then keep="$keep $rel"; else ccut=$((ccut + 1)); cpk=$((cpk - 1)); fi
+                    done
+                    if [ -n "$keep" ]; then cmods[$m]="$keep"; else unset "cmods[$m]"; fi
+                done
+                cerr=""
+                for m in "${!cmods[@]}"; do
+                    # shellcheck disable=SC2086 # перечень пакетов — словами
+                    out="$(cd "$cwt/t/$m" && go vet -tags=integration ${cmods[$m]} 2>&1)" || cerr="${cerr:+$cerr; }$m: $(grep -m1 -vE '^#|^$' <<< "$out" | cut -c1-200)"
+                done
+                git -C "$top" worktree remove --force "$cwt/t" > /dev/null 2>&1; rm -rf "$cwt"
+                unset cmods
+                if [ "$cpk" -eq 0 ]; then voids+=("CHERRY-EMPTY $line: Go-пакетов для vet в диффе от merge-base нет (отсечено тегами $ccut, файлов testdata $ctd) — vet не судит ничего")
+                elif [ -n "$cerr" ]; then reasons+=("PREMISE-FALSE $line: go vet -tags=integration на голове ${csha:0:12} (пакетов $cpk) — $cerr; зависимость вишни не перенесена — ветку стеком от предшественницы (fa-a5-stacked-branches)")
+                else heads+=("CHERRY-VET $b @${csha:0:12}: пакетов $cpk, vet -tags=integration 0; отсечено тегами $ccut, файлов testdata $ctd"); fi ;;
             alive)
                 read -r _ _ _ phrase <<< "$line"
                 if [ -z "${phrase:-}" ] || ! git -C "$a" rev-parse -q --verify "$b^{commit}" > /dev/null 2>&1; then voids+=("PREMISE-FORM $line: клона «$a» либо ревизии «$b» нет"); continue; fi
                 c="$(git -C "$a" grep -F -l -e "$phrase" "$b" -- 2>/dev/null | wc -l)"
                 [ "$c" -gt 0 ] || reasons+=("PREMISE-FALSE $line: предмет снят до раздачи — «$phrase» в $b не встречается") ;;
+            path)
+                read -r _ _ _ pth _ <<< "$line"
+                if [ -z "${pth:-}" ] || ! git -C "$a" rev-parse -q --verify "$b^{commit}" > /dev/null 2>&1; then voids+=("PREMISE-FORM $line: клона «$a», ревизии «$b» либо пути нет"); continue; fi
+                git -C "$a" cat-file -e "$b:${pth%/}" 2> /dev/null \
+                    || reasons+=("PREMISE-FALSE $line: дома нет — «$pth» в $b не существует (дом другого репозитория либо путь по памяти)") ;;
             branchname | commit-subject | push-form)
                 if ! top="$(git -C "$a" rev-parse --show-toplevel 2>/dev/null)"; then voids+=("PREMISE-FORM $line: клона «$a» нет"); continue; fi
                 slug="$(git -C "$top" remote get-url origin 2>/dev/null)"; slug="${slug%.git}"; slug="${slug#*github.com[:/]}"

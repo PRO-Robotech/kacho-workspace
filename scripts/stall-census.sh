@@ -73,8 +73,11 @@
 #                кладёт в окружение оболочки id агента (замер 2026-10-18: CLAUDE_CODE_SESSION_ID,
 #                CLAUDE_PID, без id агента); завершённый агент при живом claude не судится
 #                здесь — его видят STALL-AGENT и STALL-POLL. СЛЕПАЯ ЗОНА: процесс с чистым
-#                окружением (`env -i`, контейнер, `systemd-run`) метки не несёт и не
-#                отбирается — ни строкой, ни счётом. Окружение не прочитано ни у
+#                окружением (`env -i`, контейнер, голый `systemd-run`) метки не несёт и не
+#                отбирается — ни строкой, ни счётом. Службы `detach.sh start` и `autoland.sh
+#                start` (systemd --user, вне scope сессии) несут окружение вызова целиком
+#                (scripts/detach-launch.sh) и отбираются: их родитель — менеджер systemd, не
+#                claude, то есть «отсоединённый». Окружение не прочитано ни у
 #                одного процесса живого снимка — код 2 (не «чисто»).
 #   UNREACTED-WF workflow завершён дольше STALL_REACT_MIN (10) мин назад, а у
 #                главного потока после этого нет ни одной записи assistant.
@@ -86,6 +89,11 @@
 #                журнал кончается записью user («ответ модели на сообщение») — по хвосту
 #                журнала он неотличим от стоящего. Не судится ни STALL-AGENT, ни STALL-POLL;
 #                счёт — «остановленных харнессом». Главный журнал читается только при находке.
+#   Оборванный перезапуском — последняя запись агента (время записи и mtime журнала)
+#                старше старта своего claude (etimes снимка): агент исполнялся прежним
+#                процессом той же сессии (`--resume` агентов не продолжает). Не судится ни
+#                STALL-AGENT, ни STALL-POLL; счёт — «оборванных перезапуском claude».
+#                Свой claude не определён — не применяется.
 #
 # Окно — STALL_HORIZON_MIN (360) мин: брошенный журнал убитой сессии старше окна
 # не судится, иначе строка печаталась бы вечно и перестала бы читаться.
@@ -364,6 +372,12 @@ def last_message(path):
         return t, 'tool', u.get('name', '?') + ': ' + ' '.join(str(what).split())[:160]
     if any(isinstance(c, dict) and c.get('type') == 'tool_result' for c in content):
         return t, 'result', 'ответ модели после результата инструмента'
+    # Прерывание харнесс пишет записью user с текстом «[Request interrupted …]» (строкой либо
+    # блоком text): подпись — прерывание, вид и пороги прежние (ws#1242, пункт 2).
+    raw = r['message'].get('content')
+    texts = [raw] if isinstance(raw, str) else [c.get('text', '') for c in content if isinstance(c, dict)]
+    if any(str(x).lstrip().startswith('[Request interrupted') for x in texts):
+        return t, 'result', 'прервано пользователем'
     return t, 'result', 'ответ модели на сообщение'
 
 
@@ -427,6 +441,11 @@ def harness_stopped(aid, t):
 agents_seen = 0
 done_seen = 0  # завершённые (вид 'final'): не судятся
 stopped_seen = 0  # остановленные харнессом (harness_stopped): не судятся
+# Находка по агенту — кандидат (текст, последняя активность): решается после снимка
+# процессов, когда известен старт своего claude (ниже, «оборванные перезапуском»).
+agent_cands = []
+def agent_finding(text, apath, t):
+    agent_cands.append((text, max(t or 0, os.path.getmtime(apath)), apath))
 unread = []  # журналы агентов старше порога без единой разобранной записи
 wf_live = 0
 state_dir = os.path.join(session, 'workflows')
@@ -462,7 +481,7 @@ try:
             agents_seen += 1
             n, span, last = poll_run(apath)
             if n >= 2 and span >= POLL_MIN:
-                findings.append('STALL-POLL %s/%s — ожидание вместо работы: %d вызовов подряд за %d мин; последний: %s' % (wid, aid, n, span, last))
+                agent_finding('STALL-POLL %s/%s — ожидание вместо работы: %d вызовов подряд за %d мин; последний: %s' % (wid, aid, n, span, last), apath, t)
                 continue
             if age_file < AGENT_MIN * 60:
                 continue
@@ -481,7 +500,7 @@ try:
                     label = (m.get('agentType') or '') + ' «' + (m.get('description') or '') + '»'
                 except Exception:
                     pass
-                findings.append('STALL-AGENT %s/%s %s — без нового вызова %d мин; последний: %s' % (wid, aid, label, idle, what))
+                agent_finding('STALL-AGENT %s/%s %s — без нового вызова %d мин; последний: %s' % (wid, aid, label, idle, what), apath, t)
     for apath in glob.glob(os.path.join(session, 'subagents', 'agent-*.jsonl')):
         age_file = now - os.path.getmtime(apath)
         if age_file > HORIZON_MIN * 60:
@@ -500,7 +519,7 @@ try:
             if harness_stopped(aid, tt):
                 stopped_seen += 1
                 continue
-            findings.append('STALL-POLL %s — ожидание вместо работы: %d вызовов подряд за %d мин; последний: %s' % (os.path.basename(apath)[:-6], n, span, last))
+            agent_finding('STALL-POLL %s — ожидание вместо работы: %d вызовов подряд за %d мин; последний: %s' % (os.path.basename(apath)[:-6], n, span, last), apath, t)
             continue
         if age_file < AGENT_MIN * 60:
             continue
@@ -514,7 +533,7 @@ try:
             if harness_stopped(aid, t):
                 stopped_seen += 1
                 continue
-            findings.append('STALL-AGENT %s — без нового вызова %d мин; последний: %s' % (os.path.basename(apath)[:-6], idle, what))
+            agent_finding('STALL-AGENT %s — без нового вызова %d мин; последний: %s' % (os.path.basename(apath)[:-6], idle, what), apath, t)
 except OSError as e:
     void('журналы агентов не читаются: %s' % e)
 
@@ -568,6 +587,22 @@ if not own_pid and self_pid:
             own_pid = cur
             break
         cur, hops = procs[cur][0], hops + 1
+# Оборванные перезапуском: агент, чья последняя запись (журнал и его mtime) СТАРШЕ
+# старта своего claude, исполнялся прежним процессом — `claude --resume` той же сессии
+# агентов не продолжает, а журналы лежат в том же каталоге (2026-10-19: агенты
+# wf_044f09f3-386 и wf_c0908395-186 писали в 16:00 и 15:53, claude стартовал в 16:06,
+# хук звал их застоем на каждом ходе). Агент текущего процесса раньше его старта не
+# пишет. Возобновлённый (SendMessage) дописывает журнал — снова судим. Свой claude не
+# определён — кандидаты судятся как прежде.
+restart_seen = 0
+own_start = None
+if own_pid and procs[own_pid][1] is not None:
+    own_start = now - procs[own_pid][1]
+for text, last_t, _ap in agent_cands:
+    if own_start is not None and last_t < own_start - 2:
+        restart_seen += 1
+        continue
+    findings.append(text)
 proc_root = os.environ.get('STALL_PROC_ROOT') or ('/proc' if live else '')
 uptime = None  # потолок возраста (ws#1149); нет файла — судит лишь потолок родителя
 if proc_root:
@@ -726,8 +761,8 @@ if verbose:
     for x in implausible:
         proc_notes.append('STALL-PROC: возраст неправдоподобен — не судится: %s' % x)
 
-print('CENSUS stall-census: сессия %s%s; workflow живых %d, завершённых в окне %d; агентов осмотрено %d, из них без единой разобранной записи %d; завершённых (не судятся) %d, остановленных харнессом (не судятся) %d; своя сессия %s (claude %s); фоновых оболочек агентов %d из процессов %d: своих %d, чужих %d, не судимо %d, неправдоподобного возраста %d; отсоединённых (окружение прочитано у %d процессов, меченых %d): корней %d — своих %d (claude жив %d, в объявленном сроке %d), чужих %d, неправдоподобного возраста %d; пороги агент %d мин, опрос %d мин, завершённый %d мин, процесс %d мин, реакция %d мин, окно %d мин'
-      % (os.path.basename(session), sess_note, wf_live, wf_done, agents_seen, len(unread), done_seen, stopped_seen, own_sid or 'не определена', own_pid or '?', shells, len(procs), mine, foreign, len(unjudged), len(implausible) - det_implausible, env_read, len(marked), det_roots, det_mine, det_live, det_term, det_foreign, det_implausible, AGENT_MIN, POLL_MIN, DONE_MIN, PROC_MIN, REACT_MIN, HORIZON_MIN))
+print('CENSUS stall-census: сессия %s%s; workflow живых %d, завершённых в окне %d; агентов осмотрено %d, из них без единой разобранной записи %d; завершённых (не судятся) %d, остановленных харнессом (не судятся) %d, оборванных перезапуском claude (не судятся) %d; своя сессия %s (claude %s); фоновых оболочек агентов %d из процессов %d: своих %d, чужих %d, не судимо %d, неправдоподобного возраста %d; отсоединённых (окружение прочитано у %d процессов, меченых %d): корней %d — своих %d (claude жив %d, в объявленном сроке %d), чужих %d, неправдоподобного возраста %d; пороги агент %d мин, опрос %d мин, завершённый %d мин, процесс %d мин, реакция %d мин, окно %d мин'
+      % (os.path.basename(session), sess_note, wf_live, wf_done, agents_seen, len(unread), done_seen, stopped_seen, restart_seen, own_sid or 'не определена', own_pid or '?', shells, len(procs), mine, foreign, len(unjudged), len(implausible) - det_implausible, env_read, len(marked), det_roots, det_mine, det_live, det_term, det_foreign, det_implausible, AGENT_MIN, POLL_MIN, DONE_MIN, PROC_MIN, REACT_MIN, HORIZON_MIN))
 for f in findings:
     print(f)
 for n in proc_notes:
