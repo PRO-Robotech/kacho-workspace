@@ -181,6 +181,8 @@ jq -e '[.layers[] | join(",")] | join("|") == "A,C|B"' "$W/r1c.json" > /dev/null
 # Полоса образов без deps рядом с документной (ws#1191).
 planout "$W/r0s.json" '[{key:"A",repo:"kacho-workspace",paths:["docs/a.md"]},{key:"S",repo:"kacho-workspace",paths:["docs/s.md"]}]'
 planout "$W/r2.json" '[{key:"M",repo:"kacho-workspace",paths:["services/x/migrations/0001.sql"]}]'
+# Полоса не migration-writer, но с путём миграции, рядом с документной (ws#1242 п.3).
+planout "$W/r0g.json" '[{key:"A",repo:"kacho-workspace",paths:["docs/a.md"]},{key:"G",repo:"kacho-workspace",paths:["services/iam/internal/migrations/0042_roles.sql"]}]'
 planout "$W/r2two.json" '[{key:"M",repo:"kacho-workspace",paths:["services/x/migrations/0001.sql","services/x/internal/authz/a.go"]}]'
 jq -e '.lanes[0].roles | length >= 2' "$W/r2two.json" > /dev/null || { echo "wave-template-inject: VOID — план R2 без двух ролей: предпосылка сценария возврата одной роли" >&2; exit 2; }
 # Зависимая полоса уровня R2 (роли есть): дельта ревью и повтор после ролей.
@@ -310,6 +312,15 @@ console.log('== R2: полный набор')
 r = await run({ args: { ...args, lanes: [{ key: 'M', repo: 'kacho-workspace', agent: 'migration-writer', branch: '9-m', text: 't' }] }, plan: [P('r2.json')] })
 ok(r.res.ok === true, 'волна R2 влита', JSON.stringify(r.res).slice(0, 300))
 for (const t of ['acceptance-author', 'db-architect-reviewer', 'wave-reviewer']) ok(by(r.calls, c => c.agentType === t) === 1, t + ' — один раз')
+// ws#1242 п.3: задание полосы SQL/миграции несёт обе строки (прогон фикстуры до правки с чтением
+// отказа; перепись подъёма в том же прогоне); полоса без SQL — не несёт.
+const sqlTwo = s => /SQL\/МИГРАЦИЯ: пробу с новой фикстурой прогони на голове ДО правки и прочти текст отказа/.test(s) && /Перепись подъёма \(TestIntegration_RoleComposition\*[^)]*\) — в том же прогоне, что пробы предмета/.test(s)
+ok(sqlTwo(prm(r.calls, 'impl:M')), 'полоса migration-writer — задание несёт обе строки SQL/миграции', prm(r.calls, 'impl:M').slice(0, 300))
+{
+  const rs = await run({ args: { ...args, lanes: [{ key: 'A', repo: 'kacho-workspace', agent: 'docs-writer', branch: '9-a', text: 't' }, { key: 'G', repo: 'kacho-workspace', agent: 'go-implementer', branch: '9-g', text: 't', paths: ['services/iam/internal/migrations/0042_roles.sql'] }] }, plan: [P('r0g.json')] })
+  ok(sqlTwo(prm(rs.calls, 'impl:G')), 'полоса go-implementer с путём миграции — задание несёт обе строки')
+  ok(prm(rs.calls, 'impl:A') !== '' && !/SQL\/МИГРАЦИЯ/.test(prm(rs.calls, 'impl:A')), 'близнец: полоса без SQL — строк SQL/миграции нет', prm(rs.calls, 'impl:A').slice(0, 200))
+}
 ok(by(r.calls, c => c.label.startsWith('census:')) === 1, 'перепись поверхности до кода')
 ok(r.calls.findIndex(c => c.label.startsWith('census:')) < r.calls.findIndex(c => c.label.startsWith('impl:')), 'перепись — раньше исполнителя')
 r = await run({ args: { ...args, lanes: [{ key: 'M', repo: 'kacho-workspace', agent: 'migration-writer', branch: '9-m', text: 't' }] }, plan: [P('r2.json')], staleRole: true })
@@ -1080,6 +1091,8 @@ PY
     fi
 }
 echo "== инъекции: мутанты шаблона"
+mutant "строки SQL/миграции сняты (ws#1242)" "mapText(l) + (sqlLane(l) ? SQL_RULE : '')" "mapText(l) + ''"
+mutant "строки SQL/миграции всем полосам (ws#1242)" "(sqlLane(l) ? SQL_RULE : '')" "SQL_RULE"
 mutant "механика на haiku" "const MECH = { agentType: 'git-operator' }" "const MECH = { model: 'haiku', agentType: 'git-operator' }"
 mutant "механика с явной моделью" "const MECH = { agentType: 'git-operator' }" "const MECH = { model: 'sonnet', agentType: 'git-operator' }"
 mutant "effort low на всей механике" "const MECH = { agentType: 'git-operator' }" "const MECH = { effort: 'low', agentType: 'git-operator' }"
@@ -1348,7 +1361,7 @@ mutant "зависимый другого репозитория — не в э�
 # ws#1058: пин на голову сборки — образа ветки нет в реестре; пункт чужого класса без своей полосы.
 mutant "пин на ветку без образа" "пин — на ревизию производителя с опубликованным образом" "пин — на голову сборки производителя"
 mutant "пункт чужого класса — без своей полосы" "Пункт чужого класса (консоль — ui-implementer)" "Пункт консоли"
-mutant "карта не в задании полосы" "+ mapText(l) + '\\n' + FILES_RULE" "+ '\\n' + FILES_RULE"
+mutant "карта не в задании полосы" "+ mapText(l) + (sqlLane(l)" "+ (sqlLane(l)"
 mutant "карта всех полос в задании" "const m = preMap[l.key]; return" "const m = { impact: Object.values(preMap).flatMap(x => x.impact), criteria: Object.values(preMap).flatMap(x => x.criteria) }; return"
 mutant "незакрытый пункт не судится" "return preMap[l.key].impact.map((_, i) => i + 1).filter(" "return [].filter("
 mutant "«посмотрю потом» — закрытие" "(?:правка\\\\s+\\\\S|не затронуто — потому что\\\\s+\\\\S)" "(?:правка|не затронуто|посмотрю)"

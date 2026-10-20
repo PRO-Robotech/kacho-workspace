@@ -1,0 +1,178 @@
+schema_version: 1
+kind: acceptance_review
+review_type: delta
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-REG-PUB-1-public-registry-by-class-grant-acceptance.md
+  sha256: 408010e155f1a3b5248dc5be515877fb42241b64c74d64a91c1c3bd1b82c4c94
+  revision: 12
+  static_status: DRAFT
+  static_status_note: >-
+    Шапку документа намеренно не правили (change-graph.md §2). Действующий вердикт об этом
+    отпечатке — эта запись вместе с внешним событием, которое публикует курьер. Документ не
+    закоммичен: рабочее дерево воркспейса, ветка main @3ea45692b; в HEAD лежит редакция 10
+    (a582030e…, коммит b58a94f29).
+  base_commit: 3ea45692b
+  content_commit: none
+  task: https://github.com/PRO-Robotech/kacho/issues/3274
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-REG-PUB-1-public-registry-by-class-grant-acceptance.md
+  lines: 803
+  scenarios: 26 (grep -c '^**ID:**')
+verdict: CHANGES_REQUESTED
+round: 'круг 1 редакции 12 (дельта к одобренной редакции 10; редакция 11 на ревью не ходила)'
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-19T20:29:31Z'
+basis:
+  prior_approved_sha256: a582030ed6c8e6ed3d1ef720910fec90eb815b9c6fd9703c920913af4a00956f
+  prior_note: >-
+    Вердикт о редакции 10 на эту редакцию не переносится. Судилась только дельта
+    (regpub1-a582030e-r12.diff, 318 строк): история в шапке, решение диспетчера В1 (а),
+    «Обзор», перепись (4 строки), Р9 пп. 2, 3, 5 и фраза ban18-q-security, П3 и его прогон,
+    сценарии 52 и 53, строки производителей 13–29/50–53, DoD S3 и S4, разделы «Редакция 11/12».
+    Вне дельты ничего не переоткрыто (flow-acceleration.md fa-b1).
+  dispatcher_decisions: >-
+    2026-10-19, В1 (а): анонимное чтение включено во всех профилях, включая боевой.
+    2026-10-19, (а): одно общее значение global.kacho.registry.anonymousSubjectId на обе
+    стороны, собственный ключ kaname — отказ рендера. Решения не оспариваются; расширение
+    поверхности названо (ban18-q-security, фраза после Р9).
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: issue_comment
+  target: PRO-Robotech/kacho#3274
+  status: not_performed
+  published: false
+  body: 'role: acceptance-reviewer · verdict: CHANGES_REQUESTED · subject_sha256: 408010e155f1a3b5248dc5be515877fb42241b64c74d64a91c1c3bd1b82c4c94'
+  publication_mode: scripts/rituals/approval-event.sh
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    note: Семь прежних записей этого документа не правлены.
+
+measurements:
+  premise: >-
+    sha256sum файла → 408010e1…c4c94 (совпало с заданием); git show HEAD:<файл> | sha256sum →
+    a582030e…956f (редакция 10).
+  render: >-
+    Временная копия kacho @dc4e91348 (git worktree, scratchpad; зависимости умбреллы —
+    helm dependency build --skip-refresh, код 0). helm template цепочкой каждого имени
+    bash deploy/tests/helm/stacks.sh --names (7): код 0 у всех; обе стороны
+    "registry-anonymous" — dev, dev-prod, prorobotech, a8f60d; обе пусты — prod, own, fe3455.
+    Итого 4 из 7 — совпадает с П3.
+  render_controls: >-
+    dev с global…=пусто → 0 и 0; prod, own, fe3455 с global…=registry-anonymous → 1 и 1,
+    код 0. Тем самым DoD S4 «7 из 7» конструируем: ни один из трёх пустых стеков не
+    отказывает рендером, когда значение задано (полоса токена в них есть).
+  key_combinations: >-
+    prod + собственный ключ kaname → код 1, отказ at charts/kaname/templates/deployment.yaml:90,
+    текст называет config.apiServer.registryToken.anonymousClientId и
+    global.kacho.registry.anonymousSubjectId; то же с global=пусто явно → код 1; то же с
+    global, равным ему → код 1. dev + registry.anonymousSubjectId=other-anonymous → код 1,
+    отказ at charts/registry/templates/deployment.yaml:237, текст называет оба ключа.
+    Близнецы: prod + global → код 0, 1 и 1, значения равны; dev + registry-ключ, равный
+    общему → код 0, 1 и 1. Собственный ключ registry один (prod; dev с global=пусто) → код 0,
+    у registry значение есть, anonymous-client-id у kaname нет. Всё совпадает с П3.
+  process_probes: >-
+    kaname @93ad1b885 (временная копия): GOWORK=off go test ./internal/handler/registrytokenhttp/
+    -run 'TestToken_AnonymousDisabled_NoCreds_401$|TestToken_AnonymousEnabled_NoCreds_200Token$'
+    → ok, 2 PASS. kacho @dc4e91348 services/registry: GOWORK=off go test ./internal/dataplane/
+    -run 'TestSystemClass_SC39_RegistryAsksAsTheAnonymousClass$|TestDataplane_RG1_AnonDisabled_TokenResolvesAsOrdinaryPrincipal$'
+    → ok, 2 PASS.
+  grant_gates: >-
+    kaname @93ad1b885: git grep -l -i '<6 имён ручки>' -- internal/apps/kaname/api/access_binding/
+    → 0 файлов из 146; контроль — те же имена находятся в api/registry_token/token.go,
+    config/registry_token.go. Совпадает с переписью.
+  posture_gate: >-
+    deploy/scripts/assert-production-posture.sh @dc4e91348: про анонимный субъект плоскости
+    данных ничего не утверждает (grep -n -i anonymous — только комментарии о режимах
+    сервисов). Включение в prod с боевой посадкой не расходится.
+
+seeding:
+  summary: 'посеяно 2 из 2 «Дано» дельты (П3 рендером и пробами процесса; П2 дельтой не тронут)'
+  P3: >-
+    Повторён целиком, см. measurements.render, render_controls, key_combinations,
+    process_probes. Не выполнилось — 0.
+
+blocking:
+  - kind: CONSTRUCTIBILITY
+    where: сценарий REG-PUB-1-53, «Given» (строки 604–605)
+    text: >-
+      «Given … цепочка стека prod (общее значение global.kacho.registry.anonymousSubjectId
+      пусто)» верно только до S4. DoD S4 этой же задачи требует значение в prod без
+      перекрытия, после чего «Дано» в написанной форме не строится, а держатель-рендер на
+      prod с одним перекрытием собственного ключа kaname проверяет уже случай «рядом с общим
+      значением» (второе «And»). Случай «собственный ключ kaname один» — тот самый, на котором
+      стоит отказ Р9 п. 2, — остаётся без держателя. Замер: prod без перекрытия на dc4e91348 —
+      0 и 0; после S4 по DoD S4 — 1 и 1. Правка: в «Given» перекрытие
+      --set-string global.kacho.registry.anonymousSubjectId= явно, как это уже сделано в
+      REG-PUB-1-52; то же для строки DoD S3 «собственный ключ registry без общего».
+  - kind: COVERAGE
+    where: Р9 п. 5 (строки 260–261); DoD S3 (перечень исходов пробы рендера)
+    text: >-
+      Р9 п. 5 утверждает: «Сторона, выдающая анонимный токен, без узнающей не включается ни в
+      одном рендере». Рендер опровергает: dev (общее значение задано) с --set registry.enabled=false
+      → код 0, у kaname anonymous-client-id: "registry-anonymous" есть, пода registry в рендере
+      нет (счёт 0 и 1). registry.enabled — условие подчарта в Chart.yaml умбреллы, то есть
+      законная ручка оператора, а одиночная установка чарта registry самим документом названа
+      поддерживаемой формой (Р9 п. 2). Свойство, которым п. 2 обосновывает отказ на собственном
+      ключе kaname, в этом рендере не выполнено, а текст о безопасности объявляет его
+      безусловным. Исход выбирает диспетчер (вопрос ниже): (а) приёмка заказывает отказ рендера
+      умбреллы при заданном общем значении и выключенном подчарте registry — исход в DoD S3 и
+      «And» в REG-PUB-1-53 с близнецом (registry.enabled=true → код 0); (б) п. 5 сужается до
+      «в рендере, где подчарт registry включён», а остаток называется прямо.
+
+non_blocking:
+  - kind: FORMAT
+    where: REG-PUB-1-53, первое «Then»
+    text: >-
+      «в выводе нет ни KACHO_REGISTRY_ANONYMOUS_SUBJECT_ID, ни anonymous-client-id:» на
+      отказавшем рендере истинно всегда (stdout пуст). Различающая часть — причина отказа;
+      держатель стоит на render_must_fail_because (deploy/tests/helm/outcome.sh), иначе
+      отрицание принимает любой отказ, включая несобранные зависимости.
+  - kind: FORMAT
+    where: REG-PUB-1-52 (б)
+    text: >-
+      «When» называет scope=repository:<X>/app:pull, держатель TestToken_AnonymousDisabled_NoCreds_401
+      шлёт запрос без scope и собирает обработчик с fakeIssuer{anonEnabled:false}, а не из
+      пустой ручки. Связь «пустая ручка → anonEnabled=false» держит kaname#495 (вне
+      под-фазы) — назвать это одной фразой в строке производителя 52.
+  - kind: PRODUCER
+    where: строка производителя 53
+    text: >-
+      Названы _helpers.tpl обоих чартов; отказ всплывает из deployment.yaml:90 (kaname) и
+      deployment.yaml:237 (registry) через include — это одно и то же, но строка П3 и
+      строка производителя называют разные файлы. Достаточно «_helpers.tpl, зовётся из
+      deployment.yaml».
+  - kind: FORMAT
+    where: прежние минорные замечания записи a582030e…
+    text: >-
+      Дельтой не тронуты и остаются (держатель 28, предикат инварианта 5, «ровно X» в 11,
+      «все репозитории X» в 29, двуязычный предикат текстов S2).
+
+checklist_delta:
+  producers: 'у «Тогда» 52 и 53 производитель назван: 2 из 2'
+  twins: 'положительный близнец у 52 и 53: 2 из 2, отличие в один факт'
+  dod: 'S3 — по исходу на пробу; S4 — «N из N» по stacks.sh --names, измеримо'
+  disclosure: >-
+    Документ называет расширение поверхности, но не путь к дефекту. Эта запись называет
+    рендер, опровергающий утверждение, без пересказа следствия (security-disclosure.md
+    disc-no-consolidated-assembly).
+
+route_signs:
+  proto: нет
+  schema: нет
+  public_rpc: нет
+  ui: нет
+  new_domain: нет
+  security_surface: >-
+    да (анонимный токен плоскости данных во всех профилях, включая prod; граница «выдающая
+    сторона только вместе с узнающей»)

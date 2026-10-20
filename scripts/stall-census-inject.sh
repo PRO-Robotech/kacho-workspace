@@ -58,6 +58,9 @@ rec() {
         midtext) printf '{"type":"assistant","timestamp":"%s","message":{"role":"assistant","stop_reason":"tool_use","content":[{"type":"text","text":"проверю"}]}}\n' "$t" >> "$f" ;;
         ask) printf '{"type":"user","timestamp":"%s","message":{"role":"user","content":"продолжи"}}\n' "$t" >> "$f" ;;
         result) printf '{"type":"user","timestamp":"%s","message":{"role":"user","content":[{"type":"tool_result","content":"ok"}]}}\n' "$t" >> "$f" ;;
+        intr) printf '{"type":"user","timestamp":"%s","message":{"role":"user","content":[{"type":"text","text":"[Request interrupted by user]"}]}}\n' "$t" >> "$f" ;;
+        intrmid) printf '{"type":"user","timestamp":"%s","message":{"role":"user","content":"см. выше: [Request interrupted by user] было вчера"}}\n' "$t" >> "$f" ;;
+        intrs) printf '{"type":"user","timestamp":"%s","message":{"role":"user","content":"[Request interrupted by user for tool use]"}}\n' "$t" >> "$f" ;;
     esac
     printf '{"type":"attachment","timestamp":"%s"}\n' "$t" >> "$f"
     touch -d "@$((NOW - m * 60))" "$f"
@@ -93,6 +96,20 @@ probe 1 "инъекция: вызов 30 мин без результата — 
 probe 1 "  …находка называет команду" "until grep -q rc= run.log" --session "$s" --ps "$T/ps"
 s="$(session waitmodel)"; rec "$s/subagents/workflows/wf_live-1/agent-a1.jsonl" 30 result
 probe 1 "инъекция: результат 30 мин без ответа модели — STALL-AGENT" "STALL-AGENT" --session "$s" --ps "$T/ps"
+# ws#1242 п.2: запись user «[Request interrupted …]» — подпись «прервано пользователем», вид
+# прежний (`result`: тот же STALL-AGENT); близнец — обычное сообщение, прежняя подпись.
+intr_cases() {
+    local s
+    s="$(session intr)"; rec "$s/subagents/agent-i1.jsonl" 30 intr
+    absent="ответ модели на сообщение" probe 1 "прерывание блоком text — STALL-AGENT, подпись «прервано пользователем»" "STALL-AGENT agent-i1 — без нового вызова 30 мин; последний: прервано пользователем" --session "$s" --ps "$T/ps"
+    s="$(session intrs)"; rec "$s/subagents/agent-i2.jsonl" 30 intrs
+    probe 1 "прерывание строкой content — та же подпись" "последний: прервано пользователем" --session "$s" --ps "$T/ps"
+    s="$(session intrmid)"; rec "$s/subagents/agent-i4.jsonl" 30 intrmid
+    absent="прервано пользователем" probe 1 "близнец: фраза «[Request interrupted» в середине текста — прежняя подпись" "последний: ответ модели на сообщение" --session "$s" --ps "$T/ps"
+    s="$(session asked)"; rec "$s/subagents/agent-i3.jsonl" 30 ask
+    absent="прервано пользователем" probe 1 "близнец: обычное сообщение user — прежняя подпись, тот же вид" "STALL-AGENT agent-i3 — без нового вызова 30 мин; последний: ответ модели на сообщение" --session "$s" --ps "$T/ps"
+}
+intr_cases
 s="$(session finished)"; rec "$s/subagents/workflows/wf_live-1/agent-a1.jsonl" 30 "done"
 probe 0 "близнец: агент закончил ход 30 мин назад — не застой" - --session "$s" --ps "$T/ps"
 s="$(session result)"; rec "$s/subagents/workflows/wf_live-1/agent-a1.jsonl" 30 tool
@@ -186,6 +203,8 @@ MUTPY
         echo "  [FAIL] мутант «$1» выжил: все $mp проб сошлись" >&2; fail=$((fail + 1))
     fi
 }
+fmutant "прерывание — вхождение, а не начало текста" "str(x).lstrip().startswith('[Request interrupted')" "'[Request interrupted' in str(x)" intr_cases
+fmutant "прерывание — общая подпись (до ws#1242)" "        return t, 'result', 'прервано пользователем'" "        return t, 'result', 'ответ модели на сообщение'" intr_cases
 fmutant "не проверять завершение" "FINAL_STOP = ('end_turn', 'stop_sequence', 'refusal')" "FINAL_STOP = ()"
 fmutant "завершение — любой ответ без вызова" "('final' if fin else 'done')" "'final'"
 fmutant "итог без stop_reason не узнаётся (до ws#1130)" " or (sr is None and now - os.path.getmtime(path) >= AGENT_MIN * 60)" ""
@@ -255,6 +274,34 @@ fmutant "возобновление после остановки не учит�
 fmutant "возобновление не разбирается" "            if resumed.search(l):" "            if False:" stop_cases
 fmutant "уведомление старше записей агента принимается" " and n_last >= t - 3" "" stop_cases
 fmutant "снятие из очереди — уведомление" "(r.get('type') == 'queue-operation' and r.get('operation') != 'enqueue')" "False" stop_cases
+
+echo "== агент прежнего процесса claude не судится (2026-10-19: после --resume хук звал застоем агентов умершего процесса)"
+# restart_cases — свой claude 100 (CLAUDE_PID) со стартом etimes назад; агент писал до
+# старта — исполнялся прежним процессом; близнец — тот же журнал при claude старше агента.
+restart_cases() {
+    local s a
+    rm -rf "$T"/rst-*
+    printf '%s\n' "100 1 600 claude claude --resume x" > "$T/ps-young"     # стартовал 10 мин назад
+    printf '%s\n' "100 1 90000 claude claude --resume x" > "$T/ps-elder"   # стартовал 1500 мин назад
+    s="$(session rst-top)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    rec "$a" 30 tool "go test ./..."
+    CLAUDE_PID=100 absent="STALL-AGENT" probe 0 "агент верхнего уровня писал 30 мин назад, claude стартовал 10 мин назад — оборван перезапуском, не застой" "оборванных перезапуском claude (не судятся) 1" --session "$s" --ps "$T/ps-young"
+    CLAUDE_PID=100 probe 1 "близнец: тот же журнал, claude старше агента — STALL-AGENT" "STALL-AGENT agent-t1" --session "$s" --ps "$T/ps-elder"
+    s="$(session rst-poll)"; a="$s/subagents/workflows/wf_live-1/agent-a1.jsonl"
+    rec "$a" 40 tool "until grep -q rc= run.log; do sleep 60; done"; rec "$a" 30 tool "gh run view 7 --json status"; rec "$a" 12 tool "gh pr checks 7"
+    CLAUDE_PID=100 absent="STALL-POLL" probe 0 "агент workflow опрашивал до старта claude — оборван перезапуском, не STALL-POLL" "оборванных перезапуском claude (не судятся) 1" --session "$s" --ps "$T/ps-young"
+    CLAUDE_PID=100 probe 1 "близнец: те же опросы при живом claude старше — STALL-POLL" "STALL-POLL wf_live-1/a1" --session "$s" --ps "$T/ps-elder"
+    touch -d "@$((NOW - 180))" "$a"   # журнал дописан после старта записью без разбираемого времени
+    CLAUDE_PID=100 probe 1 "близнец: журнал менялся после старта claude (mtime 3 мин) — жив, STALL-POLL" "STALL-POLL wf_live-1/a1" --session "$s" --ps "$T/ps-young"
+    s="$(session rst-resumed)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    rec "$a" 60 tool; rec "$a" 5 ask
+    CLAUDE_PID=100 probe 0 "возобновлённый после старта (запись 5 мин назад) — судим заново, не «оборван»" "оборванных перезапуском claude (не судятся) 0" --session "$s" --ps "$T/ps-young"
+    probe 1 "близнец: свой claude не определён (нет CLAUDE_PID) — прежний суд, STALL-AGENT" "STALL-AGENT agent-t1" --session "$(printf '%s' "$T/rst-top")" --ps "$T/ps-young"
+}
+restart_cases
+fmutant "старт своего claude не читается" "    own_start = now - procs[own_pid][1]" "    own_start = None" restart_cases
+fmutant "любой агент — прежнего процесса" "if own_start is not None and last_t < own_start - 2:" "if own_start is not None:" restart_cases
+fmutant "mtime журнала не учитывается (только время записи)" "max(t or 0, os.path.getmtime(apath))" "(t or 0)" restart_cases
 fmutant "любой id в уведомлении" "rb'<task-id>' + re.escape(ab) + rb'</task-id>(?:" "rb'<task-id>[0-9a-z]+</task-id>(?:" stop_cases
 fmutant "окно чтения не растёт" "        size = min(size * 4, total)" "        break" stop_cases
 fmutant "STALL-POLL без проверки остановки" "            if harness_stopped(aid, tt):" "            if False:" stop_cases
