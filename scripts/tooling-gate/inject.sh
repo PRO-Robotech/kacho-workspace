@@ -1530,7 +1530,7 @@ if mr_patch "$b/$MR_REL" \
 fi
 b="$(mksandbox)"
 if mr_patch "$b/$DOD_REL" \
-    's/capture\("\^\(/capture("(/' \
+    's/_dod_mark_re: "\^\(/_dod_mark_re: "(/' \
     "маркер в любом месте строки"; then
     run_c09_red "$b" "инъекция: маркер в середине строки и в цитате засчитан доказательством — краснеет" \
         PF-MIDLINE PF-QUOTE
@@ -2630,7 +2630,7 @@ if mr_patch "$b/$CC_REL" 's/gh api --paginate "repos\/\$r\/issues/gh api "repos\
     run 1 "$b" "инъекция: комментарии задачи читаются одной страницей — краснеет" "$C14"
 fi
 b="$(mksandbox)"
-if mr_patch "$b/$DOD_REL" 's/capture\("\^\(/capture("(/' \
+if mr_patch "$b/$DOD_REL" 's/_dod_mark_re: "\^\(/_dod_mark_re: "(/' \
     "маркер в любом месте строки"; then
     run 1 "$b" "инъекция: маркер в середине строки засчитан доказательством — краснеет" "$C14"
 fi
@@ -3488,7 +3488,7 @@ b="$(mksandbox)"
 c21_sub "$b/.claude/rules/ai-tooling.md" "ответ без «### ВОЗВРАТ» — «не-выполнилось»: \`wave.js\` не подставляет его" "ответ без «### ВОЗВРАТ» — принимается: \`wave.js\` подставляет его"
 run_says 1 "$b" "инъекция М3: ответ без ВОЗВРАТ принят в правиле — краснеет" "$C24" "at-agent-does-not-wait без нормы"
 b="$(mksandbox)"
-c21_sub "$b/.claude/agents/dispatcher.md" "\`lane-precheck.sh --premise\` до раздачи, код не 0 — не раздаётся" "\`lane-precheck.sh --premise\` по желанию"
+c21_sub "$b/.claude/agents/dispatcher.md" "\`lane-precheck.sh --premise\` до раздачи, не 0 — не раздаётся" "\`lane-precheck.sh --premise\` по желанию"
 run_says 1 "$b" "инъекция М2: в базе предусловия не судят раздачу — краснеет" "$C24" "§3: предусловия скриптом до раздачи"
 b="$(mksandbox)"
 c21_sub "$b/.claude/agents/dispatcher.md" "\`wave.js\` «Перепись гейтов»: все разом до первой починки и схождения" "\`wave.js\` «Перепись гейтов»: по одному гейту за круг"

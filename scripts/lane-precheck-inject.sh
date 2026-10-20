@@ -378,12 +378,72 @@ prem 'head o/r 2-gone ls-remote'
 assert "1 да" "$(runl) $(has 'PREMISE-FALSE head o/r 2-gone ls-remote: ветки 2-gone на origin нет')" "ls-remote: ветки нет → PREMISE-FALSE"
 prem 'head o/x 1-lane ls-remote'
 assert "2 да" "$(runl) $(has 'VOID GIT-UNREADABLE head o/x 1-lane ls-remote')" "ls-remote: origin не ответил → VOID"
+# ws#1242: шаг, зависящий от отправки, — только при голове на origin = ожидаемой (ls-remote).
+OH="$(git -C "$W/srv/kacho-workspace.git" rev-parse 1-lane)"
+prem "pushed o/r 1-lane $OH"
+assert "0 да" "$(runl) $(has 'предусловий 1; ложных 0, не судимо 0')" "близнец: опубликованная голова = ожидаемая → 0, зависимый шаг выдаётся"
+prem "pushed o/r 1-lane $BASE_SHA"
+assert "1 да" "$(runl) $(has "PREMISE-FALSE pushed o/r 1-lane $BASE_SHA: голова 1-lane на origin $OH, отправка $BASE_SHA не доехала")" "непредъявленная голова (на origin другая) → PREMISE-FALSE, код 1 (ws#1242: шаг выдан до .rc отправки)"
+prem "pushed o/r 2-gone $HEAD_SHA"
+assert "1 да" "$(runl) $(has 'PREMISE-FALSE pushed o/r 2-gone .*: ветки 2-gone на origin нет')" "ветки на origin нет → PREMISE-FALSE"
+prem "pushed o/x 1-lane $HEAD_SHA"
+assert "2 да" "$(runl) $(has 'VOID GIT-UNREADABLE pushed o/x')" "origin не ответил → VOID, не зелёное"
+prem "pushed o/r 1-lane ${HEAD_SHA:0:12}"
+assert "2 да" "$(runl) $(has 'VOID PREMISE-FORM pushed')" "sha не целиком → VOID PREMISE-FORM: неполная голова не сверяется"
 prem "alive $L main a"
 assert "0" "$(runp)" "близнец: фраза есть в дереве базы → предмет жив, 0"
 prem "alive $L main фраза-которой-нет"
 assert "1 да" "$(runp) $(has 'предмет снят до раздачи')" "фразы нет в базе → PREMISE-FALSE «снят до раздачи» (урок f487bb7c)"
 prem "alive $W/nope main x"
 assert "2 да" "$(runp) $(has 'VOID PREMISE-FORM alive')" "клона нет → VOID"
+
+# ── ws#1242 п.1: вишни пачки собираются пробами — go vet -tags=integration на голове ──
+# Песочница — урок b3d4f0781: вишня с integration-пробой, чья зависимость (функция B) осталась
+# в ветке-источнике. `go build ./...` такой ветки зелёный (проба вне сборки) — дефект видит лишь vet
+# с тегом. Близнец — та же проба стеком от предшественницы (B в ветке).
+if command -v go > /dev/null 2>&1; then
+    git init -q --bare -b main "$W/srv/gv.git"; GV="$W/gv"
+    git clone -q "$W/srv/gv.git" "$GV" 2> /dev/null
+    mkdir -p "$GV/p"; printf 'module example.com/gv\n\ngo 1.21\n' > "$GV/go.mod"
+    printf 'package p\n\nfunc A() int { return 1 }\n' > "$GV/p/p.go"
+    echo r > "$GV/README.md"
+    git -C "$GV" add . && git -C "$GV" commit -qm base && git -C "$GV" push -q origin main 2> /dev/null
+    git -C "$GV" checkout -qb src
+    printf 'package p\n\nfunc B() int { return 2 }\n' > "$GV/p/b.go"; git -C "$GV" add . && git -C "$GV" commit -qm dep
+    printf '//go:build integration\n\npackage p\n\nimport "testing"\n\nfunc TestB(t *testing.T) { _ = A() + B() }\n' > "$GV/p/p_integration_test.go"
+    git -C "$GV" add . && git -C "$GV" commit -qm probe; PROBE_SHA="$(git -C "$GV" rev-parse HEAD)"
+    git -C "$GV" checkout -qb 771 main && git -C "$GV" cherry-pick "$PROBE_SHA" > /dev/null
+    git -C "$GV" checkout -qb 772 main && git -C "$GV" merge -q --ff-only src
+    git -C "$GV" checkout -qb 773 main && echo s > "$GV/README.md" && git -C "$GV" commit -qam docs
+    # check-verifier ws#1242: tools.go (//go:build tools) и testdata — не предмет vet.
+    git -C "$GV" checkout -qb 774 main; mkdir -p "$GV/tools" "$GV/p/testdata"
+    printf '//go:build tools\n\npackage tools\n\nimport _ "example.com/nope"\n' > "$GV/tools/tools.go"
+    printf 'package broken\n\nfunc X( {\n' > "$GV/p/testdata/bad.go"
+    git -C "$GV" add . && git -C "$GV" commit -qm tools
+    git -C "$GV" checkout -qb 775 771 && git -C "$GV" merge -q --no-edit 774 > /dev/null
+    git -C "$GV" checkout -q 771
+    assert "0" "$( (cd "$GV" && go build ./... > /dev/null 2>&1); echo $?)" "предпосылка: go build ./... на вишне без зависимости зелёный (урок b3d4f0781)"
+    prem "cherry-vet $GV 771"
+    assert "1 да" "$(runp) $(has 'PREMISE-FALSE cherry-vet .* 771: go vet -tags=integration на голове .*(пакетов 1).*undefined: B')" "вишня, чья зависимость не перенесена, — PREMISE-FALSE, код 1, причина vet названа"
+    prem "cherry-vet $GV 772"
+    assert "0 да" "$(runp) $(has 'CHERRY-VET 772 @.*: пакетов 1, vet -tags=integration 0')" "близнец: та же проба стеком (зависимость в ветке) — 0, перепись пакетов названа"
+    prem "cherry-vet $GV 774"
+    assert "2 да" "$(runp) $(has 'VOID CHERRY-EMPTY .*отсечено тегами 1, файлов testdata 1')" "близнец: только tools.go (//go:build tools) и testdata — не ложь, VOID с переписью отсечённого"
+    prem "cherry-vet $GV 775"
+    assert "1 да" "$(runp) $(has 'PREMISE-FALSE cherry-vet .* 775: .*(пакетов 1).*undefined: B')" "tools.go и testdata рядом с вишней без зависимости — ложь вишни судится, отсечённое её не прячет"
+    prem "cherry-vet $GV 773"
+    assert "2 да" "$(runp) $(has 'VOID CHERRY-EMPTY')" "Go-пакетов в диффе нет — VOID, не зелёное"
+    assert "0" "$(git -C "$GV" worktree list | grep -vc "^$GV ")" "копии голов сняты тем же шагом (worktree list — только клон)"
+    prem "cherry-vet $W/nope 771"
+    assert "2 да" "$(runp) $(has 'VOID PREMISE-FORM cherry-vet')" "клона нет — VOID"
+    if ! PATH=/usr/bin:/bin command -v go > /dev/null 2>&1; then
+        prem "cherry-vet $GV 771"
+        assert "2 да" "$(PATH=/usr/bin:/bin bash "$P" --premise "$W/premise.txt" > "$W/out" 2>&1; echo $?) $(has 'VOID GO-ABSENT')" "go нет — VOID GO-ABSENT, не зелёное"
+    fi
+    CHERRY_GV="$GV"
+else
+    echo "  [VOID] go нет — cherry-vet не судим" >&2; CHERRY_VOID=1
+fi
 
 # ── ws#1226: имя ветки и первая строка — правилом репозитория; форма отправки ──
 # Клоны с origin продукта (сети нет: адрес лишь читается). Предикат kaname — форма
@@ -457,6 +517,31 @@ for f in 'Не жди' 'Каждый Bash ≤ 60 с' 'Ни один вызов �
 done
 assert "0 да" "$(bash "$P" --task-text "$HERE/../CLAUDE.md" > "$W/out" 2>&1; echo $?) $(has '; причин 0')" "близнец: CLAUDE.md целиком (норма «Не жди», «дольше 300 с — --enqueue; повтор») → 0"
 
+echo "== дом документа предусловием path (ws#1271)"
+prem "path $L 1-lane b.md" "path $L 1-lane docs/"
+assert "1 да" "$(runp) $(has "REASON PREMISE-FALSE path $L 1-lane docs/: дома нет")" "каталога нет в ревизии → PREMISE-FALSE «дома нет»"
+prem "path $L 1-lane scripts/"
+assert "0" "$(runp)" "близнец: каталог есть в ревизии (слэш на конце) → 0"
+prem "path $L 1-lane b.md"
+assert "0 да" "$(runp) $(has 'предусловий 1; ложных 0, не судимо 0')" "близнец: файл есть в ревизии → 0"
+prem "path $L нет-ревизии b.md"
+assert "2 да" "$(runp) $(has 'VOID PREMISE-FORM path')" "ревизии нет → не судимо, код 2"
+
+echo "== задание автору приёмки — перепись координат до раздачи (ws#1271)"
+tta() { printf '%s\n' "$@" > "$W/task.txt"; bash "$P" --task-text "$W/task.txt" --agent acceptance-author > "$W/out" 2>&1; echo $?; }
+ACC='Приёмка: смена контракта ListUsers, дом — b.md, задача o/r#20, ветка 1-lane.'
+CEN=("- \`path $L 1-lane b.md\`" '- `task o/r#20 open`' '- `branch o/r 1-lane`')
+assert "1 да да да" "$(tta "$ACC") $(has 'REASON TASK-COORD-CENSUS') $(has 'дом (path') $(has 'задача (task')" "задание автору приёмки без переписи (урок «дом приёмки по задаче продукта») → TASK-COORD-CENSUS, недостающие виды названы"
+assert "0 да" "$(tta "$ACC" "${CEN[@]}") $(has 'причин 0; агент acceptance-author; строк переписи 3')" "близнец: та же с переписью дом · задача · ветка, сверка сошлась → 0"
+assert "1 да" "$(tta "$ACC" "- \`path $L 1-lane docs/x-acceptance.md\`" '- `task o/r#20 open`' '- `branch o/r 1-lane`') $(has 'REASON TASK-COORD-FALSE перепись не сошлась: PREMISE-FALSE path')" "дом по памяти: файла в ревизии нет → TASK-COORD-FALSE с причиной предусловия"
+assert "1 да" "$(tta "$ACC" "${CEN[@]}" 'Сосед — o/r#21, его ветку не трогать.') $(has 'REASON TASK-COORD-UNCENSUSED строка 5: «o/r#21»')" "номер задачи вне переписи → TASK-COORD-UNCENSUSED со строкой"
+assert "1 да" "$(tta "$ACC" "${CEN[@]}" 'Образец — docs/specs/sub-phase-F6b-x-acceptance.md.') $(has 'TASK-COORD-UNCENSUSED строка 5: «docs/specs/sub-phase-F6b-x-acceptance.md»')" "путь приёмки вне переписи → TASK-COORD-UNCENSUSED"
+printf '%s' '{"number":20,"state":"open","title":"x"}' > "$W/c/repos_o_kacho-workspace_issues_20.json"
+assert "0" "$(tta "$ACC" "${CEN[@]}" 'Сосед — ws#20.' "- \`task o/kacho-workspace#20\`")" "близнец: короткая форма ws#N сверяется с task <владелец>/kacho-workspace#N"
+assert "2 да" "$(tta 'Приёмка: дом — b.md, задача o/r#22.' "- \`path $L 1-lane b.md\`" '- `task o/r#22`' '- `branch o/r 1-lane`') $(has 'VOID перепись не судима (код 2)')" "трекер не ответил на строку переписи → код 2, не зелёное"
+assert "0 да" "$(tt "$ACC") $(has 'агент не назван')" "близнец: то же задание без --agent — перепись не требуется, агент назван в переписи"
+assert "0" "$(printf '%s\n' "$ACC" > "$W/task.txt"; bash "$P" --task-text "$W/task.txt" --agent go-implementer > "$W/out" 2>&1; echo $?)" "близнец: задание другому агенту — перепись не требуется"
+
 echo "== мутанты lane-precheck (по одной правке; проба выше обязана покраснеть)"
 mut() {  # <имя> <было> <стало> <файл предусловий|--task-text строки…> — печатает код мутанта
     local m="$W/mut-lp.sh"
@@ -483,11 +568,26 @@ assert "1" "$(mut limit 'while [[ "$w" =~ (bash|вызов[[:alpha:]]*)' 'while 
 assert "1" "$(mut thresh 'while [[ "$w" =~ (^|[^[:alpha:]_])${cmp}' 'while false && [[ "$w" =~ (^|[^[:alpha:]_])${cmp}' --task-text 'Ни один вызов не держит ожидание дольше 10 минут')" "мутант «порог-запрет не снят»: норма CLAUDE.md краснеет"
 assert "0" "$(mut ne 'while [[ "$w" =~ (^|[^[:alpha:]])не[[:space:]]+$cmp ]]' 'while false' --task-text 'жди не дольше 10 мин')" "мутант «не дольше» прочитан порогом: разрешённый срок проходит"
 assert "1" "$(mut forecast 'w="${l//ожидаем/_}"' 'w="$l"' --task-text 'ожидаемое окончание через 20 мин')" "мутант «прогноз не снят»: «ожидаемое окончание» краснеет"
+mut_a() {  # <имя> <было> <стало> <строки задания…> — код мутанта на задании автору приёмки
+    local nm="$1" a="$2" b="$3"; shift 3
+    mut "$nm" "$a" "$b" --task-text "$@" > /dev/null
+    printf '%s\n' "$@" > "$W/task.txt"; bash "$W/ms/lane-precheck.sh" --task-text "$W/task.txt" --agent acceptance-author > "$W/out" 2>&1; echo $?
+}
+assert "0" "$(mut_a census '[ -z "$miss" ] || reasons+=("TASK-COORD-CENSUS' 'true || reasons+=("TASK-COORD-CENSUS' 'Приёмка: смена контракта ListUsers.')" "мутант «перепись не требуется»: задание без переписи проходит — проба выше его ловит"
+assert "0" "$(mut_a verify 'if [ "${#cen[@]}" -gt 0 ]; then' 'if false; then' "$ACC" "- \`path $L 1-lane docs/x-acceptance.md\`" '- `task o/r#20 open`' '- `branch o/r 1-lane`')" "мутант «перепись не сверяется»: дом по памяти проходит"
+assert "0" "$(mut_a mention 'reasons+=("TASK-COORD-UNCENSUSED' ': || reasons+=("TASK-COORD-UNCENSUSED' "$ACC" "${CEN[@]}" 'Сосед — o/r#21.')" "мутант «упоминание вне переписи не судится»: o/r#21 проходит"
+
+assert "0" "$(LANE_PRECHECK_GIT_BASE="$W/gb" mut pushed '[ "$kind" = pushed ] && [ "$got" != "$want" ]' 'false' "pushed o/r 1-lane $BASE_SHA")" "мутант «голова отправки не сверяется»: непредъявленная голова проходит — проба выше его ловит"
+
+[ -z "${CHERRY_GV:-}" ] || assert "1" "$(mut tags-cut 'if [ "${nf:-0}" -gt 0 ]; then keep=' 'if true; then keep=' "cherry-vet $CHERRY_GV 774")" "мутант «теги не отсекаются»: tools.go даёт ложь vet — проба выше его ловит"
+[ -z "${CHERRY_GV:-}" ] || assert "1" "$(mut testdata '*/testdata/*) ctd=$((ctd + 1)); continue ;;' '*/testdata-never/*) ;;' "cherry-vet $CHERRY_GV 774")" "мутант «testdata судится»: битый файл testdata даёт ложь — проба выше его ловит"
+[ -z "${CHERRY_GV:-}" ] || assert "0" "$(mut cherry 'elif [ -n "$cerr" ]; then reasons+=' 'elif false; then reasons+=' "cherry-vet $CHERRY_GV 771")" "мутант «отказ vet не судится»: вишня без зависимости проходит — проба выше его ловит"
 
 echo "== вход"
 assert "2" "$(run "$W/srv" 1-lane main --issue o/r#7)" "не рабочая копия → код 2"
 assert "2" "$(run "$L" 1-lane)" "неполный вызов → код 2"
 
 echo
-echo "lane-precheck-inject: утверждений $((pass + fail)); сошлось $pass, разошлось $fail"
-[ "$fail" -eq 0 ]
+echo "lane-precheck-inject: утверждений $((pass + fail)); сошлось $pass, разошлось $fail${CHERRY_VOID:+; cherry-vet не судим (нет go)}"
+[ "$fail" -eq 0 ] || exit 1
+[ -z "${CHERRY_VOID:-}" ] || exit 2
