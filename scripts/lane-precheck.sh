@@ -15,7 +15,7 @@
 # usage: lane-precheck.sh <каталог копии> <ветка> <база> [--issue <владелец/репо>#<N>]…
 #                          [--hook-log <файл>]
 #        lane-precheck.sh --premise <файл предусловий>
-#        lane-precheck.sh --task-text <файл текста задания>
+#        lane-precheck.sh --task-text <файл текста задания> [--agent <агент>]
 #
 # РЕЖИМ ПРЕДУСЛОВИЙ (ws#1071, база диспетчера §3) — ДО раздачи задания: задание с
 # ложным предусловием не уходит. Строка файла — одно предусловие закрытого словаря
@@ -54,6 +54,9 @@
 #                                                 быстрое, heavy-guard его не судит);
 #   alive <клон> <ревизия> <фраза…>               предмет жив: фраза есть в дереве ревизии (`git grep
 #                                                 -F`); нет — «снят до раздачи» (урок f487bb7c);
+#   path <клон> <ревизия> <путь>                  дом есть: файл или каталог в дереве ревизии (`git
+#                                                 cat-file -e`); нет — «дома нет» (ws#1271: дом приёмки
+#                                                 назван по задаче продукта, файл жил в воркспейсе);
 #   branchname <клон> <ветка>                     имя — по правилу репозитория клона (ws#1226, его же
 #                                                 предикат: kaname — scripts/hooks/branch-rule.sh клона,
 #                                                 corelib — git-rule.sh клона, воркспейс и kacho —
@@ -89,7 +92,17 @@
 #   TASK-RETURN        задание с долгим шагом (полный хук отправки, слот, --enqueue, autoland)
 #                      не называет возврат «идёт» (detach.sh, «идёт: pid, журнал, срок»,
 #                      «отсоединённо»): исполнитель стал бы дежурить.
-# Код 0 — причин нет; 1 — есть; 2 — прочитано ноль строк.
+# Задание АВТОРУ ПРИЁМКИ (`--agent acceptance-author`, ws#1271; уроки 18–19.10 — дом, номер,
+# ветка, чужая координата по памяти: 28 случаев) несёт ПЕРЕПИСЬ координат — строки словаря
+# предусловий в тексте (ведущие `-`, `*` и обратные кавычки снимаются), сверяемые тем же судом
+# `--premise` до раздачи:
+#   TASK-COORD-CENSUS     в переписи нет вида: дом (path), задача (task), ветка или база
+#                         (branch | head);
+#   TASK-COORD-UNCENSUSED координата вне переписи — номер задачи с репозиторием (`o/r#N`,
+#                         `r#N`, `ws#N` — kacho-workspace) либо путь приёмки (`…acceptance….md`):
+#                         названа по памяти;
+#   TASK-COORD-FALSE      сверка переписи ложна (причины `--premise` дословно); не судима — код 2.
+# Код 0 — причин нет; 1 — есть; 2 — прочитано ноль строк либо перепись не судима.
 #
 # ЧТО СУДИТ (каждый пункт — своя причина, строкой `REASON <КОД> <текст>`):
 #   HEAD-NOT-ON-ORIGIN  ветки нет на origin (`git ls-remote`, а не память);
@@ -158,17 +171,18 @@
 set -uo pipefail
 
 usage() {
-    echo "usage: lane-precheck.sh <каталог копии> <ветка> <база> [--issue <владелец/репо>#<N>]… [--hook-log <файл>] | --premise <файл> | --task-text <файл>" >&2
+    echo "usage: lane-precheck.sh <каталог копии> <ветка> <база> [--issue <владелец/репо>#<N>]… [--hook-log <файл>] | --premise <файл> | --task-text <файл> [--agent <агент>]" >&2
     exit 2
 }
 
-issues=() hook_log="" premise="" task_text="" pos=()
+issues=() hook_log="" premise="" task_text="" agent="" pos=()
 while [ $# -gt 0 ]; do
     case "$1" in
         --issue) [ $# -ge 2 ] || usage; issues+=("$2"); shift 2 ;;
         --hook-log) [ $# -ge 2 ] || usage; hook_log="$2"; shift 2 ;;
         --premise) [ $# -ge 2 ] || usage; premise="$2"; shift 2 ;;
         --task-text) [ $# -ge 2 ] || usage; task_text="$2"; shift 2 ;;
+        --agent) [ $# -ge 2 ] || usage; agent="$2"; shift 2 ;;
         -h | --help) usage ;;
         *) pos+=("$1"); shift ;;
     esac
@@ -198,11 +212,25 @@ ghget() {
 if [ -n "$task_text" ]; then
     [ "${#pos[@]}" -eq 0 ] && [ -z "$premise" ] || usage
     [ -r "$task_text" ] || { echo "lane-precheck: текста задания $task_text нет; вердикта нет" >&2; exit 2; }
-    reasons=() n=0 limits=() longstep="" ret=""
+    reasons=() n=0 limits=() longstep="" ret="" cen=() cenk="" coords=() void=""
     num='[0-9]+([.,][0-9]+)?'; sec='(с|сек[[:alpha:]]*|s|мин(ут[[:alpha:]]*)?|m)([^[:alnum:]]|$)'
     cmp='(дольше|больше|более|свыше)'
     while IFS= read -r line || [ -n "$line" ]; do
         n=$((n + 1)); l="${line,,}"
+        # Перепись координат (ws#1271): строка словаря предусловий — не упоминание.
+        s="${line#"${line%%[![:space:]*-]*}"}"; s="${s//\`/}"
+        if [[ "$s" =~ ^(task|pr|branch|head|path|alive)[[:space:]] ]]; then
+            cen+=("$s"); cenk+=" ${BASH_REMATCH[1]}"
+        else
+            r="$line"
+            while [[ "$r" =~ (^|[^A-Za-z0-9_./-])(([A-Za-z0-9_.-]+/)?[A-Za-z][A-Za-z0-9_.-]*#[0-9]+) ]]; do
+                coords+=("$n task ${BASH_REMATCH[2]}"); r="${r/"${BASH_REMATCH[2]}"/ }"
+            done
+            r="$line"
+            while [[ "$r" =~ ([A-Za-z0-9_./-]*acceptance[A-Za-z0-9_.-]*\.md) ]]; do
+                coords+=("$n path ${BASH_REMATCH[1]}"); r="${r/"${BASH_REMATCH[1]}"/ }"
+            done
+        fi
         # w — строка без чисел, которые не заказывают ожидание: предел вызова, порог
         # сравнения без «не» перед ним, «ожидаем*» (прогноз срока, не заказ).
         w="${l//ожидаем/_}"
@@ -230,10 +258,38 @@ if [ -n "$task_text" ]; then
     distinct="$(printf '%s\n' "${limits[@]+"${limits[@]}"}" | sed '/^$/d' | sort -un | tr '\n' ' ')"
     [ "$(wc -w <<< "$distinct")" -le 1 ] || reasons+=("TASK-LIMITS пределы одного вызова разные: ${distinct% } с — предел вызова задаётся одним числом")
     [ -z "$longstep" ] || [ -n "$ret" ] || reasons+=("TASK-RETURN строка $longstep: долгий шаг без возврата «идёт» — задание называет форму: scripts/detach.sh start …, возврат «идёт: pid, журнал, срок», исход отдельным шагом")
-    echo "lane-precheck --task-text: файл $task_text; строк $n; причин ${#reasons[@]}"
+    if [ "$agent" = acceptance-author ]; then
+        miss=""
+        [[ "$cenk " == *" path "* ]] || miss+=" дом (path <клон> <ревизия> <путь>);"
+        [[ "$cenk " == *" task "* ]] || miss+=" задача (task <владелец/репо>#<N>);"
+        [[ "$cenk " =~ \ (branch|head)\  ]] || miss+=" ветка или база (branch | head);"
+        [ -z "$miss" ] || reasons+=("TASK-COORD-CENSUS задание автору приёмки без переписи координат:${miss%;} — строками словаря --premise в тексте, сверка до раздачи")
+        for c in "${coords[@]+"${coords[@]}"}"; do
+            read -r cn ck cv <<< "$c"; hit=""
+            for x in "${cen[@]+"${cen[@]}"}"; do
+                read -r xk xa xb xp _ <<< "$x"
+                if [ "$ck" = task ] && { [ "$xk" = task ] || [ "$xk" = pr ]; }; then
+                    xr="${xa%%#*}"; ct="${cv%%#*}"; ct="${ct##*/}"; [ "$ct" = ws ] && ct=kacho-workspace
+                    [ "${xa##*#}" = "${cv##*#}" ] && { [ "${xr##*/}" = "$ct" ] || [ "$xr" = "${cv%%#*}" ]; } && hit=1
+                elif [ "$ck" = path ] && [ "$xk" = path ] && [ -n "${xp:-}" ]; then
+                    [[ "$cv" == *"${xp%/}" || "${xp%/}" == *"$cv" ]] && hit=1
+                fi
+            done
+            [ -n "$hit" ] || reasons+=("TASK-COORD-UNCENSUSED строка $cn: «$cv» вне переписи — координата по памяти; внеси её строкой $ck в перепись")
+        done
+        if [ "${#cen[@]}" -gt 0 ]; then
+            pf="$(mktemp)"; printf '%s\n' "${cen[@]}" > "$pf"
+            po="$(bash "${BASH_SOURCE[0]}" --premise "$pf" 2>&1)"; prc=$?; rm -f "$pf"
+            if [ "$prc" = 1 ]; then reasons+=("TASK-COORD-FALSE перепись не сошлась: $(sed -n 's/^REASON //p' <<< "$po" | paste -sd ';' -)")
+            elif [ "$prc" != 0 ]; then void="перепись не судима (код $prc): $(sed -n 's/^VOID //p' <<< "$po" | paste -sd ';' -)"; fi
+        fi
+    fi
+    echo "lane-precheck --task-text: файл $task_text; строк $n; причин ${#reasons[@]}; агент ${agent:-не назван}; строк переписи ${#cen[@]}"
     for x in "${reasons[@]+"${reasons[@]}"}"; do echo "REASON $x"; done
+    [ -z "$void" ] || echo "VOID $void"
     [ "$n" -gt 0 ] || exit 2
     [ "${#reasons[@]}" -eq 0 ] || exit 1
+    [ -z "$void" ] || exit 2
     exit 0
 fi
 
@@ -345,6 +401,11 @@ if [ -n "$premise" ]; then
                 if [ -z "${phrase:-}" ] || ! git -C "$a" rev-parse -q --verify "$b^{commit}" > /dev/null 2>&1; then voids+=("PREMISE-FORM $line: клона «$a» либо ревизии «$b» нет"); continue; fi
                 c="$(git -C "$a" grep -F -l -e "$phrase" "$b" -- 2>/dev/null | wc -l)"
                 [ "$c" -gt 0 ] || reasons+=("PREMISE-FALSE $line: предмет снят до раздачи — «$phrase» в $b не встречается") ;;
+            path)
+                read -r _ _ _ pth _ <<< "$line"
+                if [ -z "${pth:-}" ] || ! git -C "$a" rev-parse -q --verify "$b^{commit}" > /dev/null 2>&1; then voids+=("PREMISE-FORM $line: клона «$a», ревизии «$b» либо пути нет"); continue; fi
+                git -C "$a" cat-file -e "$b:${pth%/}" 2> /dev/null \
+                    || reasons+=("PREMISE-FALSE $line: дома нет — «$pth» в $b не существует (дом другого репозитория либо путь по памяти)") ;;
             branchname | commit-subject | push-form)
                 if ! top="$(git -C "$a" rev-parse --show-toplevel 2>/dev/null)"; then voids+=("PREMISE-FORM $line: клона «$a» нет"); continue; fi
                 slug="$(git -C "$top" remote get-url origin 2>/dev/null)"; slug="${slug%.git}"; slug="${slug#*github.com[:/]}"

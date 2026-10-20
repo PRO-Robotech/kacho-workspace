@@ -517,6 +517,31 @@ for f in 'Не жди' 'Каждый Bash ≤ 60 с' 'Ни один вызов �
 done
 assert "0 да" "$(bash "$P" --task-text "$HERE/../CLAUDE.md" > "$W/out" 2>&1; echo $?) $(has '; причин 0')" "близнец: CLAUDE.md целиком (норма «Не жди», «дольше 300 с — --enqueue; повтор») → 0"
 
+echo "== дом документа предусловием path (ws#1271)"
+prem "path $L 1-lane b.md" "path $L 1-lane docs/"
+assert "1 да" "$(runp) $(has "REASON PREMISE-FALSE path $L 1-lane docs/: дома нет")" "каталога нет в ревизии → PREMISE-FALSE «дома нет»"
+prem "path $L 1-lane scripts/"
+assert "0" "$(runp)" "близнец: каталог есть в ревизии (слэш на конце) → 0"
+prem "path $L 1-lane b.md"
+assert "0 да" "$(runp) $(has 'предусловий 1; ложных 0, не судимо 0')" "близнец: файл есть в ревизии → 0"
+prem "path $L нет-ревизии b.md"
+assert "2 да" "$(runp) $(has 'VOID PREMISE-FORM path')" "ревизии нет → не судимо, код 2"
+
+echo "== задание автору приёмки — перепись координат до раздачи (ws#1271)"
+tta() { printf '%s\n' "$@" > "$W/task.txt"; bash "$P" --task-text "$W/task.txt" --agent acceptance-author > "$W/out" 2>&1; echo $?; }
+ACC='Приёмка: смена контракта ListUsers, дом — b.md, задача o/r#20, ветка 1-lane.'
+CEN=("- \`path $L 1-lane b.md\`" '- `task o/r#20 open`' '- `branch o/r 1-lane`')
+assert "1 да да да" "$(tta "$ACC") $(has 'REASON TASK-COORD-CENSUS') $(has 'дом (path') $(has 'задача (task')" "задание автору приёмки без переписи (урок «дом приёмки по задаче продукта») → TASK-COORD-CENSUS, недостающие виды названы"
+assert "0 да" "$(tta "$ACC" "${CEN[@]}") $(has 'причин 0; агент acceptance-author; строк переписи 3')" "близнец: та же с переписью дом · задача · ветка, сверка сошлась → 0"
+assert "1 да" "$(tta "$ACC" "- \`path $L 1-lane docs/x-acceptance.md\`" '- `task o/r#20 open`' '- `branch o/r 1-lane`') $(has 'REASON TASK-COORD-FALSE перепись не сошлась: PREMISE-FALSE path')" "дом по памяти: файла в ревизии нет → TASK-COORD-FALSE с причиной предусловия"
+assert "1 да" "$(tta "$ACC" "${CEN[@]}" 'Сосед — o/r#21, его ветку не трогать.') $(has 'REASON TASK-COORD-UNCENSUSED строка 5: «o/r#21»')" "номер задачи вне переписи → TASK-COORD-UNCENSUSED со строкой"
+assert "1 да" "$(tta "$ACC" "${CEN[@]}" 'Образец — docs/specs/sub-phase-F6b-x-acceptance.md.') $(has 'TASK-COORD-UNCENSUSED строка 5: «docs/specs/sub-phase-F6b-x-acceptance.md»')" "путь приёмки вне переписи → TASK-COORD-UNCENSUSED"
+printf '%s' '{"number":20,"state":"open","title":"x"}' > "$W/c/repos_o_kacho-workspace_issues_20.json"
+assert "0" "$(tta "$ACC" "${CEN[@]}" 'Сосед — ws#20.' "- \`task o/kacho-workspace#20\`")" "близнец: короткая форма ws#N сверяется с task <владелец>/kacho-workspace#N"
+assert "2 да" "$(tta 'Приёмка: дом — b.md, задача o/r#22.' "- \`path $L 1-lane b.md\`" '- `task o/r#22`' '- `branch o/r 1-lane`') $(has 'VOID перепись не судима (код 2)')" "трекер не ответил на строку переписи → код 2, не зелёное"
+assert "0 да" "$(tt "$ACC") $(has 'агент не назван')" "близнец: то же задание без --agent — перепись не требуется, агент назван в переписи"
+assert "0" "$(printf '%s\n' "$ACC" > "$W/task.txt"; bash "$P" --task-text "$W/task.txt" --agent go-implementer > "$W/out" 2>&1; echo $?)" "близнец: задание другому агенту — перепись не требуется"
+
 echo "== мутанты lane-precheck (по одной правке; проба выше обязана покраснеть)"
 mut() {  # <имя> <было> <стало> <файл предусловий|--task-text строки…> — печатает код мутанта
     local m="$W/mut-lp.sh"
@@ -543,6 +568,14 @@ assert "1" "$(mut limit 'while [[ "$w" =~ (bash|вызов[[:alpha:]]*)' 'while 
 assert "1" "$(mut thresh 'while [[ "$w" =~ (^|[^[:alpha:]_])${cmp}' 'while false && [[ "$w" =~ (^|[^[:alpha:]_])${cmp}' --task-text 'Ни один вызов не держит ожидание дольше 10 минут')" "мутант «порог-запрет не снят»: норма CLAUDE.md краснеет"
 assert "0" "$(mut ne 'while [[ "$w" =~ (^|[^[:alpha:]])не[[:space:]]+$cmp ]]' 'while false' --task-text 'жди не дольше 10 мин')" "мутант «не дольше» прочитан порогом: разрешённый срок проходит"
 assert "1" "$(mut forecast 'w="${l//ожидаем/_}"' 'w="$l"' --task-text 'ожидаемое окончание через 20 мин')" "мутант «прогноз не снят»: «ожидаемое окончание» краснеет"
+mut_a() {  # <имя> <было> <стало> <строки задания…> — код мутанта на задании автору приёмки
+    local nm="$1" a="$2" b="$3"; shift 3
+    mut "$nm" "$a" "$b" --task-text "$@" > /dev/null
+    printf '%s\n' "$@" > "$W/task.txt"; bash "$W/ms/lane-precheck.sh" --task-text "$W/task.txt" --agent acceptance-author > "$W/out" 2>&1; echo $?
+}
+assert "0" "$(mut_a census '[ -z "$miss" ] || reasons+=("TASK-COORD-CENSUS' 'true || reasons+=("TASK-COORD-CENSUS' 'Приёмка: смена контракта ListUsers.')" "мутант «перепись не требуется»: задание без переписи проходит — проба выше его ловит"
+assert "0" "$(mut_a verify 'if [ "${#cen[@]}" -gt 0 ]; then' 'if false; then' "$ACC" "- \`path $L 1-lane docs/x-acceptance.md\`" '- `task o/r#20 open`' '- `branch o/r 1-lane`')" "мутант «перепись не сверяется»: дом по памяти проходит"
+assert "0" "$(mut_a mention 'reasons+=("TASK-COORD-UNCENSUSED' ': || reasons+=("TASK-COORD-UNCENSUSED' "$ACC" "${CEN[@]}" 'Сосед — o/r#21.')" "мутант «упоминание вне переписи не судится»: o/r#21 проходит"
 
 assert "0" "$(LANE_PRECHECK_GIT_BASE="$W/gb" mut pushed '[ "$kind" = pushed ] && [ "$got" != "$want" ]' 'false' "pushed o/r 1-lane $BASE_SHA")" "мутант «голова отправки не сверяется»: непредъявленная голова проходит — проба выше его ловит"
 
