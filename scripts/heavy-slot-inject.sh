@@ -876,6 +876,7 @@ assert "0 да да" "$(rslot env FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-loc
 rm -f "$HL"; printf 'h.stray/\n' >> "$R/.git/info/exclude"
 assert "0 да да" "$(lpush 1280-c)" "близнец: та же папка игнорируется git — локальная отправка идёт"
 sed -i '/^h\.stray\/$/d' "$R/.git/info/exclude"; rm -f "$HL"
+# shellcheck disable=SC2016  # образец sed: $ — буквальный знак строки слота
 sed 's/^\( *\)list="\$(git -C "\$top" ls-files --others --exclude-standard --directory 2>\/dev\/null)"/\1list=""/' "$SLOT" > "$W/slot-mut-1280b.sh"
 assert "1 0 да да" "$(diff "$SLOT" "$W/slot-mut-1280b.sh" | grep -c '^<') $(LSLOT="$W/slot-mut-1280b.sh" lpush 1280-d)" "мутант «неотслеживаемое не судится»: отправка ушла с хуком по грязному дереву — проба выше его ловит"
 # Хук, сам судящий чистоту (`git status --porcelain` вне комментария: kacho, corelib), — его клон
@@ -1348,6 +1349,7 @@ gnew; rm -f "$W/peer1" "$W/peer2"
 r1="$(genq "$R" P1 GATE_PEER="$W/peer1")"; RP1="$(rcof)"; r2="$(genq "$R" P2 GATE_PEER="$W/peer2")"; RP2="$(rcof)"
 c1="$(await_rc "$RP1")"; c2="$(await_rc "$RP2")"
 assert "0/0 0/0 да да да" "$r1/$r2 $c1/$c2 $(cat "$W/peer1" 2>/dev/null || echo нет) $(cat "$W/peer2" 2>/dev/null || echo нет) $([ -n "$RP1" ] && [ "${RP1%.rc}.log" != "${RP2%.rc}.log" ] && [ "${RP1%.rc}.log" != "$JL" ] && [ "${RP2%.rc}.log" != "$JL" ] && echo да || echo нет)" "два билета --enqueue: журналы разные и не журнал слотов; фильтр stderr слота назван run.sh своим писателем журнала"
+# shellcheck disable=SC2016  # образец sed: $ — буквальный знак строки слота
 sed 's/^\( *\)REMOTE_HEAVY_OUT_PEER="\$fp" "\$@" 2>/\1"$@" 2>/' "$SLOT" > "$W/slot-mut-1280a.sh"
 gnew; rm -f "$W/peer1"; GSLOT="$W/slot-mut-1280a.sh"
 r1="$(genq "$R" P3 GATE_PEER="$W/peer1")"; RP1="$(rcof)"; c1="$(await_rc "$RP1")"
