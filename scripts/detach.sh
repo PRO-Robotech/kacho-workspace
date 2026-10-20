@@ -13,10 +13,14 @@
 #
 # ФОРМА
 #   detach.sh start <каталог> [--deadline <с>] -- <команда> [доводы…]
-#       — setsid + env --default-signal=PIPE, stdin /dev/null; файлы <каталог>/<метка>.log,
-#         .rc (код команды, пишется атомарно по её выходу) и .pid; метка уникальна: время UTC,
-#         pid вызова, 8 знаков sha256 команды; .rc снимается до старта. Печатает строку
-#         «идёт: pid N; журнал …; rc …; срок <UTC>» и строку дочитки исхода.
+#       — служба systemd --user `kacho-detach-<метка>` ВНЕ scope сессии (переживает её
+#         перезапуск; scripts/detach-launch.sh), при недоступном systemd --user — setsid в
+#         scope сессии с громким предупреждением; env --default-signal=PIPE, stdin /dev/null;
+#         файлы <каталог>/<метка>.log, .rc (код команды, пишется атомарно по её выходу), .pid
+#         .unit (имя службы) и .exit (исход службы — пишет она сам; на пути setsid их нет); метка
+#         уникальна: время UTC, pid вызова, 8 знаков sha256 команды; .rc снимается до старта.
+#         Печатает строку «идёт: pid N; журнал …; rc …; срок <UTC>; вид служба <юнит> | setsid
+#         (не переживёт перезапуск сессии)» и строку дочитки исхода.
 #         Код 0 — запущено; 64 — вызов неверен (в том числе строка `sh|bash|dash -c`, чья
 #         последняя команда — echo или printf после «;», перевода строки, «||», «|» или «&»: в
 #         .rc лёг бы её код, ws#1242; после «&&» — пропуск. ГРАНИЦА — не судятся: обёртки
@@ -24,21 +28,27 @@
 #         (`bash -lc`), группа `{ …; echo; }` и подоболочка с хвостом после «}»/«)»;
 #         каталог внутри рабочего дерева
 #         git, где файлы шага не игнорируются: они делают копию грязной, kacho#3251);
-#         69 — не запущено (нет setsid, каталог не заводится, pid не записан за 5 с).
+#         69 — не запущено (нет ни службы, ни setsid; каталог не заводится; pid не записан за 5 с).
 #   detach.sh status <файл .rc | .log | .pid | <журнал>.log.rc | путь без расширения>
 #       — 0: команда вышла кодом 0; 1: вышла не нулём (код назван); 3: идёт; 2: не
 #         выполнилось — процесса нет, а .rc нет, либо файлов шага нет; 4: внешний шаг (без
 #         .pid) без .rc, журнал не держит ни один процесс — не судим как идущий. По выходу команды —
 #         хвост журнала (5 строк). Живость — pid из .pid И метка DETACH_TAG в его окружении:
-#         чужой процесс на переиспользованном pid «идущим» не считается.
+#         чужой процесс на переиспользованном pid «идущим» не считается; вид шага (служба
+#         или setsid) на живость не влияет. Оборванный шаг (2) назван причиной: перезагрузка
+#         машины (.pid старше загрузки); служба остановлена менеджером служб либо процесс
+#         убит сигналом — разными фразами (запись .exit, нет её — журнал юнита); процесса нет.
 # Срок (--deadline, с; по умолчанию 3600) — KACHO_DETACHED_UNTIL окружения шага: перепись
 # застоя (scripts/stall-census.sh, ws#1154) сироту в сроке застоем не судит.
 #
 # ЧЕГО НЕ ДЕЛАЕТ: не ждёт и не опрашивает — status читает один раз. Тяжёлое (docker,
 # линтер, -race, стенд) по-прежнему идёт слотом: `detach.sh start <каталог> -- $WS/scripts/
 # heavy-slot.sh <класс> -- …`; очередь слота дольше 300 с — `heavy-slot.sh --enqueue`.
-# Держит scripts/detach-inject.sh (исходы, уникальность, переиспользованный pid, страж).
+# Держит scripts/detach-inject.sh (исходы, уникальность, переиспользованный pid, страж,
+# служба переживает снятие scope вызова — близнец setsid убит, перезагрузка названа).
 set -uo pipefail
+# shellcheck source=scripts/detach-launch.sh
+. "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/detach-launch.sh" || { printf 'detach: нет detach-launch.sh рядом\n' >&2; exit 69; }
 
 say() { printf 'detach: %s\n' "$*" >&2; }
 usage() { say "форма: detach.sh start <каталог> [--deadline <с>] -- <команда…> | detach.sh status <файл шага>"; exit 64; }
@@ -85,31 +95,34 @@ start)
         fi
         prev="$a"
     done
-    command -v setsid > /dev/null 2>&1 || { say "нет setsid — не запущено"; exit 69; }
     mkdir -p "$dir" 2>/dev/null || { say "каталог «$dir» не заводится — не запущено"; exit 69; }
     dir="$(cd "$dir" && pwd -P)"
     ign=1
-    for x in x.log x.rc x.pid x.rc.tmp; do git -C "$dir" check-ignore -q "$dir/$x" 2>/dev/null || ign=0; done
+    for x in x.log x.rc x.pid x.rc.tmp x.unit x.exit; do git -C "$dir" check-ignore -q "$dir/$x" 2>/dev/null || ign=0; done
     if [ "$(git -C "$dir" rev-parse --is-inside-work-tree 2>/dev/null)" = true ] && [ "$ign" = 0 ]; then
         say "каталог «$dir» — внутри рабочего дерева git, и файлы шага там не игнорируются: копия стала бы грязной (kacho#3251). Каталог шагов — вне копии, например \$WS/tmp/<полоса>/"
         exit 64
     fi
     tag="$(date -u +%Y%m%dT%H%M%SZ)-$$-$(printf '%s\0' "$@" | sha256sum | cut -c1-8)"
     base="$dir/$tag"
-    rm -f "$base.rc" "$base.pid"
+    rm -f "$base.rc" "$base.pid" "$base.unit" "$base.exit"
     until_ts=$(( $(date +%s) + deadline ))
-    # Внутренняя оболочка пишет СВОЙ pid (setsid без форка сохраняет pid, с форком — нет;
-    # $! вызова тогда был бы pid уже вышедшего setsid), затем код команды — атомарно.
-    setsid env --default-signal=PIPE DETACH_TAG="$tag" KACHO_DETACHED_UNTIL="$until_ts" \
+    unit="kacho-detach-$tag"
+    # Внутренняя оболочка пишет СВОЙ pid (обёртка и env исполняются через exec — pid тот же;
+    # $! вызова был бы pid обёртки setsid-пути), затем код команды — атомарно.
+    # shellcheck disable=SC2016
+    detach_launch "$unit" "$base.log" -- env --default-signal=PIPE DETACH_TAG="$tag" KACHO_DETACHED_UNTIL="$until_ts" \
         bash -c 'echo $$ > "$0.pid"; "$@"; rc=$?; printf "%s\n" "$rc" > "$0.rc.tmp" && mv -f "$0.rc.tmp" "$0.rc"' "$base" "$@" \
-        >> "$base.log" 2>&1 < /dev/null &
+        || { say "${DETACH_WARN:-не запущено}"; exit 69; }
+    if [ "$DETACH_MODE" = unit ]; then printf '%s\n' "$unit" > "$base.unit"; kind="служба $unit"
+    else kind="setsid (не переживёт перезапуск сессии)"; fi
     for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
         [ -s "$base.pid" ] && break
         sleep 0.25
     done
     [ -s "$base.pid" ] || { say "pid шага не записан за 5 с — не запущено либо вышел сразу; журнал $base.log"; exit 69; }
-    printf 'идёт: pid %s; журнал %s; rc %s; срок %s\n' "$(cat "$base.pid")" "$base.log" "$base.rc" \
-        "$(date -u -d "@$until_ts" +%Y-%m-%dT%H:%M:%SZ)"
+    printf 'идёт: pid %s; журнал %s; rc %s; срок %s; вид %s\n' "$(cat "$base.pid")" "$base.log" "$base.rc" \
+        "$(date -u -d "@$until_ts" +%Y-%m-%dT%H:%M:%SZ)" "$kind"
     printf 'исход — одним шагом: bash %s status %s\n' "$(readlink -f -- "${BASH_SOURCE[0]}")" "$base.rc"
     exit 0 ;;
 status)
@@ -132,7 +145,8 @@ status)
     fi
     pid="$(cat "$base.pid" 2>/dev/null)"
     if alive "$pid" "$tag"; then
-        echo "идёт: pid $pid; журнал $logf"
+        u="$(cat "$base.unit" 2>/dev/null)"
+        echo "идёт: pid $pid; журнал $logf${u:+; служба $u}"
         exit 3
     fi
     # Внешний шаг (не detach.sh start: ни .pid, ни метки DETACH_TAG) — живость по журналу:
@@ -148,7 +162,7 @@ status)
         exit 4
     fi
     if [ -e "$base.pid" ] || [ -e "$logf" ]; then
-        echo "не выполнилось: процесса ${pid:-—} нет, а .rc нет — шаг оборван; журнал $logf"
+        echo "не выполнилось: процесса ${pid:-—} нет, а .rc нет — шаг оборван: $(detach_gone_reason "$base.pid" "$base.unit"); журнал $logf"
     else
         echo "не выполнилось: файлов шага $rcf, $logf, $base.pid нет"
     fi
