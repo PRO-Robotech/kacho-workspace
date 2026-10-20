@@ -87,6 +87,32 @@ assert 64 "$(slot bash "$SLOT" docker true)" "без «--» — 64"
 assert 64 "$(slot HEAVY_SLOT_BUDGET_MIB=200000 bash "$SLOT" docker -- true)" "бюджет больше потолка — 64, а не вечное ожидание"
 assert 3 "$(slot bash "$SLOT" docker -- bash -c 'exit 3')" "исполнившаяся команда — её собственный код"
 
+echo "── диспозиция сигналов: команда слота — SIGPIPE и SIGHUP по умолчанию, как в конвейере (ws#1274)"
+# Замер 2026-10-21 (GNU timeout 9.7, uutils timeout 0.8.0): timeout СБРАСЫВАЕТ унаследованный
+# SIG_IGN на SIGHUP и СОХРАНЯЕТ его на SIGPIPE; bash снять SIG_IGN, полученный при входе, не
+# может. Под вызывающим с SIG_IGN (nohup, python) `yes | head -n 1` давал 1 вместо 141, а
+# пробы сигналов краснели либо зеленели в зависимости от обёртки, а не от кода.
+# Вывод команды: «<код yes | head> <биты SIG_IGN на PIPE|HUP>»; конвейер — «141 0».
+# shellcheck disable=SC2016  # строка дочерней оболочки, раскрывает она
+SIGP='set -o pipefail; yes | head -n 1 > /dev/null; p=$?; i=$(sed -n "s/^SigIgn:[[:space:]]*//p" /proc/$$/status); printf "%s %s" "$p" $(( 16#$i & 0x1001 ))'
+IGN=(python3 -c 'import os, signal, sys; signal.signal(signal.SIGPIPE, signal.SIG_IGN); signal.signal(signal.SIGHUP, signal.SIG_IGN); os.execvp(sys.argv[1], sys.argv[1:])')
+sigrun() { local s="$1"; shift; slot "$@" bash "$s" docker -- bash -c "$SIGP" > /dev/null; cat "$W/out"; }
+assert "141 0" "$(sigrun "$SLOT")" "контроль: вызывающий без SIG_IGN — 141, ничего не заглушено"
+assert "141 0" "$(sigrun "$SLOT" "${IGN[@]}")" "вызывающий с SIG_IGN на PIPE и HUP — команда их не наследует"
+assert "141 0" "$(sigrun "$SLOT" "${IGN[@]}" timeout 60)" "то же под timeout над слотом — тот же исход"
+assert "141 0" "$(slot "${IGN[@]}" bash "$SLOT" docker -- timeout 60 bash -c "$SIGP" > /dev/null; cat "$W/out")" "то же под timeout внутри команды — тот же исход"
+python3 - "$SLOT" "$W/sigmut.sh" <<'PYM' && SIGMUT=да || SIGMUT=нет
+import sys, re
+s, d = sys.argv[1:3]
+t = open(s, encoding="utf-8").read()
+a = "    exec env --default-signal=PIPE,HUP KACHO_SIGDISP=1 bash \"$0\" \"$@\"\n"
+if t.count(a) != 1:
+    sys.exit(1)
+open(d, "w", encoding="utf-8").write(t.replace(a, "    :\n"))
+PYM
+assert "да" "$SIGMUT" "мутант «диспозиция не восстановлена» лёг ровно одной строкой"
+assert "1 4097" "$(sigrun "$W/sigmut.sh" "${IGN[@]}")" "мутант «диспозиция не восстановлена»: под SIG_IGN вызывающего — 1 и заглушённые PIPE|HUP, проба выше его ловит"
+
 echo "── ci-local держит ssh отправки живым: GIT_SSH_COMMAND с keepalive, заданное — сильнее (урок 2026-10-16)"
 # git push открывает ssh до хука отправки; минуты хука простаивающее соединение
 # площадка снимает, и push умирал PIPE (141) после зелёного хука.
@@ -838,6 +864,31 @@ be="$(jn ' enter id=')"; rm -f "$HL"
 assert "0 1 да $((be + 1))" "$(rslot env FAKE_AVAIL=1 FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- git push -q "$W/bare.git" HEAD:refs/heads/1115-w) $(grep -c '^job=нет ' "$HL" 2>/dev/null) $(has_ref 1115-w) $(jn ' enter id=')" "близнец: кластер недоступен → хук локально слотом (enter в журнале)"
 be="$(jn ' enter id=')"; b78="$(jn 'route=push rc=1 hook_rc=78 ')"; rm -f "$HL"
 assert "0 0 1 да $((be + 1)) $((b78 + 1))" "$(rslot env FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- git push -q "$W/bare.git" HEAD~1:refs/heads/1115-v) $(grep -c '^job=1 ' "$HL" 2>/dev/null) $(grep -c '^job=нет ' "$HL" 2>/dev/null) $(has_ref 1115-v) $(jn ' enter id=') $(jn 'route=push rc=1 hook_rc=78 ')" "отправка не головы копии: переходник — 78, Job не звался, та же отправка локально слотом с хуком"
+echo "── локальная отправка из клона продукта с неотслеживаемым: 64 с путями до хука (ws#1280)"
+# Урок 2026-10-19: отправка тега из общего клона kaname ушла локально (переходник — 78: объект тега
+# не голова копии), и локальный хук покраснел от чужой неотслеживаемой папки с Go-кодом.
+mkdir -p "$R/h.stray" && echo 'package stray' > "$R/h.stray/x.go"; rm -f "$HL"
+# lpush <ссылка> [ENV=…] — отправка не головы (HEAD~1 → 78 → локально); «код хук-звался ссылка-есть».
+lpush() { local ref="$1"; shift; echo "$(rslot env FAKE_EXEC=1 HOOK_LOG="$HL" "$@" bash "${LSLOT:-$SLOT}" ci-local -- git push -q "$W/bare.git" HEAD~1:refs/heads/"$ref") $([ -s "$HL" ] && echo да || echo нет) $(has_ref "$ref")"; }
+assert "64 нет нет да да" "$(lpush 1280-a) $(has "$W/err" 'в копии неотслеживаемое, путей 1 (h.stray/)') $(has "$W/err" 'Отправка из чистой копии')" "локальная отправка из копии с чужой неотслеживаемой папкой: 64 до хука, путь и форма чистой копии названы, ссылки нет"
+rm -f "$HL"
+assert "0 да да" "$(rslot env FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- git push -q "$W/bare.git" HEAD:refs/heads/1280-b) $([ -s "$HL" ] && echo да || echo нет) $(has_ref 1280-b)" "близнец: голова копии — хук Job-ом судит коммит, неотслеживаемое не судится — отправка идёт"
+rm -f "$HL"; printf 'h.stray/\n' >> "$R/.git/info/exclude"
+assert "0 да да" "$(lpush 1280-c)" "близнец: та же папка игнорируется git — локальная отправка идёт"
+sed -i '/^h\.stray\/$/d' "$R/.git/info/exclude"; rm -f "$HL"
+sed 's/^\( *\)list="\$(git -C "\$top" ls-files --others --exclude-standard --directory 2>\/dev\/null)"/\1list=""/' "$SLOT" > "$W/slot-mut-1280b.sh"
+assert "1 0 да да" "$(diff "$SLOT" "$W/slot-mut-1280b.sh" | grep -c '^<') $(LSLOT="$W/slot-mut-1280b.sh" lpush 1280-d)" "мутант «неотслеживаемое не судится»: отправка ушла с хуком по грязному дереву — проба выше его ловит"
+# Хук, сам судящий чистоту (`git status --porcelain` вне комментария: kacho, corelib), — его клон
+# слот не судит; та же строка лишь в комментарии хука — не признак. Хук правлен в рабочем дереве, не
+# коммитом: кластер «недоступен» (FAKE_AVAIL=1) — иначе маршрут отказал бы 77 «закоммить правки».
+cp "$R/scripts/hooks/pre-push" "$W/hook.orig"
+printf '# git status --porcelain — лишь в комментарии\n' >> "$R/scripts/hooks/pre-push"; rm -f "$HL"
+assert "64 нет нет" "$(lpush 1280-f FAKE_AVAIL=1)" "близнец: «status --porcelain» лишь в комментарии хука — слот судит, 64"
+printf 'git status --porcelain > /dev/null\n' >> "$R/scripts/hooks/pre-push"; rm -f "$HL"
+assert "0 да да" "$(lpush 1280-g FAKE_AVAIL=1)" "хук сам судит чистоту копии (kacho, corelib) — слот не судит, отправка идёт с его хуком"
+cp "$W/hook.orig" "$R/scripts/hooks/pre-push"
+rm -rf "$R/h.stray"; rm -f "$HL"
+assert "0 да да" "$(lpush 1280-e)" "близнец: папка снята — та же локальная отправка идёт"
 rm -f "$W/argv" "$W/argv.avail"
 assert "77 да нет нет" "$(rslot bash "$SLOT" stand -- bash -c 'touch "$1"' x "$W/st1" dev-up) $(has "$W/err" 'во внешний кластер: в deploy/ продукта make stand-ns-up NS=t984-') $([ -e "$W/st1" ] && echo да || echo нет) $([ -e "$W/argv" ] && echo да || echo нет)" "стенд: dev-up при доступном кластере → 77 с формой своего ns, команда не запускалась"
 assert "--available" "$(tr '\n' ' ' < "$W/argv.avail" | sed 's/ $//')" "стенд судит кластер без профиля: стенд ставит stand-ns.sh, не Job профиля"
@@ -1196,6 +1247,13 @@ if [ "${1:-}" = --available ]; then
     exit 0
 fi
 label="${*: -1}"
+# ws#1280: GATE_PEER — записать, назван ли run.sh своим писателем его журнала (stdout) процесс,
+# который туда пишет: pid из REMOTE_HEAVY_OUT_PEER держит тот же файл открытым как stderr.
+if [ -n "${GATE_PEER:-}" ]; then
+    r=нет; o="$(readlink "/proc/$$/fd/1")"
+    for p in ${REMOTE_HEAVY_OUT_PEER:-}; do [ -n "$o" ] && [ "$(readlink "/proc/$p/fd/2" 2>/dev/null)" = "$o" ] && r=да; done
+    echo "$r" > "$GATE_PEER"
+fi
 mkdir "$GATE_DIR/starting" 2>/dev/null || { echo "remote-heavy: кластер занят: прогон 2-й по времени создания при пределе 1 — снимаю своё ns (не выполнилось)" >&2; exit 75; }
 if [ -n "${GATE_START_HOLD:-}" ]; then
     for _ in $(seq 1 600); do [ -e "$GATE_START_HOLD" ] && break; sleep 0.1; done
@@ -1283,6 +1341,18 @@ r1="$(genq "$R" A GATE_HOLD="$W/hold2")"; RA="$(rcof)"; r2="$(genq "$R" B GATE_H
 wait_order "A" 40; sleep 3
 assert "1 A" "$(diff "$SLOT" "$W/slot-mut-1176c.sh" | grep -c '^<') $(gorder)" "мутант «фильтр не отпускает»: второй ждёт выхода первого (в порядке лишь A) — проба выше его ловит"
 touch "$W/hold2"; await_rc "$RA" >/dev/null; await_rc "$RBB" >/dev/null; GSLOT=""
+echo "── внешний путь --enqueue: журнал билета — свой файл, фильтр stderr слота — названный свой писатель (ws#1280)"
+# Урок 2026-10-19: run.sh предупреждал «вывод прогонов перемешается» на журнале билета — в него пишет
+# фильтр stderr слота (ext_filter), сосед run.sh, а не предок и не потомок.
+gnew; rm -f "$W/peer1" "$W/peer2"
+r1="$(genq "$R" P1 GATE_PEER="$W/peer1")"; RP1="$(rcof)"; r2="$(genq "$R" P2 GATE_PEER="$W/peer2")"; RP2="$(rcof)"
+c1="$(await_rc "$RP1")"; c2="$(await_rc "$RP2")"
+assert "0/0 0/0 да да да" "$r1/$r2 $c1/$c2 $(cat "$W/peer1" 2>/dev/null || echo нет) $(cat "$W/peer2" 2>/dev/null || echo нет) $([ -n "$RP1" ] && [ "${RP1%.rc}.log" != "${RP2%.rc}.log" ] && [ "${RP1%.rc}.log" != "$JL" ] && [ "${RP2%.rc}.log" != "$JL" ] && echo да || echo нет)" "два билета --enqueue: журналы разные и не журнал слотов; фильтр stderr слота назван run.sh своим писателем журнала"
+sed 's/^\( *\)REMOTE_HEAVY_OUT_PEER="\$fp" "\$@" 2>/\1"$@" 2>/' "$SLOT" > "$W/slot-mut-1280a.sh"
+gnew; rm -f "$W/peer1"; GSLOT="$W/slot-mut-1280a.sh"
+r1="$(genq "$R" P3 GATE_PEER="$W/peer1")"; RP1="$(rcof)"; c1="$(await_rc "$RP1")"
+assert "1 0 нет" "$(diff "$SLOT" "$W/slot-mut-1280a.sh" | grep -c '^<') $c1 $(cat "$W/peer1" 2>/dev/null || echo нет)" "мутант «фильтр не назван»: run.sh не знает своего писателя — проба выше его ловит"
+GSLOT=""
 # Страховка: run.sh без строки «ns … создано» вход держит не дольше EXT_HOLD_S (ручка проб).
 gnew; rm -f "$W/hold3"
 r1="$(genq "$R" A GATE_HOLD="$W/hold3" GATE_NOMARK=1 HEAVY_SLOT_EXT_HOLD_S=2)"; RA="$(rcof)"; r2="$(genq "$R" B GATE_HOLD="$W/hold3" GATE_NOMARK=1 HEAVY_SLOT_EXT_HOLD_S=2)"; RBB="$(rcof)"
