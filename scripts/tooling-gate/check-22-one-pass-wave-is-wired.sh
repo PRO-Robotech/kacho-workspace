@@ -140,7 +140,7 @@ bp, bpre, bl = w.find("phase('Предполёт')"), w.find("agentType: 'scout'
 if not (0 <= bp < bpre < bl):
     finds.append("%s: предполёт (phase и scout preflight) не стоит в теле ДО фазы «Полосы»" % WAVE)
 need(WAVE, w, ["if (noMap.length) return { ok: false, stage: 'предполёт",
-               "+ mapText(l) + '\\n' + FILES_RULE",
+               "+ mapText(l) + (sqlLane(l) ? SQL_RULE : '') + '\\n' + FILES_RULE",
                "'issues', 'impact', 'report', 'lesson'] }",
                'if (r.ok) r = await trialIn(l, r)',
                "`git push --dry-run origin HEAD:refs/heads/' + l.branch + '`",

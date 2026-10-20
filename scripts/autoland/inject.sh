@@ -104,8 +104,10 @@
 #   q-pin-twins  — двойник landing-precheck привязан к голове, как настоящий: свежие вердикты —
 #                  merged, ревью о другой голове — red REVIEW-STALE, отчёт и ожидаемое — red
 #                  STAND-REPORT-STALE и STAND-EXPECT-STALE;
-#   real-states  — status по КАЖДОМУ настоящему .state основного клона ($WS/tmp/autoland;
-#                  AUTOLAND_REAL_DIR): код — по исходу и живости демона, без билета — без
+#   real-states  — status по КОПИИ каждого настоящего .state основного клона ($WS/tmp/autoland;
+#                  AUTOLAND_REAL_DIR) во временном каталоге пробы — настоящие не трогаются
+#                  (status переписывает «running» мёртвого демона): код — по исходу и живости
+#                  демона (метка либо копия <имя>.autoland.sh), без билета — без
 #                  строки очереди, билетов и очереди status не заводит; каталога нет (CI) —
 #                  «без предмета» строкой и в итоге, не зелёное;
 #   status       — коды status для каждого исхода (4, 5, 6 — тоже) и для слова вне перечня;
@@ -512,6 +514,16 @@ s_detach() {
     ok detach "копия демона в каталоге состояния снята" eval '! ls "$FX"/run/*.autoland.sh >/dev/null 2>&1'
     printf 'running ожидание CI\n' > "$FX/dead.state"; echo 999999999 > "$FX/dead.pid"
     ok detach "running без живого демона — status 2" eval 'bash "$AL" status "$FX/dead.state" >/dev/null; [ $? -eq 2 ]'
+    ok detach "  …и .state переписан в «void оборван», следующее чтение — тоже 2" eval '[[ "$(head -n1 "$FX/dead.state")" == "void оборван: демон pid 999999999"* ]] && { bash "$AL" status "$FX/dead.state" >/dev/null; [ $? -eq 2 ]; }'
+    # pid переиспользован (после перезагрузки): живой ЧУЖОЙ процесс — оболочка пробы — не демон.
+    printf 'running ожидание CI\n' > "$FX/reuse.state"; echo "$$" > "$FX/reuse.pid"
+    ok detach "running, pid занят живым чужим процессом — status 2, .state — «void оборван: pid N занят чужим процессом», не «не жив»" eval 'bash "$AL" status "$FX/reuse.state" >/dev/null; [ $? -eq 2 ] && [[ "$(head -n1 "$FX/reuse.state")" == "void оборван: pid $$ занят чужим процессом, демона нет, исхода нет — "* ]]'
+    # Демон прежней версии (без метки AUTOLAND_TAG): копия <имя>.autoland.sh в строке запуска.
+    local op; ( exec -a "$FX/old.autoland.sh" sleep 30 ) & op=$!; PIDS+=("$op")
+    for _ in $(seq 1 20); do grep -qaF "old.autoland.sh" "/proc/$op/cmdline" 2>/dev/null && break; sleep 0.1; done
+    printf 'running ожидание CI\n' > "$FX/old.state"; echo "$op" > "$FX/old.pid"
+    ok detach "близнец: демон прежней версии без метки жив — status 3, .state не тронут" eval 'bash "$AL" status "$FX/old.state" >/dev/null; [ $? -eq 3 ] && [[ "$(head -n1 "$FX/old.state")" == running* ]]'
+    kill "$op" 2>/dev/null
     unset AL_FX
 }
 # ── копия демона сверяется со стволом при start (ws#1228) ─────────────────────
@@ -1009,14 +1021,17 @@ base_push() {  # <база> <файл> <текст> — коммит в базу
     sandbox_run git -C "$s" commit -qm "#4000 база: $2"; git -C "$s" push -q origin "HEAD:refs/heads/$1"
 }
 run_q() {  # <N> [доводы…] — демон N в фоне; QREPO_<N> — иное написание репозитория
-    local n="$1" r; shift; r="QREPO_$n"; r="${!r:-$REPO}"
+    local n="$1" r h; shift; r="QREPO_$n"; r="${!r:-$REPO}"; h="$(qhead "$n")"
+    # Метка AUTOLAND_TAG=<имя> — как у демона, запущенного start (ws#1269): status судит
+    # живость по ней, а не по голому pid.
     # Демон и площадка пишут коммиты слияния — подписью песочницы (её HOME); обёртки
     # инструментов в ~/.local, резолвящие себя от HOME, видны и оттуда (ссылкой, не копией).
     [ -e "$SANDBOX_GIT_HOME/.local" ] || [ ! -d "$HOME/.local" ] || ln -s "$HOME/.local" "$SANDBOX_GIT_HOME/.local"
     sandbox_run env AL_Q="$Q" AUTOLAND_GH="$T/ghq" AUTOLAND_GATES="$T/gates-q" AUTOLAND_DIR="$Q/run" AUTOLAND_WS="$T/ws0" \
         AUTOLAND_CLONES="${QCLONE-$Q/clone}" CI_STATE_DIR="$Q/cs" AUTOLAND_INTERIM_LOCK="$T/interim.lock" AUTOLAND_PUSH="$T/pushq" \
         AUTOLAND_HEAD_SYNC=0 AUTOLAND_HEAD_SYNC_POLL=1 AUTOLAND_QUEUE_POLL=1 AUTOLAND_CATCHUP_LIMIT="${QLIMIT:-2}" \
-        timeout "${RUN_LIMIT:-90}" bash "$AL" run --repo "$r" --pr "$n" --head "$(qhead "$n")" --subject "#4000 merge #$n: проба" --poll 1 "$@" \
+        AUTOLAND_TAG="${r%%/*}__${r#*/}__${n}__${h:0:12}" \
+        timeout "${RUN_LIMIT:-90}" bash "$AL" run --repo "$r" --pr "$n" --head "$h" --subject "#4000 merge #$n: проба" --poll 1 "$@" \
         > "$Q/out.$n" 2>&1 &
     QP[$n]=$!; PIDS+=("$!")
 }
@@ -1215,27 +1230,79 @@ s_q_pin_twins() {  # двойник landing-precheck судит привязку
     ok q-pin-twins "отчёт и ожидаемое о другой голове — red STAND-REPORT-STALE и STAND-EXPECT-STALE" eval '[ "${QRC[4303]}" = 1 ] && qst 4303 | grep -q "STAND-REPORT-STALE" && qst 4303 | grep -q "STAND-EXPECT-STALE"'
     ok q-pin-twins "отправок нет, влит лишь 4301" eval '[ ! -s "$Q/push.calls" ] && [ "$(tr "\n" " " < "$Q/merge.order")" = "4301 " ]'
 }
-s_real_states() {  # прогон по настоящим .state машины: status судит каждый, не пишет ничего
-    local dir="$REAL_DIR" n=0 bad=0 f out c first exp pid before after
-    ST="настоящие .state $dir"; RC=-
-    if ! compgen -G "$dir/*.state" > /dev/null; then
-        echo "  [без предмета] real-states: в $dir нет .state — прогон по настоящим формам не исполнен"; NOSUBJ=$((NOSUBJ + 1)); return
+# al_alive <pid> <имя> — живой демон: pid с меткой AUTOLAND_TAG=<имя> либо копией
+# <имя>.autoland.sh в строке запуска (ws#1269): чужой процесс на переиспользованном pid — нет.
+al_alive() {
+    [[ "$1" =~ ^[0-9]+$ ]] || return 1
+    grep -qzxF "AUTOLAND_TAG=$2" "/proc/$1/environ" 2>/dev/null || grep -qzE "/$2\.autoland\.sh\$" "/proc/$1/cmdline" 2>/dev/null
+}
+# real_fp <каталог> <файл перечня> — отпечаток «имя sha256 mtime» каждого файла перечня
+# (нет файла — «имя нет»): до и после прогона по ОДНОМУ перечню.
+real_fp() {
+    local f
+    while IFS= read -r f; do
+        if [ -e "$1/$f" ]; then printf '%s %s %s\n' "$f" "$(sha256sum < "$1/$f" | cut -c1-64)" "$(stat -c %y "$1/$f")"
+        else printf '%s нет\n' "$f"; fi
+    done < "$2"
+}
+s_real_states() {  # прогон по КОПИЯМ настоящих .state машины: status судит каждый; настоящие не трогаются
+    # status переписывает «running» мёртвого демона в «void оборван» (ws#1269) — потому судится
+    # копия каталога во временном каталоге пробы, а исходный каталог — отпечатком до и после:
+    # .state, .pid, .ticket каждого имени, чей демон не жив ни до, ни после прогона (файлы
+    # живого демона законно пишет он сам).
+    local src="$REAL_DIR" dir="$T/real-states.$RANDOM" n=0 bad=0 f out c first exp pid nm before after e
+    local lst="$T/real-fp.$RANDOM" fp0 fp1 live=0
+    ST="настоящие .state $src (копии)"; RC=-
+    if ! compgen -G "$src/*.state" > /dev/null; then
+        echo "  [без предмета] real-states: в $src нет .state — прогон по настоящим формам не исполнен"; NOSUBJ=$((NOSUBJ + 1)); return
     fi
+    : > "$lst"
+    for f in "$src"/*.state; do
+        nm="$(basename "${f%.state}")"
+        if al_alive "$(cat "$src/$nm.pid" 2>/dev/null)" "$nm"; then live=$((live + 1)); continue; fi
+        for e in state pid ticket; do [ -e "$src/$nm.$e" ] && printf '%s\n' "$nm.$e" >> "$lst"; done
+    done
+    fp0="$(real_fp "$src" "$lst")"
+    mkdir -p "$dir"
+    for e in state pid unit exit ticket; do compgen -G "$src/*.$e" > /dev/null && cp -p "$src"/*."$e" "$dir"/; done
     before="$(find "$dir" -maxdepth 1 \( -name '*.ticket' -o -name queue \) -printf '%f\n' | sort | tr '\n' ' ')"
     for f in "$dir"/*.state; do
         n=$((n + 1)); out="$(bash "$AL" status "$f" 2>&1)"; c=$?; first="$(head -n1 <<< "$out")"
         case "${first%% *}" in
             merged) exp=0 ;; red) exp=1 ;; void) exp=2 ;; stale-base) exp=4 ;; head-moved) exp=5 ;; timeout) exp=6 ;;
-            running) pid="$(cat "${f%.state}.pid" 2>/dev/null)"; exp=2; [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null && exp=3 ;;
+            running) pid="$(cat "${f%.state}.pid" 2>/dev/null)"; exp=2; al_alive "$pid" "$(basename "${f%.state}")" && exp=3 ;;
             *) exp=2 ;;
         esac
         if [ "$c" != "$exp" ]; then bad=$((bad + 1)); echo "    расхождение: $(basename "$f") — код $c, ожидался $exp: ${first:0:120}"; fi
         if [ "$exp" = 3 ] && [ ! -e "${f%.state}.ticket" ] && grep -q '^очередь:' <<< "$out"; then bad=$((bad + 1)); echo "    очередь у демона без билета: $(basename "$f")"; fi
     done
     after="$(find "$dir" -maxdepth 1 \( -name '*.ticket' -o -name queue \) -printf '%f\n' | sort | tr '\n' ' ')"
-    echo "  [перепись] real-states: .state $n в $dir; расхождений $bad"
+    # Демон, оживший за прогон (тот же <имя> перезапущен цепочкой), — из сверки вон: его файлы пишет он.
+    while IFS= read -r f; do
+        nm="${f%.*}"; al_alive "$(cat "$src/$nm.pid" 2>/dev/null)" "$nm" && sed -i "/^$nm\./d" "$lst"
+    done < <(cat "$lst")
+    fp0="$(grep -F -f "$lst" <<< "$fp0" 2>/dev/null)"; fp1="$(real_fp "$src" "$lst")"
+    echo "  [перепись] real-states: .state $n — копии из $src; расхождений $bad; отпечаток исходного: файлов $(grep -c . "$lst"), живых демонов вне сверки $live"
     ok real-states "status по каждому настоящему .state ($n): код — по исходу и живости демона, расхождений 0" eval '[ "$n" -gt 0 ] && [ "$bad" -eq 0 ]'
-    ok real-states "status очередь не заводит и билетов не пишет" eval '[ "$before" = "$after" ]'
+    ok real-states "status очередь не заводит и билетов не пишет (на копии)" eval '[ "$before" = "$after" ]'
+    ok real-states "исходный каталог $src не тронут: отпечаток .state/.pid/.ticket до и после совпал" eval '[ "$fp0" = "$fp1" ]'
+}
+# s_real_replica — реплика настоящего каталога с подложенным мёртвым «running» (pid вне
+# диапазона) и законным близнецом merged: сцена real-states по ней — зелёная, реплика не
+# тронута; мутант пробы «судит каталог напрямую» (dir="$REAL_DIR") обязан покраснеть
+# (мутанты пробы — в разделе мутантов, prober_mutant).
+mk_replica() {
+    REPLICA="$T/replica.$RANDOM"; mkdir -p "$REPLICA"
+    printf 'running ожидание CI\n' > "$REPLICA/PRO-Robotech__kacho-workspace__4999__aaaaaaaaaaaa.state"
+    echo 999999999 > "$REPLICA/PRO-Robotech__kacho-workspace__4999__aaaaaaaaaaaa.pid"
+    printf 'merged 0123456789ab снятие: —\n' > "$REPLICA/PRO-Robotech__kacho-workspace__4998__bbbbbbbbbbbb.state"
+}
+s_real_replica() {
+    local saved="$REAL_DIR"
+    mk_replica; REAL_DIR="$REPLICA"; "${REAL_SCENE:-s_real_states}"; REAL_DIR="$saved"
+    ST="реплика $REPLICA: $(head -n1 "$REPLICA/PRO-Robotech__kacho-workspace__4999__aaaaaaaaaaaa.state")"; RC=-
+    ok real-replica "подложенный мёртвый «running» реплики остался «running» — проба его не переписала" \
+        eval '[ "$(head -n1 "$REPLICA/PRO-Robotech__kacho-workspace__4999__aaaaaaaaaaaa.state")" = "running ожидание CI" ]'
 }
 
 ALL=(s_green s_red s_moved_start s_moved_gates s_moved_merge s_allow_ok s_allow_bad s_stale s_mr_red s_timeout
@@ -1245,7 +1312,7 @@ ALL=(s_green s_red s_moved_start s_moved_gates s_moved_merge s_allow_ok s_allow_
      s_start_stale s_head_sync
      s_status s_empty_code s_lp_head s_census s_guard s_static
      s_q3 s_q_spelling s_q_diff_base s_q_dead s_q_live s_q_queued s_q_stale_ext s_q_conflict s_q_push s_q_limit s_q_stale_lag s_q_fetch s_q_lock
-     s_q_pinned s_q_pin_twins s_real_states)
+     s_q_pinned s_q_pin_twins s_real_states s_real_replica)
 
 AL="$AL_REAL"
 echo "== контроль: сцен ${#ALL[@]}"
@@ -1256,7 +1323,9 @@ echo "== контроль: провалов $control_fails"
 # ── мутанты: <имя> <сцены через запятую> <было> <стало> ───────────────────────
 mutants=0; survived=0; voidm=0
 mutant() {  # … [<исходник: autoland.sh по умолчанию либо main-clone-lag.sh>]
-    local name="$1" scenes="$2" from="$3" to="$4" src="${5:-$AL_REAL}" m="$T/mut.$RANDOM.sh" s
+    local name="$1" scenes="$2" from="$3" to="$4" src="${5:-$AL_REAL}" md="$T/mut.$RANDOM" m s
+    # Мутант autoland.sh — в каталоге, рядом с которым (..) лежит detach-launch.sh: start его подключает.
+    mkdir -p "$md/autoland"; cp "$(dirname "$AL_REAL")/../detach-launch.sh" "$md/"; m="$md/autoland/$(basename "$src")"
     python3 - "$src" "$m" "$from" "$to" <<'PY' || { echo "  [VOID] мутант $name: правка не легла в текст"; voidm=$((voidm + 1)); return; }
 import sys
 src, dst, a, b = sys.argv[1:5]
@@ -1299,6 +1368,13 @@ mutant prune-busy-fd-unchecked s_prune_busy 'find /proc/[0-9]*/fd -mindepth 1' '
 mutant prune-busy-exe-unchecked s_prune_busy 'find /proc/[0-9]*/cwd /proc/[0-9]*/exe -maxdepth 0' 'find /proc/[0-9]*/cwd -maxdepth 0'
 mutant prune-busy-glob-unescaped s_prune_busy_glob "e=\"\$(printf '%s' \"\$d\" | sed 's/[][*?\\\\]/\\\\&/g')\"" 'e="$d"'
 mutant prune-base-ancestor-dropped s_prune_not_in_base 'if ! git -C "$c" merge-base --is-ancestor "$HEAD" "origin/$base" 2>/dev/null; then' 'if false; then'
+mutant status-alive-by-kill0 s_detach '[[ "$1" =~ ^[0-9]+$ ]] || return 1
+    { mapfile' '[[ "$1" =~ ^[0-9]+$ ]] || return 1
+    kill -0 "$1" 2>/dev/null && return 0
+    { mapfile'
+mutant status-old-daemon-unknown s_detach '[[ "$a" == */"$2".autoland.sh ]] && return 0' 'false'
+mutant status-foreign-pid-as-dead s_detach 'if [[ "$pid" =~ ^[0-9]+$ ]] && [ -d "/proc/$pid" ]; then who=' 'if false; then who='
+mutant status-dead-not-rewritten s_detach 'printf '"'"'%s\n'"'"' "$line" > "$f.$$.tmp" && mv -f "$f.$$.tmp" "$f"' ':'
 mutant status-stale-as-merged s_status 'stale-base) exit 4 ;;' 'stale-base) exit 0 ;;'
 mutant status-moved-as-merged s_status 'head-moved) exit 5 ;;' 'head-moved) exit 0 ;;'
 mutant status-timeout-as-merged s_status 'timeout) exit 6 ;;' 'timeout) exit 0 ;;'
@@ -1327,6 +1403,25 @@ mutant start-lag-unchecked s_start_stale 'lag="$(bash "$lag_sh" --own' 'lag="$(t
 mutant head-sync-dropped s_head_sync '[ "$HEAD_SEEN" = 0 ] && [ $(( $(date +%s) - RUN_T0 )) -lt "$HEAD_SYNC" ]' 'false'
 mutant head-seen-ignored s_head_sync '[ "$HEAD_SEEN" = 0 ] && [ $(( $(date +%s)' '[ $(( $(date +%s)'
 mutant head-sync-unbounded s_head_sync ' -lt "$HEAD_SYNC" ]; then' ' -ge 0 ]; then' 
+# Мутант ПРОБЫ (не autoland.sh): тело s_real_states правится (declare -f) и исполняется на
+# реплике с подложенным мёртвым «running» — сцена real-replica обязана покраснеть.
+probe_mutant() {  # <имя> <было> <стало>
+    local name="$1" body saved=$fails
+    body="$(declare -f s_real_states | python3 -c '
+import sys
+t, a, b = sys.stdin.read(), sys.argv[1], sys.argv[2]
+if t.count(a) != 1:
+    sys.exit(1)
+print(t.replace(a, b).replace("s_real_states ()", "s_real_states_mut ()", 1))' "$2" "$3")" \
+        || { echo "  [VOID] мутант пробы $name: правка не легла в текст"; voidm=$((voidm + 1)); return; }
+    eval "$body"
+    mutants=$((mutants + 1))
+    REAL_SCENE=s_real_states_mut s_real_replica > "$T/mut.out" 2>&1
+    if [ "$fails" -gt "$saved" ]; then echo "  [убит] $name — $(grep -m1 -F '[FAIL]' "$T/mut.out" | sed 's/^ *\[FAIL\] //' | cut -c1-200)"
+    else echo "  [ВЫЖИЛ] $name — сцена real-replica зелёная на дефекте"; survived=$((survived + 1)); fi
+    fails=$saved
+}
+probe_mutant real-states-judges-source-dir 'dir="$T/real-states.$RANDOM"' 'dir="$REAL_DIR"'
 # очередь на базу и догон (ws#1263)
 mutant queue-dropped s_q3 $'queue_turn\n        if [ "$PINNED" = 0 ]; then catchup turn' $'TURN=1\n        if [ "$PINNED" = 0 ]; then catchup turn'
 mutant catchup-at-turn-dropped s_q3 'catchup turn; [ "$CU_RC" != 1 ] || continue' ':'
