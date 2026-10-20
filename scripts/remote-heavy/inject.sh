@@ -77,7 +77,7 @@
 #   C4b близнец без гонки                  → 0
 #   C5 гонка при --keep                    → 75, ns всё равно снято
 #   V2 --available при занятом кластере    → 75; близнец V2b → 0
-#   M1 KACHO_REMOTE_HEAVY_MAX=0            → 64
+#   M1 KACHO_REMOTE_HEAVY_MAX=0 и 65       → 64; близнец M1b 64 → 0
 #   AL перепись длиннее слова argv (128 КиБ, ws#1210): AL0 — предпосылка (ответ
 #      двойника длиннее); AL1 --available при 1000 тяжёлых ns с завершёнными Job → 0,
 #      близнец AL1b (3 ns) → 0; AL2 прогон → 0, Job создан; AL3 службы ns kacho
@@ -88,8 +88,15 @@
 #      (близнец Q1), AL5w страж фазы записи после смены файла (близнец W9b);
 #      AL6 политики ns kacho длиннее слова → проба закрытости svc-a, близнец AL6b
 #      малая перепись → та же проба; AL7 политики ns kacho не JSON → 70, Job нет
-#   M2 предел по умолчанию 6 — страховка над размещением: 6 идущих → 75;
-#      близнец M2b 5 идущих → 0 (C1–C5, V2 судят предел явным 2)
+#   M2 потолок по умолчанию 40, а не 6 (ws#1293): 6 идущих без запроса → 0, потолок
+#      назван (C1–C5, V2 судят потолок явным 2)
+#   CP ЁМКОСТЬ (ws#1293), фикстуры JSON узлов и pod: CP5 — 5 узлов, 6 идущих ci-local
+#      kaname сели → 0, «тяжёлых 6, помещается 15 (узлов 5», прогон 0; CP2 — близнец,
+#      2 узла: 6 идущих → 75 «помещается 6», 5 идущих → 0; CPB — раскладка по узлам:
+#      идущий pod без узла и новый в сумме кластера ложатся, по узлам нет → 75 и прогон
+#      без ns, близнец CPBb (на 100m больше места) → 0; CPN — ns без pod держит место
+#      запросом нового → 75, близнец без него → 0; CPR — гонка: старший без pod
+#      занял место — своё ns снято, 75, Job нет; близнец CPRb без гонки → 0
 #   Q1 стенд (pod ns kacho) на всех узлах, место есть → --available 0 и прогон 0
 #      (стенд узел не запирает)
 #   QR запрос по замеру (ws#1195): память pod — p90 пика строки PEAKS профиля и
@@ -98,10 +105,10 @@
 #      строка «*»; без --repo — наибольший; Job несёт запрос run = pod − dind − pgclient,
 #      квота — run + dind + 1 ГиБ; --repo вне трёх → 64
 #   QW 4–5 окон (решение владельца 2026-10-18): два узла 15 500m и 30 189 МиБ, фон
-#      переписи 2026-10-18 (2 265m/8 436 МиБ и 2 335m/9 460 МиБ); подряд ложатся 6
-#      ci-local (kacho, kacho, kaname, kaname, kaname, kacho) — запросы берутся из Job
-#      самого run.sh, седьмой — 75; порча «константа 7/12» краснит QW-3, возврат
-#      запаса 20 % — QW-5 (mutants.py)
+#      переписи 2026-10-18 (2 265m/8 436 МиБ и 2 335m/9 460 МиБ); подряд ложатся 4
+#      ci-local (kacho, kacho, kaname, kaname) — запросы берутся из Job самого run.sh,
+#      пятый — 75 (ci-local kacho по кластерному замеру ws#1293 — 15 104 МиБ); порча
+#      «константа 7/12» краснит QW-3, возврат запаса 20 % — QW-2 (mutants.py)
 #   QB место на самой границе, без запаса сверх запроса: lint kaname (2 000m, 5 376 МиБ),
 #      фон CPU 13 500m → 0, 13 501m → 75; памяти 24 813 МиБ → 0, 24 814 МиБ → 75;
 #      QB-dind — ci-local kacho (run, dind, pgclient): место ровно под запрос pod → 0,
@@ -2082,19 +2089,22 @@ expect_rc V2 75
 fresh; seed_ns t7-heavy-a '+1 hour'
 go_run v2b env KACHO_REMOTE_HEAVY_MAX=2 bash "$RUN" --available
 expect_rc V2b 0
-# M2 — предел по умолчанию — 6, страховка над размещением (ws#1143, ws#1195): 6 идущих
-# → 75 с пределом в причине; близнец — 5 идущих → 0
+# M2 — потолок по умолчанию 40, а не 6 (ws#1293): число прогонов даёт ЁМКОСТЬ (CP ниже);
+# 6 идущих при --available без запроса → 0, потолок назван строкой ёмкости
 fresh; for x in a b c d e f; do seed_ns "t7-heavy-$x" '+1 hour'; done
 go_run m2 bash "$RUN" --available
-expect_rc M2 75
-if grep -q 'идущих тяжёлых прогонов 6 при пределе 6' "$OUT"; then ok; else bad M2-why "предел по умолчанию не 6 либо не назван"; fi
-fresh; for x in a b c d e; do seed_ns "t7-heavy-$x" '+1 hour'; done
-go_run m2b bash "$RUN" --available
-expect_rc M2b 0
-# M1 — предел вне 1..8 → 64
+expect_rc M2 0
+if grep -q 'ёмкость: тяжёлых 6, помещается без предела (запрос не назван).*потолок 40 (KACHO_REMOTE_HEAVY_MAX)' "$OUT"; then ok; else bad M2-why "потолок по умолчанию не 40 либо строка ёмкости не напечатана"; fi
+# M1 — потолок вне 1..64 → 64; близнец M1b — 64 → 0
 fresh
 go_run m1 env KACHO_REMOTE_HEAVY_MAX=0 "${B[@]}" -- true
 expect_rc M1 64
+fresh
+go_run m1c env KACHO_REMOTE_HEAVY_MAX=65 "${B[@]}" -- true
+expect_rc M1-65 64
+fresh
+go_run m1b env FAKE_EXIT=0 KACHO_REMOTE_HEAVY_MAX=64 "${B[@]}" --short m1b -- true
+expect_rc M1b 0
 
 # ── перепись длиннее слова argv (ws#1210) ───────────────────────────────────
 # Слово argv ядро ограничивает MAX_ARG_STRLEN (32 страницы, 128 КиБ): перепись,
@@ -2317,8 +2327,9 @@ expect_rc QE-prof 64
 # окон»). Узлы и фон — перепись 2026-10-18: два узла по 15 500m и 30 189 МиБ, фон без
 # тяжёлых — 2 265m/8 436 МиБ и 2 335m/9 460 МиБ (стенды и выкатка). Прогоны ci-local
 # садятся подряд; уже севший — pod с запросами из Job, который создал сам run.sh.
-# Ложатся шесть (kacho, kacho, kaname, kaname, kaname, kacho), седьмой — 75. Константа
-# 7/12 краснит третий, запас 20 % сверх запроса — пятый (mutants.py).
+# Ложатся четыре (kacho, kacho, kaname, kaname), пятый — 75: ci-local kacho — по
+# кластерному замеру (ws#1293, 15 104 МиБ), на узле с ним остаётся место одному
+# kaname. Константа 7/12 краснит третий, запас 20 % сверх запроса — второй (mutants.py).
 BG="$(pod_j sys n1 Running 2265m 8436Mi) $(pod_j sys n2 Running 2335m 9460Mi)"
 pod_from_job() {  # pod_from_job <ns> <узел> — pod последнего Job пробы, лишь запросы
     jq -c --arg ns "$1" --arg n "$NODE_PFX$2" '.spec.template.spec as $s | {metadata: {namespace: $ns, name: "run-x"},
@@ -2340,9 +2351,7 @@ qw 1 kacho n1 0
 qw 2 kacho n2 0
 qw 3 kaname n1 0
 qw 4 kaname n2 0
-qw 5 kaname n1 0
-qw 6 kacho n2 0
-qw 7 kaname - 75
+qw 5 kaname - 75
 # QB — место на самой границе, сверх запроса запаса нет (ws#1195): один узел 15 500m
 # и 30 913 596 КиБ (30 189,06 МиБ), lint kaname — 2 000m и 5 376 МиБ. Фон CPU 13 500m
 # оставляет ровно 2 000m (0), 13 501m — 1 999m (75); фон памяти 24 813 МиБ оставляет
@@ -2445,6 +2454,91 @@ timeout 15 env PATH="$BOX/bin:$PATH" FAKE_STATE="$BOX/state" FAKE_HOST="$SERVER_
     KACHO_REMOTE_KUBECONFIG="$BOX/kubeconfig" TMPDIR="$BOX" "${B[@]}" --short q4b -- true > "$OUT" 2>&1
 RC=$?; cat "$OUT" >> "$ALL_OUT"
 expect_rc Q4b 124
+
+# ── ЁМКОСТЬ: предел тяжёлых — из кластера (ws#1293) ───────────────────────
+# Фикстуры — JSON узлов и pod двойника, без живого кластера. Узел — 15 500m и
+# 30 189 МиБ (node_j), прогон — ci-local kaname: запрос pod выводится из --profiles
+# run.sh (cpu 4 000m, память — PEAKS × 1,2), а не выписан.
+cp_req="$(bash "$RUN" --profiles 2>/dev/null | awk '$1 == "ci-local" && $2 == "kaname" { for (i = 1; i <= NF; i++) { if ($i == "cpu" && c == "") c = $(i+1); if ($i == "память" && m == "") m = $(i+1) } print c, m; exit }')"
+read -r cp_cpu cp_mib <<< "$cp_req"; cp_cpu="${cp_cpu%m}"
+if [[ "$cp_cpu" =~ ^[0-9]+$ ]] && [[ "$cp_mib" =~ ^[0-9]+$ ]] && [ "$(( 15500 / cp_cpu ))" = 3 ] && [ "$(( 30189 / cp_mib ))" -ge 3 ]; then ok
+else OUT=""; bad CP-premise "запрос ci-local kaname «$cp_req» не выведен либо узел 15 500m не держит ровно 3 по CPU — ожидания CP5/CP2 неверны"; fi
+pod_pend_j() {  # pod_pend_j <ns> <cpu> <память> — pod без узла (ждёт планирования)
+    jq -nc --arg ns "$1" --arg c "$2" --arg m "$3" '{metadata: {namespace: $ns, name: "p"},
+      spec: {containers: [{name: "c", resources: {requests: {cpu: $c, memory: $m}}}]}, status: {phase: "Pending"}}'
+}
+# cp_seed <узел…> — по идущему тяжёлому ns на каждый узел списка, pod ns сел на этот узел
+# с запросом ci-local kaname; pod — в CP_PODS.
+cp_seed() {
+    local i=0 x
+    CP_PODS=""
+    for x in "$@"; do
+        i=$((i + 1)); seed_ns "t7-heavy-cp$i" '+1 hour'
+        CP_PODS="$CP_PODS$(pod_j "t7-heavy-cp$i" "$x" Running "${cp_cpu}m" "${cp_mib}Mi")"$'\n'
+    done
+}
+CPB_RUN=(bash "$RUN" --task 1 --repo kaname --ref HEAD --src "$SRC" --profile ci-local)
+NODES5="$(for x in n1 n2 n3 n4 n5; do node_j "$x" 1 0 ""; done | items)"
+# CP5 — 5 узлов, 6 идущих сели (2, 2, 1, 1, 0) → новый ложится: помещается 6 + 1 + 1 + 2 + 2 + 3 = 15
+fresh; cp_seed n1 n1 n2 n2 n3 n4
+go_run cp5 env FAKE_NODES="$NODES5" FAKE_CLUSTER_PODS="$(printf '%s' "$CP_PODS" | items)" bash "$RUN" --available --profile ci-local --repo kaname
+expect_rc CP5 0
+if grep -q 'ёмкость: тяжёлых 6, помещается 15 (узлов 5, свободно [0-9,]* CPU / [0-9,]* ГиБ), потолок 40' "$OUT"; then ok; else bad CP5-line "строка «тяжёлых 6, помещается 15 (узлов 5, …), потолок 40» не напечатана"; fi
+fresh; cp_seed n1 n1 n2 n2 n3 n4
+go_run cp5r env FAKE_EXIT=0 FAKE_NODES="$NODES5" FAKE_CLUSTER_PODS="$(printf '%s' "$CP_PODS" | items)" "${CPB_RUN[@]}" --short cp5r -- true
+expect_rc CP5-run 0
+if [ "$(created)" = да ] && grep -q 'ёмкость: тяжёлых 6, помещается 15' "$OUT"; then ok; else bad CP5-run "ns не создано либо ёмкость не напечатана при месте на 5 узлах"; fi
+# CP2 — близнец: 2 узла, 6 идущих (3 и 3) → 75 «помещается 6»; 5 идущих → 0 «помещается 6»
+fresh; cp_seed n1 n1 n1 n2 n2 n2
+go_run cp2 env FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$(printf '%s' "$CP_PODS" | items)" bash "$RUN" --available --profile ci-local --repo kaname
+expect_rc CP2 75
+if grep -q 'места под запрос.*ёмкость: тяжёлых 6, помещается 6 (узлов 2' "$OUT"; then ok; else bad CP2-why "причина 75 без ёмкости «тяжёлых 6, помещается 6»"; fi
+fresh; cp_seed n1 n1 n1 n2 n2
+go_run cp2b env FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$(printf '%s' "$CP_PODS" | items)" bash "$RUN" --available --profile ci-local --repo kaname
+expect_rc CP2b 0
+if grep -q 'ёмкость: тяжёлых 5, помещается 6 (узлов 2' "$OUT"; then ok; else bad CP2b-line "ёмкость «тяжёлых 5, помещается 6» не напечатана"; fi
+# CPB — раскладка по узлам: свободно n1 — запрос × 2 − 100m, n2 — 3 000m; идущий pod без
+# узла (запрос ci-local kaname) и новый в сумме кластера ложатся, а по узлам — нет:
+# идущий займёт n1, новому места не останется → 75, ns не создаётся. Близнец CPBb —
+# n1 свободно ровно запрос × 2 → 0. Сумма по кластеру (мутант cluster-sum) даёт 0 и в CPB.
+cpb() {  # cpb <случай> <фон n1, m> <код>
+    local pods
+    pods="$( { pod_j sys n1 Running "$2m" 1Gi; pod_j sys n2 Running 12500m 1Gi; pod_pend_j t7-heavy-pend "${cp_cpu}m" "${cp_mib}Mi"; } | items)"
+    fresh; seed_ns t7-heavy-pend '+1 hour'
+    go_run "cpb-$1" env FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$pods" bash "$RUN" --available --profile ci-local --repo kaname
+    expect_rc "CPB-$1" "$3"
+    fresh; seed_ns t7-heavy-pend '+1 hour'
+    go_run "cpbr-$1" env FAKE_EXIT=0 FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$pods" "${CPB_RUN[@]}" --short "cpb$1" -- true
+    expect_rc "CPB-run-$1" "$3"
+    if [ "$3" = 0 ]; then
+        if [ "$(created)" = да ]; then ok; else bad "CPB-run-$1" "ns не создано при месте по узлам"; fi
+    else
+        if [ "$(created)" = нет ]; then ok; else bad "CPB-run-$1" "ns создано, хотя по узлам места нет"; fi
+    fi
+}
+cpb out "$(( 15500 - 2 * cp_cpu + 100 ))" 75
+cpb in "$(( 15500 - 2 * cp_cpu ))" 0
+# CPN — идущее ns без pod (Job pod ещё не создал) держит место запросом нового: один
+# узел, свободно запрос × 2 − 100m → 75; близнец CPNb без идущего → 0
+cpn_pods="$(pod_j sys n1 Running "$(( 15500 - 2 * cp_cpu + 100 ))m" 1Gi | items)"
+fresh; seed_ns t7-heavy-nopod '+1 hour'
+go_run cpn env FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$cpn_pods" bash "$RUN" --available --profile ci-local --repo kaname
+expect_rc CPN 75
+fresh
+go_run cpnb env FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$cpn_pods" bash "$RUN" --available --profile ci-local --repo kaname
+expect_rc CPNb 0
+# CPR — гонка ёмкостью: первая перепись идущих не видит, чужое ns создано мгновением
+# раньше своего (FAKE_RACE, без pod); со старшим места нет → 75, своё ns снято, Job нет;
+# близнец CPRb без гонки → 0. Потолок не держит: он 40.
+fresh
+go_run cpr env FAKE_EXIT=0 FAKE_RACE=t9-heavy-racer FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$cpn_pods" "${CPB_RUN[@]}" --short cpr -- true
+expect_rc CPR 75
+own_gone CPR t1-heavy-cpr
+no_job CPR
+if grep -q 'со старшими идущими места под запрос' "$OUT"; then ok; else bad CPR-why "причина гонки ёмкостью не названа"; fi
+fresh
+go_run cprb env FAKE_EXIT=0 FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$cpn_pods" "${CPB_RUN[@]}" --short cprb -- true
+expect_rc CPRb 0
 
 # ── команда доходит до контейнера байт в байт (ws#1142) ────────────────────
 # Составной Job потерял переменные и коды осей: kubelet свернул $$ в $ и раскрыл

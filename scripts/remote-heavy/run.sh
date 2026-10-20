@@ -102,14 +102,17 @@
 # «уборка прежних запусков: …».
 #
 # ПРЕДЕЛ. Квота стоит на одно ns, а общего предела в кластере нет (ревью ws#984,
-# F3). Допуск прогона решает запрос прогона (ЗАПРОС ПО ЗАМЕРУ, РАЗМЕЩЕНИЕ); число
-# одновременных тяжёлых прогонов KACHO_REMOTE_HEAVY_MAX (по умолчанию 6) — лишь
-# верхняя страховка над ним: прежний счёт штуками (2) держал лёгкие в очереди при
-# месте под них, а размещение сажало прогон до 100 % узла. Идущим считается ns
-# kacho.io/kind=heavy, не снимаемое, со сроком в будущем и без завершённого Job.
-# Перепись — до создания ns (предел достигнут — 75, ns не создаётся) и после него:
-# две гонки, прошедшие первую проверку разом, разрешаются по времени создания —
-# запуск, оказавшийся сверх предела, снимает своё ns и выходит 75.
+# F3). Сколько тяжёлых прогонов идёт разом, решает КЛАСТЕР (ws#1293): ЁМКОСТЬ в
+# РАЗМЕЩЕНИИ раскладывает по узлам запросы идущих и запрос нового. Число
+# KACHO_REMOTE_HEAVY_MAX (1–64, по умолчанию 40) — лишь потолок безопасности над ней:
+# 40 не ниже того, что даёт кластер переписи 2026-10-21 (5 узлов по 15 500m —
+# 5 × ⌊15 500 / 2 000⌋ = 35 lint либо integration; ci-local — 15). Прежняя
+# константа 6 (до 8 переменной) держала 8 заявок в очереди при 5 узлах. Идущим
+# считается ns kacho.io/kind=heavy, не снимаемое, со сроком в будущем и без
+# завершённого Job. Перепись — до создания ns (потолок либо ёмкость исчерпаны — 75,
+# ns не создаётся) и после него: две гонки, прошедшие первую проверку разом,
+# разрешаются по времени создания — запуск сверх потолка либо тот, чей запрос не
+# ложится вместе со СТАРШИМИ идущими, снимает своё ns и выходит 75.
 #
 # УБОРКА ПРОСРОЧЕННЫХ (ws#1195). Перед переписью идущих run.sh снимает тяжёлые ns
 # (метка kacho.io/kind=heavy, имя t<N>-heavy-…), чей срок kacho.io/expires прошёл,
@@ -146,7 +149,7 @@
 # (запрос pod — сумма контейнеров и боковых, но не меньше наибольшего init) не
 # меньше запроса прогона (ЗАПРОС ПО ЗАМЕРУ) — и по CPU, и по памяти. Запаса узла
 # сверх запроса нет (ws#1195): запас 20 % allocatable (ws#1143) держал пустыми
-# 3 100m и 6 038 МиБ на узел — больше запроса ci-local kacho (7 680 МиБ) на кластере, —
+# 3 100m и 6 038 МиБ на узел — больше тогдашнего запроса ci-local kacho (7 680 МиБ) на кластере, —
 # а запас прогона уже в его запросе (p90 пика × 1,2), запас узла под систему и порог
 # выселения — в allocatable. Прогон сверх запроса памяти — до предела run; узлу не
 # хватило памяти — kubelet выселяет pod сверх запроса первым, и это «не
@@ -154,6 +157,17 @@
 # причиной); открытые есть, места нет — 75; pod ждёт, а годного не осталось — выход
 # сразу тем же кодом. --available без --profile судит лишь открытый узел; с
 # --profile без --repo — наибольший запрос профиля.
+# ЁМКОСТЬ (ws#1293). Место под ОДИН pod не говорит, сколько тяжёлых ляжет: pod
+# идущего ns, ещё не севший на узел, и ns, чей Job pod ещё не создал, места на узле
+# не держат, а займут. Поэтому до ns и в --available размещение раскладывает по
+# открытым узлам (first-fit по убыванию CPU, затем памяти) запросы идущих тяжёлых ns
+# без узла — pod без nodeName своим запросом, ns без pod запросом нового — и лишь
+# затем ищет место новому; севшие уже вычтены из свободного своего узла. Сумма по
+# кластеру не годится: 3 000m на каждом из двух узлов — не место под 4 000m.
+# Строка «ёмкость: тяжёлых N, помещается M (узлов K, свободно C CPU / G ГиБ), потолок
+# P» — N идущих, M — сколько тяжёлых держит кластер с этим запросом (идущие, что
+# легли, и новые того же запроса на остатке), K — открытых узлов, C и G — остаток
+# после идущих. Допуск — M > N и N < P.
 #
 # ВЫВОД (ws#991). Строки run.sh после выбора ns несут его имя: два прогона в одном
 # потоке различимы. Если stderr или stdout прогона — обычный файл, в который пишет
@@ -420,7 +434,7 @@ WAIT_START_S=1800
 DEFAULT_TIMEOUT_S=5400
 MAX_TIMEOUT_S=14400
 MAX_KEEP_H=12
-MAX_PAR="${KACHO_REMOTE_HEAVY_MAX:-6}"  # страховка над РАЗМЕЩЕНИЕМ: на кластере переписи 2026-10-18 оно сажает по 3 ci-local kaname либо integration kacho на узел
+MAX_PAR="${KACHO_REMOTE_HEAVY_MAX:-40}"  # потолок безопасности над ЁМКОСТЬЮ (ПРЕДЕЛ в шапке): число прогонов даёт кластер
 GUARD_TTL_S=30       # СТРАЖ: через сколько секунд узлы переписываются заново
 SWEEP_AGE_S=7200     # УБОРКА ПРОСРОЧЕННЫХ: тяжёлое ns без живого Job старше этого снимается
 
@@ -448,9 +462,15 @@ SWEEP_AGE_S=7200     # УБОРКА ПРОСРОЧЕННЫХ: тяжёлое ns 
 # ней — memory.peak ОДНОГО контейнера run: dind и контейнеры testcontainers в нём не
 # считаны. Для lint (dind нет) строка правится по run_peak; для ci-local, go-race и
 # integration run_peak — лишь нижняя граница пика pod, и правка по нему занизит запрос.
+# Исключение — строка ci-local kacho (ws#1293): нижняя граница кластера оказалась вдвое
+# выше локального p90, и строка — по ней: 78 строк «remote-peak class=ci-local
+# repo=kacho» журнала слотов с 2026-10-19 по 2026-10-21 (по 02:26 +03:00), run_peak
+# p90 12 389 МиБ (ранг ⌈0,9·n⌉), наибольший 13 118 МиБ; CPU p90 7 174m при запросе
+# 3 890m; выселений ноль. Прежняя строка — 645 локальных прогонов, p90 6 316, наибольший
+# 9 421: при 3 Job на узел пики (~37 ГиБ) превышали allocatable узла (30,47 ГиБ).
 PEAK_MIN_N=5
 PEAK_MARGIN_PCT=120
-PEAKS='ci-local|kacho|645|6316|9421
+PEAKS='ci-local|kacho|78|12389|13118
 ci-local|kaname|181|3840|6476
 ci-local|corelib|2|2388|2388
 ci-local|*|828|6185|9421
@@ -796,7 +816,7 @@ available() {
 }
 
 valid_max_par() {
-    [[ "$MAX_PAR" =~ ^[1-8]$ ]] || { say "KACHO_REMOTE_HEAVY_MAX — от 1 до 8, получено «$MAX_PAR»"; return 1; }
+    [[ "$MAX_PAR" =~ ^([1-9]|[1-5][0-9]|6[0-4])$ ]] || { say "KACHO_REMOTE_HEAVY_MAX — от 1 до 64, получено «$MAX_PAR»"; return 1; }
 }
 
 # busy_heavy — идущие тяжёлые ns, старшие первыми (время создания, затем имя).
@@ -838,18 +858,23 @@ busy_read() {
     esac
 }
 
-# placement <mCPU> <МиБ> — РАЗМЕЩЕНИЕ в шапке. Код 0 — годный узел есть; 69 — узла,
-# открытого для планирования, нет; 75 — такой есть, но места под запрос нет; 1 —
-# перепись не прочитана; 2 — прочитана, а разбор отказал (дефект обёртки, ws#1210). Причина — в PLACE_WHY, перепись — в PLACE_CENSUS.
+# placement <mCPU> <МиБ> [<идущие тяжёлые ns, по строке>] — РАЗМЕЩЕНИЕ и ЁМКОСТЬ в
+# шапке. Идущие названы — их запросы без узла раскладываются по открытым узлам
+# раньше нового (pod без nodeName — своим запросом, ns без живого pod — запросом
+# нового); не названы — судится лишь место под один pod (ожидание планирования: своё
+# ns уже среди идущих, и его pod считался бы дважды). Код 0 — новый ложится; 69 —
+# узла, открытого для планирования, нет; 75 — такой есть, но после идущих места под
+# запрос нет; 1 — перепись не прочитана; 2 — прочитана, а разбор отказал (дефект
+# обёртки, ws#1210). Причина — в PLACE_WHY, перепись — в PLACE_CENSUS, ёмкость — в
+# PLACE_CAP («тяжёлых N, помещается M (узлов K, свободно C CPU / G ГиБ)»).
 placement() {
     local nj pj r
-    PLACE_WHY=""; PLACE_CENSUS=""
+    PLACE_WHY=""; PLACE_CENSUS=""; PLACE_CAP=""
     nj="$(kc get nodes -o json 2>/dev/null)" || { PLACE_WHY="узлы не прочитаны"; return 1; }
     pj="$(kc get pods -A -o json 2>/dev/null)" || { PLACE_WHY="pod кластера не прочитаны"; return 1; }
     # Перепись pod кластера — сотни КиБ, а строка аргумента ограничена ядром
     # (128 КиБ): вход — файлами, а не --argjson (опыт 2026-10-09 на кластере).
-    r="$(jq -nr --slurpfile N <(printf '%s' "$nj") --slurpfile P <(printf '%s' "$pj") --argjson cpu "$1" --argjson mem "$2" '
-      $N[0] as $n | $P[0] as $p |
+    r="$(jq -nr --slurpfile N <(printf '%s' "$nj") --slurpfile P <(printf '%s' "$pj") --rawfile B <(printf '%s' "${3:-}") --argjson cpu "$1" --argjson mem "$2" '
       def mcpu: tostring | if endswith("m") then (.[:-1] | tonumber) else (tonumber * 1000) end;
       def mib: tostring | capture("^(?<v>[0-9.]+)(?<u>[A-Za-z]*)$") as $c
         | ($c.v | tonumber) * ({"": 1, "k": 1000, "M": 1e6, "G": 1e9, "T": 1e12,
@@ -859,7 +884,12 @@ placement() {
       def eff($r): ([(.spec.containers // []), ((.spec.initContainers // []) | map(select(.restartPolicy == "Always")))] | map(rq($r)) | add)
                    as $main | ([((.spec.initContainers // []) | map(select(.restartPolicy != "Always")))[] | [.] | rq($r)] | max // 0)
                    as $init | [$main, $init] | max;
-      [$p.items[] | select((.status.phase // "") as $ph | $ph != "Succeeded" and $ph != "Failed") | select(.spec.nodeName)] as $live
+      # slots — сколько pod нового запроса ложится на узел; запрос не назван (0 и 0) — без предела.
+      def slots: [(if $cpu > 0 then (.fcpu / $cpu | floor) else 1e9 end), (if $mem > 0 then (.fmem / $mem | floor) else 1e9 end)] | min | if . < 0 then 0 else . end;
+      $N[0] as $n | $P[0] as $p
+      | ($B | split("\n") | map(select(length > 0))) as $busy
+      | [$p.items[] | select((.status.phase // "") as $ph | $ph != "Succeeded" and $ph != "Failed")] as $alive
+      | [$alive[] | select(.spec.nodeName)] as $live
       | [$n.items[] | .metadata.name as $nm
          | {open: ((any(.status.conditions[]?; .type == "Ready" and .status == "True"))
                    and ((.spec.unschedulable // false) | not)
@@ -867,19 +897,35 @@ placement() {
             acpu: (.status.allocatable.cpu // "0" | mcpu), amem: (.status.allocatable.memory // "0" | mib),
             fcpu: ((.status.allocatable.cpu // "0" | mcpu) - ([$live[] | select(.spec.nodeName == $nm) | eff("cpu")] | add // 0)),
             fmem: ((.status.allocatable.memory // "0" | mib) - ([$live[] | select(.spec.nodeName == $nm) | eff("memory")] | add // 0))}] as $ns
+      | [$ns[] | select(.open)] as $open
+      | ([$alive[] | select(.spec.nodeName | not) | select(.metadata.namespace | IN($busy[])) | {c: eff("cpu"), m: eff("memory")}]
+         + [$busy[] | select(. as $x | $alive | any(.metadata.namespace == $x) | not) | {c: $cpu, m: $mem}]
+         | sort_by(-.c, -.m)) as $dem
+      | reduce $dem[] as $d ({bins: $open, un: 0};
+          ([.bins | to_entries[] | select(.value.fcpu >= $d.c and .value.fmem >= $d.m) | .key] | first) as $i
+          | if $i == null then .un += 1 else (.bins[$i].fcpu -= $d.c | .bins[$i].fmem -= $d.m) end) as $pk
+      | ($pk.bins | map(slots) | add // 0) as $extra
       | [($ns | length), ($ns | map(select(.open | not)) | length),
          ($ns | map(select(.open)) | length),
-         ($ns | map(select(.open and .fcpu >= $cpu and .fmem >= $mem)) | length)] | map(tostring) | join(" ")' 2>/dev/null)" \
+         ($pk.bins | map(select(slots >= 1)) | length),
+         $pk.un, ($busy | length),
+         (if $cpu == 0 and $mem == 0 then "-" else ($busy | length) - $pk.un + $extra end),
+         (([$pk.bins[].fcpu | select(. > 0)] | add // 0) / 100 | floor / 10),
+         (([$pk.bins[].fmem | select(. > 0)] | add // 0) / 102.4 | floor / 10)] | map(tostring) | join(" ")' 2>/dev/null)" \
         || { PLACE_WHY="перепись узлов и pod прочитана, а разбор её отказал"; return 2; }
-    local all closed open fit
-    read -r all closed open fit <<< "$r"
+    local all closed open fit un nb cap fc fm
+    read -r all closed open fit un nb cap fc fm <<< "$r"
     PLACE_CENSUS="узлов $all: закрыты для планирования $closed, открыты $open, из них с местом $fit"
+    [ "$cap" = - ] && cap="без предела (запрос не назван)"
+    PLACE_CAP="тяжёлых $nb, помещается $cap (узлов $open, свободно ${fc/./,} CPU / ${fm/./,} ГиБ)"
     [ "${all:-0}" -gt 0 ] || { PLACE_WHY="узлов в кластере ноль — переписывать нечего"; return 1; }
-    [ "$fit" -gt 0 ] && return 0
+    [ "$fit" -gt 0 ] && [ "$un" = 0 ] && return 0
     if [ "$open" -eq 0 ]; then
         PLACE_WHY="открытого для планирования узла нет ($PLACE_CENSUS) — pod не встанет"; return 69
     fi
-    PLACE_WHY="места под запрос (cpu ${1}m, память $2 МиБ) по CPU и памяти нет ни на одном открытом узле ($PLACE_CENSUS)"; return 75
+    local unw=""
+    [ "$un" = 0 ] || unw="; не легли и идущие без узла: $un"
+    PLACE_WHY="места под запрос (cpu ${1}m, память $2 МиБ) по CPU и памяти после идущих нет ни на одном открытом узле ($PLACE_CENSUS; ёмкость: $PLACE_CAP$unw)"; return 75
 }
 
 case "${1:-}" in
@@ -900,15 +946,15 @@ case "${1:-}" in
         busy_read; busy="$BUSY"
         n="$(grep -c . <<< "$busy")"
         if [ "$n" -ge "$MAX_PAR" ]; then say "кластер занят: идущих тяжёлых прогонов $n при пределе $MAX_PAR (KACHO_REMOTE_HEAVY_MAX)"; exit 75; fi
-        # shellcheck disable=SC2086  # «mCPU МиБ» — два слова
-        placement $need; prc=$?
+        read -r ncpu nmib <<< "$need"
+        placement "$ncpu" "$nmib" "$busy"; prc=$?
         case "$prc" in
             0) ;;
             1) say "размещение не проверено: $PLACE_WHY"; exit 69 ;;
             2) defect "размещение не проверено: $PLACE_WHY" ;;
             *) say "$PLACE_WHY"; exit "$prc" ;;
         esac
-        echo "remote-heavy: кластер отвечает, создавать ns вправе; идущих тяжёлых прогонов $n из $MAX_PAR; $PLACE_CENSUS$avw"; exit 0 ;;
+        echo "remote-heavy: кластер отвечает, создавать ns вправе; ёмкость: $PLACE_CAP, потолок $MAX_PAR (KACHO_REMOTE_HEAVY_MAX); $PLACE_CENSUS$avw"; exit 0 ;;
     --profiles)
         while IFS='|' read -r n _ _ _ eph d basis; do
             for r in kacho kaname corelib; do
@@ -1271,13 +1317,14 @@ fi
 # Размещение — до ns (РАЗМЕЩЕНИЕ в шапке): pod, которому негде встать, ns не заводит.
 sizing "$PROFILE" "$REPO" || { say "запрос профиля $PROFILE для $REPO не выведен из PEAKS (не выполнилось)"; exit 69; }
 say "запрос pod: cpu ${NEED_CPU}m, память $NEED_MIB МиБ — $SIZE_WHY"
-placement "$NEED_CPU" "$NEED_MIB"; prc=$?
+placement "$NEED_CPU" "$NEED_MIB" "$busy"; prc=$?
 case "$prc" in
     0) ;;
     1) say "размещение не проверено: $PLACE_WHY (не выполнилось)"; exit 69 ;;
     2) defect "размещение не проверено: $PLACE_WHY" ;;
     *) say "$PLACE_WHY — ns не создаётся (не выполнилось)"; exit "$prc" ;;
 esac
+say "ёмкость: $PLACE_CAP, потолок $MAX_PAR (KACHO_REMOTE_HEAVY_MAX)"
 
 BOX="$(mktemp -d "${TMPDIR:-/tmp}/remote-heavy.XXXXXX")" || { say "рабочий каталог не создан"; exit 69; }
 CREATED=0; BG=""; DONE=0; TMPREF=""
@@ -1353,6 +1400,13 @@ if [ "$pos" -gt "$MAX_PAR" ]; then
     KEEP_H=""  # прогона не было — оставлять для разбора нечего
     say "кластер занят: прогон $pos-й по времени создания при пределе $MAX_PAR (KACHO_REMOTE_HEAVY_MAX) — снимаю своё ns (не выполнилось)"; exit 75
 fi
+# ЁМКОСТЬ при гонке: свой запрос — после СТАРШИХ идущих; младшие уступают сами.
+placement "$NEED_CPU" "$NEED_MIB" "$(head -n "$(( pos - 1 ))" <<< "$busy")"; prc=$?
+case "$prc" in
+    0|1) ;;  # не прочитано — до ns размещение доказано, ожидание планирования переспросит
+    2) defect "размещение после создания ns не проверено: $PLACE_WHY" ;;
+    *) KEEP_H=""; say "кластер занят: прогон $pos-й по времени создания, а со старшими идущими $PLACE_WHY — снимаю своё ns (не выполнилось)"; exit "$prc" ;;
+esac
 
 # ── сеть ns (ИЗОЛЯЦИЯ в шапке) ───────────────────────────────────────────────
 dns="$(kc get svc -A -o json 2>/dev/null | jq -c '[.items[]
