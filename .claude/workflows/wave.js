@@ -1,9 +1,9 @@
 export const meta = {
   name: 'wave',
   description: 'Волна по уровням риска: план скриптом, полосы по шагам своего уровня, сборка, один рецензент на волну, CI, предпроверка посадки скриптом, вливание и каскад',
-  whenToUse: 'Любая волна полос kacho, kaname, corelib или воркспейса. args: {repo, wave, epic, base, ws?, root?, targets?, crossRepo?, lanes:[{key, repo, agent, tier?, roles?, branch, deps?, text, ctx?, issues?, paths?, dir?, class?, head?}]}',
+  whenToUse: 'Любая волна полос kacho, kaname, corelib или воркспейса. args: {repo, wave, epic, base, ws?, root?, targets?, crossRepo?, lanes:[{key, repo, agent, tier?, roles?, branch, deps?, text, ctx?, issues?, paths?, dir?, class?, head?, premise?}]}',
   phases: [
-    { title: 'План', detail: 'plan-precheck.sh: уровни, слои, corelib, пересечения' },
+    { title: 'План', detail: 'plan-precheck.sh: уровни, слои, corelib, пересечения; предусловия раздачи каждой полосы — lane-precheck.sh (ws#1272)' },
     { title: 'Предполёт', detail: 'до кода: карта влияния полос, критерии рецензентов (ws#1053)' },
     { title: 'Полосы', detail: 'шаги уровня из lane-tier.sh; зависимая — от сводки голов deps; lane-precheck.sh до ревью; пункты карты закрыты; пробная сборка сразу' },
     { title: 'Сборка', detail: 'сведение, рецензент волны, CI' },
@@ -13,6 +13,8 @@ export const meta = {
 // ЕДИНСТВЕННЫЙ шаблон волны (решение владельца 2026-10-06, «Да, по уровням»;
 // база диспетчера §8б). Исправленная ошибка оркестровки правится ЗДЕСЬ, а не в
 // разовом сценарии. Свойства держит scripts/wave-template-inject.sh:
+//  - до предполёта — предусловия раздачи КАЖДОЙ полосы одним механиком (ws#1272):
+//    код lane-precheck.sh не 0 — полоса и зависимые не раздаются;
 //  - шаги полосы берутся из вывода plan-precheck.sh (а тот — из lane-tier.sh);
 //    своего соответствия «уровень → шаги» здесь нет;
 //  - R0 — без рецензентов; R1 — один wave-reviewer на СОБРАННУЮ волну; R2 — роли
@@ -260,17 +262,50 @@ for (const l of lanes) {
   if (unknown.length) return { ok: false, stage: 'план', why: 'шаги ' + unknown.join(',') + ' шаблону неизвестны — правка шаблона, а не пропуск шага' }
 }
 
+// ── Предусловия раздачи (ws#1272) ───────────────────────────────────────
+// ДО предполёта и любого исполнителя, ОДНИМ механиком на волну (уроки 18–19.10: посылка
+// устаревала до раздачи и всплывала лишь перед сдачей). Строки каждой полосы — база на
+// origin, её задачи open, строки premise диспетчера дословно; суд — lane-precheck.sh
+// --premise. Полоса с приёмкой — и текст задания автору приёмки (перепись координат,
+// ws#1271). Код не 0 (2 — не судимо, не зелёное) — полоса не раздаётся, остаток с причиной,
+// зависимые от неё — вслед; нет ответа — не раздаётся ни одна.
+const ghRepo = r => /\//.test(String(r || '')) ? String(r) : (String(A.repo || '').split('/')[0] || 'PRO-Robotech') + '/' + (r || String(A.repo || '').split('/').pop())
+const shq = s => "'" + String(s).replace(/'/g, "'\\''") + "'"
+const issueLine = (l, i) => { const [r, n] = String(i).split('#'); return 'task ' + ghRepo(r === 'ws' ? 'kacho-workspace' : r || l.repo) + '#' + n + ' open' }
+const premLines = l => ['branch ' + ghRepo(l.repo) + ' ' + (l.base || A.base)].concat((l.issues || []).map(i => issueLine(l, i)), l.premise || [])
+const S_GATE = { type: 'object', properties: { items: { type: 'array', items: { type: 'object', properties: { n: { type: 'integer' }, code: { type: 'number' }, out: { type: 'string' } }, required: ['n', 'code', 'out'] } } }, required: ['items'] }
+const gateItems = []
+for (const l of lanes) {
+  const f = R + '/' + l.key + '/dispatch-premise.txt'
+  gateItems.push({ key: l.key, kind: 'premise', cmd: 'mkdir -p ' + R + '/' + l.key + ' && printf \'%s\\n\' ' + premLines(l).map(shq).join(' ') + ' > ' + f + ' && bash ' + WS + '/scripts/lane-precheck.sh --premise ' + f + ' > ' + rep(l.key, 'dispatch-premise') + ' 2>&1' })
+  const tf = l.textFile || R + '/' + l.key + '/task.txt'
+  if (tierOf[l.key].steps.includes('acceptance(<=2)')) gateItems.push({ key: l.key, kind: 'task-text', cmd: (l.textFile ? '' : 'mkdir -p ' + R + '/' + l.key + ' && printf \'%s\\n\' ' + String(l.text || '').split('\n').map(shq).join(' ') + ' > ' + tf + ' && ') + 'bash ' + WS + '/scripts/lane-precheck.sh --task-text ' + tf + ' --agent acceptance-author > ' + rep(l.key, 'dispatch-task-text') + ' 2>&1' })
+}
+const gate = await agent(C + '\n\nРежим предусловия раздачи волны ' + N + ' (ws#1272): каждую команду ниже выполни как есть, ОДНОЙ командой оболочки, по порядку и без остановки на ненулевом коде. code — код команды как есть: 0 — посылка верна; 1 — ложна; 2 — не судимо. Верни items — по КАЖДОМУ номеру {n, code, out (строки REASON и VOID дословно)}.' + gateItems.map((x, i) => '\n' + (i + 1) + ') [' + x.key + ' ' + x.kind + '] `' + x.cmd + '`').join(''), { ...MECH, label: 'mech:dispatch-premise', phase: 'План', schema: S_GATE })
+if (!gate || !Array.isArray(gate.items)) return { ok: false, stage: 'предусловия раздачи (ws#1272): нет ответа механика — ни одна полоса не раздаётся, решает диспетчер', errors, lessons: lessonsOf() }
+const gateBlock = {}
+gateItems.forEach((x, i) => {
+  const it = gate.items.find(y => y && y.n === i + 1)
+  if (!it || it.code !== 0) gateBlock[x.key] = (gateBlock[x.key] ? gateBlock[x.key] + '; ' : '') + x.kind + ': ' + (!it ? 'исхода нет' : it.code === 1 ? 'ложно — ' + (String(it.out || '').slice(0, 300) || 'причина не названа') : 'не судимо (код ' + it.code + ')')
+})
+const blockStage = k => 'предусловия раздачи (ws#1272): ' + gateBlock[k] + ' — исполнитель не зван, решает диспетчер (' + rep(k, 'dispatch-premise') + ')'
+// Нераздаваемые — сами и транзитивно зависимые; предполёт — лишь раздаваемым.
+const held = new Set(Object.keys(gateBlock))
+for (let more = true; more;) { more = false; for (const l of lanes) if (!held.has(l.key) && (l.deps || []).some(d => held.has(d))) { held.add(l.key); more = true } }
+const toGo = lanes.filter(l => !held.has(l.key))
+if (!toGo.length) return { ok: false, stage: 'предусловия раздачи (ws#1272): не раздаётся ни одна полоса — ' + lanes.map(l => l.key + ' — ' + (gateBlock[l.key] || 'зависит от нераздаваемой')).join('; '), remainder: lanes.map(l => ({ key: l.key, stage: gateBlock[l.key] ? blockStage(l.key) : 'зависит от нераздаваемой полосы' })), errors, lessons: lessonsOf() }
+
 // ── Предполёт ───────────────────────────────────────────────────────────
 // ДО кода, одним заходом на волну (ws#1053): карта влияния — все, кто утверждает
 // или использует меняемое свойство; критерии применимых рецензентов — в задание
 // полосе заранее. Нет карты по какой-либо полосе — раздачи нет (fail-closed).
 phase('Предполёт')
-const pre = await agent(C + '\n\nПредполёт волны ' + N + ' ДО кода (ai-tooling.md#at-one-pass-wave). КЛЮЧИ ПОЛОС: ' + lanes.map(l => l.key).join(',') + '. Полосы: ' + lanes.map(l => l.key + ' [' + tierOf[l.key].tier + ', роли ' + ((tierOf[l.key].roles || []).join('+') || 'нет') + '; пути ' + ((l.paths || []).join(', ') || 'не заданы') + ']: ' + taskOf(l)).join(' | ') + '\nКАРТА ВЛИЯНИЯ каждой полосы — все, кто утверждает или использует меняемое свойство: посевы стенда, кейсы newman, ведомости производителя и долгов (живы ли держатели — задача открыта), копии каталога прав в другом репозитории, сквозные пробы консоли, документация и приёмки, записи ревью и их гейты, профили и чарты. Пункт — «<координата> — <что утверждает> → <что поправить>», координата найдена командой (её — в отчёт). Зависимый в другом репозитории — пункт с репозиторием: его полоса идёт в ЭТУ волну, пин — на ревизию производителя с опубликованным образом (ветки волны образов не публикуют): до вливания — последний опубликованный, перенос пина строкой после публикации. Пункт чужого класса (консоль — ui-implementer) назови классом: его закрывает отдельная полоса этого исполнителя в ЭТОЙ волне. КРИТЕРИИ рецензентов — по предикатам docs/changes/policy.yaml для ролей полосы, дословно. Оценка — часы волны и ожидаемые красные на сведённом (цель 0). Запись — ' + PRE + '. ' + due('preflight') + ' Верни lanes [{key, impact, criteria}] по КАЖДОМУ ключу, estimate, report.', { agentType: 'scout', label: 'preflight', phase: 'Предполёт', schema: S_PRE })
+const pre = await agent(C + '\n\nПредполёт волны ' + N + ' ДО кода (ai-tooling.md#at-one-pass-wave). КЛЮЧИ ПОЛОС: ' + toGo.map(l => l.key).join(',') + '. Полосы: ' + toGo.map(l => l.key + ' [' + tierOf[l.key].tier + ', роли ' + ((tierOf[l.key].roles || []).join('+') || 'нет') + '; пути ' + ((l.paths || []).join(', ') || 'не заданы') + ']: ' + taskOf(l)).join(' | ') + '\nКАРТА ВЛИЯНИЯ каждой полосы — все, кто утверждает или использует меняемое свойство: посевы стенда, кейсы newman, ведомости производителя и долгов (живы ли держатели — задача открыта), копии каталога прав в другом репозитории, сквозные пробы консоли, документация и приёмки, записи ревью и их гейты, профили и чарты. Пункт — «<координата> — <что утверждает> → <что поправить>», координата найдена командой (её — в отчёт). Зависимый в другом репозитории — пункт с репозиторием: его полоса идёт в ЭТУ волну, пин — на ревизию производителя с опубликованным образом (ветки волны образов не публикуют): до вливания — последний опубликованный, перенос пина строкой после публикации. Пункт чужого класса (консоль — ui-implementer) назови классом: его закрывает отдельная полоса этого исполнителя в ЭТОЙ волне. КРИТЕРИИ рецензентов — по предикатам docs/changes/policy.yaml для ролей полосы, дословно. Оценка — часы волны и ожидаемые красные на сведённом (цель 0). Запись — ' + PRE + '. ' + due('preflight') + ' Верни lanes [{key, impact, criteria}] по КАЖДОМУ ключу, estimate, report.', { agentType: 'scout', label: 'preflight', phase: 'Предполёт', schema: S_PRE })
 const preMap = {}
 for (const x of (pre && Array.isArray(pre.lanes) ? pre.lanes : [])) if (x && typeof x.key === 'string' && Array.isArray(x.impact) && Array.isArray(x.criteria)) preMap[x.key] = x
-const noMap = lanes.filter(l => !preMap[l.key]).map(l => l.key)
+const noMap = toGo.filter(l => !preMap[l.key]).map(l => l.key)
 if (noMap.length) return { ok: false, stage: 'предполёт: нет карты влияния по полосам ' + noMap.join(', ') + ' — раздачи нет, решает диспетчер', report: PRE, errors, lessons: lessonsOf() }
-for (const l of lanes) M.preflightItems += preMap[l.key].impact.length
+for (const l of toGo) M.preflightItems += preMap[l.key].impact.length
 // Пункт карты закрыт строкой «<n> → правка <путь>» либо «<n> → не затронуто — потому что <довод>».
 const CLOSED = n => new RegExp('^' + n + '\\s*(?:→|->)\\s*(?:правка\\s+\\S|не затронуто — потому что\\s+\\S)')
 const unclosed = (l, r) => { const got = r && Array.isArray(r.impact) ? r.impact.filter(x => typeof x === 'string').map(x => x.trim()) : []; return preMap[l.key].impact.map((_, i) => i + 1).filter(n => !got.some(x => CLOSED(n).test(x))) }
@@ -330,7 +365,6 @@ const stackOf = async (l, deps) => agent(C + '\n\nРежим сводка deps �
 // исполнитель не зван: kacho#3284 — полоса стенда ушла раньше, чем голова доехала до origin.
 const STAND_CLASS = ['stand', 'images']
 const standLane = l => STAND_CLASS.includes(l.class) || l.agent === 'deploy-engineer'
-const ghRepo = r => /\//.test(String(r || '')) ? String(r) : (String(A.repo || '').split('/')[0] || 'PRO-Robotech') + '/' + (r || String(A.repo || '').split('/').pop())
 const headLines = (l, ds, stack) => (ds && ds.length ? ds.map(d => 'head ' + ghRepo(d.repo) + ' ' + d.branch + ' ' + d.head).concat(stack ? ['head ' + ghRepo(l.repo) + ' ' + stack.branch + ' ' + stack.head] : []) : (sha40(l.head) && l.branch ? ['head ' + ghRepo(l.repo) + ' ' + l.branch + ' ' + l.head] : []))
 const headGate = async (l, ds, stack) => {
   if (!standLane(l)) return null
@@ -433,6 +467,7 @@ const started = {}
 const launch = k => started[k] || (started[k] = (async () => {
   const l = lanes.find(x => x.key === k)
   if (!l) return (done[k] = { key: k, ok: false, stage: 'полосы ' + k + ' нет в задании' })
+  if (gateBlock[k]) return (done[k] = { key: k, ok: false, stage: blockStage(k), report: rep(k, 'dispatch-premise') })
   const deps = await Promise.all((l.deps || []).map(launch))
   const notReady = deps.filter(d => !d.ok)
   let r
@@ -456,7 +491,7 @@ await Promise.all(layers.flat().map(launch))
 // остаток, соседи с полными фактами идут в сборку. Не прошла ни одна — стоп.
 const remainder = Object.values(done).filter(r => !r.ok).map(r => ({ key: r.key, stage: r.stage }))
 let order = layers.flat().filter(k => done[k] && done[k].ok)
-if (!order.length) return { ok: false, stage: 'полосы', lanes: done, stacks, errors, lessons: lessonsOf() }
+if (!order.length) return { ok: false, stage: 'полосы', lanes: done, remainder, stacks, errors, lessons: lessonsOf() }
 // Снять полосы и транзитивно зависимых от них (в сборке без предшественника нет кода).
 const dropWithDeps = (keys, why) => {
   const gone = new Set(keys)
