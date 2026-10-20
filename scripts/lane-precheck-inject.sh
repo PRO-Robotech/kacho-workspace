@@ -541,6 +541,7 @@ assert "0" "$(tta "$ACC" "${CEN[@]}" 'Сосед — ws#20.' "- \`task o/kacho-w
 assert "2 да" "$(tta 'Приёмка: дом — b.md, задача o/r#22.' "- \`path $L 1-lane b.md\`" '- `task o/r#22`' '- `branch o/r 1-lane`') $(has 'VOID перепись не судима (код 2)')" "трекер не ответил на строку переписи → код 2, не зелёное"
 assert "0 да" "$(tt "$ACC") $(has 'агент не назван')" "близнец: то же задание без --agent — перепись не требуется, агент назван в переписи"
 assert "0" "$(printf '%s\n' "$ACC" > "$W/task.txt"; bash "$P" --task-text "$W/task.txt" --agent go-implementer > "$W/out" 2>&1; echo $?)" "близнец: задание другому агенту — перепись не требуется"
+assert "0 да" "$(tt "$ACC" '- `path /ws/tmp/heavy-slots/c 1-lane b.md`' '- `alive /ws/.cache/heavy-slots/x main --enqueue`') $(has 'причин 0')" "близнец: строка переписи с «heavy-slot» и «--enqueue» в пути — данные, а не долгий шаг (корень 5 провалов под TMPDIR слота)"
 
 echo "== строка слияния в задании — форма «#<N> merge #<M>» (ws#1278)"
 assert "1 да" "$(tt 'Слей ветку коммитом «#808 merge 746: сборка».') $(has 'REASON TASK-MERGE-FORM строка 1: «#808 merge 746:»')" "«#808 merge 746: …» (урок: хук ветки отверг) → TASK-MERGE-FORM со строкой"
@@ -583,6 +584,7 @@ mut_a() {  # <имя> <было> <стало> <строки задания…> �
 }
 assert "0" "$(mut_a census '[ -z "$miss" ] || reasons+=("TASK-COORD-CENSUS' 'true || reasons+=("TASK-COORD-CENSUS' 'Приёмка: смена контракта ListUsers.')" "мутант «перепись не требуется»: задание без переписи проходит — проба выше его ловит"
 assert "0" "$(mut_a verify 'if [ "${#cen[@]}" -gt 0 ]; then' 'if false; then' "$ACC" "- \`path $L 1-lane docs/x-acceptance.md\`" '- `task o/r#20 open`' '- `branch o/r 1-lane`')" "мутант «перепись не сверяется»: дом по памяти проходит"
+assert "1" "$(mut census-data '${BASH_REMATCH[1]}"; continue' '${BASH_REMATCH[1]}"' --task-text '- `path /ws/tmp/heavy-slots/c 1-lane b.md`')" "мутант «строка переписи судится на ожидание»: путь под heavy-slots даёт TASK-RETURN — проба выше его ловит"
 assert "0" "$(mut_a mention 'reasons+=("TASK-COORD-UNCENSUSED' ': || reasons+=("TASK-COORD-UNCENSUSED' "$ACC" "${CEN[@]}" 'Сосед — o/r#21.')" "мутант «упоминание вне переписи не судится»: o/r#21 проходит"
 assert "0" "$(mut merge-form '|| reasons+=("TASK-MERGE-FORM' '|| : || reasons+=("TASK-MERGE-FORM' --task-text 'Слей ветку коммитом «#808 merge 746: сборка».')" "мутант «форма слияния не судится»: «#808 merge 746» проходит — проба выше его ловит"
 assert "1" "$(mut merge-lawful '(#[0-9]+|main)([^0-9A-Za-z_]|$)' '(#[0-9]+)([^0-9A-Za-z_]|$)' --task-text 'Догон базы — «#808 merge main: догон базы».')" "мутант «merge main не узнан»: законная форма краснеет — проба выше его ловит"
