@@ -235,6 +235,11 @@ denies_commit "$CT" 'git add -A && git commit -m x'
 denies_commit "$CT" "cd $S/ws/tmp && git add -A"
 denies_commit "$CT" "git -C $S/ws commit -qam x"
 denies_commit "$CT" "K=$S/ws; cd \$K && git add -A"
+# переменная ОКРУЖЕНИЯ с абсолютным путём в ствол — якорь, ствол и есть ствол (ws#1287, урок 1c338472)
+export GHG_TRUNK="$S/ws"
+denies_commit "$CT" 'cd "$GHG_TRUNK" && git add -A && git commit -m x'
+denies_commit "$CT" 'git -C "${GHG_TRUNK}" commit -qam x'
+unset GHG_TRUNK
 denies_commit "$CU" 'cd tmp/kn-878-int && git add -A && git commit -m x'
 denies_commit "$CU" 'git -C tmp/kn-878-int commit -m x'
 denies_commit "$CU" 'pushd tmp/kn-878-int && git add -A'
