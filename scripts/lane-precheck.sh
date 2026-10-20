@@ -217,10 +217,11 @@ if [ -n "$task_text" ]; then
     cmp='(дольше|больше|более|свыше)'
     while IFS= read -r line || [ -n "$line" ]; do
         n=$((n + 1)); l="${line,,}"
-        # Перепись координат (ws#1271): строка словаря предусловий — не упоминание.
+        # Перепись координат (ws#1271): строка словаря предусловий — данные, а не заказ: не
+        # упоминание и не судится на ожидание (путь клона под heavy-slots — не «долгий шаг»).
         s="${line#"${line%%[![:space:]*-]*}"}"; s="${s//\`/}"
         if [[ "$s" =~ ^(task|pr|branch|head|path|alive)[[:space:]] ]]; then
-            cen+=("$s"); cenk+=" ${BASH_REMATCH[1]}"
+            cen+=("$s"); cenk+=" ${BASH_REMATCH[1]}"; continue
         else
             r="$line"
             while [[ "$r" =~ (^|[^A-Za-z0-9_./-])(([A-Za-z0-9_.-]+/)?[A-Za-z][A-Za-z0-9_.-]*#[0-9]+) ]]; do
