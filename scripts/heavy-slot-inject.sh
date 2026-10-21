@@ -590,10 +590,10 @@ wait "$SPW"; echo "processes 1000" > "$PS"
 # shellcheck disable=SC2016  # тело `bash -c` раскрывает дочерняя оболочка
 JUMP='sleep 2.5; echo "processes 900000" > "$0"; sleep 2.5'
 b0="$(grep -c ' spawn-over id=' "$JS")"
-assert "0 $((b0 + 1)) да" "$(slot HEAVY_SLOT_PROCSTAT="$PS" HEAVY_SLOT_SPAWN_MAX=100 bash "$SLOT" docker -- bash -c "$JUMP" "$PS") $(grep -c ' spawn-over id=' "$JS") $(tail -n 1 "$JS" | grep -qE ' leave .* spawns=899000 spawn_peak=[0-9]+/s ' && echo да || echo нет)" "темп посреди прогона выше порога — строка spawn-over, выход — spawns= и spawn_peak= в leave"
+assert "0 $((b0 + 1)) да" "$(slot HEAVY_SLOT_PROCSTAT="$PS" HEAVY_SLOT_SPAWN_MAX=100 bash "$SLOT" docker -- bash -c "$JUMP" "$PS") $(grep -c ' spawn-over id=' "$JS") $(grep -qE ' leave .* spawns=899000 spawn_peak=[0-9]+/s ' <<<"$(tail -n 1 "$JS")" && echo да || echo нет)" "темп посреди прогона выше порога — строка spawn-over, выход — spawns= и spawn_peak= в leave"
 echo "processes 1000" > "$PS"
 assert "0 $((b0 + 1))" "$(slot HEAVY_SLOT_PROCSTAT="$PS" HEAVY_SLOT_SPAWN_MAX=100000000 bash "$SLOT" docker -- bash -c "$JUMP" "$PS") $(grep -c ' spawn-over id=' "$JS")" "близнец: тот же скачок под порогом — spawn-over нет"
-assert "0 да" "$(slot bash "$SLOT" docker -- true) $(tail -n 1 "$JS" | grep -qF ' spawns=— spawn_peak=—/s ' && echo да || echo нет)" "режим проб без HEAVY_SLOT_PROCSTAT — темп не судится и назван «—», а не нулём"
+assert "0 да" "$(slot bash "$SLOT" docker -- true) $(grep -qF ' spawns=— spawn_peak=—/s ' <<<"$(tail -n 1 "$JS")" && echo да || echo нет)" "режим проб без HEAVY_SLOT_PROCSTAT — темп не судится и назван «—», а не нулём"
 assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_PROCSTAT="$PS" bash "$SLOT" docker -- touch "$W/sp2") $(has "$W/err" 'HEAVY_SLOT_PROCSTAT')" "над настоящей памятью синтетический счётчик — ручка, 64"
 assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_SPAWN_MAX=999999 bash "$SLOT" docker -- touch "$W/sp3") $(has "$W/err" 'HEAVY_SLOT_SPAWN_MAX')" "над настоящей памятью порог порождений — ручка, 64"
 # shellcheck disable=SC2016  # образец sed и тело `sh -c` раскрывает не эта оболочка
