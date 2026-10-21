@@ -2020,7 +2020,7 @@ elif [ "$REMOTE_ON" = 1 ]; then
         fi
     fi
     ext_leave
-    case "$CLASS" in go-race|integration|lint|ci-local|stand) say "локально — $WHY_LOCAL" ;; esac
+    case "$CLASS" in go-race|integration|lint|ci-local|suite|stand) say "локально — $WHY_LOCAL" ;; esac
 else
     WHY_LOCAL="режим проб без двойника run.sh — маршрут не судился"
 fi
