@@ -145,15 +145,15 @@ denies go-race     'bash -lc "go test -race ./..."'
 denies go-race     'bash -ec "go test -race ./..."'
 denies go-race     'sh -xc "go test -race ./..."'
 denies go-race     'bash -euo pipefail -c "go test -race ./..."'
-passes             'bash -lc "go test ./..."'
+passes             'bash -lc "go vet ./..."'
 passes             'bash -o pipefail -c "go vet ./..."'
 denies go-race     'export GOFLAGS=-race; go test ./...'
-passes             'export GOFLAGS=-count=1; go test ./...'
+passes             'export GOFLAGS=-count=1; go vet ./...'
 denies go-race     'go test -race=1 ./...'
 denies go-race     'go test -race=TRUE ./...'
-passes             'go test -race=false ./...'
+denies go-unit     'go test -race=false ./...'  # любой go test — внешний кластер (ws#1301)
 denies go-race     'R=-race; go test $R ./...'
-passes             'R=-v; go test $R ./...'
+passes             'R=-v; go vet $R ./...'
 denies docker      'D=docker; $D run alpine'
 passes             'D=docker; $D ps'
 denies go-race     'find . -name x -exec go test -race {} \;'
@@ -167,32 +167,32 @@ EOF"
 
 echo "── круг 3: строка дочерней оболочке из переменных строки, экспорт, \$@"
 denies go-race     'C="go test -race ./..."; bash -c "$C"'
-passes             'C="go test ./..."; bash -c "$C"'
+passes             'C="go vet ./..."; bash -c "$C"'
 passes             'C="go test -race ./..."; bash -c $C'
 denies go-race     "C='go test -race ./...'; sh -c \"\$C\""
 passes             "C='go vet ./...'; sh -c \"\$C\""
 denies go-race     "export FLAGS=-race; bash -c 'go test \$FLAGS ./...'"
-passes             "FLAGS=-race; bash -c 'go test \$FLAGS ./...'"
+denies go-unit     "FLAGS=-race; bash -c 'go test \$FLAGS ./...'"  # любой go test (ws#1301)
 denies go-race     "FLAGS=-race bash -c 'go test \$FLAGS ./...'"
 denies go-race     "R=-race; export R; bash -c 'go test \$R ./...'"
 denies go-race     "set -a; FLAGS=-race; bash -c 'go test \$FLAGS ./...'"
 denies go-race     'X=go; bash -c "$X test -race ./..."'
-passes             'X=go; bash -c "$X test ./..."'
+passes             'X=go; bash -c "$X vet ./..."'
 denies go-race     'F="-race ./..."; bash -c "go test $F"'
-passes             'F="-v ./..."; bash -c "go test $F"'
+passes             'F="-v ./..."; bash -c "go vet $F"'
 denies go-race     "R=-race; eval 'go test \$R ./...'"
-passes             "R=-v; eval 'go test \$R ./...'"
+passes             "R=-v; eval 'go vet \$R ./...'"
 denies go-race     "bash -c '\"\$@\"' _ go test -race ./..."
-passes             "bash -c '\"\$@\"' _ go test ./..."
+passes             "bash -c '\"\$@\"' _ go vet ./..."
 denies go-race     "sh -c 'exec go test \$1 ./...' sh -race"
-passes             "sh -c 'exec go test \$1 ./...' sh -v"
+passes             "sh -c 'exec go vet \$1 ./...' sh -v"
 HOOKENV=(GOFLAGS=-race)
 denies go-race     'go test ./...'
 HOOKENV=()
 
 echo "── круг 3: опции обёрток, go -C, go run/build -race"
 denies go-race     '/usr/bin/time -v go test -race ./...'
-passes             '/usr/bin/time -v go test ./...'
+passes             '/usr/bin/time -v go vet ./...'
 denies go-race     '/usr/bin/time -o /tmp/t -f %M go test -race ./...'
 denies go-race     'time -p go test -race ./...'
 passes             'time -p go vet ./...'
@@ -201,11 +201,11 @@ passes             'command -v go test -race ./...'
 denies go-race     'exec -a x go test -race ./...'
 denies go-race     'env -S "go test -race ./..."'
 denies go-race     'go -C services/vpc test -race ./...'
-passes             'go -C services/vpc test ./...'
+passes             'go -C services/vpc vet ./...'
 denies go-race     'go run -race ./cmd/x'
 passes             'go run ./cmd/x'
 denies go-race     'go build -race -o x .'
-passes             'go build -o x .'
+denies go-unit     'go build -o x .'  # сборка — внешний кластер (ws#1301)
 
 echo "── незнакомые обёртки; строка оболочке у watch, script, parallel, flock"
 denies go-race     'strace -f go test -race ./...'
@@ -227,7 +227,7 @@ denies go-race     'flock -w 5 /tmp/l go test -race ./...'
 denies lint        'gosec ./...'
 passes             'gosec -version'
 denies go-race     'docker exec box go test -race ./...'
-passes             'docker exec box go test ./...'
+passes             'docker exec box go vet ./...'
 denies docker      'docker buildx bake'
 passes             'docker buildx ls'
 
@@ -275,10 +275,36 @@ print(" ".join(t for t in ("Bash", "Monitor") if any(re.fullmatch(m, t) for m in
 ' "$ROOT/.claude/settings.json")"
 assert "Bash Monitor" "$wired" "settings.json: heavy-guard провязан на PreToolUse и для Bash, и для Monitor"
 
+echo "── машина владельца — не для прогонов (ws#1301): любая сборка и тест — отказ, git и правка файла — пропуск"
+denies go-unit     'go test ./...'
+denies go-unit     'cd services/vpc && go test -run TestX ./internal/...'
+denies go-unit     'go build ./...'
+denies go-unit     'make test-unit'
+denies go-unit     'make e2e-smoke-test'
+denies suite       'pytest -q tools/'
+denies suite       'python3 -m pytest tools/'
+denies stand       'npx playwright test'
+denies stand       'npm run test:e2e'
+denies ci-local    'npm test'
+denies ci-local    'npm ci --prefix ui-future'
+denies ci-local    'npm run typecheck'
+denies ci-local    'npx vitest run'
+passes             'git status'
+passes             'git diff --stat origin/main...HEAD'
+passes             'gh issue view 1301'
+passes             "sed -i 's/a/b/' f.txt"
+passes             'gofmt -l .'
+passes             'go version'
+passes             'go list ./...'
+passes             'npm --version'
+passes             'npm run dev'
+passes             'make generate'
+passes             'python3 -c "print(1)"'
+passes             'playwright --version'
+
 echo "── законный близнец той же формы → пропуск молча"
-passes 'go test ./...'
-passes 'go test -run Race ./...'
 passes 'go vet ./...'
+passes 'go vet -run Race ./...'
 passes 'docker ps'
 passes 'docker compose logs'
 passes 'kind get clusters'
@@ -545,10 +571,12 @@ if [ -f "$ROOT/scripts/lib/suites.py" ] && [ -f "$ROOT/.github/workflows/ci.yaml
     while IFS= read -r f; do
         [ -f "$ROOT/$f" ] || continue
         nc=$((nc + 1)); c="$(python3 "$GUARD" --classify "bash $f" "$ROOT" < /dev/null)"
-        if [ "$c" = suite ]; then ncs=$((ncs + 1)); else other+=("$f"); fi
+        # класс тяжелее suite — скрипт сам собирает или тестирует (ws#1301: remote-heavy/inject.sh
+        # зовёт go build) — назван, не пропущен; пропуск — класс «-»
+        if [ "$c" = suite ]; then ncs=$((ncs + 1)); elif [ "$c" = - ]; then other+=("$f"); else echo "  [INFO] шаг ci.yaml $f — класс «$c» тяжелее suite: скрипт сам собирает или тестирует"; fi
     done < <(grep -E '^[[:space:]]+run:' "$ROOT/.github/workflows/ci.yaml" | grep -oE '(^|[ =])scripts/[A-Za-z0-9_./-]+\.(sh|py)' | sed 's/^[ =]//' | sort -u)
     bad="$(printf '%s\n' "${other[@]}" | grep -E '(run-all|inject|prove|mutants|run-suites|hook-proofs)[^/]*$' || true)"
-    assert "" "$bad" "шаги ci.yaml с именем набора или пробы — все suite (шагов $nc, suite $ncs)"
+    assert "" "$bad" "шаги ci.yaml с именем набора или пробы — все тяжёлые, ни один не пропущен (шагов $nc, suite $ncs)"
     echo "  [CENSUS] ci.yaml: шагов-скриптов $nc, suite $ncs; не набор: ${other[*]:-—}"
     assert "да" "$([ "$ncs" -gt 0 ] && echo да || echo нет)" "перепись ci.yaml нашла наборы (ноль — разбор ослеп)"
 else
@@ -610,10 +638,10 @@ passes         './sh/tool' "$M"
 denies stand   'for s in sh/h*.sh; do bash "$s"; done' "$M"
 passes         'for s in sh/l*.sh; do bash "$s"; done' "$M"
 denies go-race 'export GOFLAGS=-race; bash sh/unit.sh' "$M"
-passes         'export GOFLAGS=-count=1; bash sh/unit.sh' "$M"
+denies go-unit 'export GOFLAGS=-count=1; bash sh/unit.sh' "$M"  # любой go test (ws#1301)
 denies go-race 'export GOFLAGS=-race; make plain' "$M"
 denies go-race 'make plain GOFLAGS=-race' "$M"
-passes         'make plain' "$M"
+denies go-unit 'make plain' "$M"  # любой go test (ws#1301)
 assert "нет" "$([ -e "$MARK" ] && echo да || echo нет)" "страж не исполнял ни одного рецепта (метки нет)"
 
 echo "── не Bash и поломка стража"

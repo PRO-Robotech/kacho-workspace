@@ -135,7 +135,8 @@
 # сетевым признаком — команда не запускалась ни там, ни локально; дерево оснастки отстаёт
 # от origin/main по run.sh и слоту либо отставание не установлено — ws#1228); 74 — слот занят, ожидания не было (очередь K названа); 75 — слот не
 # выдан за --wait N; 76 — команда оборвана пределом памяти; 77 — кластер доступен, и
-# команде место там (и с --local — ws#1291): локально она не запускалась, текст «во внешний кластер: <как>».
+# команде место там либо внешнего маршрута нет (и с --local — ws#1291, ws#1301): локально она не
+# запускалась, текст «во внешний кластер: <как>».
 # 69, 74, 75, 76 и 77 — «не выполнилось», а не красное: вердикта по предмету команды
 # нет. Своё слово слот печатает строкой «heavy-slot: …» в stderr.
 #
@@ -147,11 +148,10 @@
 # -down, -census; stand-ns.sh up, down, census, forward, unforward) из deploy/
 # неправленого клона kacho слота не занимает: на машине лишь kubectl и helm
 # (ws#1143; условия и ГРАНИЦА — у stand_ns_light ниже).
-# Локально — с причиной в журнале
-# (local … why=…, при недоступном — и proof=… вывода проверки), либо флагом --local
-# с причиной (bypass-local, «локально по флагу» в --status) — лишь когда кластер не принял
-# либо внешнего пути нет: при принимающем 77 (local_judge, ws#1291); условия — у блока
-# «внешний кластер» ниже.
+# Локально — ЛЮБОЙ класс лишь при недоступном кластере (владелец 2026-10-22, ws#1301): проверка
+# ответила 69 либо 124, её вывод — в журнал (local … proof=…; с --local — bypass-local … proof=…).
+# Внешнего пути нет, а кластер принимает — 77 с задачей маршрута (no_route_judge, ws#1303); --local
+# основания не добавляет (local_judge). Условия — у блока «внешний кластер» ниже.
 #
 # ВХОД ВО ВНЕШНИЙ КЛАСТЕР ПО ОДНОМУ (ws#1176): ожидающие билеты (--enqueue, --wait N) идут туда
 # по одному, в порядке номеров. Прежде они срабатывали разом на освободившееся место, и
@@ -305,6 +305,7 @@ integration|8192|go test -tags=integration (testcontainers); make test-integrati
 ci-local|10240|scripts/ci-local.sh; git push в клон, чей pre-push зовёт ci-local (бронь отправки воркспейса и kaname — по предмету, ниже)|scripts/ci-local.sh go (23 проверки: build, vet, go test -short ./..., golangci-lint, gosec; кэш сборки тёплый, линтера холодный) — 5,2 ГиБ; прочие группы идут после неё по одной, не замерены
 lint|8192|golangci-lint run, govulncheck, gosec, make lint|golangci-lint run ./... по монорепо, холодный кэш линтера — 4,5 ГиБ
 docker|4096|docker run/create/start/build, docker compose up/run/build|общий класс — предел, а не прогноз: docker run получает --memory=бюджет
+go-unit|4096|go test и go build без -race и integration; make с «test» в имени цели (ws#1301: любая сборка и тест — во внешний кластер)|предел, а не прогноз: ниже замера go test -race свои пакеты services/vpc (49) — 3,5 ГиБ (строка go-race); Job — профиль go-race run.sh
 stand|8192|kind create cluster; make dev-up, reload-svc*, stand-ns-run; helm install/upgrade (stand-ns-up, -down, -census — без слота, ws#1143)|узел kind — до 2,9 ГиБ (9 показаний docker stats в журналах сессий); сборка образов dev-up последовательная, её память в BuildKit не замерена
 newman|2048|newman run; make e2e-newman, e2e-test; newman-e2e.sh, newman-parallel.sh|newman run самой большой коллекции (2,7 МБ, отчёт json) — 0,4 ГиБ; JOBS=1
 suite|1536|наборы и пробы воркспейса: scripts/<набор>/run-all.sh, inject.sh, *-inject.sh, mutants.py, prove.sh (heavy-guard, ws#1291)|пик отправки воркспейса со всеми run-all.sh — 790 МиБ × 1,5, вверх до 512 (бронь SUBJECT_BUDGETS); tooling-gate/inject.sh — 206 МиБ за 1449 с (журнал слотов, 2026-10-21)'
@@ -1099,9 +1100,9 @@ book_cmd() {
 # ── разбор вызова ────────────────────────────────────────────────────────────
 # --wait N — единственное ожидание слота, явное и ≤ 300 с (ws#1004); без него занятый
 # слот — код 74 сразу. Значение судится до класса: «--wait 2400» — 64, а не полчаса.
-# --local "<причина>" — обход внешнего кластера (ws#1105): маршрут не судится, причина
-# пишется в журнал строкой bypass-local и видна в --status. Причина — не короче 12
-# символов: пустой обход был бы тем же молчаливым «локально».
+# --local "<причина>" — объявленная причина локального прогона (ws#1105): пишется в журнал
+# строкой bypass-local и видна в --status, не короче 12 символов. Основанием она не служит:
+# локально — лишь при недоступном кластере (local_judge, ws#1301).
 # --enqueue <каталог> — поставить в очередь ОДИН раз отсоединённо (шапка); --queued <база> —
 # его внутренняя форма: принимается лишь у ребёнка --enqueue (stdout — <база>.log, родитель —
 # лидер своего сеанса), иначе 64.
@@ -1160,6 +1161,7 @@ case "${1:-}" in
 esac
 
 CLASS="$1"; shift
+PCLASS="$CLASS"; [ "$CLASS" = go-unit ] && PCLASS=go-race   # профиль Job: go-unit идёт профилем go-race (ws#1301)
 if ! BUDGET="$(class_budget "$CLASS")"; then
     say "класса «$CLASS» нет. Классы: $(cut -d'|' -f1 <<< "$CLASSES" | tr '\n' ' ')— см. --classes"
     exit 64
@@ -1333,16 +1335,16 @@ fi
 # клон kacho, kaname или corelib,
 # отслеживаемые файлы без правок, номер задачи — из KACHO_TASK либо ведущих цифр
 # имени ветки, кластер принимает (`run.sh --available --profile <класс>`, ws#991).
-# Без внешнего пути вообще — хук отправки (`git push`, ws#1106) и клон не продукта —
-# локально с причиной, кластер не спрашивается. Устранимое вызывающим — правки, номер
+# Без внешнего пути вообще — хук отправки без хука в клоне, клон не продукта, класс без Job —
+# кластер спрашивается всё равно (no_route_judge, ws#1301): принимает — 77, недоступен — локально. Устранимое вызывающим — правки, номер
 # задачи, НЕОПОЗНАННАЯ нагрузка (строка `bash -c`, ключ обёртки вне разбора, иная
 # команда) — при принимающем кластере 77 «во внешний кластер: <как>», команда не
 # запускается: неопознанное тихо локально не идёт.
 # Класс stand: подъём ЛОКАЛЬНОГО стенда (dev-up, dev-prod-up, own-up, stack-up,
 # cert-manager-up, `kind … create`, create-cluster.sh любым путём — словом argv либо
 # словом строки оболочки) и строка оболочки без внешней формы stand-ns-* при
-# принимающем кластере — 77 с формой своего ns; прочие команды стенда (stand-ns-*,
-# reload-svc, dev-down, helm идущего стенда) маршрут не судит.
+# принимающем кластере — 77 с формой своего ns; stand-ns-* без stand-ns-run (kubectl и helm к
+# ns кластера) маршрут не судит, прочие (reload-svc, stand-ns-run CMD, пробы) — no_route_judge.
 # Проверка кластера — `timeout $CHECK_S run.sh --available` (срок и повтор — по замеру,
 # у CHECK_S): current-context она не читает
 # и не меняет (контекст — явный, шапка run.sh). Занят (75) — НЕ недоступен (решение
@@ -1456,7 +1458,7 @@ refuse_external() {
     journal_early "external class=$CLASS how=$1 who=$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD cmd=$(printf '%q ' "${CMD_R[@]}")"
     say "кластер доступен — команда НЕ запускалась (код 77, не выполнилось, не красное)."
     say "во внешний кластер: $1"
-    say "локально — лишь при недоступном кластере (доказательство пишет сам слот) либо --local \"<причина>\" перед классом (testing-verdict.md#external-cluster-first)"
+    say "машина владельца — лишь при недоступном кластере, доказательство пишет сам слот; --local его не заменяет (владелец 2026-10-22, ws#1301; testing-verdict.md#external-cluster-first)"
     exit 77
 }
 # payload — слово полезной нагрузки за обёртками env, nice, ionice, timeout, nohup,
@@ -1555,13 +1557,15 @@ stand_script() {
 # содержимого ST_SIGN) либо её строку оболочки слот не судит: при доступном кластере это 77.
 stand_static() {
     local a tok kd="" pv="" toks s
-    ST_MK=""; ST_SAFE=""; ST_SIGN=""
+    ST_MK=""; ST_SAFE=""; ST_SIGN=""; ST_RUN=""; ST_DOWN=""
     for a in "${CMD_R[@]}"; do
         mapfile -t toks < <(printf '%s\n' "$a" | tr ' \t;&|()"'"'"'`' '\n')
         for tok in "${toks[@]}"; do
             [ -n "$tok" ] || continue
             case "$(basename -- "$tok")" in
                 dev-up|dev-prod-up|own-up|stack-up|cert-manager-up|create-cluster.sh) ST_MK=1 ;;
+                stand-ns-run) ST_SAFE=1; ST_RUN=1 ;;
+                dev-down|own-down|stack-down) ST_DOWN=1 ;;
                 stand-ns-*) ST_SAFE=1 ;;
             esac
             # kind [флаг [значение]]… create — как STAND_SIGN_RE (ws#1250): слово после флага —
@@ -1570,6 +1574,7 @@ stand_static() {
             elif [ -n "$kd" ]; then
                 if [ "${tok#-}" != "$tok" ]; then pv=1
                 elif [ "$tok" = create ]; then ST_MK=1; kd=""
+                elif [ "$tok" = delete ]; then ST_DOWN=1; kd=""
                 elif [ -n "$pv" ]; then pv=""
                 else kd=""; fi
             fi
@@ -1581,9 +1586,14 @@ stand_static() {
     fi
     [ -z "$ST_MK" ] && { [ -z "$PAY_SH" ] && [ "${PAY#\?}" = "$PAY" ] || [ -n "$ST_SAFE" ]; }
 }
+# stand_moot — команда стенда без нагрузки на машине: stand-ns-* без stand-ns-run (kubectl и helm к ns
+# внешнего кластера) либо снятие локального стенда (dev-down, kind … delete) — освобождает машину.
+stand_moot() { [ -z "$ST_MK$ST_RUN$PAY_SH" ] && [ -n "$ST_SAFE$ST_DOWN" ]; }  # строка оболочки — не moot: её слов слот не судит
 stand_route() {
     if stand_static; then
-        WHY_LOCAL="команда стенда не поднимает локальный стенд"; return 1
+        WHY_LOCAL="у команды стенда внешнего маршрута нет (локального стенда она не поднимает)"
+        stand_moot && { NR_MOOT=1; WHY_LOCAL="команда стенда работает лишь с ns внешнего кластера либо снимает локальный стенд"; }
+        return 1
     fi
     if ! cluster_check; then
         [ -z "$ST_SIGN" ] || WHY_LOCAL="$WHY_LOCAL; локально по признаку содержимого $ST_SIGN"
@@ -1703,7 +1713,7 @@ portable_script() {
 route_static() {
     local url
     RS_KNOWN=""; RS_TOP=""; RS_REPO=""
-    case "$CLASS" in go-race|integration|lint|ci-local) ;; *) WHY_LOCAL="класс «$CLASS» внешнего пути не имеет"; return 1 ;; esac
+    case "$CLASS" in go-race|go-unit|integration|lint|ci-local) ;; *) WHY_LOCAL="класс «$CLASS» внешнего пути не имеет"; return 1 ;; esac
     payload
     case "$PAY" in
         go|make|golangci-lint|gosec|govulncheck|ci-local.sh) RS_KNOWN=1 ;;
@@ -1741,7 +1751,7 @@ remote_route() {
     fi
     tooling_gate
     ext_enter
-    cluster_check "$CLASS" "$repo" || return 1
+    cluster_check "$PCLASS" "$repo" || return 1
     [ -n "$known" ] || refuse_external "нагрузка «${PAY_SH:-$PAY}» за обёрткой не опознана как переносимая (go, make, golangci-lint, gosec, govulncheck, ci-local.sh; скрипт клона из ведомости PORTABLE — относительным путём) — дай её словами argv: heavy-slot.sh $CLASS -- go …; слот уведёт её Job-ом"
     [ -n "$fix" ] && refuse_external "$fix"
     if [ -n "$GIT_IDX" ]; then
@@ -1753,7 +1763,7 @@ remote_route() {
         return 0
     fi
     rel="$(realpath --relative-to="$top" "$PWD")"
-    ROUTE=(bash "$REMOTE_RUN" --task "$TASK" --repo "$repo" --ref "$(git -C "$top" rev-parse HEAD)" --src "$top" --workdir "$rel" --profile "$CLASS" --)
+    ROUTE=(bash "$REMOTE_RUN" --task "$TASK" --repo "$repo" --ref "$(git -C "$top" rev-parse HEAD)" --src "$top" --workdir "$rel" --profile "$PCLASS" --)
     return 0
 }
 # route_print — `--route` (ws#1192): маршрут, который прогон выбрал бы этой команде, теми же
@@ -1768,12 +1778,14 @@ route_print() {
         if stand_static; then
             top="$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null)"; url="$(git -C "${top:-.}" remote get-url origin 2>/dev/null)"
             case "$url" in *PRO-Robotech/kacho|*PRO-Robotech/kacho.git) ;; *) url="" ;; esac
-            if [ -n "$ST_SAFE" ] && [ -n "$url" ] && git -C "$top" ls-files --error-unmatch -- deploy/Makefile deploy/scripts/stand-ns.sh > /dev/null 2>&1; then
+            if [ -n "$ST_SAFE" ] && [ -z "$ST_RUN" ] && [ -n "$url" ] && git -C "$top" ls-files --error-unmatch -- deploy/Makefile deploy/scripts/stand-ns.sh > /dev/null 2>&1; then
                 kind=external; why="стенд — ns внешнего кластера (stand-ns клона kacho), команда — на машине под слотом stand"
-            elif [ -n "$ST_SAFE" ]; then
+            elif [ -n "$ST_SAFE" ] && [ -z "$ST_RUN" ]; then
                 kind=local; why="форма stand-ns-*, а механизма stand-ns (отслеживаемые deploy/Makefile и deploy/scripts/stand-ns.sh клона kacho) нет"
+            elif stand_moot; then
+                kind=local; why="снятие локального стенда — машину освобождает, маршрут не судится"
             else
-                kind=local; why="команда стенда не поднимает локальный стенд; где её стенд, слот не судит"
+                kind=none; why="у команды стенда внешнего маршрута нет$( [ -n "$ST_RUN" ] && echo ' (CMD stand-ns-run идёт на машине)') — при доступном кластере 77, маршрут — $NO_ROUTE_TASK; локально лишь при недоступном (ws#1301)"
             fi
         elif [ -n "$ST_MK" ]; then
             kind=none; why="подъём локального стенда${ST_SIGN:+ (признак содержимого $ST_SIGN)} — при доступном кластере 77: стенд — make stand-ns-up в ns внешнего кластера"
@@ -1784,7 +1796,7 @@ route_print() {
         if [ -n "$RS_KNOWN" ]; then kind=external; why="Job внешнего кластера: профиль $CLASS, репозиторий $RS_REPO (при недоступном кластере — локально с доказательством)"
         else kind=none; why="нагрузка «${PAY_SH:-$PAY}» не опознана как переносимая (go, make, линтеры, ci-local.sh; скрипт ведомости PORTABLE относительным путём) — при доступном кластере 77"; fi
     else
-        kind=local; why="$WHY_LOCAL"
+        kind=none; why="внешнего маршрута нет ($WHY_LOCAL) — при доступном кластере 77, маршрут — $NO_ROUTE_TASK; локально лишь при недоступном (ws#1301)"
     fi
     printf 'ROUTE\t%s\t%s\n' "$kind" "$why"
 }
@@ -1892,30 +1904,51 @@ stand_ns_light() {
         *) return 1 ;;
     esac
 }
-# local_judge — --local судится (ws#1291; владелец 2026-10-16: «тяжелые тесты только на внешнем
-# кластере, если он недоступен тогда локально»): прежде флаг снимал маршрут целиком, и при
-# принимающем кластере тяжёлое шло на машине по одной строке причины (журнал слотов до правки —
-# 492 строки bypass-local). Внешнего пути у команды нет (класс, клон, отправка без хука) — флаг
-# излишен (LOCAL_MOOT), команда идёт как шла. Путь есть — один опрос кластера (без ожидания места):
-# принимает либо занят (0, 75) — 77 «во внешний кластер» с причиной, команда не запускалась;
-# недоступен (69, 124) и дефект обёртки (иной код) — локально, вывод проверки — в журнал (proof=):
-# флаг остаётся обходом отказавшего механизма. Сверку оснастки со стволом (tooling_gate) флаг
-# по-прежнему снимает: её отказ — дефект механизма, не доступность кластера.
+# МАШИНА ВЛАДЕЛЬЦА — ЛИШЬ ПРИ НЕДОСТУПНОМ КЛАСТЕРЕ (ws#1301). Владелец 2026-10-22 дословно: «запиши
+# в рул что бы не использовал мою локальную тачку. использовать только в одном случае если доступа к
+# кластеру нету». Повод — 2026-10-21, load average 16: наборы и тесты шли на машине потому, что у
+# нагрузки нет внешнего пути (класс suite, docker, newman, клон воркспейса), и по --local с причиной
+# вида «нет yq в образе Job» (журнал слотов — 502 строки bypass-local). Теперь у ЛЮБОГО локального
+# запуска одно основание — доказанная недоступность: проверка `run.sh --available` (тот же опрос,
+# что у маршрута Job-ом) ответила 69 либо 124, вывод — в журнал (proof=). Внешнего пути нет, а
+# кластер принимает или занят — 77: команда не запускалась нигде, маршрут — ws#1303 (NO_ROUTE_TASK).
+# Иной код проверки — дефект обёртки, 69. Без суждения — лишь команды стенда в форме stand-ns-*
+# без stand-ns-run (на машине kubectl и helm к ns внешнего кластера) и снятие локального стенда
+# (dev-down, kind … delete — машину освобождает): stand_moot, NR_MOOT.
+NO_ROUTE_TASK="ws#1303"
+NR_MOOT=""
+# no_route_judge — внешнего пути у команды нет (WHY_LOCAL): один опрос кластера без профиля.
+no_route_judge() {
+    local rc
+    cluster_once; rc=$?
+    case "$rc" in
+        0|75) refuse_external "внешнего маршрута нет ($WHY_LOCAL) — до него команда не выполняется нигде: маршрут — задача $NO_ROUTE_TASK; «нет инструмента в образе», «слот занят», «быстрее локально» — не основания (ws#1301)" ;;
+        69|124) PROOF="rc=$rc $CL_OUT"; WHY_LOCAL="кластер недоступен: ${CL_OUT#remote-heavy: }" ;;
+        *) defect_exit "$rc" ;;
+    esac
+}
+# local_judge — --local судится тем же основанием (ws#1291, ws#1301): флаг лишь объявляет причину,
+# а локально команда идёт, только если проверка ответила 69 либо 124. Есть путь Job-ом — опрос с
+# профилем класса; нет — без профиля. Принимает либо занят (0, 75) — 77; иной код — 69. Сверку
+# оснастки со стволом (tooling_gate) флаг не проходит: локальный путь её не требует.
 local_judge() {
-    local rc repo=""
+    local rc
     LOCAL_PROOF=""; LOCAL_MOOT=""
     if [ "$CLASS" = stand ]; then
-        stand_static && { LOCAL_MOOT="команда стенда не поднимает локальный стенд: флаг излишен"; return 0; }
+        stand_static && stand_moot && { LOCAL_MOOT="команда стенда работает лишь с ns внешнего кластера либо снимает локальный стенд: флаг излишен"; return 0; }
+        WHY_LOCAL="у команды стенда внешнего маршрута нет"
+        [ -z "$ST_MK" ] || WHY_LOCAL="подъём локального стенда; стенд — make stand-ns-up NS=t<N>-<коротко> в deploy/ продукта"
+        cluster_once
+    elif route_static; then
+        WHY_LOCAL=""; cluster_once "$PCLASS" "$RS_REPO"
     else
-        route_static || { LOCAL_MOOT="$WHY_LOCAL: флаг излишен"; return 0; }
-        repo="$RS_REPO"
+        cluster_once
     fi
-    if [ "$CLASS" = stand ]; then cluster_once; else cluster_once "$CLASS" "$repo"; fi
     rc=$?
     case "$rc" in
-        0|75)
-            refuse_external "--local «$LOCAL_WHY» отклонён: кластер принимает (проверка — код $rc$( [ "$rc" = 75 ] && echo ', занят: место ждётся --wait N')) — тяжёлое идёт только там (ws#1291). Повтори без --local: heavy-slot.sh $CLASS -- …; слот уведёт команду Job-ом либо назовёт, что поправить. Лёгкий набор проб — класс suite: внешнего пути у него нет" ;;
-        *) LOCAL_PROOF="rc=$rc $CL_OUT" ;;
+        0|75) refuse_external "--local «$LOCAL_WHY» отклонён: кластер принимает (проверка — код $rc$( [ "$rc" = 75 ] && echo ', занят: место ждётся --wait N')) — причина флага не основание, основание одно: кластер недоступен (владелец 2026-10-22, ws#1301). Повтори без --local: heavy-slot.sh $CLASS -- …; $( [ -z "$WHY_LOCAL" ] && echo 'слот уведёт команду Job-ом либо назовёт, что поправить' || echo "внешнего маршрута нет ($WHY_LOCAL) — задача $NO_ROUTE_TASK, до неё не выполнилось")" ;;
+        69|124) LOCAL_PROOF="rc=$rc $CL_OUT" ;;
+        *) defect_exit "$rc" ;;
     esac
 }
 # suite_payload — класс suite держит наборы и пробы оснастки, а не тяжёлое продукта (ws#1291):
@@ -1929,7 +1962,7 @@ suite_payload() {
         git) git_push_form || { GIT_IDX=""; GDIR="$PWD"; PUSH_AT=""; return 0; } ;;
         *) return 0 ;;
     esac
-    say "класс suite — наборы и пробы оснастки; «${PAY}» — нагрузка продукта: класс go-race, integration, lint либо ci-local (heavy-slot.sh --classes) — внешний кластер судит её там"
+    say "класс suite — наборы и пробы оснастки; «${PAY}» — нагрузка продукта: класс go-race, go-unit, integration, lint либо ci-local (heavy-slot.sh --classes) — внешний кластер судит её там"
     exit 64
 }
 CMD_R=("$@"); WHY_LOCAL=""; ROUTE=(); GIT_IDX=""; GDIR="$PWD"; LOCAL_PROOF=""; LOCAL_MOOT=""
@@ -1959,7 +1992,8 @@ elif [ "$REMOTE_ON" = 1 ]; then
         fi
     fi
     ext_leave
-    case "$CLASS" in go-race|integration|lint|ci-local|stand) say "локально — $WHY_LOCAL" ;; esac
+    [ -n "$PROOF$NR_MOOT" ] || no_route_judge
+    say "локально — $WHY_LOCAL"
 else
     WHY_LOCAL="режим проб без двойника run.sh — маршрут не судился"
 fi
