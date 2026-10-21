@@ -2271,7 +2271,7 @@ fi
 if [ "$CLASS" = ci-local ] && [ -z "${TMPDIR:-}" ] && [ -n "$SLOT_TMP" ]; then
     CENV+=(TMPDIR="$SLOT_TMP")
 fi
-# suite — свой TMPDIR прогона под tmp/ воркспейса, снимается выходом слота (ws#1292; шапка у SUITE_TMPROOT).
+# suite — свой TMPDIR прогона под общим каталогом слотов, снимается выходом слота (ws#1292; шапка у SUITE_TMPROOT).
 if [ -n "$SUITE_TMP" ]; then
     if mkdir -p "$SUITE_TMP" 2>/dev/null; then CENV+=(TMPDIR="$SUITE_TMP")
     else say "TMPDIR прогона $SUITE_TMP не создан — suite идёт с TMPDIR вызывающего"; SUITE_TMP=""; fi
