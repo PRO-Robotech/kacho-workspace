@@ -1682,18 +1682,27 @@ ext_run() {
 # профиля integration); до записи слот отвечал на неё 77, и пробы уходили во внешний кластер лишь
 # пересборкой команды мимо скрипта (ws#1192, посадка kaname#871).
 # Путь записи — образец оболочки (`*` берёт и «/»): строки kacho-workspace (ws#1304) — наборы и пробы
-# воркспейса, форма шагов его конвейера (`run-all.sh` наборов и `lib/run-suites.sh`, `inject.sh`,
-# `*-inject.sh`, `mutants.py`, проверки наборов, `prove.sh` хуков); исполняет их Job профиля ws
-# (scripts/remote-heavy/run.sh, СРЕДА ВОРКСПЕЙСА). Скрипт с python3 первым словом — слово после
-# ключей интерпретатора.
+# воркспейса тех же имён, что SUITE_NAME стража heavy-guard (run-all.sh, inject.sh, inject-*.sh,
+# *-inject.sh, prove.sh, prove-all.sh, mutants.py, *-mutants.py, run-suites.sh, hook-proofs.sh под
+# scripts/ и .claude/hooks/), и проверки наборов по одной (check-*); исполняет их Job профиля ws
+# (scripts/remote-heavy/run.sh, СРЕДА ВОРКСПЕЙСА). Что каждый файл дерева, которого страж зовёт
+# набором, здесь переносим, — перепись heavy-slot-inject (SUITE_NAME импортом guard.py, файлы — git
+# ls-files). Скрипт с python3 первым словом — слово после ключей интерпретатора.
 PORTABLE='kaname|.github/scripts/run-integration.sh|integration
 kacho-workspace|scripts/*/run-all.sh|ci-local,suite
-kacho-workspace|scripts/lib/run-suites.sh|ci-local,suite
+kacho-workspace|scripts/*/run-suites.sh|ci-local,suite
+kacho-workspace|scripts/hook-proofs.sh|ci-local,suite
 kacho-workspace|scripts/*/inject.sh|ci-local,suite
+kacho-workspace|scripts/*/inject-*.sh|ci-local,suite
 kacho-workspace|scripts/*-inject.sh|ci-local,suite
+kacho-workspace|scripts/*/prove.sh|ci-local,suite
+kacho-workspace|scripts/*/prove-all.sh|ci-local,suite
 kacho-workspace|scripts/*/mutants.py|ci-local,suite
+kacho-workspace|scripts/*-mutants.py|ci-local,suite
 kacho-workspace|scripts/*/check-*|ci-local,suite
-kacho-workspace|.claude/hooks/*/prove.sh|ci-local,suite'
+kacho-workspace|.claude/hooks/*/prove.sh|ci-local,suite
+kacho-workspace|.claude/hooks/*-inject.sh|ci-local,suite
+kacho-workspace|.claude/hooks/*/mutants.py|ci-local,suite'
 # portable_script — 0, если слово нагрузки (PAY_I) — скрипт ведомости PORTABLE этого клона и класса;
 # PORT_REL — его путь в дереве клона.
 portable_script() {
@@ -1759,7 +1768,7 @@ route_static() {
             elif RS_KNOWN="" && portable_script; then
                 RS_KNOWN=1; RS_WHY="клон воркспейса, скрипт ведомости PORTABLE $PORT_REL — Job профиля ws"
             else
-                WHY_LOCAL="клон воркспейса: нагрузка «${PAY_SH:-$PAY}» — не хук отправки и не скрипт ведомости PORTABLE относительным путём (run-all.sh, run-suites.sh, inject.sh, *-inject.sh, mutants.py, check-*, prove.sh): внешнего пути нет"; return 1
+                WHY_LOCAL="клон воркспейса: нагрузка «${PAY_SH:-$PAY}» — не хук отправки и не отслеживаемый набор либо проба относительным путём (ведомость PORTABLE: run-all.sh, inject*.sh, *-inject.sh, prove*.sh, *mutants.py, run-suites.sh, hook-proofs.sh, check-*): внешнего пути нет"; return 1
             fi
             return 0 ;;
         *) WHY_LOCAL="клон не kacho, kaname, corelib или kacho-workspace: внешнего пути нет"; return 1 ;;

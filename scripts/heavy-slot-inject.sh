@@ -909,6 +909,24 @@ assert "0 да нет" "$(RDIR="$RW" rslot bash "$SLOT" go-race -- true) $(has "
 rm -f "$W/argv"; bk="$(jn 'why=клон kacho — Job профиля go-race who=')"
 assert "17 go-race kacho $((bk + 1))" "$(RDIR="$R3" rslot bash "$SLOT" go-race -- go version) $(argv_of profile) $(argv_of repo) $(jn 'why=клон kacho — Job профиля go-race who=')" "законный близнец: клон kacho уходит своим маршрутом — профиль класса, причина в журнале"
 assert "0 да" "$(RDIR="$R3" rslot bash "$SLOT" suite -- bash .github/scripts/run-integration.sh) $(has "$W/err" 'у клона kacho внешнего пути нет')" "близнец: класс suite в клоне kacho — без внешнего пути"
+# Перепись в обе стороны с деревом: каждый отслеживаемый файл дерева воркспейса, которого страж
+# heavy-guard зовёт набором или пробой (suite_member: SUITE_NAME под scripts/ и .claude/hooks/ —
+# импортом guard.py, а не копией образца), классом suite уходит Job-ом профиля ws; ноль файлов — отказ.
+WS_TOP="$(cd "$HERE/.." && pwd -P)"
+mapfile -t SUF < <(cd "$WS_TOP" && git ls-files -- scripts .claude/hooks | python3 -c 'import importlib.util, os, sys
+s = importlib.util.spec_from_file_location("guard", sys.argv[1]); g = importlib.util.module_from_spec(s); s.loader.exec_module(g)
+for l in sys.stdin:
+    p = l.strip()
+    if p.startswith(("scripts/", ".claude/hooks/")) and g.SUITE_NAME.match(os.path.basename(p)):
+        print(p)' "$WS_TOP/.claude/hooks/heavy-guard/guard.py" 2>/dev/null)
+RSC="$W/rclone-wsc"; git init -q -b 1304-c "$RSC"; git -C "$RSC" remote add origin https://github.com/PRO-Robotech/kacho-workspace.git
+for f in "${SUF[@]}"; do mkdir -p "$RSC/$(dirname "$f")"; : > "$RSC/$f"; done
+git -C "$RSC" add -A 2>/dev/null; sandbox_git -C "$RSC" commit -q --allow-empty -m census
+n_ext=0; miss=""
+for f in "${SUF[@]}"; do
+    if [ "$(route "$RSC" suite -- bash "$f")" = "0 external" ]; then n_ext=$((n_ext + 1)); else miss="$miss $f"; fi
+done
+assert "да ${#SUF[@]}" "$([ "${#SUF[@]}" -gt 0 ] && echo да || echo нет) $n_ext" "перепись: наборов и проб дерева воркспейса (SUITE_NAME стража) ${#SUF[@]}, классом suite ушли бы Job-ом профиля ws $n_ext${miss:+ — мимо ведомости:$miss}"
 git init -q --bare "$W/bare-ws.git"; HLW="$W/hook-ws.log"; rm -f "$HLW" "$W/argv"; bp="$(jn ' remote class=ci-local route=push profile=ws ')"
 assert "0 1 ws kacho-workspace $((bp + 1)) 1" "$(RDIR="$RW" rslot env FAKE_EXEC=1 HOOK_LOG="$HLW" bash "$SLOT" ci-local -- git push -q "$W/bare-ws.git" HEAD:refs/heads/1304-w) $(grep -c '^job=1 ' "$HLW" 2>/dev/null) $(argv_of profile) $(argv_of repo) $(jn ' remote class=ci-local route=push profile=ws ') $(grep -F ' remote class=ci-local route=push profile=ws ' "$JL" | tail -n 1 | grep -c 'why=клон воркспейса, хук отправки — Job профиля ws who=')" "хук отправки воркспейса: Job профиля ws, хук исполнен там, строка remote с причиной"
 assert "0 external да" "$(route "$RW" ci-local -- git push origin HEAD) $(has "$W/out" 'профиль ws, репозиторий kacho-workspace')" "--route: отправка из клона воркспейса → external, профиль ws"
