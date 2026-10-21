@@ -1453,9 +1453,9 @@ tooling_gate() {
         out="сверять нечем: $LAG_SH нет"
     fi
     [ "$rc" -eq 0 ] && return 0
+    out="$(printf '%s' "$out" | tr '[:cntrl:]' ' ')"
     # Предел — строке журнала, не выводу: команда догона в конце строки, а `cut -c` режет байты —
     # длинный путь выписки срезал её (heavy-slot-inject @3b818bfd0).
-    out="$(printf '%s' "$out" | tr '[:cntrl:]' ' ')"
     journal_early "stale-tooling class=$CLASS rc=$rc proof=$(printf '%s' "$out" | cut -c1-500) who=$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD cmd=$(printf '%q ' "${CMD_R[@]}")"
     say "оснастка внешнего маршрута не сверена со стволом (${TOOLING_PATHS[*]}, ws#1228): ${out#TOOLING-LAG: } — команда НЕ запускалась ни там, ни локально (код 69, не выполнилось, не красное)."
     say "догони дерево оснастки и повтори ту же команду; локально — лишь --local \"<причина>\" перед классом (testing-verdict.md#external-cluster-first)"
