@@ -1129,7 +1129,7 @@ if [ "$PROFILE" != lint ]; then
     fi
     [ -n "$HELM_PIN$NODE_PIN$BUF_PIN$YQ_PIN" ] || say "helm, node, buf и yq: пинов в конвейере ревизии и helm в образе ранера нет — не ставлю и не сверяю (в конвейере их тоже нет)"
 else
-    say "профиль lint: helm, node, buf, yq, jq и PyYAML не ставятся (их ставят профили с go test) — отказ команды «нужен <инструмент>» здесь — выбор профиля, а не вердикт; такой команде — профиль ci-local"
+    say "профиль lint: helm, node, buf, yq, jq, PyYAML и pytest не ставятся (их ставят профили с go test) — отказ команды «нужен <инструмент>» здесь — выбор профиля, а не вердикт; такой команде — профиль ci-local"
 fi
 
 # ── владелец и уборка прежних запусков (ЛОКАЛЬНАЯ УБОРКА в шапке) ──────────────
@@ -1601,6 +1601,37 @@ FILEB
 $FILE_SH"
 [ "$PROFILE" = lint ] || PREP="$PREP
 $PKGS_SH"
+# PYTEST (ws#1296): прогонщик проб python kacho (.github/scripts/run-python-probes.py) без
+# pytest отказывает «нет pytest … прогон НЕ ВЫПОЛНЕН», и самопроверка в helm-manifest-test
+# краснела в pod; конвейер ставит его шагом `pip install pytest` задания чартов. pip образ
+# не несёт: колёса py3-none-any (pytest и зависимости для python ≥ 3.11) с пином суммы
+# распаковываются в site-packages интерпретатора, как PyYAML — видимость без окружения
+# (ws#1207) сверяется подпроцессом `env -i`. Маркеры — граница, по которой inject.sh
+# исполняет шаг над двойником сети.
+# shellcheck disable=SC2016  # раскрывается в pod, не здесь
+PYTEST_SH='# pytest-begin
+py="$(command -v python3)" || pf "python3 в образе нет"
+if ! env -i "$py" -c "import pytest" >/dev/null 2>&1; then
+  pts="$("$py" -c "import site; print(site.getsitepackages()[0])" 2>/dev/null)" && [ -n "$pts" ] || pf "pytest: каталог site-packages интерпретатора $py не назван"
+  echo "remote-heavy: ставлю pytest 9.1.1 в $pts" >&2
+  mkdir -p /work/dl/pt "$pts" || pf "каталог загрузки не создан"
+  for e in pytest-9.1.1-py3-none-any.whl:37a86b45efb9a47a61a36449063e8e18d0cab3161329fc099eb21783169c4f0c \
+           pluggy-1.7.0-py3-none-any.whl:7dd7b0d8832ba3cb632c306926ded123429211b83641b35dc5c41ad2d34f9bec \
+           iniconfig-2.3.1-py3-none-any.whl:9121e2c1fdb355232495be3194c8dfe87ccc2d5dee45947b78e68f499790d7a7 \
+           packaging-26.3-py3-none-any.whl:d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c \
+           pygments-2.21.0-py3-none-any.whl:2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9; do
+    w="${e%%:*}"; n="${w%%-*}"
+    curl -fsSL --retry 4 --retry-all-errors --retry-delay 3 --connect-timeout 10 --max-time 180 -o "/work/dl/pt/$w" "https://files.pythonhosted.org/packages/py3/${n:0:1}/$n/$w" \
+      && echo "${e#*:}  /work/dl/pt/$w" | sha256sum -c --quiet - \
+      && "$py" -m zipfile -e "/work/dl/pt/$w" "$pts" || pf "pytest 9.1.1: колесо $w не поставлено"
+  done
+  rm -rf /work/dl/pt
+fi
+pv="$(env -i "$py" -c "import pytest; print(pytest.__version__)" 2>/dev/null)" || pf "pytest не виден подпроцессу с пустым окружением ($py)"
+echo "remote-heavy: pytest $pv (без окружения)" >&2
+# pytest-end'
+[ "$PROFILE" = lint ] || PREP="$PREP
+$PYTEST_SH"
 # Ожидание сборки file и сверка ИСПОЛНЕНИЕМ — перед видимостью: бинарь, не узнающий
 # настоящий ELF образа, — отказ подготовки (69), а не «НЕ СУДИМО» пробы через полчаса.
 # shellcheck disable=SC2016  # раскрывается в pod, не здесь

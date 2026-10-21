@@ -151,6 +151,9 @@
 #      столбец SHA-256 по checksums_hashes_order (два порядка, соседний столбец —
 #      приманка той же формы) → yq в bin; сумма не сошлась, строки файла нет,
 #      чужая архитектура → 125; профиль lint yq не ставит и печатает, чего не ставит
+#   PT (ws#1296) шаг pytest исполнением: пять колёс с пином суммы → pytest виден
+#      `env -i python3`; сумма одного колеса не сошлась → 125 с именем колеса и в
+#      site-packages его нет; pytest уже есть → сеть не зовётся; lint шага не несёт
 #   E8 пины законными формами YAML: ключи шага до uses, поточный шаг с
 #      ключом в кавычках → те же пины в окружении run (близнец E1)
 #   E9 шаг setup-helm без version, setup-node без node-version → 69 до кластера,
@@ -1098,6 +1101,71 @@ if [ ! -e "$BOX/p.apt" ]; then ok; else bad P2 "шаг пакетов позва
 if grep -q 'github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-' "$BOX/p.log" && grep -q 'files.pythonhosted.org/.*pyyaml-6.0.2.tar.gz' "$BOX/p.log" && ! grep -qi debian "$BOX/p.log"; then ok
 else OUT="$BOX/p.log"; bad P2 "адреса загрузок не те: jq с GitHub и PyYAML с PyPI, без Debian"; fi
 if grep -q 'инструменты без пакетного менеджера — jq-1.7.1, PyYAML 6.0.2' "$BOX/P2.out"; then ok; else bad P2 "строка итога шага не называет версии"; fi
+# PT (ws#1296) — шаг pytest ИСПОЛНЕНИЕМ: текст из Job, сеть — двойник curl, колёса —
+#    настоящие zip той же формы (каталог пакета и dist-info), интерпретатор — venv
+#    песочницы без системных пакетов. Пинов в тексте пять, каждый — колесо py3-none-any;
+#    чисто → pytest виден `env -i python3` и строка называет версию; сумма одного колеса не
+#    сошлась (подмена — валидный zip, отличный лишь содержимым) → 125 и pytest не виден;
+#    pytest уже есть → сеть не зовётся; lint — шага нет (P1l-близнец по тексту).
+sed -n '/^# pytest-begin$/,/^# pytest-end$/p' "$BOX/e1.cmd" > "$BOX/pt.raw"
+if grep -q '^# pytest-end$' "$BOX/pt.raw"; then ok; else OUT="$BOX/e1.cmd"; bad PT "текста шага pytest в Job нет — исполнять нечего"; fi
+if ! grep -q '^# pytest-begin$' "$BOX/p1l.cmd"; then ok; else OUT="$BOX/p1l.cmd"; bad PT-lint "lint ставит pytest"; fi
+PTA="$BOX/ptassets"; PTS="$BOX/ptstub"; rm -rf "$PTA" "$PTS"; mkdir -p "$PTA/evil" "$PTS"
+grep -oE '[a-z]+-[0-9.]+-py3-none-any\.whl:[0-9a-f]{64}' "$BOX/pt.raw" > "$BOX/pt.pins"
+if [ "$(wc -l < "$BOX/pt.pins")" = 5 ] && [ "$(cut -d- -f1 "$BOX/pt.pins" | sort | tr '\n' ' ')" = "iniconfig packaging pluggy pygments pytest " ]; then ok
+else OUT="$BOX/pt.pins"; bad PT "пинов колёс в тексте не пять (pytest, pluggy, iniconfig, packaging, pygments): $(tr '\n' ' ' < "$BOX/pt.pins")"; fi
+cp "$BOX/pt.raw" "$BOX/pt.body"
+while IFS=: read -r ptw _; do
+    ptn="${ptw%%-*}"; ptv="${ptw#*-}"; ptv="${ptv%%-*}"
+    python3 -I -c 'import sys, zipfile
+w, n, v, mark = sys.argv[1:5]
+with zipfile.ZipFile(w, "w") as z:
+    z.writestr(n + "/__init__.py", "__version__ = \"" + v + "\"" + mark + "\n")
+    z.writestr(n + "-" + v + ".dist-info/METADATA", "Name: " + n + "\nVersion: " + v + "\n")' "$PTA/$ptw" "$ptn" "$ptv" ""
+    python3 -I -c 'import sys, zipfile
+w, n, v = sys.argv[1:4]
+with zipfile.ZipFile(w, "w") as z:
+    z.writestr(n + "/__init__.py", "__version__ = \"" + v + "\"  # подмена\n")
+    z.writestr(n + "-" + v + ".dist-info/METADATA", "Name: " + n + "\nVersion: " + v + "\n")' "$PTA/evil/$ptw" "$ptn" "$ptv"
+    sed -i -E "s/($ptw:)[0-9a-f]{64}/\1$(sha256sum < "$PTA/$ptw" | cut -d' ' -f1)/" "$BOX/pt.body"
+done < "$BOX/pt.pins"
+sed -i "s#/work#$PW#g" "$BOX/pt.body"
+# shellcheck disable=SC2016  # текст шага для исполнения в песочнице, не здесь
+{ echo 'pf() { echo "remote-heavy-prep: $1" >&2; exit 125; }'; cat "$BOX/pt.body"; } > "$BOX/pt.sh"
+cat > "$PTS/curl" <<'STUB'
+#!/bin/sh
+o=""; u=""
+while [ "$#" -gt 0 ]; do case "$1" in -o|--retry|--retry-delay|--connect-timeout|--max-time) [ "$1" = -o ] && o="$2"; shift 2 ;; -*) shift ;; *) u="$1"; shift ;; esac; done
+echo "$u" >> "$PT_LOG"
+case "$u" in
+  https://files.pythonhosted.org/packages/py3/*/*-py3-none-any.whl)
+    f="${u##*/}"; if [ -n "$STUB_BAD_PT" ] && [ "${f%%-*}" = "$STUB_BAD_PT" ]; then cat "$PT_ASSETS/evil/$f" > "$o"; else cat "$PT_ASSETS/$f" > "$o"; fi ;;
+  *) echo "curl: чужой адрес $u" >&2; exit 22 ;;
+esac
+STUB
+chmod +x "$PTS/curl"
+for t in bash cat cut env mkdir rm sha256sum; do ln -sf "$(command -v "$t")" "$PTS/$t"; done
+pt_clean() { local d; for d in pytest pluggy iniconfig packaging pygments; do rm -rf "${PSITE:?}/$d" "${PSITE:?}/$d"-*.dist-info; done; rm -rf "$PW/dl"; : > "$BOX/pt.log"; }
+pt_run() {
+    local n="$1" want="$2"; shift 2
+    OUT="$BOX/$n.out"
+    env -i PATH="$PTS:$PVENV/bin" PT_LOG="$BOX/pt.log" PT_ASSETS="$PTA" "$@" bash "$BOX/pt.sh" > "$OUT" 2>&1; RC=$?
+    cat "$OUT" >> "$ALL_OUT"
+    expect_rc "$n" "$want"
+}
+pt_clean
+if ! env -i "$PVENV/bin/python3" -c "import pytest" >/dev/null 2>&1; then ok; else bad PT0 "в venv песочницы pytest виден до шага — проба беспредметна"; fi
+pt_run PT-clean 0
+if [ "$(env -i "$PVENV/bin/python3" -c 'import pytest; print(pytest.__version__)' 2>/dev/null)" = 9.1.1 ] && grep -q 'remote-heavy: pytest 9.1.1 (без окружения)' "$BOX/PT-clean.out"; then ok
+else bad PT-clean "после шага pytest 9.1.1 не виден подпроцессу env -i либо строка не названа"; fi
+if [ "$(grep -c '^https://files.pythonhosted.org/packages/py3/./[a-z]*/[a-z]*-[0-9.]*-py3-none-any.whl$' "$BOX/pt.log")" = 5 ]; then ok
+else OUT="$BOX/pt.log"; bad PT-clean "адресов колёс не пять либо не той формы"; fi
+: > "$BOX/pt.log"; pt_run PT-present 0
+if [ ! -s "$BOX/pt.log" ]; then ok; else OUT="$BOX/pt.log"; bad PT-present "pytest уже есть, а сеть позвана"; fi
+pt_clean; pt_run PT-badsum 125 STUB_BAD_PT=pluggy
+if grep -q 'remote-heavy-prep: pytest 9.1.1: колесо pluggy-1.7.0-py3-none-any.whl не поставлено' "$BOX/PT-badsum.out"; then ok; else bad PT-badsum "отказ суммы не назван колесом"; fi
+if [ ! -e "$PSITE/pluggy/__init__.py" ]; then ok; else bad PT-badsum "колесо с несошедшейся суммой распаковано в site-packages"; fi
+pt_clean
 # P2a — arm64: берётся jq-linux-arm64
 p_stubs; p_run P2a 0 STUB_UNAME=aarch64
 if grep -q 'jq-linux-arm64' "$BOX/p.log"; then ok; else OUT="$BOX/p.log"; bad P2a "на aarch64 не взят jq-linux-arm64"; fi
