@@ -1180,17 +1180,39 @@ if grep -q 'remote-heavy-prep: pgclient: .*/psql в образе postgres нет
 # P8 — ВСЕ профили, а не только integration (e1): у каждого, кроме lint, есть шаг пакетов,
 #      шаг pgwait ПЕРЕД командой и ПОСЛЕ сверки среды, контейнер pgclient; у lint — ничего
 #      из этого. Перечень профилей — из таблицы PROFILES самого run.sh.
+# Клон воркспейса пробы (профиль ws, ws#1304): дерева go нет, пин shellcheck — env конвейера.
+SRCW="$BOX/srcw"
+git init -q "$SRCW"; mkdir -p "$SRCW/.github/workflows" "$SRCW/scripts/tg"
+printf 'env:\n  SHELLCHECK_VERSION: "0.11.0"\njobs:\n  t:\n    runs-on: ubuntu-latest\n    steps:\n      - run: bash scripts/tg/run-all.sh\n' > "$SRCW/.github/workflows/ci.yaml"
+printf '#!/usr/bin/env bash\necho tg\n' > "$SRCW/scripts/tg/run-all.sh"
+git -C "$SRCW" add -A; sandbox_git -C "$SRCW" commit -q -m ws
+ws_rev() {
+    git -C "$SRCW" checkout -q -b "$1"
+    printf '%s' "$2" > "$SRCW/.github/workflows/ci.yaml"
+    sandbox_git -C "$SRCW" commit -q -am "$1"
+    git -C "$SRCW" checkout -q -
+}
+ws_rev sc10 'env:
+  SHELLCHECK_VERSION: "0.10.0"
+jobs: {}
+'
+ws_rev scnone 'jobs: {}
+'
 mapfile -t PPROFS < <(sed -n "/^PROFILES='/,/'\$/p" "$RUN" | sed -e "s/^PROFILES='//" | cut -d'|' -f1 | grep -E '^[a-z][a-z0-9-]*$')
 if [ "${#PPROFS[@]}" -ge 4 ]; then ok; else bad P8 "профилей в таблице run.sh прочитано ${#PPROFS[@]} (ждали не меньше 4) — судить нечем"; fi
 for prof in "${PPROFS[@]}"; do
     fresh
-    go_run "p8-$prof" env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref HEAD --src "$SRC" --profile "$prof" --short "p8$prof" -- true
+    p8r=kaname; p8s="$SRC"; [ "$prof" != ws ] || { p8r=kacho-workspace; p8s="$SRCW"; }   # ws — лишь клон воркспейса
+    go_run "p8-$prof" env FAKE_EXIT=0 bash "$RUN" --task 1 --repo "$p8r" --ref HEAD --src "$p8s" --profile "$prof" --short "p8$prof" -- true
     expect_rc "P8-$prof" 0
     cp "$BOX/state/job.json" "$BOX/p8-$prof-job.json" 2>/dev/null
     kx cmd "$BOX/p8-$prof-job.json" run 2 > "$BOX/p8-$prof.cmd" 2>/dev/null
     npkg="$(grep -c '^# pkgs-begin$' "$BOX/p8-$prof.cmd")"; npgw="$(grep -c '^# pgwait-begin$' "$BOX/p8-$prof.cmd")"
     if [ "$prof" = lint ]; then
         if [ "$npkg" = 0 ] && [ "$npgw" = 0 ] && [ -s "$BOX/p8-$prof.cmd" ]; then ok; else OUT="$BOX/p8-$prof.cmd"; bad "P8-$prof" "lint несёт шаг пакетов ($npkg) или ожидание клиента postgres ($npgw)"; fi
+        want="pg=0 image=- init=0 after_run=0 pg_mount=0 run_mount=0 volume=0"
+    elif [ "$prof" = ws ]; then
+        if [ "$npkg" = 1 ] && [ "$npgw" = 0 ]; then ok; else OUT="$BOX/p8-$prof.cmd"; bad "P8-$prof" "ws: шагов пакетов $npkg (ждали 1) и ожидания клиента postgres $npgw (ждали 0 — pgclient ему не нужен)"; fi
         want="pg=0 image=- init=0 after_run=0 pg_mount=0 run_mount=0 volume=0"
     else
         if [ "$npkg" = 1 ] && [ "$npgw" = 1 ]; then ok; else OUT="$BOX/p8-$prof.cmd"; bad "P8-$prof" "шагов пакетов $npkg и ожидания клиента postgres $npgw в Job профиля $prof (ждали по одному)"; fi
@@ -1224,14 +1246,14 @@ for prof in "${PPROFS[@]}"; do
     pc="$BOX/p8-$prof.cmd"
     sw="$(grep -c -E '^[[:space:]]*#.*\|\| pf' "$pc")"; sm="$(grep -c -E "$G1_MARK" "$pc")"
     if [ "$sw" = 0 ] && [ "$sm" = 0 ] && [ -s "$pc" ]; then ok; else OUT="$pc"; bad "G1-$prof" "строк-комментариев с командой подготовки: $sw (с «|| pf»), $sm (команда за маркером шага) — команда ушла в комментарий"; fi
-    if awk -v pg="$([ "$prof" = lint ] && echo 0 || echo 1)" '/^# pgwait-end$/ { w = NR } /^# expose-begin$/ { b++; x = NR } /^heavy_cmd "\$@"$/ { e = NR } /go install github.com\/golangci/ { g = NR }
+    if awk -v pg="$(case "$prof" in lint|ws) echo 0 ;; *) echo 1 ;; esac)" '/^# pgwait-end$/ { w = NR } /^# expose-begin$/ { b++; x = NR } /^heavy_cmd "\$@"$/ { e = NR } /go install github.com\/golangci/ { g = NR }
            END { exit !(b == 1 && e && x < e && (!pg || (w && w < x)) && (!g || g < x)) }' "$pc"; then ok
     else OUT="$pc"; bad "X0-$prof" "шага видимости нет, он не один либо стоит не после установок и не перед командой"; fi
     nh="$(grep -c '^# hooks-begin$' "$pc")"
-    if [ "$prof" = ci-local ]; then
+    if [ "$prof" = ci-local ] || [ "$prof" = ws ]; then
         if [ "$nh" = 1 ] && awk '/^# hooks-end$/ { h = NR } /^heavy_cmd "\$@"$/ { e = NR } END { exit !(h && e && h < e) }' "$pc"; then ok
-        else OUT="$pc"; bad H0 "шага провязки хуков перед командой в Job ci-local нет"; fi
-    elif [ "$nh" = 0 ]; then ok; else OUT="$pc"; bad "H0-$prof" "провязка хуков в Job профиля $prof — хук отправки гонит лишь ci-local"; fi
+        else OUT="$pc"; bad "H0-$prof" "шага провязки хуков перед командой в Job $prof нет"; fi
+    elif [ "$nh" = 0 ]; then ok; else OUT="$pc"; bad "H0-$prof" "провязка хуков в Job профиля $prof — хук отправки гонят лишь ci-local и ws"; fi
     case "$prof" in ci-local|lint)
         if grep -qE '^echo "remote-heavy: ставлю golangci-lint v2\.12\.2" >&2; GOBIN=/work/bin go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2\.12\.2 ' "$pc"; then ok
         else OUT="$pc"; bad "G2-$prof" "установки golangci-lint исполняемой строкой в Job профиля $prof нет"; fi ;;
@@ -3493,23 +3515,6 @@ if [ ! -s "$CN/calls" ]; then ok; else bad CN4 "Job запущен при нев
 #     «среда: <имя>» в termination-log (run.sh читает его как 69 — K6)
 # WS5 читатель трекера ИСПОЛНЕНИЕМ (двойник curl): задача → «N false», запрос на слияние → «N true»,
 #     нет → «HTTP 404» и код 1, иная форма вызова → 4
-SRCW="$BOX/srcw"
-git init -q "$SRCW"; mkdir -p "$SRCW/.github/workflows" "$SRCW/scripts/tg"
-printf 'env:\n  SHELLCHECK_VERSION: "0.11.0"\njobs:\n  t:\n    runs-on: ubuntu-latest\n    steps:\n      - run: bash scripts/tg/run-all.sh\n' > "$SRCW/.github/workflows/ci.yaml"
-printf '#!/usr/bin/env bash\necho tg\n' > "$SRCW/scripts/tg/run-all.sh"
-git -C "$SRCW" add -A; sandbox_git -C "$SRCW" commit -q -m ws
-ws_rev() {
-    git -C "$SRCW" checkout -q -b "$1"
-    printf '%s' "$2" > "$SRCW/.github/workflows/ci.yaml"
-    sandbox_git -C "$SRCW" commit -q -am "$1"
-    git -C "$SRCW" checkout -q -
-}
-ws_rev sc10 'env:
-  SHELLCHECK_VERSION: "0.10.0"
-jobs: {}
-'
-ws_rev scnone 'jobs: {}
-'
 fresh
 go_run ws1 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kacho-workspace --ref HEAD --src "$SRCW" --profile ws --short ws1 -- bash scripts/tg/run-all.sh
 expect_rc WS1 0
