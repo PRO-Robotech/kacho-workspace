@@ -1703,6 +1703,13 @@ kacho-workspace|scripts/*/check-*|ci-local,suite
 kacho-workspace|.claude/hooks/*/prove.sh|ci-local,suite
 kacho-workspace|.claude/hooks/*-inject.sh|ci-local,suite
 kacho-workspace|.claude/hooks/*/mutants.py|ci-local,suite'
+# MACHINE — пробы воркспейса, чей предмет — САМА машина (systemd --user и scope, cgroup памяти
+# машины, docker, память машины), а не дерево: Job их не воспроизводит, и в pod они дают не
+# вердикт, а чужое красное (живой прогон heavy-slot-inject.sh Job-ом ws 2026-10-22: «все слоты
+# заняты — 74» получил 0) либо «не построено». Запись — путь в дереве; файла нет — запись
+# устарела, и перепись heavy-slot-inject это называет. Они идут без внешнего пути (ws#1304).
+MACHINE='scripts/heavy-slot-inject.sh
+scripts/session-memcap-inject.sh'
 # portable_script — 0, если слово нагрузки (PAY_I) — скрипт ведомости PORTABLE этого клона и класса;
 # PORT_REL — его путь в дереве клона.
 portable_script() {
@@ -1765,7 +1772,9 @@ route_static() {
             RS_PROFILE=ws
             if [ "$PAY" = git ] && [ -n "$RS_KNOWN" ]; then
                 RS_WHY="клон воркспейса, хук отправки — Job профиля ws"
-            elif RS_KNOWN="" && portable_script; then
+            elif RS_KNOWN="" && portable_script && grep -qxF -- "$PORT_REL" <<< "$MACHINE"; then
+                WHY_LOCAL="клон воркспейса: $PORT_REL судит машину (systemd --user, cgroup памяти, docker — запись MACHINE), Job её не воспроизводит: внешнего пути нет"; return 1
+            elif [ -n "$PORT_REL" ]; then
                 RS_KNOWN=1; RS_WHY="клон воркспейса, скрипт ведомости PORTABLE $PORT_REL — Job профиля ws"
             else
                 WHY_LOCAL="клон воркспейса: нагрузка «${PAY_SH:-$PAY}» — не хук отправки и не отслеживаемый набор либо проба относительным путём (ведомость PORTABLE: run-all.sh, inject*.sh, *-inject.sh, prove*.sh, *mutants.py, run-suites.sh, hook-proofs.sh, check-*): внешнего пути нет"; return 1

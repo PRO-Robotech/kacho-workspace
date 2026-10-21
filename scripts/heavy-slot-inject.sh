@@ -922,11 +922,19 @@ for l in sys.stdin:
 RSC="$W/rclone-wsc"; git init -q -b 1304-c "$RSC"; git -C "$RSC" remote add origin https://github.com/PRO-Robotech/kacho-workspace.git
 for f in "${SUF[@]}"; do mkdir -p "$RSC/$(dirname "$f")"; : > "$RSC/$f"; done
 git -C "$RSC" add -A 2>/dev/null; sandbox_git -C "$RSC" commit -q --allow-empty -m census
-n_ext=0; miss=""
+# Пробы, судящие машину (MACHINE heavy-slot.sh), — без внешнего пути: каждая запись — живой файл
+# дерева (иначе запись устарела) и маршрут local с причиной; прочие — external.
+mapfile -t MACH < <(sed -n "/^MACHINE='/,/'\$/p" "$SLOT" | sed -e "s/^MACHINE='//" -e "s/'\$//" | sed '/^$/d')
+n_ext=0; n_mach=0; miss=""
 for f in "${SUF[@]}"; do
-    if [ "$(route "$RSC" suite -- bash "$f")" = "0 external" ]; then n_ext=$((n_ext + 1)); else miss="$miss $f"; fi
+    r="$(route "$RSC" suite -- bash "$f")"
+    if printf '%s\n' "${MACH[@]}" | grep -qxF -- "$f"; then
+        if [ "$r" = "0 local" ] && grep -q 'судит машину' "$W/out"; then n_mach=$((n_mach + 1)); else miss="$miss $f(MACHINE→$r)"; fi
+    elif [ "$r" = "0 external" ]; then n_ext=$((n_ext + 1)); else miss="$miss $f"; fi
 done
-assert "да ${#SUF[@]}" "$([ "${#SUF[@]}" -gt 0 ] && echo да || echo нет) $n_ext" "перепись: наборов и проб дерева воркспейса (SUITE_NAME стража) ${#SUF[@]}, классом suite ушли бы Job-ом профиля ws $n_ext${miss:+ — мимо ведомости:$miss}"
+assert "да ${#SUF[@]}" "$([ "${#SUF[@]}" -gt 0 ] && echo да || echo нет) $((n_ext + n_mach))" "перепись: наборов и проб дерева воркспейса (SUITE_NAME стража) ${#SUF[@]}: Job-ом профиля ws $n_ext, судящих машину (local) $n_mach${miss:+ — мимо ведомости:$miss}"
+m_live=0; for f in "${MACH[@]}"; do (cd "$WS_TOP" && git ls-files --error-unmatch -- "$f" >/dev/null 2>&1) && m_live=$((m_live + 1)); done
+assert "да ${#MACH[@]}" "$([ "${#MACH[@]}" -gt 0 ] && echo да || echo нет) $m_live" "записи MACHINE — живые файлы дерева: ${#MACH[@]} записей, отслеживается $m_live (устаревшая запись — находка)"
 git init -q --bare "$W/bare-ws.git"; HLW="$W/hook-ws.log"; rm -f "$HLW" "$W/argv"; bp="$(jn ' remote class=ci-local route=push profile=ws ')"
 assert "0 1 ws kacho-workspace $((bp + 1)) 1" "$(RDIR="$RW" rslot env FAKE_EXEC=1 HOOK_LOG="$HLW" bash "$SLOT" ci-local -- git push -q "$W/bare-ws.git" HEAD:refs/heads/1304-w) $(grep -c '^job=1 ' "$HLW" 2>/dev/null) $(argv_of profile) $(argv_of repo) $(jn ' remote class=ci-local route=push profile=ws ') $(grep -F ' remote class=ci-local route=push profile=ws ' "$JL" | tail -n 1 | grep -c 'why=клон воркспейса, хук отправки — Job профиля ws who=')" "хук отправки воркспейса: Job профиля ws, хук исполнен там, строка remote с причиной"
 assert "0 external да" "$(route "$RW" ci-local -- git push origin HEAD) $(has "$W/out" 'профиль ws, репозиторий kacho-workspace')" "--route: отправка из клона воркспейса → external, профиль ws"
