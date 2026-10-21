@@ -1042,11 +1042,11 @@ placement() {
       | ([$alive[] | select(.spec.nodeName | not) | select(.metadata.namespace | IN($busy[])) | {c: eff("cpu"), m: eff("memory")}]
          + [$bq[] | select(.n as $x | $alive | any(.metadata.namespace == $x) | not) | {c: .c, m: .m}]
          | sort_by(-.c, -.m)) as $dem
-      | reduce $dem[] as $d ({bins: $open, un: 0};
+      | (reduce $dem[] as $d ({bins: $open, un: 0};
           ([.bins | to_entries[] | select(.value.fcpu >= $d.c and .value.fmem >= $d.m)
             | {k: .key, s: ((.value.fcpu - $d.c) / ([.value.acpu, 1] | max) + (.value.fmem - $d.m) / ([.value.amem, 1] | max))}]
            | sort_by(-.s, .k) | map(.k) | first) as $i
-          | if $i == null then .un += 1 else (.bins[$i].fcpu -= $d.c | .bins[$i].fmem -= $d.m) end) as $pk
+          | if $i == null then .un += 1 else (.bins[$i].fcpu -= $d.c | .bins[$i].fmem -= $d.m) end)) as $pk
       | ($pk.bins | map(slots) | add // 0) as $extra
       | [($ns | length), ($ns | map(select(.open | not)) | length),
          ($ns | map(select(.open)) | length),
