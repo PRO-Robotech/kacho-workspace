@@ -2960,12 +2960,14 @@ echo "remote-heavy: клоны продуктов —$wcs, $(( $(date +%s) - wc0
 WSCW
 )"
 # Сверка среды воркспейса — ПОСЛЕ видимости: подпроцессом с пустым окружением и PATH образа
-# (HEAVY_STD_PATH — его подмена в пробах), как наборы и хук зовут инструменты.
+# golang (HEAVY_STD_PATH — его подмена в пробах), как наборы и хук зовут инструменты.
 # shellcheck disable=SC2016  # раскрывается в pod, не здесь
 WSCHECK_SH="$(cat <<'WSCHECK'
 # wscheck-begin
 tf() { echo "remote-heavy-prep: среда: $1" | tee /dev/termination-log >&2; exit 125; }
-sp="${HEAVY_STD_PATH:-/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin}"
+# PATH образа golang (ENV образа: /go/bin и /usr/local/go/bin перед путями Debian) — go там, а не в
+# /usr/local/bin; живой прогон 2026-10-22 без них отказал «go нет» при go в образе.
+sp="${HEAVY_STD_PATH:-/go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin}"
 wx() { env -i PATH="$sp" HOME="${HOME:-/root}" bash -c "$1" 2>&1; }
 for t in bash python3 git curl go node jq yq shellcheck bats; do
   [ -n "$(env -i PATH="$sp" bash -c "command -v $t" 2>/dev/null)" ] || tf "$t нет в PATH образа — наборы и хук воркспейса зовут его, прогон не равен конвейеру"
