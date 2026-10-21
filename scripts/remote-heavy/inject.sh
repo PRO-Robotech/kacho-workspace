@@ -139,7 +139,8 @@
 #      сроком — перечнем, не снят; повтор — уборки нет (перепись после = 0)
 #   PK пик run (ws#1195): шаг ИСПОЛНЕНИЕМ печатает memory.peak, CPU за команду и пик
 #      рабочей памяти (memory.current − inactive_file, ws#1293: выборка после команды —
-#      PK1-ws, наибольшая, а не последняя — PK1c), без cgroup — «—»; run.sh пишет
+#      PK1-ws, наибольшая, а не последняя — PK1c, подъём посреди команды выборкой во
+#      время неё — PK1-mid), без cgroup — «—»; run.sh пишет
 #      «remote-peak» с run_peak и ws_peak в журнал слотов с репозиторием и запросом;
 #      каталога журнала нет — не создаёт
 #   EV pod выселен узлом → 69 (не код контейнера); близнец K4c — 137 без выселения
@@ -3113,6 +3114,17 @@ if [ -s "$BOX/redlog-oom.sh" ]; then
     printf 'usage_usec 1000000\nuser_usec 1\n' > "$RW/cstat"
     pk_ws "$BOX/pk1c.out" 1073741824
     if grep -qE '^remote-heavy-peak: [0-9]+ [0-9]+ [0-9]+ 1610612736$' "$OUT"; then ok; else bad PK1c "пик рабочей памяти — не наибольшая выборка"; fi
+    # PK1-mid (приёмка ws#1293, порча cv-ws-no-loop): подъём ПОСРЕДИ команды — 4 ГиБ
+    # дольше двух шагов выборки (5 с при шаге 2 с), спад до 1 ГиБ до её конца. Пик
+    # рабочей — 4 ГиБ − 512 МиБ = 3 758 096 384 ловит лишь выборка во время команды:
+    # до неё 1 610 612 736, после — 536 870 912.
+    printf 'usage_usec 1000000\nuser_usec 1\n' > "$RW/cstat"
+    echo 2147483648 > "$RW/mcur"; printf 'anon 1\ninactive_file 536870912\nactive_file 1\n' > "$RW/mstat"
+    ( cd "$RW" && HEAVY_MEM_EVENTS="$RW/mev" HEAVY_MEM_PEAK="$RW/mpeak" HEAVY_CPU_STAT="$RW/cstat" \
+        HEAVY_MEM_CURRENT="$RW/mcur" HEAVY_MEM_STAT="$RW/mstat" bash "$BOX/redlog-oom.sh" \
+        bash -c 'echo 4294967296 > "$1"; sleep 5; echo 1073741824 > "$1"' x "$RW/mcur" ) > "$BOX/pk1mid.out" 2>&1; RC=$?; OUT="$BOX/pk1mid.out"
+    expect_rc PK1-mid 0
+    if grep -qE '^remote-heavy-peak: [0-9]+ [0-9]+ [0-9]+ 3758096384$' "$OUT"; then ok; else bad PK1-mid "подъём рабочей памяти посреди команды не пойман выборкой во время неё"; fi
     ( cd "$RW" && HEAVY_MEM_EVENTS="$RW/mev" HEAVY_MEM_PEAK="$RW/nope" HEAVY_CPU_STAT="$RW/nope" \
         HEAVY_MEM_CURRENT="$RW/nope" HEAVY_MEM_STAT="$RW/nope" bash "$BOX/redlog-oom.sh" true ) > "$BOX/pk1b.out" 2>&1; OUT="$BOX/pk1b.out"
     if grep -qE '^remote-heavy-peak: — — [0-9]+ —$' "$OUT"; then ok; else bad PK1b "без cgroup строки пика «— — … —» нет"; fi
