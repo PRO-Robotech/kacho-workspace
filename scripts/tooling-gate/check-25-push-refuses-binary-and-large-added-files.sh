@@ -65,9 +65,11 @@ if [ "${#missing[@]}" -gt 0 ]; then
 fi
 ELF="$(type -P true || true)"
 [ -z "$ELF" ] || ELF="$(readlink -f "$ELF")"
-elf_kind="$( [ -z "$ELF" ] || file -b "$ELF" 2>/dev/null || true)"
-if [ "${elf_kind#ELF}" = "$elf_kind" ]; then
-    tooling_gate_void "$NAME" "настоящего исполняемого файла для инъекции нет ($ELF не ELF либо нет file)"
+# ELF — по сигнатуре первых четырёх байт (\177 E L F), а не по `file`: в образе Job профиля ws
+# (golang:1.26.9) утилиты file нет, и предпосылка там выходила VOID (ws#1304).
+elf_magic="$( [ -z "$ELF" ] || od -An -c -N4 -- "$ELF" 2>/dev/null | tr -d ' \n')"
+if [ "$elf_magic" != '177ELF' ]; then
+    tooling_gate_void "$NAME" "настоящего исполняемого файла для инъекции нет (${ELF:-true не найден} — сигнатура «$elf_magic», не ELF)"
     exit 2
 fi
 
