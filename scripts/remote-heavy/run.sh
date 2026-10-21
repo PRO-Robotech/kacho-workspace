@@ -211,7 +211,8 @@
 # «FATAL: нужен yq (mikefarah v4)» кодом 2 — красным вместо «не выполнилось». Ставится
 # бинарь выпуска того же тега (сборка в pod стоила бы десятки секунд), сумма SHA-256 —
 # из `checksums` выпуска, столбец — по `checksums_hashes_order`; сверка — mikefarah и
-# версия пина. Шага setup-helm нет, а задания идут на хостовом
+# версия пина. Упоминание mikefarah/yq иной формой (`@latest`, `@v4.53`, шаг
+# `uses: mikefarah/yq@…`) — 69 до кластера, а не «yq не требуется». Шага setup-helm нет, а задания идут на хостовом
 # образе ubuntu-* — helm ОБРАЗА: ранер конвейера несёт его в PATH (ws#1110:
 # render-guard kaname «helm не в PATH» только в pod); образ метки — по таблице
 # README actions/runner-images, версия — строка «- Helm X.Y.Z» Readme образа;
@@ -1119,6 +1120,12 @@ if [ "$PROFILE" != lint ]; then
     NODE_PIN="$(step_pin actions/setup-node node-version node)"; [ "$?" -eq 2 ] && exit 69
     BUF_PIN="$(step_pin bufbuild/buf-setup-action version buf)"; [ "$?" -eq 2 ] && exit 69
     YQ_PIN="$(pin_of 'mikefarah/yq/v4')"; [ "$?" -eq 2 ] && exit 69
+    # Форма, которой pin_of не знает (`@latest`, `@v4.53`, `@v4.53.6-rc1`, шаг
+    # `uses: mikefarah/yq@…`), оставляла пин пустым либо брала его у соседнего задания:
+    # yq не ставился («не требуется»), команда краснела вместо «не выполнилось» (ws#1296,
+    # приёмка). Каждое упоминание mikefarah/yq — пин `…/v4@vX.Y.Z` целиком, иначе 69.
+    YQ_ODD="$(grep -oE 'mikefarah/yq[^[:space:]"'\'']*' <<< "$WF" | grep -vxE 'mikefarah/yq/v4@v[0-9]+\.[0-9]+\.[0-9]+' | sort -u)"
+    [ -z "$YQ_ODD" ] || { say "пин yq на $SHA: mikefarah/yq в конвейере формой, которую разбор пина не знает: $(tr '\n' ' ' <<< "$YQ_ODD")— разбирается лишь go install …mikefarah/yq/v4@vX.Y.Z, версию не выбрать"; exit 69; }
     [[ -z "$HELM_PIN" || "$HELM_PIN" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { say "пин helm на $SHA вне формы vX.Y.Z: «$HELM_PIN»"; exit 69; }
     [[ -z "$NODE_PIN" || "$NODE_PIN" =~ ^[0-9]+(\.[0-9]+){0,2}$ ]] || { say "пин node на $SHA вне формы N[.N[.N]]: «$NODE_PIN»"; exit 69; }
     [[ -z "$BUF_PIN" || "$BUF_PIN" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]] || { say "пин buf на $SHA вне формы [v]X.Y.Z: «$BUF_PIN»"; exit 69; }

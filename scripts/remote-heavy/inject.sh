@@ -146,7 +146,8 @@
 #      v26.11.x); полный пин 26.1.0 → ровно v26.1.0
 #   EY (ws#1296) yq: пин `go install …mikefarah/yq/v4@vX` ревизии → HEAVY_YQ в
 #      окружении run, строка «Job создан» его называет; сверка ИСПОЛНЕНИЕМ: yq нет,
-#      python-yq, другая версия, версия-префикс → 125 «среда: yq»; верный → 0 и
+#      python-yq, чужой вендор той же версии, другая версия, версия-префикс → 125
+#      «среда: yq»; верный → 0 и
 #      строка среды называет его; установка ИСПОЛНЕНИЕМ: бинарь выпуска, сумма —
 #      столбец SHA-256 по checksums_hashes_order (два порядка, соседний столбец —
 #      приманка той же формы) → yq в bin; сумма не сошлась, строки файла нет,
@@ -158,6 +159,9 @@
 #      ключом в кавычках → те же пины в окружении run (близнец E1)
 #   E9 шаг setup-helm без version, setup-node без node-version → 69 до кластера,
 #      шаг и ключ названы
+#   EY9 mikefarah/yq формой, которой разбор пина не знает (`@latest`, `@v4.53`,
+#      `@v4.53.6-rc1`, шаг uses, законный пин рядом с `@latest`) → 69, Job нет,
+#      форма названа; близнец — пин в кавычках → v4.53.6
 #   E10 пин node вне формы (lts/*) → 69, Job нет; E10b пин helm вне формы
 #      (latest) → 69, Job нет
 #   D1 модули, которые пробы читают ИСХОДНИКАМИ (ws#1018): Job каждого профиля
@@ -573,6 +577,35 @@ pin_rev pins4 'jobs:
         with:
           cache: npm
 '
+# Формы mikefarah/yq, которых разбор пина не знает (ws#1296, приёмка): каждая —
+# одним фактом против законной `go install …/v4@vX.Y.Z` ревизии pins; yqmixed —
+# законный пин в одном задании и `@latest` в другом; yqquoted — законный близнец:
+# пин в кавычках.
+for c in "yqlatest go install github.com/mikefarah/yq/v4@latest" \
+         "yqshort go install github.com/mikefarah/yq/v4@v4.53" \
+         "yqrc go install github.com/mikefarah/yq/v4@v4.53.6-rc1" \
+         'yqquoted go install "github.com/mikefarah/yq/v4@v4.53.6"'; do
+    pin_rev "${c%% *}" "jobs:
+  charts:
+    steps:
+      - run: ${c#* }
+"
+done
+pin_rev yqaction 'jobs:
+  charts:
+    steps:
+      - uses: mikefarah/yq@v4.53.6
+        with:
+          cmd: yq --version
+'
+pin_rev yqmixed 'jobs:
+  charts:
+    steps:
+      - run: go install github.com/mikefarah/yq/v4@v4.53.6
+  lint:
+    steps:
+      - run: go install github.com/mikefarah/yq/v4@latest
+'
 
 # Ревизии среды ОБРАЗА ранера и buf (ws#1110), формы ci.yml kaname 746: задание на
 # ubuntu-latest без setup-helm (helm несёт образ ранера), buf — шаг
@@ -929,6 +962,8 @@ yq_tools_case() {
 }
 yq_tools_case EY2-absent - 125
 yq_tools_case EY2-python-yq 'yq 3.4.3' 125
+# однофактный близнец EY2-legit: версия пина та же, вендор чужой
+yq_tools_case EY2-vendor 'yq (https://github.com/kislyuk/yq/) version v4.53.6' 125
 yq_tools_case EY2-other 'yq (https://github.com/mikefarah/yq/) version v4.53.5' 125
 yq_tools_case EY2-prefix 'yq (https://github.com/mikefarah/yq/) version v4.53.60' 125
 yq_tools_case EY2-legit 'yq (https://github.com/mikefarah/yq/) version v4.53.6' 0
@@ -1927,6 +1962,24 @@ go_run e9 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref pins4 --src "
 expect_rc E9 69
 if [ -e "$BOX/state/job.json" ]; then bad E9 "Job создан при шаге без пина"; else ok; fi
 if grep -q 'шаг azure/setup-helm без скалярного with.version' "$OUT"; then ok; else bad E9 "шаг helm без version не назван"; fi
+# EY9 (ws#1296) mikefarah/yq формой, которой разбор пина не знает → 69 до кластера,
+#     Job нет, форма названа (прежде — «yq не требуется» и красная команда);
+#     yqmixed — законный пин рядом не амнистирует; близнец EY9-quoted → пин v4.53.6
+for c in "EY9-latest yqlatest mikefarah/yq/v4@latest" "EY9-short yqshort mikefarah/yq/v4@v4.53" \
+         "EY9-rc yqrc mikefarah/yq/v4@v4.53.6-rc1" "EY9-action yqaction mikefarah/yq@v4.53.6" \
+         "EY9-mixed yqmixed mikefarah/yq/v4@latest"; do
+    read -r cn cref cform <<< "$c"
+    fresh
+    go_run "$cn" env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref "$cref" --src "$SRC" --profile integration --short ey9 -- true
+    expect_rc "$cn" 69
+    if [ -e "$BOX/state/job.json" ]; then bad "$cn" "Job создан при неразобранной форме пина yq"; else ok; fi
+    if grep -qF "пин yq на " "$OUT" && grep -qF "разбор пина не знает: $cform " "$OUT"; then ok; else bad "$cn" "форма $cform не названа"; fi
+done
+fresh
+go_run EY9-quoted env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref yqquoted --src "$SRC" --profile integration --short ey9q -- true
+expect_rc EY9-quoted 0
+if [ "$(envv "$BOX/state/job.json" HEAVY_YQ)" = v4.53.6 ]; then ok
+else OUT="$BOX/state/job.json"; bad EY9-quoted "пин yq в кавычках: «$(envv "$BOX/state/job.json" HEAVY_YQ)», ждали v4.53.6"; fi
 # E10 пин вне формы → 69 до кластера, Job нет, причина названа
 for c in "E10 pins5 node" "E10b pins6 helm"; do
     read -r cn cref ctool <<< "$c"
