@@ -1599,15 +1599,14 @@ FILEB
 )"
 [ "$PROFILE" = ci-local ] && PREP="$PREP
 $FILE_SH"
-[ "$PROFILE" = lint ] || PREP="$PREP
-$PKGS_SH"
 # PYTEST (ws#1296): прогонщик проб python kacho (.github/scripts/run-python-probes.py) без
 # pytest отказывает «нет pytest … прогон НЕ ВЫПОЛНЕН», и самопроверка в helm-manifest-test
 # краснела в pod; конвейер ставит его шагом `pip install pytest` задания чартов. pip образ
 # не несёт: колёса py3-none-any (pytest и зависимости для python ≥ 3.11) с пином суммы
 # распаковываются в site-packages интерпретатора, как PyYAML — видимость без окружения
 # (ws#1207) сверяется подпроцессом `env -i`. Маркеры — граница, по которой inject.sh
-# исполняет шаг над двойником сети.
+# исполняет шаг над двойником сети. Стоит ДО шага пакетов: за «# pkgs-end» следует
+# установка golangci-lint (проба G1 стережёт её склейку с маркером).
 # shellcheck disable=SC2016  # раскрывается в pod, не здесь
 PYTEST_SH='# pytest-begin
 py="$(command -v python3)" || pf "python3 в образе нет"
@@ -1632,6 +1631,8 @@ echo "remote-heavy: pytest $pv (без окружения)" >&2
 # pytest-end'
 [ "$PROFILE" = lint ] || PREP="$PREP
 $PYTEST_SH"
+[ "$PROFILE" = lint ] || PREP="$PREP
+$PKGS_SH"
 # Ожидание сборки file и сверка ИСПОЛНЕНИЕМ — перед видимостью: бинарь, не узнающий
 # настоящий ELF образа, — отказ подготовки (69), а не «НЕ СУДИМО» пробы через полчаса.
 # shellcheck disable=SC2016  # раскрывается в pod, не здесь

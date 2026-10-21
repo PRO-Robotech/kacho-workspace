@@ -1976,7 +1976,7 @@ if [ -z "$(envv "$BOX/state/job.json" HEAVY_HELM)" ] && [ -n "$e4cmd" ] && ! gre
 else OUT="$BOX/state/job.json"; bad E4 "lint ставит helm"; fi
 if [ -z "$(envv "$BOX/state/job.json" HEAVY_YQ)" ] && ! grep -q 'mikefarah/yq/releases' <<< "$e4cmd"; then ok
 else OUT="$BOX/state/job.json"; bad EY4 "lint ставит yq"; fi
-if grep -q 'профиль lint: helm, node, buf, yq, jq и PyYAML не ставятся' "$BOX/e4.out"; then ok; else OUT="$BOX/e4.out"; bad EY4 "lint не называет инструменты, которых не ставит"; fi
+if grep -q 'профиль lint: helm, node, buf, yq, jq, PyYAML и pytest не ставятся' "$BOX/e4.out"; then ok; else OUT="$BOX/e4.out"; bad EY4 "lint не называет инструменты, которых не ставит"; fi
 # E5 ревизия без пинов — сверять нечего, строка это называет
 if grep -q 'helm, node, buf и yq: пинов в конвейере ревизии и helm в образе ранера нет' "$BOX/u1.out" 2>/dev/null; then ok; else OUT="$BOX/u1.out"; bad E5 "отсутствие пинов не названо"; fi
 # E6 run отказал сверкой среды → 69 «не выполнилось — среда», а не код команды
