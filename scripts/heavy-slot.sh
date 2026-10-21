@@ -767,7 +767,7 @@ push_homes() {
 # его клон слот не судит — отказ слота отнял бы у kacho законную отправку. Научится хук kaname —
 # проверка слота снимется сама. ГРАНИЦА: признак — текст хука, а не его поведение.
 local_push_untracked() {
-    local top url list n
+    local top url list n hook
     [ "$CLASS" = ci-local ] || return 0
     CMD_R=("$@"); git_push_form
     if [ -z "$GIT_IDX" ]; then GDIR="$PWD"; return 0; fi
@@ -775,7 +775,8 @@ local_push_untracked() {
     [ -n "$top" ] || return 0
     url="$(git -C "$top" remote get-url origin 2>/dev/null)"
     case "$url" in *PRO-Robotech/kacho|*PRO-Robotech/kacho.git|*PRO-Robotech/kaname|*PRO-Robotech/kaname.git|*PRO-Robotech/corelib|*PRO-Robotech/corelib.git) ;; *) return 0 ;; esac
-    grep -v '^[[:space:]]*#' "$top/scripts/hooks/pre-push" 2>/dev/null | grep -q 'status --porcelain' && return 0
+    hook="$(grep -v '^[[:space:]]*#' "$top/scripts/hooks/pre-push" 2>/dev/null)"
+    grep -q 'status --porcelain' <<<"$hook" && return 0
     list="$(git -C "$top" ls-files --others --exclude-standard --directory 2>/dev/null)"
     [ -n "$list" ] || return 0
     n="$(printf '%s\n' "$list" | wc -l)"

@@ -2525,7 +2525,8 @@ fresh
 for _ in $(seq 1 50); do [ -e "/proc/$holder/fd/3" ] && break; sleep 0.1; done
 go_run o2m env FAKE_EXIT=0 REMOTE_HEAVY_OUT_PEER="1 $holder" "${BM[@]}" --short o2m -- true
 kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null
-if [ "$(diff "$RUN" "$BOX/run-mut-1280.sh" | grep -c '^<')" = 1 ] && [ "${B[1]}" = "$RUN" ] && grep -q 'пишет и другой процесс' "$OUT"; then ok
+nd="$(diff "$RUN" "$BOX/run-mut-1280.sh" | grep -c '^<')"
+if [ "$nd" = 1 ] && [ "${B[1]}" = "$RUN" ] && grep -q 'пишет и другой процесс' "$OUT"; then ok
 else bad O2c-m "мутант без REMOTE_HEAVY_OUT_PEER не построен либо не предупредил — проба O2c мимо предмета"; fi
 # O2b — близнец: файл держат только предки прогона (timeout, env) → молчание
 if grep -q 'пишет и другой процесс' "$BOX/o1.out"; then OUT="$BOX/o1.out"; bad O2b "предупреждение без постороннего писателя"; else ok; fi
