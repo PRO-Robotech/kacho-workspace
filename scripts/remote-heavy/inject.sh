@@ -244,9 +244,9 @@
 #   RG13 обрыв внутри копии (нет end и total) → копии из полного лога контейнера
 #   RG6 красный код, красных групп ноль → строка с числом групп, каталога нет;
 #      RG6b итога нет нигде → «НЕ получены»
-#   WS1–WS5 профиль ws клона воркспейса (ws#1304): Job — образ без go, клоны продуктов, среда
-#      наборов и её сверка; пара профиля и репозитория; пин shellcheck; сверка среды и читатель
-#      трекера исполнением (подробно — у случаев)
+#   WS1–WS6 профиль ws клона воркспейса (ws#1304): Job — образ продуктов, клоны продуктов, среда
+#      наборов, её сверка и команда от runner; пара профиля и репозитория; пин shellcheck; сверка
+#      среды, читатель трекера и установка с пином суммы исполнением (подробно — у случаев)
 #   L0 двойник сам печатает адрес и IPv4   → да (контроль пробы утечки)
 #   L0b двойник печатает адреса pod в stdout лога → да (контроль F4)
 #   L1 вывод всех случаев без адреса сервера, IPv4/IPv6 узлов и pod, токена,
@@ -3623,6 +3623,65 @@ r5="$(ghp api repos/PRO-Robotech/kacho-workspace/issues/13 --jq "$JQX")"; c5=$?
 if [ "$c5" = 1 ] && grep -q 'HTTP 404' <<< "$r5"; then ok; else bad WS5 "нет задачи → код $c5, «$r5» (ждали 1 и «HTTP 404»)"; fi
 ghp api repos/PRO-Robotech/kacho-workspace/pulls/12 --jq "$JQX" >/dev/null; c5=$?
 if [ "$c5" = 4 ]; then ok; else bad WS5 "иная форма вызова → код $c5, ждали 4"; fi
+
+# WS6 — установка среды наборов ИСПОЛНЕНИЕМ: текст из Job, curl — двойник с поддельными архивами
+#     (yq — файл, shellcheck — .tar.xz, bats — .tar.gz с install.sh), суммы пина заменены суммами
+#     двойников (это же доказывает, что каждый пин стоит в тексте ровно один раз); PATH — лишь
+#     перечисленные инструменты машины (её yq, bats и shellcheck шаг не видит). Чисто → yq,
+#     анализатор, bats и читатель трекера в bin; архив подменён (yq, shellcheck, bats) либо сеть
+#     мертва → 125 и «… не поставлен» в termination-log
+WC="$BOX/wsc"; WK="$WC/work"; rm -rf "$WC"; mkdir -p "$WC/bin" "$WC/src/shellcheck-v0.11.0" "$WC/src/bats-core-1.10.0"
+for t in bash sh cp mkdir install ln chmod cat rm tar gzip xz python3 sha256sum sed uname printf head mktemp; do
+    p_="$(command -v "$t" 2>/dev/null)" && [ -n "$p_" ] && ln -sf "$p_" "$WC/bin/$t"
+done
+printf '#!/bin/sh\necho "yq (https://github.com/mikefarah/yq/) version v4.45.4"\n' > "$WC/yq"
+printf '#!/bin/sh\nprintf "ShellCheck\\nversion: 0.11.0\\n"\n' > "$WC/src/shellcheck-v0.11.0/shellcheck"; chmod +x "$WC/src/shellcheck-v0.11.0/shellcheck"
+# shellcheck disable=SC2016  # текст скрипта-двойника раскрывает он сам
+printf '#!/bin/sh\nmkdir -p "$1/bin" && printf "#!/bin/sh\\necho Bats 1.10.0\\n" > "$1/bin/bats" && chmod +x "$1/bin/bats"\n' > "$WC/src/bats-core-1.10.0/install.sh"
+python3 -c 'import sys, tarfile
+with tarfile.open(sys.argv[1], "w:xz") as t: t.add(sys.argv[2], arcname="shellcheck-v0.11.0/shellcheck")
+with tarfile.open(sys.argv[3], "w:gz") as t: t.add(sys.argv[4], arcname="bats-core-1.10.0/install.sh")' \
+    "$WC/sc.tar.xz" "$WC/src/shellcheck-v0.11.0/shellcheck" "$WC/bats.tgz" "$WC/src/bats-core-1.10.0/install.sh"
+cat > "$WC/bin/curl" <<'WSC'
+#!/bin/bash
+o=""; u=""
+while [ "$#" -gt 0 ]; do case "$1" in -o) o="$2"; shift 2 ;; --retry|--retry-delay|--connect-timeout|--max-time) shift 2 ;; -*) shift ;; *) u="$1"; shift ;; esac; done
+[ -z "${WSC_DOWN:-}" ] || exit 7
+case "$u" in
+  */mikefarah/yq/releases/download/v4.45.4/yq_linux_*) cp "$WSC_DIR/yq" "$o"; [ "${WSC_BAD:-}" != yq ] || echo x >> "$o" ;;
+  */koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.*.tar.xz) cp "$WSC_DIR/sc.tar.xz" "$o"; [ "${WSC_BAD:-}" != sc ] || echo x >> "$o" ;;
+  */bats-core/bats-core/archive/refs/tags/v1.10.0.tar.gz) cp "$WSC_DIR/bats.tgz" "$o"; [ "${WSC_BAD:-}" != bats ] || echo x >> "$o" ;;
+  *) echo "двойник curl: адрес не знаком: $u" >&2; exit 22 ;;
+esac
+WSC
+chmod +x "$WC/bin/curl"
+sed -n '/^# wstools-begin$/,/^# wstools-end$/p' "$BOX/ws1.cmd" > "$WC/raw.sh"
+y_pin="$(grep -oE 'ysum=[0-9a-f]{64}' "$WC/raw.sh" | head -n 1 | cut -d= -f2)"
+s_pin="$(grep -oE 'scsum=[0-9a-f]{64}' "$WC/raw.sh" | head -n 1 | cut -d= -f2)"
+b_pin="$(grep -oE 'v1\.10\.0\.tar\.gz /work/dl/ws/bats\.tgz [0-9a-f]{64}' "$WC/raw.sh" | awk '{print $3}')"
+if [ "$(grep -c "$y_pin" "$WC/raw.sh")" = 1 ] && [ "$(grep -c "$s_pin" "$WC/raw.sh")" = 1 ] && [ -n "$b_pin" ] && [ "$(grep -c "$b_pin" "$WC/raw.sh")" = 1 ]; then ok
+else OUT="$WC/raw.sh"; bad WS6 "пины сумм yq, shellcheck и bats не стоят в тексте установки ровно по одному разу"; fi
+# shellcheck disable=SC2016  # текст функции раскрывает исполняемый шаг
+{ printf 'pf() { echo "remote-heavy-prep: $1" > "%s/tl"; exit 125; }\n' "$WK"
+  sed -e "s#/work/#$WK/#g" -e "s#$y_pin#$(sha256sum < "$WC/yq" | cut -d' ' -f1)#" -e "s#$s_pin#$(sha256sum < "$WC/sc.tar.xz" | cut -d' ' -f1)#" \
+      -e "s#$b_pin#$(sha256sum < "$WC/bats.tgz" | cut -d' ' -f1)#" "$WC/raw.sh"; } > "$WC/wstools.sh"
+# ws6_case <случай> <код> <слово отказа | -> [окружение двойника…]
+ws6_case() {
+    local c="$1" want="$2" word="$3"; shift 3
+    rm -rf "$WK"; mkdir -p "$WK"; OUT="$BOX/$c.out"
+    env -i PATH="$WC/bin" HOME="$WC" WSC_DIR="$WC" HEAVY_SHELLCHECK=0.11.0 "$@" bash "$WC/wstools.sh" > "$OUT" 2>&1; RC=$?
+    expect_rc "$c" "$want"
+    if [ "$want" -ne 0 ]; then
+        if grep -q "^remote-heavy-prep: $word" "$WK/tl" 2>/dev/null; then ok; else bad "$c" "отказ «$word» не записан в termination-log"; fi
+    elif [ -x "$WK/bin/yq" ] && [ -x "$WK/bin/shellcheck" ] && [ -x "$WK/bats/bin/bats" ] && [ -x "$WK/bin/gh-issue-public" ] \
+         && [ "$("$WK/bin/shellcheck" --version | sed -n 's/^version: //p')" = 0.11.0 ]; then ok
+    else bad "$c" "после установки нет yq, shellcheck 0.11.0, bats либо читателя трекера"; fi
+}
+ws6_case WS6 0 -
+ws6_case WS6-yqsum 125 "yq v4.45.4 не поставлен" WSC_BAD=yq
+ws6_case WS6-scsum 125 "shellcheck 0.11.0 не поставлен" WSC_BAD=sc
+ws6_case WS6-batssum 125 "bats-core 1.10.0 не поставлен" WSC_BAD=bats
+ws6_case WS6-down 125 "yq v4.45.4 не поставлен" WSC_DOWN=1
 
 # L0 — двойник печатает адрес и IPv4 (иначе L1 пуста)
 OUT="$BOX/l0.out"

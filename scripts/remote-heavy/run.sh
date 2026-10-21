@@ -2898,7 +2898,7 @@ WSCLONE
 # shellcheck disable=SC2016  # раскрывается в pod, не здесь
 WSTOOLS_SH="$(cat <<'WSTOOLS'
 # wstools-begin
-wdl() { curl -fsSL --retry 4 --retry-all-errors --retry-delay 3 --connect-timeout 10 --max-time 180 -o "$2" "$1" && echo "$3  $2" | sha256sum -c --quiet -; }
+wdl() { curl -fsSL --retry 4 --retry-all-errors --retry-delay 3 --connect-timeout 10 --max-time 180 -o "$2" "$1" && printf '%s  %s\n' "$3" "$2" | sha256sum -c --quiet -; }
 mkdir -p /work/dl/ws /work/bin || pf "каталог загрузки не создан"
 case "$(uname -m)" in
   x86_64) ya=amd64; ysum=b96de04645707e14a12f52c37e6266832e03c29e95b9b139cddcae7314466e69
