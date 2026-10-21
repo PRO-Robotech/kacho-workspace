@@ -715,10 +715,10 @@ red_home() {
 # «remote-peak» в журнал слотов ($HEAVY_SLOT_DIR, по умолчанию ~/.cache/heavy-slots),
 # если его каталог есть. Пика нет (строки шага не дошло) — так и пишется, «—».
 peak_note() {
-    local b="—" u="—" sec="—" w="—" mib="—" wmib="—" avg="—" d
-    [ -s "$RP/peak" ] && read -r b u sec w < "$RP/peak"
+    local b="—" u="—" sec="—" wb="—" mib="—" wmib="—" avg="—" d
+    [ -s "$RP/peak" ] && read -r b u sec wb < "$RP/peak"
     [[ "$b" =~ ^[0-9]+$ ]] && mib=$(( (b + 1048575) / 1048576 ))
-    [[ "$w" =~ ^[0-9]+$ ]] && wmib=$(( (w + 1048575) / 1048576 ))
+    [[ "$wb" =~ ^[0-9]+$ ]] && wmib=$(( (wb + 1048575) / 1048576 ))
     [[ "$u" =~ ^[0-9]+$ ]] && [[ "$sec" =~ ^[0-9]+$ ]] && [ "$sec" -gt 0 ] && avg=$(( u / sec / 1000 ))
     say "пик run: память $mib МиБ (рабочая, без кэша страниц, $wmib МиБ) при запросе $RUN_MEM_REQ и пределе $RUN_MEM_LIM МиБ, CPU в среднем ${avg}m за ${sec} с (запрос ${RUN_CPU_REQ}m)"
     d="${HEAVY_SLOT_DIR:-$(getent passwd "$(id -u)" | cut -d: -f6)/.cache/heavy-slots}"
