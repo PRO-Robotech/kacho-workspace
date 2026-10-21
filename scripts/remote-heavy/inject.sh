@@ -98,8 +98,8 @@
 #      (своим запросом; имя без профиля — наибольшим таблицы) → 75, близнец без него → 0;
 #      CPR — гонка: старший без pod занял место — своё ns снято, 75, Job нет; близнец
 #      CPRb без гонки → 0
-#   D8 СВОЙ запрос ns без pod (приёмка ws#1293, круг 1): узел 15 500m / 30 189 МиБ, фон
-#      30 189 − 16 000 МиБ, новый ci-local kaname. D8k — старшее ns ci-local kacho (имя
+#   D8 СВОЙ запрос ns без pod (приёмка ws#1293, круг 1): узел 15 500m / 30 189 МиБ,
+#      свободно ci-local kacho + ci-local kaname − 1 МиБ, новый ci-local kaname. D8k — старшее ns ci-local kacho (имя
 #      и метка kacho.io/repo, без аннотаций) → 75 и прогон без ns; близнец D8t —
 #      старшее ci-local kaname → 0 и ns создано; D8u — имя без профиля → наибольший
 #      запрос таблицы → 75; D8a — аннотации запроса ci-local kacho при имени без
@@ -108,8 +108,9 @@
 #      Job нет, близнец D8rb — старший ci-local kaname → 0; K5-req — run.sh ставит
 #      аннотации kacho.io/request-cpu и kacho.io/request-mib своего запроса
 #   D9 разнесение pod без узла (как планировщик по умолчанию): 2 узла, 8 идущих pod без
-#      узла по 3 800 МиБ, новый ci-local kacho → 75 (4 + 4, свободно 14 989 < 15 104);
-#      близнец D9b по 3 700 МиБ → 0 (first-fit дал бы 0 и в D9)
+#      узла по ⌈(30 189 − K + 1) / 4⌉ МиБ (K — ci-local kacho), новый ci-local kacho → 75
+#      (4 + 4, свободно меньше K); близнец D9b на 1 МиБ меньше → 0 (first-fit дал бы 0 и
+#      в D9)
 #   DT pod Terminating (deletionTimestamp, Running) держит место: → 75; близнец DTb —
 #      тот же pod Succeeded → 0. PN pod Pending с nodeName держит место → 75; близнец
 #      PNb — тот же pod без узла в чужом ns → 0
@@ -121,10 +122,10 @@
 #      строка «*»; без --repo — наибольший; Job несёт запрос run = pod − dind − pgclient,
 #      квота — run + dind + 1 ГиБ; --repo вне трёх → 64
 #   QW 4–5 окон (решение владельца 2026-10-18): два узла 15 500m и 30 189 МиБ, фон
-#      переписи 2026-10-18 (2 265m/8 436 МиБ и 2 335m/9 460 МиБ); подряд ложатся 4
-#      ci-local (kacho, kacho, kaname, kaname) — запросы берутся из Job самого run.sh,
-#      пятый — 75 (ci-local kacho по кластерному замеру ws#1293 — 15 104 МиБ); порча
-#      «константа 7/12» краснит QW-3, возврат запаса 20 % — QW-2 (mutants.py)
+#      переписи 2026-10-18 (2 265m/8 436 МиБ и 2 335m/9 460 МиБ); подряд ложатся 6
+#      ci-local (kacho, kacho, kaname, kaname, kaname, kacho) — запросы берутся из Job
+#      самого run.sh, седьмой — 75; порча «константа 7/12» краснит QW-3, возврат
+#      запаса 20 % — QW-5 (mutants.py)
 #   QB место на самой границе, без запаса сверх запроса: lint kaname (2 000m, 5 376 МиБ),
 #      фон CPU 13 500m → 0, 13 501m → 75; памяти 24 813 МиБ → 0, 24 814 МиБ → 75;
 #      QB-dind — ci-local kacho (run, dind, pgclient): место ровно под запрос pod → 0,
@@ -136,9 +137,11 @@
 #      живого Job — сняты; --keep, живой Job (и при прошедшем сроке), молодое — нет;
 #      близнец «срок прошёл, Job завершён» — снят; стенд задачи с прошедшим
 #      сроком — перечнем, не снят; повтор — уборки нет (перепись после = 0)
-#   PK пик run (ws#1195): шаг ИСПОЛНЕНИЕМ печатает memory.peak и CPU за команду, без
-#      cgroup — «—»; run.sh пишет «remote-peak» в журнал слотов с репозиторием и
-#      запросом; каталога журнала нет — не создаёт
+#   PK пик run (ws#1195): шаг ИСПОЛНЕНИЕМ печатает memory.peak, CPU за команду и пик
+#      рабочей памяти (memory.current − inactive_file, ws#1293: выборка после команды —
+#      PK1-ws, наибольшая, а не последняя — PK1c), без cgroup — «—»; run.sh пишет
+#      «remote-peak» с run_peak и ws_peak в журнал слотов с репозиторием и запросом;
+#      каталога журнала нет — не создаёт
 #   EV pod выселен узлом → 69 (не код контейнера); близнец K4c — 137 без выселения
 #   Q3 единственный узел не готов / закрыт / taint NoSchedule → 69; прогон 69 без ns
 #   Q2 места под go-race нет ни на одном узле → 75 и прогон 75 без ns; близнец Q2b
@@ -2153,7 +2156,7 @@ else bad AL0 "перепись двойника не длиннее слова a
 # AL1 — --available при переписи ns и Job длиннее слова → 0, идущих 0; близнец AL1b — малая
 go_run al1 bash "$RUN" --available
 expect_rc AL1 0
-if grep -q 'идущих тяжёлых прогонов 0 из' "$OUT" && ! grep -q 'Argument list too long' "$OUT"; then ok; else bad AL1 "перепись длиннее слова не разобрана"; fi
+if grep -q 'ёмкость: тяжёлых 0, помещается' "$OUT" && ! grep -q 'Argument list too long' "$OUT"; then ok; else bad AL1 "перепись длиннее слова не разобрана"; fi
 fresh; seed_idle 3
 go_run al1b bash "$RUN" --available
 expect_rc AL1b 0
@@ -2349,9 +2352,9 @@ expect_rc QE-prof 64
 # окон»). Узлы и фон — перепись 2026-10-18: два узла по 15 500m и 30 189 МиБ, фон без
 # тяжёлых — 2 265m/8 436 МиБ и 2 335m/9 460 МиБ (стенды и выкатка). Прогоны ci-local
 # садятся подряд; уже севший — pod с запросами из Job, который создал сам run.sh.
-# Ложатся четыре (kacho, kacho, kaname, kaname), пятый — 75: ci-local kacho — по
-# кластерному замеру (ws#1293, 15 104 МиБ), на узле с ним остаётся место одному
-# kaname. Константа 7/12 краснит третий, запас 20 % сверх запроса — второй (mutants.py).
+# Ложатся шесть (kacho, kacho, kaname, kaname, kaname, kacho), седьмой — 75: запрос
+# ci-local kacho — прежний 7 680 МиБ до замера рабочей памяти (ws#1293, PEAKS). Константа
+# 7/12 краснит третий, запас 20 % сверх запроса — пятый (mutants.py).
 BG="$(pod_j sys n1 Running 2265m 8436Mi) $(pod_j sys n2 Running 2335m 9460Mi)"
 pod_from_job() {  # pod_from_job <ns> <узел> — pod последнего Job пробы, лишь запросы
     jq -c --arg ns "$1" --arg n "$NODE_PFX$2" '.spec.template.spec as $s | {metadata: {namespace: $ns, name: "run-x"},
@@ -2373,7 +2376,9 @@ qw 1 kacho n1 0
 qw 2 kacho n2 0
 qw 3 kaname n1 0
 qw 4 kaname n2 0
-qw 5 kaname - 75
+qw 5 kaname n1 0
+qw 6 kacho n2 0
+qw 7 kaname - 75
 # QB — место на самой границе, сверх запроса запаса нет (ws#1195): один узел 15 500m
 # и 30 913 596 КиБ (30 189,06 МиБ), lint kaname — 2 000m и 5 376 МиБ. Фон CPU 13 500m
 # оставляет ровно 2 000m (0), 13 501m — 1 999m (75); фон памяти 24 813 МиБ оставляет
@@ -2564,20 +2569,22 @@ go_run cprb env FAKE_EXIT=0 FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$cpn_pods" "
 expect_rc CPRb 0
 
 # ── D8: СВОЙ запрос идущего ns без pod (приёмка ws#1293, круг 1) ─────────────
-# Узел 15 500m и 30 189 МиБ, фон 100m и 30 189 − 16 000 МиБ: свободно 16 000 МиБ —
-# место под ОДИН ci-local kacho, но не под него и ci-local kaname разом; ci-local kaname
-# двоим места хватает. Запросы — из --profiles, не выписаны.
+# Узел 15 500m и 30 189 МиБ, фон 100m и 30 189 − F МиБ, F = ci-local kacho + ci-local
+# kaname − 1: место под ОДИН ci-local kacho, но не под него и ci-local kaname разом;
+# ci-local kaname двоим места хватает (kaname меньше kacho). Запросы — из --profiles,
+# не выписаны; F выводится из них.
 ck_mib="$(bash "$RUN" --profiles 2>/dev/null | awk '$1 == "ci-local" && $2 == "kacho" { for (i = 1; i <= NF; i++) if ($i == "память") { print $(i+1); exit } }')"
-if [[ "$ck_mib" =~ ^[0-9]+$ ]] && [ "$ck_mib" -le 16000 ] && [ $(( ck_mib + cp_mib )) -gt 16000 ] && [ $(( 2 * cp_mib )) -le 16000 ] && [ "$cp_cpu" -le 7700 ]; then ok
-else OUT=""; bad D8-premise "запрос ci-local kacho «$ck_mib» и kaname «$cp_mib» не разводят случаи D8 на 16 000 МиБ свободных"; fi
-d8_pods="$(pod_j sys n1 Running 100m "$(( 30189 - 16000 ))Mi" | items)"
+d8_free=$(( ${ck_mib:-0} + ${cp_mib:-0} - 1 ))
+if [[ "$ck_mib" =~ ^[0-9]+$ ]] && [ "$d8_free" -lt 30189 ] && [ "$ck_mib" -le "$d8_free" ] && [ $(( 2 * cp_mib )) -le "$d8_free" ] && [ $(( 2 * cp_cpu )) -le 15400 ]; then ok
+else OUT=""; bad D8-premise "запрос ci-local kacho «$ck_mib» и kaname «$cp_mib» не разводят случаи D8 на $d8_free МиБ свободных"; fi
+d8_pods="$(pod_j sys n1 Running 100m "$(( 30189 - d8_free ))Mi" | items)"
 # seed_req <ns> <репозиторий|-> [<cpu> <МиБ>] — идущее ns без pod с меткой репозитория и,
 # если названы, аннотациями запроса
 seed_req() {
     seed_ns "$1" '+1 hour'
     jq --arg r "$2" --arg c "${3:-}" --arg m "${4:-}" '
-      (if $r != "-" then .metadata.labels["kacho.io/repo"] = $r else . end)
-      | (if $c != "" then .metadata.annotations += {"kacho.io/request-cpu": $c, "kacho.io/request-mib": $m} else . end)' \
+      (if $r != "-" then .metadata.labels["kacho.io/repo"] = $r else (.) end)
+      | (if $c != "" then .metadata.annotations += {"kacho.io/request-cpu": $c, "kacho.io/request-mib": $m} else (.) end)' \
       "$BOX/state/ns/$1" > "$BOX/x.json" && mv "$BOX/x.json" "$BOX/state/ns/$1"
 }
 d8() {  # d8 <случай> <код> <seed_req-аргументы…> — --available и прогон ci-local kaname
@@ -2614,11 +2621,14 @@ expect_rc D8rb 0
 
 # ── D9: pod без узла — разнесением, а не first-fit ──────────────────────────
 # Два узла по 15 500m и 30 189 МиБ, 8 идущих ns, у каждого pod без узла (100m); новый
-# ci-local kacho. Разнесение кладёт 4 + 4: по 3 800 МиБ свободно 30 189 − 15 200 =
-# 14 989 < запроса → 75; по 3 700 — 15 389 → 0. First-fit (7 на n1, 1 на n2) оставил
-# бы n2 почти пустым и дал 0 в обоих.
-if [ $(( 30189 - 4 * 3800 )) -lt "$ck_mib" ] && [ $(( 30189 - 4 * 3700 )) -ge "$ck_mib" ] && [ $(( 30189 - 3800 )) -ge "$ck_mib" ]; then ok
-else OUT=""; bad D9-premise "запрос ci-local kacho «$ck_mib» не разводит D9 и D9b"; fi
+# ci-local kacho (K МиБ). Разнесение кладёт 4 + 4: pod по ⌈(30 189 − K + 1) / 4⌉ МиБ
+# оставляют на каждом узле меньше K → 75; на 1 МиБ меньше — не меньше K → 0. First-fit
+# (сколько влезет на n1, остаток на n2) оставил бы n2 свободнее K и дал 0 в обоих.
+d9_red=$(( (30189 - ${ck_mib:-0} + 4) / 4 )); d9_twin=$(( d9_red - 1 ))
+d9_ff=$(( 30189 / (d9_red > 0 ? d9_red : 1) ))
+if [ $(( 30189 - 4 * d9_red )) -lt "$ck_mib" ] && [ $(( 30189 - 4 * d9_twin )) -ge "$ck_mib" ] \
+   && [ "$d9_ff" -gt 4 ] && [ "$d9_ff" -lt 8 ] && [ $(( 30189 - (8 - d9_ff) * d9_red )) -ge "$ck_mib" ]; then ok
+else OUT=""; bad D9-premise "запрос ci-local kacho «$ck_mib» не разводит D9 и D9b (pod по $d9_red и $d9_twin МиБ, first-fit кладёт на n1 $d9_ff)"; fi
 d9() {  # d9 <случай> <МиБ pod> <код>
     local i pods=""
     fresh
@@ -2626,8 +2636,8 @@ d9() {  # d9 <случай> <МиБ pod> <код>
     go_run "d9-$1" env FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$(printf '%s' "$pods" | items)" bash "$RUN" --available --profile ci-local --repo kacho
     expect_rc "D9$1" "$3"
 }
-d9 "" 3800 75
-d9 b 3700 0
+d9 "" "$d9_red" 75
+d9 b "$d9_twin" 0
 
 # ── DT, PN: pod Terminating и Pending с узлом держат место ──────────────────
 # Один узел; pod фона 100m и 30 189 − запрос ci-local kaname + 1 МиБ — места под
@@ -3039,11 +3049,14 @@ expect_rc RG6b 1
 if [ "$(red_dirs rg6b)" -eq 0 ] && grep -q 'журналы красных групп НЕ получены' "$OUT"; then ok; else bad RG6b "отсутствие итога не названо"; fi
 
 # SW — уборка просроченных (ws#1195). seed_at <имя> <создано> <срок> <heavy 1|0> [keep]
+# Тяжёлое ns несёт аннотации запроса, как его ставит run.sh (D8): уборка судится
+# отдельно от ёмкости — запрос lint kaname, наименьший в таблице, место ему есть.
 seed_at() {
     jq -n --arg n "$1" --arg t "$(date -u -d "$2" +%Y-%m-%dT%H:%M:%SZ)" --arg e "$(date -u -d "$3" +%Y-%m-%dT%H:%M:%SZ)" --arg h "$4" --arg k "${5:-}" \
         '{kind: "Namespace", metadata: {name: $n, creationTimestamp: $t,
           labels: (if $h == "1" then {"kacho.io/kind": "heavy"} else {stand: "test"} end),
-          annotations: ({"kacho.io/expires": $e} + (if $k != "" then {"kacho.io/keep": $k} else {} end))}, status: {phase: "Active"}}' > "$BOX/state/ns/$1"
+          annotations: ({"kacho.io/expires": $e} + (if $k != "" then {"kacho.io/keep": $k} else {} end)
+                        + (if $h == "1" then {"kacho.io/request-cpu": "2000", "kacho.io/request-mib": "5376"} else {} end))}, status: {phase: "Active"}}' > "$BOX/state/ns/$1"
 }
 seed_live_job() { mkdir -p "$BOX/state/jobs"; jq -n --arg n "$1" '{metadata: {namespace: $n, name: "run"}, status: {active: 1}}' > "$BOX/state/jobs/$1"; }
 fresh
@@ -3074,7 +3087,7 @@ fresh; rm -rf "$BOX/state/ns"; cp -r "$BOX/sw-keep/ns" "$BOX/sw-keep/jobs" "$BOX
 go_run sw2 env FAKE_EXIT=0 "${B[@]}" --short sw2 -- true
 expect_rc SW2 0
 if grep -q 'уборка просроченных тяжёлых ns: снято' "$OUT"; then bad SW2 "повтор снова снимает — уборка не досчитала"; else ok; fi
-if grep -qx 't1-heavy-sw2' "$BOX/state/deleted" 2>/dev/null && [ "$(grep -c . "$BOX/state/deleted")" -eq 1 ]; then ok; else bad SW2-own "снято не одно своё ns прогона: $(tr '\n' ' ' < "$BOX/state/deleted" 2>/dev/null)"; fi
+if grep -qx 't1-heavy-sw2' "$BOX/state/deleted" 2>/dev/null && [ "$(grep -c . "$BOX/state/deleted")" -eq 1 ]; then ok; else bad SW2-own "снято не одно своё ns прогона: $(tr '\n' ' ' 2>/dev/null < "$BOX/state/deleted")"; fi
 # SW3 — --keep пишет аннотацию kacho.io/keep (по ней уборка его щадит)
 fresh
 go_run sw3 env FAKE_EXIT=0 "${B[@]}" --short sw3 --keep 2 -- true
@@ -3084,20 +3097,33 @@ if [ "$(jq -r '.metadata.annotations["kacho.io/keep"] // ""' "$BOX/state/ns/t1-h
 # PK — пик run (ws#1195). PK1 — исполнением шага: memory.peak и usage_usec за команду.
 if [ -s "$BOX/redlog-oom.sh" ]; then
     echo 3221225472 > "$RW/mpeak"; printf 'usage_usec 1000000\nuser_usec 1\n' > "$RW/cstat"
-    ( cd "$RW" && HEAVY_MEM_EVENTS="$RW/mev" HEAVY_MEM_PEAK="$RW/mpeak" HEAVY_CPU_STAT="$RW/cstat" bash "$BOX/redlog-oom.sh" \
-        bash -c 'printf "usage_usec 9000000\n" > "$1"' x "$RW/cstat" ) > "$BOX/pk1.out" 2>&1; RC=$?; OUT="$BOX/pk1.out"
+    # рабочая до команды 2 ГиБ − 512 МиБ; команда поднимает memory.current до 3 ГиБ →
+    # пик рабочей 2 684 354 560 (выборка после команды); PK1c — опускает до 1 ГиБ →
+    # наибольшая прежняя 1 610 612 736, а не последняя
+    pk_ws() {  # pk_ws <out> <memory.current, которое ставит команда>
+        echo 2147483648 > "$RW/mcur"; printf 'anon 1\ninactive_file 536870912\nactive_file 1\n' > "$RW/mstat"
+        ( cd "$RW" && HEAVY_MEM_EVENTS="$RW/mev" HEAVY_MEM_PEAK="$RW/mpeak" HEAVY_CPU_STAT="$RW/cstat" \
+            HEAVY_MEM_CURRENT="$RW/mcur" HEAVY_MEM_STAT="$RW/mstat" bash "$BOX/redlog-oom.sh" \
+            bash -c 'printf "usage_usec 9000000\n" > "$1"; echo "$3" > "$2"' x "$RW/cstat" "$RW/mcur" "$2" ) > "$1" 2>&1; RC=$?; OUT="$1"
+    }
+    pk_ws "$BOX/pk1.out" 3221225472
     expect_rc PK1 0
-    if grep -qE '^remote-heavy-peak: 3221225472 8000000 [0-9]+$' "$OUT"; then ok; else bad PK1 "строки пика с памятью и CPU за команду нет"; fi
-    ( cd "$RW" && HEAVY_MEM_EVENTS="$RW/mev" HEAVY_MEM_PEAK="$RW/nope" HEAVY_CPU_STAT="$RW/nope" bash "$BOX/redlog-oom.sh" true ) > "$BOX/pk1b.out" 2>&1; OUT="$BOX/pk1b.out"
-    if grep -qE '^remote-heavy-peak: — — [0-9]+$' "$OUT"; then ok; else bad PK1b "без cgroup строки пика «— —» нет"; fi
+    if grep -qE '^remote-heavy-peak: 3221225472 8000000 [0-9]+ [0-9]+$' "$OUT"; then ok; else bad PK1 "строки пика с памятью и CPU за команду нет"; fi
+    if grep -qE '^remote-heavy-peak: [0-9]+ [0-9]+ [0-9]+ 2684354560$' "$OUT"; then ok; else bad PK1-ws "пик рабочей памяти без кэша (выборка после команды) не напечатан"; fi
+    printf 'usage_usec 1000000\nuser_usec 1\n' > "$RW/cstat"
+    pk_ws "$BOX/pk1c.out" 1073741824
+    if grep -qE '^remote-heavy-peak: [0-9]+ [0-9]+ [0-9]+ 1610612736$' "$OUT"; then ok; else bad PK1c "пик рабочей памяти — не наибольшая выборка"; fi
+    ( cd "$RW" && HEAVY_MEM_EVENTS="$RW/mev" HEAVY_MEM_PEAK="$RW/nope" HEAVY_CPU_STAT="$RW/nope" \
+        HEAVY_MEM_CURRENT="$RW/nope" HEAVY_MEM_STAT="$RW/nope" bash "$BOX/redlog-oom.sh" true ) > "$BOX/pk1b.out" 2>&1; OUT="$BOX/pk1b.out"
+    if grep -qE '^remote-heavy-peak: — — [0-9]+ —$' "$OUT"; then ok; else bad PK1b "без cgroup строки пика «— — … —» нет"; fi
 else OUT=""; bad PK1 "шага в pod нет — пик исполнять нечего"; fi
 # PK2 — поток несёт пик → строка «пик run» и «remote-peak» в журнале слотов
-printf '%s\n' 'remote-heavy-peak: 2147483648 120000000 60' 'remote-heavy-redlog: total 0 0' > "$BOX/pk2.stream"
+printf '%s\n' 'remote-heavy-peak: 2147483648 120000000 60 1073741824' 'remote-heavy-redlog: total 0 0' > "$BOX/pk2.stream"
 fresh; rm -rf "$BOX/slots"; mkdir -p "$BOX/slots"
 go_run pk2 env FAKE_EXIT=0 FAKE_LOG_FILE="$BOX/pk2.stream" "${B[@]}" --short pk2 -- true
 expect_rc PK2 0
-if grep -q 'пик run: память 2048 МиБ при запросе .*CPU в среднем 2000m за 60 с' "$OUT"; then ok; else bad PK2 "пик run не напечатан"; fi
-if grep -qE ' remote-peak class=lint repo=kaname rc=0 run_peak=2048MiB req=[0-9]+MiB lim=[0-9]+MiB cpu_avg=2000m cpu_req=[0-9]+m dur=60s ns=t1-heavy-pk2$' "$BOX/slots/journal.log" 2>/dev/null; then ok; else OUT="$BOX/slots/journal.log"; bad PK2-journal "строки remote-peak в журнале слотов нет"; fi
+if grep -q 'пик run: память 2048 МиБ (рабочая, без кэша страниц, 1024 МиБ) при запросе .*CPU в среднем 2000m за 60 с' "$OUT"; then ok; else bad PK2 "пик run не напечатан"; fi
+if grep -qE ' remote-peak class=lint repo=kaname rc=0 run_peak=2048MiB ws_peak=1024MiB req=[0-9]+MiB lim=[0-9]+MiB cpu_avg=2000m cpu_req=[0-9]+m dur=60s ns=t1-heavy-pk2$' "$BOX/slots/journal.log" 2>/dev/null; then ok; else OUT="$BOX/slots/journal.log"; bad PK2-journal "строки remote-peak в журнале слотов нет"; fi
 if grep -q 'remote-heavy-peak' "$BOX/pk2.out"; then OUT="$BOX/pk2.out"; bad PK2-raw "сырая строка пика дошла до вывода"; else ok; fi
 # PK3 — каталога журнала нет → run.sh его не заводит
 fresh; rm -rf "$BOX/slots"

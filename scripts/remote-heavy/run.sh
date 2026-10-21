@@ -110,8 +110,8 @@
 # (lint kaname), на пустой узел — min(⌊15 500 / 2 000⌋ = 7, ⌊31 197 / 5 376⌋ = 5) = 5,
 # всего 5 × 5 = 25: потолок ёмкости не режет, а больше 25 кластер не посадит. С фоном
 # переписи (275–1 375m, 1 220–4 676 МиБ на узел) — lint kacho 22, integration kacho 20,
-# go-race kacho 9, ci-local kaname 15, ci-local kacho 5 (по памяти: 15 104 МиБ, по
-# одному на узел). Прежняя константа 6 (до 8 переменной) держала 8 заявок в очереди
+# go-race kacho 9, ci-local kaname 15, ci-local kacho 15 (7 680 МиБ и 4 000m — по три
+# на узел и по CPU, и по памяти). Прежняя константа 6 (до 8 переменной) держала 8 заявок в очереди
 # при 5 узлах. Идущим
 # считается ns kacho.io/kind=heavy, не снимаемое, со сроком в будущем и без
 # завершённого Job. Перепись — до создания ns (потолок либо ёмкость исчерпаны — 75,
@@ -130,9 +130,11 @@
 # перечень чужих — своей строкой, когда он не пуст.
 #
 # ПИК (ws#1195). Шаг в pod после команды печатает «remote-heavy-peak: <memory.peak
-# байт> <usage_usec за команду> <секунд>» cgroup контейнера run; run.sh печатает пик
-# и пишет строку «remote-peak class=… repo=… run_peak=…MiB req=…MiB cpu_avg=…m …» в
-# журнал слотов — из неё правится PEAKS. dind — свой cgroup, его пик не пишется.
+# байт> <usage_usec за команду> <секунд> <пик рабочей памяти, байт>» cgroup контейнера
+# run (рабочая — memory.current − inactive_file выборкой, ws#1293); run.sh печатает пик
+# и пишет строку «remote-peak class=… repo=… run_peak=…MiB ws_peak=…MiB req=…MiB
+# cpu_avg=…m …» в журнал слотов — из неё правится PEAKS: запрос по ws_peak, предел по
+# run_peak. dind — свой cgroup, его пик не пишется.
 #
 # ИЗОЛЯЦИЯ. pod — в своём пространстве пользователей (hostUsers: false): root
 # контейнера — непривилегированный uid узла, возможности SYS_ADMIN, NET_ADMIN и
@@ -174,7 +176,7 @@
 # kacho.io/request-mib, которые run.sh ставит при создании ns; без них — профиль из
 # имени t<N>-heavy-<профиль>-… и репозиторий из метки kacho.io/repo (нет метки —
 # наибольший запрос профиля); профиль не узнан — наибольший запрос таблицы. Запрос
-# нового за чужой ns не берётся: старший ci-local kacho (15 104 МиБ) — не ci-local
+# нового за чужой ns не берётся: старший ci-local kacho (7 680 МиБ) — не ci-local
 # kaname (4 608 МиБ). Сумма по кластеру не годится: 3 000m на каждом из двух узлов —
 # не место под 4 000m.
 # Строка «ёмкость: тяжёлых N, помещается M (узлов K, свободно C CPU / G ГиБ), потолок
@@ -476,16 +478,25 @@ SWEEP_AGE_S=7200     # УБОРКА ПРОСРОЧЕННЫХ: тяжёлое ns 
 # ней — memory.peak ОДНОГО контейнера run: dind и контейнеры testcontainers в нём не
 # считаны. Для lint (dind нет) строка правится по run_peak; для ci-local, go-race и
 # integration run_peak — лишь нижняя граница пика pod, и правка по нему занизит запрос.
-# Исключение — строка ci-local kacho (ws#1293): нижняя граница кластера оказалась вдвое
-# выше локального p90, и строка — по ней: 78 строк «remote-peak class=ci-local
-# repo=kacho» журнала слотов с 2026-10-19 по 2026-10-21 (по 02:26 +03:00), run_peak
-# p90 12 389 МиБ (ранг ⌈0,9·n⌉), наибольший 13 118 МиБ; CPU p90 7 174m при запросе
-# 3 890m; выселений ноль. Прежняя строка — 645 локальных прогонов, p90 6 316, наибольший
-# 9 421: при 3 Job на узел пики (~37 ГиБ) превышали allocatable узла (30,47 ГиБ).
+# ЗАПРОС И ПРЕДЕЛ — РАЗНЫЕ ПИКИ (ws#1293, решение диспетчера 2026-10-21). memory.peak
+# считает и кэш страниц, который ядро отдаёт по требованию: по нему запрос завышен
+# (ci-local kacho в кластере — run_peak p90 12 389 МиБ, запрос 15 104 МиБ: один прогон
+# на узел, пять на кластер — хуже прежнего). Запрос (p90 строки) — по РАБОЧЕЙ памяти
+# без кэша, как её считает kubelet (memory.current − inactive_file, пик выборкой —
+# ws_peak строки «remote-peak»); предел run (наибольший пик строки) — по ПОЛНОМУ пику
+# с кэшем. Строки ci-local kacho и kaname — так: p90 прежний (до n ≥ PEAK_MIN_N строк
+# «remote-peak class=ci-local repo=<репо>» с ws_peak — предикат `grep -c 'remote-peak
+# class=ci-local repo=kacho .*ws_peak=[0-9]' журнала слотов`, 0 на 2026-10-21; затем
+# p90 и n строки — по ws_peak), наибольший — полный пик кластера, если он выше
+# локального. Пометка: p90 и n этих двух строк — ПРЕЖНИЕ (локальные), не кластерные.
+# Кластер, журнал слотов 2026-10-19…21 (по 03:18 +03:00), run_peak: ci-local kacho —
+# 88 строк, p90 12 389 МиБ, наибольший 13 118; ci-local kaname — 67 строк, p90 6 444,
+# наибольший 7 010; выселений ноль. Предел run обоих — 16 ГиБ профиля (13 118 × 1,2 =
+# 15 742 МиБ — до ГиБ 16).
 PEAK_MIN_N=5
 PEAK_MARGIN_PCT=120
-PEAKS='ci-local|kacho|78|12389|13118
-ci-local|kaname|181|3840|6476
+PEAKS='ci-local|kacho|645|6316|13118
+ci-local|kaname|181|3840|7010
 ci-local|corelib|2|2388|2388
 ci-local|*|828|6185|9421
 go-race|kacho|48|11143|13992
@@ -704,15 +715,16 @@ red_home() {
 # «remote-peak» в журнал слотов ($HEAVY_SLOT_DIR, по умолчанию ~/.cache/heavy-slots),
 # если его каталог есть. Пика нет (строки шага не дошло) — так и пишется, «—».
 peak_note() {
-    local b="—" u="—" sec="—" mib="—" avg="—" d
-    [ -s "$RP/peak" ] && read -r b u sec < "$RP/peak"
+    local b="—" u="—" sec="—" w="—" mib="—" wmib="—" avg="—" d
+    [ -s "$RP/peak" ] && read -r b u sec w < "$RP/peak"
     [[ "$b" =~ ^[0-9]+$ ]] && mib=$(( (b + 1048575) / 1048576 ))
+    [[ "$w" =~ ^[0-9]+$ ]] && wmib=$(( (w + 1048575) / 1048576 ))
     [[ "$u" =~ ^[0-9]+$ ]] && [[ "$sec" =~ ^[0-9]+$ ]] && [ "$sec" -gt 0 ] && avg=$(( u / sec / 1000 ))
-    say "пик run: память $mib МиБ при запросе $RUN_MEM_REQ и пределе $RUN_MEM_LIM МиБ, CPU в среднем ${avg}m за ${sec} с (запрос ${RUN_CPU_REQ}m)"
+    say "пик run: память $mib МиБ (рабочая, без кэша страниц, $wmib МиБ) при запросе $RUN_MEM_REQ и пределе $RUN_MEM_LIM МиБ, CPU в среднем ${avg}m за ${sec} с (запрос ${RUN_CPU_REQ}m)"
     d="${HEAVY_SLOT_DIR:-$(getent passwd "$(id -u)" | cut -d: -f6)/.cache/heavy-slots}"
     [ -d "$d" ] || return 0
-    printf '%s remote-peak class=%s repo=%s rc=%s run_peak=%sMiB req=%sMiB lim=%sMiB cpu_avg=%sm cpu_req=%sm dur=%ss ns=%s\n' \
-        "$(date -Is)" "$1" "$REPO" "$2" "$mib" "$RUN_MEM_REQ" "$RUN_MEM_LIM" "$avg" "$RUN_CPU_REQ" "$sec" "$NSNAME" >> "$d/journal.log" 2>/dev/null
+    printf '%s remote-peak class=%s repo=%s rc=%s run_peak=%sMiB ws_peak=%sMiB req=%sMiB lim=%sMiB cpu_avg=%sm cpu_req=%sm dur=%ss ns=%s\n' \
+        "$(date -Is)" "$1" "$REPO" "$2" "$mib" "$wmib" "$RUN_MEM_REQ" "$RUN_MEM_LIM" "$avg" "$RUN_CPU_REQ" "$sec" "$NSNAME" >> "$d/journal.log" 2>/dev/null
 }
 # red_collect <код команды> — собрать копии красных групп из $RP, сверить, замаскировать,
 # положить в каталог и назвать его. Итога «total» нет — разбор полного лога контейнера.
@@ -856,9 +868,9 @@ busy_heavy() {
          | select(.metadata.name as $n | $done | any(. == $n) | not)]
       | sort_by(.metadata.creationTimestamp // "", .metadata.name) | .[]
       | [.metadata.name,
-         ((.metadata.annotations["kacho.io/request-cpu"] // "") | tostring | if test("^[1-9][0-9]{0,6}$") then . else "-" end),
-         ((.metadata.annotations["kacho.io/request-mib"] // "") | tostring | if test("^[1-9][0-9]{0,7}$") then . else "-" end),
-         ((.metadata.labels["kacho.io/repo"] // "") | tostring | if IN("kacho", "kaname", "corelib") then . else "-" end)]
+         ((.metadata.annotations["kacho.io/request-cpu"] // "") | tostring | if test("^[1-9][0-9]{0,6}$") then (.) else "-" end),
+         ((.metadata.annotations["kacho.io/request-mib"] // "") | tostring | if test("^[1-9][0-9]{0,7}$") then (.) else "-" end),
+         ((.metadata.labels["kacho.io/repo"] // "") | tostring | if IN("kacho", "kaname", "corelib") then (.) else "-" end)]
       | join(" ")' || return 2
 }
 # busy_demand — СВОЙ запрос каждого идущего ns (ЁМКОСТЬ в шапке): вход — строки
@@ -946,7 +958,7 @@ placement() {
                    as $main | ([((.spec.initContainers // []) | map(select(.restartPolicy != "Always")))[] | [.] | rq($r)] | max // 0)
                    as $init | [$main, $init] | max;
       # slots — сколько pod нового запроса ложится на узел; запрос не назван (0 и 0) — без предела.
-      def slots: [(if $cpu > 0 then (.fcpu / $cpu | floor) else 1e9 end), (if $mem > 0 then (.fmem / $mem | floor) else 1e9 end)] | min | if . < 0 then 0 else . end;
+      def slots: [(if $cpu > 0 then (.fcpu / $cpu | floor) else 1e9 end), (if $mem > 0 then (.fmem / $mem | floor) else 1e9 end)] | min | [., 0] | max;
       $N[0] as $n | $P[0] as $p
       | ($B | split("\n") | map(select(length > 0) | split(" ") | {n: .[0], c: (.[1] | tonumber), m: (.[2] | tonumber)})) as $bq
       | ($bq | map(.n)) as $busy
@@ -2848,22 +2860,45 @@ heavy_red() {
 # Копия вывода — tee за дескриптором, а не трубой: фоновый процесс команды,
 # унёсший её stdout, держал бы трубу открытой, и шаг ждал бы его до срока Job
 # (с exec этого не было — контейнер кончался с командой). tee ждётся не дольше 5 с.
+# heavy_ws_take <memory.current> <memory.stat> <файл наибольшего> — одна выборка
+# РАБОЧЕЙ памяти cgroup (как её считает kubelet: memory.current − inactive_file, байты);
+# наибольшая — в файл. Нечитаемое — выборки нет.
+heavy_ws_take() {
+  local cur="" k v ia="" m=0
+  { read -r cur < "$1"; } 2>/dev/null
+  { while read -r k v; do [ "$k" = inactive_file ] && { ia="$v"; break; }; done < "$2"; } 2>/dev/null
+  { [[ "$cur" =~ ^[0-9]+$ ]] && [[ "$ia" =~ ^[0-9]+$ ]]; } || return 0
+  { read -r m < "$3"; } 2>/dev/null; [[ "$m" =~ ^[0-9]+$ ]] || m=0
+  [ $(( cur - ia )) -gt "$m" ] && echo "$(( cur - ia ))" > "$3"
+  return 0
+}
 heavy_cmd() {
   local rc ev="${HEAVY_MEM_EVENTS:-/sys/fs/cgroup/memory.events}" o0 o1 fd tp
   local cs="${HEAVY_CPU_STAT:-/sys/fs/cgroup/cpu.stat}" c0 c1 t0 pk
+  local mc="${HEAVY_MEM_CURRENT:-/sys/fs/cgroup/memory.current}" ms="${HEAVY_MEM_STAT:-/sys/fs/cgroup/memory.stat}" wsp ws
   o0="$(awk '$1 == "oom_kill" { print $2 }' "$ev" 2>/dev/null)"
   c0="$(awk '$1 == "usage_usec" { print $2 }' "$cs" 2>/dev/null)"; t0="$(date +%s)"
+  # РАБОЧАЯ ПАМЯТЬ (ws#1293): memory.peak несёт и кэш страниц — запрос pod по нему
+  # завышен. Пик рабочей памяти — выборкой раз в 2 с за время команды и по выборке
+  # до и после неё; выборщик не держит вывод команды (его вывод — в /dev/null).
+  rm -f /work/heavy-ws.max; heavy_ws_take "$mc" "$ms" /work/heavy-ws.max
+  ( while :; do sleep 2; heavy_ws_take "$mc" "$ms" /work/heavy-ws.max; done ) > /dev/null 2>&1 & wsp=$!
   exec {fd}> >(tee /work/heavy-cmd.out); tp=$!
   "$@" >&"$fd" 2>&1; rc=$?
   exec {fd}>&-
+  kill "$wsp" 2>/dev/null; wait "$wsp" 2>/dev/null
+  heavy_ws_take "$mc" "$ms" /work/heavy-ws.max
   for _ in 1 2 3 4 5 6 7 8 9 10; do kill -0 "$tp" 2>/dev/null || break; sleep 0.5; done
   # ПИК (ws#1195): память run — memory.peak cgroup контейнера (вся его жизнь, байты),
-  # CPU — usage_usec за время команды. Нечитаемое — «—», строка есть всегда.
+  # CPU — usage_usec за время команды, рабочая память — наибольшая выборка (ws#1293).
+  # Нечитаемое — «—», строка есть всегда.
   pk="$(cat "${HEAVY_MEM_PEAK:-/sys/fs/cgroup/memory.peak}" 2>/dev/null)"
   c1="$(awk '$1 == "usage_usec" { print $2 }' "$cs" 2>/dev/null)"
+  ws=""; { read -r ws < /work/heavy-ws.max; } 2>/dev/null
   [[ "$pk" =~ ^[0-9]+$ ]] || pk="—"
+  [[ "$ws" =~ ^[0-9]+$ ]] || ws="—"
   { [[ "$c0" =~ ^[0-9]+$ ]] && [[ "$c1" =~ ^[0-9]+$ ]]; } && c1=$(( c1 - c0 )) || c1="—"
-  echo "remote-heavy-peak: $pk $c1 $(( $(date +%s) - t0 ))"
+  echo "remote-heavy-peak: $pk $c1 $(( $(date +%s) - t0 )) $ws"
   o1="$(awk '$1 == "oom_kill" { print $2 }' "$ev" 2>/dev/null)"
   if [[ "$o0" =~ ^[0-9]+$ ]] && [[ "$o1" =~ ^[0-9]+$ ]] && [ "$o1" -gt "$o0" ]; then
     echo "remote-heavy-oom: процесс команды убит пределом памяти (oom_kill $o0 → $o1, код $rc)" | tee /dev/termination-log >&2
