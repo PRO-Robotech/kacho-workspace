@@ -616,6 +616,29 @@ git init -q "$W/sugit"
 assert "64 да" "$(cd "$W/sugit" && slot bash "$SLOT" suite -- git push -q origin HEAD) $(has "$W/err" 'нагрузка продукта')" "suite -- git push → 64: отправке положен ci-local"
 assert "64 да" "$(cd "$W/sugit" && env HEAVY_SLOT_REMOTE_RUN="$W/nope" bash "$SLOT" --route suite -- go version 2>"$W/err" >/dev/null; echo $?) $(has "$W/err" 'нагрузка продукта')" "--route судит тем же: suite -- go → 64"
 
+echo "── suite: свой TMPDIR прогона под корнем слота, снимается выходом и сигналом; заданный — сильнее (ws#1292)"
+ST="$HEAVY_SLOT_DIR/suite-tmp"
+# shellcheck disable=SC2016  # тело `sh -c` раскрывает дочерняя оболочка
+LEAK='printf %s "$TMPDIR" > "$0"; mkdir "$TMPDIR/leak"; : > "$TMPDIR/leak/f"'
+under() { case "$(cat "$1" 2>/dev/null)" in "$ST"/?*) echo да ;; *) echo нет ;; esac; }
+gone() { local d; d="$(cat "$1" 2>/dev/null)"; [ -n "$d" ] && [ ! -e "$d" ] && echo да || echo нет; }
+assert "0 да да" "$(slot -u TMPDIR bash "$SLOT" suite -- sh -c "$LEAK" "$W/stt1") $(under "$W/stt1") $(gone "$W/stt1")" "TMPDIR не задан — каталог прогона под корнем слота, след внутри снят выходом слота"
+assert "0 да да" "$(slot TMPDIR=/tmp bash "$SLOT" suite -- sh -c "$LEAK" "$W/stt2") $(under "$W/stt2") $(gone "$W/stt2")" "TMPDIR — системный /tmp — тот же свой каталог прогона, снят"
+mkdir -p "$W/own-tmp"
+assert "0 $W/own-tmp да" "$(slot TMPDIR="$W/own-tmp" bash "$SLOT" suite -- sh -c "$LEAK" "$W/stt3") $(cat "$W/stt3") $([ -e "$W/own-tmp/leak/f" ] && echo да || echo нет)" "близнец: заданный вызывающим TMPDIR сильнее — слот его не подменяет и не снимает"
+assert "0 нет" "$(slot -u TMPDIR bash "$SLOT" docker -- sh -c 'printf %s "${TMPDIR:-}" > "$0"' "$W/stt4") $(under "$W/stt4")" "близнец: класс не suite — TMPDIR не ставится"
+# shellcheck disable=SC2016
+env -u TMPDIR bash "$SLOT" suite -- sh -c 'printf %s "$TMPDIR" > "$0"; exec sleep 30' "$W/stt5" 2>/dev/null & SP=$!
+for _ in $(seq 1 50); do [ -s "$W/stt5" ] && break; sleep 0.2; done
+kill -TERM "$SP"; wait "$SP"; rc=$?
+assert "143 да" "$rc $(gone "$W/stt5")" "сигнал слоту — каталог прогона снят и на обрыве"
+mkdir -p "$ST/1-1/x"; : > "$ST/1-1/x/f"
+assert "0 нет" "$(slot bash "$SLOT" docker -- true) $([ -e "$ST/1-1" ] && echo да || echo нет)" "сирота (слот убит KILL, записи active нет) снят входом следующего слота"
+sed 's|^    \[ -n "\$SUITE_TMP" \] \&\& rm -rf --one-file-system -- "\$SUITE_TMP"$|    :|' "$SLOT" > "$W/slot-mut-st.sh"
+# shellcheck disable=SC2016
+assert "1 0 нет" "$(diff "$SLOT" "$W/slot-mut-st.sh" | grep -c '^<') $(slot -u TMPDIR bash "$W/slot-mut-st.sh" suite -- sh -c "$LEAK" "$W/stt6") $(gone "$W/stt6")" "мутант «выход не снимает каталог прогона»: след остаётся — проба «снят выходом» выше его ловит"
+rm -rf -- "$(cat "$W/stt6" 2>/dev/null)"
+
 echo "── внешний кластер: тяжёлый класс уходит в run.sh, локально — только с причиной (ws#984)"
 # Двойник run.sh пишет свой argv и отвечает на --available кодом FAKE_AVAIL; клон —
 # настоящий git с origin вида PRO-Robotech/kaname и веткой 984-x.

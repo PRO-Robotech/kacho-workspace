@@ -28,6 +28,14 @@
 #      чистой). Два настоящих отказа: worktree — репозиторий из RESIDUE_REPOS не
 #      существует (git отказывает); tmpdir — каталог есть, но закрыт 000 (find
 #      отказывает). Сравнивать в обоих случаях нечего.
+#   S1 ось sys-tmp: `tmp.*` своего uid в системном каталоге при TMPDIR вне его → код 1, след назван
+#      осью sys-tmp (ws#1292: ось tmpdir переписи с TMPDIR под tmp/ воркспейса их не видела)
+#   S2 близнец S1: та же настоящая запись, перепись иным uid (RESIDUE_UID) — чужой владелец → код 0
+#   S3 близнец S1: имя не `tmp.*` в системном каталоге → не след sys-tmp, код 0
+#   S4 TMPDIR и есть системный каталог: `tmp.*` — ровно ОДИН след, осью sys-tmp, а не tmpdir
+#   W1–W7 снятие прежнего мусора (sweep-systmp.sh): по умолчанию — лишь перечень; --apply снимает
+#      только свой `tmp.*` старше срока без открытого дескриптора; молодой, занятый, чужой,
+#      не `tmp.*` и ссылка — остаются; перечень до и после назван числами
 #
 # Запуск: bash scripts/residue-census/inject.sh   (код 0 — все случаи сошлись)
 #
@@ -168,6 +176,55 @@ else
     check V4-читатель-tmpdir-отказал 2 "не осмотрено: tmpdir (читатель оси вернул код"
 fi
 chmod 700 "$L"; rm -rf -- "$L"
+
+# ── ось sys-tmp (ws#1292) ─────────────────────────────────────────────────────
+SYS="$BOX/sys"; mkdir -p "$SYS"
+snapx() { TMPDIR="$1" RESIDUE_SYSTMP="$SYS" RESIDUE_AXES="tmpdir,sys-tmp" bash "$CENSUS" snapshot >"$2"; }
+reset_sys() { rm -rf -- "${SYS:?}"/* 2>/dev/null; EXTRA=(); }
+
+reset_box; reset_sys; snapx "$T" "$BOX/before"; mkdir "$SYS/tmp.AAAAAAAAAA"; snapx "$T" "$BOX/after"
+check S1-sys-tmp-свой 1 "СЛЕД: sys-tmp $SYS/tmp.AAAAAAAAAA"
+
+reset_box; reset_sys; OTHER=$(( $(id -u) + 1 ))
+RESIDUE_UID="$OTHER" snapx "$T" "$BOX/before"; mkdir "$SYS/tmp.BBBBBBBBBB"; RESIDUE_UID="$OTHER" snapx "$T" "$BOX/after"
+check S2-sys-tmp-чужой-владелец 0 "новых следов 0"
+
+reset_box; reset_sys; snapx "$T" "$BOX/before"; mkdir "$SYS/claude-run-x"; snapx "$T" "$BOX/after"
+check S3-sys-tmp-не-tmp-имя 0 "новых следов 0"
+
+reset_box; reset_sys; snapx "$SYS" "$BOX/before"; mkdir "$SYS/tmp.CCCCCCCCCC"; snapx "$SYS" "$BOX/after"
+check S4-один-след-одной-осью 1 "новых следов 1"
+n4="$(bash "$CENSUS" compare "$BOX/before" "$BOX/after" 2>&1 | grep -c '^СЛЕД: tmpdir ')"
+if [ "$n4" -eq 0 ]; then printf 'ок S4b-не-осью-tmpdir\n'; PASS=$((PASS + 1))
+else printf 'ПРОВАЛ S4b-не-осью-tmpdir: след назван и осью tmpdir (%s)\n' "$n4"; FAIL=$((FAIL + 1)); fi
+reset_sys
+
+# ── снятие прежнего мусора (sweep-systmp.sh, ws#1292) ─────────────────────────
+SWEEP="$SELF_DIR/sweep-systmp.sh"
+# expect ИМЯ ОЖИДАЕМОЕ ФАКТ — одно утверждение.
+expect() {
+    if [ "$2" = "$3" ]; then printf 'ок %s\n' "$1"; PASS=$((PASS + 1))
+    else printf 'ПРОВАЛ %s: ждали «%s», получено «%s»\n' "$1" "$2" "$3"; FAIL=$((FAIL + 1)); fi
+}
+old() { touch -h -d '30 hours ago' "$@"; }
+mkdir -p "$SYS/tmp.OLD0000000/in" "$SYS/tmp.YOUNG00000" "$SYS/tmp.BUSY000000" "$SYS/keep-old" "$SYS/tmp.FRESHIN000"
+: > "$SYS/tmp.OLDFILE000"; : > "$SYS/tmp.BUSY000000/f"; : > "$SYS/tmp.FRESHIN000/new"
+old "$SYS/tmp.OLD0000000/in" "$SYS/tmp.OLD0000000" "$SYS/tmp.OLDFILE000" "$SYS/tmp.BUSY000000/f" "$SYS/tmp.BUSY000000" "$SYS/keep-old" "$SYS/tmp.FRESHIN000"
+ln -s "$BOX/tmp" "$SYS/tmp.LINK000000"; old "$SYS/tmp.LINK000000"
+exec 7<"$SYS/tmp.BUSY000000/f"
+present() { local p r=""; for p in "$@"; do [ -e "$SYS/$p" ] || [ -L "$SYS/$p" ] && r="$r$p "; done; echo "${r% }"; }
+ALL=(tmp.OLD0000000 tmp.OLDFILE000 tmp.YOUNG00000 tmp.BUSY000000 tmp.FRESHIN000 tmp.LINK000000 keep-old)
+out="$(RESIDUE_SYSTMP="$SYS" bash "$SWEEP" 2>&1)"; rc=$?
+expect "W1-перечень-по-умолчанию-ничего-не-снимает" "0 ${ALL[*]}" "$rc $(present "${ALL[@]}")"
+expect "W2-перечень-называет-снимаемое" "2" "$(grep -cE "^СНЯТЬ $SYS/tmp\.(OLD0000000|OLDFILE000)\$" <<<"$out")"
+out="$(RESIDUE_UID=$(( $(id -u) + 1 )) RESIDUE_SYSTMP="$SYS" bash "$SWEEP" --apply 2>&1)"; rc=$?
+expect "W3-чужой-владелец-не-снимается" "0 ${ALL[*]}" "$rc $(present "${ALL[@]}")"
+out="$(RESIDUE_SYSTMP="$SYS" bash "$SWEEP" --apply 2>&1)"; rc=$?
+expect "W4-снято-лишь-своё-старое-свободное" "0 tmp.YOUNG00000 tmp.BUSY000000 tmp.FRESHIN000 tmp.LINK000000 keep-old" "$rc $(present "${ALL[@]}")"
+expect "W5-занятый-назван-занятым" "1" "$(grep -c "^ЗАНЯТ $SYS/tmp.BUSY000000 " <<<"$out")"
+expect "W6-перечень-до-и-после-числами" "1 1" "$(grep -c '^до: своих tmp\.\* 6 · снять 2 · молодых 2 · с открытым дескриптором 1 · ссылок 1' <<<"$out") $(grep -c '^после: своих tmp\.\* 4 · снято 2 · не снято 0' <<<"$out")"
+exec 7<&-
+expect "W7-нет-каталога-не-выполнилось" "2" "$(RESIDUE_SYSTMP="$BOX/нет-такого" bash "$SWEEP" >/dev/null 2>&1; echo $?)"
 
 printf 'residue-census inject: случаев %d · сошлось %d · разошлось %d\n' $((PASS + FAIL)) "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ] && [ "$PASS" -gt 0 ]

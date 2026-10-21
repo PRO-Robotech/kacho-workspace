@@ -689,9 +689,26 @@ copy_key() {
     top="$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null)" || top="$PWD"
     printf '%s' "$top" | sha256sum | cut -c1-16
 }
+# TMPDIR ПРОГОНА КЛАССА suite (ws#1292): наборы и мутанты писали безымянное `mktemp` в системный
+# /tmp — 2473 каталога `tmp.*`, старший ~39 суток, — когда TMPDIR не задан, а уборка исполнилась не
+# на каждом пути выхода. Класс suite без своего TMPDIR (не задан либо системный /tmp) получает
+# каталог прогона $SUITE_TMPROOT/<id слота> под tmp/ воркспейса (канонического: общий каталог git
+# этого файла); выход слота — и на сигнале — снимает его целиком, сирот (слот убит KILL) снимает
+# prune_tmp при следующем входе: каталог без записи active/<id>.slot. Заданный вызывающим TMPDIR
+# сильнее — его уборка его. В режиме проб корень — $DIR/suite-tmp.
+SUITE_TMPROOT="$DIR/suite-tmp"
+if [ "$MEMINFO" = /proc/meminfo ]; then
+    _c="$(git -C "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" &&
+        [ -d "$(dirname -- "$_c")/tmp" ] && SUITE_TMPROOT="$(dirname -- "$_c")/tmp/heavy-slot-tmp"
+fi
 # prune_tmp — снять TMPDIR копий старше срока; занятые слотами не трогает.
 prune_tmp() {
     local d f busy
+    for d in "$SUITE_TMPROOT"/*; do
+        [ -d "$d" ] && [ ! -e "$DIR/active/${d##*/}.slot" ] || continue
+        rm -rf --one-file-system -- "$d"
+        journal "prune-tmp dir=$d why=сирота класса suite"
+    done
     for d in "$TMPROOT"/*; do
         [ -d "$d" ] || continue
         busy=""
@@ -1969,7 +1986,10 @@ else
     [ -n "$PROOF" ] && LOCAL_NOTE="кластер не принял: $PROOF"
     journal "local class=$CLASS${PROOF:+ proof=$PROOF} why=${WHY_LOCAL:-причина не выведена} who=$WHO cmd=$CMDLINE"
 fi
-SLOT_TMP=""
+SLOT_TMP=""; SUITE_TMP=""
+if [ "$CLASS" = suite ] && { [ -z "${TMPDIR:-}" ] || [ "$(realpath -m -- "$TMPDIR")" = /tmp ]; }; then
+    SUITE_TMP="$SUITE_TMPROOT/$ID"
+fi
 if [ "$CLASS" = ci-local ] && [ -z "${TMPDIR:-}" ]; then
     SLOT_TMP="$TMPROOT/$(copy_key)"
     if mkdir -p "$SLOT_TMP" 2>/dev/null && touch "$SLOT_TMP"; then
@@ -2072,6 +2092,7 @@ while :; do
             echo "class=$CLASS"; echo "budget=$BUDGET"; echo "pid=$$"; echo "pid_start=$(pid_start $$)"
             echo "unit=$UNIT"; echo "start=$(now)"; echo "seq=$seq"; echo "who=$WHO"; echo "cmd=$CMDLINE"
             [ -n "$SLOT_TMP" ] && echo "tmp=$SLOT_TMP"
+            [ -n "$SUITE_TMP" ] && echo "suite_tmp=$SUITE_TMP"
             [ -n "$LOCAL_NOTE" ] && echo "local=$LOCAL_NOTE"
         } > "$P.slot"
         # Уборка старых TMPDIR копий — шагом входа под замком, а не выходом слота:
@@ -2117,6 +2138,7 @@ kill_containers() {
 # shellcheck disable=SC2329  # зовётся ловушкой
 cleanup() {
     [ -n "$WPID" ] && kill "$WPID" 2>/dev/null
+    [ -n "$SUITE_TMP" ] && rm -rf --one-file-system -- "$SUITE_TMP"
     rm -rf "$P".*
 }
 # shellcheck disable=SC2329  # зовётся ловушкой
@@ -2219,6 +2241,11 @@ fi
 # снимает prune_tmp по возрасту. Две ci-local одной копии разом делят его — граница.
 if [ "$CLASS" = ci-local ] && [ -z "${TMPDIR:-}" ] && [ -n "$SLOT_TMP" ]; then
     CENV+=(TMPDIR="$SLOT_TMP")
+fi
+# suite — свой TMPDIR прогона под tmp/ воркспейса, снимается выходом слота (ws#1292; шапка у SUITE_TMPROOT).
+if [ -n "$SUITE_TMP" ]; then
+    if mkdir -p "$SUITE_TMP" 2>/dev/null; then CENV+=(TMPDIR="$SUITE_TMP")
+    else say "TMPDIR прогона $SUITE_TMP не создан — suite идёт с TMPDIR вызывающего"; SUITE_TMP=""; fi
 fi
 # Зависимости консоли для дерева, которое будет судить хук отправки (ws#1190; шапка).
 [ "$CLASS" = ci-local ] && console_adapter
