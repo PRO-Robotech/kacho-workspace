@@ -66,7 +66,8 @@ for f in "${declared[@]}"; do
             tooling_gate_fail "$NAME" "$path расходится: воркспейс ${mine:0:12}, kacho@${rev:0:12} ${theirs:0:12} — правится одним изменением в обоих"
             findings=$((findings + 1))
         fi
-    elif git -C "$clone" show "$rev:scripts/hooks/pre-push" 2> /dev/null | grep -qF -- "${path##*/}"; then
+    elif hook="$(git -C "$clone" show "$rev:scripts/hooks/pre-push" 2> /dev/null)" \
+        && grep -qF -- "${path##*/}" <<< "$hook"; then
         tooling_gate_fail "$NAME" "$path: хук kacho@${rev:0:12} зовёт ${path##*/}, а файла в стволе нет"
         findings=$((findings + 1))
     else
