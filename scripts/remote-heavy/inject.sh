@@ -144,6 +144,13 @@
 #      node не сошлась, чужая архитектура → 125 с названной причиной; мажор →
 #      последний выпуск мажора; пин 26.1 при v26.11.x в индексе → v26.1.x (не
 #      v26.11.x); полный пин 26.1.0 → ровно v26.1.0
+#   EY (ws#1296) yq: пин `go install …mikefarah/yq/v4@vX` ревизии → HEAVY_YQ в
+#      окружении run, строка «Job создан» его называет; сверка ИСПОЛНЕНИЕМ: yq нет,
+#      python-yq, другая версия, версия-префикс → 125 «среда: yq»; верный → 0 и
+#      строка среды называет его; установка ИСПОЛНЕНИЕМ: бинарь выпуска, сумма —
+#      столбец SHA-256 по checksums_hashes_order (два порядка, соседний столбец —
+#      приманка той же формы) → yq в bin; сумма не сошлась, строки файла нет,
+#      чужая архитектура → 125; профиль lint yq не ставит и печатает, чего не ставит
 #   E8 пины законными формами YAML: ключи шага до uses, поточный шаг с
 #      ключом в кавычках → те же пины в окружении run (близнец E1)
 #   E9 шаг setup-helm без version, setup-node без node-version → 69 до кластера,
@@ -511,6 +518,7 @@ pin_rev pins 'jobs:
       - uses: azure/setup-helm@0123  # v5
         with:
           version: v4.2.4
+      - run: go install github.com/mikefarah/yq/v4@v4.53.6
 '
 pin_rev pins2 'jobs:
   unit:
@@ -866,6 +874,8 @@ else OUT="$BOX/e1.cmd"; bad E1 "установки helm и node с провер�
 if awk '/^# tools-check$/ { c = NR } /^heavy_cmd "\$@"$/ { e = NR } END { exit !(c && e && c < e) }' "$BOX/e1.cmd"; then ok
 else OUT="$BOX/e1.cmd"; bad E1 "сверки среды перед командой нет либо команда не своей строкой (за маркером — комментарий)"; fi
 if grep -q 'Job создан: .*helm v4.2.4, node 26' "$BOX/e1.out"; then ok; else OUT="$BOX/e1.out"; bad E1 "строка «Job создан» не называет helm и node"; fi
+if [ "$(envv "$EJ" HEAVY_YQ)" = v4.53.6 ]; then ok; else OUT="$EJ"; bad EY1 "пин yq в окружении run «$(envv "$EJ" HEAVY_YQ)», ждали v4.53.6"; fi
+if grep -q 'Job создан: .*, yq v4.53.6' "$BOX/e1.out"; then ok; else OUT="$BOX/e1.out"; bad EY1 "строка «Job создан» не называет yq v4.53.6"; fi
 # E2 сверка среды ИСПОЛНЕНИЕМ: текст из Job, PATH поддельный
 sed -n '/^# tools-check$/,/^# tools-end$/p' "$BOX/e1.cmd" | sed "s#/dev/termination-log#$BOX/etl#g" > "$BOX/tools.sh"
 ET="$BOX/etools"; mkdir -p "$ET"
@@ -904,6 +914,21 @@ buf_tools_case E2-buf-absent - 125
 buf_tools_case E2-buf-other 1.71.0 125
 buf_tools_case E2-buf-prefix 1.72.01 125
 buf_tools_case E2-buf-legit 1.72.0 0
+# yq (ws#1296): та же сверка — нет, python-yq, не та версия, версия-префикс → 125
+yq_tools_case() {
+    rm -f "$ET"/* "$BOX/etl"; [ "$2" = - ] || fake_tool yq "$2"
+    OUT="$BOX/$1.out"
+    env -i PATH="$ET:/usr/bin:/bin" HEAVY_YQ=v4.53.6 bash "$BOX/tools.sh" > "$OUT" 2>&1; RC=$?
+    expect_rc "$1" "$3"
+    if [ "$3" -ne 0 ]; then
+        if grep -q "^remote-heavy-prep: среда: yq" "$BOX/etl" 2>/dev/null; then ok; else bad "$1" "отказ «среда: yq» не записан в termination-log"; fi
+    elif ! grep -q 'yq v4.53.6 (mikefarah)' "$OUT"; then bad "$1" "строка среды не называет yq v4.53.6"; else ok; fi
+}
+yq_tools_case EY2-absent - 125
+yq_tools_case EY2-python-yq 'yq 3.4.3' 125
+yq_tools_case EY2-other 'yq (https://github.com/mikefarah/yq/) version v4.53.5' 125
+yq_tools_case EY2-prefix 'yq (https://github.com/mikefarah/yq/) version v4.53.60' 125
+yq_tools_case EY2-legit 'yq (https://github.com/mikefarah/yq/) version v4.53.6' 0
 # ── пакеты без apt (ws#1178) ─────────────────────────────────────────────────
 # Подготовка pod не ходит на deb.debian.org: jq и PyYAML ставит шаг пакетов с пином
 # суммы, psql и pg_dump приносит контейнер pgclient из образа postgres.
@@ -1650,7 +1675,7 @@ if gi_in "$BOX/gi1.cmd"; then ok; else OUT="$BOX/gi1.cmd"; bad GI1 "шага з�
 if grep -qF "$GI_EMAIL" "$BOX/gi1.out"; then bad GI1 "адрес учётки напечатан в выводе run.sh"; else ok; fi
 # GI1-env: состав окружения КАЖДОГО контейнера Job — только разрешённые имена (до
 #     правки учётки и вход pre-push плюс HEAVY_GIT_NAME/EMAIL); envFrom нет
-GI_ALLOW="CI DOCKER_HOST GOCACHE GOLANGCI_LINT_CACHE GOMODCACHE GOTOOLCHAIN HEAVY_BUF HEAVY_DENY_PROBE HEAVY_GIT_EMAIL HEAVY_GIT_NAME HEAVY_HELM HEAVY_MAIN HEAVY_NODE HEAVY_PULL HEAVY_PUSH_INPUT HEAVY_SHA HEAVY_WORKDIR TESTCONTAINERS_RYUK_DISABLED"
+GI_ALLOW="CI DOCKER_HOST GOCACHE GOLANGCI_LINT_CACHE GOMODCACHE GOTOOLCHAIN HEAVY_BUF HEAVY_DENY_PROBE HEAVY_GIT_EMAIL HEAVY_GIT_NAME HEAVY_HELM HEAVY_MAIN HEAVY_NODE HEAVY_PULL HEAVY_PUSH_INPUT HEAVY_SHA HEAVY_WORKDIR HEAVY_YQ TESTCONTAINERS_RYUK_DISABLED"
 gi_extra="$(jq -r --arg a "$GI_ALLOW" '($a | split(" ")) as $al | [.spec.template.spec | (.containers[]?, .initContainers[]?) | (.env[]?.name), (if .envFrom then "envFrom" else empty end)] | unique | map(select(IN($al[]) | not)) | join(" ")' "$BOX/state/job.json" 2>/dev/null)" || gi_extra="(spec не разобран)"
 if [ -z "$gi_extra" ]; then ok; else bad GI1-env "в окружении Job имена вне разрешённого списка: $gi_extra"; fi
 # GI1-decoy: корневой gitconfig копии несёт приманки — ключ подписи, помощник
@@ -1746,6 +1771,11 @@ case "$u" in
   # Выпуск buf (ws#1110): sha256.txt — строки всех бинарей и архивов, как настоящий.
   */bufbuild/buf/releases/download/*/sha256.txt) ( cd "$STUB_ARCH/buf" && sha256sum buf-Linux-* ) | if [ -n "${STUB_BADSUM_BUF:-}" ]; then sed 's/^[0-9a-f]*/'"$Z"'/'; else cat; fi | out ;;
   */bufbuild/buf/releases/download/*/buf-Linux-*) cat "$STUB_ARCH/buf/${u##*/}" | out ;;
+  # Выпуск yq (ws#1296): порядок столбцов — checksums_hashes_order, строки checksums —
+  # «имя  хеш…» в этом порядке; соседний SHA-256 столбец SHA3-256 — приманка той же формы.
+  */mikefarah/yq/releases/download/*/checksums_hashes_order) cat "$STUB_ARCH/yq/order${STUB_YQ_ORDER:-}" | out ;;
+  */mikefarah/yq/releases/download/*/checksums) cat "$STUB_ARCH/yq/sums${STUB_YQ_ORDER:-}" | if [ -n "${STUB_BADSUM_YQ:-}" ]; then sed 's/ '"$(sha256sum "$STUB_ARCH/yq/yq_linux_amd64" | cut -d' ' -f1)"'/ '"$Z"'/'; else cat; fi | out ;;
+  */mikefarah/yq/releases/download/*/yq_linux_*) cat "$STUB_ARCH/yq/${u##*/}" | out ;;
   *) echo "двойник curl: адрес не знаком" >&2; exit 22 ;;
 esac
 STUB
@@ -1774,6 +1804,34 @@ install_case E7-buf-badsum "" "" 125 "buf 1.72.0 не поставлен" HEAVY_
 if [ -e "$IW/bin/buf" ]; then OUT="$BOX/E7-buf-badsum.out"; bad E7-buf-badsum "buf с несошедшейся суммой лежит в bin"; else ok; fi
 install_case E7-buf-arch "" "" 125 "buf: архитектура" HEAVY_BUF=1.72.0 STUB_ARCH_M=s390x
 install_case E7-helm-only v4.2.4 "" 0 "helm"
+# yq (ws#1296): выпуск с двумя порядками столбцов; соседний столбец SHA3-256 той же
+# формы (64 hex) — приманка: взятый не по порядку, он не сходится с бинарём.
+mkdir -p "$IA/yq"; printf '#!/bin/sh\necho "yq (https://github.com/mikefarah/yq/) version v4.53.6"\n' > "$IA/yq/yq_linux_amd64"; chmod +x "$IA/yq/yq_linux_amd64"
+cp "$IA/yq/yq_linux_amd64" "$IA/yq/yq_linux_arm64"; printf 'x\n' >> "$IA/yq/yq_linux_arm64"
+YD=1111111111111111111111111111111111111111111111111111111111111111
+printf 'CRC32\nMD5\nSHA-256\nSHA3-256\n' > "$IA/yq/order"; printf 'CRC32\nSHA3-256\nMD5\nSHA-256\n' > "$IA/yq/order-b"
+: > "$IA/yq/sums"; : > "$IA/yq/sums-b"
+for yf in yq_linux_arm64 yq_linux_amd64; do
+    yh="$(sha256sum "$IA/yq/$yf" | cut -d' ' -f1)"
+    printf '%s  0badc0de  0123456789abcdef0123456789abcdef  %s  %s\n' "$yf" "$yh" "$YD" >> "$IA/yq/sums"
+    printf '%s  0badc0de  %s  0123456789abcdef0123456789abcdef  %s\n' "$yf" "$YD" "$yh" >> "$IA/yq/sums-b"
+done
+yq_installed() {
+    local name="$1"; shift
+    install_case "$name" "" "" 0 "yq" HEAVY_YQ=v4.53.6 "$@"
+    if [ "$("$IW/bin/yq" --version 2>/dev/null)" = "yq (https://github.com/mikefarah/yq/) version v4.53.6" ]; then ok; else bad "$name" "в bin не бинарь выпуска amd64"; fi
+}
+yq_installed EY7-order-a
+yq_installed EY7-order-b STUB_YQ_ORDER=-b
+install_case EY7-badsum "" "" 125 "yq v4.53.6 не поставлен" HEAVY_YQ=v4.53.6 STUB_BADSUM_YQ=1
+if [ -e "$IW/bin/yq" ]; then OUT="$BOX/EY7-badsum.out"; bad EY7-badsum "yq с несошедшейся суммой лежит в bin"; else ok; fi
+install_case EY7-arch "" "" 125 "yq: архитектура" HEAVY_YQ=v4.53.6 STUB_ARCH_M=s390x
+# строки бинаря в checksums нет (лишь соседняя архитектура) → отказ, а не «сумма пуста — сошлось»
+cp "$IA/yq/order" "$IA/yq/order-norow"; grep '^yq_linux_arm64 ' "$IA/yq/sums" > "$IA/yq/sums-norow"
+install_case EY7-norow "" "" 125 "yq v4.53.6 не поставлен" HEAVY_YQ=v4.53.6 STUB_YQ_ORDER=-norow
+# SHA-256 в порядке столбцов нет → отказ
+printf 'CRC32\nMD5\n' > "$IA/yq/order-nocol"; cp "$IA/yq/sums" "$IA/yq/sums-nocol"
+install_case EY7-nocol "" "" 125 "yq v4.53.6 не поставлен" HEAVY_YQ=v4.53.6 STUB_YQ_ORDER=-nocol
 install_case E7-badsum v4.2.4 26 125 "helm v4.2.4 не поставлен" STUB_BADSUM=1
 install_case E7-arch v4.2.4 26 125 "helm: архитектура" STUB_ARCH_M=s390x
 install_case E7-badsum-node "" 26 125 "node v26.11.1 не поставлен" STUB_BADSUM_NODE=1
@@ -1848,8 +1906,11 @@ expect_rc E4 0
 e4cmd="$(kx cmd "$BOX/state/job.json" run 2)"
 if [ -z "$(envv "$BOX/state/job.json" HEAVY_HELM)" ] && [ -n "$e4cmd" ] && ! grep -q 'get.helm.sh' <<< "$e4cmd"; then ok
 else OUT="$BOX/state/job.json"; bad E4 "lint ставит helm"; fi
+if [ -z "$(envv "$BOX/state/job.json" HEAVY_YQ)" ] && ! grep -q 'mikefarah/yq/releases' <<< "$e4cmd"; then ok
+else OUT="$BOX/state/job.json"; bad EY4 "lint ставит yq"; fi
+if grep -q 'профиль lint: helm, node, buf, yq, jq и PyYAML не ставятся' "$BOX/e4.out"; then ok; else OUT="$BOX/e4.out"; bad EY4 "lint не называет инструменты, которых не ставит"; fi
 # E5 ревизия без пинов — сверять нечего, строка это называет
-if grep -q 'helm, node и buf: пинов в конвейере ревизии и helm в образе ранера нет' "$BOX/u1.out" 2>/dev/null; then ok; else OUT="$BOX/u1.out"; bad E5 "отсутствие пинов не названо"; fi
+if grep -q 'helm, node, buf и yq: пинов в конвейере ревизии и helm в образе ранера нет' "$BOX/u1.out" 2>/dev/null; then ok; else OUT="$BOX/u1.out"; bad E5 "отсутствие пинов не названо"; fi
 # E6 run отказал сверкой среды → 69 «не выполнилось — среда», а не код команды
 fresh
 go_run e6 env FAKE_EXIT=125 FAKE_MSG="remote-heavy-prep: среда: helm v4.2.4 (пин конвейера) нет в PATH" bash "$RUN" --task 1 --repo kaname --ref pins --src "$SRC" --profile integration --short e6 -- true
