@@ -112,6 +112,32 @@ open(d, "w", encoding="utf-8").write(t.replace(a, "    :\n"))
 PYM
 assert "да" "$SIGMUT" "мутант «диспозиция не восстановлена» лёг ровно одной строкой"
 assert "1 4097" "$(sigrun "$W/sigmut.sh" "${IGN[@]}")" "мутант «диспозиция не восстановлена»: под SIG_IGN вызывающего — 1 и заглушённые PIPE|HUP, проба выше его ловит"
+# Вызывающий с ОДНИМ заглушённым сигналом (возврат приёмки ws#1274): маска перезапуска судит биты
+# PIPE (0x1000) и HUP (0x1) врозь. Вход «оба заглушены» её не держит: маска из одного бита на нём
+# тоже перезапускает. «Только PIPE» — python, а timeout над слотом сбрасывает лишь HUP; «только HUP» — nohup.
+IGNP=(python3 -c 'import os, signal, sys; signal.signal(signal.SIGPIPE, signal.SIG_IGN); os.execvp(sys.argv[1], sys.argv[1:])')
+assert "141 0" "$(sigrun "$SLOT" "${IGNP[@]}")" "вызывающий с SIG_IGN только на PIPE — команда его не наследует"
+assert "141 0" "$(sigrun "$SLOT" "${IGNP[@]}" timeout 60)" "то же под timeout над слотом — тот же исход"
+assert "141 0" "$(sigrun "$SLOT" nohup)" "вызывающий nohup (SIG_IGN только на HUP) — команда его не наследует"
+# sigmask <файл> <маска> — копия слота с маской перезапуска <маска> вместо 0x1001 (ровно одно вхождение).
+sigmask() {
+    python3 - "$SLOT" "$1" "$2" <<'PYM'
+import sys
+s, d, m = sys.argv[1:4]
+t = open(s, encoding="utf-8").read()
+a = "& 0x1001 )); then\n"
+if t.count(a) != 1:
+    sys.exit(1)
+open(d, "w", encoding="utf-8").write(t.replace(a, "& " + m + " )); then\n"))
+PYM
+}
+sigmask "$W/sigmask-hup.sh" 0x1 && SIGM1=да || SIGM1=нет
+sigmask "$W/sigmask-pipe.sh" 0x1000 && SIGM2=да || SIGM2=нет
+assert "да да" "$SIGM1 $SIGM2" "мутанты маски «только HUP» (0x1) и «только PIPE» (0x1000) легли ровно одной строкой"
+assert "1 4096" "$(sigrun "$W/sigmask-hup.sh" "${IGNP[@]}")" "мутант маски 0x1: вызывающий «только PIPE» — 1 и заглушённый PIPE, случай «только PIPE» его ловит"
+assert "1 4096" "$(sigrun "$W/sigmask-hup.sh" "${IGNP[@]}" timeout 60)" "мутант маски 0x1 под timeout над слотом — тот же отказ, случай с timeout его ловит"
+assert "141 1" "$(sigrun "$W/sigmask-pipe.sh" nohup)" "мутант маски 0x1000: вызывающий nohup — заглушённый HUP дошёл до команды, случай nohup его ловит"
+assert "141 0 141 0" "$(sigrun "$W/sigmask-hup.sh" "${IGN[@]}") $(sigrun "$W/sigmask-pipe.sh" "${IGN[@]}")" "оба мутанта маски проходят вход «PIPE и HUP» — держат их лишь случаи с одним сигналом"
 
 echo "── ci-local держит ssh отправки живым: GIT_SSH_COMMAND с keepalive, заданное — сильнее (урок 2026-10-16)"
 # git push открывает ssh до хука отправки; минуты хука простаивающее соединение
