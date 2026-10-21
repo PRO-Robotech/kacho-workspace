@@ -892,6 +892,8 @@ argv_of() { sed -n "/^--$1\$/{n;p}" "$W/argv"; }
 rm -f "$W/argv" "$W/argv.avail"; bw="$(jn ' remote class=suite route=job profile=ws ')"
 assert "17 ws kacho-workspace 1304 . $((bw + 1)) 1" "$(RDIR="$RW" rslot bash "$SLOT" suite -- bash scripts/tg/run-all.sh) $(argv_of profile) $(argv_of repo) $(argv_of task) $(argv_of workdir) $(jn ' remote class=suite route=job profile=ws ') $(tail -n 1 "$JL" | grep -c 'why=клон воркспейса, скрипт ведомости PORTABLE scripts/tg/run-all.sh — Job профиля ws who=')" "suite: run-all.sh набора в клоне воркспейса → Job профиля ws, задача из ветки; строка remote журнала — профиль и причина маршрута"
 assert "--available --profile ws --repo kacho-workspace" "$(tr '\n' ' ' < "$W/argv.avail" | sed 's/ $//')" "проверка кластера — под профиль ws и репозиторий воркспейса"
+rm -f "$W/argv"; bl="$(jn ' local class=suite proof=rc=69')"
+assert "0 да нет $((bl + 1))" "$(FAKE_AVAIL=1 RDIR="$RW" rslot bash "$SLOT" suite -- bash scripts/tg/run-all.sh) $(has "$W/err" 'локально — кластер недоступен') $([ -e "$W/argv" ] && echo да || echo нет) $(jn ' local class=suite proof=rc=69')" "близнец: кластер недоступен → набор воркспейса локально слотом, доказательство (proof=) в журнале"
 for pl in "python3 scripts/tg/mutants.py -j 2" "bash scripts/tg-inject.sh" "env X=1 bash scripts/tg/inject.sh" "bash .claude/hooks/hg/prove.sh"; do
     rm -f "$W/argv"
     # shellcheck disable=SC2086  # нагрузка — слова
