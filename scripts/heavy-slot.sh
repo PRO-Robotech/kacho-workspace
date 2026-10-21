@@ -150,16 +150,24 @@
 # с причиной (bypass-local, «локально по флагу» в --status); условия — у блока
 # «внешний кластер» ниже.
 #
-# ВХОД ВО ВНЕШНИЙ КЛАСТЕР ПО ОДНОМУ (ws#1176): ожидающие билеты (--enqueue, --wait N) идут туда
-# по одному, в порядке номеров. Прежде они срабатывали разом на освободившееся место, и
-# стадия запуска run.sh (перепись, размещение, создание ns) соседа не терпит: младший выходил 75
-# (замер полосы волны 10 — три из трёх). Теперь билет внешнего входа — файл $DIR/ext/<номер>
-# (номер общий с очередью памяти, замок свой — ext.lock, очередь памяти его не держит);
-# голова проверяет кластер и запускает run.sh ДОЧЕРНИМ, а вход следующему отпускает строка
-# «ns … создано:» его stderr (либо выход run.sh, либо EXT_HOLD_S с). Сигнал слоту пересылается
-# run.sh. Повтор --enqueue той же команды из того же каталога и ветки, пока первый билет ещё
-# ждёт, не ставит второго и называет первый (ENQUEUED с его журналом и .rc, код 0). Запуск без
-# ожидания (WAIT_S=0) входа не берёт — как прежде. --status показывает билеты и внешний вход.
+# ВХОД ВО ВНЕШНИЙ КЛАСТЕР — В ПРЕДЕЛАХ МЕСТА (ws#1302; прежде по одному — ws#1176): ожидающие
+# билеты (--enqueue, --wait N) входят РАЗОМ, сколько их ляжет. По одному (ws#1176) вход шёл,
+# потому что стадия запуска run.sh соседа не терпела (замер волны 10: младший 75 три из трёх);
+# с раскладкой по узлам и второй переписью после создания ns (ws#1293) терпит, а очередь по
+# одному после расширения кластера до 5 узлов стала узким местом: ожидание входа p90 45 → 148 с
+# при занятости кластера 14 % времени (журнал слотов, 2026-10-19 — 2026-10-22). Билет внешнего
+# входа — файл $DIR/ext/<номер> с запросом pod (номер общий с очередью памяти, замок свой —
+# ext.lock, очередь памяти его не держит). Ждущий входит, когда run.sh --available подтвердил
+# место под его запрос с учётом ВОШЕДШИХ своей машины (--pending: вход дан, ns ещё нет) и
+# старших ждущих; отметившийся, пока шла проверка, — повод повторной проверки, места нет —
+# младший уступает и ждёт (75 по сроку заявки). Вошедший запускает run.sh ДОЧЕРНИМ; учёт его
+# запроса снимает строка «ns … создано:» его stderr (ns уже в переписи кластера), выход run.sh
+# либо EXT_HOLD_S с. Сигнал слоту пересылается run.sh. Повтор --enqueue той же команды из того
+# же каталога и ветки, пока первый билет ещё ждёт, не ставит второго и называет первый
+# (ENQUEUED с его журналом и .rc, код 0). Запуск без ожидания (WAIT_S=0) билета не берёт:
+# вошедших он учитывает, а его — лишь вторая перепись run.sh. ГРАНИЦА: вошедшие другой машины и
+# другой учётки (свой каталог слотов) не видны — их гонку закрывает лишь вторая перепись run.sh
+# (младший 75). --status показывает билеты и внешний вход.
 #
 # ХУК ОТПРАВКИ (ws#1106, ws#1115): `git push` классом ci-local в клоне продукта при
 # принимающем кластере идёт без слота машины: git звано с core.hooksPath на переходник,
@@ -244,11 +252,10 @@ FREE_MIN_MIB=15360  # старт при свободных ≥ 15 ГБ (2026-10-
 PROBE_MIB=512  # потолок бюджета в режиме проб: пробы берут ≤ 301 МиБ
 # Рабочие величины; ручки HEAVY_SLOT_* их меняют только в режиме проб (ниже).
 RESUME_TTL_S=120  # срок отложенного билета 74/75 (ws#1115)
-# Внешний вход по одному (ws#1176): ожидающие билеты (--enqueue, --wait) идут во внешний кластер
-# по одному — следующий стартует, когда у предыдущего run.sh создал ns («ns … создано»), а не
-# разом на освободившееся место: стадия запуска run.sh (перепись, размещение, создание ns)
-# соседа не терпит, и младший выходил 75 (замер полосы волны 10: три из трёх). Держит вход не
-# дольше EXT_HOLD_S с стадии запуска (run.sh до ns — секунды; предел — страховка от зависшего).
+# Внешний вход в пределах места (ws#1302, шапка): билет с запросом pod, вошедшие своей машины —
+# в опросе кластера (--pending). EXT_GATE=0 — учёта вошедших нет (мутант проб). Учёт вошедшего
+# держится не дольше EXT_HOLD_S с стадии запуска (run.sh до ns — секунды; предел — страховка
+# от зависшего).
 EXT_GATE=1
 EXT_HOLD_S=120
 # Повтор --enqueue той же команды из того же каталога и ветки при ещё ждущем своём билете не
@@ -638,7 +645,7 @@ print_status() {
     done
     for f in "$DIR"/ext/*; do
         [ -e "$f" ] || continue
-        printf '  внешний вход: %-8s билет %-6s pid %-8s %s%s\n' "$(field "$f" class)" "$((10#${f##*/}))" "$(field "$f" pid)" "$(field "$f" who)" "$( [ -n "$(field "$f" run_at)" ] && echo ' — идёт запуск' )"
+        printf '  внешний вход: %-8s билет %-6s pid %-8s %s%s\n' "$(field "$f" class)" "$((10#${f##*/}))" "$(field "$f" pid)" "$(field "$f" who)" "$( if [ -n "$(field "$f" run_at)" ]; then echo ' — идёт запуск'; elif [ -n "$(field "$f" go)" ]; then echo ' — вошёл'; else echo " — ждёт места (запрос $(field "$f" req | sed 's/ /m, /') МиБ)"; fi )"
     done
     if [ -f "$DIR/journal.log" ]; then
         # Обходы внешнего кластера флагом видны отдельно: в хвосте из 10 строк их
@@ -1320,9 +1327,10 @@ journal_early() { mkdir -p "$DIR" 2>/dev/null; journal "$@"; }
 # в CL_OUT. Репозиторий — запрос по замеру его прогонов (ws#1195), без него — наибольший.
 # Не ответила за CHECK_S (124) — повтор, всего CHECK_TRIES попыток (ws#1141).
 cluster_once() {
-    local out rc try=1
+    local out rc try=1 pf=""
+    [ -s "${EXT_PF:-}" ] && pf="$EXT_PF"
     while :; do
-        out="$(timeout "$CHECK_S" bash "$REMOTE_RUN" --available ${1:+--profile "$1"} ${1:+${2:+--repo "$2"}} 2>&1)"; rc=$?
+        out="$(timeout "$CHECK_S" bash "$REMOTE_RUN" --available ${1:+--profile "$1"} ${1:+${2:+--repo "$2"}} ${1:+${pf:+--pending "$pf"}} 2>&1)"; rc=$?
         [ "$rc" -eq 124 ] && [ "$try" -lt "$CHECK_TRIES" ] || break
         try=$(( try + 1 ))
     done
@@ -1334,13 +1342,19 @@ cluster_once() {
 # недоступен (решение диспетчера 2026-10-16: «занятость — не недоступность»): место
 # ждётся до --wait N опросом раз в POLL_S, затем выход 74 (ожидания не было) либо 75 —
 # локально команда не идёт. 69 и 124 — недоступен: 1, PROOF — вывод проверки с кодом;
-# иной код — дефект обёртки: defect_exit, 69.
+# иной код — дефект обёртки: defect_exit, 69. Каждый опрос несёт вошедших своей машины
+# (ext_pending), принятый — отмечает вход (ext_mark; ВНЕШНИЙ ВХОД в шапке).
 cluster_check() {
     local rc t0
     t0="${WAIT_T0:-${EXT_T0:-$(now)}}"   # срок заявки один на все фазы (ws#1176, ws#1244)
     while :; do
+        [ -z "$EXT_T" ] || [ -e "$EXT_T" ] || { say "билет внешнего входа снят (--cancel либо перепись) — не выполнилось"; exit 75; }
+        ext_pending
         cluster_once "${1:-}" "${2:-}"; rc=$?
-        [ "$rc" -eq 0 ] && return 0
+        if [ "$rc" -eq 0 ]; then
+            ext_mark "${1:-}" "${2:-}"; rc=$?
+            [ "$rc" -eq 0 ] && return 0
+        fi
         [ "$rc" -eq 75 ] || break
         [ $(( $(now) - t0 + POLL_S )) -le "$WAIT_S" ] || busy_exit "$t0"
         sleep "$POLL_S"
@@ -1533,12 +1547,18 @@ stand_route() {
     [ -n "$ST_MK" ] || refuse_external "строку оболочки «${PAY_SH:-$PAY}» слот не судит (цель стенда может прийти переменной) — дай команду словами argv; стенд — в deploy/ продукта make stand-ns-up NS=t$TASK-<коротко>"
     refuse_external "${ST_SIGN:+подъём стенда — по признаку содержимого $ST_SIGN; }в deploy/ продукта make stand-ns-up NS=t$TASK-<коротко> (либо stand-ns-run NS=… CMD='…' — снятие само), снятие — make stand-ns-down NS=… этой же задачей, после — stand-ns-census и residue-census 0"
 }
-# ── внешний вход по одному (ws#1176; шапка у EXT_GATE) ──────────────────────────
-# Билет внешнего входа — файл $DIR/ext/<номер> (номер общий с очередью памяти); голова — младший
-# живой. Голова проверяет кластер и запускает run.sh ДОЧЕРНИМ: фильтр его stderr отпускает вход
-# на строке «ns … создано:» (run.sh создал ns — следующая перепись его уже видит), по выходу
-# дочернего либо по EXT_HOLD_S с стадии запуска. Без ожидания (WAIT_S=0) входа нет — как прежде.
-EXT_T=""; EXT_T0=""
+# ── внешний вход в пределах места (ws#1302; шапка у EXT_GATE) ────────────────────
+# Билет внешнего входа — файл $DIR/ext/<номер> (номер общий с очередью памяти) с запросом
+# pod (req=, от run.sh --request). Ждущий билет ВХОДИТ, когда run.sh --available подтвердил
+# место под его запрос с учётом ВОШЕДШИХ своей машины (--pending): билетов с отметкой go=
+# (вход дан, ns ещё не создано) и старших по номеру ждущих — младший старшего не обгоняет,
+# если вместе им места нет. Отметка go=<порядковый номер> ставится под ext.lock; кто отметился,
+# пока шла моя проверка, и в ней не учтён, — повод ПОВТОРНОЙ проверки с отметившимися раньше
+# меня; места нет — я младший и уступаю: отметка снята, ожидание дальше (75 по сроку заявки).
+# Билет снимает строка «ns … создано:» stderr run.sh (ns теперь в переписи кластера), выход
+# run.sh либо EXT_HOLD_S с стадии запуска. Без ожидания (WAIT_S=0) билета нет: вошедших такой
+# вызов учитывает, а его самого — лишь вторая перепись run.sh (младший выходит 75).
+EXT_T=""; EXT_T0=""; EXT_PF=""; EXT_SEEN=""
 ext_reap() {  # под замком: снять билеты умерших владельцев и застрявших в стадии запуска
     local f h
     for f in "$DIR"/ext/*; do
@@ -1552,35 +1572,81 @@ ext_reap() {  # под замком: снять билеты умерших вл
         fi
     done
 }
-ext_leave() { [ -z "$EXT_T" ] || rm -f "$EXT_T"; EXT_T=""; }
+ext_leave() { [ -z "$EXT_T" ] || rm -f "$EXT_T"; EXT_T=""; [ -z "$EXT_PF" ] || rm -f "$EXT_PF" "$EXT_PF.b"; }
+# ext_lines [<до отметки>] — строки «hs-<номер> mCPU МиБ» чужих билетов с запросом: без довода —
+# вошедшие (go=) и старшие ждущие, номера — в EXT_SEEN; с доводом — лишь отметившиеся раньше
+# неё (go= меньше). Под замком ext.lock.
+ext_lines() {
+    local f n me="" req go
+    [ -z "$EXT_T" ] || me="$((10#${EXT_T##*/}))"
+    EXT_SEEN=" "
+    for f in "$DIR"/ext/*; do
+        [ -e "$f" ] && [ "$f" != "$EXT_T" ] || continue
+        n="$((10#${f##*/}))"; req="$(field "$f" req)"; go="$(field "$f" go)"
+        [[ "$req" =~ ^[1-9][0-9]*\ [1-9][0-9]*$ ]] || continue
+        if [ -n "${1:-}" ]; then
+            [ -n "$go" ] && [ "$go" -lt "$1" ] || continue
+        else
+            [ -n "$go" ] || { [ -n "$me" ] && [ "$n" -lt "$me" ]; } || continue
+            EXT_SEEN="$EXT_SEEN$n "
+        fi
+        printf 'hs-%s %s\n' "$n" "$req"
+    done
+}
+# ext_pending — файл вошедших для опроса (EXT_PF); номера учтённых — в EXT_SEEN.
+ext_pending() {
+    [ "$EXT_GATE" = 1 ] && [ -d "$DIR/ext" ] || return 0
+    [ -n "$EXT_PF" ] || { EXT_PF="$DIR/ext-$$.pending"; trap ext_leave EXIT; }
+    elock; ext_reap; ext_lines > "$EXT_PF"; eunlock
+}
+# ext_mark [профиль [репозиторий]] — отметить вход (go=) после принятого опроса. Отметился раньше
+# меня тот, кого опрос не учёл, — повторная проверка с отметившимися раньше; 0 — вход, иной код —
+# код повторной проверки (отметка снята: 75 — младший уступил).
+ext_mark() {
+    [ -n "$EXT_T" ] || return 0
+    local seq rc n new=""
+    elock
+    [ -e "$EXT_T" ] || { eunlock; say "билет внешнего входа снят (--cancel либо перепись) — не выполнилось"; exit 75; }
+    seq="$(ticket_next)"; [ -n "$seq" ] || { eunlock; say "номер отметки входа не выдан (ticket.lock) — не выполнилось"; exit 69; }
+    printf 'go=%s\n' "$seq" >> "$EXT_T"
+    ext_lines "$seq" > "$EXT_PF.b"
+    eunlock
+    while read -r n _; do
+        n="${n#hs-}"; [ -z "$n" ] || [[ "$EXT_SEEN" == *" $n "* ]] || new="$new $n"
+    done < "$EXT_PF.b"
+    if [ -n "$new" ]; then
+        mv -f "$EXT_PF.b" "$EXT_PF"
+        cluster_once "${1:-}" "${2:-}"; rc=$?
+        if [ "$rc" -ne 0 ]; then
+            elock; [ ! -e "$EXT_T" ] || sed -i '/^go=/d' "$EXT_T"; eunlock
+            [ "$rc" -ne 75 ] || journal "ext-yield ticket=$((10#${EXT_T##*/})) class=$CLASS before=${new# } why=повторная проверка с отметившимися раньше: места нет — младший уступает"
+            return "$rc"
+        fi
+    fi
+    rm -f "$EXT_PF.b"
+    journal "ext-go ticket=$((10#${EXT_T##*/})) class=$CLASS waited=$(( $(now) - EXT_T0 ))s recheck=$([ -n "$new" ] && echo "да:${new# }" || echo нет)"
+    return 0
+}
+# ext_enter <профиль> <репозиторий> — завести билет с запросом pod; запрос не выведен — без
+# билета (как WAIT_S=0).
 ext_enter() {
     [ "$EXT_GATE" = 1 ] && [ "$WAIT_S" -gt 0 ] || return 0
-    local etk first f w=0
+    local etk req
     EXT_T0="${WAIT_T0:-$(now)}"
+    req="$(bash "$REMOTE_RUN" --request --profile "$1" ${2:+--repo "$2"} 2>/dev/null)"
+    if ! [[ "$req" =~ ^[1-9][0-9]*\ [1-9][0-9]*$ ]]; then
+        journal_early "ext-noreq class=$CLASS why=запрос pod не выведен (run.sh --request: «$(printf '%s' "$req" | tr '[:cntrl:]' ' ' | cut -c1-80)») — без билета"
+        return 0
+    fi
     mkdir -p "$DIR/ext" 2>/dev/null
     etk="$(ticket_next)"; [ -n "$etk" ] || { say "номер билета не выдан (ticket.lock) — не выполнилось"; exit 69; }
     elock
     EXT_T="$DIR/ext/$(printf '%012d' "$etk")"
-    printf 'pid=%s\npid_start=%s\nclass=%s\nwho=%s\nsince=%s\n' "$$" "$(pid_start $$)" "$CLASS" "$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD" "$EXT_T0" > "$EXT_T"
+    printf 'pid=%s\npid_start=%s\nclass=%s\nwho=%s\nsince=%s\nreq=%s\n' "$$" "$(pid_start $$)" "$CLASS" "$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD" "$EXT_T0" "$req" > "$EXT_T"
     [ -z "$QUEUED" ] || printf 'enq=%s\n' "$QUEUED" >> "$EXT_T"
-    journal "ext-enter ticket=$etk class=$CLASS who=$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD cmd=$(printf '%q ' "${CMD_R[@]}")"
+    journal "ext-enter ticket=$etk class=$CLASS req=${req// /m/}MiB who=$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD cmd=$(printf '%q ' "${CMD_R[@]}")"
     eunlock
     trap ext_leave EXIT
-    while :; do
-        elock; ext_reap
-        first=""; for f in "$DIR"/ext/*; do [ -e "$f" ] && { first="$f"; break; }; done
-        eunlock
-        [ "$first" = "$EXT_T" ] && break
-        [ -e "$EXT_T" ] || { say "билет внешнего входа снят (--cancel либо перепись) — не выполнилось"; exit 75; }
-        w=$(( $(now) - EXT_T0 ))
-        if [ "$w" -ge "$WAIT_S" ]; then
-            journal_early "busy-external-gate class=$CLASS waited=${w}s ticket=$etk head=$((10#${first##*/}))"
-            say "внешний вход занят своими билетами (впереди билет $((10#${first##*/})), идёт его запуск) — команда НЕ запускалась ни там, ни локально (код 75, не выполнилось, не красное)"
-            exit 75
-        fi
-        sleep "$(( POLL_S < 2 ? POLL_S : 2 ))"
-    done
-    [ "$w" -gt 0 ] && journal "ext-go ticket=$etk class=$CLASS waited=${w}s"
     return 0
 }
 ext_filter() {
@@ -1679,7 +1745,7 @@ remote_route() {
         fi
     fi
     tooling_gate
-    ext_enter
+    ext_enter "$CLASS" "$repo"
     cluster_check "$CLASS" "$repo" || return 1
     [ -n "$known" ] || refuse_external "нагрузка «${PAY_SH:-$PAY}» за обёрткой не опознана как переносимая (go, make, golangci-lint, gosec, govulncheck, ci-local.sh; скрипт клона из ведомости PORTABLE — относительным путём) — дай её словами argv: heavy-slot.sh $CLASS -- go …; слот уведёт её Job-ом"
     [ -n "$fix" ] && refuse_external "$fix"
@@ -1852,6 +1918,7 @@ elif [ "$REMOTE_ON" = 1 ]; then
             journal_early "remote class=$CLASS route=job task=$TASK repo=$(printf '%s' "${ROUTE[@]:5:1}") ref=$(printf '%s' "${ROUTE[@]:7:1}") who=$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD cmd=$(printf '%q ' "${CMD_R[@]}")"
             say "класс «$CLASS» уходит во внешний кластер: $(printf '%q ' "${ROUTE[@]:3:6}")— слот машины не занимается"
             if [ -n "$EXT_T" ]; then ext_run "${ROUTE[@]}" "$@"; exit $?; fi
+            [ -z "$EXT_PF" ] || rm -f "$EXT_PF"
             exec "${ROUTE[@]}" "$@"
         fi
     fi

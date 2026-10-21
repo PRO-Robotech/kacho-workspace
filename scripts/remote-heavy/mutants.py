@@ -45,6 +45,13 @@ INJECT = os.path.join(HERE, "inject.sh")
 
 # (id, проба, что портит, фрагмент, замена)
 MUTANTS = [
+    # ВОШЕДШИЕ (ws#1302): вошедший без ns держит место и предел.
+    ("pending-no-place", "PD", "вошедшие без ns не раскладываются по узлам — второй вход по тому же месту проходит",
+     "placement \"$ncpu\" \"$nmib\" \"$BUSY_DEM${AV_PENDING:+$'\\n'$AV_PENDING}\"; prc=$?",
+     "placement \"$ncpu\" \"$nmib\" \"$BUSY_DEM\"; prc=$?"),
+    ("pending-no-limit", "PDm", "предел P не считает вошедших без ns",
+     "if [ $(( n + np )) -ge \"$MAX_PAR\" ]; then",
+     "if [ \"$n\" -ge \"$MAX_PAR\" ]; then"),
     # ОБРАЗЫ TESTCONTAINERS (ws#1268): предел, застой и код вердикта загрузки.
     ("pull-no-limit", "PW3", "загрузка образа без предела: попытка не ограничена сроком шага",
      "ctx, cancel := context.WithDeadline(context.Background(), deadline)",
