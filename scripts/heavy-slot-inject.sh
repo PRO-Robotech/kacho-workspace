@@ -656,7 +656,7 @@ WJ="$W/wslots"; mkdir -p "$WJ"; wnow="$(date -Is)"; wold="$(date -Is -d '-30 hou
     echo "$wold enter id=5 class=suite budget=1536MiB waited=7000s head=x who=w cmd=c"
 } > "$WJ/journal.log"
 assert "0 WAITS class=suite hours=24 n=4 median=250s p90=500s max=500s timeout75=1 busy74=1" "$(slot HEAVY_SLOT_DIR="$WJ" bash "$SLOT" --waits suite) $(cat "$W/out")" "suite за 24 ч: медиана чётного числа, p90, наибольшее; 74 — счётом, чужой класс и строка вне окна не входят"
-assert "0 n=5 max=7000s" "$(slot HEAVY_SLOT_DIR="$WJ" bash "$SLOT" --waits suite 48) $(grep -o 'n=[0-9]*' "$W/out") $(grep -o 'max=[0-9]*s' "$W/out")" "близнец: окно 48 ч — старая строка входит"
+assert "0 n=5 max=7000s" "$(slot HEAVY_SLOT_DIR="$WJ" bash "$SLOT" --waits suite 48) $(grep -o ' n=[0-9]*' "$W/out" | tr -d ' ') $(grep -o 'max=[0-9]*s' "$W/out")" "близнец: окно 48 ч — старая строка входит"
 assert "2 да" "$(slot HEAVY_SLOT_DIR="$WJ" bash "$SLOT" --waits go-race) $(has "$W/out" 'медиана не установлена')" "записей класса нет — код 2, «не установлена», а не ноль ожидания"
 assert "64 64" "$(slot HEAVY_SLOT_DIR="$WJ" bash "$SLOT" --waits no-such) $(slot HEAVY_SLOT_DIR="$WJ" bash "$SLOT" --waits suite 0)" "неизвестный класс и окно 0 ч — 64"
 echo "── внешний кластер: тяжёлый класс уходит в run.sh, локально — только с причиной (ws#984)"
