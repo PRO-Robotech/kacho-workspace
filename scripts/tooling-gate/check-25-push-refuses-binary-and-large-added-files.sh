@@ -168,6 +168,10 @@ fi
 branch 1189-elf; cp "$ELF" "$box/edge"; chmod +x "$box/edge"; commit "#1189 бинарь" edge
 expect_refuse edge "настоящий исполняемый файл (ELF) среди добавленных" "$(create 1189-elf)"
 expect_refuse "исполняемый бинарь" "отказ называет вид: исполняемый бинарь" "$(create 1189-elf)"
+# Вид без утилиты file (образ Job профиля ws её не несёт, ws#1304): file на пути молчит и
+# отказывает — вид по сигнатуре байт, отказ называет файл, а не трассировку.
+nofile="$TMP/nofile-bin"; mkdir -p "$nofile"; printf '#!/bin/sh\nexit 127\n' > "$nofile/file"; chmod +x "$nofile/file"
+expect_refuse "edge — исполняемый бинарь (ELF)" "file молчит — вид по сигнатуре, файл назван" "$(create 1189-elf)" PATH="$nofile:$PATH"
 
 branch 1189-blob; head -c 4096 "$ELF" > "$box/blob.dat"; commit "#1189 бинарь" blob.dat
 expect_refuse blob.dat "бинарь без режима исполнения" "$(create 1189-blob)"

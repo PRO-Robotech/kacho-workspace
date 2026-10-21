@@ -3592,7 +3592,7 @@ ws_case() {
     elif grep -q 'среда воркспейса — .*shellcheck 0.11.0, Bats 1.10.0' "$OUT"; then ok; else bad "$c" "строка среды не называет инструменты"; fi
 }
 ws_case WS4-legit 0 -
-ws_case WS4-bats 125 bats без bats
+ws_case WS4-bats 125 "bats нет в PATH" без bats
 ws_case WS4-yq 125 yq без yq
 ws_case WS4-yq3 125 yq yq 3.4.1
 ws_case WS4-shellcheck 125 shellcheck sc 0.10.0
