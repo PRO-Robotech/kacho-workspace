@@ -503,9 +503,10 @@ passes "/ws/scripts/heavy-slot.sh suite -- bash scripts/tg-gate/inject.sh" "$SX"
 passes "bash /ws/scripts/heavy-slot.sh suite -- python3 scripts/ls/mutants.py" "$SX"
 passes 'bash scripts/tg-gate/run-all.sh' "$PX"
 passes 'python3 scripts/ls/mutants.py' "$PX"
-# Мутанты: порча по одному решению — каждую обязан поймать свой случай выше.
+# Мутанты: порча по одному решению — каждую обязан поймать свой случай выше; место вызова — $6
+# (по умолчанию $SX): порчу признака воркспейса ловит лишь близнец места $PX.
 sx_mut() {
-    local id="$1" form="$2" want="$3" md="$WORK/smut-$1" rc
+    local id="$1" form="$2" want="$3" at="${6:-$SX}" md="$WORK/smut-$1" rc
     mkdir -p "$md/heavy-guard"; cp "$HOOK" "$md/heavy-guard.sh"
     if ! python3 -c '
 import sys
@@ -515,13 +516,13 @@ if s.count(sys.argv[3]) != 1:
 open(sys.argv[2], "w", encoding="utf-8").write(s.replace(sys.argv[3], sys.argv[4]))' "$GUARD" "$md/heavy-guard/guard.py" "$4" "$5"; then
         assert "построен" "не построен" "мутант $id: фрагмент порчи в guard.py не единствен"; return
     fi
-    rc="$(HOOK_RUN="$md/heavy-guard.sh" run "$form" "$SX")"
-    assert "убит" "$([ "$rc" != "$want" ] && echo убит || echo выжил)" "мутант $id ($form): с порчей код $rc, без неё $want"
+    rc="$(HOOK_RUN="$md/heavy-guard.sh" run "$form" "$at")"
+    assert "убит" "$([ "$rc" != "$want" ] && echo убит || echo выжил)" "мутант $id ($form в ${at##*/}): с порчей код $rc, без неё $want"
 }
 sx_mut python-blind 'python3 scripts/ls/mutants.py' 2 \
     'return "suite" if script and suite_member(resolve(script, cwd, alt)) else None' 'return None'
-sx_mut no-marker 'bash scripts/tg-gate/check-01-x.sh' 0 \
-    'if top and os.path.isfile(os.path.join(top, "scripts", "heavy-slot.sh")):' 'if top:'
+sx_mut no-marker 'bash scripts/tg-gate/run-all.sh' 0 \
+    'if top and os.path.isfile(os.path.join(top, "scripts", "heavy-slot.sh")):' 'if top:' "$PX"
 sx_mut shell-blind 'bash scripts/tg-gate/inject.sh' 2 \
     'return best(got | ({"suite"} if suite_member(resolve(script, cwd, alt)) else set()))' 'return best(got)'
 sx_mut path-blind './scripts/tg-gate/run-all.sh' 2 \

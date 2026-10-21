@@ -23,6 +23,8 @@
 #   heavy-slot.sh --status      занятые слоты, билеты очереди и внешнего входа, память машины, хвост журнала
 #   heavy-slot.sh --cancel <билет | журнал заявки>  снять СВОЮ заявку (ждущую, отложенную, внешнего входа) и её --enqueue
 #   heavy-slot.sh --prune-tmp   снять TMPDIR копий класса ci-local, не тронутые > 7 суток
+#   heavy-slot.sh --waits <класс> [часов]  ожидание входа класса за окно (24 ч) по журналу: медиана,
+#               p90, наибольшее, отказы 74 и 75; записей ноль — код 2 (ниже, у waits_report)
 #
 # ВХОД — очередь по билету под flock на каталоге слотов, ОДНОМ на машину (малый билет
 # обгоняет ждущего БОЛЬШЕГО, которому места сейчас нет, — не более BYPASS_MAX раз, ws#1161 д);
@@ -423,6 +425,33 @@ class_budget() {
         return 0
     done <<< "$CLASSES"
     return 1
+}
+
+# waits_report <класс> [часов] — ожидание входа класса по журналу за окно. Решение диспетчера
+# 2026-10-21 о пуле suite: класс остаётся в общих трёх слотах, свой пул — при медиане ожидания
+# за сутки > 5 мин; это чтение и есть замер. Ожидание — waited= строк enter (вошёл) и timeout
+# (75: не дождался; у --enqueue и --resume — от постановки билета); отказ 74 без ожидания —
+# строка busy, только счётом. Окно — строкой времени журнала (date -Is одной зоны машины).
+# Записей ни одной — код 2: медиана не установлена, а не «ожидания нет».
+waits_report() {
+    local cls="${1:-}" h="${2:-24}"
+    class_budget "$cls" > /dev/null || { say "класса «$cls» нет — форма: --waits <класс> [часов]"; return 64; }
+    [[ "$h" =~ ^[1-9][0-9]{0,3}$ ]] || { say "часов «$h» — нужно целое 1…9999"; return 64; }
+    awk -v c="class=$cls" -v s="$(date -Is -d "-$h hours")" -v cl="$cls" -v h="$h" '
+        $1 < s || $1 !~ /^20[0-9][0-9]-/ { next }
+        { hit = 0; for (i = 3; i <= NF; i++) if ($i == c) { hit = 1; break } }
+        !hit { next }
+        $2 == "busy" { b++; next }
+        $2 == "enter" || $2 == "timeout" {
+            for (i = 3; i <= NF; i++) if ($i ~ /^waited=[0-9]+s$/) { v = substr($i, 8) + 0; k = n++
+                while (k > 0 && w[k - 1] > v) { w[k] = w[k - 1]; k-- }; w[k] = v; break }
+            if ($2 == "timeout") t++
+        }
+        END {
+            if (n == 0) { printf "WAITS class=%s hours=%d: записей ожидания нет (busy74=%d) — медиана не установлена\n", cl, h, b; exit 2 }
+            m = (n % 2) ? w[(n - 1) / 2] : int((w[n / 2 - 1] + w[n / 2]) / 2)
+            printf "WAITS class=%s hours=%d n=%d median=%ds p90=%ds max=%ds timeout75=%d busy74=%d\n", cl, h, n, m, w[int((n - 1) * 0.9 + 0.5)], w[n - 1], t, b
+        }' "$DIR/journal.log" 2> /dev/null
 }
 
 print_classes() {
@@ -1119,6 +1148,7 @@ case "${1:-}" in
     --budget)  class_budget "${2:-}" || { say "класса «${2:-}» нет"; exit 64; }; exit 0 ;;
     --status)  mkdir -p "$DIR/active" 2>/dev/null; print_status; exit 0 ;;
     --cancel)  cancel_ticket "${2:-}"; exit $? ;;
+    --waits)   waits_report "${2:-}" "${3:-24}"; exit $? ;;
     --book)    book_cmd "$@"; exit $? ;;
     --console-deps) console_deps "${2:-}" "${3:-}"; exit $? ;;
     --prune-tmp)
