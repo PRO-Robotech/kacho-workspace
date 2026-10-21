@@ -730,7 +730,7 @@ assert "77 да" "$(RDIR="$R3" rslot bash "$SLOT" integration -- .github/scripts
 R4="$W/rclone-un"; git init -q -b 984-z "$R4"; git -C "$R4" remote add origin https://github.com/PRO-Robotech/kaname.git
 echo a > "$R4/f"; git -C "$R4" add f; sandbox_git -C "$R4" commit -q -m p; mkdir -p "$R4/.github/scripts"; cp "$R/.github/scripts/run-integration.sh" "$R4/.github/scripts/"
 assert "77 да" "$(RDIR="$R4" rslot bash "$SLOT" integration -- .github/scripts/run-integration.sh) $(has "$W/err" 'не опознана как переносимая')" "близнец: скрипт не отслеживается (Job его не увидит) → 77"
-sed 's|^        \[ "\$real" = "\$RS_TOP/\$p" \] \|\| continue$|        :|' "$SLOT" > "$W/slot-mut-port.sh"
+sed 's|^        \[\[ "\$real" == "\$RS_TOP/"\$p \]\] \|\| continue$|        :|' "$SLOT" > "$W/slot-mut-port.sh"
 assert "1 17" "$(diff "$SLOT" "$W/slot-mut-port.sh" | grep -c '^<') $(rslot bash "$W/slot-mut-port.sh" integration -- .github/scripts/other.sh)" "мутант «путь скрипта не сверяется»: другой скрипт уходит Job-ом — близнец выше его ловит"
 
 echo "── маршрут без исполнения: --route — чистое суждение того же механизма (ws#1192 в)"
@@ -747,7 +747,7 @@ assert "0 none да" "$(route "$R" integration -- bash .github/scripts/other.sh)
 assert "0 local да" "$(route "$R" docker -- true) $(has "$W/out" 'внешнего пути не имеет')" "класс без внешнего пути → local"
 assert "0 local да" "$(route "$W" lint -- go version) $(has "$W/out" 'не клон git')" "каталог не клон → local"
 RO="$W/rclone-other"; git init -q -b 984-o "$RO"; git -C "$RO" remote add origin https://github.com/PRO-Robotech/elsewhere.git
-assert "0 local да" "$(route "$RO" lint -- go version) $(has "$W/out" 'клон не kacho, kaname или corelib')" "близнец: клон чужого репозитория → local"
+assert "0 local да" "$(route "$RO" lint -- go version) $(has "$W/out" 'клон не kacho, kaname, corelib или kacho-workspace')" "близнец: клон чужого репозитория → local"
 RK="$W/rclone-sn"; git init -q -b 984-s "$RK"; git -C "$RK" remote add origin https://github.com/PRO-Robotech/kacho.git
 mkdir -p "$RK/deploy/scripts"; printf 'stand-ns-run:\n\t@true\n' > "$RK/deploy/Makefile"; printf '#!/usr/bin/env bash\ntrue\n' > "$RK/deploy/scripts/stand-ns.sh"
 git -C "$RK" add deploy; sandbox_git -C "$RK" commit -q -m sn
@@ -872,6 +872,52 @@ r="$(FAKE_AVAIL=6 rslot bash "$W/slot-mut-check.sh" lint -- go version)"
 assert "1 0 да нет" "$n_at $r $(has "$W/err" 'не ответила за 10 с') $([ -e "$W/argv" ] && echo да || echo нет)" "мутант «срок 10 с»: место срока одно, тот же ответ за 12 с — «недоступен», локально (проба выше его ловит)"
 b="$(jn ' local class=ci-local proof=')"; bw="$(jn ' local class=ci-local why=команда «git» без push')"
 assert "0 $b $((bw + 1))" "$(rslot bash "$SLOT" ci-local -- git status) $(jn ' local class=ci-local proof=') $(jn ' local class=ci-local why=команда «git» без push')" "близнец: git без push (не хук отправки) внешнего пути не имеет — локально без опроса кластера, без proof, причина в журнале"
+
+echo "── клон воркспейса: хук отправки, наборы и пробы — Job профиля ws, причина в журнале (ws#1304)"
+# Клон с origin PRO-Robotech/kacho-workspace: скрипт ведомости PORTABLE (отслеживаемый, относительным
+# путём) классов suite и ci-local и хук отправки уходят Job-ом профиля ws, строка remote журнала
+# несёт profile= и why=; прочая нагрузка клона и прочие классы — без внешнего пути. Законный
+# близнец — клон kacho тем же механизмом уходит профилем своего класса.
+RW="$W/rclone-ws"; git init -q -b 1304-w "$RW"; git -C "$RW" remote add origin https://github.com/PRO-Robotech/kacho-workspace.git
+mkdir -p "$RW/scripts/tg" "$RW/scripts/hooks" "$RW/.claude/hooks/hg"
+for f in scripts/tg/run-all.sh scripts/tg/inject.sh scripts/tg-inject.sh scripts/other.sh .claude/hooks/hg/prove.sh; do printf '#!/usr/bin/env bash\necho %s\n' "$f" > "$RW/$f"; done
+printf 'print(1)\n' > "$RW/scripts/tg/mutants.py"
+# shellcheck disable=SC2016  # текст хука раскрывает он сам
+printf '#!/usr/bin/env bash\n{ printf "job=%%s args=%%s\\n" "${FAKE_IN_JOB:-нет}" "$*"; cat; } >> "$HOOK_LOG"\nexit 0\n' > "$RW/scripts/hooks/pre-push"
+chmod +x "$RW/scripts/hooks/pre-push"; git -C "$RW" add -A; sandbox_git -C "$RW" commit -q -m ws
+# shellcheck disable=SC2016
+printf '#!/usr/bin/env bash\nexec "$(git rev-parse --show-toplevel)/scripts/hooks/pre-push" "$@"\n' > "$RW/.git/hooks/pre-push"; chmod +x "$RW/.git/hooks/pre-push"
+printf '#!/usr/bin/env bash\necho untracked\n' > "$RW/scripts/tg/check-99-untracked.sh"
+argv_of() { sed -n "/^--$1\$/{n;p}" "$W/argv"; }
+rm -f "$W/argv" "$W/argv.avail"; bw="$(jn ' remote class=suite route=job profile=ws ')"
+assert "17 ws kacho-workspace 1304 . $((bw + 1)) 1" "$(RDIR="$RW" rslot bash "$SLOT" suite -- bash scripts/tg/run-all.sh) $(argv_of profile) $(argv_of repo) $(argv_of task) $(argv_of workdir) $(jn ' remote class=suite route=job profile=ws ') $(tail -n 1 "$JL" | grep -c 'why=клон воркспейса, скрипт ведомости PORTABLE scripts/tg/run-all.sh — Job профиля ws who=')" "suite: run-all.sh набора в клоне воркспейса → Job профиля ws, задача из ветки; строка remote журнала — профиль и причина маршрута"
+assert "--available --profile ws --repo kacho-workspace" "$(tr '\n' ' ' < "$W/argv.avail" | sed 's/ $//')" "проверка кластера — под профиль ws и репозиторий воркспейса"
+for pl in "python3 scripts/tg/mutants.py -j 2" "bash scripts/tg-inject.sh" "env X=1 bash scripts/tg/inject.sh" "bash .claude/hooks/hg/prove.sh"; do
+    rm -f "$W/argv"
+    # shellcheck disable=SC2086  # нагрузка — слова
+    assert "17 ws" "$(RDIR="$RW" rslot bash "$SLOT" ci-local -- $pl) $(argv_of profile)" "ci-local: $pl в клоне воркспейса → Job профиля ws"
+done
+for pl in "bash scripts/other.sh" "bash scripts/tg/check-99-untracked.sh" "bash $RW/scripts/tg/run-all.sh" "python3 -c pass"; do
+    rm -f "$W/argv"
+    # shellcheck disable=SC2086  # нагрузка — слова
+    assert "0 да нет" "$(RDIR="$RW" rslot bash "$SLOT" suite -- $pl) $(has "$W/err" 'клон воркспейса: нагрузка') $([ -e "$W/argv" ] && echo да || echo нет)" "близнец: $pl (вне ведомости, не отслеживается, путь машины, строка) → без внешнего пути, причина названа"
+done
+rm -f "$W/argv"
+assert "0 да нет" "$(RDIR="$RW" rslot bash "$SLOT" go-race -- true) $(has "$W/err" 'Job профиля ws несёт лишь ci-local и suite') $([ -e "$W/argv" ] && echo да || echo нет)" "близнец: класс go-race в клоне воркспейса — без внешнего пути (образ ws без go)"
+rm -f "$W/argv"; bk="$(jn 'why=клон kacho — Job профиля go-race who=')"
+assert "17 go-race kacho $((bk + 1))" "$(RDIR="$R3" rslot bash "$SLOT" go-race -- go version) $(argv_of profile) $(argv_of repo) $(jn 'why=клон kacho — Job профиля go-race who=')" "законный близнец: клон kacho уходит своим маршрутом — профиль класса, причина в журнале"
+assert "0 да" "$(RDIR="$R3" rslot bash "$SLOT" suite -- bash .github/scripts/run-integration.sh) $(has "$W/err" 'у клона kacho внешнего пути нет')" "близнец: класс suite в клоне kacho — без внешнего пути"
+git init -q --bare "$W/bare-ws.git"; HLW="$W/hook-ws.log"; rm -f "$HLW" "$W/argv"; bp="$(jn ' remote class=ci-local route=push profile=ws ')"
+assert "0 1 ws kacho-workspace $((bp + 1)) 1" "$(RDIR="$RW" rslot env FAKE_EXEC=1 HOOK_LOG="$HLW" bash "$SLOT" ci-local -- git push -q "$W/bare-ws.git" HEAD:refs/heads/1304-w) $(grep -c '^job=1 ' "$HLW" 2>/dev/null) $(argv_of profile) $(argv_of repo) $(jn ' remote class=ci-local route=push profile=ws ') $(grep -F ' remote class=ci-local route=push profile=ws ' "$JL" | tail -n 1 | grep -c 'why=клон воркспейса, хук отправки — Job профиля ws who=')" "хук отправки воркспейса: Job профиля ws, хук исполнен там, строка remote с причиной"
+assert "0 external да" "$(route "$RW" ci-local -- git push origin HEAD) $(has "$W/out" 'профиль ws, репозиторий kacho-workspace')" "--route: отправка из клона воркспейса → external, профиль ws"
+assert "0 external да" "$(route "$RW" suite -- bash scripts/tg/run-all.sh) $(has "$W/out" 'профиль ws')" "--route: набор воркспейса классом suite → external, профиль ws"
+sed 's#^        \*PRO-Robotech/kacho-workspace|\*PRO-Robotech/kacho-workspace\.git)$#        *PRO-Robotech/kacho-workspace-OFF)#' "$SLOT" > "$W/slot-mut-ws.sh"
+assert "1 0 local" "$(diff "$SLOT" "$W/slot-mut-ws.sh" | grep -c '^<') $(RSLOT="$W/slot-mut-ws.sh" route "$RW" suite -- bash scripts/tg/run-all.sh)" "мутант «маршрут воркспейса снят»: набор → local — утверждения выше (external, Job профиля ws) его ловят"
+# shellcheck disable=SC2016  # образец sed, раскрывать нечего
+sed 's#^            RS_PROFILE=ws$#            RS_PROFILE="$CLASS"#' "$SLOT" > "$W/slot-mut-wsp.sh"; rm -f "$W/argv"
+assert "1 17 suite" "$(diff "$SLOT" "$W/slot-mut-wsp.sh" | grep -c '^<') $(RDIR="$RW" rslot bash "$W/slot-mut-wsp.sh" suite -- bash scripts/tg/run-all.sh) $(argv_of profile)" "мутант «профиль — класс»: Job воркспейса идёт профилем suite — утверждение «ws» выше его ловит"
+sed 's#^        \[\[ "\$real" == "\$RS_TOP/"\$p \]\] || continue$#        [ "$real" = "$RS_TOP/$p" ] || continue#' "$SLOT" > "$W/slot-mut-glob.sh"
+assert "1 0 local" "$(diff "$SLOT" "$W/slot-mut-glob.sh" | grep -c '^<') $(RSLOT="$W/slot-mut-glob.sh" route "$RW" suite -- bash scripts/tg/run-all.sh)" "мутант «путь записи — не образец»: строки воркспейса ничего не узнают — утверждения выше его ловят"
 
 echo "── хук отправки при доступном кластере → run.sh: хук — Job-ом на той же голове, локально лишь отправка, замок слотов не берётся (ws#1106, ws#1115)"
 # Настоящий git push в голый репозиторий; хук продукта — отслеживаемый

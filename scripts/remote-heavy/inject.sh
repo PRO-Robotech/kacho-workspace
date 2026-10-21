@@ -244,6 +244,9 @@
 #   RG13 обрыв внутри копии (нет end и total) → копии из полного лога контейнера
 #   RG6 красный код, красных групп ноль → строка с числом групп, каталога нет;
 #      RG6b итога нет нигде → «НЕ получены»
+#   WS1–WS5 профиль ws клона воркспейса (ws#1304): Job — образ без go, клоны продуктов, среда
+#      наборов и её сверка; пара профиля и репозитория; пин shellcheck; сверка среды и читатель
+#      трекера исполнением (подробно — у случаев)
 #   L0 двойник сам печатает адрес и IPv4   → да (контроль пробы утечки)
 #   L0b двойник печатает адреса pod в stdout лога → да (контроль F4)
 #   L1 вывод всех случаев без адреса сервера, IPv4/IPv6 узлов и pod, токена,
@@ -2319,7 +2322,8 @@ ql_n=0; ql_raise=0
 while IFS='|' read -r qp _ _ qlim _; do
     [ -n "$qp" ] || continue
     case "$qlim" in *Gi) qlim=$(( ${qlim%Gi} * 1024 )) ;; *Mi) qlim="${qlim%Mi}" ;; esac
-    for qrp in kacho kaname corelib; do
+    qrps="kacho kaname corelib"; [ "$qp" != ws ] || qrps=kacho-workspace   # профиль ws — лишь клон воркспейса (ws#1304)
+    for qrp in $qrps; do
         qw_="$(ql_want "$qp" "$qrp")" || { bad "QL-$qp-$qrp" "строки PEAKS для $qp нет — норму вывести не из чего"; continue; }
         [ "$qw_" -gt "$qlim" ] && ql_raise=$((ql_raise + 1))
         qg="$(awk -v p="$qp" -v r="$qrp" '$1 == p && $2 == r { for (i = 1; i <= NF; i++) if ($i == "память" && $(i+1) ~ /\//) { split($(i+1), a, "/"); print a[2] } }' "$OUT" | head -n 1)"
@@ -3474,6 +3478,144 @@ if grep -q -- '--profile integration' "$CN/calls" && grep -q 'в пачке inte
 rm -rf "$CN/v"; : > "$CN/calls"; CN_B='b/../x'
 cn_call CN4 64
 if [ ! -s "$CN/calls" ]; then ok; else bad CN4 "Job запущен при неверном --batch"; fi
+
+# ── СРЕДА ВОРКСПЕЙСА: профиль ws (ws#1304) ──────────────────────────────────
+# WS1 Job клона воркспейса: образ golang:1.26.9 (тот же, что у Job продуктов), ни dind, ни
+#     pgclient; подготовка несёт клоны продуктов, установку среды наборов, node мажора 26 и
+#     сверку среды (после видимости, перед командой), а не модули и pgwait; окружение — пин
+#     анализатора, node и читатель трекера; запрос — консервативная строка ws PEAKS (2 560 МиБ,
+#     предел 9 ГиБ), названный так
+# WS2 пара профиля и репозитория: ws — лишь kacho-workspace и наоборот → 64 до кластера;
+#     --available тем же правилом
+# WS3 пин shellcheck дерева не равен зашитому либо его нет → 69 до кластера, причина названа
+# WS4 сверка среды ИСПОЛНЕНИЕМ (текст из Job, PATH образа поддельный — HEAVY_STD_PATH): вся
+#     среда → 0; нет bats, нет yq, yq не v4, shellcheck не пина, yaml не виден python3 → 125 и
+#     «среда: <имя>» в termination-log (run.sh читает его как 69 — K6)
+# WS5 читатель трекера ИСПОЛНЕНИЕМ (двойник curl): задача → «N false», запрос на слияние → «N true»,
+#     нет → «HTTP 404» и код 1, иная форма вызова → 4
+SRCW="$BOX/srcw"
+git init -q "$SRCW"; mkdir -p "$SRCW/.github/workflows" "$SRCW/scripts/tg"
+printf 'env:\n  SHELLCHECK_VERSION: "0.11.0"\njobs:\n  t:\n    runs-on: ubuntu-latest\n    steps:\n      - run: bash scripts/tg/run-all.sh\n' > "$SRCW/.github/workflows/ci.yaml"
+printf '#!/usr/bin/env bash\necho tg\n' > "$SRCW/scripts/tg/run-all.sh"
+git -C "$SRCW" add -A; sandbox_git -C "$SRCW" commit -q -m ws
+ws_rev() {
+    git -C "$SRCW" checkout -q -b "$1"
+    printf '%s' "$2" > "$SRCW/.github/workflows/ci.yaml"
+    sandbox_git -C "$SRCW" commit -q -am "$1"
+    git -C "$SRCW" checkout -q -
+}
+ws_rev sc10 'env:
+  SHELLCHECK_VERSION: "0.10.0"
+jobs: {}
+'
+ws_rev scnone 'jobs: {}
+'
+fresh
+go_run ws1 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kacho-workspace --ref HEAD --src "$SRCW" --profile ws --short ws1 -- bash scripts/tg/run-all.sh
+expect_rc WS1 0
+WJ="$BOX/ws1-job.json"; cp "$BOX/state/job.json" "$WJ" 2>/dev/null
+if jq -e '.spec.template.spec | ([.containers[] | select(.name == "run") | .image] == ["mirror.gcr.io/library/golang:1.26.9"])
+          and ([.initContainers[]? | select(.name == "fetch") | .image] == ["mirror.gcr.io/library/golang:1.26.9"])
+          and ([(.initContainers // [])[], .containers[] | .name] - ["fetch", "run"] == [])' "$WJ" >/dev/null 2>&1; then ok
+else OUT="$WJ"; bad WS1 "Job профиля ws: образ не golang:1.26.9 либо есть контейнеры сверх fetch и run (dind, pgclient)"; fi
+if [ "$(kx env "$WJ" run HEAVY_SHELLCHECK)" = 0.11.0 ] && [ "$(kx env "$WJ" run PREPUSH_GH)" = /work/bin/gh-issue-public ] && [ "$(kx env "$WJ" run HEAVY_NODE)" = 26 ]; then ok
+else OUT="$WJ"; bad WS1 "окружение run: HEAVY_SHELLCHECK «$(kx env "$WJ" run HEAVY_SHELLCHECK)», PREPUSH_GH «$(kx env "$WJ" run PREPUSH_GH)», HEAVY_NODE «$(kx env "$WJ" run HEAVY_NODE)»"; fi
+kx cmd "$WJ" run 2 > "$BOX/ws1.cmd"
+for m in wsclone-begin wstools-begin gitid-begin hooks-begin install-begin tools-check wsclonewait-begin expose-begin wscheck-begin; do
+    if grep -qx "# $m" "$BOX/ws1.cmd"; then ok; else OUT="$BOX/ws1.cmd"; bad WS1 "шага «# $m» в подготовке run нет"; fi
+done
+for m in moddl-begin pgwait-begin pull-begin npmci-begin file-begin; do
+    if grep -qx "# $m" "$BOX/ws1.cmd"; then OUT="$BOX/ws1.cmd"; bad WS1 "шаг «# $m» профилю ws не нужен (образ без go и pgclient), а он в подготовке"; else ok; fi
+done
+if awk '/^# wsclone-begin$/ { a = NR } /^# wsclonewait-begin$/ { b = NR } /^# expose-end$/ { c = NR } /^# wscheck-begin$/ { d = NR } /^heavy_cmd "\$@"$/ { e = NR }
+        END { exit !(a && b && c && d && e && a < b && b < c && c < d && d < e) }' "$BOX/ws1.cmd"; then ok
+else OUT="$BOX/ws1.cmd"; bad WS1 "порядок: клоны фоном → ожидание клонов → видимость → сверка среды → команда — нарушен"; fi
+if [ "$(jq -r '.spec.template.spec.containers[] | select(.name == "run") | "\(.resources.requests.memory) \(.resources.limits.memory)"' "$WJ" 2>/dev/null)" = "2560Mi 9216Mi" ]; then ok
+else OUT="$WJ"; bad WS1 "запрос и предел памяти run — не 2560Mi и 9216Mi строки ws PEAKS"; fi
+if grep -q 'КОНСЕРВАТИВНО до замера' "$BOX/ws1.out" || bash "$RUN" --profiles 2>/dev/null | grep -A1 '^ws ' | grep -q 'КОНСЕРВАТИВНО до замера'; then ok
+else OUT="$BOX/ws1.out"; bad WS1 "запрос профиля ws не назван консервативным (--profiles)"; fi
+if grep -q 'Job создан: образ golang:1.26.9' "$BOX/ws1.out"; then ok; else OUT="$BOX/ws1.out"; bad WS1 "строка «Job создан» не называет образ профиля ws"; fi
+# WS2 — пара профиля и репозитория
+for pr in "ci-local kacho-workspace" "ws kacho" "lint kacho-workspace"; do
+    read -r p_ r_ <<< "$pr"; fresh
+    go_run "ws2-$p_-$r_" env FAKE_EXIT=0 bash "$RUN" --task 1 --repo "$r_" --ref HEAD --src "$SRCW" --profile "$p_" --short ws2 -- true
+    expect_rc "WS2-$p_-$r_" 64; no_cluster_call "WS2-$p_-$r_"
+done
+fresh; go_run ws2-avail env bash "$RUN" --available --profile ws --repo kacho
+expect_rc WS2-avail 64; no_cluster_call WS2-avail
+fresh; go_run ws2-avail-ok env bash "$RUN" --available --profile ws --repo kacho-workspace
+expect_rc WS2-avail-ok 0
+# WS3 — пин shellcheck дерева
+fresh; go_run ws3-sc10 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kacho-workspace --ref sc10 --src "$SRCW" --profile ws --short ws3 -- true
+expect_rc WS3-sc10 69; no_cluster_call WS3-sc10
+if grep -q 'пин shellcheck на .* — 0.10.0' "$OUT"; then ok; else bad WS3-sc10 "причина не названа (пин 0.10.0)"; fi
+fresh; go_run ws3-none env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kacho-workspace --ref scnone --src "$SRCW" --profile ws --short ws3 -- true
+expect_rc WS3-none 69; no_cluster_call WS3-none
+if grep -q 'env.SHELLCHECK_VERSION конвейера нет' "$OUT"; then ok; else bad WS3-none "причина не названа (пина нет)"; fi
+# WS4 — сверка среды исполнением над поддельным PATH образа
+sed -n '/^# wscheck-begin$/,/^# wscheck-end$/p' "$BOX/ws1.cmd" | sed "s#/dev/termination-log#$BOX/wtl#g" > "$BOX/wscheck.sh"
+if grep -q '^# wscheck-end$' "$BOX/wscheck.sh"; then ok; else OUT="$BOX/ws1.cmd"; bad WS4 "текста сверки среды воркспейса в Job нет — исполнять нечего"; fi
+WT="$BOX/wstd"; PY3="$(command -v python3)"
+# ws_std [без <имя>] [yq <версия>] [sc <версия>] [noyaml] — PATH образа: настоящие bash, git,
+# curl, jq, python3; yq, shellcheck и bats — двойники с выводом версии своего вида.
+ws_std() {
+    rm -rf "$WT"; mkdir -p "$WT"
+    local yv=v4.45.4 sv=0.11.0 skip="" noyaml=""
+    while [ "$#" -gt 0 ]; do case "$1" in без) skip="$2"; shift 2 ;; yq) yv="$2"; shift 2 ;; sc) sv="$2"; shift 2 ;; noyaml) noyaml=1; shift ;; esac; done
+    for t in bash git curl jq sed head cut; do [ "$t" = "$skip" ] || ln -s "$(command -v "$t")" "$WT/$t"; done
+    [ "$skip" = go ] || { printf '#!/bin/sh\necho "go version go1.26.9 linux/amd64"\n' > "$WT/go"; chmod +x "$WT/go"; }
+    [ "$skip" = node ] || { printf '#!/bin/sh\necho v26.8.1\n' > "$WT/node"; chmod +x "$WT/node"; }
+    if [ "$skip" != python3 ]; then
+        if [ -n "$noyaml" ]; then printf '#!/bin/sh\nexec %s -S "$@"\n' "$PY3" > "$WT/python3"; chmod +x "$WT/python3"
+        else ln -s "$PY3" "$WT/python3"; fi
+    fi
+    [ "$skip" = yq ] || { printf '#!/bin/sh\necho "yq (https://github.com/mikefarah/yq/) version %s"\n' "$yv" > "$WT/yq"; chmod +x "$WT/yq"; }
+    [ "$skip" = shellcheck ] || { printf '#!/bin/sh\nprintf "ShellCheck - shell script analysis tool\\nversion: %s\\nlicense: GNU\\n"\n' "$sv" > "$WT/shellcheck"; chmod +x "$WT/shellcheck"; }
+    [ "$skip" = bats ] || { printf '#!/bin/sh\necho "Bats 1.10.0"\n' > "$WT/bats"; chmod +x "$WT/bats"; }
+}
+# ws_case <случай> <код> <слово отказа | -> <аргументы ws_std…>
+ws_case() {
+    local c="$1" want="$2" word="$3"; shift 3
+    ws_std "$@"; rm -f "$BOX/wtl"; OUT="$BOX/$c.out"
+    HEAVY_STD_PATH="$WT" HEAVY_SHELLCHECK=0.11.0 bash "$BOX/wscheck.sh" > "$OUT" 2>&1; RC=$?
+    expect_rc "$c" "$want"
+    if [ "$want" -ne 0 ]; then
+        if grep -q "^remote-heavy-prep: среда: $word" "$BOX/wtl" 2>/dev/null; then ok; else bad "$c" "отказ «среда: $word» не записан в termination-log"; fi
+    elif grep -q 'среда воркспейса — .*shellcheck 0.11.0, Bats 1.10.0' "$OUT"; then ok; else bad "$c" "строка среды не называет инструменты"; fi
+}
+ws_case WS4-legit 0 -
+ws_case WS4-bats 125 bats без bats
+ws_case WS4-yq 125 yq без yq
+ws_case WS4-yq3 125 yq yq 3.4.1
+ws_case WS4-shellcheck 125 shellcheck sc 0.10.0
+ws_case WS4-shellcheck-absent 125 shellcheck без shellcheck
+ws_case WS4-git 125 git без git
+ws_case WS4-go 125 go без go
+ws_case WS4-node 125 node без node
+ws_case WS4-noyaml 125 python3-yaml noyaml
+# WS5 — читатель трекера (PREPUSH_GH) исполнением: текст из Job, curl — двойник api.github.com
+sed -n "/^cat > \/work\/bin\/gh-issue-public <<'GHP'$/,/^GHP$/p" "$BOX/ws1.cmd" | sed '1d;$d' > "$BOX/ghp.sh"
+mkdir -p "$BOX/ghbin"
+cat > "$BOX/ghbin/curl" <<'GHC'
+#!/usr/bin/env bash
+o=""; u=""
+while [ "$#" -gt 0 ]; do case "$1" in -o) o="$2"; shift 2 ;; -w|-H|--retry|--retry-delay|--connect-timeout|--max-time) shift 2 ;; -*) shift ;; *) u="$1"; shift ;; esac; done
+case "$u" in
+  */issues/11) echo '{"number":11,"title":"t"}' > "$o"; printf 200 ;;
+  */issues/12) echo '{"number":12,"pull_request":{"url":"x"}}' > "$o"; printf 200 ;;
+  *) echo '{"message":"Not Found"}' > "$o"; printf 404 ;;
+esac
+GHC
+chmod +x "$BOX/ghbin/curl"
+ghp() { env PATH="$BOX/ghbin:$PATH" bash "$BOX/ghp.sh" "$@" 2>&1; }
+# shellcheck disable=SC2016  # выражение jq — форма вызова хука
+JQX='"\(.number) \(.pull_request != null)"'
+if [ "$(ghp api repos/PRO-Robotech/kacho-workspace/issues/11 --jq "$JQX")" = "11 false" ]; then ok; else bad WS5 "задача → не «11 false»"; fi
+if [ "$(ghp api repos/PRO-Robotech/kacho-workspace/issues/12 --jq "$JQX")" = "12 true" ]; then ok; else bad WS5 "запрос на слияние → не «12 true»"; fi
+r5="$(ghp api repos/PRO-Robotech/kacho-workspace/issues/13 --jq "$JQX")"; c5=$?
+if [ "$c5" = 1 ] && grep -q 'HTTP 404' <<< "$r5"; then ok; else bad WS5 "нет задачи → код $c5, «$r5» (ждали 1 и «HTTP 404»)"; fi
+ghp api repos/PRO-Robotech/kacho-workspace/pulls/12 --jq "$JQX" >/dev/null; c5=$?
+if [ "$c5" = 4 ]; then ok; else bad WS5 "иная форма вызова → код $c5, ждали 4"; fi
 
 # L0 — двойник печатает адрес и IPv4 (иначе L1 пуста)
 OUT="$BOX/l0.out"

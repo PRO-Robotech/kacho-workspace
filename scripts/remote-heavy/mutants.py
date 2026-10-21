@@ -45,6 +45,22 @@ INJECT = os.path.join(HERE, "inject.sh")
 
 # (id, проба, что портит, фрагмент, замена)
 MUTANTS = [
+    # СРЕДА ВОРКСПЕЙСА (ws#1304): профиль ws — репозиторий, провязка сверки, шаги образа без go.
+    ('ws-repo-off', 'WS1', 'клон воркспейса не принят run.sh: профиль ws без репозитория',
+     'case "$REPO" in kacho|kaname|corelib|kacho-workspace) ;;',
+     'case "$REPO" in kacho|kaname|corelib) ;;'),
+    ('ws-check-unwired', 'WS1', 'сверка среды воркспейса не провязана в подготовку run',
+     '[ "$PROFILE" = ws ] && PREP="$PREP\n$WSCHECK_SH"',
+     '[ "$PROFILE" = none ] && PREP="$PREP\n$WSCHECK_SH"'),
+    ('ws-moddl', 'WS1', 'профиль ws несёт шаг модулей go (образ без go — отказ подготовки)',
+     '[ "$PROFILE" = ws ] || PREP="$PREP\n$MODDL_SH"',
+     'PREP="$PREP\n$MODDL_SH"'),
+    ('ws-bats-unchecked', 'WS4-bats', 'сверка среды воркспейса не судит bats',
+     'for t in bash python3 git curl go node jq yq shellcheck bats; do',
+     'for t in bash python3 git curl go node jq yq shellcheck; do'),
+    ('ws-yq-any', 'WS4-yq3', 'сверка среды воркспейса принимает yq любой версии',
+     'case "$v" in *" v4."*) ;; *) tf "yq в PATH',
+     'case "$v" in *) ;; *) tf "yq в PATH'),
     # ОБРАЗЫ TESTCONTAINERS (ws#1268): предел, застой и код вердикта загрузки.
     ("pull-no-limit", "PW3", "загрузка образа без предела: попытка не ограничена сроком шага",
      "ctx, cancel := context.WithDeadline(context.Background(), deadline)",

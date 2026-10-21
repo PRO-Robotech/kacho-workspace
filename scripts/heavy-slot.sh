@@ -1330,9 +1330,11 @@ fi
 # nohup, setsid, stdbuf, command, time — функция payload): обёртка тяжёлое локально не
 # уводит. Удалённый прогон судит КОММИТ, поэтому условий пять: нагрузка переносима
 # (go, make, линтеры, ci-local.sh, скрипт клона из ведомости PORTABLE — ws#1192), каталог —
-# клон kacho, kaname или corelib,
+# клон kacho, kaname или corelib, либо клон воркспейса (kacho-workspace, ws#1304: хук отправки и
+# наборы с пробами воркспейса классов ci-local и suite — Job профиля ws; иное его — локально),
 # отслеживаемые файлы без правок, номер задачи — из KACHO_TASK либо ведущих цифр
-# имени ветки, кластер принимает (`run.sh --available --profile <класс>`, ws#991).
+# имени ветки, кластер принимает (`run.sh --available --profile <профиль>`, ws#991; профиль —
+# класс, у клона воркспейса — ws). Причина маршрута — полем why= строк remote журнала (ws#1304).
 # Без внешнего пути вообще — хук отправки (`git push`, ws#1106) и клон не продукта —
 # локально с причиной, кластер не спрашивается. Устранимое вызывающим — правки, номер
 # задачи, НЕОПОЗНАННАЯ нагрузка (строка `bash -c`, ключ обёртки вне разбора, иная
@@ -1679,31 +1681,59 @@ ext_run() {
 # integrationshard ci.yml kaname зовёт `.github/scripts/run-integration.sh` (testcontainers — dind
 # профиля integration); до записи слот отвечал на неё 77, и пробы уходили во внешний кластер лишь
 # пересборкой команды мимо скрипта (ws#1192, посадка kaname#871).
-PORTABLE='kaname|.github/scripts/run-integration.sh|integration'
-# portable_script — 0, если слово нагрузки (PAY_I) — скрипт ведомости PORTABLE этого клона и класса.
+# Путь записи — образец оболочки (`*` берёт и «/»): строки kacho-workspace (ws#1304) — наборы и пробы
+# воркспейса, форма шагов его конвейера (`run-all.sh` наборов и `lib/run-suites.sh`, `inject.sh`,
+# `*-inject.sh`, `mutants.py`, проверки наборов, `prove.sh` хуков); исполняет их Job профиля ws
+# (scripts/remote-heavy/run.sh, СРЕДА ВОРКСПЕЙСА). Скрипт с python3 первым словом — слово после
+# ключей интерпретатора.
+PORTABLE='kaname|.github/scripts/run-integration.sh|integration
+kacho-workspace|scripts/*/run-all.sh|ci-local,suite
+kacho-workspace|scripts/lib/run-suites.sh|ci-local,suite
+kacho-workspace|scripts/*/inject.sh|ci-local,suite
+kacho-workspace|scripts/*-inject.sh|ci-local,suite
+kacho-workspace|scripts/*/mutants.py|ci-local,suite
+kacho-workspace|scripts/*/check-*|ci-local,suite
+kacho-workspace|.claude/hooks/*/prove.sh|ci-local,suite'
+# portable_script — 0, если слово нагрузки (PAY_I) — скрипт ведомости PORTABLE этого клона и класса;
+# PORT_REL — его путь в дереве клона.
 portable_script() {
-    local w="${CMD_R[${PAY_I:-0}]:-}" real r p c
+    local i="${PAY_I:-0}" w real r p c
+    PORT_REL=""
     [ -n "$PAY_I" ] && [ -z "$PAY_SH" ] || return 1
+    case "$(basename -- "${CMD_R[$i]:-}")" in
+        python3|python)
+            i=$(( i + 1 ))
+            while [ "$i" -lt "${#CMD_R[@]}" ]; do
+                case "${CMD_R[$i]}" in -X|-W) i=$(( i + 2 )) ;; -c|-m|-) return 1 ;; -*) i=$(( i + 1 )) ;; *) break ;; esac
+            done ;;
+    esac
+    w="${CMD_R[$i]:-}"
     case "$w" in /*|'') return 1 ;; esac
     [ "$w" != "${w#*/}" ] || return 1
     real="$(cd "$PWD" && realpath -e -- "$w" 2>/dev/null)" || return 1
     while IFS='|' read -r r p c; do
         [ "$r" = "$RS_REPO" ] || continue
         [[ ",$c," == *",$CLASS,"* ]] || continue
-        [ "$real" = "$RS_TOP/$p" ] || continue
+        # shellcheck disable=SC2053  # путь записи — образец (строки kacho-workspace)
+        [[ "$real" == "$RS_TOP/"$p ]] || continue
+        p="${real#"$RS_TOP"/}"
         git -C "$RS_TOP" ls-files --error-unmatch -- "$p" > /dev/null 2>&1 || continue
+        PORT_REL="$p"
         return 0
     done <<< "$PORTABLE"
     return 1
 }
 # route_static — статическая часть маршрута Job-ом, ОДНА у прогона и у --route: класс с внешним
-# путём, клон kacho, kaname или corelib (RS_TOP, RS_REPO), нагрузка опознана (RS_KNOWN). 1 — внешнего
-# пути у команды нет (WHY_LOCAL); неопознанная нагрузка пути не закрывает: при доступном кластере —
-# 77, при недоступном — локально с доказательством.
+# путём, клон kacho, kaname, corelib либо воркспейса (RS_TOP, RS_REPO), нагрузка опознана (RS_KNOWN),
+# профиль Job (RS_PROFILE: класс, у клона воркспейса — ws) и причина маршрута (RS_WHY). 1 — внешнего
+# пути у команды нет (WHY_LOCAL); неопознанная нагрузка клона продукта пути не закрывает: при
+# доступном кластере — 77, при недоступном — локально с доказательством. У клона воркспейса путь
+# есть лишь у хука отправки (ci-local) и скриптов ведомости PORTABLE (ci-local, suite): образ
+# профиля ws несёт среду наборов, а не go и make (ws#1304), — прочее идёт без внешнего пути.
 route_static() {
     local url
-    RS_KNOWN=""; RS_TOP=""; RS_REPO=""
-    case "$CLASS" in go-race|integration|lint|ci-local) ;; *) WHY_LOCAL="класс «$CLASS» внешнего пути не имеет"; return 1 ;; esac
+    RS_KNOWN=""; RS_TOP=""; RS_REPO=""; RS_PROFILE=""; RS_WHY=""
+    case "$CLASS" in go-race|integration|lint|ci-local|suite) ;; *) WHY_LOCAL="класс «$CLASS» внешнего пути не имеет"; return 1 ;; esac
     payload
     case "$PAY" in
         go|make|golangci-lint|gosec|govulncheck|ci-local.sh) RS_KNOWN=1 ;;
@@ -1718,8 +1748,21 @@ route_static() {
     url="$(git -C "$RS_TOP" remote get-url origin 2>/dev/null)"
     RS_REPO="${url%.git}"; RS_REPO="${RS_REPO##*/}"
     case "$url" in
-        *PRO-Robotech/kacho|*PRO-Robotech/kacho.git|*PRO-Robotech/kaname|*PRO-Robotech/kaname.git|*PRO-Robotech/corelib|*PRO-Robotech/corelib.git) ;;
-        *) WHY_LOCAL="клон не kacho, kaname или corelib: внешнего пути нет"; return 1 ;;
+        *PRO-Robotech/kacho|*PRO-Robotech/kacho.git|*PRO-Robotech/kaname|*PRO-Robotech/kaname.git|*PRO-Robotech/corelib|*PRO-Robotech/corelib.git)
+            [ "$CLASS" != suite ] || { WHY_LOCAL="класс «suite» — наборы и пробы воркспейса: у клона $RS_REPO внешнего пути нет"; return 1; }
+            RS_PROFILE="$CLASS"; RS_WHY="клон $RS_REPO — Job профиля $CLASS" ;;
+        *PRO-Robotech/kacho-workspace|*PRO-Robotech/kacho-workspace.git)
+            case "$CLASS" in ci-local|suite) ;; *) WHY_LOCAL="клон воркспейса: класс «$CLASS» внешнего пути не имеет — Job профиля ws несёт лишь ci-local и suite"; return 1 ;; esac
+            RS_PROFILE=ws
+            if [ "$PAY" = git ] && [ -n "$RS_KNOWN" ]; then
+                RS_WHY="клон воркспейса, хук отправки — Job профиля ws"
+            elif RS_KNOWN="" && portable_script; then
+                RS_KNOWN=1; RS_WHY="клон воркспейса, скрипт ведомости PORTABLE $PORT_REL — Job профиля ws"
+            else
+                WHY_LOCAL="клон воркспейса: нагрузка «${PAY_SH:-$PAY}» — не хук отправки и не скрипт ведомости PORTABLE относительным путём (run-all.sh, run-suites.sh, inject.sh, *-inject.sh, mutants.py, check-*, prove.sh): внешнего пути нет"; return 1
+            fi
+            return 0 ;;
+        *) WHY_LOCAL="клон не kacho, kaname, corelib или kacho-workspace: внешнего пути нет"; return 1 ;;
     esac
     [ -n "$RS_KNOWN" ] || ! portable_script || RS_KNOWN=1
     return 0
@@ -1741,7 +1784,7 @@ remote_route() {
     fi
     tooling_gate
     ext_enter
-    cluster_check "$CLASS" "$repo" || return 1
+    cluster_check "$RS_PROFILE" "$repo" || return 1
     [ -n "$known" ] || refuse_external "нагрузка «${PAY_SH:-$PAY}» за обёрткой не опознана как переносимая (go, make, golangci-lint, gosec, govulncheck, ci-local.sh; скрипт клона из ведомости PORTABLE — относительным путём) — дай её словами argv: heavy-slot.sh $CLASS -- go …; слот уведёт её Job-ом"
     [ -n "$fix" ] && refuse_external "$fix"
     if [ -n "$GIT_IDX" ]; then
@@ -1749,11 +1792,11 @@ remote_route() {
         if [ ! -x "$HOOKS_ORIG/pre-push" ] || ! git -C "$top" cat-file -e HEAD:scripts/hooks/pre-push 2>/dev/null; then
             WHY_LOCAL="у клона нет хука отправки scripts/hooks/pre-push за .git/hooks/pre-push — Job-у нечего исполнять"; return 1
         fi
-        PUSH_TOP="$top"; PUSH_REPO="$repo"; PUSH_HEAD="$(git -C "$top" rev-parse HEAD)"
+        PUSH_TOP="$top"; PUSH_REPO="$repo"; PUSH_PROFILE="$RS_PROFILE"; PUSH_HEAD="$(git -C "$top" rev-parse HEAD)"
         return 0
     fi
     rel="$(realpath --relative-to="$top" "$PWD")"
-    ROUTE=(bash "$REMOTE_RUN" --task "$TASK" --repo "$repo" --ref "$(git -C "$top" rev-parse HEAD)" --src "$top" --workdir "$rel" --profile "$CLASS" --)
+    ROUTE=(bash "$REMOTE_RUN" --task "$TASK" --repo "$repo" --ref "$(git -C "$top" rev-parse HEAD)" --src "$top" --workdir "$rel" --profile "$RS_PROFILE" --)
     return 0
 }
 # route_print — `--route` (ws#1192): маршрут, который прогон выбрал бы этой команде, теми же
@@ -1781,7 +1824,7 @@ route_print() {
             kind=none; why="строку оболочки «${PAY_SH:-$PAY}» слот не судит — при доступном кластере 77"
         fi
     elif route_static; then
-        if [ -n "$RS_KNOWN" ]; then kind=external; why="Job внешнего кластера: профиль $CLASS, репозиторий $RS_REPO (при недоступном кластере — локально с доказательством)"
+        if [ -n "$RS_KNOWN" ]; then kind=external; why="Job внешнего кластера: профиль $RS_PROFILE, репозиторий $RS_REPO — $RS_WHY (при недоступном кластере — локально с доказательством)"
         else kind=none; why="нагрузка «${PAY_SH:-$PAY}» не опознана как переносимая (go, make, линтеры, ci-local.sh; скрипт ведомости PORTABLE относительным путём) — при доступном кластере 77"; fi
     else
         kind=local; why="$WHY_LOCAL"
@@ -1804,17 +1847,17 @@ push_remote() {
         'tips="$(printf "%s\n" "$lines" | awk '"'"'NF >= 4 && $2 !~ /^0+$/ { print $2 }'"'"' | sort -u)"' \
         'if [ -z "$tips" ]; then printf "%s\n" "$lines" | exec "$HS_ORIG" "$@"; fi' \
         'if [ "$tips" != "$HS_HEAD" ]; then echo 78 > "$HS_RC"; echo "heavy-slot: отправка несёт не голову копии ($(printf "%s" "$tips" | cut -c1-8 | tr "\n" " ")) — Job судит голову; слот повторит отправку локально" >&2; exit 1; fi' \
-        'bash "$HS_RUN" --task "$HS_TASK" --repo "$HS_REPO" --ref "$tips" --src "$HS_TOP" --workdir . --profile ci-local --push-input "$lines" -- bash -c '"'"'printf "%s\n" "$0" | bash scripts/hooks/pre-push "$1" "$2"'"'"' "$lines" "$@"' \
+        'bash "$HS_RUN" --task "$HS_TASK" --repo "$HS_REPO" --ref "$tips" --src "$HS_TOP" --workdir . --profile "$HS_PROFILE" --push-input "$lines" -- bash -c '"'"'printf "%s\n" "$0" | bash scripts/hooks/pre-push "$1" "$2"'"'"' "$lines" "$@"' \
         'rc=$?; echo "$rc" > "$HS_RC"; exit "$rc"' > "$sh/hooks/pre-push"
     chmod +x "$sh/hooks/pre-push"
     local cmd=("${CMD_R[@]:0:$(( GIT_IDX + 1 ))}" -c "core.hooksPath=$sh/hooks" "${CMD_R[@]:$(( GIT_IDX + 1 ))}")
-    journal_early "remote class=$CLASS route=push task=$TASK repo=$PUSH_REPO ref=$PUSH_HEAD who=$(git -C "$PUSH_TOP" branch --show-current 2>/dev/null)@$PWD cmd=$(printf '%q ' "${CMD_R[@]}")"
+    journal_early "remote class=$CLASS route=push profile=$PUSH_PROFILE task=$TASK repo=$PUSH_REPO ref=$PUSH_HEAD why=$RS_WHY who=$(git -C "$PUSH_TOP" branch --show-current 2>/dev/null)@$PWD cmd=$(printf '%q ' "${CMD_R[@]}")"
     say "хук отправки уходит во внешний кластер Job-ом (задача $TASK, $PUSH_REPO @${PUSH_HEAD:0:8}); локально — лишь отправка, слот машины не занимается"
     t0="$(now)"
     ext_run env HS_ORIG="$HOOKS_ORIG/pre-push" HS_HEAD="$PUSH_HEAD" HS_RC="$rcf" HS_RUN="$REMOTE_RUN" HS_TASK="$TASK" \
-        HS_REPO="$PUSH_REPO" HS_TOP="$PUSH_TOP" "${cmd[@]}"
+        HS_REPO="$PUSH_REPO" HS_PROFILE="$PUSH_PROFILE" HS_TOP="$PUSH_TOP" "${cmd[@]}"
     rc=$?; hrc="$(cat "$rcf" 2>/dev/null)"; rm -rf -- "$sh"
-    journal_early "remote-done class=$CLASS route=push rc=$rc hook_rc=${hrc:-—} dur=$(( $(now) - t0 ))s"
+    journal_early "remote-done class=$CLASS route=push profile=$PUSH_PROFILE repo=$PUSH_REPO rc=$rc hook_rc=${hrc:-—} dur=$(( $(now) - t0 ))s"
     case "$hrc" in
         78) WHY_LOCAL="отправка несёт не голову копии — Job судит голову"; return 0 ;;
         69|74|75|124|125)
@@ -1910,11 +1953,11 @@ local_judge() {
         route_static || { LOCAL_MOOT="$WHY_LOCAL: флаг излишен"; return 0; }
         repo="$RS_REPO"
     fi
-    if [ "$CLASS" = stand ]; then cluster_once; else cluster_once "$CLASS" "$repo"; fi
+    if [ "$CLASS" = stand ]; then cluster_once; else cluster_once "$RS_PROFILE" "$repo"; fi
     rc=$?
     case "$rc" in
         0|75)
-            refuse_external "--local «$LOCAL_WHY» отклонён: кластер принимает (проверка — код $rc$( [ "$rc" = 75 ] && echo ', занят: место ждётся --wait N')) — тяжёлое идёт только там (ws#1291). Повтори без --local: heavy-slot.sh $CLASS -- …; слот уведёт команду Job-ом либо назовёт, что поправить. Лёгкий набор проб — класс suite: внешнего пути у него нет" ;;
+            refuse_external "--local «$LOCAL_WHY» отклонён: кластер принимает (проверка — код $rc$( [ "$rc" = 75 ] && echo ', занят: место ждётся --wait N')) — тяжёлое идёт только там (ws#1291). Повтори без --local: heavy-slot.sh $CLASS -- …; слот уведёт команду Job-ом либо назовёт, что поправить. Наборы и пробы воркспейса — класс suite: Job профиля ws (ws#1304)" ;;
         *) LOCAL_PROOF="rc=$rc $CL_OUT" ;;
     esac
 }
@@ -1952,7 +1995,7 @@ elif [ "$REMOTE_ON" = 1 ]; then
         if [ -n "$GIT_IDX" ]; then
             push_remote
         else
-            journal_early "remote class=$CLASS route=job task=$TASK repo=$(printf '%s' "${ROUTE[@]:5:1}") ref=$(printf '%s' "${ROUTE[@]:7:1}") who=$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD cmd=$(printf '%q ' "${CMD_R[@]}")"
+            journal_early "remote class=$CLASS route=job profile=$RS_PROFILE task=$TASK repo=$(printf '%s' "${ROUTE[@]:5:1}") ref=$(printf '%s' "${ROUTE[@]:7:1}") why=$RS_WHY who=$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD cmd=$(printf '%q ' "${CMD_R[@]}")"
             say "класс «$CLASS» уходит во внешний кластер: $(printf '%q ' "${ROUTE[@]:3:6}")— слот машины не занимается"
             if [ -n "$EXT_T" ]; then ext_run "${ROUTE[@]}" "$@"; exit $?; fi
             exec "${ROUTE[@]}" "$@"
