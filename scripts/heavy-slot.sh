@@ -721,15 +721,12 @@ copy_key() {
 # TMPDIR ПРОГОНА КЛАССА suite (ws#1292): наборы и мутанты писали безымянное `mktemp` в системный
 # /tmp — 2473 каталога `tmp.*`, старший ~39 суток, — когда TMPDIR не задан, а уборка исполнилась не
 # на каждом пути выхода. Класс suite без своего TMPDIR (не задан либо системный /tmp) получает
-# каталог прогона $SUITE_TMPROOT/<id слота> под tmp/ воркспейса (канонического: общий каталог git
-# этого файла); выход слота — и на сигнале — снимает его целиком, сирот (слот убит KILL) снимает
-# prune_tmp при следующем входе: каталог без записи active/<id>.slot. Заданный вызывающим TMPDIR
-# сильнее — его уборка его. В режиме проб корень — $DIR/suite-tmp.
+# каталог прогона $SUITE_TMPROOT/<id слота> под общим каталогом слотов (диск, не tmpfs); выход
+# слота — и на сигнале — снимает его целиком, сирот (слот убит KILL) снимает prune_tmp при
+# следующем входе: каталог без записи active/<id>.slot. Заданный вызывающим TMPDIR сильнее — его
+# уборка его. Корень — ВНЕ дерева git: под tmp/ воркспейса пробы «каталог не git», «не клон» и
+# «две копии» находили клон воркспейса — 3 расхождения heavy-slot-inject @3b818bfd0.
 SUITE_TMPROOT="$DIR/suite-tmp"
-if [ "$MEMINFO" = /proc/meminfo ]; then
-    _c="$(git -C "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" &&
-        [ -d "$(dirname -- "$_c")/tmp" ] && SUITE_TMPROOT="$(dirname -- "$_c")/tmp/heavy-slot-tmp"
-fi
 # prune_tmp — снять TMPDIR копий старше срока; занятые слотами не трогает.
 prune_tmp() {
     local d f busy
@@ -1456,8 +1453,10 @@ tooling_gate() {
         out="сверять нечем: $LAG_SH нет"
     fi
     [ "$rc" -eq 0 ] && return 0
-    out="$(printf '%s' "$out" | tr '[:cntrl:]' ' ' | cut -c1-500)"
-    journal_early "stale-tooling class=$CLASS rc=$rc proof=$out who=$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD cmd=$(printf '%q ' "${CMD_R[@]}")"
+    # Предел — строке журнала, не выводу: команда догона в конце строки, а `cut -c` режет байты —
+    # длинный путь выписки срезал её (heavy-slot-inject @3b818bfd0).
+    out="$(printf '%s' "$out" | tr '[:cntrl:]' ' ')"
+    journal_early "stale-tooling class=$CLASS rc=$rc proof=$(printf '%s' "$out" | cut -c1-500) who=$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD cmd=$(printf '%q ' "${CMD_R[@]}")"
     say "оснастка внешнего маршрута не сверена со стволом (${TOOLING_PATHS[*]}, ws#1228): ${out#TOOLING-LAG: } — команда НЕ запускалась ни там, ни локально (код 69, не выполнилось, не красное)."
     say "догони дерево оснастки и повтори ту же команду; локально — лишь --local \"<причина>\" перед классом (testing-verdict.md#external-cluster-first)"
     exit 69

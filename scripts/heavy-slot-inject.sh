@@ -45,6 +45,9 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SLOT="$HERE/heavy-slot.sh"
 IMAGE="${HEAVY_SLOT_PROBE_IMAGE:-python:3.13-slim}"
 W="$(mktemp -d)"
+# Предпосылка проб «каталог не git» и «не клон»: поиск репозитория не поднимается над $W — иначе
+# TMPDIR вызывающего внутри дерева git (копия воркспейса) делает их клоном (@3b818bfd0, 3 расхождения).
+export GIT_CEILING_DIRECTORIES="$W"
 # shellcheck disable=SC2154
 trap '_rc=$?; rm -rf "$W" 2>/dev/null || rm -rf "$W" || echo "ПРЕДУПРЕЖДЕНИЕ: временный каталог $W не снят; код проверки $_rc сохранён" >&2; exit $_rc' EXIT
 
@@ -808,10 +811,13 @@ assert "17 да" "$(ttslot) $(has "$W/argv" '--profile')" "контроль: д�
 ttpush docs/x.md
 rm -f "$W/argv.avail"
 assert "17 нет" "$(ttslot) $(has "$W/err" 'TOOLING-LAG')" "близнец: origin/main впереди лишь вне оснастки (docs/) — слоту не мешает (17)"
+TL="$TT/$(printf 'д%.0s' $(seq 1 120))/ws"; git clone -q "$TT/origin.git" "$TL" 2>/dev/null; git -C "$TL" symbolic-ref HEAD refs/heads/main
 ttpush scripts/remote-heavy/run.sh
 rm -f "$W/argv.avail"
 assert "69 да да нет нет" "$(ttslot) $(has "$W/err" 'отстаёт от origin/main на 1 коммит(ов) по путям scripts/remote-heavy/ scripts/heavy-slot.sh') $(has "$W/err" "merge --ff-only origin/main") $(argv_seen) $(has "$W/out" 'go version go')" "дерево оснастки отстаёт по run.sh на 1 — 69 с числом, путями и командой догона; ни проверки кластера, ни Job, ни локального запуска"
 assert "1" "$(grep -c ' stale-tooling class=lint rc=1 ' "$HEAVY_SLOT_DIR/journal.log" 2>/dev/null)" "отказ записан в журнал слота строкой stale-tooling"
+rm -f "$W/argv"
+assert "69 да" "$(rslot env HEAVY_SLOT_TOOLING_TREE="$TL" bash "$SLOT" lint -- go version) $(has "$W/err" "merge --ff-only origin/main")" "близнец длины: выписка с путём > 240 байт отстаёт — команда догона в выводе цела (журналу — предел, выводу — нет)"
 assert "0 да" "$(FAKE_AVAIL=1 rslot env HEAVY_SLOT_TOOLING_TREE="$TT/ws" bash "$SLOT" --local "сверка ws#1228" lint -- true) $(has "$W/err" 'локально по флагу --local')" "обход — только --local с причиной: маршрут и сверка не судятся"
 git -C "$TT/ws" merge -q --ff-only origin/main
 rm -f "$W/argv.avail"
