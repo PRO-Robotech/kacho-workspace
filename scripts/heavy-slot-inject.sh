@@ -1279,16 +1279,16 @@ genq "$R" A GATE_CAP_MIB=1000 GATE_HOLD="$W/hold7" >/dev/null; RA="$(rcof)"; wai
 genq "$R" B GATE_CAP_MIB=1000 HEAVY_SLOT_ENQ_S=3 >/dev/null; RBB="$(rcof)"; cb="$(await_rc "$RBB")"
 assert "75 A да" "$cb $(gorder) $(has "${RBB%.rc}.log" 'места под запрос')" "...срок заявки истёк при нехватке места — 75, причина кластера названа, команда не запускалась"
 touch "$W/hold7"; await_rc "$RA" >/dev/null
-# Гонка: два билета прошли проверку РАЗОМ, не видя друг друга (GATE_BARRIER), места — на один.
-# Отметившийся позже повторяет проверку с отметившимся раньше и уступает (ext-yield), затем входит
-# сам — коды 0/0, ns разом не больше одного.
+# Гонка: два билета опрашивают кластер РАЗОМ (GATE_BARRIER — решают, не дождавшись друг друга),
+# места — на один. Младший учёл старшего (его запрос — во --pending) и ждёт, старший входит:
+# коды 0/0, ns разом не больше одного — второй переписи run.sh уступать некому.
 race2() {
     gnew; GSLOT="${1:-}"
     genq "$R" A GATE_CAP_MIB=1000 GATE_BARRIER=2 >/dev/null; RA="$(rcof)"; genq "$R" B GATE_CAP_MIB=1000 GATE_BARRIER=2 >/dev/null; RBB="$(rcof)"
     local ca cb; ca="$(await_rc "$RA")"; cb="$(await_rc "$RBB")"
-    echo "$(printf '%s\n' "$ca" "$cb" | sort | tr '\n' '/' | sed 's|/$||') $(cat "$W/gate/maxns" 2>/dev/null || echo 0) $(jsince ext-yield | wc -l)"; GSLOT=""
+    echo "$ca/$cb $(cat "$W/gate/maxns" 2>/dev/null || echo 0) $(gorder)"; GSLOT=""
 }
-assert "0/0 1 1" "$(race2)" "гонка двух на место одного: оба прошли проверку разом — младший уступил (ext-yield 1), коды 0/0, ns разом не больше одного"
+assert "0/0 1 A B" "$(race2)" "гонка двух на место одного: опрос разом — младший учёл старшего и ждёт; коды 0/0, ns разом не больше одного, порядок A B"
 # Старший ждущий не обгоняется: места 2000, A исполняется (1000), B ждёт весь кластер (2000), C (1000)
 # пришёл позже — вместе с B ему места нет, и он ждёт B, хотя с одним A лёг бы.
 fair3() {
@@ -1301,16 +1301,15 @@ fair3() {
     echo "$got / $(await_rc "$RA")/$(await_rc "$RBB")/$(await_rc "$RCC") $(gorder)"; GSLOT=""
 }
 assert "A / 0/0/0 A B C" "$(fair3)" "старший ждущий (B, весь кластер) не обгоняется младшим (C), которому с ним места нет: пока A исполняется, стартов лишь A; порядок A B C"
-# Мутанты: «вход по одному» (вошедший занимает весь кластер), «без повторной проверки», «учёта
-# вошедших нет» (EXT_GATE=0), «старший обгоняется».
+# Мутанты: «вход по одному» (вошедший занимает весь кластер), «старший не учтён» (младший судит
+# лишь вошедших), «учёта вошедших нет» (EXT_GATE=0).
 sed 's/^\( *\)printf '"'"'hs-%s %s\\n'"'"' "\$n" "\$req"$/\1printf '"'"'hs-%s 1000 99999999\\n'"'"' "$n"/' "$SLOT" > "$W/slot-mut-1302a.sh"
-sed 's/^\( *\)if \[ -n "\$new" \]; then$/\1if false; then/' "$SLOT" > "$W/slot-mut-1302b.sh"
+sed 's/^\( *\)\[ -n "\$(field "\$f" go)" \] || { \[ -n "\$me" \] \&\& \[ "\$n" -lt "\$me" \]; } || continue$/\1[ -n "$(field "$f" go)" ] || continue/' "$SLOT" > "$W/slot-mut-1302f.sh"
 sed 's/^EXT_GATE=1$/EXT_GATE=0/' "$SLOT" > "$W/slot-mut-1176a.sh"
-sed 's/^\( *\)\[ -n "\$go" \] || { \[ -n "\$me" \] && \[ "\$n" -lt "\$me" \]; } || continue$/\1[ -n "$go" ] || continue/' "$SLOT" > "$W/slot-mut-1302f.sh"
 assert "1 1" "$(diff "$SLOT" "$W/slot-mut-1302a.sh" | grep -c '^<') $(entry_n "$W/slot-mut-1302a.sh" 6 | cut -d' ' -f1)" "мутант «вход по одному»: сцена трёх одновременных — в стадии запуска лишь один (проба выше его ловит)"
-assert "1 да" "$(diff "$SLOT" "$W/slot-mut-1302b.sh" | grep -c '^<') $(r="$(race2 "$W/slot-mut-1302b.sh")"; case "$r" in "0/0 1 1") echo "нет($r)" ;; *) echo да ;; esac)" "мутант «без повторной проверки»: сцена гонки — младший не уступил (75 второй переписи run.sh либо ns разом два; проба выше его ловит)"
-assert "1 да" "$(diff "$SLOT" "$W/slot-mut-1176a.sh" | grep -c '^<') $(r="$(race2 "$W/slot-mut-1176a.sh")"; case "$r" in "0/0 1 1") echo "нет($r)" ;; *) echo да ;; esac)" "мутант «учёта вошедших нет» (EXT_GATE=0): сцена гонки — 75 второй переписи run.sh (проба выше его ловит)"
-assert "1 да" "$(diff "$SLOT" "$W/slot-mut-1302f.sh" | grep -c '^<') $(r="$(fair3 "$W/slot-mut-1302f.sh")"; case "$r" in "A / 0/0/0 A B C") echo "нет($r)" ;; *) echo да ;; esac)" "мутант «старший обгоняется»: C стартует при A, пока B ждёт (проба выше его ловит)"
+assert "1 да" "$(diff "$SLOT" "$W/slot-mut-1302f.sh" | grep -c '^<') $(r="$(race2 "$W/slot-mut-1302f.sh")"; case "$r" in "0/0 1 A B") echo "нет($r)" ;; *) echo да ;; esac)" "мутант «старший не учтён»: сцена гонки — оба вошли, младший по ns снят второй переписью run.sh (75) либо ns разом два (проба выше его ловит)"
+assert "1 да" "$(diff "$SLOT" "$W/slot-mut-1302f.sh" | grep -c '^<') $(r="$(fair3 "$W/slot-mut-1302f.sh")"; case "$r" in "A / 0/0/0 A B C") echo "нет($r)" ;; *) echo да ;; esac)" "...тот же мутант: C стартует при A, пока B ждёт (проба старшинства выше его ловит)"
+assert "1 да" "$(diff "$SLOT" "$W/slot-mut-1176a.sh" | grep -c '^<') $(r="$(race2 "$W/slot-mut-1176a.sh")"; case "$r" in "0/0 1 A B") echo "нет($r)" ;; *) echo да ;; esac)" "мутант «учёта вошедших нет» (EXT_GATE=0): сцена гонки — 75 второй переписи run.sh либо ns разом два (проба выше его ловит)"
 # Связка с настоящим run.sh: --request отвечает запросом «mCPU МиБ» без кластера (тем же sizing).
 assert "да" "$(bash "$HERE/remote-heavy/run.sh" --request --profile lint --repo kaname 2>/dev/null | grep -qE '^[1-9][0-9]* [1-9][0-9]*$' && echo да || echo нет)" "связка с run.sh: --request --profile lint --repo kaname — «mCPU МиБ» (heavy-slot берёт запрос билета у него)"
 # Внешний вход очередь памяти не держит: локальная команда входит, пока внешний билет в стадии запуска.
