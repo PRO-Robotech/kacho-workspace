@@ -639,6 +639,23 @@ sed 's|^    \[ -n "\$SUITE_TMP" \] \&\& rm -rf --one-file-system -- "\$SUITE_TMP
 assert "1 0 нет" "$(diff "$SLOT" "$W/slot-mut-st.sh" | grep -c '^<') $(slot -u TMPDIR bash "$W/slot-mut-st.sh" suite -- sh -c "$LEAK" "$W/stt6") $(gone "$W/stt6")" "мутант «выход не снимает каталог прогона»: след остаётся — проба «снят выходом» выше его ловит"
 rm -rf -- "$(cat "$W/stt6" 2>/dev/null)"
 
+echo "── --waits: ожидание входа класса по журналу — медиана для решения о пуле suite (ws#1291)"
+# Журнал синтетический: вошедшие suite 100/300/500 с, не дождавшийся 200 с, отказ 74, чужой класс,
+# строка старше окна. Каждая порча — один факт: окно, класс, вид строки.
+WJ="$W/wslots"; mkdir -p "$WJ"; wnow="$(date -Is)"; wold="$(date -Is -d '-30 hours')"
+{
+    echo "$wnow enter id=1 class=suite budget=1536MiB waited=100s head=x who=w cmd=c"
+    echo "$wnow enter id=2 class=suite budget=1536MiB waited=500s head=x who=w cmd=c"
+    echo "$wnow timeout class=suite budget=1536MiB ahead=1 waited=200s ticket=t who=w cmd=c"
+    echo "$wnow enter id=3 class=suite budget=1536MiB waited=300s head=x who=w cmd=c"
+    echo "$wnow busy class=suite budget=1536MiB ahead=2 ticket=t who=w cmd=c"
+    echo "$wnow enter id=4 class=lint budget=512MiB waited=9000s head=x who=w cmd=c"
+    echo "$wold enter id=5 class=suite budget=1536MiB waited=7000s head=x who=w cmd=c"
+} > "$WJ/journal.log"
+assert "0 WAITS class=suite hours=24 n=4 median=250s p90=500s max=500s timeout75=1 busy74=1" "$(slot HEAVY_SLOT_DIR="$WJ" bash "$SLOT" --waits suite) $(cat "$W/out")" "suite за 24 ч: медиана чётного числа, p90, наибольшее; 74 — счётом, чужой класс и строка вне окна не входят"
+assert "0 n=5 max=7000s" "$(slot HEAVY_SLOT_DIR="$WJ" bash "$SLOT" --waits suite 48) $(grep -o 'n=[0-9]*' "$W/out") $(grep -o 'max=[0-9]*s' "$W/out")" "близнец: окно 48 ч — старая строка входит"
+assert "2 да" "$(slot HEAVY_SLOT_DIR="$WJ" bash "$SLOT" --waits go-race) $(has "$W/out" 'медиана не установлена')" "записей класса нет — код 2, «не установлена», а не ноль ожидания"
+assert "64 64" "$(slot HEAVY_SLOT_DIR="$WJ" bash "$SLOT" --waits no-such) $(slot HEAVY_SLOT_DIR="$WJ" bash "$SLOT" --waits suite 0)" "неизвестный класс и окно 0 ч — 64"
 echo "── внешний кластер: тяжёлый класс уходит в run.sh, локально — только с причиной (ws#984)"
 # Двойник run.sh пишет свой argv и отвечает на --available кодом FAKE_AVAIL; клон —
 # настоящий git с origin вида PRO-Robotech/kaname и веткой 984-x.
