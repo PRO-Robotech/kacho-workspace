@@ -570,6 +570,69 @@ t0="$(date +%s)"; kill -TERM "$S"; wait "$S"; rc=$?; t1="$(date +%s)"
 alive="нет"; kill -0 "$(cat "$W/cmdpid" 2>/dev/null || echo 999999)" 2>/dev/null && alive="да"
 assert "143 0 нет да" "$rc $(entries) $alive $([ $(( t1 - t0 )) -lt 10 ] && echo да || echo нет)" "TERM слоту → 143 сразу, записи нет, команда снята"
 
+echo "── порождения процессов — признак машины, как память: вход по порогу, пик и счёт в журнале (ws#1291)"
+# Счётчик подаётся синтетическим /proc/stat (HEAVY_SLOT_PROCSTAT): вход судит темп за окно 1 с,
+# сторож — темп за свой шаг. Рост счётчика в окне делает писатель пробы, а не машина: исход не
+# зависит от соседних полос. Каждый случай меняет ОДИН факт против близнеца.
+PS="$W/procstat"; echo "processes 1000" > "$PS"
+# spawn_storm <с> — писатель поднимает счётчик на 1000 каждые 0,1 с: темп ~10000/с.
+spawn_storm() { local i=0; while [ "$i" -lt $(( $1 * 10 )) ]; do i=$((i + 1)); echo "processes $(( 1000 + i * 1000 ))" > "$PS.tmp" && mv -f "$PS.tmp" "$PS"; sleep 0.1; done; }
+JS="$HEAVY_SLOT_DIR/journal.log"
+assert "0 1" "$(slot HEAVY_SLOT_PROCSTAT="$PS" HEAVY_SLOT_SPAWN_MAX=100 bash "$SLOT" docker -- true) $(grep -c ' enter id=.* spawn=0/s ' "$JS")" "близнец: счётчик стоит — темп 0/с ≤ 100, слот выдан, темп в строке enter"
+spawn_storm 4 & SPW=$!
+assert "74 да нет" "$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_PROCSTAT="$PS" HEAVY_SLOT_SPAWN_MAX=100 bash "$SLOT" --wait 0 docker -- touch "$W/sp1") $(has "$W/err" 'порождений процессов') $([ -e "$W/sp1" ] && echo да || echo нет)" "темп выше порога — место не выдано (74), причина «порождений процессов … > порога», команда не запускалась"
+wait "$SPW"; echo "processes 1000" > "$PS"
+assert "1" "$(grep -c ' busy class=docker .* spawn=[0-9][0-9]*/s ' "$JS")" "невыдача по темпу записана строкой busy с темпом"
+spawn_storm 4 & SPW=$!
+assert "0" "$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_PROCSTAT="$PS" HEAVY_SLOT_SPAWN_MAX=1000000 bash "$SLOT" --wait 0 docker -- true)" "близнец: тот же темп при пороге выше него — слот выдан"
+wait "$SPW"; echo "processes 1000" > "$PS"
+# Сторож: команда сама поднимает счётчик посреди прогона — первое превышение строкой spawn-over.
+# shellcheck disable=SC2016  # тело `bash -c` раскрывает дочерняя оболочка
+JUMP='sleep 2.5; echo "processes 900000" > "$0"; sleep 2.5'
+b0="$(grep -c ' spawn-over id=' "$JS")"
+assert "0 $((b0 + 1)) да" "$(slot HEAVY_SLOT_PROCSTAT="$PS" HEAVY_SLOT_SPAWN_MAX=100 bash "$SLOT" docker -- bash -c "$JUMP" "$PS") $(grep -c ' spawn-over id=' "$JS") $(grep -qE ' leave .* spawns=899000 spawn_peak=[0-9]+/s ' <<<"$(tail -n 1 "$JS")" && echo да || echo нет)" "темп посреди прогона выше порога — строка spawn-over, выход — spawns= и spawn_peak= в leave"
+echo "processes 1000" > "$PS"
+assert "0 $((b0 + 1))" "$(slot HEAVY_SLOT_PROCSTAT="$PS" HEAVY_SLOT_SPAWN_MAX=100000000 bash "$SLOT" docker -- bash -c "$JUMP" "$PS") $(grep -c ' spawn-over id=' "$JS")" "близнец: тот же скачок под порогом — spawn-over нет"
+assert "0 да" "$(slot bash "$SLOT" docker -- true) $(grep -qF ' spawns=— spawn_peak=—/s ' <<<"$(tail -n 1 "$JS")" && echo да || echo нет)" "режим проб без HEAVY_SLOT_PROCSTAT — темп не судится и назван «—», а не нулём"
+assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_PROCSTAT="$PS" bash "$SLOT" docker -- touch "$W/sp2") $(has "$W/err" 'HEAVY_SLOT_PROCSTAT')" "над настоящей памятью синтетический счётчик — ручка, 64"
+assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_SPAWN_MAX=999999 bash "$SLOT" docker -- touch "$W/sp3") $(has "$W/err" 'HEAVY_SLOT_SPAWN_MAX')" "над настоящей памятью порог порождений — ручка, 64"
+# shellcheck disable=SC2016  # образец sed и тело `sh -c` раскрывает не эта оболочка
+sed 's|^    \[ -n "\$srate" \] && \[ "\$srate" -gt "\$SPAWN_MAX" \] && full=|    false \&\& full=|' "$SLOT" > "$W/slot-mut-sp.sh"
+spawn_storm 4 & SPW=$!
+assert "1 0" "$(diff "$SLOT" "$W/slot-mut-sp.sh" | grep -c '^<') $(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_PROCSTAT="$PS" HEAVY_SLOT_SPAWN_MAX=100 bash "$W/slot-mut-sp.sh" --wait 0 docker -- true)" "мутант «темп входа не судится»: шторм входит (0) — проба «74 по темпу» выше его ловит"
+wait "$SPW"; echo "processes 1000" > "$PS"
+
+echo "── класс suite — наборы и пробы оснастки; нагрузка продукта под ним — 64 (ws#1291)"
+assert "1" "$(bash "$SLOT" --classes 2>/dev/null | grep -c '^suite ')" "класс suite в --classes"
+assert "1536" "$(bash "$SLOT" --budget suite)" "бюджет suite — 1536 МиБ (основание — в --classes)"
+# shellcheck disable=SC2016  # образец sed и тело `sh -c` раскрывает не эта оболочка
+assert "0 да" "$(slot bash "$SLOT" suite -- sh -c 'touch "$0"' "$W/su1") $([ -e "$W/su1" ] && echo да || echo нет)" "набор под suite исполняется слотом"
+for pl in "go version" "make -v" "golangci-lint version" "env FOO=1 go vet ./..." "nice -n 5 bash scripts/ci-local.sh"; do
+    # shellcheck disable=SC2086  # нагрузка — слова
+    assert "64 да" "$(slot bash "$SLOT" suite -- $pl) $(has "$W/err" 'нагрузка продукта')" "suite -- $pl → 64: нагрузке продукта положен свой класс"
+done
+assert "0" "$(slot bash "$SLOT" suite -- git --version)" "близнец: git без отправки под suite — исполняется"
+git init -q "$W/sugit"
+assert "64 да" "$(cd "$W/sugit" && slot bash "$SLOT" suite -- git push -q origin HEAD) $(has "$W/err" 'нагрузка продукта')" "suite -- git push → 64: отправке положен ci-local"
+assert "64 да" "$(cd "$W/sugit" && env HEAVY_SLOT_REMOTE_RUN="$W/nope" bash "$SLOT" --route suite -- go version 2>"$W/err" >/dev/null; echo $?) $(has "$W/err" 'нагрузка продукта')" "--route судит тем же: suite -- go → 64"
+
+echo "── --waits: ожидание входа класса по журналу — медиана для решения о пуле suite (ws#1291)"
+# Журнал синтетический: вошедшие suite 100/300/500 с, не дождавшийся 200 с, отказ 74, чужой класс,
+# строка старше окна. Каждая порча — один факт: окно, класс, вид строки.
+WJ="$W/wslots"; mkdir -p "$WJ"; wnow="$(date -Is)"; wold="$(date -Is -d '-30 hours')"
+{
+    echo "$wnow enter id=1 class=suite budget=1536MiB waited=100s head=x who=w cmd=c"
+    echo "$wnow enter id=2 class=suite budget=1536MiB waited=500s head=x who=w cmd=c"
+    echo "$wnow timeout class=suite budget=1536MiB ahead=1 waited=200s ticket=t who=w cmd=c"
+    echo "$wnow enter id=3 class=suite budget=1536MiB waited=300s head=x who=w cmd=c"
+    echo "$wnow busy class=suite budget=1536MiB ahead=2 ticket=t who=w cmd=c"
+    echo "$wnow enter id=4 class=lint budget=512MiB waited=9000s head=x who=w cmd=c"
+    echo "$wold enter id=5 class=suite budget=1536MiB waited=7000s head=x who=w cmd=c"
+} > "$WJ/journal.log"
+assert "0 WAITS class=suite hours=24 n=4 median=250s p90=500s max=500s timeout75=1 busy74=1" "$(slot HEAVY_SLOT_DIR="$WJ" bash "$SLOT" --waits suite) $(cat "$W/out")" "suite за 24 ч: медиана чётного числа, p90, наибольшее; 74 — счётом, чужой класс и строка вне окна не входят"
+assert "0 n=5 max=7000s" "$(slot HEAVY_SLOT_DIR="$WJ" bash "$SLOT" --waits suite 48) $(grep -o ' n=[0-9]*' "$W/out" | tr -d ' ') $(grep -o 'max=[0-9]*s' "$W/out")" "близнец: окно 48 ч — старая строка входит"
+assert "2 да" "$(slot HEAVY_SLOT_DIR="$WJ" bash "$SLOT" --waits go-race) $(has "$W/out" 'медиана не установлена')" "записей класса нет — код 2, «не установлена», а не ноль ожидания"
+assert "64 64" "$(slot HEAVY_SLOT_DIR="$WJ" bash "$SLOT" --waits no-such) $(slot HEAVY_SLOT_DIR="$WJ" bash "$SLOT" --waits suite 0)" "неизвестный класс и окно 0 ч — 64"
 echo "── внешний кластер: тяжёлый класс уходит в run.sh, локально — только с причиной (ws#984)"
 # Двойник run.sh пишет свой argv и отвечает на --available кодом FAKE_AVAIL; клон —
 # настоящий git с origin вида PRO-Robotech/kaname и веткой 984-x.
@@ -848,14 +911,26 @@ b="$(jn ' local class=stand proof=rc=69')"
 assert "0 да $((b + 1))" "$(FAKE_AVAIL=1 rslot bash "$SLOT" stand -- bash -c 'touch "$1"' x "$W/st2" own-up) $([ -e "$W/st2" ] && echo да || echo нет) $(jn ' local class=stand proof=rc=69')" "стенд: own-up при недоступном кластере → локально, вывод проверки в журнале"
 rm -f "$W/argv.avail"
 assert "0 да нет" "$(rslot bash "$SLOT" stand -- bash -c 'touch "$1"' x "$W/st3" stand-ns-up) $([ -e "$W/st3" ] && echo да || echo нет) $([ -e "$W/argv.avail" ] && echo да || echo нет)" "близнец: stand-ns-up (внешний путь) маршрут не судит — идёт, кластер не спрашивается"
-echo "── --local на ПЕРЕНОСИМОЙ команде в чистом клоне при доступном кластере (мутант G — ws#1105)"
+echo "── --local судится: при принимающем кластере — 77, локально лишь при отказавшем механизме (ws#1291; прежде мутант G — ws#1105)"
 rm -f "$W/argv" "$W/argv.avail"
 assert "17" "$(rslot bash "$SLOT" lint -- go version)" "контроль: go version без флага в чистом клоне → run.sh (17)"
-b="$(jn ' bypass-local class=lint why=проба G: переносимая команда локально')"
+b="$(jn ' bypass-local class=lint why=проба G: переносимая команда локально')"; be="$(jn ' external class=lint how=--local «проба G')"
 rm -f "$W/argv" "$W/argv.avail"
-assert "0 нет нет $((b + 1))" "$(rslot bash "$SLOT" --local 'проба G: переносимая команда локально' lint -- go version) $([ -e "$W/argv" ] && echo да || echo нет) $([ -e "$W/argv.avail" ] && echo да || echo нет) $(jn ' bypass-local class=lint why=проба G: переносимая команда локально')" "та же команда с --local → локально (0), кластер не спрашивался, bypass-local в журнале"
+assert "77 нет да нет $b $((be + 1)) да" "$(rslot bash "$SLOT" --local 'проба G: переносимая команда локально' lint -- go version) $([ -e "$W/argv" ] && echo да || echo нет) $([ -e "$W/argv.avail" ] && echo да || echo нет) $(has "$W/out" 'go version go') $(jn ' bypass-local class=lint why=проба G: переносимая команда локально') $(jn ' external class=lint how=--local «проба G') $(has "$W/err" 'отклонён: кластер принимает')" "та же команда с --local при принимающем кластере → 77: кластер спрошен, Job не звался, локально не шла, bypass-local нет, external в журнале, причина названа"
+rm -f "$W/argv.avail"
+assert "77 да" "$(FAKE_AVAIL=3 rslot bash "$SLOT" --local 'проба G: кластер занят местом' lint -- go version) $(has "$W/err" 'занят: место ждётся --wait N')" "--local при занятом кластере (75) → 77: занятость — не недоступность"
+b="$(jn ' bypass-local class=lint why=проба G: кластер не отвечает proof=rc=69')"
+assert "0 да $((b + 1))" "$(FAKE_AVAIL=1 rslot bash "$SLOT" --local 'проба G: кластер не отвечает' lint -- go version) $(has "$W/out" 'go version go') $(jn ' bypass-local class=lint why=проба G: кластер не отвечает proof=rc=69')" "близнец: --local при недоступном кластере → локально, вывод проверки — proof= строки bypass-local"
+b="$(jn ' bypass-local class=lint why=проба G: дефект обёртки proof=rc=70')"
+assert "0 $((b + 1))" "$(FAKE_AVAIL=8 rslot bash "$SLOT" --local 'проба G: дефект обёртки' lint -- go version) $(jn ' bypass-local class=lint why=проба G: дефект обёртки proof=rc=70')" "близнец: --local при дефекте обёртки (70) → локально с proof: флаг — обход отказавшего механизма"
+b="$(jn 'why=проба G: внешнего пути нет moot=')"; rm -f "$W/argv.avail"
+assert "0 нет $((b + 1))" "$(rslot bash "$SLOT" --local 'проба G: внешнего пути нет' --wait 0 newman -- true) $([ -e "$W/argv.avail" ] && echo да || echo нет) $(jn 'why=проба G: внешнего пути нет moot=')" "близнец: --local у класса без внешнего пути — кластер не спрашивается, флаг назван излишним (moot=)"
+# shellcheck disable=SC2016  # образец sed и тело `sh -c` раскрывает не эта оболочка
+sed 's|^    \[ "\$REMOTE_ON" = 1 \] \&\& local_judge$|    :|' "$SLOT" > "$W/slot-mut-lj.sh"
+rm -f "$W/argv.avail"
+assert "1 0" "$(diff "$SLOT" "$W/slot-mut-lj.sh" | grep -c '^<') $(rslot bash "$W/slot-mut-lj.sh" --local 'проба G: мутант без суждения' lint -- go version)" "мутант «--local не судится»: при принимающем кластере локально (0) — проба «77» выше его ловит"
 (cd "$R" && bash "$SLOT" --status > "$W/status" 2>/dev/null)
-assert "да" "$(has "$W/status" 'why=проба G: переносимая команда локально')" "обход G виден в --status"
+assert "да" "$(has "$W/status" 'why=проба G: кластер не отвечает')" "обход G при недоступном кластере виден в --status"
 assert 64 "$(rslot bash "$SLOT" lint --local 'проба: флаг после класса' -- go version)" "--local после класса — 64 (форма вызова), не тихий локальный запуск"
 b="$(jn 'why=проба переноса строки вторая строка')"
 assert "0 $((b + 1)) 0" "$(rslot bash "$SLOT" --local $'проба переноса строки\nвторая строка' --wait 0 newman -- true) $(jn 'why=проба переноса строки вторая строка') $(grep -c '^вторая строка' "$JL")" "причина с переводом строки — одна строка журнала, вторая строкой журнала не стала"
@@ -1089,7 +1164,9 @@ echo c >> "$R/f"
 assert 64 "$(rslot bash "$SLOT" --local коротко go-race -- true)" "--local без причины (< 12 символов) — 64"
 b="$(jn ' bypass-local class=go-race why=проба обхода: стенд снят владельцем')"
 rm -f "$W/argv" "$W/argv.avail"
-assert "0 нет нет $((b + 1))" "$(rslot bash "$SLOT" --local 'проба обхода: стенд снят владельцем' go-race -- true) $([ -e "$W/argv" ] && echo да || echo нет) $([ -e "$W/argv.avail" ] && echo да || echo нет) $(jn ' bypass-local class=go-race why=проба обхода: стенд снят владельцем')" "--local с причиной при доступном кластере и правке → локально, кластер не спрашивается, причина в журнале"
+assert "77 нет да $b да" "$(rslot bash "$SLOT" --local 'проба обхода: стенд снят владельцем' go-race -- true) $([ -e "$W/argv" ] && echo да || echo нет) $([ -e "$W/argv.avail" ] && echo да || echo нет) $(jn ' bypass-local class=go-race why=проба обхода: стенд снят владельцем') $(has "$W/err" 'Повтори без --local')" "--local с причиной при доступном кластере и правке → 77 (ws#1291): кластер спрошен, локально не шла, bypass-local нет, подсказка названа"
+b="$(jn ' bypass-local class=go-race why=проба обхода: кластер снят владельцем')"
+assert "0 $((b + 1))" "$(FAKE_AVAIL=2 rslot bash "$SLOT" --local 'проба обхода: кластер снят владельцем' go-race -- true) $(jn ' bypass-local class=go-race why=проба обхода: кластер снят владельцем')" "близнец: та же правка, узла нет (69) → --local локально, причина в журнале"
 # Чтение и поиск разведены: `grep -q` в конце трубы под pipefail рвёт писателя (ws#395).
 (cd "$R" && bash "$SLOT" --status > "$W/status" 2>/dev/null)
 assert "да" "$(has "$W/status" 'локально по флагу --local')" "обход флагом виден в --status"

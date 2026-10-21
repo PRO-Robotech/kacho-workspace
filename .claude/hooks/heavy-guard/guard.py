@@ -90,13 +90,61 @@ import sys
 
 # Имена классов — те же, что у слота (`heavy-slot.sh --classes`), в обе стороны, и
 # в порядке убывания бюджета: из нескольких найденных берётся первый (сверяет prove.sh).
-RANK = ("go-race", "ci-local", "integration", "lint", "stand", "docker", "newman")
+RANK = ("go-race", "ci-local", "integration", "lint", "stand", "docker", "newman", "suite")
 
 # Скрипт, чей класс не выводится из текста: ci-local — класс слота со своим TMPDIR
 # (замок golangci-lint), а по тексту вышел бы go-race; newman-parallel зовёт
 # run.sh наборов из вычисляемого каталога (`cd "$d" && ./scripts/run.sh`). Запись
 # без файла в дереве продукта находит prove.sh.
 SCRIPTS = {"ci-local.sh": "ci-local", "newman-parallel.sh": "newman"}
+
+# Наборы и пробы воркспейса — класс suite (ws#1291): 2026-10-21 02:02 load average 16,2 при
+# простое CPU 82–88 % — наборы с мутантами шли из копий полос голыми, мимо слота. Тяжесть их —
+# не в словах (python3, bash, grep), а в числе порождений, и по тексту она не выводится; признак —
+# место и имя по соглашению корпуса: дерево воркспейса (в корне — scripts/heavy-slot.sh, как у
+# брони отправки слота), файл под scripts/ или .claude/hooks/, имя прогонщика набора (run-all.sh,
+# `scripts/lib/suites.py` RUNNER), его доказательства (inject.sh — PROOF, части inject-<N>*.sh),
+# отдельной пробы (*-inject.sh, prove.sh, prove-all.sh), мутантов (mutants.py, *-mutants.py) и
+# сводных прогонщиков (run-suites.sh, hook-proofs.sh). Перечень сверяет prove.sh в обе стороны с
+# деревом: каждый набор suites.py и каждый шаг конвейера ci.yaml с таким именем — suite. Проверка
+# набора по одной (check-*) — не набор: она быстра и слота не требует.
+SUITE_NAME = re.compile(r"^(run-all\.sh|inject\.sh|inject-[^/]+\.sh|[^/]+-inject\.sh|prove\.sh|"
+                        r"prove-all\.sh|mutants\.py|[^/]+-mutants\.py|run-suites\.sh|hook-proofs\.sh)$")
+PYTHONS = re.compile(r"^python(3(\.\d+)?)?$")
+PY_VALUE = {"-W", "-X", "-Q"}  # опции python, берущие значение отдельным словом
+
+
+def ws_top(path):
+    """Корень дерева воркспейса, которому принадлежит файл, либо None."""
+    top = repo_top(os.path.dirname(path))
+    if top and os.path.isfile(os.path.join(top, "scripts", "heavy-slot.sh")):
+        return top
+    return None
+
+
+def suite_member(path):
+    """Файл — набор или проба воркспейса (SUITE_NAME под scripts/ или .claude/hooks/)."""
+    top = ws_top(path) if path else None
+    if not top:
+        return False
+    rel = os.path.relpath(path, top)
+    return rel.startswith(("scripts/", ".claude/hooks/")) and bool(SUITE_NAME.match(os.path.basename(rel)))
+
+
+def python_script(args):
+    """Скрипт вызова python: первое слово после опций; -m и -c — не скрипт (None)."""
+    k = 0
+    while k < len(args):
+        a = args[k]
+        if a == "--":
+            return args[k + 1] if k + 1 < len(args) else None
+        if a in ("-m", "-c") or (a.startswith("-") and not a.startswith("--") and a[-1:] in "mc" and len(a) > 1):
+            return None
+        if a.startswith("-") and a != "-":
+            k += 2 if a in PY_VALUE else 1
+            continue
+        return a
+    return None
 
 KEYWORDS = {"!", "{", "do", "then", "else", "elif", "if", "while", "until"}
 # обёртка → её опции, берущие значение отдельным словом; прочие «-…» — флаги
@@ -597,15 +645,20 @@ def repo_top(path):
 
 
 def push_runs_ci_local(path):
-    """git push тяжёл там, где pre-push клона зовёт ci-local.sh (признак — дерево)."""
+    """git push тяжёл там, где pre-push клона зовёт ci-local.sh, и в воркспейсе, чей pre-push
+    гонит его наборы run-all.sh (ws#1291; признак — дерево). Класс — ci-local: отправку слот
+    ведёт им (бронь по предмету, keepalive ssh)."""
     top = repo_top(path)
-    if not top or not os.path.isfile(os.path.join(top, "scripts", "ci-local.sh")):
+    if not top:
         return False
     try:
         with open(os.path.join(top, "scripts", "hooks", "pre-push"), encoding="utf-8") as fh:
-            return "ci-local.sh" in fh.read()
+            text = fh.read()
     except OSError:
         return False
+    if "ci-local.sh" in text and os.path.isfile(os.path.join(top, "scripts", "ci-local.sh")):
+        return True
+    return "run-all.sh" in text and os.path.isfile(os.path.join(top, "scripts", "heavy-slot.sh"))
 
 
 HELM_SUBS = {"completion", "create", "dependency", "env", "get", "help", "history", "install",
@@ -1007,7 +1060,11 @@ def classify_argv(env, argv, cwd, ctx, level, alt):
             return None
         if os.path.basename(script) in SCRIPTS:
             return SCRIPTS[os.path.basename(script)]
-        return best(file_classes(script, cwd, ctx, level, alt, True, env))
+        got = file_classes(script, cwd, ctx, level, alt, True, env)
+        return best(got | ({"suite"} if suite_member(resolve(script, cwd, alt)) else set()))
+    if PYTHONS.match(base):
+        script = python_script(args)
+        return "suite" if script and suite_member(resolve(script, cwd, alt)) else None
     if base in (".", "source"):
         return best(file_classes(args[0], cwd, ctx, level, alt, True, env)) if args else None
     if base == "eval":
@@ -1083,13 +1140,16 @@ def classify_argv(env, argv, cwd, ctx, level, alt):
             else:
                 k += 1
         if args[k:k + 1] == ["push"] and "--no-verify" not in args:
+            if where and ("$" in where or "__SUBST__" in where):
+                return None  # клон в переменной не представим: его хук не прочесть
             base_dir = cwd or os.getcwd()
             path = os.path.join(base_dir, os.path.expanduser(where)) if where else base_dir
             if push_runs_ci_local(path):
                 return "ci-local"
         return None
     if "/" in argv[0]:
-        c = best(file_classes(argv[0], cwd, ctx, level, alt, False, env))
+        got = file_classes(argv[0], cwd, ctx, level, alt, False, env)
+        c = best(got | ({"suite"} if suite_member(resolve(argv[0], cwd, alt)) else set()))
         if c:
             return c
     if base in NON_EXEC or "$" in argv[0] or "__SUBST__" in argv[0]:

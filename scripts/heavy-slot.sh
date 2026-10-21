@@ -23,6 +23,8 @@
 #   heavy-slot.sh --status      занятые слоты, билеты очереди и внешнего входа, память машины, хвост журнала
 #   heavy-slot.sh --cancel <билет | журнал заявки>  снять СВОЮ заявку (ждущую, отложенную, внешнего входа) и её --enqueue
 #   heavy-slot.sh --prune-tmp   снять TMPDIR копий класса ci-local, не тронутые > 7 суток
+#   heavy-slot.sh --waits <класс> [часов]  ожидание входа класса за окно (24 ч) по журналу: медиана,
+#               p90, наибольшее, отказы 74 и 75; записей ноль — код 2 (ниже, у waits_report)
 #
 # ВХОД — очередь по билету под flock на каталоге слотов, ОДНОМ на машину (малый билет
 # обгоняет ждущего БОЛЬШЕГО, которому места сейчас нет, — не более BYPASS_MAX раз, ws#1161 д);
@@ -133,7 +135,7 @@
 # сетевым признаком — команда не запускалась ни там, ни локально; дерево оснастки отстаёт
 # от origin/main по run.sh и слоту либо отставание не установлено — ws#1228); 74 — слот занят, ожидания не было (очередь K названа); 75 — слот не
 # выдан за --wait N; 76 — команда оборвана пределом памяти; 77 — кластер доступен, и
-# команде место там: локально она не запускалась, текст «во внешний кластер: <как>».
+# команде место там (и с --local — ws#1291): локально она не запускалась, текст «во внешний кластер: <как>».
 # 69, 74, 75, 76 и 77 — «не выполнилось», а не красное: вердикта по предмету команды
 # нет. Своё слово слот печатает строкой «heavy-slot: …» в stderr.
 #
@@ -147,7 +149,8 @@
 # (ws#1143; условия и ГРАНИЦА — у stand_ns_light ниже).
 # Локально — с причиной в журнале
 # (local … why=…, при недоступном — и proof=… вывода проверки), либо флагом --local
-# с причиной (bypass-local, «локально по флагу» в --status); условия — у блока
+# с причиной (bypass-local, «локально по флагу» в --status) — лишь когда кластер не принял
+# либо внешнего пути нет: при принимающем 77 (local_judge, ws#1291); условия — у блока
 # «внешний кластер» ниже.
 #
 # ВХОД ВО ВНЕШНИЙ КЛАСТЕР ПО ОДНОМУ (ws#1176): ожидающие билеты (--enqueue, --wait N) идут туда
@@ -278,6 +281,18 @@ kaname|6656|отправка kaname: peak + container_peak + escaped_peak ≤ 42
 # по 69 нет; до локального запуска при висении — не дольше CHECK_S × CHECK_TRIES.
 CHECK_S=30 # срок одной проверки, с
 CHECK_TRIES=2 # попыток, если проверка не ответила (124)
+# ПОРОЖДЕНИЯ ПРОЦЕССОВ (ws#1291) — признак машины, как и память: счётчик `processes` /proc/stat
+# (порождений с загрузки) за окно. Повод: 2026-10-21 02:02 — load average 16,2 при простое CPU
+# 82–88 %, наборы с мутантами шли мимо слота, а слот мерил одну память. Вход: темп за SPAWN_WIN_S
+# перед входом ≤ SPAWN_MAX, иначе место не выдаётся (как «свободно < 15 ГиБ»: 74, --wait ждёт);
+# сторож пишет пик темпа за жизнь слота, первое превышение — строкой spawn-over, выход — spawns=
+# (порождений машины за окно слота) и spawn_peak= в строке leave. Порог — по штатному режиму: замер
+# 2026-10-21 08:05–08:10Z, 294 окна по 1 с при 5–8 идущих полосах — p50 767, p90 1308, p99 1708,
+# наибольшее 2121 в секунду; порог выше наибольшего в 1,4 раза: порог, срабатывающий на штатном,
+# перестаёт читаться. ГРАНИЦА: темп — машины, а не слота (счётчика порождений у cgroup нет); замер
+# шторма 02:02 (~790/с) лежит внутри штатного, и держит его не порог, а вход наборов через слот
+# (heavy-guard, класс suite: слотов ≤ 3). Режим проб судит темп лишь с HEAVY_SLOT_PROCSTAT.
+SPAWN_MAX=3000; SPAWN_WIN_S=1; PROCSTAT=/proc/stat
 LIMIT_MIB="$CAP_MIB"; POLL_S=30; WAIT_S=0; WAIT_MAX_S=300; ENQ_MAX_S=7200; GUARD_S=2; GRACE_S=10; LIMITER=auto
 MEMINFO="${HEAVY_SLOT_MEMINFO:-/proc/meminfo}"
 CGROOT=/sys/fs/cgroup
@@ -291,7 +306,8 @@ ci-local|10240|scripts/ci-local.sh; git push в клон, чей pre-push зов
 lint|8192|golangci-lint run, govulncheck, gosec, make lint|golangci-lint run ./... по монорепо, холодный кэш линтера — 4,5 ГиБ
 docker|4096|docker run/create/start/build, docker compose up/run/build|общий класс — предел, а не прогноз: docker run получает --memory=бюджет
 stand|8192|kind create cluster; make dev-up, reload-svc*, stand-ns-run; helm install/upgrade (stand-ns-up, -down, -census — без слота, ws#1143)|узел kind — до 2,9 ГиБ (9 показаний docker stats в журналах сессий); сборка образов dev-up последовательная, её память в BuildKit не замерена
-newman|2048|newman run; make e2e-newman, e2e-test; newman-e2e.sh, newman-parallel.sh|newman run самой большой коллекции (2,7 МБ, отчёт json) — 0,4 ГиБ; JOBS=1'
+newman|2048|newman run; make e2e-newman, e2e-test; newman-e2e.sh, newman-parallel.sh|newman run самой большой коллекции (2,7 МБ, отчёт json) — 0,4 ГиБ; JOBS=1
+suite|1536|наборы и пробы воркспейса: scripts/<набор>/run-all.sh, inject.sh, *-inject.sh, mutants.py, prove.sh (heavy-guard, ws#1291)|пик отправки воркспейса со всеми run-all.sh — 790 МиБ × 1,5, вверх до 512 (бронь SUBJECT_BUDGETS); tooling-gate/inject.sh — 206 МиБ за 1449 с (журнал слотов, 2026-10-21)'
 
 say() { printf 'heavy-slot: %s\n' "$*" >&2; }
 now() { date +%s; }
@@ -411,6 +427,33 @@ class_budget() {
     return 1
 }
 
+# waits_report <класс> [часов] — ожидание входа класса по журналу за окно. Решение диспетчера
+# 2026-10-21 о пуле suite: класс остаётся в общих трёх слотах, свой пул — при медиане ожидания
+# за сутки > 5 мин; это чтение и есть замер. Ожидание — waited= строк enter (вошёл) и timeout
+# (75: не дождался; у --enqueue и --resume — от постановки билета); отказ 74 без ожидания —
+# строка busy, только счётом. Окно — строкой времени журнала (date -Is одной зоны машины).
+# Записей ни одной — код 2: медиана не установлена, а не «ожидания нет».
+waits_report() {
+    local cls="${1:-}" h="${2:-24}"
+    class_budget "$cls" > /dev/null || { say "класса «$cls» нет — форма: --waits <класс> [часов]"; return 64; }
+    [[ "$h" =~ ^[1-9][0-9]{0,3}$ ]] || { say "часов «$h» — нужно целое 1…9999"; return 64; }
+    awk -v c="class=$cls" -v s="$(date -Is -d "-$h hours")" -v cl="$cls" -v h="$h" '
+        $1 < s || $1 !~ /^20[0-9][0-9]-/ { next }
+        { hit = 0; for (i = 3; i <= NF; i++) if ($i == c) { hit = 1; break } }
+        !hit { next }
+        $2 == "busy" { b++; next }
+        $2 == "enter" || $2 == "timeout" {
+            for (i = 3; i <= NF; i++) if ($i ~ /^waited=[0-9]+s$/) { v = substr($i, 8) + 0; k = n++
+                while (k > 0 && w[k - 1] > v) { w[k] = w[k - 1]; k-- }; w[k] = v; break }
+            if ($2 == "timeout") t++
+        }
+        END {
+            if (n == 0) { printf "WAITS class=%s hours=%d: записей ожидания нет (busy74=%d) — медиана не установлена\n", cl, h, b; exit 2 }
+            m = (n % 2) ? w[(n - 1) / 2] : int((w[n / 2 - 1] + w[n / 2]) / 2)
+            printf "WAITS class=%s hours=%d n=%d median=%ds p90=%ds max=%ds timeout75=%d busy74=%d\n", cl, h, n, m, w[int((n - 1) * 0.9 + 0.5)], w[n - 1], t, b
+        }' "$DIR/journal.log" 2> /dev/null
+}
+
 print_classes() {
     local line name rest budget covers basis
     printf 'потолок машины: %s — (MemTotal − MemAvailable) + недобранное + бюджет; свободных до старта ≥ %s; слотов ≤ %s, Σ бюджетов ≤ %s\n' \
@@ -436,6 +479,20 @@ used_mib() {
 # avail_mib [meminfo] — MemAvailable в MiB; пусто, если не прочитать.
 avail_mib() {
     awk '/^MemAvailable:/ { printf "%d\n", $2 / 1024 }' "${1:-$MEMINFO}" 2>/dev/null
+}
+
+# spawn_count — порождений машины с загрузки (`processes` PROCSTAT); код 1 — не судится.
+spawn_count() {
+    [ -n "$PROCSTAT" ] || return 1
+    awk '$1 == "processes" { print $2; f = 1 } END { exit !f }' "$PROCSTAT" 2>/dev/null
+}
+# spawn_rate — темп порождений машины в секунду за SPAWN_WIN_S; код 1 — не судится.
+spawn_rate() {
+    local a b
+    a="$(spawn_count)" || return 1
+    sleep "$SPAWN_WIN_S"
+    b="$(spawn_count)" || return 1
+    echo $(( (b - a) / SPAWN_WIN_S ))
 }
 
 cg_bytes() { local v; v="$(cat "$1" 2>/dev/null)" && [ -n "$v" ] && printf '%s\n' "$v" || echo 0; }
@@ -1091,6 +1148,7 @@ case "${1:-}" in
     --budget)  class_budget "${2:-}" || { say "класса «${2:-}» нет"; exit 64; }; exit 0 ;;
     --status)  mkdir -p "$DIR/active" 2>/dev/null; print_status; exit 0 ;;
     --cancel)  cancel_ticket "${2:-}"; exit $? ;;
+    --waits)   waits_report "${2:-}" "${3:-24}"; exit $? ;;
     --book)    book_cmd "$@"; exit $? ;;
     --console-deps) console_deps "${2:-}" "${3:-}"; exit $? ;;
     --prune-tmp)
@@ -1138,7 +1196,7 @@ if [ "$CLASS" = ci-local ] && [ -z "${GIT_SSH_COMMAND:-}" ] && [ -z "${GIT_SSH:-
 fi
 
 # Ручки — до первой записи: отказ не оставляет следа в общем каталоге.
-KNOBS="HEAVY_SLOT_SUBJECTS HEAVY_SLOT_EXT_HOLD_S HEAVY_SLOT_LIMIT_GIB HEAVY_SLOT_LIMIT_MIB HEAVY_SLOT_WAIT_S HEAVY_SLOT_ENQ_S HEAVY_SLOT_POLL_S HEAVY_SLOT_BUDGET_MIB HEAVY_SLOT_LIMITER HEAVY_SLOT_GUARD_S HEAVY_SLOT_GUARD_GRACE_S HEAVY_SLOT_REMOTE_RUN HEAVY_SLOT_SLOTS_SUM_MIB HEAVY_SLOT_CHECK_S HEAVY_SLOT_TOOLING_TREE"
+KNOBS="HEAVY_SLOT_SUBJECTS HEAVY_SLOT_EXT_HOLD_S HEAVY_SLOT_LIMIT_GIB HEAVY_SLOT_LIMIT_MIB HEAVY_SLOT_WAIT_S HEAVY_SLOT_ENQ_S HEAVY_SLOT_POLL_S HEAVY_SLOT_BUDGET_MIB HEAVY_SLOT_LIMITER HEAVY_SLOT_GUARD_S HEAVY_SLOT_GUARD_GRACE_S HEAVY_SLOT_REMOTE_RUN HEAVY_SLOT_SLOTS_SUM_MIB HEAVY_SLOT_CHECK_S HEAVY_SLOT_TOOLING_TREE HEAVY_SLOT_PROCSTAT HEAVY_SLOT_SPAWN_MAX"
 if [ "$MEMINFO" = /proc/meminfo ]; then
     knob=""
     [ "$DIR" = "$SHARED" ] || [ "$DIR" -ef "$SHARED" ] || knob="свой каталог слотов $DIR — отдельная очередь, соседей общей он не видит"
@@ -1155,7 +1213,7 @@ else
         exit 64
     fi
     for v in $KNOBS; do
-        [ "$v" = HEAVY_SLOT_LIMITER ] || [ "$v" = HEAVY_SLOT_REMOTE_RUN ] || [ "$v" = HEAVY_SLOT_SUBJECTS ] || [ "$v" = HEAVY_SLOT_TOOLING_TREE ] || [ -z "${!v+x}" ] || [[ "${!v}" =~ ^[0-9]+$ ]] || { say "$v=«${!v}» — не число"; exit 64; }
+        [ "$v" = HEAVY_SLOT_LIMITER ] || [ "$v" = HEAVY_SLOT_REMOTE_RUN ] || [ "$v" = HEAVY_SLOT_SUBJECTS ] || [ "$v" = HEAVY_SLOT_TOOLING_TREE ] || [ "$v" = HEAVY_SLOT_PROCSTAT ] || [ -z "${!v+x}" ] || [[ "${!v}" =~ ^[0-9]+$ ]] || { say "$v=«${!v}» — не число"; exit 64; }
     done
     LIMIT_MIB="${HEAVY_SLOT_LIMIT_MIB:-$(( ${HEAVY_SLOT_LIMIT_GIB:-$(( CAP_MIB / 1024 ))} * 1024 ))}"
     POLL_S="${HEAVY_SLOT_POLL_S:-$POLL_S}"; WAIT_S="${HEAVY_SLOT_WAIT_S:-$WAIT_S}"; ENQ_MAX_S="${HEAVY_SLOT_ENQ_S:-$ENQ_MAX_S}"
@@ -1163,6 +1221,8 @@ else
     GUARD_S="${HEAVY_SLOT_GUARD_S:-$GUARD_S}"; GRACE_S="${HEAVY_SLOT_GUARD_GRACE_S:-$GRACE_S}"
     LIMITER="${HEAVY_SLOT_LIMITER:-$LIMITER}"
     SLOTS_SUM_MIB="${HEAVY_SLOT_SLOTS_SUM_MIB:-$SLOTS_SUM_MIB}"
+    # Порождения в режиме проб судятся лишь по синтетическому счётчику: темп машины плавает (ws#1291).
+    PROCSTAT="${HEAVY_SLOT_PROCSTAT:-}"; SPAWN_MAX="${HEAVY_SLOT_SPAWN_MAX:-$SPAWN_MAX}"
     CHECK_S="${HEAVY_SLOT_CHECK_S:-$CHECK_S}"; EXT_HOLD_S="${HEAVY_SLOT_EXT_HOLD_S:-$EXT_HOLD_S}"; SUBJECT_BUDGETS="${HEAVY_SLOT_SUBJECTS:-$SUBJECT_BUDGETS}"
     [ "$CHECK_S" -ge 1 ] || { say "HEAVY_SLOT_CHECK_S=0 — timeout 0 срок снимает: проверка висела бы без предела"; exit 64; }
     if [ "$BUDGET" -gt "$PROBE_MIB" ] || ! [[ "$GUARD_S" =~ ^[12]$ ]]; then
@@ -1291,7 +1351,8 @@ fi
 # локально, вывод проверки — в журнал строкой «local … proof=…». Иной код (70 —
 # дефект обёртки, 64, 126 …) — не недоступность: 69, локально не идёт (ws#1210).
 # Причина КАЖДОГО локального запуска — в журнале
-# («local … why=…»). Обход — только --local с причиной перед классом (bypass-local).
+# («local … why=…»). Обход — только --local с причиной перед классом (bypass-local), и
+# при принимающем кластере он сам — 77 (local_judge).
 # В режиме проб маршрут судится лишь с HEAVY_SLOT_REMOTE_RUN — двойником run.sh; над
 # настоящей памятью эта ручка — 64, как прочие.
 REMOTE_RUN="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/remote-heavy/run.sh"
@@ -1831,8 +1892,49 @@ stand_ns_light() {
         *) return 1 ;;
     esac
 }
-CMD_R=("$@"); WHY_LOCAL=""; ROUTE=(); GIT_IDX=""; GDIR="$PWD"
+# local_judge — --local судится (ws#1291; владелец 2026-10-16: «тяжелые тесты только на внешнем
+# кластере, если он недоступен тогда локально»): прежде флаг снимал маршрут целиком, и при
+# принимающем кластере тяжёлое шло на машине по одной строке причины (журнал слотов до правки —
+# 492 строки bypass-local). Внешнего пути у команды нет (класс, клон, отправка без хука) — флаг
+# излишен (LOCAL_MOOT), команда идёт как шла. Путь есть — один опрос кластера (без ожидания места):
+# принимает либо занят (0, 75) — 77 «во внешний кластер» с причиной, команда не запускалась;
+# недоступен (69, 124) и дефект обёртки (иной код) — локально, вывод проверки — в журнал (proof=):
+# флаг остаётся обходом отказавшего механизма. Сверку оснастки со стволом (tooling_gate) флаг
+# по-прежнему снимает: её отказ — дефект механизма, не доступность кластера.
+local_judge() {
+    local rc repo=""
+    LOCAL_PROOF=""; LOCAL_MOOT=""
+    if [ "$CLASS" = stand ]; then
+        stand_static && { LOCAL_MOOT="команда стенда не поднимает локальный стенд: флаг излишен"; return 0; }
+    else
+        route_static || { LOCAL_MOOT="$WHY_LOCAL: флаг излишен"; return 0; }
+        repo="$RS_REPO"
+    fi
+    if [ "$CLASS" = stand ]; then cluster_once; else cluster_once "$CLASS" "$repo"; fi
+    rc=$?
+    case "$rc" in
+        0|75)
+            refuse_external "--local «$LOCAL_WHY» отклонён: кластер принимает (проверка — код $rc$( [ "$rc" = 75 ] && echo ', занят: место ждётся --wait N')) — тяжёлое идёт только там (ws#1291). Повтори без --local: heavy-slot.sh $CLASS -- …; слот уведёт команду Job-ом либо назовёт, что поправить. Лёгкий набор проб — класс suite: внешнего пути у него нет" ;;
+        *) LOCAL_PROOF="rc=$rc $CL_OUT" ;;
+    esac
+}
+# suite_payload — класс suite держит наборы и пробы оснастки, а не тяжёлое продукта (ws#1291):
+# переносимая нагрузка (go, make, линтеры, ci-local.sh) и отправка с хуком под ним ушли бы на
+# машину мимо внешнего кластера с бюджетом в 1,5 ГиБ — 64 с классом, который ей положен.
+suite_payload() {
+    [ "$CLASS" = suite ] || return 0
+    payload
+    case "$PAY" in
+        go|make|golangci-lint|gosec|govulncheck|ci-local.sh) ;;
+        git) git_push_form || { GIT_IDX=""; GDIR="$PWD"; PUSH_AT=""; return 0; } ;;
+        *) return 0 ;;
+    esac
+    say "класс suite — наборы и пробы оснастки; «${PAY}» — нагрузка продукта: класс go-race, integration, lint либо ci-local (heavy-slot.sh --classes) — внешний кластер судит её там"
+    exit 64
+}
+CMD_R=("$@"); WHY_LOCAL=""; ROUTE=(); GIT_IDX=""; GDIR="$PWD"; LOCAL_PROOF=""; LOCAL_MOOT=""
 WAIT_T0="$(now)"   # начало срока заявки: внешний вход, кластер и очередь памяти считают от него (ws#1244)
+suite_payload
 if [ -n "$ROUTE_ONLY" ]; then route_print; exit 0; fi
 if [ "$CLASS" = stand ] && stand_ns_light; then
     busy=0
@@ -1842,7 +1944,8 @@ if [ "$CLASS" = stand ] && stand_ns_light; then
     exec "$@"
 fi
 if [ -n "$LOCAL_SET" ]; then
-    say "локально по флагу --local: $LOCAL_WHY — маршрут во внешний кластер не судился"
+    [ "$REMOTE_ON" = 1 ] && local_judge
+    say "локально по флагу --local: $LOCAL_WHY${LOCAL_PROOF:+ — кластер не принял: $LOCAL_PROOF}${LOCAL_MOOT:+ — $LOCAL_MOOT}"
 elif [ "$REMOTE_ON" = 1 ]; then
     if remote_route; then
         claim_drop
@@ -1891,7 +1994,7 @@ CMDLINE="$(printf '%q ' "$@")"
 LOCAL_NOTE=""
 if [ -n "$LOCAL_SET" ]; then
     LOCAL_NOTE="по флагу: $LOCAL_WHY"
-    journal "bypass-local class=$CLASS why=$LOCAL_WHY who=$WHO cmd=$CMDLINE"
+    journal "bypass-local class=$CLASS why=$LOCAL_WHY${LOCAL_PROOF:+ proof=$LOCAL_PROOF}${LOCAL_MOOT:+ moot=$LOCAL_MOOT} who=$WHO cmd=$CMDLINE"
 else
     [ -n "$PROOF" ] && LOCAL_NOTE="кластер не принял: $PROOF"
     journal "local class=$CLASS${PROOF:+ proof=$PROOF} why=${WHY_LOCAL:-причина не выведена} who=$WHO cmd=$CMDLINE"
@@ -1947,6 +2050,8 @@ defer_ticket() {
 RETRY_HINT="повтор — ОДИН коротким шагом: heavy-slot.sh --resume $tk [--wait N] $CLASS -- … в течение $RESUME_TTL_S с держит место (билет $tk); без билета — в конец очереди"
 t0="${WAIT_T0:-$(now)}"; waited=0; wlogged=""
 while :; do
+    # Темп порождений машины — вне замка: окно замера (SPAWN_WIN_S) очередь не держит (ws#1291).
+    srate="$(spawn_rate)" || srate=""
     lock
     reap
     held="$(exclusive_holder)"
@@ -1983,6 +2088,7 @@ while :; do
     [ -z "$full" ] && [ $(( socc + BUDGET )) -gt "$SLOTS_SUM_MIB" ] &&
         full="бюджеты занятых $(mib "$socc") + $(mib "$BUDGET") > $(mib "$SLOTS_SUM_MIB")"
     [ "$free" -lt "$FREE_MIN_MIB" ] && full="${full:+$full; }свободно $(mib "$free") < $(mib "$FREE_MIN_MIB") до старта"
+    [ -n "$srate" ] && [ "$srate" -gt "$SPAWN_MAX" ] && full="${full:+$full; }порождений процессов $srate/с > порога $SPAWN_MAX/с (ws#1291)"
     if [ "$ahead" -eq 0 ] && [ -z "$blocked" ] && [ -z "$full" ] && [ $(( used + resv + BUDGET )) -le "$LIMIT_MIB" ]; then
         rm -f "$TICKET"; claim_drop
         for f in "${byp[@]+"${byp[@]}"}"; do
@@ -2001,7 +2107,7 @@ while :; do
         # Уборка старых TMPDIR копий — шагом входа под замком, а не выходом слота:
         # каталог переживает прогон, снимается лишь неиспользуемый дольше срока.
         prune_tmp
-        journal "enter id=$ID class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB free=${free}MiB slots=$nocc waited=${waited}s bypass=${#byp[@]} head=${HEAD_REV:0:12} who=$WHO cmd=$CMDLINE"
+        journal "enter id=$ID class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB free=${free}MiB slots=$nocc spawn=${srate:-—}/s waited=${waited}s bypass=${#byp[@]} head=${HEAD_REV:0:12} who=$WHO cmd=$CMDLINE"
         unlock
         break
     fi
@@ -2014,14 +2120,14 @@ while :; do
     waited=$(( $(now) - t0 ))
     if [ "$WAIT_S" -eq 0 ]; then
         defer_ticket
-        journal "busy class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB free=${free}MiB slots=$nocc ahead=$ahead ticket=$tk who=$WHO cmd=$CMDLINE"
+        journal "busy class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB free=${free}MiB slots=$nocc spawn=${srate:-—}/s ahead=$ahead ticket=$tk who=$WHO cmd=$CMDLINE"
         say "СЛОТ ЗАНЯТ, очередь $ahead — «$CLASS» не выдан сразу: $why."
         say "команда НЕ запускалась (не выполнилось, не красное). $RETRY_HINT; ожидание — --wait N (N ≤ $WAIT_MAX_S), дольше — ОДИН раз --enqueue <каталог>; кто занял — heavy-slot.sh --status"
         exit 74
     fi
     if [ "$waited" -ge "$WAIT_S" ]; then
         defer_ticket
-        journal "timeout class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB free=${free}MiB slots=$nocc ahead=$ahead waited=${waited}s ticket=$tk who=$WHO cmd=$CMDLINE"
+        journal "timeout class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB free=${free}MiB slots=$nocc spawn=${srate:-—}/s ahead=$ahead waited=${waited}s ticket=$tk who=$WHO cmd=$CMDLINE"
         say "НЕ ВЫПОЛНИЛОСЬ — слот «$CLASS» не выдан за ${waited} с: $why."
         say "команда НЕ запускалась; $RETRY_HINT; дольше $WAIT_MAX_S с — ОДИН раз --enqueue <каталог>; кто занял — heavy-slot.sh --status"
         exit 75
@@ -2077,8 +2183,17 @@ tree_kill() {
 # watcher <root pid, если предел мягкий> — сторож машины, пик контейнеров,
 # мягкий предел запасного пути. Пишет только в свои файлы записи слота.
 watcher() {
-    local root="${1:-}" used cid cpeak=0 v rss x xpeak=0
+    local root="${1:-}" used cid cpeak=0 v rss x xpeak=0 sc slast spk=0 sover=""
+    slast="$(spawn_count)" || slast=""
     while [ -e "$P.slot" ]; do
+        # Темп порождений машины за шаг сторожа: пик — в $P.spawnpeak, первое превышение — в журнал.
+        if [ -n "$slast" ] && sc="$(spawn_count)"; then
+            v=$(( (sc - slast) / GUARD_S )); slast="$sc"
+            [ "$v" -gt "$spk" ] && spk="$v" && echo "$spk" > "$P.spawnpeak"
+            if [ "$v" -gt "$SPAWN_MAX" ] && [ -z "$sover" ]; then
+                sover=1; journal "spawn-over id=$ID class=$CLASS rate=${v}/s max=${SPAWN_MAX}/s who=$WHO"
+            fi
+        fi
         v=0
         for x in $(slot_escaped "$P"); do v=$(( v + $(cg_bytes "$CGROOT$x/memory.peak") )); done
         [ "$v" -gt "$xpeak" ] && xpeak="$v" && echo "$xpeak" > "$P.xpeak"
@@ -2139,6 +2254,7 @@ fi
 [ "$CLASS" = ci-local ] && console_adapter
 
 t_run="$(now)"; rc=0
+S0="$(spawn_count)" || S0=""
 if [ "$LIMITER" != watch ] && command -v systemd-run >/dev/null; then
     watcher & WPID=$!
     # Фоном и через wait: ловушка сигнала срабатывает посреди wait, а не после
@@ -2164,6 +2280,7 @@ if [ "$LIMITER" = watch ] || ! command -v systemd-run >/dev/null; then
 fi
 kill "$WPID" 2>/dev/null; wait "$WPID" 2>/dev/null; WPID=""
 dur=$(( $(now) - t_run ))
+SPAWNS="—"; S1="$(spawn_count)" && [ -n "$S0" ] && SPAWNS=$(( S1 - S0 ))
 
 # ── итог ─────────────────────────────────────────────────────────────────────
 peak=0; oom=0; cpeak=0; coom=0; cut_by=""; alive=""
@@ -2198,7 +2315,7 @@ if [ -n "$cut_by" ]; then
 fi
 peak_mib=$(( peak / 1024 / 1024 )); cpeak_mib=$(( cpeak / 1024 / 1024 )); xpeak_mib=$(( $(cat "$P.xpeak" 2>/dev/null || echo 0) / 1024 / 1024 ))
 [ "$LIMITER" = watch ] && peak_mib="$(cat "$P.rsspeak" 2>/dev/null || echo 0)"
-journal "leave id=$ID class=$CLASS budget=${BUDGET}MiB rc=$rc peak=${peak_mib}MiB container_peak=${cpeak_mib}MiB escaped_peak=${xpeak_mib}MiB containers=$(printf '%s' "$cids" | grep -c .) limiter=${LIMITER/auto/systemd} dur=${dur}s cut=${cut_by:-—}${alive:+ alive=${alive# }} who=$WHO"
+journal "leave id=$ID class=$CLASS budget=${BUDGET}MiB rc=$rc peak=${peak_mib}MiB container_peak=${cpeak_mib}MiB escaped_peak=${xpeak_mib}MiB containers=$(printf '%s' "$cids" | grep -c .) limiter=${LIMITER/auto/systemd} dur=${dur}s spawns=$SPAWNS spawn_peak=$(cat "$P.spawnpeak" 2>/dev/null || echo —)/s cut=${cut_by:-—}${alive:+ alive=${alive# }} who=$WHO"
 if [ -n "$alive" ]; then
     say "НЕ ВЫПОЛНИЛОСЬ — $cut_by: клиент снят, но контейнер(ы)$alive РАБОТАЮТ, docker kill их не остановил; память не освобождена — docker kill$alive"
     exit 76
