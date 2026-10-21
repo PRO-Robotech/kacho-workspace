@@ -1866,7 +1866,7 @@ push_remote() {
     ext_run env HS_ORIG="$HOOKS_ORIG/pre-push" HS_HEAD="$PUSH_HEAD" HS_RC="$rcf" HS_RUN="$REMOTE_RUN" HS_TASK="$TASK" \
         HS_REPO="$PUSH_REPO" HS_PROFILE="$PUSH_PROFILE" HS_TOP="$PUSH_TOP" "${cmd[@]}"
     rc=$?; hrc="$(cat "$rcf" 2>/dev/null)"; rm -rf -- "$sh"
-    journal_early "remote-done class=$CLASS route=push profile=$PUSH_PROFILE repo=$PUSH_REPO rc=$rc hook_rc=${hrc:-—} dur=$(( $(now) - t0 ))s"
+    journal_early "remote-done class=$CLASS route=push rc=$rc hook_rc=${hrc:-—} dur=$(( $(now) - t0 ))s profile=$PUSH_PROFILE repo=$PUSH_REPO"
     case "$hrc" in
         78) WHY_LOCAL="отправка несёт не голову копии — Job судит голову"; return 0 ;;
         69|74|75|124|125)
