@@ -3539,7 +3539,8 @@ if grep -qx 'set -- setpriv --reuid=1001 --regid=1001 --init-groups env HOME=/ho
 else OUT="$BOX/ws1.cmd"; bad WS1 "команда профиля ws идёт не от пользователя runner (uid 1001): root pod обходит права файлов"; fi
 if [ "$(jq -r '.spec.template.spec.containers[] | select(.name == "run") | "\(.resources.requests.memory) \(.resources.limits.memory)"' "$WJ" 2>/dev/null)" = "2560Mi 9216Mi" ]; then ok
 else OUT="$WJ"; bad WS1 "запрос и предел памяти run — не 2560Mi и 9216Mi строки ws PEAKS"; fi
-if grep -q 'КОНСЕРВАТИВНО до замера' "$BOX/ws1.out" || bash "$RUN" --profiles 2>/dev/null | grep -A1 '^ws ' | grep -q 'КОНСЕРВАТИВНО до замера'; then ok
+bash "$RUN" --profiles > "$BOX/ws1.profiles" 2>/dev/null
+if grep -q 'КОНСЕРВАТИВНО до замера' "$BOX/ws1.out" || [ "$(grep -A1 '^ws ' "$BOX/ws1.profiles" | grep -c 'КОНСЕРВАТИВНО до замера')" -gt 0 ]; then ok
 else OUT="$BOX/ws1.out"; bad WS1 "запрос профиля ws не назван консервативным (--profiles)"; fi
 if grep -q 'Job создан: образ golang:1.26.9' "$BOX/ws1.out"; then ok; else OUT="$BOX/ws1.out"; bad WS1 "строка «Job создан» не называет образ профиля ws"; fi
 # WS2 — пара профиля и репозитория
