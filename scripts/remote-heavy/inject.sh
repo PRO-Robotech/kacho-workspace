@@ -3526,15 +3526,17 @@ else OUT="$WJ"; bad WS1 "Job профиля ws: образ не golang:1.26.9 л
 if [ "$(kx env "$WJ" run HEAVY_SHELLCHECK)" = 0.11.0 ] && [ "$(kx env "$WJ" run PREPUSH_GH)" = /work/bin/gh-issue-public ] && [ "$(kx env "$WJ" run HEAVY_NODE)" = 26 ]; then ok
 else OUT="$WJ"; bad WS1 "окружение run: HEAVY_SHELLCHECK «$(kx env "$WJ" run HEAVY_SHELLCHECK)», PREPUSH_GH «$(kx env "$WJ" run PREPUSH_GH)», HEAVY_NODE «$(kx env "$WJ" run HEAVY_NODE)»"; fi
 kx cmd "$WJ" run 2 > "$BOX/ws1.cmd"
-for m in wsclone-begin wstools-begin gitid-begin hooks-begin install-begin tools-check wsclonewait-begin expose-begin wscheck-begin; do
+for m in wsclone-begin wstools-begin gitid-begin hooks-begin install-begin tools-check wsclonewait-begin expose-begin wscheck-begin wsuser-begin; do
     if grep -qx "# $m" "$BOX/ws1.cmd"; then ok; else OUT="$BOX/ws1.cmd"; bad WS1 "шага «# $m» в подготовке run нет"; fi
 done
 for m in moddl-begin pgwait-begin pull-begin npmci-begin file-begin; do
     if grep -qx "# $m" "$BOX/ws1.cmd"; then OUT="$BOX/ws1.cmd"; bad WS1 "шаг «# $m» профилю ws не нужен (образ без go и pgclient), а он в подготовке"; else ok; fi
 done
-if awk '/^# wsclone-begin$/ { a = NR } /^# wsclonewait-begin$/ { b = NR } /^# expose-end$/ { c = NR } /^# wscheck-begin$/ { d = NR } /^heavy_cmd "\$@"$/ { e = NR }
-        END { exit !(a && b && c && d && e && a < b && b < c && c < d && d < e) }' "$BOX/ws1.cmd"; then ok
-else OUT="$BOX/ws1.cmd"; bad WS1 "порядок: клоны фоном → ожидание клонов → видимость → сверка среды → команда — нарушен"; fi
+if awk '/^# wsclone-begin$/ { a = NR } /^# wsclonewait-begin$/ { b = NR } /^# expose-end$/ { c = NR } /^# wscheck-begin$/ { d = NR } /^# wsuser-begin$/ { u = NR } /^heavy_cmd "\$@"$/ { e = NR }
+        END { exit !(a && b && c && d && u && e && a < b && b < c && c < d && d < u && u < e) }' "$BOX/ws1.cmd"; then ok
+else OUT="$BOX/ws1.cmd"; bad WS1 "порядок: клоны фоном → ожидание клонов → видимость → сверка среды → пользователь команды → команда — нарушен"; fi
+if grep -qx 'set -- setpriv --reuid=1001 --regid=1001 --init-groups env HOME=/home/runner USER=runner LOGNAME=runner "$@"' "$BOX/ws1.cmd"; then ok
+else OUT="$BOX/ws1.cmd"; bad WS1 "команда профиля ws идёт не от пользователя runner (uid 1001): root pod обходит права файлов"; fi
 if [ "$(jq -r '.spec.template.spec.containers[] | select(.name == "run") | "\(.resources.requests.memory) \(.resources.limits.memory)"' "$WJ" 2>/dev/null)" = "2560Mi 9216Mi" ]; then ok
 else OUT="$WJ"; bad WS1 "запрос и предел памяти run — не 2560Mi и 9216Mi строки ws PEAKS"; fi
 if grep -q 'КОНСЕРВАТИВНО до замера' "$BOX/ws1.out" || bash "$RUN" --profiles 2>/dev/null | grep -A1 '^ws ' | grep -q 'КОНСЕРВАТИВНО до замера'; then ok

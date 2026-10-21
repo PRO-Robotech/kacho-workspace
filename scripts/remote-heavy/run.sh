@@ -435,7 +435,10 @@
 #     /work/bin): ровно форма вызова хука «api repos/<o>/<r>/issues/<n> --jq <выражение>»,
 #     прочее — отказ 4; предел анонимного API (60 запросов в час на адрес) исчерпан — ответ
 #     трекера не получен, и хук отказывает своим «принадлежность не проверена»;
-#   • учётка git и провязка хуков — как у ci-local (УЧЁТКА GIT, ХУКИ КЛОНА).
+#   • учётка git и провязка хуков — как у ci-local (УЧЁТКА GIT, ХУКИ КЛОНА);
+#   • команда — от пользователя runner (uid 1001), как у ранера конвейера: root pod обходит права
+#     файлов, и пробы «не записываема» (chmod 0400) краснели чужим красным; подготовка — под root,
+#     шаг «# wsuser-begin» передаёт дерево и кэш и судит запись в 0400 положительным контролем.
 # Сверка среды — ПОСЛЕ видимости, подпроцессом с пустым окружением и PATH образа (шаг
 # «# wscheck-begin»): bash, python3 с yaml, git, curl, go, node, jq, yq v4, shellcheck пина, bats; нет либо не
 # та версия — «remote-heavy-prep: среда: <имя> …», то есть 69 «не выполнилось», а не красное
@@ -2980,6 +2983,24 @@ echo "remote-heavy: среда воркспейса — $(wx 'bash --version' | 
 # wscheck-end
 WSCHECK
 )"
+# Команда воркспейса — от непривилегированного пользователя, как у ранера конвейера (runner): root
+# pod обходит права файлов, и проба «запись не записываема» (chmod 0400, rituals check-03) дала в
+# pod чужое красное (живая отправка 2026-10-22). Подготовка остаётся под root; положительный
+# контроль — команда runner не пишет в файл 0400. Позиционные доводы шага — команда (bash -c).
+# shellcheck disable=SC2016  # раскрывается в pod, не здесь
+WSUSER_SH="$(cat <<'WSUSER'
+# wsuser-begin
+id -u runner > /dev/null 2>&1 || useradd -m -u 1001 -U -s /bin/bash runner > /dev/null 2>&1 || pf "пользователь runner (uid 1001) не заведён"
+[ ! -f /root/.gitconfig ] || install -o runner -g runner -m 0644 /root/.gitconfig /home/runner/.gitconfig || pf "учётка git не передана runner"
+chown -R runner:runner /work/src /cache || pf "дерево и кэш не переданы runner"
+command -v setpriv > /dev/null 2>&1 || pf "setpriv нет в образе — сменить пользователя команды нечем"
+wu="$(setpriv --reuid=1001 --regid=1001 --init-groups sh -c 'f=$(mktemp) && chmod 0400 "$f" && { echo x >> "$f"; } 2>/dev/null; r=$?; rm -f "$f"; echo "$(id -u) $r"')"
+[ "${wu% *}" = 1001 ] && [ "${wu#* }" != 0 ] || pf "пользователь команды не сменён либо права файлов ему не указ (uid и код записи в 0400: «$wu»)"
+set -- setpriv --reuid=1001 --regid=1001 --init-groups env HOME=/home/runner USER=runner LOGNAME=runner "$@"
+echo "remote-heavy: команда — от пользователя runner (uid 1001), как у ранера конвейера: запись в файл 0400 ему отказана" >&2
+# wsuser-end
+WSUSER
+)"
 [ "$PROFILE" = ws ] && PREP="$PREP
 $WSCLONE_SH
 $WSTOOLS_SH"
@@ -3006,7 +3027,8 @@ $WSCLONEWAIT_SH"
 PREP="$PREP
 $EXPOSE_SH"
 [ "$PROFILE" = ws ] && PREP="$PREP
-$WSCHECK_SH"
+$WSCHECK_SH
+$WSUSER_SH"
 # КРАСНЫЕ ГРУППЫ (шапка) — команда с копией вывода, затем дайджест и доставка
 # журналов красных групп потоком лога. Маркеры — граница, по которой inject.sh
 # исполняет шаг над синтетическим прогоном.
