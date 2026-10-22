@@ -1194,7 +1194,7 @@ def classify_argv(env, argv, cwd, ctx, level, alt):
     if base == "git":
         k = 0
         while k < len(args) and args[k].startswith("-"):
-            k += 2 if args[k] in ("-C", "-c", "--git-dir", "--work-tree", "--namespace") else 1
+            k += 2 if args[k] in ("-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env") else 1
         if args[k:k + 1] == ["push"] and "--no-verify" not in args:
             gopts = [os.path.expanduser(a) for a in args[:k]]
             if any("$" in a or "__SUBST__" in a for a in gopts):

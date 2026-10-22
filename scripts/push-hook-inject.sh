@@ -188,7 +188,7 @@ if smut wrapper-any '            *) return 1 ;;
     rm -f "$W/argv"; (cd "$W/none" && bash "$W/m-wrapper-any/heavy-slot.sh" ci-local -- make -C "$W/none" git push > /dev/null 2>&1)
     assert "нет" "$(asked)" "мутант «любое слово перед git — обёртка»: make git push исполнен лёгким — утверждение «make git push: кластер спрошен» его ловит"
 else assert "построен" "не построен" "мутант wrapper-any: фрагмент не единствен"; fi
-if smut no-dash-C '            -C|-c|--git-dir|--work-tree|--namespace) o+=("$w" "${CMD_R[$(( i + 1 ))]:-}"); i=$(( i + 2 )) ;;' '            -C|-c|--git-dir|--work-tree|--namespace) i=$(( i + 2 )) ;;'; then
+if smut no-dash-C '            -C|-c|--git-dir|--work-tree|--namespace|--config-env) o+=("$w" "${CMD_R[$(( i + 1 ))]:-}"); i=$(( i + 2 )) ;;' '            -C|-c|--git-dir|--work-tree|--namespace|--config-env) i=$(( i + 2 )) ;;'; then
     (cd "$W/none" && bash "$W/m-no-dash-C/heavy-slot.sh" ci-local -- git -C "$W/inst" push -q origin HEAD:refs/heads/mut-c > /dev/null 2>&1)
     assert "есть" "$(ref mut-c)" "мутант «-C признаку не передан»: клон с хуком отправил лёгким — утверждение «dash-C» его ловит"
 else assert "построен" "не построен" "мутант no-dash-C: фрагмент не единствен"; fi

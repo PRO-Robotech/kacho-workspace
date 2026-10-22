@@ -31,6 +31,28 @@
 # откажет сама); 64 — вызов неверен.
 set -u
 
+# heavy_cfg <запись> <ключ> — настройка на команду вне закрытого перечня: отправка с хуком.
+heavy_cfg() {
+    printf 'PUSH-HOOK\tpresent\tнастройка %s %s вне закрытого перечня безвредных (include.*, includeIf.* — всегда) — отправка судится как с хуком\n' "$1" "$2"
+    exit 0
+}
+# cfg_key <-c|--config-env> <ключ[=значение]> — настройка на команду (решение диспетчера ws#1335,
+# второй круг): include.path, includeIf.*.path и --config-env подключают core.hooksPath мимо слова
+# «-c core.hooksPath=». Безвредные — закрытый перечень (транспорт, учётные данные, вывод): color.*,
+# core.sshCommand, credential.*, http.*, protocol.*, user.*, advice.*; `-c core.hooksPath=` уходит
+# git (его и судит), прочее — отправка с хуком; include.* и includeIf.* — всегда.
+cfg_key() {
+    local key="${2%%=*}" sec var
+    sec="${key%%.*}"; sec="${sec,,}"; var="${key##*.}"; var="${var,,}"
+    case "$sec" in
+            include|includeif) heavy_cfg "$1" "$key" ;;
+    esac
+    if [ "$sec.$var" = core.hookspath ] && [ "$1" = -c ]; then opts+=(-c "$2"); return 0; fi
+    case "$sec" in color|credential|http|protocol|user|advice) return 0 ;; esac
+    [ "$sec.$var" = core.sshcommand ] && return 0
+    heavy_cfg "$1" "$key"
+}
+
 opts=() gdir="" wtree="" cdir="$PWD"
 while [ "$#" -gt 0 ]; do
     if [[ "$1" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; then
@@ -54,10 +76,10 @@ while [ "$#" -gt 0 ]; do
         --git-dir=*|--work-tree=*)
             case "$1" in --git-dir=*) gdir="${1#*=}" ;; *) wtree="${1#*=}" ;; esac
             opts+=("$1"); shift ;;
-        -c)
-            [ "$#" -ge 2 ] || { printf 'PUSH-HOOK\tnone\tу опции -c нет значения\n'; exit 64; }
-            case "${2,,}" in core.hookspath=*) opts+=(-c "$2") ;; esac
-            shift 2 ;;
+        -c|--config-env)
+            [ "$#" -ge 2 ] || { printf 'PUSH-HOOK\tnone\tу опции %s нет значения\n' "$1"; exit 64; }
+            cfg_key "$1" "$2"; shift 2 ;;
+        --config-env=*) cfg_key --config-env "${1#*=}"; shift ;;
         *) shift ;;
     esac
 done

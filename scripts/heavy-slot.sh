@@ -1988,7 +1988,7 @@ push_light() {
     while [ "$i" -lt "$n" ]; do
         w="${CMD_R[$i]}"
         case "$w" in
-            -C|-c|--git-dir|--work-tree|--namespace) o+=("$w" "${CMD_R[$(( i + 1 ))]:-}"); i=$(( i + 2 )) ;;
+            -C|-c|--git-dir|--work-tree|--namespace|--config-env) o+=("$w" "${CMD_R[$(( i + 1 ))]:-}"); i=$(( i + 2 )) ;;
             push) break ;;
             -*) o+=("$w"); i=$(( i + 1 )) ;;
             *) return 1 ;;
