@@ -474,24 +474,66 @@ EOF" 2 'if shell_interactive(argv[1:]) or not (' 'if not ('
 nx_mut interactive-flag-n "bash -ni -c '@H@'" 2 \
     '        if noexec and shell_noexec(args):' '        if shell_noexec(args):'
 
-echo "── git push: тяжёл там, где pre-push клона зовёт ci-local (признак — дерево)"
-mkdir -p "$WORK/prod/.git" "$WORK/prod/scripts/hooks" "$WORK/ws/.git" "$WORK/ws/scripts/hooks"
-: > "$WORK/prod/scripts/ci-local.sh"
-echo 'bash "$subject_root/scripts/ci-local.sh" $groups' > "$WORK/prod/scripts/hooks/pre-push"
-echo 'bash scripts/rules-gate/run-all.sh' > "$WORK/ws/scripts/hooks/pre-push"
-denies ci-local 'git push origin x' "$WORK/prod"
-denies ci-local "git -C $WORK/prod push"
-passes 'git push origin x' "$WORK/ws"
-passes "cd $WORK/prod && git push --no-verify"
-: > "$WORK/ws/scripts/ci-local.sh"
-passes 'git push origin x' "$WORK/ws"
-# Воркспейс (в корне — scripts/heavy-slot.sh): его pre-push гонит наборы run-all.sh — отправка
-# тяжела классом ci-local (ws#1291); близнец — хук воркспейса без наборов.
-: > "$WORK/ws/scripts/heavy-slot.sh"
-denies ci-local 'git push origin x' "$WORK/ws"
-echo 'echo без наборов' > "$WORK/ws/scripts/hooks/pre-push"
-passes 'git push origin x' "$WORK/ws"
-passes 'git -C "$X" push origin x' "$WORK/ws"
+echo "── git push: тяжёл там, где git исполнит хук отправки (признак — scripts/push-hook.sh, ws#1335)"
+# Настоящие репозитории git: признак спрашивает git (общий каталог, core.hooksPath, корень дерева).
+# Клон без хука — лёгкая отправка (решение диспетчера 2026-10-22, вариант б); у каждого вида хука
+# — отказ и законный близнец, отличный одним фактом.
+gx() { git -c init.defaultBranch=main -c commit.gpgsign=false -c user.name=p -c user.email=p@p.invalid "$@" >/dev/null 2>&1; }
+for r in none tree inst noexec hpath; do gx init -q "$WORK/push-$r"; git -C "$WORK/push-$r" config --unset core.hooksPath 2>/dev/null; done
+PN="$WORK/push-none"
+mkdir -p "$WORK/push-tree/scripts/hooks"; echo 'echo хук без наборов' > "$WORK/push-tree/scripts/hooks/pre-push"
+printf '#!/bin/sh\nexit 0\n' > "$WORK/push-inst/.git/hooks/pre-push"; chmod +x "$WORK/push-inst/.git/hooks/pre-push"
+printf '#!/bin/sh\nexit 0\n' > "$WORK/push-noexec/.git/hooks/pre-push"; chmod -x "$WORK/push-noexec/.git/hooks/pre-push"
+mkdir -p "$WORK/hookdir"; printf '#!/bin/sh\nexit 0\n' > "$WORK/hookdir/pre-push"; chmod +x "$WORK/hookdir/pre-push"
+git -C "$WORK/push-hpath" config core.hooksPath "$WORK/hookdir"
+gx -C "$PN" commit -q --allow-empty -m x; gx -C "$PN" worktree add -q "$WORK/push-none-wt"
+gx -C "$WORK/push-inst" commit -q --allow-empty -m x; gx -C "$WORK/push-inst" worktree add -q "$WORK/push-inst-wt"
+mkdir -p "$WORK/push-plain"
+assert "1" "$(cd "$PN" && bash "$ROOT/scripts/push-hook.sh" >/dev/null; echo $?)" "предпосылка: в синтетическом клоне без хука push-hook.sh отвечает «нет хука» (только образцы git init)"
+passes 'git push origin HEAD:refs/heads/x' "$PN"
+passes "cd $PN && git push origin HEAD"
+passes "git -C $PN push origin HEAD"
+passes "git -C $WORK/push-none-wt push origin HEAD"
+passes "git -c user.name=x push origin HEAD" "$PN"
+passes 'git push origin HEAD' "$WORK/push-noexec"
+passes "git --git-dir=$PN/.git push origin HEAD" "$WORK/push-inst"
+passes "git --git-dir $PN/.git --work-tree $PN push origin HEAD" "$WORK/push-inst"
+passes 'git push origin HEAD' "$WORK/push-plain"
+denies ci-local 'git push origin HEAD:refs/heads/x' "$WORK/push-tree"
+denies ci-local 'git push origin HEAD' "$WORK/push-inst"
+denies ci-local "git -C $WORK/push-inst-wt push origin HEAD"
+denies ci-local 'git push origin HEAD' "$WORK/push-hpath"
+denies ci-local "git -c core.hooksPath=$WORK/hookdir push origin HEAD" "$PN"
+denies ci-local "git -c Core.HooksPath=$WORK/hookdir push origin HEAD" "$PN"
+denies ci-local "git --git-dir=$WORK/push-inst/.git push origin HEAD" "$PN"
+denies ci-local "git -C $WORK/push-inst push" "$PN"
+passes "cd $WORK/push-inst && git push --no-verify"
+passes 'git -C "$X" push origin x' "$WORK/push-inst"
+# Признака нет (scripts/push-hook.sh снят) — отправка тяжела: молча лёгкой она не становится.
+md="$WORK/mut-nohook"; mkdir -p "$md/.claude/hooks/heavy-guard"; cp "$HOOK" "$md/.claude/hooks/heavy-guard.sh"; cp "$GUARD" "$md/.claude/hooks/heavy-guard/guard.py"
+assert "2" "$(HOOK_RUN="$md/.claude/hooks/heavy-guard.sh" run 'git push origin HEAD' "$PN")" "без scripts/push-hook.sh отправка клона без хука — отказ ci-local (признак не судим — не «лёгкая»)"
+# Мутанты признака: снятая ветвь — её отказ становится пропуском (каждая ветвь читается).
+ph_mut() {
+    local id="$1" cwd="$2" form="$3" md="$WORK/mut-ph-$1" rc
+    mkdir -p "$md/.claude/hooks/heavy-guard" "$md/scripts"; cp "$HOOK" "$md/.claude/hooks/heavy-guard.sh"; cp "$GUARD" "$md/.claude/hooks/heavy-guard/guard.py"
+    if ! python3 -c '
+import sys
+s = open(sys.argv[1], encoding="utf-8").read()
+if s.count(sys.argv[3]) != 1:
+    sys.exit(1)
+open(sys.argv[2], "w", encoding="utf-8").write(s.replace(sys.argv[3], sys.argv[4]))' "$ROOT/scripts/push-hook.sh" "$md/scripts/push-hook.sh" "$4" "$5"; then
+        assert "построен" "не построен" "мутант признака $id: фрагмент порчи в push-hook.sh не единствен"; return
+    fi
+    rc="$(HOOK_RUN="$md/.claude/hooks/heavy-guard.sh" run "$form" "$cwd")"
+    assert "убит" "$([ "$rc" != 2 ] && echo убит || echo выжил)" "мутант признака $id ($form): с порчей код $rc, без неё 2"
+}
+ph_mut hookspath "$WORK/push-hpath" 'git push origin HEAD' '[ -n "$hp" ] || hp="$hp_cli"
+if [ -n "$hp" ]; then' '[ -n "$hp" ] || hp="$hp_cli"
+if false; then'
+ph_mut hookspath-cli "$PN" "git -c core.hooksPath=$WORK/hookdir push origin HEAD" '[ -n "$hp" ] || hp="$hp_cli"' ':'
+ph_mut installed "$WORK/push-inst" 'git push origin HEAD' 'if [ -x "$gd/hooks/pre-push" ]' 'if false'
+ph_mut tree "$WORK/push-tree" 'git push origin HEAD' 'if [ -n "$top" ] && [ -e "$top/scripts/hooks/pre-push" ]; then' 'if false; then'
+ph_mut git-dir "$PN" "git --git-dir=$WORK/push-inst/.git push origin HEAD" '--git-dir=*|--work-tree=*) opts+=("$1"); shift ;;' '--git-dir=*|--work-tree=*) shift ;;'
 
 echo "── наборы и пробы воркспейса — класс suite: голый запуск отказан, слот и чтение — пропуск (ws#1291)"
 # Синтетический воркспейс: корень с scripts/heavy-slot.sh, набор с прогонщиком, доказательством
