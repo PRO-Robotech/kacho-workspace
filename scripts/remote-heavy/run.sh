@@ -17,14 +17,18 @@
 #          [--workdir <путь в дереве>] [--short <слово>] [--ns <имя>]
 #          [--timeout <с>] [--keep <часы ≤ 12>] [--push-input <вход pre-push>]
 #          -- <команда> [аргументы…]
-#   run.sh --available [--profile <профиль> [--repo <kacho|kaname|corelib|kacho-workspace>]]
+#   run.sh --available [--profile <профиль> [--repo <kacho|kaname|corelib|kacho-workspace>]] [--pending <файл>]
 #                           0 — кластер отвечает, ns создавать вправе и pod есть где
 #                           встать; 69 — нет (в том числе открытого узла нет, см.
 #                           РАЗМЕЩЕНИЕ); 75 — идущих тяжёлых прогонов уже предел (см.
 #                           ПРЕДЕЛ) либо места под запрос профиля нет ни на одном узле
 #                           70 — ДЕФЕКТ ОБЁРТКИ: ответ кластера прочитан, а разбор
 #                           отказал; не недоступность — heavy-slot локально не уходит
-#                           (ws#1210). Ответ кластера идёт в jq файлом, не словом argv
+#                           (ws#1210). Ответ кластера идёт в jq файлом, не словом argv.
+#                           --pending — ВОШЕДШИЕ (ниже): запросы прогонов, ns ещё не создавших
+#   run.sh --request --profile <профиль> [--repo <kacho|kaname|corelib|kacho-workspace>]
+#                           «mCPU МиБ» запроса pod по замеру (ЗАПРОС ПО ЗАМЕРУ); к кластеру
+#                           не обращается; 69 — строки профиля в PEAKS нет, 64 — вызов вне формы
 #   run.sh --profiles       профили, их запросы по репозиториям (ЗАПРОС ПО ЗАМЕРУ) и основание
 #
 # КЛАСТЕР. Кубконфиг берётся из KACHO_REMOTE_KUBECONFIG, иначе из первой строки
@@ -184,6 +188,13 @@
 # легли, и новые того же запроса на остатке), K — открытых узлов, C и G — остаток
 # после идущих. Допуск — M > N и N < P; запрос не назван (--available без
 # --profile) — судится лишь открытый узел.
+# ВОШЕДШИЕ (ws#1302). Прогон, которому вход уже дан, а ns он ещё не создал (heavy-slot пустил
+# его, run.sh идёт к созданию), переписи кластера не виден — и второй вход по тому же месту
+# прошёл бы. `--available --pending <файл>` берёт их строками «имя mCPU МиБ»: каждая
+# раскладывается по узлам как ns без pod своим запросом (тем же путём, что идущие) и входит
+# в счёт предела P. Строка вне формы — 64; пустой файл — ни одного вошедшего. Вошедшие входят
+# в «тяжёлых N» строки ёмкости и названы там же («в том числе вошедших без ns W»). Запрос
+# вошедшего heavy-slot берёт у `--request` — тем же sizing, что и прогон.
 #
 # ВЫВОД (ws#991). Строки run.sh после выбора ns несут его имя: два прогона в одном
 # потоке различимы. Если stderr или stdout прогона — обычный файл, в который пишет
@@ -1080,16 +1091,44 @@ placement() {
     PLACE_WHY="места под запрос (cpu ${1}m, память $2 МиБ) по CPU и памяти после идущих нет ни на одном открытом узле ($PLACE_CENSUS; ёмкость: $PLACE_CAP$unw)"; return 75
 }
 
+# avail_args <доводы после --available|--request> — разбор: AV_PROFILE, AV_REPO, AV_PENDING
+# (содержимое файла --pending, строки «имя mCPU МиБ»); вне формы — 64 с причиной.
+avail_args() {
+    AV_PROFILE=""; AV_REPO=""; AV_PENDING=""; AV_PF=""
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            --profile) [ -n "${2:-}" ] && [ -z "$AV_PROFILE" ] || return 1; AV_PROFILE="$2"; shift 2 ;;
+            --repo) [ -n "${2:-}" ] && [ -z "$AV_REPO" ] || return 1; AV_REPO="$2"; shift 2 ;;
+            --pending) [ -n "${2:-}" ] && [ -z "$AV_PF" ] || return 1; AV_PF="$2"; shift 2 ;;
+            *) return 1 ;;
+        esac
+    done
+    [ -z "$AV_REPO" ] || [ -n "$AV_PROFILE" ] || return 1
+    case "$AV_REPO" in ''|kacho|kaname|corelib|kacho-workspace) ;; *) say "--repo kacho|kaname|corelib|kacho-workspace, получено «$AV_REPO»"; exit 64 ;; esac
+    [ -z "$AV_REPO" ] || pair_ok "$AV_PROFILE" "$AV_REPO" || exit 64
+    if [ -n "$AV_PROFILE" ]; then
+        profile_row "$AV_PROFILE" >/dev/null || { say "профиля «$AV_PROFILE» нет: $(cut -d'|' -f1 <<< "$PROFILES" | tr '\n' ' ')"; exit 64; }
+    fi
+    if [ -n "$AV_PF" ]; then
+        [ -r "$AV_PF" ] || { say "--pending: файл «$AV_PF» не читается"; exit 64; }
+        AV_PENDING="$(grep -v '^$' "$AV_PF")"
+        [ -z "$AV_PENDING" ] || ! grep -qvE '^[A-Za-z0-9._-]{1,63} [1-9][0-9]{0,6} [1-9][0-9]{0,7}$' <<< "$AV_PENDING" \
+            || { say "--pending: строка вне формы «имя mCPU МиБ»: «$(grep -vE '^[A-Za-z0-9._-]{1,63} [1-9][0-9]{0,6} [1-9][0-9]{0,7}$' <<< "$AV_PENDING" | head -n 1)»"; exit 64; }
+    fi
+    return 0
+}
+
 case "${1:-}" in
+    --request)
+        avail_args "${@:2}" && [ -n "$AV_PROFILE" ] && [ -z "$AV_PF" ] \
+            || { say "--request --profile <профиль> [--repo kacho|kaname|corelib|kacho-workspace], получено «${*:2}»"; exit 64; }
+        sizing "$AV_PROFILE" "$AV_REPO" || { say "запрос профиля $AV_PROFILE не выведен из PEAKS: строки профиля в таблице нет (не выполнилось)"; exit 69; }
+        printf '%s %s\n' "$NEED_CPU" "$NEED_MIB"; exit 0 ;;
     --available)
         need="0 0"; avw=""
-        if [ -n "${2:-}" ]; then
-            { [ "$2" = --profile ] && [ "$#" -eq 3 ]; } || { [ "$2" = --profile ] && [ "$#" -eq 5 ] && [ "$4" = --repo ]; } \
-                || { say "--available [--profile <профиль> [--repo kacho|kaname|corelib|kacho-workspace]], получено «${*:2}»"; exit 64; }
-            [ "$#" -eq 3 ] || case "$5" in kacho|kaname|corelib|kacho-workspace) ;; *) say "--repo kacho|kaname|corelib|kacho-workspace, получено «$5»"; exit 64 ;; esac
-            [ "$#" -eq 3 ] || pair_ok "$3" "$5" || exit 64
-            profile_row "$3" >/dev/null || { say "профиля «$3» нет: $(cut -d'|' -f1 <<< "$PROFILES" | tr '\n' ' ')"; exit 64; }
-            sizing "$3" "${5:-}" || { say "запрос профиля $3 не выведен из PEAKS: строки профиля в таблице нет (не выполнилось)"; exit 69; }
+        avail_args "${@:2}" || { say "--available [--profile <профиль> [--repo kacho|kaname|corelib|kacho-workspace]] [--pending <файл>], получено «${*:2}»"; exit 64; }
+        if [ -n "$AV_PROFILE" ]; then
+            sizing "$AV_PROFILE" "$AV_REPO" || { say "запрос профиля $AV_PROFILE не выведен из PEAKS: строки профиля в таблице нет (не выполнилось)"; exit 69; }
             need="$NEED_CPU $NEED_MIB"; avw="; запрос pod: cpu ${NEED_CPU}m, память $NEED_MIB МиБ — $SIZE_WHY"
         fi
         valid_max_par || exit 64
@@ -1097,17 +1136,17 @@ case "${1:-}" in
         [ "$arc" = 2 ] && defect "$WHY"
         [ "$arc" = 0 ] || { say "$WHY"; [ "$arc" = 64 ] && exit 64; exit 69; }
         busy_read; busy="$BUSY"
-        n="$(grep -c . <<< "$busy")"
-        if [ "$n" -ge "$MAX_PAR" ]; then say "кластер занят: идущих тяжёлых прогонов $n при пределе $MAX_PAR (KACHO_REMOTE_HEAVY_MAX)"; exit 75; fi
+        n="$(grep -c . <<< "$busy")"; np="$(grep -c . <<< "$AV_PENDING")"
+        if [ $(( n + np )) -ge "$MAX_PAR" ]; then say "кластер занят: идущих тяжёлых прогонов $n, вошедших без ns $np при пределе $MAX_PAR (KACHO_REMOTE_HEAVY_MAX)"; exit 75; fi
         read -r ncpu nmib <<< "$need"
-        placement "$ncpu" "$nmib" "$BUSY_DEM"; prc=$?
+        placement "$ncpu" "$nmib" "$BUSY_DEM${AV_PENDING:+$'\n'$AV_PENDING}"; prc=$?
         case "$prc" in
             0) ;;
             1) say "размещение не проверено: $PLACE_WHY"; exit 69 ;;
             2) defect "размещение не проверено: $PLACE_WHY" ;;
-            *) say "$PLACE_WHY"; exit "$prc" ;;
+            *) say "$PLACE_WHY${AV_PENDING:+ (в том числе вошедших без ns $np)}"; exit "$prc" ;;
         esac
-        echo "remote-heavy: кластер отвечает, создавать ns вправе; ёмкость: $PLACE_CAP, потолок $MAX_PAR (KACHO_REMOTE_HEAVY_MAX); $PLACE_CENSUS$avw"; exit 0 ;;
+        echo "remote-heavy: кластер отвечает, создавать ns вправе; ёмкость: $PLACE_CAP${AV_PENDING:+ (в том числе вошедших без ns $np)}, потолок $MAX_PAR (KACHO_REMOTE_HEAVY_MAX); $PLACE_CENSUS$avw"; exit 0 ;;
     --profiles)
         while IFS='|' read -r n _ _ _ eph d basis; do
             for r in $(profile_repos "$n"); do
