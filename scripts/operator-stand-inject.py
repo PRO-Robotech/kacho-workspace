@@ -234,6 +234,89 @@ class ImageBuildExperiments(unittest.TestCase):
                     print('BUILD_PROBE_V1 ' + json.dumps({'repo':repo,'name':change,'outcome':'rejected','twin':'accepted'}))
 
 
+
+class VaultRuntimeExperiments(unittest.TestCase):
+    def test_runtime_steps_and_overrides(self):
+        repo = 'PRO-Robotech/vault-operator'
+        self.assertEqual(Counter(item[0] for item in M.INVENTORY[repo].values()),
+                         Counter({'cluster-job': 3, 'github-hosted': 4}))
+        for key, label, command in [
+            ('test-e2e-pipeline', 'Running pipeline e2e', 'make test-e2e-pipeline'),
+            ('load', 'Running the load measurement', 'make test-load'),
+        ]:
+            name = 'test-e2e.yml:' + key
+            target = {'definition': {'env': {}, 'job': {'steps': [
+                {'uses': 'actions/checkout@v4', 'with': {'fetch-depth': 0}},
+                {'name': label, 'run': command}]}}}
+            job = {'steps': [{'name': label, 'number': 4, 'status': 'completed', 'conclusion': 'success'}]}
+            changes = {
+                'missing': lambda t, j: j['steps'].clear(),
+                'skipped': lambda t, j: j['steps'][0].update(conclusion='skipped'),
+                'pending': lambda t, j: j['steps'][0].update(status='in_progress'),
+                'failed': lambda t, j: j['steps'][0].update(conclusion='failure'),
+                'duplicate': lambda t, j: j['steps'].append(copy.deepcopy(j['steps'][0])),
+                'command': lambda t, j: t['definition']['job']['steps'][1].update(run=command+' LOAD_WINDOW=1s'),
+                'conditional': lambda t, j: t['definition']['job']['steps'][1].update({'if': 'false'}),
+                'workflow-env': lambda t, j: t['definition'].update(env={'LOAD_WINDOW': '1s'}),
+                'job-env': lambda t, j: t['definition']['job'].update(env={'LOAD_WINDOW': '1s'}),
+                'step-env': lambda t, j: t['definition']['job']['steps'][1].update(env={'LOAD_WINDOW': '1s'}),
+            }
+            if key == 'test-e2e-pipeline':
+                changes['shallow'] = lambda t, j: t['definition']['job']['steps'][0]['with'].update({'fetch-depth': 1})
+            for change, mutate in changes.items():
+                with self.subTest(job=key, change=change):
+                    M.verify_vault_runtime(repo, name, target, job)
+                    t, j = copy.deepcopy(target), copy.deepcopy(job); mutate(t, j)
+                    with self.assertRaises(M.Unread): M.verify_vault_runtime(repo, name, t, j)
+                    print('VAULT_RUNTIME_PROBE_V1 ' + json.dumps({'job':key,'name':change,'outcome':'rejected','twin':'accepted'}))
+
+    def test_pipeline_inventory(self):
+        repo, name = 'PRO-Robotech/vault-operator', 'test-e2e.yml:test-e2e-pipeline'
+        rows = ['=== RUN   ' + test + '\n--- PASS: ' + test + ' (1.00s)\n'
+                for test in sorted(M.VAULT_PIPELINE_TESTS)]
+        native = ''.join(rows)
+        M.verify_vault_native(repo, name, (FIX / 'vault-pipeline-native.log').read_text())
+        for index, row in enumerate(rows):
+            for change, broken in [('omission', native.replace(row, '')),
+                                   ('wrong-name', native.replace(row, row.replace(sorted(M.VAULT_PIPELINE_TESTS)[index], 'TestWrong'))),
+                                   ('skip', native.replace(row, row.replace('--- PASS:', '--- SKIP:')))]:
+                with self.subTest(case=index, change=change):
+                    M.verify_vault_native(repo, name, native)
+                    with self.assertRaises(M.Unread): M.verify_vault_native(repo, name, broken)
+                    print('VAULT_PIPELINE_PROBE_V1 ' + json.dumps({'case':index,'name':change,'outcome':'rejected','twin':'accepted'}))
+
+    def test_load_measurement(self):
+        repo, name = 'PRO-Robotech/vault-operator', 'test-e2e.yml:load'
+        native = ('=== RUN   TestLoadThousandClaimsE2E\n'
+                  '    load_test.go:183: 1000 claims Ready in 24s\n'
+                  '    load_test.go:196: window 10m0s: 1000 passes (1.00 per claim, limit 1.20), '
+                  '1000 Vault calls (1.00 per claim), 0 new tokens, RSS 120 MiB\n'
+                  '--- PASS: TestLoadThousandClaimsE2E (624.00s)\n')
+        M.verify_vault_native(repo, name, (FIX / 'vault-load-native.log').read_text())
+        changes = {
+            'short-window': native.replace('10m0s', '1s'),
+            'ready-seconds': native.replace('Ready in 24s', 'Ready in 601s'),
+            'ready-minutes': native.replace('Ready in 24s', 'Ready in 10m1s'),
+            'short-elapsed': native.replace('(624.00s)', '(599.00s)'),
+            'claims': native.replace('1000 claims Ready', '999 claims Ready'),
+            'passes': native.replace('1.00 per claim, limit', '1.30 per claim, limit'),
+            'limit': native.replace('limit 1.20', 'limit 3.00'),
+            'tokens': native.replace('0 new tokens', '1 new tokens'),
+            'rss': native.replace('RSS 120', 'RSS 300'),
+            'skip': native.replace('--- PASS:', '--- SKIP:'),
+            'missing': '=== RUN   TestLoadThousandClaimsE2E\n--- PASS: TestLoadThousandClaimsE2E (1.00s)\n',
+            'duplicate': native + native,
+        }
+        for change, broken in changes.items():
+            with self.subTest(change=change):
+                M.census(native, 'go-v1'); M.verify_vault_native(repo, name, native)
+                stamped = '\n'.join('2026-10-22T22:00:00.000Z ' + line for line in native.splitlines())
+                M.verify_vault_native(repo, name, stamped)
+                M.verify_vault_native(repo, name, native.replace('Ready in 24s', 'Ready in 600s'))
+                with self.assertRaises(M.Unread): M.verify_vault_native(repo, name, broken)
+                print('VAULT_LOAD_PROBE_V1 ' + json.dumps({'name':change,'outcome':'rejected','twin':'accepted'}))
+
+
 class TransportExperiments(unittest.TestCase):
     def test_exact_transport(self):
         script = b'#!/bin/bash\nprintf "exact newline\\n"\n'

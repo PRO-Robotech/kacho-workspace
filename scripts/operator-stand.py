@@ -51,8 +51,8 @@ INVENTORY = {
         'vulncheck.yml:govulncheck': ('cluster-job', 'completion'),
         'docker-build.yml:docker-build-amd64': ('github-hosted', 'completion'),
         'test-e2e.yml:test-e2e': ('github-hosted', 'ginkgo-v2'),
-        'test-e2e.yml:test-e2e-pipeline': ('cluster-job', 'go-v1'),
-        'test-e2e.yml:load': ('cluster-job', 'go-v1'),
+        'test-e2e.yml:test-e2e-pipeline': ('github-hosted', 'go-v1'),
+        'test-e2e.yml:load': ('github-hosted', 'go-v1'),
     },
 }
 
@@ -359,6 +359,73 @@ def verify_image_builds(repo, name, target, job):
                     for step in observed), 'required image build skipped/missing/failed')
 
 
+
+def verify_vault_runtime(repo, name, target, job):
+    required = {
+        'test-e2e.yml:test-e2e-pipeline': ('Running pipeline e2e', 'make test-e2e-pipeline'),
+        'test-e2e.yml:load': ('Running the load measurement', 'make test-load'),
+    }.get(name) if repo == 'PRO-Robotech/vault-operator' else None
+    if required is None:
+        return
+    step_name, invocation = required
+    source = target['definition']
+    steps = source['job']['steps']
+    selected = [step for step in steps if step.get('name') == step_name]
+    require(len(selected) == 1 and selected[0].get('run', '').strip() == invocation and
+            not selected[0].get('if'), 'Vault runtime command differs or is conditional')
+    require(all('LOAD_WINDOW' not in scope.get('env', {}) for scope in
+                [source, source['job']] + steps) and
+            all('LOAD_WINDOW' not in step.get('run', '') for step in steps),
+            'Vault load window override is forbidden')
+    if name.endswith(':test-e2e-pipeline'):
+        require(steps[0].get('with', {}).get('fetch-depth') == 0, 'legacy history is unavailable')
+    observed = [step for step in job.get('steps', []) if step.get('name') == step_name]
+    require(len(observed) == 1 and observed[0].get('status') == 'completed' and
+            observed[0].get('conclusion') == 'success', 'Vault runtime step skipped/missing/failed')
+
+
+VAULT_PIPELINE_TESTS = {
+    'TestPipelineE2E', 'TestSecretPipelineE2E', 'TestS3BucketPipelineE2E',
+    'TestGuestOnOperatorMountE2E', 'TestOwnershipE2E', 'TestTemplateRoleE2E',
+    'TestOneVaultTokenPerProcessE2E', 'TestUpgradeFromLegacyKeepsVaultByteForByte',
+} | {'TestOwnershipE2E/' + suffix for suffix in (
+    'a_policy_that_exists_before_the_claim_keeps_its_body',
+    'a_second_claim_with_the_same_transit_key_never_configures_it',
+    'a_hand-made_mount_is_not_adopted_by_a_claim_that_waited_for_its_kubeconfig',
+    'names_are_compared_the_way_Vault_resolves_them',
+    'the_ledger_removes_what_left_spec',
+    'enforce_keeps_an_escalation_out_of_Vault;_the_twin_is_written',
+)}
+
+
+def verify_vault_native(repo, name, log):
+    if repo != 'PRO-Robotech/vault-operator' or name not in (
+            'test-e2e.yml:load', 'test-e2e.yml:test-e2e-pipeline'):
+        return
+    log = re.sub(r'\x1b\[[0-9;]*m', '', log)
+    log = '\n'.join(re.sub(r'^\d{4}-\d\d-\d\dT\S+ ', '', line) for line in log.splitlines())
+    required = VAULT_PIPELINE_TESTS if name.endswith(':test-e2e-pipeline') else {'TestLoadThousandClaimsE2E'}
+    selected = Counter(re.findall(r'^=== RUN\s+(\S+)$', log, re.M))
+    require(selected == Counter({test: 1 for test in required}), 'Vault native test inventory differs')
+    census(log, 'go-v1')
+    if name.endswith(':test-e2e-pipeline'):
+        return
+    ready = re.findall(r'1000 claims Ready in ([0-9hms.]+)', log)
+    require(len(ready) == 1, 'load readiness census missing/duplicated')
+    duration = re.fullmatch(r'(?:(\d+)h)?(?:(\d+)m)?(?:(\d+(?:\.\d+)?)s)?', ready[0])
+    require(duration is not None and any(duration.groups()), 'unknown readiness duration')
+    seconds = sum(float(value or 0) * scale for value, scale in zip(duration.groups(), (3600, 60, 1)))
+    require(seconds <= 600, 'load readiness deadline exceeded')
+    rows = re.findall(r'window ([0-9hms.]+): ([0-9.]+) passes \(([0-9.]+) per claim, limit ([0-9.]+)\), '
+                      r'([0-9.]+) Vault calls \(([0-9.]+) per claim\), (-?[0-9]+) new tokens, RSS ([0-9]+) MiB', log)
+    require(len(rows) == 1, 'load measurement missing/duplicated')
+    window, passes, per_claim, limit, calls, calls_per_claim, tokens, rss = rows[0]
+    require(window == '10m0s' and float(limit) == 1.2 and float(per_claim) <= 1.2 and
+            int(tokens) == 0 and int(rss) <= 256, 'load steady-window bounds differ/failed')
+    elapsed = re.findall(r'^--- PASS: TestLoadThousandClaimsE2E \(([0-9.]+)s\)$', log, re.M)
+    require(len(elapsed) == 1 and float(elapsed[0]) >= 600, 'load test duration is below the steady window')
+
+
 def hosted(expected, name):
     repo, head = expected['repo'], expected['head']
     wf, key = name.split(':')
@@ -388,6 +455,7 @@ def hosted(expected, name):
             job.get('run_id') == run['id'], 'job source/run/attempt mismatch')
     require(job.get('status') == 'completed' and job.get('conclusion') == 'success', 'hosted job is not green')
     verify_image_builds(repo, name, target, job)
+    verify_vault_runtime(repo, name, target, job)
     require(job.get('runner_group_name') == 'GitHub Actions' and
             'self-hosted' not in job.get('labels', []), 'runner is not GitHub hosted')
     check_url = job.get('check_run_url', '')
@@ -399,6 +467,7 @@ def hosted(expected, name):
     log = api(repo, f"actions/jobs/{job['id']}/logs", raw=True)
     native = source_markers(log, expected, key, run['id'], attempt)
     count = census(native, target['parser'])
+    verify_vault_native(repo, name, native)
     return {'executor': 'github-hosted', 'run_id': run['id'], 'run_attempt': attempt,
             'job_id': job['id'], 'cases': count, 'log_digest': digest(log.encode())}
 
