@@ -154,7 +154,7 @@ yml nopin "jobs:
     steps:
       - name: строгий
         run: shellcheck -x a/x.sh"
-assert "2 да" "$(run nopin) $(has 'пина нет')" "пина нет нигде — код 2: версия CI не названа, паритет не судим"
+assert "2 да" "$(run nopin) $(has 'пина SHELLCHECK_VERSION нет')" "пина нет нигде — код 2: версия CI не названа, паритет не судим"
 
 echo "── хук отправки: провязка исхода шага (песочница по образцу tooling-gate check-08)"
 # shellcheck source=lib/sandbox-git-home.sh
