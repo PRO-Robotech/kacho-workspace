@@ -75,7 +75,9 @@ done
 assert "1 0 0 0" "$(cat "$W/ph.none.rc") $(cat "$W/ph.tree.rc") $(cat "$W/ph.inst.rc") $(cat "$W/ph.hpath.rc")" "коды: без хука 1; дерево, установленный, core.hooksPath — 0"
 assert "absent present present present" "$(for r in none tree inst hpath; do cut -f2 "$W/ph.$r"; done | tr '\n' ' ' | sed 's/ $//')" "строка PUSH-HOOK называет вид"
 assert "0" "$(cd "$W/none" && bash "$PH" -c "core.hooksPath=$W/hookdir" > /dev/null; echo $?)" "-c core.hooksPath= перед push — хук есть"
-assert "1" "$(cd "$W/none" && bash "$PH" -c core.fsmonitor=true -c color.ui=never > /dev/null; echo $?)" "близнец: прочие -c признака не меняют (и git не подаются)"
+assert "1" "$(cd "$W/none" && bash "$PH" -c color.ui=never -c advice.pushUpdateRejected=false -c http.lowSpeedLimit=1 > /dev/null; echo $?)" "близнец: ключи закрытого перечня безвредных признака не меняют (и git не подаются)"
+printf '[core]\n\thooksPath = %s\n' "$W/hookdir" > "$W/inc"; printf '[color]\n\tui = never\n' > "$W/inc-none"
+assert "0 0 0 0 0 0" "$(for f in "-c include.path=$W/inc" "-c includeIf.gitdir:$W/.path=$W/inc" "--config-env=core.hooksPath=HP" "--config-env core.hooksPath=HP" "-c include.path=$W/inc-none" "-c core.fsmonitor=true"; do (cd "$W/none" && HP="$W/hookdir" bash "$PH" $f > /dev/null; printf '%s ' "$?"); done | sed 's/ $//')" "признак: include.path, includeIf.*.path, --config-env (обе записи), include без hooksPath, ключ вне перечня — хук есть"
 assert "0" "$(cd "$W/none" && bash "$PH" --git-dir="$W/inst/.git" > /dev/null; echo $?)" "--git-dir — судится отправляемый клон, а не каталог"
 assert "2" "$(cd "$W" && bash "$PH" > /dev/null; echo $?)" "не репозиторий — 2"
 chmod -x "$W/inst/.git/hooks/pre-push"
@@ -124,6 +126,24 @@ heavyform home env "HOME=$W/h" git
 heavyform dash-C git -C "$W/inst"
 heavyform git-dir-opt git "--git-dir=$W/inst/.git"
 heavyform env-chdir env -C "$W/inst" git
+# Контроль: настоящий git исполняет хук по include.path, includeIf и --config-env (без слота).
+for f in "include.path=$W/inc" "includeIf.gitdir:$W/.path=$W/inc"; do
+    rm -f "$W"/ran.*; (cd "$W/none" && git -c "$f" push -q origin "HEAD:refs/heads/ctl-$RANDOM" > /dev/null 2>&1)
+    assert "да" "$([ -e "$W/ran.hpath" ] && echo да || echo нет)" "контроль: git -c $f… исполняет хук сам"
+done
+rm -f "$W"/ran.*; (cd "$W/none" && HP="$W/hookdir" git --config-env=core.hooksPath=HP push -q origin "HEAD:refs/heads/ctl-env" > /dev/null 2>&1)
+assert "да" "$([ -e "$W/ran.hpath" ] && echo да || echo нет)" "контроль: git --config-env=core.hooksPath=HP исполняет хук сам"
+heavyform include-path git -c "include.path=$W/inc"
+heavyform include-if git -c "includeIf.gitdir:$W/.path=$W/inc"
+heavyform config-env env "HP=$W/hookdir" git --config-env=core.hooksPath=HP
+heavyform config-env-2 env "HP=$W/hookdir" git --config-env core.hooksPath=HP
+heavyform include-none git -c "include.path=$W/inc-none"
+for f in "-c include.path=$W/inc" "-c includeIf.gitdir:$W/.path=$W/inc" "--config-env=core.hooksPath=HP"; do
+    rc="$(hs "$W/none" --route ci-local -- env "HP=$W/hookdir" git $f push origin HEAD:refs/heads/r-x)"
+    assert "0 не-local" "$rc $([ "$(cut -f2 "$W/out" | head -n 1)" = local ] && echo local || echo не-local)" "--route: $f — не лёгкая"
+done
+rm -f "$W/argv"
+assert "0 есть нет" "$(hs "$W/none" ci-local -- git -c color.ui=never -c advice.pushUpdateRejected=false -c http.lowSpeedLimit=1 push -q origin HEAD:refs/heads/e-safe-cfg) $(ref e-safe-cfg) $(asked)" "близнец: -c ключей закрытого перечня — лёгкая, ветка в приёмнике, кластер не спрошен"
 rm -f "$W/argv"
 assert "0 есть нет" "$(hs "$W/tree" ci-local -- env -C "$W/none" git push -q origin HEAD:refs/heads/e-chdir-light) $(ref e-chdir-light) $(asked)" "близнец: env -C <клон без хука> из клона с хуком — лёгкая, ветка в приёмнике, кластер не спрошен"
 rm -f "$W/argv" "$W"/ran.*

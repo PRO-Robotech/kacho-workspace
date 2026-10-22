@@ -572,6 +572,22 @@ HOOKENV=(GIT_CONFIG_GLOBAL="$WORK/gcfg-none"); passes 'git push origin HEAD' "$P
 HOOKENV=(GIT_CONFIG_GLOBAL="$WORK/gcfg")
 ph_mut global-layer "$PN" 'git push origin HEAD' 'hp="$(git "${opts[@]}" config core.hooksPath 2>/dev/null)"' 'hp="$(git "${opts[@]}" config --local core.hooksPath 2>/dev/null)"'
 HOOKENV=()
+# Настройки на команду (ws#1335, второй круг приёмки): include.*, includeIf.* и --config-env
+# подключают core.hooksPath мимо слова «-c core.hooksPath=». Решение диспетчера: -c/--config-env
+# вне закрытого перечня безвредных ключей (color.*, core.sshCommand, credential.*, http.*,
+# protocol.*, user.*, advice.*) — отправка с хуком; include.* и includeIf.* — всегда.
+denies ci-local "git -c include.path=$WORK/gcfg push origin HEAD" "$PN"
+denies ci-local "git -c includeIf.gitdir:$WORK/.path=$WORK/gcfg push origin HEAD" "$PN"
+denies ci-local "HP=$WORK/hookdir git --config-env=core.hooksPath=HP push origin HEAD" "$PN"
+denies ci-local "git --config-env core.hooksPath=HP push origin HEAD" "$PN"
+denies ci-local "git -c include.path=$WORK/gcfg-none push origin HEAD" "$PN"
+denies ci-local "git -c core.fsmonitor=true push origin HEAD" "$PN"
+denies ci-local "git --config-env=color.ui=CU -c core.editor=x push origin HEAD" "$PN"
+passes "git -c advice.pushUpdateRejected=false -c http.lowSpeedLimit=1 -c Color.UI=never push origin HEAD" "$PN"
+passes "git -c core.sshCommand=ssh -c protocol.version=2 -c credential.helper= push origin HEAD" "$PN"
+passes "git --config-env=color.ui=CU push origin HEAD" "$PN"
+ph_mut include-safe "$PN" "git -c include.path=$WORK/gcfg push origin HEAD" '            include|includeif) heavy_cfg' '            include_none|includeif_none) heavy_cfg'
+ph_mut config-env-skip "$PN" "git --config-env=core.hooksPath=HP push origin HEAD" '        --config-env=*) cfg_key' '        --config-env_none=*) cfg_key'
 ph_mut env-git-dir "$PN" "env GIT_DIR=$WORK/push-inst/.git git push origin HEAD" '    GIT_*) printf' '    GIT_NONE_*) printf'
 # Сломанный признак (код 2 без строки, код 1 без строки «absent», синтаксическая ошибка) —
 # отказ и клону с хуком, и клону без хука: «не репозиторий» — только строка PUSH-HOOK none.
