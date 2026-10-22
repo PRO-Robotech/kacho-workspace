@@ -131,6 +131,15 @@
 #                             @88c4e475: 4 skipped из 24 check-runs. Маски по именам
 #                             нет: имя — только ключ к записи задания в файле.
 #                             Снятые skipped печатаются строкой CENSUS поимённо;
+#       CI-LEDGER-MISSING   — у пары (репозиторий, база запроса) нет строки в той
+#                             ведомости, которую читает `ci-read.sh` рядом
+#                             (`${CI_READ_EXPECTED:-<каталог скрипта>/ci-read-expected.tsv}`,
+#                             по рецепту «ЗАПУСК» — из origin/main): выборка и форма
+#                             числа — его (`!/^#/ && $1==r && $2==b`, `^[1-9][0-9]*$`).
+#                             Демон вливания зовёт ci-read первым и на такой паре стоит
+#                             на VOID «пары нет в ведомости» уже после старта (ws#1331:
+#                             vault-operator#20 → 13-prod-ready — здесь land, в демоне
+#                             код 2). Ведомость не читается — VOID;
 #   (д) MERGE-READINESS     — `scripts/merge-readiness.sh` из origin/main
 #                             воркспейса дал не 0 (1 — нельзя; 2 — вердикта нет;
 #                             оба — не «можно»).
@@ -169,7 +178,8 @@
 #       площадки не разбирается, объявленный диапазон не набран ни списком запроса,
 #       ни сравнением base...head (ws#1070),
 #       merge-readiness из origin/main не извлечь, предиката атрибуции нет,
-#       комментарии закрываемой задачи не прочитаны). Это НЕ «сажать можно».
+#       комментарии закрываемой задачи не прочитаны, ведомость ci-read не читается).
+#       Это НЕ «сажать можно».
 #
 # ВХОД ПОДМЕНЯЕМ — ради доказательства (scripts/landing-precheck-inject.sh):
 #   LANDING_PRECHECK_GH                — вместо `gh` (только `gh api <путь>`;
@@ -177,6 +187,9 @@
 #                                        файлы workflow на голове — тем же путём);
 #   LANDING_PRECHECK_MERGE_READINESS   — путь к скрипту вместо merge-readiness из
 #                                        origin/main; подмена печатается в CENSUS;
+#   CI_READ_EXPECTED                   — путь ведомости ci-read вместо соседней
+#                                        (та же подмена, что у ci-read.sh и
+#                                        merge-readiness.sh); подмена — в CENSUS;
 #   LANDING_PRECHECK_WS                — репозиторий, чей origin/main даёт
 #                                        merge-readiness и scripts/lib (песочница
 #                                        пробы настоящего пути (д)); по умолчанию —
@@ -228,6 +241,17 @@ jq -e 'type == "object" and (.head.sha | type == "string") and (.title | type ==
     || void "ответ о PR $REPO#$PR не разбирается (нет head.sha или title)"
 HEAD_SHA="$(jq -r '.head.sha' "$W/pull.json")"
 [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] || void "head.sha «$HEAD_SHA» не 40 hex"
+
+# (г) строка ведомости ci-read (ws#1331) — та ведомость, выборка и форма числа, что у
+# ci-read.sh рядом (шапка, CI-LEDGER-MISSING); вердикт — в разборе ниже.
+LEDGER="${CI_READ_EXPECTED:-$HERE/ci-read-expected.tsv}"
+LEDGER_SRC="$LEDGER"; [ -z "${CI_READ_EXPECTED:-}" ] || LEDGER_SRC="подмена CI_READ_EXPECTED: $LEDGER"
+[ -r "$LEDGER" ] || void "ведомость ci-read «$LEDGER» не читается — строку пары не судить"
+BASE_REF="$(jq -r '.base.ref // ""' "$W/pull.json")"
+[ -n "$BASE_REF" ] || void "ответ о PR $REPO#$PR без base.ref — пары ведомости не назвать"
+LEDGER_EXPECT="$(awk -F'\t' -v r="$REPO" -v b="$BASE_REF" '!/^#/ && $1==r && $2==b {print $3; exit}' "$LEDGER")"
+LEDGER_OK=0
+[[ "$LEDGER_EXPECT" =~ ^[1-9][0-9]*$ ]] && LEDGER_OK=1
 
 # Коммиты запроса: площадка отдаёт по этому адресу не больше 250; длиннее — ниже, сравнением.
 : > "$W/commits.ndjson"
@@ -347,6 +371,7 @@ MR_CODE=$?
 
 export STAND_REPORT STAND_EXPECT STAND_TOOL="$HERE/stand-report.sh" DOD_LIB="$HERE/lib"
 export W REPO PR HEAD_SHA REVIEWS MR_CODE MR_SRC TOTAL_RUNS="$total" GH N_ATTR_SEEN="$n_attr_seen" COMMITS_SRC
+export LEDGER_OK LEDGER_EXPECT LEDGER_SRC
 python3 - <<'PY'
 import json, os, re, sys
 
@@ -784,6 +809,14 @@ for name in sorted({r.get("name") for r in superseded}):
     census.append(f"ci: вытеснены поздним прогоном: {name} ×{len(gone)} ({what})")
 for key in sorted({(r.get("name"), skip_why[id(r)]) for r in skipped_lawful}):
     census.append(f"ci: skipped не причина — условие if невыполнимо: {key[0]} ×{sum(1 for r in skipped_lawful if (r.get('name'), skip_why[id(r)]) == key)} ({key[1]})")
+# Строка ведомости ci-read — выбрана и судима формой числа в оболочке выражением ci-read.sh.
+if os.environ["LEDGER_OK"] == "1":
+    census.append(f"ведомость ci-read: {os.environ['REPO']} / {base_ref} — строка есть, проверок не меньше {os.environ['LEDGER_EXPECT']} ({os.environ['LEDGER_SRC']})")
+else:
+    got = os.environ["LEDGER_EXPECT"]
+    reason("CI-LEDGER-MISSING", f"пары {os.environ['REPO']} / {base_ref} нет в ведомости {os.environ['LEDGER_SRC']}"
+           + (f" (третье поле {got!r} не число ≥ 1)" if got else "")
+           + " — ci-read.sh демона вливания ответит VOID «ожидаемое не известно»; строка заводится замером предикатом шапки ведомости")
 
 # (д) merge-readiness
 mr = int(os.environ["MR_CODE"])
