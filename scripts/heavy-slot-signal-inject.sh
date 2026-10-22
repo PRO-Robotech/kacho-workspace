@@ -55,29 +55,37 @@ SIGP='set -o pipefail; yes | head -n 1 > /dev/null; p=$?; i=$(sed -n "s/^SigIgn:
 IGN=(python3 -c 'import os, signal, sys; signal.signal(signal.SIGPIPE, signal.SIG_IGN); signal.signal(signal.SIGHUP, signal.SIG_IGN); os.execvp(sys.argv[1], sys.argv[1:])')
 IGNP=(python3 -c 'import os, signal, sys; signal.signal(signal.SIGPIPE, signal.SIG_IGN); signal.signal(signal.SIGHUP, signal.SIG_DFL); os.execvp(sys.argv[1], sys.argv[1:])')
 IGNH=(python3 -c 'import os, signal, sys; signal.signal(signal.SIGPIPE, signal.SIG_DFL); signal.signal(signal.SIGHUP, signal.SIG_IGN); os.execvp(sys.argv[1], sys.argv[1:])')
+# nohup заглушает лишь HUP, PIPE наследует от вызывающего пробы — поэтому и он, и контроль стоят на
+# умолчании обоих: env --default-signal (вызывающий пробы мог заглушить PIPE — ранер конвейера?).
+DFL=(env --default-signal=PIPE,HUP)
+NOH=("${DFL[@]}" nohup)
 # sigrun <слот> [ENV=…] [вызывающий…] — вывод SIGP, исполненной командой слота.
 sigrun() { local s="$1"; shift; slot "$@" bash "$s" docker -- bash -c "$SIGP" > /dev/null; cat "$W/out"; }
 
 # ПУТЬ ЗАПУСКА (ws#1326). Команду слот ставит либо в `systemd-run --user --scope` (есть systemd
 # --user: ранер конвейера), либо запасным путём watch (его нет: Job профиля ws). Конвейер run
 # 39743660497 @00c4c8344: мутант маски 0x1000 под nohup дал «141 0», Job при d051a7237 — «141 1»;
-# HUP команды на ранере сбросила не маска — systemd-run ли, nohup ли ранера, не замерено. Исход
+# HUP команды сбросила не маска: замер Job @0c59eb69b — nohup над умолчанием отдаёт «141 1», python
+# сам заглушает PIPE; кто на ранере — путь systemd-run или заглушённый PIPE вызывающего (тогда nohup
+# отдаёт 0x1001, и мутант перезапускает по биту PIPE), — печатает [INFO] окружения. Исход
 # мутанта судил окружение, а не маску. Поэтому: случаи слота — на обоих путях (auto — путь
 # окружения, watch — явный), мутанты — на watch, где диспозицию решает лишь перезапуск слота;
 # «только HUP» — python, предпосылка каждого вызывающего проверена без слота; nohup — случай
 # настоящего вызывающего, исполняется лишь при выполненной предпосылке, иначе [VOID] и счёт.
 echo "── предпосылка: вызывающий отдаёт команде заявленное, без слота"
-assert "1 4097" "$("${IGN[@]}" bash -c "$SIGP")" "вызывающий «PIPE и HUP» без слота — 1 и заглушённые PIPE|HUP"
-assert "1 4096" "$("${IGNP[@]}" bash -c "$SIGP")" "вызывающий «только PIPE» без слота — 1 и заглушённый PIPE"
-assert "141 1" "$("${IGNH[@]}" bash -c "$SIGP")" "вызывающий «только HUP» без слота — 141 и заглушённый HUP"
-NOHUP="$(nohup bash -c "$SIGP" 2>/dev/null)"
+assert "1 4097" "$("${IGN[@]}" bash -c "$SIGP" 2>/dev/null)" "вызывающий «PIPE и HUP» без слота — 1 и заглушённые PIPE|HUP"
+assert "1 4096" "$("${IGNP[@]}" bash -c "$SIGP" 2>/dev/null)" "вызывающий «только PIPE» без слота — 1 и заглушённый PIPE"
+assert "141 1" "$("${IGNH[@]}" bash -c "$SIGP" 2>/dev/null)" "вызывающий «только HUP» без слота — 141 и заглушённый HUP"
+echo "  [INFO] вызывающий пробы без слота — «$(bash -c "$SIGP" 2>/dev/null)» (PIPE|HUP окружения)"
+NOHUP="$("${NOH[@]}" bash -c "$SIGP" 2>/dev/null)"
 if [ "$NOHUP" = "141 1" ]; then NOHUP_OK=да; echo "  [INFO] nohup без слота — «141 1»: случаи nohup исполняются"
 else NOHUP_OK=нет; echo "  [VOID] nohup без слота — «$NOHUP», не «141 1»: HUP он здесь не заглушает, случаи nohup не исполнены; «только HUP» держит python"; fi
 
 for LIM in auto watch; do
     L="HEAVY_SLOT_LIMITER=$LIM"
     echo "── команда слота, путь $L"
-    assert "141 0" "$(sigrun "$SLOT" "$L")" "[$LIM] контроль: вызывающий без SIG_IGN — 141, ничего не заглушено"
+    assert "141 0" "$(sigrun "$SLOT" "$L" "${DFL[@]}")" "[$LIM] контроль: вызывающий без SIG_IGN — 141, ничего не заглушено"
+    assert "141 0" "$(sigrun "$SLOT" "$L")" "[$LIM] вызывающий пробы как есть (окружение — [INFO] выше) — 141, ничего не заглушено"
     if [ "$LIM" = auto ]; then
         if grep -q 'запасной путь' "$W/err"; then echo "  [INFO] путь auto здесь — запасной watch"
         else echo "  [INFO] путь auto здесь — systemd-run --user --scope"; fi
@@ -89,7 +97,7 @@ for LIM in auto watch; do
     assert "141 0" "$(sigrun "$SLOT" "$L" "${IGNP[@]}" timeout 60)" "[$LIM] то же под timeout над слотом — тот же исход"
     assert "141 0" "$(sigrun "$SLOT" "$L" "${IGNH[@]}")" "[$LIM] вызывающий с SIG_IGN только на HUP — команда его не наследует"
     if [ "$NOHUP_OK" = да ]; then
-        assert "141 0" "$(sigrun "$SLOT" "$L" nohup)" "[$LIM] вызывающий nohup (SIG_IGN только на HUP) — команда его не наследует"
+        assert "141 0" "$(sigrun "$SLOT" "$L" "${NOH[@]}")" "[$LIM] вызывающий nohup (SIG_IGN только на HUP) — команда его не наследует"
     else void=$((void + 1)); fi
 done
 
@@ -129,7 +137,7 @@ assert "1 4096" "$(sigrun "$W/sigmask-hup.sh" "$MW" "${IGNP[@]}")" "мутант
 assert "1 4096" "$(sigrun "$W/sigmask-hup.sh" "$MW" "${IGNP[@]}" timeout 60)" "мутант маски 0x1 под timeout над слотом — тот же отказ, случай с timeout его ловит"
 assert "141 1" "$(sigrun "$W/sigmask-pipe.sh" "$MW" "${IGNH[@]}")" "мутант маски 0x1000: вызывающий «только HUP» — заглушённый HUP дошёл до команды, случай «только HUP» на watch его ловит"
 if [ "$NOHUP_OK" = да ]; then
-    assert "141 1" "$(sigrun "$W/sigmask-pipe.sh" "$MW" nohup)" "мутант маски 0x1000: вызывающий nohup — заглушённый HUP дошёл до команды, случай nohup на watch его ловит"
+    assert "141 1" "$(sigrun "$W/sigmask-pipe.sh" "$MW" "${NOH[@]}")" "мутант маски 0x1000: вызывающий nohup — заглушённый HUP дошёл до команды, случай nohup на watch его ловит"
 else void=$((void + 1)); fi
 assert "141 0 141 0" "$(sigrun "$W/sigmask-hup.sh" "$MW" "${IGN[@]}") $(sigrun "$W/sigmask-pipe.sh" "$MW" "${IGN[@]}")" "оба мутанта маски проходят вход «PIPE и HUP» — держат их лишь случаи с одним сигналом"
 
