@@ -25,6 +25,8 @@
 # Каждый случай меняет РОВНО один факт контроля:
 #
 #   контроль: полный зелёный, база свежая                         → 0 green
+#   урок 775de6d0: чтение по sha без --base — база по умолчанию
+#             названа так в CENSUS; близнец с --base — без оговорки  → 0 green
 #   урок #3142: на голове 30 различных проверок из 68, остальные
 #             ещё не стартовали, всё видимое зелёное               → 3 CHECKS-INCOMPLETE
 #   урок #3142: 68 из 68, три последних ещё in_progress            → 3 CI-PENDING
@@ -270,7 +272,7 @@ if [ -f "$C/noinc" ]; then export GH_TWIN_NO_INCLUDE=1; fi
 # reqout — случай судит набор обязательных, отданный вызывающему (ws#1215): строка
 # REQOUT с именами через «|» либо REQOUT-ABSENT, если файла нет
 if [ -f "$C/reqout" ]; then rm -f "$O.req"; export CI_READ_REQUIRED_OUT="$O.req"; fi
-out="$(CI_STATE_DIR="$O.state" CI_READ_GH_CONDITIONAL=1 CI_READ_GH="$GHX" CI_READ_FX="$C" CI_READ_EXPECTED="$L" bash "$S" "$(cat "$C/repo")" 3140 $(cat "$C/args" 2>/dev/null) 2>&1)"; code=$?
+out="$(CI_STATE_DIR="$O.state" CI_READ_GH_CONDITIONAL=1 CI_READ_GH="$GHX" CI_READ_FX="$C" CI_READ_EXPECTED="$L" bash "$S" "$(cat "$C/repo")" "$(cat "$C/ref" 2>/dev/null || echo 3140)" $(cat "$C/args" 2>/dev/null) 2>&1)"; code=$?
 if [ -d "$C/2" ]; then  # второе чтение тем же кэшем условного чтения по ответам $C/2: судится оно
     out="$(CI_STATE_DIR="$O.state" CI_READ_GH_CONDITIONAL=1 CI_READ_GH="$GHX" CI_READ_FX="$C/2" CI_READ_EXPECTED="$L" bash "$S" "$(cat "$C/repo")" 3140 2>&1)"; code=$?
 fi
@@ -686,6 +688,14 @@ run "защита не прочитана (HTTP 502, не «not protected») —
 mk; : > "$C/reqout"; rm "$C/protection.json"; echo 'gh: HTTP 502 Bad Gateway' > "$C/protection.json.err"
 run "защита не прочитана — файла набора нет" 2 '^REQOUT-ABSENT$'
 
+say "== чтение по sha: база по умолчанию названа таковой (урок 775de6d0)"
+# 2026-10-22: ci-read по sha без PR вывел базу main, а судить надо было базу будущего запроса;
+# строка CENSUS «база main» не отличала выбранную площадкой от названной вызывающим.
+mk; printf '%s' 29487cc55ea8aa0d1c6959250b31bdce980606c7 > "$C/ref"; echo '{"default_branch":"1266"}' > "$C/repo.json"
+run "sha без --base: база — ветка по умолчанию, названа так и с подсказкой --base" 0 '^CENSUS\tsha 29487cc55ea8[0-9a-f]* в .*база 1266 — ветка по умолчанию.*--base'
+mk; printf '%s' 29487cc55ea8aa0d1c6959250b31bdce980606c7 > "$C/ref"; printf '%s' '--base 1266' > "$C/args"
+run "близнец: sha с --base — база названа вызывающим, оговорки нет" 0 '^CENSUS\tsha 29487cc55ea8.* база 1266$'; printf '%s' 'ветка по умолчанию' > "$C/nopat"
+
 say "== близнецы — молчат"
 mk; edit check-runs.json '.check_runs = [(.check_runs | sort_by(.name) | .[0]) | .conclusion="failure" | .started_at="2000-01-01T00:00:00Z"] + .check_runs'
 run "прежний failure первым в ответе, последний success" 0 '^VERDICT\tgreen\t'
@@ -747,6 +757,7 @@ red-wins-while-running	/^if \[ "$REDN" -gt 0 \] \&\& ! has/s/ \&\& ! has "$PEND"
 rate-limit-dropped	/^if ! RL="$(gh_rate_short/s/if ! RL=/if false \&\& ! RL=/
 both-forms-checkrun-wins	/| if (\$bad | length) > 0 then \$bad\[0\] elif/s/if (\$bad | length) > 0 then \$bad\[0\] elif (\$open | length) > 0/if false then $bad[0] elif false/
 etag-fallback-dropped	/if \[ "\$rc" -ne 0 \]; then EC=""; api "\$p"; return; fi/s/then EC=""; api "\$p"; return; fi/then return "$rc"; fi/
+sha-default-base-unnamed	/^        BASE_NOTE=" — ветка/s/BASE_NOTE=".*"/BASE_NOTE=""/
 etag-hit-blind	/HTTP\/\*\x27 304\x27\*)/s/HTTP\/\*\x27 304\x27\*)/HTTP\/*)/
 etag-hit-blind-any	/^    if \[ -f "\$f" \] \&\& IFS= read -r e/s/then hdr=(-H "If-None-Match: \$e"); fi/then CONDHIT=$((CONDHIT + 1)); sed 1d "$f"; return 0; fi/
 displaced-dropped	/and .conclusion == "cancelled"$/s/and .conclusion == "cancelled"/and false/
