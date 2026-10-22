@@ -42,6 +42,11 @@ if [ "$inc" = 1 ] && [ "${GH_TWIN_NO_INCLUDE:-0}" = 1 ]; then echo "gh-stub: н�
 body="$(mktemp)"; err="$(mktemp)"
 trap 'rm -f "$body" "$err"' EXIT
 core() {
+    # репозиторий целиком (`repos/<владелец>/<имя>`, чтение по sha без --base): repo.json случая
+    if [[ "$p" =~ ^repos/[^/]+/[^/]+$ ]]; then
+        [ -f "$CI_READ_FX/repo.json" ] || { echo "gh: Not Found (HTTP 404) $p" >&2; return 1; }
+        cat "$CI_READ_FX/repo.json"; return 0
+    fi
     case "$p" in
       repos/*/contents/*)
         # файл на ревизии: wf/<путь> случая, ответ — форма площадки (base64); нет — 404

@@ -49,6 +49,9 @@
 #                  на месте, в .state «оставлено: процессы <pid>»; близнец — prune; exe (ws#1250):
 #                  процесс исполняет файл копии при cwd вне её — оставлена; prune-busy-glob: копия
 #                  «w[1]» с процессом внутри оставлена, процесс в чужом «w1» её не держит (шаблон);
+#                  prune-no-clone: клона репозитория запроса нет — снятие названо невыполненным,
+#                  а не «снято 0» (урок 14e625cf); prune-readonly: в игнорируемом bin/ чистой
+#                  копии файлы без права записи (envtest) — копия и ветка сняты (урок f253b1ee);
 #   empty-code   — landing-precheck 1 с причиной БЕЗ кода (REASON<TAB><TAB>текст) — red и без
 #                  --allow, и с непустым --allow;
 #   lp-head      — landing-precheck судил другую голову (его CENSUS) → head-moved; строки
@@ -686,6 +689,25 @@ s_prune_busy_glob() {  # ws#1250 K4: путь копии со знаками ш�
     ok prune-busy-glob-own "копия w[1] с процессом внутри оставлена, pid назван" eval 'st_is merged && st_has "оставлено: процессы $bo" && [ -d "$G/w[1]" ]'
     kill "$bo" 2>/dev/null; wait "$bo" 2>/dev/null
 }
+s_prune_no_clone() {  # урок 14e625cf: клон вне project/ — снятие не судилось, «снято 0» его маскировало
+    new_fx prune-no-clone; mk_git keep-remote; CLONES=""; run_al
+    ok prune-no-clone "merged, снятие названо невыполненным: клона нет, «снято 0» не сказано" \
+        eval 'st_is merged && st_has "НЕ ВЫПОЛНЕНО" && st_has "клона $REPO нет" && ! st_has "снято 0"'
+    ok prune-no-clone "ветка на origin, ветка и копия клона на месте — их не судили" eval '! remote_empty && has_branch && [ -d "$G/wt" ]'
+}
+s_prune_readonly() {  # урок f253b1ee: проба оставила в игнорируемом bin/ файлы без права записи (envtest)
+    new_fx prune-readonly; mk_git
+    mkdir -p "$G/clone/.git/info"; printf 'bin/\n' >> "$G/clone/.git/info/exclude"
+    mkdir -p "$G/wt/bin/k8s/1.31"; echo etcd > "$G/wt/bin/k8s/1.31/etcd"; chmod -R a-w "$G/wt/bin"
+    if [ "$(id -u)" -eq 0 ]; then   # root снимает и без права записи — свойство не представимо
+        chmod -R u+w "$G/wt/bin"
+        echo "  [без предмета] prune-readonly: проба идёт от root, право записи снятия не держит"; NOSUBJ=$((NOSUBJ + 1)); return
+    fi
+    run_al
+    ok prune-readonly "merged, чистая копия с bin/ без права записи снята, ветка снята" \
+        eval 'st_is merged && st_has "оставлено 0" && [ ! -d "$G/wt" ] && ! has_branch'
+    [ ! -d "$G/wt" ] || chmod -R u+w "$G/wt"
+}
 s_prune_origin_ahead() {
     new_fx prune-origin-ahead; mk_git origin-ahead; run_al
     ok prune-origin-ahead "merged, origin-ветка ушла вперёд — оставлена с причиной" eval 'st_is merged && st_has "сдвинулась после вливания"'
@@ -1308,6 +1330,7 @@ s_real_replica() {
 ALL=(s_green s_red s_moved_start s_moved_gates s_moved_merge s_allow_ok s_allow_bad s_stale s_mr_red s_timeout
      s_void s_void_twin s_ratelimit s_pr_unread s_draft s_closed s_already s_fifo s_fifo_nowriter s_args s_detach s_recipe
      s_prune s_prune_dirty s_prune_ahead s_prune_remote s_prune_origin_ahead s_prune_not_in_base s_prune_busy s_prune_busy_glob
+     s_prune_no_clone s_prune_readonly
      s_ff s_ff_overlap s_ff_worktree s_ff_foreign s_ff_hang s_ff_epic s_lag s_lag_own s_lag_nofetch s_lag_hang
      s_start_stale s_head_sync
      s_status s_empty_code s_lp_head s_census s_guard s_static
@@ -1367,6 +1390,9 @@ mutant prune-busy-unchecked s_prune_busy 'busy="$(wt_procs "$wt")"' 'busy=""'
 mutant prune-busy-fd-unchecked s_prune_busy 'find /proc/[0-9]*/fd -mindepth 1' 'false /proc/[0-9]*/fd -mindepth 1'
 mutant prune-busy-exe-unchecked s_prune_busy 'find /proc/[0-9]*/cwd /proc/[0-9]*/exe -maxdepth 0' 'find /proc/[0-9]*/cwd -maxdepth 0'
 mutant prune-busy-glob-unescaped s_prune_busy_glob "e=\"\$(printf '%s' \"\$d\" | sed 's/[][*?\\\\]/\\\\&/g')\"" 'e="$d"'
+mutant prune-no-clone-silent s_prune_no_clone 'if [ "$n_cl" -eq 0 ]; then' 'if false; then'
+mutant prune-readonly-chmod-dropped s_prune_readonly '{ chmod -R u+w -- "$wt" 2>/dev/null; true; } \
+                && ' ''
 mutant prune-base-ancestor-dropped s_prune_not_in_base 'if ! git -C "$c" merge-base --is-ancestor "$HEAD" "origin/$base" 2>/dev/null; then' 'if false; then'
 mutant status-alive-by-kill0 s_detach '[[ "$1" =~ ^[0-9]+$ ]] || return 1
     { mapfile' '[[ "$1" =~ ^[0-9]+$ ]] || return 1
