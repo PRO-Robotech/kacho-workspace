@@ -232,6 +232,21 @@ assert "0" "$(grc "bash \$WS/scripts/detach.sh status \$WS/tmp/1225/x.rc")" "с�
 assert "2" "$(grc "until bash \$WS/scripts/detach.sh status \$WS/tmp/1225/x.rc; do sleep 30; done")" "страж отказывает циклу дочитки агентом"
 assert "да" "$(grc 'gh run watch 1' > /dev/null; grep -qF 'scripts/detach.sh start' "$W/g.out" && echo да || echo нет)" "текст отказа стража называет detach.sh как правильную форму"
 
+# Диспозиция сигналов шага (ws#1274): вызывающий с SIG_IGN на SIGPIPE и SIGHUP (nohup, python) —
+# шаг их не наследует ни службой, ни путём setsid (служба стартует от systemd с умолчанием, setsid —
+# от вызывающего: держит его только env --default-signal). Вывод шага — «<код yes | head> <биты>».
+sig_cases() {
+    local R; R="$W/run.$RANDOM"; mkdir -p "$R"
+    echo "== диспозиция сигналов шага"
+    # shellcheck disable=SC2016  # строка дочерней оболочки
+    printf '%s\n' 'set -o pipefail; yes | head -n 1 > /dev/null; p=$?; i=$(sed -n "s/^SigIgn:[[:space:]]*//p" /proc/$$/status); printf "%s %s" "$p" $(( 16#$i & 0x1001 )) > "$1"' > "$R/sig.sh"
+    KACHO_DETACH_NO_SYSTEMD=1 python3 -c 'import os, signal, sys; signal.signal(signal.SIGPIPE, signal.SIG_IGN); signal.signal(signal.SIGHUP, signal.SIG_IGN); os.execvp(sys.argv[1], sys.argv[1:])' \
+        bash "$D" start "$R/g" -- bash "$R/sig.sh" "$R/g.out" > "$W/start.out" 2>&1
+    RCF="$(sed -n 's/^идёт: pid [0-9]*; журнал [^;]*; rc \([^;]*\);.*/\1/p' "$W/start.out")"; settle "$RCF"
+    assert "141 0" "$(cat "$R/g.out" 2>/dev/null || echo нет)" "setsid-путь: вызывающий с SIG_IGN на PIPE и HUP — шаг их не наследует (141, ничего не заглушено)"
+}
+sig_cases
+
 echo "== мутанты"
 muts=0; survived=0
 mutant() {  # <имя> <было> <стало>
@@ -272,6 +287,7 @@ mutant trailing-echo-allowed '&& [[ "$last" =~ ^(echo|printf)([[:space:]]|$) ]];
 mutant name-not-unique '-$$-$(printf' '-$(printf'
 mutant tree-unchecked '= true ] && [ "$ign" = 0 ]; then' '= true ] && false; then'
 mutant boot-unread '[ "$mt" -lt "$bt" ]; then' '[ "$mt" -lt 0 ]; then' detach-launch.sh boot_cases
+mutant hup-inherited 'env --default-signal=PIPE,HUP DETACH_TAG' 'env --default-signal=PIPE DETACH_TAG' detach.sh sig_cases
 if [ "$SYSD" = 1 ]; then
     mutant no-unit '[ "${KACHO_DETACH_NO_SYSTEMD:-}" = 1 ]; then' 'true; then' detach-launch.sh survive_cases
     mutant env-expanded ' --expand-environment=no \' ' \' detach-launch.sh survive_cases
