@@ -40,6 +40,9 @@
 #   предпроверка полосы красная, голова та же — повтора нет, строка счётчика
 #   ошибок (executor-mechanics); голова новая — повтор и зелёное;
 #   «уже сделано» исполнителя — не провал;
+#   предусловия раздачи (ws#1272) — один механик до предполёта: база, задачи полосы, строки
+#   premise, у полосы с приёмкой — текст задания автору приёмки (ws#1271); не 0 — полоса и
+#   зависимые не раздаются и в предполёт не идут, нет ответа — не раздаётся ни одна;
 #   шаг уровня, шаблону неизвестный, — остановка на плане, а не пропуск;
 #   corelib разный — полоса перепина первой и повтор плана;
 #   вливание — демоном autoland (ws#1147, ws#1152): тело PR — вывод pr-body.sh и на
@@ -238,6 +241,9 @@ async function run(sc) {
     if (label.startsWith('mech:plan:')) { const o = take('plan', () => P('r0.json')); return { code: o.code, out: (sc.planOut !== undefined ? sc.planOut : (sc.planPrefix || '') + JSON.stringify(o)), reasons: (o.reasons || []).map(r => r.code), head: '' } }
     if (label.startsWith('impl:')) { const r = take('impl:' + lane, () => ({ status: 'done', head: H(lane, cnt['impl:' + lane]) })); heads[lane] = r.head; return { branch: 'b-' + lane, copy: '/ws/tmp/c-' + lane, hookLog: '/ws/tmp/push.log', issues: ['o/r#1'], report: 'r', ...r } }
     if (label.startsWith('mech:stack:')) { const r = take('stack:' + lane, () => ({ status: 'done', head: H('S' + lane, 0) })); if (r === null) return null; heads['stack:' + lane] = r.head; return { branch: (prompt.match(/заведи ветку (\S+)/) || [])[1] || '9-stack-' + lane.toLowerCase(), contains: Object.keys(heads).filter(k => !k.startsWith('stack:')).map(k => heads[k]), conflicts: [], report: 'r', ...r } }
+    // Предусловия раздачи (ws#1272): команда — строкой «<n>) [<ключ> <вид>] `…`»; код — из
+    // sc.dispatchCode по «<ключ> <вид>», затем по ключу, иначе 0; sc.dispatchNull — нет ответа.
+    if (label === 'mech:dispatch-premise') { if (sc.dispatchNull) return null; const dc = sc.dispatchCode || {}; return { items: [...prompt.matchAll(/\n(\d+)\) \[(\S+) (\S+)\] `/g)].map(x => { const c = dc[x[2] + ' ' + x[3]] ?? dc[x[2]] ?? 0; return { n: +x[1], code: c, out: c === 1 ? 'REASON PREMISE-FALSE task o/r#5: задача closed, задание ждёт open' : c === 2 ? 'VOID GH-UNREADABLE task o/r#5' : '' } }) } }
     if (label.startsWith('mech:premise:')) return { out: '', head: '', reasons: [], ...take('premise:' + lane, () => ({ code: 0 })) }
     if (label.startsWith('mech:precheck:')) return { out: '', head: heads[lane], reasons: [], ...take('pre:' + lane, () => ({ code: 0 })) }
     if (label.startsWith('review-wave')) return { verdict: 'accept', sha: HW, blocking: [], report: 'r', ...take('wave', () => ({})) }
@@ -1016,6 +1022,38 @@ console.log('== полоса стенда и образов — голова н�
   ok(by(q.calls, c => c.label.startsWith('mech:premise:')) === 0 && q.res.ok === true, 'близнец: полоса не стенда — предусловия головы нет, волна идёт')
 }
 
+console.log('== предусловия раздачи — до исполнителя КАЖДОЙ полосы, одним механиком на волну (ws#1272)')
+{
+  const rest = (q, k) => ((q.res.remainder || []).find(x => x.key === k) || ((q.res.lanes || {})[k]) || {}).stage || ''
+  let q = await run({ args, plan: [P('r0.json')] })
+  const pd = prm(q.calls, 'mech:dispatch-premise'), iD = idx(q.calls, 'mech:dispatch-premise')
+  ok(q.res.ok === true && by(q.calls, c => c.label === 'mech:dispatch-premise') === 1 && iD >= 0 && iD < idx(q.calls, 'preflight') && iD < idx(q.calls, 'impl:A') && iD < idx(q.calls, 'impl:B'), 'один шаг предусловий на волну — до предполёта и до любого исполнителя, волна идёт', JSON.stringify(q.calls.map(c => c.label)).slice(0, 300))
+  ok(pd.includes("'branch PRO-Robotech/kacho-workspace main'") && pd.includes('scripts/lane-precheck.sh --premise /ws/tmp/wave-9/reports/A/dispatch-premise.txt') && pd.includes('scripts/lane-precheck.sh --premise /ws/tmp/wave-9/reports/B/dispatch-premise.txt'), 'у каждой полосы — строка базы на origin, судит lane-precheck --premise', pd.slice(-500))
+  ok(!/--task-text/.test(pd), 'близнец: полоса без приёмки — текст задания автору приёмки не судится')
+  const lA = { ...lanes2[0], issues: ['PRO-Robotech/kacho-workspace#5', 'kacho#7', '#9'], premise: ["alive /ws main 'quoted' фраза"] }
+  q = await run({ args: { ...args, lanes: [lA, lanes2[1]] }, plan: [P('r0.json')] })
+  const pa = prm(q.calls, 'mech:dispatch-premise')
+  ok(pa.includes("'task PRO-Robotech/kacho-workspace#5 open'") && pa.includes("'task PRO-Robotech/kacho#7 open'") && pa.includes("'task PRO-Robotech/kacho-workspace#9 open'"), 'задачи полосы (владелец/репо#N, репо#N, #N) — строками task … open', pa.slice(-600))
+  ok(pa.includes("'alive /ws main '\\''quoted'\\'' фраза'"), 'строки premise диспетчера — дословно, кавычки экранированы', pa.slice(-300))
+  q = await run({ args: { ...args, lanes: [lA, lanes2[1]] }, plan: [P('r0.json')], dispatchCode: { A: 1 } })
+  ok(idx(q.calls, 'impl:A') < 0 && inRest(q.res, 'A') && /предусловия раздачи \(ws#1272\).*ложно — REASON PREMISE-FALSE/.test(rest(q, 'A')) && asmHas(q.calls, '9-b'), 'посылка ложна (код 1): A не раздаётся, остаток с причиной; B садится', JSON.stringify(q.res).slice(0, 300))
+  q = await run({ args: { ...args, lanes: [lA, lanes2[1]] }, plan: [P('r0.json')], dispatchCode: { A: 2 } })
+  ok(idx(q.calls, 'impl:A') < 0 && inRest(q.res, 'A') && /не судимо \(код 2\)/.test(rest(q, 'A')), 'не судимо (код 2) — не зелёное: A не раздаётся', rest(q, 'A'))
+  q = await run({ args, plan: [P('r0.json')], dispatchNull: true })
+  ok(q.res.ok === false && by(q.calls, c => c.label.startsWith('impl:')) === 0 && idx(q.calls, 'preflight') < 0 && /предусловия раздачи/.test(q.res.stage || ''), 'нет ответа механика — ни одна полоса не раздаётся, предполёта нет', JSON.stringify(q.res).slice(0, 300))
+  q = await run({ args: argsDep, plan: [P('r1.json')], dispatchCode: { A: 1 } })
+  ok(idx(q.calls, 'impl:A') < 0 && idx(q.calls, 'impl:B') < 0 && idx(q.calls, 'mech:stack:B') < 0 && inRest(q.res, 'B'), 'зависимая от нераздаваемой — не стартует', JSON.stringify(q.res).slice(0, 300))
+  ok(idx(q.calls, 'preflight') < 0 && /не раздаётся ни одна/.test(q.res.stage || ''), 'зависимая от нераздаваемой — и в предполёт не идёт: раздавать нечего, предполёта нет', JSON.stringify(q.res).slice(0, 300))
+  const lM = { key: 'M', repo: 'kacho-workspace', agent: 'migration-writer', branch: '9-m', text: "Приёмка: дом — b.md, задача o/r#20.\n- `path /ws main b.md`" }
+  q = await run({ args: { ...args, lanes: [lM] }, plan: [P('r2.json')] })
+  const pm = prm(q.calls, 'mech:dispatch-premise')
+  ok(q.res.ok === true && pm.includes('scripts/lane-precheck.sh --task-text /ws/tmp/wave-9/reports/M/task.txt --agent acceptance-author') && pm.includes("'- `path /ws main b.md`'") && /\[M task-text\]/.test(pm), 'полоса с приёмкой: текст задания — файлом, --task-text --agent acceptance-author (перепись координат, ws#1271)', pm.slice(-500))
+  q = await run({ args: { ...args, lanes: [lM] }, plan: [P('r2.json')], dispatchCode: { 'M task-text': 1 } })
+  ok(by(q.calls, c => c.agentType === 'acceptance-author') === 0 && idx(q.calls, 'impl:M') < 0 && /task-text: ложно/.test(q.res.stage || rest(q, 'M')), 'перепись координат ложна — автор приёмки не зван', JSON.stringify(q.res).slice(0, 300))
+  q = await run({ args: { ...args, lanes: [{ ...lM, text: undefined, textFile: '/ws/tmp/1078/M.md' }] }, plan: [P('r2.json')] })
+  ok(prm(q.calls, 'mech:dispatch-premise').includes('--task-text /ws/tmp/1078/M.md --agent acceptance-author') && !prm(q.calls, 'mech:dispatch-premise').includes('reports/M/task.txt'), 'задание файлом — судится сам файл, текст не переписывается')
+}
+
 console.log('== объединение вызовов всех сценариев: модель, усилие, место отчётов (ws#1016)')
 {
   // Классы шагов — из тела шаблона: литералы `label: '<класс>'` и литералы 'mech:…'
@@ -1427,6 +1465,13 @@ mutant "строка head не порождается (ws#1191)" "const headLine
 mutant "код предусловия головы не судится (ws#1191)" "  if (p && p.code === 0) return null" "  return null"
 mutant "стенд не опознан (ws#1191)" "const standLane = l => STAND_CLASS.includes(l.class) || l.agent === 'deploy-engineer'" "const standLane = l => false"
 mutant "голова сводки не в предусловии (ws#1191)" ".concat(stack ? ['head ' + ghRepo(l.repo) + ' ' + stack.branch + ' ' + stack.head] : [])" ""
+mutant "предусловия раздачи не судятся (ws#1272)" "if (!it || it.code !== 0) gateBlock[x.key]" "if (false) gateBlock[x.key]"
+mutant "нераздаваемая полоса раздаётся (ws#1272)" "  if (gateBlock[k]) return (done[k] =" "  if (false) return (done[k] ="
+mutant "строка базы не порождается (ws#1272)" "const premLines = l => ['branch ' + ghRepo(l.repo) + ' ' + (l.base || A.base)]" "const premLines = l => []"
+mutant "задачи полосы не в предусловии (ws#1272)" ".concat((l.issues || []).map(i => issueLine(l, i)), l.premise || [])" ".concat(l.premise || [])"
+mutant "кавычки строки не экранированы (ws#1272)" "const shq = s => \"'\" + String(s).replace(/'/g, \"'\\\\''\") + \"'\"" "const shq = s => \"'\" + String(s) + \"'\""
+mutant "зависимая от нераздаваемой в предполёте (ws#1272)" "{ held.add(l.key); more = true }" "{ }"
+mutant "текст автору приёмки не судится (ws#1271)" "  if (tierOf[l.key].steps.includes('acceptance(<=2)')) gateItems.push(" "  if (false) gateItems.push("
 mutant "meta не литерал: вызов" "name: 'wave'," "name: ['wa', 've'].join(''),"
 mutant "meta не литерал: шаблонная строка" "name: 'wave'," "name: \`wave\`,"
 echo
