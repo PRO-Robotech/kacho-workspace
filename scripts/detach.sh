@@ -15,7 +15,7 @@
 #   detach.sh start <каталог> [--deadline <с>] -- <команда> [доводы…]
 #       — служба systemd --user `kacho-detach-<метка>` ВНЕ scope сессии (переживает её
 #         перезапуск; scripts/detach-launch.sh), при недоступном systemd --user — setsid в
-#         scope сессии с громким предупреждением; env --default-signal=PIPE, stdin /dev/null;
+#         scope сессии с громким предупреждением; env --default-signal=PIPE,HUP (ws#1274), stdin /dev/null;
 #         файлы <каталог>/<метка>.log, .rc (код команды, пишется атомарно по её выходу), .pid
 #         .unit (имя службы) и .exit (исход службы — пишет она сам; на пути setsid их нет); метка
 #         уникальна: время UTC, pid вызова, 8 знаков sha256 команды; .rc снимается до старта.
@@ -111,7 +111,7 @@ start)
     # Внутренняя оболочка пишет СВОЙ pid (обёртка и env исполняются через exec — pid тот же;
     # $! вызова был бы pid обёртки setsid-пути), затем код команды — атомарно.
     # shellcheck disable=SC2016
-    detach_launch "$unit" "$base.log" -- env --default-signal=PIPE DETACH_TAG="$tag" KACHO_DETACHED_UNTIL="$until_ts" \
+    detach_launch "$unit" "$base.log" -- env --default-signal=PIPE,HUP DETACH_TAG="$tag" KACHO_DETACHED_UNTIL="$until_ts" \
         bash -c 'echo $$ > "$0.pid"; "$@"; rc=$?; printf "%s\n" "$rc" > "$0.rc.tmp" && mv -f "$0.rc.tmp" "$0.rc"' "$base" "$@" \
         || { say "${DETACH_WARN:-не запущено}"; exit 69; }
     if [ "$DETACH_MODE" = unit ]; then printf '%s\n' "$unit" > "$base.unit"; kind="служба $unit"
