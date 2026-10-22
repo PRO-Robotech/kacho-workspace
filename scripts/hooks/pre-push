@@ -573,6 +573,22 @@ for t in "${targets[@]}"; do
         esac
         [ "$rc" != 2 ] || [ "$trunk" = 0 ] || void_trunk+=("$rref: $g")
     done
+    # Шаги shellcheck конвейера (ws#1335): в наборы они не входят, и хук «зелёный» пропускал
+    # то, что красит CI. Перечень — из ci.yaml вершины (scripts/hooks/prepush-ci-shellcheck.sh).
+    # Дерево без ci.yaml либо без носителя (песочницы проб хука, старая вершина) — строкой, не
+    # набором: счёт наборов и «без предмета» о наборах scripts/*/run-all.sh не меняется.
+    g="ci.yaml: шаги shellcheck"
+    if [ -f "$wt/.github/workflows/ci.yaml" ] && [ -f "$wt/scripts/hooks/prepush-ci-shellcheck.sh" ]; then
+        printf '── %s @ %s: %s\n' "$rref" "${c:0:12}" "$g" >&2
+        bash "$wt/scripts/hooks/prepush-ci-shellcheck.sh" "$wt" </dev/null
+        case $? in
+            0) ;;
+            2) void+=("$rref: $g") ;;
+            *) failed+=("$rref: $g") ;;
+        esac
+    else
+        echo "pre-push: «$rref»: шаги shellcheck конвейера не судятся — в дереве нет ci.yaml либо scripts/hooks/prepush-ci-shellcheck.sh" >&2
+    fi
 done
 
 echo "pre-push: судились вершины ${judged[*]}; исполнено наборов $ran, провалено ${#failed[@]}, без предмета ${#void[@]} (стволов ${#void_trunk[@]}, прочих $((${#void[@]} - ${#void_trunk[@]}))), не исполнено ${#notrun[@]}${trunk_state:+; стволы ${trunks[*]:-—}, fetch $fetched_at}" >&2
