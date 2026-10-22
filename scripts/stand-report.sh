@@ -128,11 +128,13 @@ SLOT="$HERE/heavy-slot.sh"
 # Ведомость заданий CI, которые прогон на кластере воспроизводит, по репозиторию — ОДНА
 # для expect и check: source affected — выбор затронутого репозитория ∩ jobs; full — CI
 # без выбора, все jobs; none — у CI заданий на кластере нет (выведенный ноль). Задание —
-# «<workflow>:<ключ>».
+# «<workflow>:<ключ>». kaname (ws#1259): все задания проб e2e-newman.yml, у которых есть
+# внешний маршрут; `chart-own` (kind ранера) — вне ведомости до маршрута ws#1341.
 export STAND_JSON='{
   "PRO-Robotech/kacho": ["affected", ["ci.yaml:unit-shard", "ci.yaml:integration", "e2e-newman.yml:shard",
                                        "console-e2e.yml:probes", "production-posture.yml:stand"]],
-  "PRO-Robotech/kaname": ["full", ["ci.yml:unit", "ci.yml:integration", "e2e-newman.yml:stand"]],
+  "PRO-Robotech/kaname": ["full", ["ci.yml:unit", "ci.yml:integration", "e2e-newman.yml:stand", "e2e-newman.yml:stand-ceremony",
+                                   "e2e-newman.yml:suite", "e2e-newman.yml:edgeselftests"]],
   "PRO-Robotech/kacho-workspace": ["none", []]
 }'
 # Ведомость ОБЛАСТЕЙ переноса (ws#1148): запись paths — [пути (** — любые каталоги, * —
@@ -156,8 +158,9 @@ export STAND_AREA_JSON='{
 # heavy-slot.sh --route о форме в копии головы. Форма — шаг CI задания (kaname: integrationshard
 # зовёт run-integration.sh; unit — go test -race -short); стенд kacho — pod раннера ns стенда
 # (stand-ns-run RUNNER=<вид>, ws#1303), стенд own kaname — задание шагами ghjob в pod раннера
-# stand-own.sh (ws#1321, kaname#940; ns — t<задача ветки>-kaname-own). Опрос `stand-own.sh census`
-# снят: он судил выбор пути механизмом, а задание шло машиной (сборка и newman процессом машины).
+# stand-own.sh (ws#1321, kaname#940; ns — t<задача ветки>-kaname-own); `suite` и `edgeselftests`
+# стенда не поднимают, но идут тем же pod: python3, pyyaml, node и go несёт он, а не Job слота
+# (ws#1259). Опрос `stand-own.sh census` снят: он судил выбор пути механизмом, а задание шло машиной (сборка и newman процессом машины).
 # Пробы консоли — ПЕРЕПИСЬ всего набора: `--max-failures=0` снимает `maxFailures: 5` конфига, предел
 # времени шага CI, а не вердикта (ws#1284: прогон kacho#3305 исполнил 179 из 320 и встал на пяти
 # падениях); перепись — без остановки на красном (CLAUDE.md «Перепись — потом массово»). Форма
@@ -174,7 +177,13 @@ export STAND_ROUTE_JSON='{
     "ci.yml:unit": ["go-race", ["go", "test", "./...", "-race", "-short", "-count=1", "-timeout", "25m"]],
     "ci.yml:integration": ["integration", ["env", "INTEGRATION_SHARD=<k>/3", ".github/scripts/run-integration.sh"]],
     "e2e-newman.yml:stand": ["stand", ["bash", ".github/scripts/stand-own.sh", "runner", "--ship", "<ws>/scripts/ghjob/ghjob.py", "--",
-                             "python3", "/work/ship/ghjob.py", ".github/workflows/e2e-newman.yml", "stand", "/src", "/work/out"]]
+                             "python3", "/work/ship/ghjob.py", ".github/workflows/e2e-newman.yml", "stand", "/src", "/work/out"]],
+    "e2e-newman.yml:stand-ceremony": ["stand", ["bash", ".github/scripts/stand-own.sh", "runner", "--ship", "<ws>/scripts/ghjob/ghjob.py", "--",
+                             "python3", "/work/ship/ghjob.py", ".github/workflows/e2e-newman.yml", "stand-ceremony", "/src", "/work/out"]],
+    "e2e-newman.yml:suite": ["stand", ["bash", ".github/scripts/stand-own.sh", "runner", "--ship", "<ws>/scripts/ghjob/ghjob.py", "--",
+                             "python3", "/work/ship/ghjob.py", ".github/workflows/e2e-newman.yml", "suite", "/src", "/work/out"]],
+    "e2e-newman.yml:edgeselftests": ["stand", ["bash", ".github/scripts/stand-own.sh", "runner", "--ship", "<ws>/scripts/ghjob/ghjob.py", "--",
+                             "python3", "/work/ship/ghjob.py", ".github/workflows/e2e-newman.yml", "edgeselftests", "/src", "/work/out"]]
   }
 }'
 if [ "${1:-}" = expect ]; then

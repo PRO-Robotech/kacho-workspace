@@ -143,7 +143,7 @@ ecase() {
         printf '#!/usr/bin/env bash\nSTAND_RUNNER_KINDS="newman browser"\necho stand-ns "$@"\n' > "$C/co/deploy/scripts/stand-ns.sh"
     fi
     if [ "$2" = PRO-Robotech/kaname ]; then
-        printf 'jobs:\n  stand: {}\n' > "$C/co/.github/workflows/e2e-newman.yml"
+        printf 'jobs:\n  suite: {}\n  stand: {}\n  stand-ceremony: {}\n  edgeselftests: {}\n  chart-own: {}\n' > "$C/co/.github/workflows/e2e-newman.yml"
         printf '#!/usr/bin/env bash\necho integration\n' > "$C/co/.github/scripts/run-integration.sh"; chmod +x "$C/co/.github/scripts/run-integration.sh"
         printf '#!/usr/bin/env bash\nSTAND_RUNNER_KINDS="own"\ntrue\n' > "$C/co/.github/scripts/stand-own.sh"; chmod +x "$C/co/.github/scripts/stand-own.sh"
     fi
@@ -151,7 +151,7 @@ ecase() {
 }
 # routes <копия> — строки ROUTE вывода expect случая: «задание<TAB>метка» по строке.
 routes() { grep -P '^ROUTE\t' "$1/err" | cut -f2,3 | LC_ALL=C sort | tr '\n' ';'; }
-KNJOBS='["ci.yml:unit","ci.yml:integration","e2e-newman.yml:stand"]'
+KNJOBS='["ci.yml:unit","ci.yml:integration","e2e-newman.yml:stand","e2e-newman.yml:stand-ceremony","e2e-newman.yml:suite","e2e-newman.yml:edgeselftests"]'
 # Маршрут заданий стенда kacho в ЭТОМ дереве — факт судьи слота, а не выбор случая: у
 # stand-ns-run без RUNNER внешнего пути нет (ws#1301), с RUNNER=<вид> механизма клона — pod
 # раннера (ws#1303), ведомость называет форму с RUNNER. При «нет» ожидаемое kacho с выбранным
@@ -208,8 +208,10 @@ judge() {  # judge <скрипт> <каталог случая> → 0 сошло
         [ "$code" = "$(cat "$c/code")" ] || return 1
         # ROUTE — строка на КАЖДОЕ задание ведомости с меткой маршрута (ws#1192).
         [ ! -f "$c/routes" ] || [ "$(routes "$c")" = "$(cat "$c/routes")" ] || return 1
-        # Форма задания — строкой ROUTE, словами оболочки (ws#1284): formre — образец всей строки.
-        [ ! -f "$c/formre" ] || grep -qP "$(cat "$c/formre")" "$c/err" || return 1
+        # Форма задания — строкой ROUTE, словами оболочки (ws#1284): formre — образцы всей строки,
+        # по строке файла на задание; сойтись обязан каждый.
+        if [ -f "$c/formre" ]; then local re
+            while IFS= read -r re || [ -n "$re" ]; do grep -qP "$re" "$c/err" || return 1; done < "$c/formre"; fi
         if [ "$code" = 0 ]; then
             [ "$(jq -c .jobs <<< "$out" 2>/dev/null)" = "$(cat "$c/want")" ] || return 1
             # маршрут каждого задания ожидаемого — внешний и в самом JSON (его судит check)
@@ -294,17 +296,34 @@ printf 'jobs:\n  shard-renamed: {}\n' > "$C/co/.github/workflows/e2e-newman.yml"
 # выводится (VOID до запуска), если у задания, которое голова обязана пройти, внешнего маршрута
 # нет. Судья маршрута — НАСТОЯЩИЙ heavy-slot.sh --route этого дерева (стенд own — по раннеру
 # stand-own.sh головы). Каждый случай меняет один факт контроля «kaname: всё внешнее».
-KN3='ci.yml:integration	внешний кластер;ci.yml:unit	внешний кластер;e2e-newman.yml:stand	внешний кластер;'
-ecase "expect kaname: все задания с внешним маршрутом — код 0, ROUTE на каждое" PRO-Robotech/kaname; ecommit; want 0 "$KNJOBS"; printf '%s' "$KN3" > "$C/routes"
-ecase "expect kaname: стенд own головы без раннера (STAND_RUNNER_KINDS нет, ws#1321) — VOID, стенд «нет»" PRO-Robotech/kaname; sed -i '/^STAND_RUNNER_KINDS=/d' "$C/co/.github/scripts/stand-own.sh"; ecommit; want 2 -
-printf '%s' "${KN3/stand	внешний кластер/stand	нет}" > "$C/routes"; printf '%s' 'маршрута во внешний кластер нет[^\t]*e2e-newman\.yml:stand — нет: [^\t]*внешнего маршрута нет' > "$C/voidre"
-ecase "expect kaname: стенда own в голове нет — VOID, стенд «нет»" PRO-Robotech/kaname; rm "$C/co/.github/scripts/stand-own.sh"; ecommit; want 2 -
-printf '%s' "${KN3/stand	внешний кластер/stand	нет}" > "$C/routes"; printf '%s' '[^\t]*e2e-newman\.yml:stand — нет: [^\t]*внешнего маршрута нет' > "$C/voidre"
+# kn_routes [задание=метка]… — строки ROUTE ожидаемого kaname по заданиям ведомости (порядок LC_ALL=C);
+# метка по умолчанию — внешний кластер. Задания раннера own — четыре (ws#1259): стенд, церемония,
+# набор и самопроверки края; без раннера головы «нет» у всех четырёх.
+kn_routes() {
+    local j o m out=''
+    for j in ci.yml:integration ci.yml:unit e2e-newman.yml:edgeselftests e2e-newman.yml:stand e2e-newman.yml:stand-ceremony e2e-newman.yml:suite; do
+        m='внешний кластер'; for o in "$@"; do [ "${o%%=*}" != "$j" ] || m="${o#*=}"; done; out+="$j"$'\t'"$m;"
+    done
+    printf '%s' "$out"
+}
+KN_OWN_NO=(e2e-newman.yml:edgeselftests=нет e2e-newman.yml:stand=нет e2e-newman.yml:stand-ceremony=нет e2e-newman.yml:suite=нет)
+# kn_form <задание> — образец строки ROUTE задания раннера: ghjob.py исполняет задание С ЭТИМ КЛЮЧОМ
+kn_form() { printf '^ROUTE\\te2e-newman\\.yml:%s\\tвнешний кластер\\t[^\\t]*\\t[^\\t]*\\tформа: heavy-slot\\.sh stand -- bash \\.github/scripts/stand-own\\.sh runner --ship \\S*/scripts/ghjob/ghjob\\.py -- python3 /work/ship/ghjob\\.py \\.github/workflows/e2e-newman\\.yml %s /src /work/out$\n' "${1//-/\\-}" "${1//-/\\-}"; }
+ecase "expect kaname: все задания с внешним маршрутом — код 0, ROUTE на каждое" PRO-Robotech/kaname; ecommit; want 0 "$KNJOBS"; kn_routes > "$C/routes"
+{ kn_form stand; kn_form stand-ceremony; kn_form suite; kn_form edgeselftests; } > "$C/formre"
+ecase "expect kaname: стенд own головы без раннера (STAND_RUNNER_KINDS нет, ws#1321) — VOID, четыре задания раннера «нет»" PRO-Robotech/kaname; sed -i '/^STAND_RUNNER_KINDS=/d' "$C/co/.github/scripts/stand-own.sh"; ecommit; want 2 -
+kn_routes "${KN_OWN_NO[@]}" > "$C/routes"; printf '%s' '(?=[^\t]*e2e-newman\.yml:stand-ceremony — нет)маршрута во внешний кластер нет[^\t]*e2e-newman\.yml:stand — нет: [^\t]*внешнего маршрута нет' > "$C/voidre"
+ecase "expect kaname: стенда own в голове нет — VOID, четыре задания раннера «нет»" PRO-Robotech/kaname; rm "$C/co/.github/scripts/stand-own.sh"; ecommit; want 2 -
+kn_routes "${KN_OWN_NO[@]}" > "$C/routes"; printf '%s' '[^\t]*e2e-newman\.yml:stand — нет: [^\t]*внешнего маршрута нет' > "$C/voidre"
 ecase "expect kaname: скрипта контейнерных проб в голове нет — VOID, интеграция «нет»" PRO-Robotech/kaname; rm "$C/co/.github/scripts/run-integration.sh"; ecommit; want 2 -
-printf '%s' "${KN3/integration	внешний кластер/integration	нет}" > "$C/routes"; printf '%s' '[^\t]*ci\.yml:integration — нет: [^\t]*не опознана как переносимая' > "$C/voidre"
+kn_routes ci.yml:integration=нет > "$C/routes"; printf '%s' '[^\t]*ci\.yml:integration — нет: [^\t]*не опознана как переносимая' > "$C/voidre"
 ecase "expect kaname: строки маршрута у задания нет — VOID «нет»" PRO-Robotech/kaname; ecommit; want 2 -
 tooledit '/^    "ci\.yml:unit": \[/d'
-printf '%s' "${KN3/unit	внешний кластер/unit	нет}" > "$C/routes"; printf '%s' '[^\t]*ci\.yml:unit — нет: [^\t]*STAND_ROUTE' > "$C/voidre"
+kn_routes ci.yml:unit=нет > "$C/routes"; printf '%s' '[^\t]*ci\.yml:unit — нет: [^\t]*STAND_ROUTE' > "$C/voidre"
+# ws#1259: задание стенда в ведомости без строки маршрута — VOID ДО запуска, а не прогон без него
+ecase "expect kaname: строки маршрута у stand-ceremony нет — VOID «нет», прочие внешние" PRO-Robotech/kaname; ecommit; want 2 -
+tooledit '/^    "e2e-newman\.yml:stand-ceremony": \[/,/\]\],$/d'
+kn_routes e2e-newman.yml:stand-ceremony=нет > "$C/routes"; printf '%s' '(?![^\t]*e2e-newman\.yml:stand — )[^\t]*e2e-newman\.yml:stand-ceremony — нет: [^\t]*STAND_ROUTE' > "$C/voidre"
 ecase "expect kaname: судья маршрута не ответил — VOID" PRO-Robotech/kaname; ecommit; want 2 -
 tooledit 's|^SLOT="\$HERE/heavy-slot\.sh"|SLOT="$HERE/heavy-slot-нет.sh"|'
 printf '%s' 'heavy-slot\.sh --route [^\t]*не ответил' > "$C/voidre"
@@ -388,12 +407,15 @@ kinputs() {  # kinputs <путь…> — вывод `stand-ns inputs` формы
     printf 'stand-ns inputs: Dockerfile 2, контекстов 2, образов go 1; изменённых путей %d, из них входов сборки 0\n' "$#"
 }
 ksuites() {  # наборы отчёта kaname живой формы; $1 — head отчёта
-    jq -n --arg h "$1" '{head: $h, mode: "full", context: "a8f60d-client", ns: "t746-own,t940-heavy-*", residue: 0, planned: 5, suites: [
+    jq -n --arg h "$1" '{head: $h, mode: "full", context: "a8f60d-client", ns: "t746-own,t940-heavy-*", residue: 0, planned: 8, suites: [
         {name: "unit:all", job: "ci.yml:unit", outcome: "green", executed: 149, total: 149},
         {name: "integration:1/3", job: "ci.yml:integration", outcome: "green", executed: 13, total: 13},
         {name: "integration:2/3", job: "ci.yml:integration", outcome: "green", executed: 12, total: 12},
         {name: "stand", job: "e2e-newman.yml:stand", outcome: "green", executed: 21, total: 21},
-        {name: "integration:0/3", job: "ci.yml:integration", outcome: "green", executed: 14, total: 14}]}'
+        {name: "integration:0/3", job: "ci.yml:integration", outcome: "green", executed: 14, total: 14},
+        {name: "stand-ceremony", job: "e2e-newman.yml:stand-ceremony", outcome: "green", executed: 30, total: 30},
+        {name: "suite", job: "e2e-newman.yml:suite", outcome: "green", executed: 17, total: 17},
+        {name: "edgeselftests", job: "e2e-newman.yml:edgeselftests", outcome: "green", executed: 3, total: 3}]}'
 }
 # kcase <имя> <jq-правка отчёта головы | -> [путь разности…] — все наборы перенесены с R
 kcase() {
@@ -413,11 +435,13 @@ kmap() {  # kmap <jq-правка> — карта случая: настояща
     mkdir -p "$C/contents/.github"; jq "$1" "$SRI_KANAME/.github/ci-paths.json" > "$C/contents/.github/ci-paths.json"
 }
 TN=tests/newman/collections/kaname-own.postman_collection.json; RI=.github/scripts/run-integration.sh
-kcase "перенос kaname: разность пуста — все пять наборов перенесены, check 0" -; want 0 -
+kcase "перенос kaname: разность пуста — все восемь наборов перенесены, check 0" -; want 0 -
 kcase "перенос kaname: правка коллекции newman — unit и stand её читают, отказ" - "$TN"; want 1 'STAND-CARRY-AREA(?=\tunit:all: набор читает изменённое)'
 kcase "  …тот же отказ называет и stand" - "$TN"; want 1 'STAND-CARRY-AREA(?=\tstand: набор читает изменённое)'
-kcase "близнец: правка коллекции newman, unit и stand прогнаны на голове — integration перенесён, check 0" \
-    '.suites |= map(if (.name == "unit:all" or .name == "stand") then del(.carried_from) else (.) end)' "$TN"; want 0 -
+kcase "  …и называет stand-ceremony — его задание карта выбирает той же правкой" - "$TN"
+want 1 'STAND-CARRY-AREA(?=\tstand-ceremony: набор читает изменённое)'
+kcase "близнец: правка коллекции newman, unit и задания e2e-newman прогнаны на голове — integration перенесён, check 0" \
+    '.suites |= map(if (.name == "unit:all" or (.job | startswith("e2e-newman.yml:"))) then del(.carried_from) else (.) end)' "$TN"; want 0 -
 kcase "перенос kaname: правка прогонщика integration — integration её читает, отказ" \
     '.suites |= map(if (.name == "unit:all") then del(.carried_from) else (.) end)' "$RI"; want 1 'STAND-CARRY-AREA(?=\tintegration:0/3: набор читает изменённое)'
 kcase "близнец: правка прогонщика integration, unit и integration прогнаны — stand перенесён, check 0" \
@@ -533,6 +557,10 @@ images-rev-unjudged	s/    if img not in (None, head):/    if False:/
 route-void-ignored	s/^if bad:$/if False:/
 route-slot-verdict-ignored	s/        route, rwhy = m.group(1), m.group(2)/        route, rwhy = 'external', m.group(2)/
 expect-route-unjudged	s/        if not (isinstance(r, dict) and r.get('route') == 'external'):/        if False:/
+kaname-ledger-ceremony-dropped	s/ "e2e-newman.yml:stand-ceremony",$//
+kaname-ledger-selftests-dropped	s/, "e2e-newman.yml:edgeselftests"\]\],$/]],/
+kaname-route-ceremony-runs-stand	s|/e2e-newman.yml", "stand-ceremony", "/src"|/e2e-newman.yml", "stand", "/src"|
+kaname-route-suite-runs-stand	s|/e2e-newman.yml", "suite", "/src"|/e2e-newman.yml", "stand", "/src"|
 MUT
 echo "stand-report-inject: мутантов $((killed + survived + void)), убито $killed, выжило $survived, не легло $void; нестабильных повторов случаев $unstable"
 [ "$fail" -eq 0 ] && [ "$pass" -gt 0 ] && [ "$survived" -eq 0 ] && [ "$void" -eq 0 ] && [ "$killed" -gt 0 ] && [ "$unstable" -eq 0 ]
