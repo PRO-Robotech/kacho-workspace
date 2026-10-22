@@ -1782,7 +1782,10 @@ kacho-workspace|.claude/hooks/*/mutants.py|ci-local,suite'
 # машины, docker, память машины), а не дерево: Job их не воспроизводит, и в pod они дают не
 # вердикт, а чужое красное (живой прогон heavy-slot-inject.sh Job-ом ws 2026-10-22: «все слоты
 # заняты — 74» получил 0) либо «не построено». Запись — путь в дереве; файла нет — запись
-# устарела, и перепись heavy-slot-inject это называет. Внешнего пути у них нет: при доступном кластере 77, маршрут — NO_ROUTE_TASK (ws#1301).
+# устарела, и перепись heavy-slot-inject это называет. Внешнего пути у них нет по построению, и
+# перечень — ЗАКРЫТЫЙ законный локальный маршрут (решение диспетчера 2026-10-22, ws#1314): запись
+# идёт в слоте машины с доказательством «предмет — машина» (журнал: local … proof=машина: <путь>) и
+# лимитом памяти класса; прочее без внешнего пути — 77 (NO_ROUTE_TASK, ws#1301).
 MACHINE='scripts/heavy-slot-inject.sh
 scripts/session-memcap-inject.sh'
 # portable_script — 0, если слово нагрузки (PAY_I) — скрипт ведомости PORTABLE этого клона и класса;
@@ -1823,7 +1826,7 @@ portable_script() {
 # профиля ws несёт среду наборов, а не go и make (ws#1304), — у прочего внешнего пути нет (no_route_judge).
 route_static() {
     local url
-    RS_KNOWN=""; RS_TOP=""; RS_REPO=""; RS_PROFILE=""; RS_WHY=""
+    RS_KNOWN=""; RS_TOP=""; RS_REPO=""; RS_PROFILE=""; RS_WHY=""; RS_MACHINE=""
     case "$CLASS" in go-race|go-unit|integration|lint|ci-local|suite) ;; *) WHY_LOCAL="класс «$CLASS» внешнего пути не имеет"; return 1 ;; esac
     payload
     case "$PAY" in
@@ -1848,6 +1851,7 @@ route_static() {
             if [ "$PAY" = git ] && [ -n "$RS_KNOWN" ]; then
                 RS_WHY="клон воркспейса, хук отправки — Job профиля ws"
             elif RS_KNOWN="" && portable_script && grep -qxF -- "$PORT_REL" <<< "$MACHINE"; then
+                RS_MACHINE="$PORT_REL"
                 WHY_LOCAL="клон воркспейса: $PORT_REL судит машину (systemd --user, cgroup памяти, docker — запись MACHINE), Job её не воспроизводит: внешнего пути нет"; return 1
             elif [ -n "$PORT_REL" ]; then
                 RS_KNOWN=1; RS_WHY="клон воркспейса, скрипт ведомости PORTABLE $PORT_REL — Job профиля ws"
@@ -1918,6 +1922,8 @@ route_print() {
         else
             kind=none; why="строку оболочки «${PAY_SH:-$PAY}» слот не судит — при доступном кластере 77"
         fi
+    elif { route_static; [ -n "$RS_MACHINE" ]; }; then   # MACHINE: route_static — 1 (внешнего пути нет), RS_MACHINE — запись
+        kind=local; why="предмет — машина ($RS_MACHINE, запись MACHINE): доступа к предмету из кластера нет по построению — локально в слоте, лимит памяти слота"
     elif route_static; then
         if [ -n "$RS_KNOWN" ]; then kind=external; why="Job внешнего кластера: профиль $RS_PROFILE, репозиторий $RS_REPO — $RS_WHY (при недоступном кластере — локально с доказательством)"
         else kind=none; why="нагрузка «${PAY_SH:-$PAY}» не опознана как переносимая (go, make, линтеры, ci-local.sh; скрипт ведомости PORTABLE относительным путём) — при доступном кластере 77"; fi
@@ -2147,6 +2153,14 @@ elif [ "$REMOTE_ON" = 1 ]; then
         fi
     fi
     ext_leave
+    # MACHINE (решение диспетчера 2026-10-22 по правилу владельца «использовать только в одном случае
+    # если доступа к кластеру нету»): предмет — сама машина, из кластера к нему доступа нет по
+    # построению — запись закрытого перечня идёт в слоте машины с доказательством; прочее без
+    # внешнего пути — no_route_judge (при доступном кластере 77).
+    if [ -n "${RS_MACHINE:-}" ] && [ -z "$PROOF" ]; then
+        PROOF="машина: $RS_MACHINE"
+        WHY_LOCAL="предмет — машина ($RS_MACHINE, запись MACHINE): Job её не воспроизводит, доступа к предмету из кластера нет — слот машины, лимит памяти класса"
+    fi
     [ -n "$PROOF$NR_MOOT" ] || no_route_judge
     say "локально — $WHY_LOCAL"
 else

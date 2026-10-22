@@ -956,10 +956,18 @@ n_ext=0; n_mach=0; miss=""
 for f in "${SUF[@]}"; do
     r="$(route "$RSC" suite -- bash "$f")"
     if in_mach "$f"; then
-        if [ "$r" = "0 none" ] && grep -q 'судит машину' "$W/out"; then n_mach=$((n_mach + 1)); else miss="$miss $f(MACHINE→$r)"; fi
+        if [ "$r" = "0 local" ] && grep -q 'предмет — машина' "$W/out"; then n_mach=$((n_mach + 1)); else miss="$miss $f(MACHINE→$r)"; fi
     elif [ "$r" = "0 external" ]; then n_ext=$((n_ext + 1)); else miss="$miss $f"; fi
 done
 assert "да ${#SUF[@]}" "$([ "${#SUF[@]}" -gt 0 ] && echo да || echo нет) $((n_ext + n_mach))" "перепись: наборов и проб дерева воркспейса (SUITE_NAME стража) ${#SUF[@]}: Job-ом профиля ws $n_ext, судящих машину (none) $n_mach${miss:+ — мимо ведомости:$miss}"
+# MACHINE — законный локальный маршрут (решение диспетчера 2026-10-22 по правилу владельца «только
+# если доступа к кластеру нету»: у предмета-машины доступа из кластера нет по построению): запись
+# перечня при ДОСТУПНОМ кластере идёт в слоте машины с доказательством, а не 77; посторонняя
+# проба воркспейса без внешнего пути — по-прежнему 77.
+jl0="$(jn ' local class=suite proof=машина: ')"
+assert "0 да $((jl0 + 1))" "$(RDIR="$RSC" rslot bash "$SLOT" suite -- bash "${MACH[0]}") $(has "$W/err" 'предмет — машина') $(jn ' local class=suite proof=машина: ')" "MACHINE: ${MACH[0]} при доступном кластере — локально в слоте (код команды 0), доказательство «предмет — машина» в журнале слотов"
+mkdir -p "$RSC/scripts/zz"; : > "$RSC/scripts/zz/not-a-suite.sh"
+assert "77 да нет" "$(RDIR="$RSC" rslot bash "$SLOT" suite -- bash scripts/zz/not-a-suite.sh) $(has "$W/err" 'внешнего маршрута нет') $(has "$W/err" 'предмет — машина')" "близнец: посторонняя команда воркспейса без внешнего пути — 77, локального маршрута MACHINE не получает"
 m_live=0; for f in "${MACH[@]}"; do (cd "$WS_TOP" && git ls-files --error-unmatch -- "$f" >/dev/null 2>&1) && m_live=$((m_live + 1)); done
 assert "да ${#MACH[@]}" "$([ "${#MACH[@]}" -gt 0 ] && echo да || echo нет) $m_live" "записи MACHINE — живые файлы дерева: ${#MACH[@]} записей, отслеживается $m_live (устаревшая запись — находка)"
 git init -q --bare "$W/bare-ws.git"; HLW="$W/hook-ws.log"; rm -f "$HLW" "$W/argv"; bp="$(jn ' remote class=ci-local route=push profile=ws ')"
