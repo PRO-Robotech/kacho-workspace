@@ -892,22 +892,21 @@ push_where() {
     # отправка той же ветки теряла ref ПОСЛЕ полного хука — «cannot lock ref», «reference already
     # exists»): на (репозиторий, ветка) — один процесс; вторая отказывает 64 ДО хука. Замок держит
     # открытый дескриптор, его наследует команда отправки (и заявка --enqueue) — снимается с её
-    # выходом; повторный вход той же цепочки (--queued) берёт уже свой (HS_PUSH_LOCKS).
-    if [ "$CLASS" = ci-local ] && [ "${#dests[@]}" -gt 0 ]; then
+    # выходом. Внутренний вход заявки (--queued) замок не берёт: его держит дескриптор, унаследованный
+    # от постановки (--enqueue); метки в окружении нет — окружение хука слот не засоряет (HS_*).
+    if [ "$CLASS" = ci-local ] && [ "${#dests[@]}" -gt 0 ] && [ -z "$QUEUED" ]; then
         rn="${rem:-origin}"
         case "$rn" in */* | *:*) ;; *) rn="$(git -C "$top" remote get-url "$rn" 2>/dev/null || printf '%s' "$rn")" ;; esac
         rn="${rn%/}"; rn="${rn%.git}"; rn="${rn##*[/:]}"
         mkdir -p "$DIR/push-locks" 2>/dev/null
         for d in "${dests[@]}"; do
             lf="$DIR/push-locks/$rn--${d//\//%}.lock"
-            case " ${HS_PUSH_LOCKS:-} " in *" $lf "*) continue ;; esac
             exec {PLFD}>> "$lf" || continue
             if ! flock -n "$PLFD"; then
                 say "отправка ветки «$d» репозитория $rn уже идёт ($(cat "$lf.who" 2>/dev/null || echo 'держатель не назван')) — вторая теряла бы ref после полного хука; новую голову — после .rc первой (ws#1314). Команда не запускалась"
                 exit 64
             fi
             printf 'pid %s · %s\n' "$$" "$PWD" > "$lf.who"
-            export HS_PUSH_LOCKS="${HS_PUSH_LOCKS:-} $lf"
         done
     fi
     [ "$CLASS" != ci-local ] || push_homes "$top"
