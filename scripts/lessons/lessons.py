@@ -244,6 +244,21 @@ def texts(rec):
     return [x.get('text') or '' for x in c or [] if isinstance(x, dict) and x.get('type') == 'text']
 
 
+def parts(raw):
+    """Урок с двумя классами в одной строке (ws#1314, урок git-operator fb757066: «класс-1 · место |
+    класс-2 · место»): части — по « | », когда и левая, и правая несут « · » (класс · место) и разрез
+    не внутри обратных кавычек; прочее (« | —», `a | b`) приклеивается к соседней части."""
+    out = []
+    for s in re.split(r'\s+\|\s+', raw):
+        if out and '·' in s and '·' in out[-1] and out[-1].count('`') % 2 == 0:
+            out.append(s)
+        elif out:
+            out[-1] += ' | ' + s
+        else:
+            out.append(s)
+    return [p.strip() for p in out]
+
+
 def epoch(s):
     try:
         return float(calendar.timegm(time.strptime(s[:19], '%Y-%m-%dT%H:%M:%S')))
@@ -269,7 +284,7 @@ class Store:
                     if r['id'] in self.ids:
                         continue
                     self.ids.add(r['id'])
-                    self.lessons.append(r)
+                    self.expand(r)
                 elif r.get('t') == 'status' and r.get('key'):
                     self.status.setdefault(r['key'], []).append(r)
                 elif r.get('t') == 'rekey' and r.get('id') and r.get('key'):
@@ -294,9 +309,19 @@ class Store:
             r['wave'], r['lane'] = wave, lane
         if relay:
             r['relay'] = True
-        self.lessons.append(r)
+        self.expand(r)
         self.new.append(r)
         return True
+
+    def expand(self, r):
+        """Урок с несколькими классами — частями «<id>.<n>» (ведомость хранит строку целиком;
+        деление — при каждом чтении, так что в счёт входят и прежние записи)."""
+        ps = parts(str(r.get('raw', '')))
+        if len(ps) < 2:
+            self.lessons.append(r)
+            return
+        for i, p in enumerate(ps, 1):
+            self.lessons.append(dict(r, id='%s.%d' % (r['id'], i), raw=p, part=i))
 
     def flush(self):
         os.makedirs(self.dir, exist_ok=True)
@@ -587,7 +612,7 @@ def main():
     if cmd == 'rekey':
         # Ключ уроку без ключа в тексте: событие ведомости, а не правка записи (ведомость только
         # дописывается). Ключ события — сырой нормализованный: синонимы — пересчётом в class_of.
-        if len(rest) != 2 or not re.fullmatch(r'\?[0-9a-f]{4,40}', rest[0]):
+        if len(rest) != 2 or not re.fullmatch(r'\?[0-9a-f]{4,40}(\.[0-9]+)?', rest[0]):
             print('lessons: ОТКАЗ — rekey ?<id> <ключ>', file=sys.stderr)
             sys.exit(1)
         pre, key = rest[0][1:], norm(rest[1])
@@ -715,7 +740,7 @@ def main():
         # Каждый случай — id, агент, дата и текст ЦЕЛИКОМ (ws#1314, урок 1cafa5fc: общий перечень
         # режет до 140 знаков и id не даёт — пачке приходилось писать свой разбор ведомости).
         for r in by.get(k) or []:
-            print('  ?%s %s %s: %s' % (r['id'][:8], time.strftime('%Y-%m-%d', time.gmtime(float(r.get('ts') or 0))),
+            print('  ?%s %s %s: %s' % (r['id'][:8] + ('.%d' % r['part'] if r.get('part') else ''), time.strftime('%Y-%m-%d', time.gmtime(float(r.get('ts') or 0))),
                                        r.get('agent') or '—', ' '.join(str(r.get('raw', '')).split())))
         if why:
             print('\n'.join(why))
