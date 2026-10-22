@@ -17,14 +17,24 @@
 #                     [--stand-report <отчёт JSON> --stand-expect <ожидаемое JSON>]
 #                     [--reviews <вердикты JSON>] [--allow <КОД,КОД…>]
 #                     [--timeout <с | Nm | Nh>] [--poll <с>] [--void-limit <N>]
-#       — проверяет доводы, отсоединяет демон (setsid, новый сеанс) и СРАЗУ печатает
-#         строки «pid», «журнал», «state»; код 0 — демон запущен, 2 — довод не тот,
+#       — проверяет доводы, отсоединяет демон службой systemd --user `kacho-autoland-<имя>`
+#         ВНЕ scope сессии (переживает её перезапуск; scripts/detach-launch.sh; при
+#         недоступном systemd --user — setsid в scope сессии с громким предупреждением и
+#         строкой «вид») и СРАЗУ печатает строки «pid», «журнал», «state», «вид»;
+#         код 0 — демон запущен, 2 — довод не тот,
 #         3 — этот PR уже ведёт другой демон (замок), 4 — копия демона старше ствола
 #         либо это не установлено (ниже «КОПИЯ ДЕМОНА»), демон не запущен.
 #   autoland.sh status <файл .state>
 #       — печатает исход; код: 0 merged · 1 red · 2 void или демон умер · 3 идёт ·
 #         4 stale-base · 5 head-moved · 6 timeout. Идущий в очереди — второй строкой
 #         «очередь: позиция K из M (впереди: <репо>#<N>…)», счёт по живым билетам.
+#         Живость — pid из .pid И метка
+#         AUTOLAND_TAG=<имя> в его окружении либо копия <имя>.autoland.sh в строке запуска
+#         (демон прежней версии): pid после перезагрузки переиспользуется, чужой процесс
+#         «идущим» не считается. «running» без живого демона status
+#         ПЕРЕПИСЫВАЕТ в «void оборван: <причина>» (перезагрузка машины, служба остановлена,
+#         процесс убит сигналом; pid занят чужим процессом — так и названо): следующее
+#         чтение не видит «running».
 #   autoland.sh run …  — тело демона (те же доводы), его зовёт start; пробы зовут его
 #         в переднем плане.
 #
@@ -242,7 +252,7 @@ paths() {
     RUN_DIR="${AUTOLAND_DIR:-$WS/tmp/autoland}"
     local key="${REPO%%/*}__${REPO#*/}__${PR}"
     NAME="${key}__${HEAD:0:12}"
-    STATE="$RUN_DIR/$NAME.state"; LOG="$RUN_DIR/$NAME.log"; PIDF="$RUN_DIR/$NAME.pid"
+    STATE="$RUN_DIR/$NAME.state"; LOG="$RUN_DIR/$NAME.log"; PIDF="$RUN_DIR/$NAME.pid"; UNITF="$RUN_DIR/$NAME.unit"
     LOCK="$RUN_DIR/$key.lock"; FIFO_NAME="$key.fifo"
 }
 
@@ -282,6 +292,18 @@ queue_scan() {  # <каталог> <свой билет> <снимать мёр�
 }
 
 # ── status ─────────────────────────────────────────────────────────────────────
+# daemon_alive <pid> <имя> — процесс жив И это демон этого запроса: метка AUTOLAND_TAG=<имя>
+# окружения либо (демон до метки) копия <имя>.autoland.sh в строке запуска. Голый kill -0
+# принимал чужой процесс на pid, переиспользованном после перезагрузки, за «идёт».
+daemon_alive() {
+    local a; local -a v=()
+    [[ "$1" =~ ^[0-9]+$ ]] || return 1
+    { mapfile -d '' -t v < "/proc/$1/environ"; } 2>/dev/null
+    for a in "${v[@]}"; do [ "$a" = "AUTOLAND_TAG=$2" ] && return 0; done
+    v=(); { mapfile -d '' -t v < "/proc/$1/cmdline"; } 2>/dev/null || return 1
+    for a in "${v[@]}"; do [[ "$a" == */"$2".autoland.sh ]] && return 0; done
+    return 1
+}
 if [ "${1:-}" = status ]; then
     f="${2:-}"
     [ -r "$f" ] || { echo "autoland: .state «$f» не читается — не-выполнилось"; exit 2; }
@@ -290,16 +312,25 @@ if [ "${1:-}" = status ]; then
         merged) exit 0 ;; red) exit 1 ;; void) exit 2 ;; stale-base) exit 4 ;;
         head-moved) exit 5 ;; timeout) exit 6 ;;
         running)
-            pid="$(cat "${f%.state}.pid" 2>/dev/null)"
-            if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
-                tf="$(cat "${f%.state}.ticket" 2>/dev/null)"
+            b="${f%.state}"; pid="$(cat "$b.pid" 2>/dev/null)"
+            if daemon_alive "$pid" "${b##*/}"; then
+                tf="$(cat "$b.ticket" 2>/dev/null)"
                 if [ -n "$tf" ] && [ -e "$tf" ]; then
                     queue_scan "$(dirname "$tf")" "$tf" 0
                     [ "$Q_POS" -eq 0 ] || printf 'очередь: позиция %s из %s (впереди: %s)\n' "$Q_POS" "$Q_LEN" "${Q_AHEAD:-—}"
                 fi
                 exit 3
             fi
-            echo "autoland: демон pid «${pid:-—}» не жив, а исход не записан — не-выполнилось; журнал ${f%.state}.log"
+            # Демон пишет .pid сам, за flock: старт моложе 30 с без .pid — ещё не судим.
+            if [ ! -s "$b.pid" ] && [ $(( $(date +%s) - $(stat -c %Y "$f" 2>/dev/null || echo 0) )) -lt 30 ]; then exit 3; fi
+            why="процесс убит или снят вместе со scope сессии"
+            # shellcheck source=scripts/detach-launch.sh
+            if . "$(dirname "$SELF")/../detach-launch.sh" 2>/dev/null; then why="$(detach_gone_reason "$b.pid" "$b.unit")"; fi
+            if [[ "$pid" =~ ^[0-9]+$ ]] && [ -d "/proc/$pid" ]; then who="pid $pid занят чужим процессом, демона нет"
+            else who="демон pid ${pid:-—} не жив"; fi
+            line="void оборван: $who, исхода нет — $why; журнал $b.log"
+            printf '%s\n' "$line" > "$f.$$.tmp" && mv -f "$f.$$.tmp" "$f"
+            echo "autoland: $line — не-выполнилось"
             exit 2 ;;
         *) echo "autoland: исход «${line%% *}» не из перечня — не-выполнилось"; exit 2 ;;
     esac
@@ -308,24 +339,28 @@ fi
 # ── start ──────────────────────────────────────────────────────────────────────
 if [ "${1:-}" = start ]; then
     shift; parse_args "$@"; paths
-    command -v setsid >/dev/null 2>&1 || die "нет setsid"
+    # shellcheck source=scripts/detach-launch.sh
+    . "$(dirname "$SELF")/../detach-launch.sh" || die "нет scripts/detach-launch.sh рядом с autoland"
     command -v flock >/dev/null 2>&1 || die "нет flock"
     { mkdir -p "$RUN_DIR" && chmod 700 "$RUN_DIR"; } || die "каталог «$RUN_DIR» не заводится"
     flock -n "$LOCK" true || die "PR $REPO#$PR уже ведёт другой демон (замок $LOCK)" 3
     lag_sh="${AUTOLAND_LAG:-$(dirname "$SELF")/../main-clone-lag.sh}"
     [ -r "$lag_sh" ] || die "копия демона не сверена со стволом: $lag_sh нет — демон не запущен (ws#1228)" 4
-    lag="$(bash "$lag_sh" --own "${AUTOLAND_TOOLING_TREE:-$(dirname "$SELF")}" -- scripts/autoland/ scripts/main-clone-lag.sh 2>&1)" \
+    lag="$(bash "$lag_sh" --own "${AUTOLAND_TOOLING_TREE:-$(dirname "$SELF")}" -- scripts/autoland/ scripts/main-clone-lag.sh scripts/detach-launch.sh 2>&1)" \
         || die "копия демона старше ствола либо это не установлено — демон не запущен (ws#1228): ${lag#TOOLING-LAG: }" 4
-    rm -f "$STATE" "$PIDF"
+    rm -f "$STATE" "$PIDF" "$UNITF" "${UNITF%.unit}.exit"
     # Демон исполняет СВОЮ копию: копия, откуда его запустили, может быть снята им же.
     cp "$SELF" "$RUN_DIR/$NAME.autoland.sh" || die "копия демона не легла в «$RUN_DIR»"
     printf 'running старт\n' > "$STATE"
     # Срок демона для переписи застоя (ws#1154): до --timeout и последнего шага проверки;
     # сирота своей сессии в сроке не судится как застой.
-    setsid env --default-signal=PIPE AUTOLAND_WS="$WS" \
+    unit="kacho-autoland-$NAME-$$"
+    detach_launch "$unit" "$LOG" -- env --default-signal=PIPE AUTOLAND_WS="$WS" AUTOLAND_TAG="$NAME" \
         KACHO_DETACHED_UNTIL="$(( $(date +%s) + TIMEOUT + GATE_TIMEOUT ))" \
         bash "$RUN_DIR/$NAME.autoland.sh" run "$@" \
-        >> "$LOG" 2>&1 < /dev/null &
+        || { rm -f "$STATE" "$RUN_DIR/$NAME.autoland.sh"; die "демон не запущен: ${DETACH_WARN:-}"; }
+    if [ "$DETACH_MODE" = unit ]; then printf '%s\n' "$unit" > "$UNITF"; kind="служба $unit"
+    else kind="setsid (не переживёт перезапуск сессии)"; fi
     for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
         [ -s "$PIDF" ] && break
         sleep 0.25
@@ -334,6 +369,7 @@ if [ "${1:-}" = start ]; then
     printf 'pid\t%s\n' "$(cat "$PIDF" 2>/dev/null || echo "$!")"
     printf 'журнал\t%s\n' "$LOG"
     printf 'state\t%s\n' "$STATE"
+    printf 'вид\t%s\n' "$kind"
     printf 'исход — одним шагом: bash %s status %s\n' "$SELF" "$STATE"
     exit 0
 fi

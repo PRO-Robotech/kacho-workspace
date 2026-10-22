@@ -23,6 +23,8 @@
 #   heavy-slot.sh --status      занятые слоты, билеты очереди и внешнего входа, память машины, хвост журнала
 #   heavy-slot.sh --cancel <билет | журнал заявки>  снять СВОЮ заявку (ждущую, отложенную, внешнего входа) и её --enqueue
 #   heavy-slot.sh --prune-tmp   снять TMPDIR копий класса ci-local, не тронутые > 7 суток
+#   heavy-slot.sh --waits <класс> [часов]  ожидание входа класса за окно (24 ч) по журналу: медиана,
+#               p90, наибольшее, отказы 74 и 75; записей ноль — код 2 (ниже, у waits_report)
 #
 # ВХОД — очередь по билету под flock на каталоге слотов, ОДНОМ на машину (малый билет
 # обгоняет ждущего БОЛЬШЕГО, которому места сейчас нет, — не более BYPASS_MAX раз, ws#1161 д);
@@ -133,7 +135,8 @@
 # сетевым признаком — команда не запускалась ни там, ни локально; дерево оснастки отстаёт
 # от origin/main по run.sh и слоту либо отставание не установлено — ws#1228); 74 — слот занят, ожидания не было (очередь K названа); 75 — слот не
 # выдан за --wait N; 76 — команда оборвана пределом памяти; 77 — кластер доступен, и
-# команде место там: локально она не запускалась, текст «во внешний кластер: <как>».
+# команде место там либо внешнего маршрута нет (и с --local — ws#1291, ws#1301): локально она не
+# запускалась, текст «во внешний кластер: <как>».
 # 69, 74, 75, 76 и 77 — «не выполнилось», а не красное: вердикта по предмету команды
 # нет. Своё слово слот печатает строкой «heavy-slot: …» в stderr.
 #
@@ -145,10 +148,10 @@
 # -down, -census; stand-ns.sh up, down, census, forward, unforward) из deploy/
 # неправленого клона kacho слота не занимает: на машине лишь kubectl и helm
 # (ws#1143; условия и ГРАНИЦА — у stand_ns_light ниже).
-# Локально — с причиной в журнале
-# (local … why=…, при недоступном — и proof=… вывода проверки), либо флагом --local
-# с причиной (bypass-local, «локально по флагу» в --status); условия — у блока
-# «внешний кластер» ниже.
+# Локально — ЛЮБОЙ класс лишь при недоступном кластере (владелец 2026-10-22, ws#1301): проверка
+# ответила 69 либо 124, её вывод — в журнал (local … proof=…; с --local — bypass-local … proof=…).
+# Внешнего пути нет, а кластер принимает — 77 с задачей маршрута (no_route_judge, ws#1303); --local
+# основания не добавляет (local_judge). Условия — у блока «внешний кластер» ниже.
 #
 # ВХОД ВО ВНЕШНИЙ КЛАСТЕР ПО ОДНОМУ (ws#1176): ожидающие билеты (--enqueue, --wait N) идут туда
 # по одному, в порядке номеров. Прежде они срабатывали разом на освободившееся место, и
@@ -294,6 +297,18 @@ kaname|6656|отправка kaname: peak + container_peak + escaped_peak ≤ 42
 # по 69 нет; до локального запуска при висении — не дольше CHECK_S × CHECK_TRIES.
 CHECK_S=30 # срок одной проверки, с
 CHECK_TRIES=2 # попыток, если проверка не ответила (124)
+# ПОРОЖДЕНИЯ ПРОЦЕССОВ (ws#1291) — признак машины, как и память: счётчик `processes` /proc/stat
+# (порождений с загрузки) за окно. Повод: 2026-10-21 02:02 — load average 16,2 при простое CPU
+# 82–88 %, наборы с мутантами шли мимо слота, а слот мерил одну память. Вход: темп за SPAWN_WIN_S
+# перед входом ≤ SPAWN_MAX, иначе место не выдаётся (как «свободно < 15 ГиБ»: 74, --wait ждёт);
+# сторож пишет пик темпа за жизнь слота, первое превышение — строкой spawn-over, выход — spawns=
+# (порождений машины за окно слота) и spawn_peak= в строке leave. Порог — по штатному режиму: замер
+# 2026-10-21 08:05–08:10Z, 294 окна по 1 с при 5–8 идущих полосах — p50 767, p90 1308, p99 1708,
+# наибольшее 2121 в секунду; порог выше наибольшего в 1,4 раза: порог, срабатывающий на штатном,
+# перестаёт читаться. ГРАНИЦА: темп — машины, а не слота (счётчика порождений у cgroup нет); замер
+# шторма 02:02 (~790/с) лежит внутри штатного, и держит его не порог, а вход наборов через слот
+# (heavy-guard, класс suite: слотов ≤ 3). Режим проб судит темп лишь с HEAVY_SLOT_PROCSTAT.
+SPAWN_MAX=3000; SPAWN_WIN_S=1; PROCSTAT=/proc/stat
 LIMIT_MIB="$CAP_MIB"; POLL_S=30; WAIT_S=0; WAIT_MAX_S=300; ENQ_MAX_S=7200; GUARD_S=2; GRACE_S=10; LIMITER=auto
 MEMINFO="${HEAVY_SLOT_MEMINFO:-/proc/meminfo}"
 CGROOT=/sys/fs/cgroup
@@ -306,8 +321,10 @@ integration|8192|go test -tags=integration (testcontainers); make test-integrati
 ci-local|10240|scripts/ci-local.sh; git push в клон, чей pre-push зовёт ci-local (бронь отправки воркспейса и kaname — по предмету, ниже)|scripts/ci-local.sh go (23 проверки: build, vet, go test -short ./..., golangci-lint, gosec; кэш сборки тёплый, линтера холодный) — 5,2 ГиБ; прочие группы идут после неё по одной, не замерены
 lint|8192|golangci-lint run, govulncheck, gosec, make lint|golangci-lint run ./... по монорепо, холодный кэш линтера — 4,5 ГиБ
 docker|4096|docker run/create/start/build, docker compose up/run/build|общий класс — предел, а не прогноз: docker run получает --memory=бюджет
+go-unit|4096|go test и go build без -race и integration; make с «test» в имени цели (ws#1301: любая сборка и тест — во внешний кластер)|предел, а не прогноз: ниже замера go test -race свои пакеты services/vpc (49) — 3,5 ГиБ (строка go-race); Job — профиль go-race run.sh
 stand|8192|kind create cluster; make dev-up, reload-svc*, stand-ns-run; helm install/upgrade (stand-ns-up, -down, -census — без слота, ws#1143)|узел kind — до 2,9 ГиБ (9 показаний docker stats в журналах сессий); сборка образов dev-up последовательная, её память в BuildKit не замерена
-newman|2048|newman run; make e2e-newman, e2e-test; newman-e2e.sh, newman-parallel.sh|newman run самой большой коллекции (2,7 МБ, отчёт json) — 0,4 ГиБ; JOBS=1'
+newman|2048|newman run; make e2e-newman, e2e-test; newman-e2e.sh, newman-parallel.sh|newman run самой большой коллекции (2,7 МБ, отчёт json) — 0,4 ГиБ; JOBS=1
+suite|1536|наборы и пробы воркспейса: scripts/<набор>/run-all.sh, inject.sh, *-inject.sh, mutants.py, prove.sh (heavy-guard, ws#1291)|пик отправки воркспейса со всеми run-all.sh — 790 МиБ × 1,5, вверх до 512 (бронь SUBJECT_BUDGETS); tooling-gate/inject.sh — 206 МиБ за 1449 с (журнал слотов, 2026-10-21)'
 
 say() { printf 'heavy-slot: %s\n' "$*" >&2; }
 now() { date +%s; }
@@ -427,6 +444,33 @@ class_budget() {
     return 1
 }
 
+# waits_report <класс> [часов] — ожидание входа класса по журналу за окно. Решение диспетчера
+# 2026-10-21 о пуле suite: класс остаётся в общих трёх слотах, свой пул — при медиане ожидания
+# за сутки > 5 мин; это чтение и есть замер. Ожидание — waited= строк enter (вошёл) и timeout
+# (75: не дождался; у --enqueue и --resume — от постановки билета); отказ 74 без ожидания —
+# строка busy, только счётом. Окно — строкой времени журнала (date -Is одной зоны машины).
+# Записей ни одной — код 2: медиана не установлена, а не «ожидания нет».
+waits_report() {
+    local cls="${1:-}" h="${2:-24}"
+    class_budget "$cls" > /dev/null || { say "класса «$cls» нет — форма: --waits <класс> [часов]"; return 64; }
+    [[ "$h" =~ ^[1-9][0-9]{0,3}$ ]] || { say "часов «$h» — нужно целое 1…9999"; return 64; }
+    awk -v c="class=$cls" -v s="$(date -Is -d "-$h hours")" -v cl="$cls" -v h="$h" '
+        $1 < s || $1 !~ /^20[0-9][0-9]-/ { next }
+        { hit = 0; for (i = 3; i <= NF; i++) if ($i == c) { hit = 1; break } }
+        !hit { next }
+        $2 == "busy" { b++; next }
+        $2 == "enter" || $2 == "timeout" {
+            for (i = 3; i <= NF; i++) if ($i ~ /^waited=[0-9]+s$/) { v = substr($i, 8) + 0; k = n++
+                while (k > 0 && w[k - 1] > v) { w[k] = w[k - 1]; k-- }; w[k] = v; break }
+            if ($2 == "timeout") t++
+        }
+        END {
+            if (n == 0) { printf "WAITS class=%s hours=%d: записей ожидания нет (busy74=%d) — медиана не установлена\n", cl, h, b; exit 2 }
+            m = (n % 2) ? w[(n - 1) / 2] : int((w[n / 2 - 1] + w[n / 2]) / 2)
+            printf "WAITS class=%s hours=%d n=%d median=%ds p90=%ds max=%ds timeout75=%d busy74=%d\n", cl, h, n, m, w[int((n - 1) * 0.9 + 0.5)], w[n - 1], t, b
+        }' "$DIR/journal.log" 2> /dev/null
+}
+
 print_classes() {
     local line name rest budget covers basis
     printf 'потолок машины: %s — (MemTotal − MemAvailable) + недобранное + бюджет; свободных до старта ≥ %s; слотов ≤ %s, Σ бюджетов ≤ %s\n' \
@@ -452,6 +496,20 @@ used_mib() {
 # avail_mib [meminfo] — MemAvailable в MiB; пусто, если не прочитать.
 avail_mib() {
     awk '/^MemAvailable:/ { printf "%d\n", $2 / 1024 }' "${1:-$MEMINFO}" 2>/dev/null
+}
+
+# spawn_count — порождений машины с загрузки (`processes` PROCSTAT); код 1 — не судится.
+spawn_count() {
+    [ -n "$PROCSTAT" ] || return 1
+    awk '$1 == "processes" { print $2; f = 1 } END { exit !f }' "$PROCSTAT" 2>/dev/null
+}
+# spawn_rate — темп порождений машины в секунду за SPAWN_WIN_S; код 1 — не судится.
+spawn_rate() {
+    local a b
+    a="$(spawn_count)" || return 1
+    sleep "$SPAWN_WIN_S"
+    b="$(spawn_count)" || return 1
+    echo $(( (b - a) / SPAWN_WIN_S ))
 }
 
 cg_bytes() { local v; v="$(cat "$1" 2>/dev/null)" && [ -n "$v" ] && printf '%s\n' "$v" || echo 0; }
@@ -1058,9 +1116,9 @@ book_cmd() {
 # ── разбор вызова ────────────────────────────────────────────────────────────
 # --wait N — единственное ожидание слота, явное и ≤ 300 с (ws#1004); без него занятый
 # слот — код 74 сразу. Значение судится до класса: «--wait 2400» — 64, а не полчаса.
-# --local "<причина>" — обход внешнего кластера (ws#1105): маршрут не судится, причина
-# пишется в журнал строкой bypass-local и видна в --status. Причина — не короче 12
-# символов: пустой обход был бы тем же молчаливым «локально».
+# --local "<причина>" — объявленная причина локального прогона (ws#1105): пишется в журнал
+# строкой bypass-local и видна в --status, не короче 12 символов. Основанием она не служит:
+# локально — лишь при недоступном кластере (local_judge, ws#1301).
 # --enqueue <каталог> — поставить в очередь ОДИН раз отсоединённо (шапка); --queued <база> —
 # его внутренняя форма: принимается лишь у ребёнка --enqueue (stdout — <база>.log, родитель —
 # лидер своего сеанса), иначе 64.
@@ -1107,6 +1165,7 @@ case "${1:-}" in
     --budget)  class_budget "${2:-}" || { say "класса «${2:-}» нет"; exit 64; }; exit 0 ;;
     --status)  mkdir -p "$DIR/active" 2>/dev/null; print_status; exit 0 ;;
     --cancel)  cancel_ticket "${2:-}"; exit $? ;;
+    --waits)   waits_report "${2:-}" "${3:-24}"; exit $? ;;
     --book)    book_cmd "$@"; exit $? ;;
     --console-deps) console_deps "${2:-}" "${3:-}"; exit $? ;;
     --prune-tmp)
@@ -1118,6 +1177,7 @@ case "${1:-}" in
 esac
 
 CLASS="$1"; shift
+PCLASS="$CLASS"; [ "$CLASS" = go-unit ] && PCLASS=go-race   # профиль Job: go-unit идёт профилем go-race (ws#1301)
 if ! BUDGET="$(class_budget "$CLASS")"; then
     say "класса «$CLASS» нет. Классы: $(cut -d'|' -f1 <<< "$CLASSES" | tr '\n' ' ')— см. --classes"
     exit 64
@@ -1154,7 +1214,7 @@ if [ "$CLASS" = ci-local ] && [ -z "${GIT_SSH_COMMAND:-}" ] && [ -z "${GIT_SSH:-
 fi
 
 # Ручки — до первой записи: отказ не оставляет следа в общем каталоге.
-KNOBS="HEAVY_SLOT_SUBJECTS HEAVY_SLOT_EXT_HOLD_S HEAVY_SLOT_LIMIT_GIB HEAVY_SLOT_LIMIT_MIB HEAVY_SLOT_WAIT_S HEAVY_SLOT_ENQ_S HEAVY_SLOT_POLL_S HEAVY_SLOT_BUDGET_MIB HEAVY_SLOT_LIMITER HEAVY_SLOT_GUARD_S HEAVY_SLOT_GUARD_GRACE_S HEAVY_SLOT_REMOTE_RUN HEAVY_SLOT_SLOTS_SUM_MIB HEAVY_SLOT_CHECK_S HEAVY_SLOT_TOOLING_TREE"
+KNOBS="HEAVY_SLOT_SUBJECTS HEAVY_SLOT_EXT_HOLD_S HEAVY_SLOT_LIMIT_GIB HEAVY_SLOT_LIMIT_MIB HEAVY_SLOT_WAIT_S HEAVY_SLOT_ENQ_S HEAVY_SLOT_POLL_S HEAVY_SLOT_BUDGET_MIB HEAVY_SLOT_LIMITER HEAVY_SLOT_GUARD_S HEAVY_SLOT_GUARD_GRACE_S HEAVY_SLOT_REMOTE_RUN HEAVY_SLOT_SLOTS_SUM_MIB HEAVY_SLOT_CHECK_S HEAVY_SLOT_TOOLING_TREE HEAVY_SLOT_PROCSTAT HEAVY_SLOT_SPAWN_MAX"
 if [ "$MEMINFO" = /proc/meminfo ]; then
     knob=""
     [ "$DIR" = "$SHARED" ] || [ "$DIR" -ef "$SHARED" ] || knob="свой каталог слотов $DIR — отдельная очередь, соседей общей он не видит"
@@ -1171,7 +1231,7 @@ else
         exit 64
     fi
     for v in $KNOBS; do
-        [ "$v" = HEAVY_SLOT_LIMITER ] || [ "$v" = HEAVY_SLOT_REMOTE_RUN ] || [ "$v" = HEAVY_SLOT_SUBJECTS ] || [ "$v" = HEAVY_SLOT_TOOLING_TREE ] || [ -z "${!v+x}" ] || [[ "${!v}" =~ ^[0-9]+$ ]] || { say "$v=«${!v}» — не число"; exit 64; }
+        [ "$v" = HEAVY_SLOT_LIMITER ] || [ "$v" = HEAVY_SLOT_REMOTE_RUN ] || [ "$v" = HEAVY_SLOT_SUBJECTS ] || [ "$v" = HEAVY_SLOT_TOOLING_TREE ] || [ "$v" = HEAVY_SLOT_PROCSTAT ] || [ -z "${!v+x}" ] || [[ "${!v}" =~ ^[0-9]+$ ]] || { say "$v=«${!v}» — не число"; exit 64; }
     done
     LIMIT_MIB="${HEAVY_SLOT_LIMIT_MIB:-$(( ${HEAVY_SLOT_LIMIT_GIB:-$(( CAP_MIB / 1024 ))} * 1024 ))}"
     POLL_S="${HEAVY_SLOT_POLL_S:-$POLL_S}"; WAIT_S="${HEAVY_SLOT_WAIT_S:-$WAIT_S}"; ENQ_MAX_S="${HEAVY_SLOT_ENQ_S:-$ENQ_MAX_S}"
@@ -1179,6 +1239,8 @@ else
     GUARD_S="${HEAVY_SLOT_GUARD_S:-$GUARD_S}"; GRACE_S="${HEAVY_SLOT_GUARD_GRACE_S:-$GRACE_S}"
     LIMITER="${HEAVY_SLOT_LIMITER:-$LIMITER}"
     SLOTS_SUM_MIB="${HEAVY_SLOT_SLOTS_SUM_MIB:-$SLOTS_SUM_MIB}"
+    # Порождения в режиме проб судятся лишь по синтетическому счётчику: темп машины плавает (ws#1291).
+    PROCSTAT="${HEAVY_SLOT_PROCSTAT:-}"; SPAWN_MAX="${HEAVY_SLOT_SPAWN_MAX:-$SPAWN_MAX}"
     CHECK_S="${HEAVY_SLOT_CHECK_S:-$CHECK_S}"; EXT_HOLD_S="${HEAVY_SLOT_EXT_HOLD_S:-$EXT_HOLD_S}"; SUBJECT_BUDGETS="${HEAVY_SLOT_SUBJECTS:-$SUBJECT_BUDGETS}"
     [ "$CHECK_S" -ge 1 ] || { say "HEAVY_SLOT_CHECK_S=0 — timeout 0 срок снимает: проверка висела бы без предела"; exit 64; }
     if [ "$BUDGET" -gt "$PROBE_MIB" ] || ! [[ "$GUARD_S" =~ ^[12]$ ]]; then
@@ -1286,19 +1348,22 @@ fi
 # nohup, setsid, stdbuf, command, time — функция payload): обёртка тяжёлое локально не
 # уводит. Удалённый прогон судит КОММИТ, поэтому условий пять: нагрузка переносима
 # (go, make, линтеры, ci-local.sh, скрипт клона из ведомости PORTABLE — ws#1192), каталог —
-# клон kacho, kaname или corelib,
+# клон kacho, kaname или corelib, либо клон воркспейса (kacho-workspace, ws#1304: хук отправки и
+# наборы с пробами воркспейса классов ci-local и suite — Job профиля ws; иное его — без внешнего пути, no_route_judge),
 # отслеживаемые файлы без правок, номер задачи — из KACHO_TASK либо ведущих цифр
-# имени ветки, кластер принимает (`run.sh --available --profile <класс>`, ws#991).
-# Без внешнего пути вообще — хук отправки (`git push`, ws#1106) и клон не продукта —
-# локально с причиной, кластер не спрашивается. Устранимое вызывающим — правки, номер
+# имени ветки, кластер принимает (`run.sh --available --profile <профиль>`, ws#991; профиль —
+# класс, go-unit — go-race, у клона воркспейса — ws). Причина маршрута — полем why= строк remote
+# журнала (ws#1304). Без внешнего пути вообще — хук отправки без хука в клоне, клон не продукта и не
+# воспроизводимая Job-ом нагрузка воркспейса, класс без Job — кластер спрашивается всё равно
+# (no_route_judge, ws#1301): принимает — 77, недоступен — локально. Устранимое вызывающим — правки, номер
 # задачи, НЕОПОЗНАННАЯ нагрузка (строка `bash -c`, ключ обёртки вне разбора, иная
 # команда) — при принимающем кластере 77 «во внешний кластер: <как>», команда не
 # запускается: неопознанное тихо локально не идёт.
 # Класс stand: подъём ЛОКАЛЬНОГО стенда (dev-up, dev-prod-up, own-up, stack-up,
 # cert-manager-up, `kind … create`, create-cluster.sh любым путём — словом argv либо
 # словом строки оболочки) и строка оболочки без внешней формы stand-ns-* при
-# принимающем кластере — 77 с формой своего ns; прочие команды стенда (stand-ns-*,
-# reload-svc, dev-down, helm идущего стенда) маршрут не судит.
+# принимающем кластере — 77 с формой своего ns; stand-ns-* без stand-ns-run (kubectl и helm к
+# ns кластера) маршрут не судит, прочие (reload-svc, stand-ns-run CMD, пробы) — no_route_judge.
 # Проверка кластера — `timeout $CHECK_S run.sh --available` (срок и повтор — по замеру,
 # у CHECK_S): current-context она не читает
 # и не меняет (контекст — явный, шапка run.sh). Занят (75) — НЕ недоступен (решение
@@ -1307,7 +1372,8 @@ fi
 # локально, вывод проверки — в журнал строкой «local … proof=…». Иной код (70 —
 # дефект обёртки, 64, 126 …) — не недоступность: 69, локально не идёт (ws#1210).
 # Причина КАЖДОГО локального запуска — в журнале
-# («local … why=…»). Обход — только --local с причиной перед классом (bypass-local).
+# («local … why=…»). Обход — только --local с причиной перед классом (bypass-local), и
+# при принимающем кластере он сам — 77 (local_judge).
 # В режиме проб маршрут судится лишь с HEAVY_SLOT_REMOTE_RUN — двойником run.sh; над
 # настоящей памятью эта ручка — 64, как прочие.
 REMOTE_RUN="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/remote-heavy/run.sh"
@@ -1411,7 +1477,7 @@ refuse_external() {
     journal_early "external class=$CLASS how=$1 who=$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD cmd=$(printf '%q ' "${CMD_R[@]}")"
     say "кластер доступен — команда НЕ запускалась (код 77, не выполнилось, не красное)."
     say "во внешний кластер: $1"
-    say "локально — лишь при недоступном кластере (доказательство пишет сам слот) либо --local \"<причина>\" перед классом (testing-verdict.md#external-cluster-first)"
+    say "машина владельца — лишь при недоступном кластере, доказательство пишет сам слот; --local его не заменяет (владелец 2026-10-22, ws#1301; testing-verdict.md#external-cluster-first)"
     exit 77
 }
 # payload — слово полезной нагрузки за обёртками env, nice, ionice, timeout, nohup,
@@ -1510,13 +1576,15 @@ stand_script() {
 # содержимого ST_SIGN) либо её строку оболочки слот не судит: при доступном кластере это 77.
 stand_static() {
     local a tok kd="" pv="" toks s
-    ST_MK=""; ST_SAFE=""; ST_SIGN=""
+    ST_MK=""; ST_SAFE=""; ST_SIGN=""; ST_RUN=""; ST_DOWN=""
     for a in "${CMD_R[@]}"; do
         mapfile -t toks < <(printf '%s\n' "$a" | tr ' \t;&|()"'"'"'`' '\n')
         for tok in "${toks[@]}"; do
             [ -n "$tok" ] || continue
             case "$(basename -- "$tok")" in
                 dev-up|dev-prod-up|own-up|stack-up|cert-manager-up|create-cluster.sh) ST_MK=1 ;;
+                stand-ns-run) ST_SAFE=1; ST_RUN=1 ;;
+                dev-down|own-down|stack-down) ST_DOWN=1 ;;
                 stand-ns-*) ST_SAFE=1 ;;
             esac
             # kind [флаг [значение]]… create — как STAND_SIGN_RE (ws#1250): слово после флага —
@@ -1525,6 +1593,7 @@ stand_static() {
             elif [ -n "$kd" ]; then
                 if [ "${tok#-}" != "$tok" ]; then pv=1
                 elif [ "$tok" = create ]; then ST_MK=1; kd=""
+                elif [ "$tok" = delete ]; then ST_DOWN=1; kd=""
                 elif [ -n "$pv" ]; then pv=""
                 else kd=""; fi
             fi
@@ -1536,9 +1605,14 @@ stand_static() {
     fi
     [ -z "$ST_MK" ] && { [ -z "$PAY_SH" ] && [ "${PAY#\?}" = "$PAY" ] || [ -n "$ST_SAFE" ]; }
 }
+# stand_moot — команда стенда без нагрузки на машине: stand-ns-* без stand-ns-run (kubectl и helm к ns
+# внешнего кластера) либо снятие локального стенда (dev-down, kind … delete) — освобождает машину.
+stand_moot() { [ -z "$ST_MK$ST_RUN$PAY_SH" ] && [ -n "$ST_SAFE$ST_DOWN" ]; }  # строка оболочки — не moot: её слов слот не судит
 stand_route() {
     if stand_static; then
-        WHY_LOCAL="команда стенда не поднимает локальный стенд"; return 1
+        WHY_LOCAL="у команды стенда внешнего маршрута нет (локального стенда она не поднимает)"
+        stand_moot && { NR_MOOT=1; WHY_LOCAL="команда стенда работает лишь с ns внешнего кластера либо снимает локальный стенд"; }
+        return 1
     fi
     if ! cluster_check; then
         [ -z "$ST_SIGN" ] || WHY_LOCAL="$WHY_LOCAL; локально по признаку содержимого $ST_SIGN"
@@ -1634,31 +1708,75 @@ ext_run() {
 # integrationshard ci.yml kaname зовёт `.github/scripts/run-integration.sh` (testcontainers — dind
 # профиля integration); до записи слот отвечал на неё 77, и пробы уходили во внешний кластер лишь
 # пересборкой команды мимо скрипта (ws#1192, посадка kaname#871).
-PORTABLE='kaname|.github/scripts/run-integration.sh|integration'
-# portable_script — 0, если слово нагрузки (PAY_I) — скрипт ведомости PORTABLE этого клона и класса.
+# Путь записи — образец оболочки (`*` берёт и «/»): строки kacho-workspace (ws#1304) — наборы и пробы
+# воркспейса тех же имён, что SUITE_NAME стража heavy-guard (run-all.sh, inject.sh, inject-*.sh,
+# *-inject.sh, prove.sh, prove-all.sh, mutants.py, *-mutants.py, run-suites.sh, hook-proofs.sh под
+# scripts/ и .claude/hooks/), и проверки наборов по одной (check-*); исполняет их Job профиля ws
+# (scripts/remote-heavy/run.sh, СРЕДА ВОРКСПЕЙСА). Что каждый файл дерева, которого страж зовёт
+# набором, здесь переносим, — перепись heavy-slot-inject (SUITE_NAME импортом guard.py, файлы — git
+# ls-files). Скрипт с python3 первым словом — слово после ключей интерпретатора.
+PORTABLE='kaname|.github/scripts/run-integration.sh|integration
+kacho-workspace|scripts/*/run-all.sh|ci-local,suite
+kacho-workspace|scripts/*/run-suites.sh|ci-local,suite
+kacho-workspace|scripts/hook-proofs.sh|ci-local,suite
+kacho-workspace|scripts/*/inject.sh|ci-local,suite
+kacho-workspace|scripts/*/inject-*.sh|ci-local,suite
+kacho-workspace|scripts/*-inject.sh|ci-local,suite
+kacho-workspace|scripts/*/prove.sh|ci-local,suite
+kacho-workspace|scripts/*/prove-all.sh|ci-local,suite
+kacho-workspace|scripts/*/mutants.py|ci-local,suite
+kacho-workspace|scripts/*-mutants.py|ci-local,suite
+kacho-workspace|scripts/*/check-*|ci-local,suite
+kacho-workspace|.claude/hooks/*/prove.sh|ci-local,suite
+kacho-workspace|.claude/hooks/*-inject.sh|ci-local,suite
+kacho-workspace|.claude/hooks/*/mutants.py|ci-local,suite'
+# MACHINE — пробы воркспейса, чей предмет — САМА машина (systemd --user и scope, cgroup памяти
+# машины, docker, память машины), а не дерево: Job их не воспроизводит, и в pod они дают не
+# вердикт, а чужое красное (живой прогон heavy-slot-inject.sh Job-ом ws 2026-10-22: «все слоты
+# заняты — 74» получил 0) либо «не построено». Запись — путь в дереве; файла нет — запись
+# устарела, и перепись heavy-slot-inject это называет. Внешнего пути у них нет: при доступном кластере 77, маршрут — NO_ROUTE_TASK (ws#1301).
+MACHINE='scripts/heavy-slot-inject.sh
+scripts/session-memcap-inject.sh'
+# portable_script — 0, если слово нагрузки (PAY_I) — скрипт ведомости PORTABLE этого клона и класса;
+# PORT_REL — его путь в дереве клона.
 portable_script() {
-    local w="${CMD_R[${PAY_I:-0}]:-}" real r p c
+    local i="${PAY_I:-0}" w real r p c
+    PORT_REL=""
     [ -n "$PAY_I" ] && [ -z "$PAY_SH" ] || return 1
+    case "$(basename -- "${CMD_R[$i]:-}")" in
+        python3|python)
+            i=$(( i + 1 ))
+            while [ "$i" -lt "${#CMD_R[@]}" ]; do
+                case "${CMD_R[$i]}" in -X|-W) i=$(( i + 2 )) ;; -c|-m|-) return 1 ;; -*) i=$(( i + 1 )) ;; *) break ;; esac
+            done ;;
+    esac
+    w="${CMD_R[$i]:-}"
     case "$w" in /*|'') return 1 ;; esac
     [ "$w" != "${w#*/}" ] || return 1
     real="$(cd "$PWD" && realpath -e -- "$w" 2>/dev/null)" || return 1
     while IFS='|' read -r r p c; do
         [ "$r" = "$RS_REPO" ] || continue
         [[ ",$c," == *",$CLASS,"* ]] || continue
-        [ "$real" = "$RS_TOP/$p" ] || continue
+        # shellcheck disable=SC2053  # путь записи — образец (строки kacho-workspace)
+        [[ "$real" == "$RS_TOP/"$p ]] || continue
+        p="${real#"$RS_TOP"/}"
         git -C "$RS_TOP" ls-files --error-unmatch -- "$p" > /dev/null 2>&1 || continue
+        PORT_REL="$p"
         return 0
     done <<< "$PORTABLE"
     return 1
 }
 # route_static — статическая часть маршрута Job-ом, ОДНА у прогона и у --route: класс с внешним
-# путём, клон kacho, kaname или corelib (RS_TOP, RS_REPO), нагрузка опознана (RS_KNOWN). 1 — внешнего
-# пути у команды нет (WHY_LOCAL); неопознанная нагрузка пути не закрывает: при доступном кластере —
-# 77, при недоступном — локально с доказательством.
+# путём, клон kacho, kaname, corelib либо воркспейса (RS_TOP, RS_REPO), нагрузка опознана (RS_KNOWN),
+# профиль Job (RS_PROFILE: класс, у клона воркспейса — ws) и причина маршрута (RS_WHY). 1 — внешнего
+# пути у команды нет (WHY_LOCAL); неопознанная нагрузка клона продукта пути не закрывает: при
+# доступном кластере — 77, при недоступном — локально с доказательством. У клона воркспейса путь
+# есть лишь у хука отправки (ci-local) и скриптов ведомости PORTABLE (ci-local, suite): образ
+# профиля ws несёт среду наборов, а не go и make (ws#1304), — у прочего внешнего пути нет (no_route_judge).
 route_static() {
     local url
-    RS_KNOWN=""; RS_TOP=""; RS_REPO=""
-    case "$CLASS" in go-race|integration|lint|ci-local) ;; *) WHY_LOCAL="класс «$CLASS» внешнего пути не имеет"; return 1 ;; esac
+    RS_KNOWN=""; RS_TOP=""; RS_REPO=""; RS_PROFILE=""; RS_WHY=""
+    case "$CLASS" in go-race|go-unit|integration|lint|ci-local|suite) ;; *) WHY_LOCAL="класс «$CLASS» внешнего пути не имеет"; return 1 ;; esac
     payload
     case "$PAY" in
         go|make|golangci-lint|gosec|govulncheck|ci-local.sh) RS_KNOWN=1 ;;
@@ -1673,8 +1791,23 @@ route_static() {
     url="$(git -C "$RS_TOP" remote get-url origin 2>/dev/null)"
     RS_REPO="${url%.git}"; RS_REPO="${RS_REPO##*/}"
     case "$url" in
-        *PRO-Robotech/kacho|*PRO-Robotech/kacho.git|*PRO-Robotech/kaname|*PRO-Robotech/kaname.git|*PRO-Robotech/corelib|*PRO-Robotech/corelib.git) ;;
-        *) WHY_LOCAL="клон не kacho, kaname или corelib: внешнего пути нет"; return 1 ;;
+        *PRO-Robotech/kacho|*PRO-Robotech/kacho.git|*PRO-Robotech/kaname|*PRO-Robotech/kaname.git|*PRO-Robotech/corelib|*PRO-Robotech/corelib.git)
+            [ "$CLASS" != suite ] || { WHY_LOCAL="класс «suite» — наборы и пробы воркспейса: у клона $RS_REPO внешнего пути нет"; return 1; }
+            RS_PROFILE="$PCLASS"; RS_WHY="клон $RS_REPO — Job профиля $PCLASS" ;;
+        *PRO-Robotech/kacho-workspace|*PRO-Robotech/kacho-workspace.git)
+            case "$CLASS" in ci-local|suite) ;; *) WHY_LOCAL="клон воркспейса: класс «$CLASS» внешнего пути не имеет — Job профиля ws несёт лишь ci-local и suite"; return 1 ;; esac
+            RS_PROFILE=ws
+            if [ "$PAY" = git ] && [ -n "$RS_KNOWN" ]; then
+                RS_WHY="клон воркспейса, хук отправки — Job профиля ws"
+            elif RS_KNOWN="" && portable_script && grep -qxF -- "$PORT_REL" <<< "$MACHINE"; then
+                WHY_LOCAL="клон воркспейса: $PORT_REL судит машину (systemd --user, cgroup памяти, docker — запись MACHINE), Job её не воспроизводит: внешнего пути нет"; return 1
+            elif [ -n "$PORT_REL" ]; then
+                RS_KNOWN=1; RS_WHY="клон воркспейса, скрипт ведомости PORTABLE $PORT_REL — Job профиля ws"
+            else
+                WHY_LOCAL="клон воркспейса: нагрузка «${PAY_SH:-$PAY}» — не хук отправки и не отслеживаемый набор либо проба относительным путём (ведомость PORTABLE: run-all.sh, inject*.sh, *-inject.sh, prove*.sh, *mutants.py, run-suites.sh, hook-proofs.sh, check-*): внешнего пути нет"; return 1
+            fi
+            return 0 ;;
+        *) WHY_LOCAL="клон не kacho, kaname, corelib или kacho-workspace: внешнего пути нет"; return 1 ;;
     esac
     [ -n "$RS_KNOWN" ] || ! portable_script || RS_KNOWN=1
     return 0
@@ -1696,7 +1829,7 @@ remote_route() {
     fi
     tooling_gate
     ext_enter
-    cluster_check "$CLASS" "$repo" || return 1
+    cluster_check "$RS_PROFILE" "$repo" || return 1
     [ -n "$known" ] || refuse_external "нагрузка «${PAY_SH:-$PAY}» за обёрткой не опознана как переносимая (go, make, golangci-lint, gosec, govulncheck, ci-local.sh; скрипт клона из ведомости PORTABLE — относительным путём) — дай её словами argv: heavy-slot.sh $CLASS -- go …; слот уведёт её Job-ом"
     [ -n "$fix" ] && refuse_external "$fix"
     if [ -n "$GIT_IDX" ]; then
@@ -1704,11 +1837,11 @@ remote_route() {
         if [ ! -x "$HOOKS_ORIG/pre-push" ] || ! git -C "$top" cat-file -e HEAD:scripts/hooks/pre-push 2>/dev/null; then
             WHY_LOCAL="у клона нет хука отправки scripts/hooks/pre-push за .git/hooks/pre-push — Job-у нечего исполнять"; return 1
         fi
-        PUSH_TOP="$top"; PUSH_REPO="$repo"; PUSH_HEAD="$(git -C "$top" rev-parse HEAD)"
+        PUSH_TOP="$top"; PUSH_REPO="$repo"; PUSH_PROFILE="$RS_PROFILE"; PUSH_HEAD="$(git -C "$top" rev-parse HEAD)"
         return 0
     fi
     rel="$(realpath --relative-to="$top" "$PWD")"
-    ROUTE=(bash "$REMOTE_RUN" --task "$TASK" --repo "$repo" --ref "$(git -C "$top" rev-parse HEAD)" --src "$top" --workdir "$rel" --profile "$CLASS" --)
+    ROUTE=(bash "$REMOTE_RUN" --task "$TASK" --repo "$repo" --ref "$(git -C "$top" rev-parse HEAD)" --src "$top" --workdir "$rel" --profile "$RS_PROFILE" --)
     return 0
 }
 # route_print — `--route` (ws#1192): маршрут, который прогон выбрал бы этой команде, теми же
@@ -1723,12 +1856,14 @@ route_print() {
         if stand_static; then
             top="$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null)"; url="$(git -C "${top:-.}" remote get-url origin 2>/dev/null)"
             case "$url" in *PRO-Robotech/kacho|*PRO-Robotech/kacho.git) ;; *) url="" ;; esac
-            if [ -n "$ST_SAFE" ] && [ -n "$url" ] && git -C "$top" ls-files --error-unmatch -- deploy/Makefile deploy/scripts/stand-ns.sh > /dev/null 2>&1; then
+            if [ -n "$ST_SAFE" ] && [ -z "$ST_RUN" ] && [ -n "$url" ] && git -C "$top" ls-files --error-unmatch -- deploy/Makefile deploy/scripts/stand-ns.sh > /dev/null 2>&1; then
                 kind=external; why="стенд — ns внешнего кластера (stand-ns клона kacho), команда — на машине под слотом stand"
-            elif [ -n "$ST_SAFE" ]; then
+            elif [ -n "$ST_SAFE" ] && [ -z "$ST_RUN" ]; then
                 kind=local; why="форма stand-ns-*, а механизма stand-ns (отслеживаемые deploy/Makefile и deploy/scripts/stand-ns.sh клона kacho) нет"
+            elif stand_moot; then
+                kind=local; why="снятие локального стенда — машину освобождает, маршрут не судится"
             else
-                kind=local; why="команда стенда не поднимает локальный стенд; где её стенд, слот не судит"
+                kind=none; why="у команды стенда внешнего маршрута нет$( [ -n "$ST_RUN" ] && echo ' (CMD stand-ns-run идёт на машине)') — при доступном кластере 77, маршрут — $NO_ROUTE_TASK; локально лишь при недоступном (ws#1301)"
             fi
         elif [ -n "$ST_MK" ]; then
             kind=none; why="подъём локального стенда${ST_SIGN:+ (признак содержимого $ST_SIGN)} — при доступном кластере 77: стенд — make stand-ns-up в ns внешнего кластера"
@@ -1736,10 +1871,10 @@ route_print() {
             kind=none; why="строку оболочки «${PAY_SH:-$PAY}» слот не судит — при доступном кластере 77"
         fi
     elif route_static; then
-        if [ -n "$RS_KNOWN" ]; then kind=external; why="Job внешнего кластера: профиль $CLASS, репозиторий $RS_REPO (при недоступном кластере — локально с доказательством)"
+        if [ -n "$RS_KNOWN" ]; then kind=external; why="Job внешнего кластера: профиль $RS_PROFILE, репозиторий $RS_REPO — $RS_WHY (при недоступном кластере — локально с доказательством)"
         else kind=none; why="нагрузка «${PAY_SH:-$PAY}» не опознана как переносимая (go, make, линтеры, ci-local.sh; скрипт ведомости PORTABLE относительным путём) — при доступном кластере 77"; fi
     else
-        kind=local; why="$WHY_LOCAL"
+        kind=none; why="внешнего маршрута нет ($WHY_LOCAL) — при доступном кластере 77, маршрут — $NO_ROUTE_TASK; локально лишь при недоступном (ws#1301)"
     fi
     printf 'ROUTE\t%s\t%s\n' "$kind" "$why"
 }
@@ -1774,7 +1909,7 @@ if [ -f "$pred" ] && (cd "$HS_TOP" && printf '%s\n' "$lines" | bash "$pred") >&2
     echo "heavy-slot: хук здесь погнал бы наборы (79) — хук уходит Job-ом" >&2
 fi
 {
-    bash "$HS_RUN" --task "$HS_TASK" --repo "$HS_REPO" --ref "$tips" --src "$HS_TOP" --workdir . --profile ci-local --push-input "$lines" -- \
+    bash "$HS_RUN" --task "$HS_TASK" --repo "$HS_REPO" --ref "$tips" --src "$HS_TOP" --workdir . --profile "$HS_PROFILE" --push-input "$lines" -- \
         bash -c 'printf "%s\n" "$1" | bash scripts/hooks/pre-push "$2" "$3"; rc=$?; [ "$rc" -ne 0 ] || [ ! -f scripts/hooks/prepush-new-commits.sh ] || ! bash scripts/hooks/prepush-new-commits.sh --recorded "$0" || echo "heavy-slot-push-verified: $0"; exit "$rc"' "$tips" "$lines" "$@"
     echo "$?" > "$HS_RC"
 } 2>&1 | tee "$HS_RC.out"
@@ -1791,13 +1926,13 @@ exit "$rc"
 ADAPTER
     chmod +x "$sh/hooks/pre-push"
     local cmd=("${CMD_R[@]:0:$(( GIT_IDX + 1 ))}" -c "core.hooksPath=$sh/hooks" "${CMD_R[@]:$(( GIT_IDX + 1 ))}")
-    journal_early "remote class=$CLASS route=push task=$TASK repo=$PUSH_REPO ref=$PUSH_HEAD who=$(git -C "$PUSH_TOP" branch --show-current 2>/dev/null)@$PWD cmd=$(printf '%q ' "${CMD_R[@]}")"
+    journal_early "remote class=$CLASS route=push profile=$PUSH_PROFILE task=$TASK repo=$PUSH_REPO ref=$PUSH_HEAD why=$RS_WHY who=$(git -C "$PUSH_TOP" branch --show-current 2>/dev/null)@$PWD cmd=$(printf '%q ' "${CMD_R[@]}")"
     say "хук отправки уходит во внешний кластер Job-ом (задача $TASK, $PUSH_REPO @${PUSH_HEAD:0:8}); локально — лишь отправка, слот машины не занимается"
     t0="$(now)"
     ext_run env HS_ORIG="$HOOKS_ORIG/pre-push" HS_HEAD="$PUSH_HEAD" HS_RC="$rcf" HS_RUN="$REMOTE_RUN" HS_TASK="$TASK" \
-        HS_REPO="$PUSH_REPO" HS_TOP="$PUSH_TOP" "${cmd[@]}"
+        HS_REPO="$PUSH_REPO" HS_PROFILE="$PUSH_PROFILE" HS_TOP="$PUSH_TOP" "${cmd[@]}"
     rc=$?; hrc="$(cat "$rcf" 2>/dev/null)"; how="$(cat "$rcf.how" 2>/dev/null)"; rm -rf -- "$sh"
-    journal_early "remote-done class=$CLASS route=push rc=$rc hook_rc=${hrc:-—} verified=${how:-—} dur=$(( $(now) - t0 ))s"
+    journal_early "remote-done class=$CLASS route=push rc=$rc hook_rc=${hrc:-—} verified=${how:-—} dur=$(( $(now) - t0 ))s profile=$PUSH_PROFILE repo=$PUSH_REPO"
     case "$hrc" in
         78) WHY_LOCAL="отправка несёт не голову копии — Job судит голову"; return 0 ;;
         69|74|75|124|125)
@@ -1875,8 +2010,70 @@ stand_ns_light() {
         *) return 1 ;;
     esac
 }
-CMD_R=("$@"); WHY_LOCAL=""; ROUTE=(); GIT_IDX=""; GDIR="$PWD"
+# МАШИНА ВЛАДЕЛЬЦА — ЛИШЬ ПРИ НЕДОСТУПНОМ КЛАСТЕРЕ (ws#1301). Владелец 2026-10-22 дословно: «запиши
+# в рул что бы не использовал мою локальную тачку. использовать только в одном случае если доступа к
+# кластеру нету». Повод — 2026-10-21, load average 16: наборы и тесты шли на машине потому, что у
+# нагрузки нет внешнего пути (класс suite, docker, newman, клон воркспейса), и по --local с причиной
+# вида «нет yq в образе Job» (журнал слотов — 502 строки bypass-local). Теперь у ЛЮБОГО локального
+# запуска одно основание — доказанная недоступность: проверка `run.sh --available` (тот же опрос,
+# что у маршрута Job-ом) ответила 69 либо 124, вывод — в журнал (proof=). Внешнего пути нет, а
+# кластер принимает или занят — 77: команда не запускалась нигде, маршрут — ws#1303 (NO_ROUTE_TASK).
+# Иной код проверки — дефект обёртки, 69. Без суждения — лишь команды стенда в форме stand-ns-*
+# без stand-ns-run (на машине kubectl и helm к ns внешнего кластера) и снятие локального стенда
+# (dev-down, kind … delete — машину освобождает): stand_moot, NR_MOOT.
+NO_ROUTE_TASK="ws#1303"
+NR_MOOT=""
+# no_route_judge — внешнего пути у команды нет (WHY_LOCAL): один опрос кластера без профиля.
+no_route_judge() {
+    local rc
+    cluster_once; rc=$?
+    case "$rc" in
+        0|75) refuse_external "внешнего маршрута нет ($WHY_LOCAL) — до него команда не выполняется нигде: маршрут — задача $NO_ROUTE_TASK; «нет инструмента в образе», «слот занят», «быстрее локально» — не основания (ws#1301)" ;;
+        69|124) PROOF="rc=$rc $CL_OUT"; WHY_LOCAL="кластер недоступен: ${CL_OUT#remote-heavy: }" ;;
+        *) defect_exit "$rc" ;;
+    esac
+}
+# local_judge — --local судится тем же основанием (ws#1291, ws#1301): флаг лишь объявляет причину,
+# а локально команда идёт, только если проверка ответила 69 либо 124. Есть путь Job-ом — опрос с
+# профилем класса; нет — без профиля. Принимает либо занят (0, 75) — 77; иной код — 69. Сверку
+# оснастки со стволом (tooling_gate) флаг не проходит: локальный путь её не требует.
+local_judge() {
+    local rc
+    LOCAL_PROOF=""; LOCAL_MOOT=""
+    if [ "$CLASS" = stand ]; then
+        stand_static && stand_moot && { LOCAL_MOOT="команда стенда работает лишь с ns внешнего кластера либо снимает локальный стенд: флаг излишен"; return 0; }
+        WHY_LOCAL="у команды стенда внешнего маршрута нет"
+        [ -z "$ST_MK" ] || WHY_LOCAL="подъём локального стенда; стенд — make stand-ns-up NS=t<N>-<коротко> в deploy/ продукта"
+        cluster_once
+    elif route_static; then
+        WHY_LOCAL=""; cluster_once "$RS_PROFILE" "$RS_REPO"
+    else
+        cluster_once
+    fi
+    rc=$?
+    case "$rc" in
+        0|75) refuse_external "--local «$LOCAL_WHY» отклонён: кластер принимает (проверка — код $rc$( [ "$rc" = 75 ] && echo ', занят: место ждётся --wait N')) — причина флага не основание, основание одно: кластер недоступен (владелец 2026-10-22, ws#1301). Повтори без --local: heavy-slot.sh $CLASS -- …; $( [ -z "$WHY_LOCAL" ] && echo 'слот уведёт команду Job-ом либо назовёт, что поправить' || echo "внешнего маршрута нет ($WHY_LOCAL) — задача $NO_ROUTE_TASK, до неё не выполнилось")" ;;
+        69|124) LOCAL_PROOF="rc=$rc $CL_OUT" ;;
+        *) defect_exit "$rc" ;;
+    esac
+}
+# suite_payload — класс suite держит наборы и пробы оснастки, а не тяжёлое продукта (ws#1291):
+# переносимая нагрузка (go, make, линтеры, ci-local.sh) и отправка с хуком под ним ушли бы на
+# машину мимо внешнего кластера с бюджетом в 1,5 ГиБ — 64 с классом, который ей положен.
+suite_payload() {
+    [ "$CLASS" = suite ] || return 0
+    payload
+    case "$PAY" in
+        go|make|golangci-lint|gosec|govulncheck|ci-local.sh) ;;
+        git) git_push_form || { GIT_IDX=""; GDIR="$PWD"; PUSH_AT=""; return 0; } ;;
+        *) return 0 ;;
+    esac
+    say "класс suite — наборы и пробы оснастки; «${PAY}» — нагрузка продукта: класс go-race, go-unit, integration, lint либо ci-local (heavy-slot.sh --classes) — внешний кластер судит её там"
+    exit 64
+}
+CMD_R=("$@"); WHY_LOCAL=""; ROUTE=(); GIT_IDX=""; GDIR="$PWD"; LOCAL_PROOF=""; LOCAL_MOOT=""
 WAIT_T0="$(now)"   # начало срока заявки: внешний вход, кластер и очередь памяти считают от него (ws#1244)
+suite_payload
 if [ -n "$ROUTE_ONLY" ]; then route_print; exit 0; fi
 if [ "$CLASS" = stand ] && stand_ns_light; then
     busy=0
@@ -1886,21 +2083,23 @@ if [ "$CLASS" = stand ] && stand_ns_light; then
     exec "$@"
 fi
 if [ -n "$LOCAL_SET" ]; then
-    say "локально по флагу --local: $LOCAL_WHY — маршрут во внешний кластер не судился"
+    [ "$REMOTE_ON" = 1 ] && local_judge
+    say "локально по флагу --local: $LOCAL_WHY${LOCAL_PROOF:+ — кластер не принял: $LOCAL_PROOF}${LOCAL_MOOT:+ — $LOCAL_MOOT}"
 elif [ "$REMOTE_ON" = 1 ]; then
     if remote_route; then
         claim_drop
         if [ -n "$GIT_IDX" ]; then
             push_remote
         else
-            journal_early "remote class=$CLASS route=job task=$TASK repo=$(printf '%s' "${ROUTE[@]:5:1}") ref=$(printf '%s' "${ROUTE[@]:7:1}") who=$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD cmd=$(printf '%q ' "${CMD_R[@]}")"
+            journal_early "remote class=$CLASS route=job profile=$RS_PROFILE task=$TASK repo=$(printf '%s' "${ROUTE[@]:5:1}") ref=$(printf '%s' "${ROUTE[@]:7:1}") why=$RS_WHY who=$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD cmd=$(printf '%q ' "${CMD_R[@]}")"
             say "класс «$CLASS» уходит во внешний кластер: $(printf '%q ' "${ROUTE[@]:3:6}")— слот машины не занимается"
             if [ -n "$EXT_T" ]; then ext_run "${ROUTE[@]}" "$@"; exit $?; fi
             exec "${ROUTE[@]}" "$@"
         fi
     fi
     ext_leave
-    case "$CLASS" in go-race|integration|lint|ci-local|stand) say "локально — $WHY_LOCAL" ;; esac
+    [ -n "$PROOF$NR_MOOT" ] || no_route_judge
+    say "локально — $WHY_LOCAL"
 else
     WHY_LOCAL="режим проб без двойника run.sh — маршрут не судился"
 fi
@@ -1935,7 +2134,7 @@ CMDLINE="$(printf '%q ' "$@")"
 LOCAL_NOTE=""
 if [ -n "$LOCAL_SET" ]; then
     LOCAL_NOTE="по флагу: $LOCAL_WHY"
-    journal "bypass-local class=$CLASS why=$LOCAL_WHY who=$WHO cmd=$CMDLINE"
+    journal "bypass-local class=$CLASS why=$LOCAL_WHY${LOCAL_PROOF:+ proof=$LOCAL_PROOF}${LOCAL_MOOT:+ moot=$LOCAL_MOOT} who=$WHO cmd=$CMDLINE"
 else
     [ -n "$PROOF" ] && LOCAL_NOTE="кластер не принял: $PROOF"
     journal "local class=$CLASS${PROOF:+ proof=$PROOF} why=${WHY_LOCAL:-причина не выведена} who=$WHO cmd=$CMDLINE"
@@ -1991,6 +2190,8 @@ defer_ticket() {
 RETRY_HINT="повтор — ОДИН коротким шагом: heavy-slot.sh --resume $tk [--wait N] $CLASS -- … в течение $RESUME_TTL_S с держит место (билет $tk); без билета — в конец очереди"
 t0="${WAIT_T0:-$(now)}"; waited=0; wlogged=""
 while :; do
+    # Темп порождений машины — вне замка: окно замера (SPAWN_WIN_S) очередь не держит (ws#1291).
+    srate="$(spawn_rate)" || srate=""
     lock
     reap
     held="$(exclusive_holder)"
@@ -2027,6 +2228,7 @@ while :; do
     [ -z "$full" ] && [ $(( socc + BUDGET )) -gt "$SLOTS_SUM_MIB" ] &&
         full="бюджеты занятых $(mib "$socc") + $(mib "$BUDGET") > $(mib "$SLOTS_SUM_MIB")"
     [ "$free" -lt "$FREE_MIN_MIB" ] && full="${full:+$full; }свободно $(mib "$free") < $(mib "$FREE_MIN_MIB") до старта"
+    [ -n "$srate" ] && [ "$srate" -gt "$SPAWN_MAX" ] && full="${full:+$full; }порождений процессов $srate/с > порога $SPAWN_MAX/с (ws#1291)"
     if [ "$ahead" -eq 0 ] && [ -z "$blocked" ] && [ -z "$full" ] && [ $(( used + resv + BUDGET )) -le "$LIMIT_MIB" ]; then
         rm -f "$TICKET"; claim_drop
         for f in "${byp[@]+"${byp[@]}"}"; do
@@ -2045,7 +2247,7 @@ while :; do
         # Уборка старых TMPDIR копий — шагом входа под замком, а не выходом слота:
         # каталог переживает прогон, снимается лишь неиспользуемый дольше срока.
         prune_tmp
-        journal "enter id=$ID class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB free=${free}MiB slots=$nocc waited=${waited}s bypass=${#byp[@]} head=${HEAD_REV:0:12} who=$WHO cmd=$CMDLINE"
+        journal "enter id=$ID class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB free=${free}MiB slots=$nocc spawn=${srate:-—}/s waited=${waited}s bypass=${#byp[@]} head=${HEAD_REV:0:12} who=$WHO cmd=$CMDLINE"
         unlock
         break
     fi
@@ -2058,14 +2260,14 @@ while :; do
     waited=$(( $(now) - t0 ))
     if [ "$WAIT_S" -eq 0 ]; then
         defer_ticket
-        journal "busy class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB free=${free}MiB slots=$nocc ahead=$ahead ticket=$tk who=$WHO cmd=$CMDLINE"
+        journal "busy class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB free=${free}MiB slots=$nocc spawn=${srate:-—}/s ahead=$ahead ticket=$tk who=$WHO cmd=$CMDLINE"
         say "СЛОТ ЗАНЯТ, очередь $ahead — «$CLASS» не выдан сразу: $why."
         say "команда НЕ запускалась (не выполнилось, не красное). $RETRY_HINT; ожидание — --wait N (N ≤ $WAIT_MAX_S), дольше — ОДИН раз --enqueue <каталог>; кто занял — heavy-slot.sh --status"
         exit 74
     fi
     if [ "$waited" -ge "$WAIT_S" ]; then
         defer_ticket
-        journal "timeout class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB free=${free}MiB slots=$nocc ahead=$ahead waited=${waited}s ticket=$tk who=$WHO cmd=$CMDLINE"
+        journal "timeout class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB free=${free}MiB slots=$nocc spawn=${srate:-—}/s ahead=$ahead waited=${waited}s ticket=$tk who=$WHO cmd=$CMDLINE"
         say "НЕ ВЫПОЛНИЛОСЬ — слот «$CLASS» не выдан за ${waited} с: $why."
         say "команда НЕ запускалась; $RETRY_HINT; дольше $WAIT_MAX_S с — ОДИН раз --enqueue <каталог>; кто занял — heavy-slot.sh --status"
         exit 75
@@ -2121,8 +2323,17 @@ tree_kill() {
 # watcher <root pid, если предел мягкий> — сторож машины, пик контейнеров,
 # мягкий предел запасного пути. Пишет только в свои файлы записи слота.
 watcher() {
-    local root="${1:-}" used cid cpeak=0 v rss x xpeak=0
+    local root="${1:-}" used cid cpeak=0 v rss x xpeak=0 sc slast spk=0 sover=""
+    slast="$(spawn_count)" || slast=""
     while [ -e "$P.slot" ]; do
+        # Темп порождений машины за шаг сторожа: пик — в $P.spawnpeak, первое превышение — в журнал.
+        if [ -n "$slast" ] && sc="$(spawn_count)"; then
+            v=$(( (sc - slast) / GUARD_S )); slast="$sc"
+            [ "$v" -gt "$spk" ] && spk="$v" && echo "$spk" > "$P.spawnpeak"
+            if [ "$v" -gt "$SPAWN_MAX" ] && [ -z "$sover" ]; then
+                sover=1; journal "spawn-over id=$ID class=$CLASS rate=${v}/s max=${SPAWN_MAX}/s who=$WHO"
+            fi
+        fi
         v=0
         for x in $(slot_escaped "$P"); do v=$(( v + $(cg_bytes "$CGROOT$x/memory.peak") )); done
         [ "$v" -gt "$xpeak" ] && xpeak="$v" && echo "$xpeak" > "$P.xpeak"
@@ -2183,6 +2394,7 @@ fi
 [ "$CLASS" = ci-local ] && console_adapter
 
 t_run="$(now)"; rc=0
+S0="$(spawn_count)" || S0=""
 if [ "$LIMITER" != watch ] && command -v systemd-run >/dev/null; then
     watcher & WPID=$!
     # Фоном и через wait: ловушка сигнала срабатывает посреди wait, а не после
@@ -2208,6 +2420,7 @@ if [ "$LIMITER" = watch ] || ! command -v systemd-run >/dev/null; then
 fi
 kill "$WPID" 2>/dev/null; wait "$WPID" 2>/dev/null; WPID=""
 dur=$(( $(now) - t_run ))
+SPAWNS="—"; S1="$(spawn_count)" && [ -n "$S0" ] && SPAWNS=$(( S1 - S0 ))
 
 # ── итог ─────────────────────────────────────────────────────────────────────
 peak=0; oom=0; cpeak=0; coom=0; cut_by=""; alive=""
@@ -2242,7 +2455,7 @@ if [ -n "$cut_by" ]; then
 fi
 peak_mib=$(( peak / 1024 / 1024 )); cpeak_mib=$(( cpeak / 1024 / 1024 )); xpeak_mib=$(( $(cat "$P.xpeak" 2>/dev/null || echo 0) / 1024 / 1024 ))
 [ "$LIMITER" = watch ] && peak_mib="$(cat "$P.rsspeak" 2>/dev/null || echo 0)"
-journal "leave id=$ID class=$CLASS budget=${BUDGET}MiB rc=$rc peak=${peak_mib}MiB container_peak=${cpeak_mib}MiB escaped_peak=${xpeak_mib}MiB containers=$(printf '%s' "$cids" | grep -c .) limiter=${LIMITER/auto/systemd} dur=${dur}s cut=${cut_by:-—}${alive:+ alive=${alive# }} who=$WHO"
+journal "leave id=$ID class=$CLASS budget=${BUDGET}MiB rc=$rc peak=${peak_mib}MiB container_peak=${cpeak_mib}MiB escaped_peak=${xpeak_mib}MiB containers=$(printf '%s' "$cids" | grep -c .) limiter=${LIMITER/auto/systemd} dur=${dur}s spawns=$SPAWNS spawn_peak=$(cat "$P.spawnpeak" 2>/dev/null || echo —)/s cut=${cut_by:-—}${alive:+ alive=${alive# }} who=$WHO"
 if [ -n "$alive" ]; then
     say "НЕ ВЫПОЛНИЛОСЬ — $cut_by: клиент снят, но контейнер(ы)$alive РАБОТАЮТ, docker kill их не остановил; память не освобождена — docker kill$alive"
     exit 76

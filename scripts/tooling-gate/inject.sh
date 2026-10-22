@@ -3542,6 +3542,10 @@ echo "== check-25: хук отправки отвергает бинарь и ф
 C25=check-25-push-refuses-binary-and-large-added-files.sh
 G25="scripts/hooks/prepush-added-files.sh"
 b="$(mksandbox)"; run 0 "$b" "чистое дерево — молчит" "$C25"
+# Предпосылка — настоящий ELF по сигнатуре байт, а не по утилите file (её нет в образе Job ws,
+# ws#1304): `true` на пути — скрипт оболочки — без предмета (2), сигнатура названа.
+fb25="$(mktemp -d "$TMP/fbXXXXXX")"; printf '#!/bin/sh\nexit 0\n' > "$fb25/true"; chmod +x "$fb25/true"
+b="$(mksandbox)"; PATH="$fb25:$PATH" run_says 2 "$b" "предпосылка: true на пути — не ELF — без предмета, а не зелёное" "$C25" "сигнатура «#!/b», не ELF"
 # Мутанты стража: каждый снимает одно решение и обязан покраснеть СВОЕЙ пробой.
 b="$(mksandbox)"
 if mr_patch "$b/$G25" 's/\(size, b\x27\\0\x27 in data\[:PROBE\], data\[:PROBE\]\)/(size, False, data[:PROBE])/' \
