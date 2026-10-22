@@ -129,12 +129,22 @@ ecase() {
         printf '#!/usr/bin/env bash\nSTAND_RUNNER_KINDS="newman browser"\necho stand-ns "$@"\n' > "$C/co/deploy/scripts/stand-ns.sh"
     fi
     if [ "$2" = PRO-Robotech/kaname ]; then
+        # Шаг юнит-проб — форма CI (kaname#949): маршрут ci.yml:unit выводится из него; предел
+        # 37m — не число ствола, чтобы литерал ведомости не совпал с выводом случайно.
+        kn_unit 'go test ./... -race -short -count=1 -timeout 37m -json > test.json 2>&1 || rc=$?'
         printf 'jobs:\n  stand: {}\n' > "$C/co/.github/workflows/e2e-newman.yml"
         printf '#!/usr/bin/env bash\necho integration\n' > "$C/co/.github/scripts/run-integration.sh"; chmod +x "$C/co/.github/scripts/run-integration.sh"
         printf '#!/usr/bin/env bash\nSTAND_RUNNER_KINDS="own"\ntrue\n' > "$C/co/.github/scripts/stand-own.sh"; chmod +x "$C/co/.github/scripts/stand-own.sh"
     fi
     sandbox_run git -C "$C/co" init -q && git -C "$C/co" remote add origin "git@github.com:$2.git"
 }
+# kn_unit <строка…> — ci.yml копии kaname: задание unit с шагом из этих строк run
+kn_unit() {
+    { printf 'jobs:\n  integration: {}\n  unit:\n    steps:\n      - run: python3 verdict.py --self-test\n      - run: |\n          rc=0\n'
+      printf '          %s\n' "$@"; } > "$C/co/.github/workflows/ci.yml"
+}
+# kn_form <предел> — образец строки ROUTE задания ci.yml:unit: форма — шаг CI головы без -json
+kn_form() { printf '%s' "^ROUTE\tci\\.yml:unit\tвнешний кластер\t[^\t]*\t[^\t]*\tформа: heavy-slot\\.sh go-race -- go test \\./\\.\\.\\. -race -short -count=1 -timeout $1\$" > "$C/formre"; }
 # routes <копия> — строки ROUTE вывода expect случая: «задание<TAB>метка» по строке.
 routes() { grep -P '^ROUTE\t' "$1/err" | cut -f2,3 | LC_ALL=C sort | tr '\n' ';'; }
 KNJOBS='["ci.yml:unit","ci.yml:integration","e2e-newman.yml:stand"]'
@@ -271,7 +281,16 @@ printf 'jobs:\n  shard-renamed: {}\n' > "$C/co/.github/workflows/e2e-newman.yml"
 # нет. Судья маршрута — НАСТОЯЩИЙ heavy-slot.sh --route этого дерева (стенд own — по раннеру
 # stand-own.sh головы). Каждый случай меняет один факт контроля «kaname: всё внешнее».
 KN3='ci.yml:integration	внешний кластер;ci.yml:unit	внешний кластер;e2e-newman.yml:stand	внешний кластер;'
-ecase "expect kaname: все задания с внешним маршрутом — код 0, ROUTE на каждое" PRO-Robotech/kaname; ecommit; want 0 "$KNJOBS"; printf '%s' "$KN3" > "$C/routes"
+ecase "expect kaname: все задания с внешним маршрутом — код 0, ROUTE на каждое" PRO-Robotech/kaname; ecommit; want 0 "$KNJOBS"; printf '%s' "$KN3" > "$C/routes"; kn_form 37m
+# Форма ci.yml:unit — вывод из шага головы (kaname#949, ws#1340): близнец с другим пределом даёт
+# другую форму; шаг без go test, с двумя go test или с подстановкой оболочки — VOID, а не литерал.
+ecase "expect kaname: предел шага головы 52m — форма маршрута unit с 52m" PRO-Robotech/kaname; kn_unit 'go test ./... -race -short -count=1 -timeout 52m -json > test.json 2>&1 || rc=$?'; ecommit; want 0 "$KNJOBS"; kn_form 52m
+ecase "expect kaname: в шаге unit нет go test — VOID" PRO-Robotech/kaname; kn_unit 'make test'; ecommit; want 2 -
+printf '%s' '[^\t]*ci\.yml:unit не выводится: строк `go test` в шагах задания головы 0' > "$C/voidre"
+ecase "expect kaname: в шаге unit два go test — VOID" PRO-Robotech/kaname; kn_unit 'go test ./a -timeout 1m' 'go test ./b -timeout 2m'; ecommit; want 2 -
+printf '%s' '[^\t]*ci\.yml:unit не выводится: строк `go test` в шагах задания головы 2' > "$C/voidre"
+ecase "expect kaname: подстановка оболочки в go test шага — VOID" PRO-Robotech/kaname; kn_unit 'go test ./... -timeout "$T"'; ecommit; want 2 -
+printf '%s' '[^\t]*ci\.yml:unit не выводится: в команде шага подстановка' > "$C/voidre"
 ecase "expect kaname: стенд own головы без раннера (STAND_RUNNER_KINDS нет, ws#1321) — VOID, стенд «нет»" PRO-Robotech/kaname; sed -i '/^STAND_RUNNER_KINDS=/d' "$C/co/.github/scripts/stand-own.sh"; ecommit; want 2 -
 printf '%s' "${KN3/stand	внешний кластер/stand	нет}" > "$C/routes"; printf '%s' 'маршрута во внешний кластер нет[^\t]*e2e-newman\.yml:stand — нет: [^\t]*внешнего маршрута нет' > "$C/voidre"
 ecase "expect kaname: стенда own в голове нет — VOID, стенд «нет»" PRO-Robotech/kaname; rm "$C/co/.github/scripts/stand-own.sh"; ecommit; want 2 -
@@ -441,6 +460,11 @@ carry-src-images-ignored	s/        if xi != head and base(xi,/        if False a
 images-rev-unjudged	s/    if img not in (None, head):/    if False:/
 route-void-ignored	s/^if bad:$/if False:/
 route-slot-verdict-ignored	s/        route, rwhy = m.group(1), m.group(2)/        route, rwhy = 'external', m.group(2)/
+route-unit-literal	s/            form = go_test_of(j)/            form = ['go', 'test', '.\/...', '-race', '-short', '-count=1', '-timeout', '25m']/
+route-unit-json-kept	s/    return \[w for w in words if w != '-json'\]/    return words/
+route-unit-first-line	s/    if len(lines) != 1:/    if not lines:/
+route-unit-subst-ok	s/    if any('\$' in w for w in words):/    if False:/
+route-unit-redirect-kept	s/            break$/            pass/
 expect-route-unjudged	s/        if not (isinstance(r, dict) and r.get('route') == 'external'):/        if False:/
 MUT
 echo "stand-report-inject: мутантов $((killed + survived + void)), убито $killed, выжило $survived, не легло $void; нестабильных повторов случаев $unstable"
