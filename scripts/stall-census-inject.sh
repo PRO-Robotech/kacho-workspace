@@ -275,6 +275,44 @@ fmutant "возобновление не разбирается" "            if
 fmutant "уведомление старше записей агента принимается" " and n_last >= t - 3" "" stop_cases
 fmutant "снятие из очереди — уведомление" "(r.get('type') == 'queue-operation' and r.get('operation') != 'enqueue')" "False" stop_cases
 
+echo "== серия ожиданий считается после последней остановки или возобновления (ws#1343)"
+# Живая форма 2026-10-22, wf_1995dfee-95d/aa0336b715ac9bf1c: 6 ожиданий, затем возобновление,
+# прерывание и killed, снова возобновление; возобновлённый пишет в subagents/agent-<id>.jsonl,
+# журнал workflow заморожен с хвостом ожиданий — хук звал его STALL-POLL на каждом ходе.
+waits() { local a="$1" m; shift; for m in "$@"; do rec "$a" "$m" tool "flock -w 290 /s/ciwait/head.lock true; gh run view 7 --json status"; done; }
+reset_cases() {
+    local s a w
+    rm -rf "$T"/rs-*
+    s="$(session rs-top)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    waits "$a" 60 55 50 45 40; rec "$a" 39 ask; note "$s.jsonl" 39 t1 killed; resume "$s.jsonl" 10 t1; rec "$a" 10 ask
+    absent="STALL-" probe 0 "Р1 пять ожиданий → остановка → возобновление → ни одного ожидания — молчит" "агентов осмотрено 1" --session "$s" --ps "$T/ps"
+    s="$(session rs-top-again)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    waits "$a" 60 55 50 45 40; rec "$a" 39 ask; note "$s.jsonl" 39 t1 killed; resume "$s.jsonl" 35 t1; rec "$a" 35 ask
+    waits "$a" 34 30 25 20 14
+    probe 1 "Р2 близнец: после возобновления пять ожиданий за 34 мин — STALL-POLL" "STALL-POLL agent-t1 — ожидание вместо работы: 5 вызовов подряд за 34 мин" --session "$s" --ps "$T/ps"
+    s="$(session rs-wf)"; w="$s/subagents/workflows/wf_live-1/agent-w1.jsonl"; a="$s/subagents/agent-w1.jsonl"
+    waits "$w" 60 55 50 45 40; rec "$w" 39 intr; note "$s.jsonl" 39 w1 killed; resume "$s.jsonl" 38 w1
+    rec "$a" 38 ask; rec "$a" 2 tool "go test ./..."
+    absent="STALL-" probe 0 "Р3 агент workflow остановлен и продолжен журналом верхнего уровня — замороженный журнал не судится" "остановленных харнессом (не судятся) 1" --session "$s" --ps "$T/ps"
+    s="$(session rs-wf-again)"; w="$s/subagents/workflows/wf_live-1/agent-w1.jsonl"; a="$s/subagents/agent-w1.jsonl"
+    waits "$w" 60 55 50 45 40; rec "$w" 39 intr; note "$s.jsonl" 39 w1 killed; resume "$s.jsonl" 38 w1
+    rec "$a" 38 ask; waits "$a" 34 30 25 20 14
+    absent="STALL-POLL wf_live-1/w1" probe 1 "Р4 близнец: продолжение снова ждёт пять раз — STALL-POLL по продолжению" "STALL-POLL agent-w1 — ожидание вместо работы: 5 вызовов подряд за 34 мин" --session "$s" --ps "$T/ps"
+    s="$(session rs-intr)"; w="$s/subagents/workflows/wf_live-1/agent-w1.jsonl"
+    waits "$w" 60 55 50 45 40; rec "$w" 10 intr
+    absent="STALL-POLL" probe 0 "Р5 запись прерывания в журнале после серии — серия кончилась" "агентов осмотрено 1" --session "$s" --ps "$T/ps"
+    s="$(session rs-any)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    waits "$a" 60 55 50 45 40; rec "$a" 12 intrmid; rec "$a" 10 ask
+    printf '{"type":"assistant","timestamp":"%s","message":{"role":"assistant","content":[{"type":"tool_use","name":"SendMessage","input":{"to":"t1","message":"верни остаток"}}]}}\n' "$(iso 10)" >> "$s.jsonl"
+    probe 1 "Р6 близнец: после серии лишь сообщение, фраза о прерывании и упоминание id в главном журнале — не сброс, STALL-POLL" "STALL-POLL agent-t1 — ожидание вместо работы: 5 вызовов подряд за 60 мин" --session "$s" --ps "$T/ps"
+}
+reset_cases
+fmutant "сброс серии игнорируется" "        n, span, last, first = poll_run(path, last_reset(aid, first))" "        pass" reset_cases
+fmutant "сброс по любой записи главного журнала, а не по остановке" "            if resumed.search(l):" "            if True:" reset_cases
+fmutant "сброс по любой записи user агента, а не по прерыванию" "        if r.get('type') == 'user' and interrupted(r):" "        if r.get('type') == 'user':" reset_cases
+fmutant "прерывание в журнале — не сброс" "        if r.get('type') == 'user' and interrupted(r):" "        if False:" reset_cases
+fmutant "продолжение в журнале верхнего уровня не ищется" "            if moved(aid, apath):" "            if False:" reset_cases
+
 echo "== агент прежнего процесса claude не судится (2026-10-19: после --resume хук звал застоем агентов умершего процесса)"
 # restart_cases — свой claude 100 (CLAUDE_PID) со стартом etimes назад; агент писал до
 # старта — исполнялся прежним процессом; близнец — тот же журнал при claude старше агента.
