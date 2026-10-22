@@ -30,7 +30,10 @@
 #         git, где файлы шага не игнорируются: они делают копию грязной, kacho#3251);
 #         69 — не запущено (нет ни службы, ни setsid; каталог не заводится; pid не записан за 5 с).
 #   detach.sh status <файл .rc | .log | .pid | <журнал>.log.rc | путь без расширения>
-#       — 0: команда вышла кодом 0; 1: вышла не нулём (код назван); 3: идёт; 2: не
+#       — 5: ⟳ прогон недействителен — предмет (голова, правка отслеживаемого каталога
+#         вызова, доводы-файлы; отпечаток .fp при старте и .fp-end при выходе команды —
+#         detach_fp в detach-launch.sh) сменился за время прогона, что сменилось — названо;
+#         0: команда вышла кодом 0; 1: вышла не нулём (код назван); 3: идёт; 2: не
 #         выполнилось — процесса нет, а .rc нет, либо файлов шага нет; 4: внешний шаг (без
 #         .pid) без .rc, журнал не держит ни один процесс — не судим как идущий. По выходу команды —
 #         хвост журнала (5 строк). Живость — pid из .pid И метка DETACH_TAG в его окружении:
@@ -98,21 +101,24 @@ start)
     mkdir -p "$dir" 2>/dev/null || { say "каталог «$dir» не заводится — не запущено"; exit 69; }
     dir="$(cd "$dir" && pwd -P)"
     ign=1
-    for x in x.log x.rc x.pid x.rc.tmp x.unit x.exit; do git -C "$dir" check-ignore -q "$dir/$x" 2>/dev/null || ign=0; done
+    for x in x.log x.rc x.pid x.rc.tmp x.unit x.exit x.fp x.fp-end; do git -C "$dir" check-ignore -q "$dir/$x" 2>/dev/null || ign=0; done
     if [ "$(git -C "$dir" rev-parse --is-inside-work-tree 2>/dev/null)" = true ] && [ "$ign" = 0 ]; then
         say "каталог «$dir» — внутри рабочего дерева git, и файлы шага там не игнорируются: копия стала бы грязной (kacho#3251). Каталог шагов — вне копии, например \$WS/tmp/<полоса>/"
         exit 64
     fi
     tag="$(date -u +%Y%m%dT%H%M%SZ)-$$-$(printf '%s\0' "$@" | sha256sum | cut -c1-8)"
     base="$dir/$tag"
-    rm -f "$base.rc" "$base.pid" "$base.unit" "$base.exit"
+    rm -f "$base.rc" "$base.pid" "$base.unit" "$base.exit" "$base.fp" "$base.fp-end"
+    detach_fp "$@" > "$base.fp"
     until_ts=$(( $(date +%s) + deadline ))
     unit="kacho-detach-$tag"
     # Внутренняя оболочка пишет СВОЙ pid (обёртка и env исполняются через exec — pid тот же;
-    # $! вызова был бы pid обёртки setsid-пути), затем код команды — атомарно.
+    # $! вызова был бы pid обёртки setsid-пути), затем отпечаток предмета при выходе команды
+    # (detach_fp — тот же, что при старте) и код команды — атомарно, ПОСЛЕ отпечатка.
     # shellcheck disable=SC2016
     detach_launch "$unit" "$base.log" -- env --default-signal=PIPE DETACH_TAG="$tag" KACHO_DETACHED_UNTIL="$until_ts" \
-        bash -c 'echo $$ > "$0.pid"; "$@"; rc=$?; printf "%s\n" "$rc" > "$0.rc.tmp" && mv -f "$0.rc.tmp" "$0.rc"' "$base" "$@" \
+        DETACH_FP_LIB="$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/detach-launch.sh" \
+        bash -c 'echo $$ > "$0.pid"; "$@"; rc=$?; { . "$DETACH_FP_LIB" && detach_fp "$@" > "$0.fp-end"; } 2> /dev/null; printf "%s\n" "$rc" > "$0.rc.tmp" && mv -f "$0.rc.tmp" "$0.rc"' "$base" "$@" \
         || { say "${DETACH_WARN:-не запущено}"; exit 69; }
     if [ "$DETACH_MODE" = unit ]; then printf '%s\n' "$unit" > "$base.unit"; kind="служба $unit"
     else kind="setsid (не переживёт перезапуск сессии)"; fi
@@ -140,6 +146,12 @@ status)
         [[ "$code" =~ ^[0-9]+$ ]] || { echo "не выполнилось: .rc «$code» не код — журнал $logf"; exit 2; }
         echo "исход: код $code; журнал $logf"
         tail -n 5 "$logf" 2>/dev/null | sed 's/^/  | /'
+        # Предмет сменился за время прогона — исход не о проверяемом (⟳, не зелёное и не красное).
+        if [ -f "$base.fp" ] && [ -f "$base.fp-end" ] && ! cmp -s "$base.fp" "$base.fp-end"; then
+            what="$(diff "$base.fp" "$base.fp-end" | sed -n 's/^> \(голова\|правка отслеживаемого\|файл [^ ]*\).*/\1/p' | paste -sd ',' - | sed 's/,/, /g')"
+            echo "⟳ прогон недействителен: за время прогона сменились ${what:-доводы-файлы} — код $code не о проверяемом; перезапусти на неизменном предмете (правка — после исхода либо в другой копии)"
+            exit 5
+        fi
         [ "$code" -eq 0 ] && exit 0
         exit 1
     fi
