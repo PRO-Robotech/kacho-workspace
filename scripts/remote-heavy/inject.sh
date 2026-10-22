@@ -114,6 +114,11 @@
 #   DT pod Terminating (deletionTimestamp, Running) держит место: → 75; близнец DTb —
 #      тот же pod Succeeded → 0. PN pod Pending с nodeName держит место → 75; близнец
 #      PNb — тот же pod без узла в чужом ns → 0
+#   PD вошедший без ns (--pending, ws#1302) держит место своим запросом, как ns без pod → 75
+#      с «вошедших без ns 1»; близнец PDb — пустой файл → 0; PDm — предел считает вошедших
+#      (1 идущий + 1 вошедший при пределе 2 → 75), близнец PDmb → 0; PDf/PDn — строка вне
+#      формы либо файла нет → 64 до кластера; RQ — --request = запрос --profiles, без
+#      кластера, RQ0/RQx — вне формы → 64
 #   Q1 стенд (pod ns kacho) на всех узлах, место есть → --available 0 и прогон 0
 #      (стенд узел не запирает)
 #   QR запрос по замеру (ws#1195): память pod — p90 пика строки PEAKS профиля и
@@ -2767,6 +2772,45 @@ expect_rc CPN 75
 fresh
 go_run cpnb env FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$cpn_pods" bash "$RUN" --available --profile ci-local --repo kaname
 expect_rc CPNb 0
+# PD — ВОШЕДШИЕ без ns (--pending, ws#1302): строка вошедшего держит место своим запросом, как
+# ns без pod. Тот же узел, что CPN (свободно запрос × 2 − 100m), идущих нет, вошедший с запросом
+# ci-local kaname → 75 и «вошедших без ns 1»; близнец PDb — пустой файл → 0 (=CPNb).
+printf 'hs-7 %s %s\n' "$cp_cpu" "$cp_mib" > "$BOX/pend1"; : > "$BOX/pend0"
+fresh
+go_run pd env FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$cpn_pods" bash "$RUN" --available --profile ci-local --repo kaname --pending "$BOX/pend1"
+expect_rc PD 75
+if grep -q 'места под запрос.*в том числе вошедших без ns 1' "$OUT"; then ok; else bad PD-why "причина 75 не называет вошедшего без ns"; fi
+fresh
+go_run pdb env FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$cpn_pods" bash "$RUN" --available --profile ci-local --repo kaname --pending "$BOX/pend0"
+expect_rc PDb 0
+# PDm — предел P считает вошедших: KACHO_REMOTE_HEAVY_MAX=2, идущий 1 + вошедший 1 → 75; близнец
+# PDmb — тот же идущий без вошедшего → 0 (место есть: без запроса судится лишь открытый узел).
+fresh; seed_ns t7-heavy-pdm '+1 hour'
+go_run pdm env KACHO_REMOTE_HEAVY_MAX=2 bash "$RUN" --available --pending "$BOX/pend1"
+expect_rc PDm 75
+if grep -q 'идущих тяжёлых прогонов 1, вошедших без ns 1 при пределе 2' "$OUT"; then ok; else bad PDm-why "предел не назвал вошедших"; fi
+fresh; seed_ns t7-heavy-pdm '+1 hour'
+go_run pdmb env KACHO_REMOTE_HEAVY_MAX=2 bash "$RUN" --available --pending "$BOX/pend0"
+expect_rc PDmb 0
+# PDf — строка вне формы «имя mCPU МиБ» → 64 до кластера; файла нет → 64.
+printf 'hs-7 4000\n' > "$BOX/pendf"
+fresh
+go_run pdf bash "$RUN" --available --profile ci-local --pending "$BOX/pendf"
+expect_rc PDf 64
+if [ ! -s "$BOX/state/calls" ]; then ok; else bad PDf-calls "при строке вне формы был вызов кластера"; fi
+fresh
+go_run pdn bash "$RUN" --available --pending "$BOX/нет-файла"
+expect_rc PDn 64
+# RQ — --request: запрос pod «mCPU МиБ» тем же sizing, что --profiles (ci-local kaname — cp_cpu,
+# cp_mib), к кластеру не обращается; без --profile → 64; профиля нет → 64.
+fresh
+go_run rq bash "$RUN" --request --profile ci-local --repo kaname
+expect_rc RQ 0
+if [ "$(grep -E '^[0-9]+ [0-9]+$' "$OUT")" = "$cp_cpu $cp_mib" ] && [ ! -s "$BOX/state/calls" ]; then ok; else bad RQ "--request не равен запросу --profiles ($cp_cpu $cp_mib) либо обращался к кластеру"; fi
+go_run rq0 bash "$RUN" --request
+expect_rc RQ0 64
+go_run rqx bash "$RUN" --request --profile nosuch
+expect_rc RQx 64
 # CPR — гонка ёмкостью: первая перепись идущих не видит, чужое ns создано мгновением
 # раньше своего (FAKE_RACE, без pod); со старшим места нет → 75, своё ns снято, Job нет;
 # близнец CPRb без гонки → 0. Потолок не держит: он 25.
