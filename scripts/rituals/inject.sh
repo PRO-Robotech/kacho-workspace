@@ -300,8 +300,7 @@ inject "M21 dod_proof.jq: ревизия любого вида" check-01-pr-body
     '[0-9A-Za-z]{1,40}' \
     ../lib/dod_proof.jq
 inject "M22 dod_proof: первое доказательство вместо последнего" check-04-vault-trails.py \
-    "' | last | if . == null" \
-    "' | first | if . == null"
+    'dod_proof_marks[] | .+{url: $u}] | last;' 'dod_proof_marks[] | .+{url: $u}] | first;' ../lib/dod_proof.jq
 inject "M23 gh_list: только первая страница (pr-body)" check-01-pr-body.py \
     '        if len(chunk) < 100:' '        if True:'
 inject "M24 gh_list: только первая страница (close-wave)" check-02-close-wave.py \
