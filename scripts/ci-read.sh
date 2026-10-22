@@ -307,12 +307,16 @@ else
     DRAFT=false
     [ -z "$WANT_HEAD" ] || [ "$WANT_HEAD" = "$HEAD_SHA" ] || void "--head $WANT_HEAD ≠ sha $HEAD_SHA"
     [ -z "$WANT_DRAFT" ] || [ "$WANT_DRAFT" = false ] || void "--draft true при чтении по sha"
+    BASE_NOTE=""
     if [ -z "$BASE" ]; then
         api "repos/$REPO" > "$W/repo.json" || void "площадка не отдала репозиторий $REPO: $(apierr)"
         BASE="$(jq -r '.default_branch // empty' "$W/repo.json")"
         [ -n "$BASE" ] || void "ветка по умолчанию $REPO не прочитана"
+        # Базу выбрала площадка, а не вызывающий: у ветки будущего запроса в эпик она иная, и
+        # BASE-STALE и ведомость судили бы чужую базу молча (урок 775de6d0).
+        BASE_NOTE=" — ветка по умолчанию, не названная вызывающим: голове будущего запроса в другую базу — --base <база>"
     fi
-    printf 'CENSUS\tsha %s в %s, база %s\n' "$HEAD_SHA" "$REPO" "$BASE"
+    printf 'CENSUS\tsha %s в %s, база %s%s\n' "$HEAD_SHA" "$REPO" "$BASE" "$BASE_NOTE"
 fi
 [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] || void "голова «$HEAD_SHA» не 40 hex"
 

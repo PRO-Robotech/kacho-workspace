@@ -112,7 +112,7 @@
 #      `git-issues.md#gi-prune-commit-predicate`): во всех клонах репозитория запроса
 #      (воркспейс и project/*, чей origin — этот репозиторий) — fetch --prune; ветка
 #      снимается, только если её голова РАВНА влитой либо её предок, а влитая — предок
-#      origin/<база>; копия (worktree) — `git worktree remove` лишь при пустом
+#      origin/<база>; копия (worktree) — `git worktree remove` (после `chmod -R u+w`) лишь при пустом
 #      `status --porcelain` и без процессов в ней: cwd, исполняемый файл (ws#1250) либо открытый файл внутри копии (/proc,
 #      свои процессы учётки) — копия и ветка остаются, в .state «оставлено: процессы <pid…>»
 #      (ws#1244: снята копия, где шли 6 процессов integration); origin — `--delete-branch`, оставшуюся — `git push origin
@@ -508,11 +508,12 @@ clones() {
 }
 PRUNE=""
 prune() {  # <ветка головы> <база>
-    local br="$1" base="$2" c rh lh wt dirty removed=() kept=()
+    local br="$1" base="$2" c rh lh wt dirty n_cl=0 removed=() kept=()
     if [ -z "$br" ] || [ "$br" = "$base" ] || [ "$br" = main ] || [ "$br" = master ]; then
         PRUNE="снятие: ветка «$br» не снимается (ствол либо база)"; return
     fi
     while IFS= read -r c; do
+        n_cl=$((n_cl + 1))
         if ! git -C "$c" fetch -q --prune origin 2> "$W/fetch.err"; then
             kept+=("$c: fetch не прошёл — $(head -c 200 "$W/fetch.err" | tr '\n' ' ')"); continue
         fi
@@ -543,7 +544,11 @@ prune() {  # <ветка головы> <база>
             fi
             busy="$(wt_procs "$wt")"
             if [ -n "$busy" ]; then kept+=("копия $wt: оставлено: процессы $busy"); dirty=1; continue; fi
-            if [ -z "$(git -C "$wt" status --porcelain 2>/dev/null)" ] && git -C "$c" worktree remove "$wt" 2> "$W/wt.err"; then
+            # Право записи владельцу — до снятия: пробы оставляют в игнорируемом (status его не
+            # видит) каталоги без права записи — envtest в bin/, — и `worktree remove` чистой копии
+            # на них падает (урок f253b1ee). Бит записи git не отслеживает: содержимое и индекс те же.
+            if [ -z "$(git -C "$wt" status --porcelain 2>/dev/null)" ] && { chmod -R u+w -- "$wt" 2>/dev/null; true; } \
+                && git -C "$c" worktree remove "$wt" 2> "$W/wt.err"; then
                 removed+=("копия $wt")
             else kept+=("копия $wt: не пуста либо не снята — $(head -c 200 "$W/wt.err" 2>/dev/null | tr '\n' ' ')"); dirty=1; fi
         done < <(git -C "$c" worktree list --porcelain | awk -v b="branch refs/heads/$br" '/^worktree /{w=substr($0, 10)} $0 == b {print w}')
@@ -552,6 +557,12 @@ prune() {  # <ветка головы> <база>
         else kept+=("$c $br: $(head -c 200 "$W/br.err" | tr '\n' ' ')"); fi
         BRANCH_AUDIT_FRESH_MIN=0 BRANCH_AUDIT_KEEP="$base" gate branch-audit.sh "$c" "$br"
     done < <(clones)
+    # Клона нет — снятие не судилось, и «снято 0, оставлено 0» читалось бы исполненным (урок
+    # 14e625cf: клон vault-operator лежит вне project/ воркспейса).
+    if [ "$n_cl" -eq 0 ]; then
+        PRUNE="снятие: НЕ ВЫПОЛНЕНО — клона $REPO нет среди $(if [ -n "${AUTOLAND_CLONES+x}" ]; then echo "AUTOLAND_CLONES «$AUTOLAND_CLONES»"; else echo "$WS и $WS/project/*"; fi); origin/$br, местная ветка и копии не судились — клон вне project/ назвать AUTOLAND_CLONES=<путь>"
+        log "$PRUNE"; return
+    fi
     PRUNE="снятие: снято ${#removed[@]}${removed[*]:+ (${removed[*]})}, оставлено ${#kept[@]}"
     [ "${#kept[@]}" -eq 0 ] || PRUNE="$PRUNE: $(printf '%s\n' "${kept[@]}" | join)"
     log "$PRUNE"
