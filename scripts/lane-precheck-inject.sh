@@ -630,6 +630,11 @@ assert "0 да" "$(ttg 'Если вердикт check-verifier — не ✅, с�
 assert "0 да" "$(ttg 'Если вердикт check-verifier — не ✅, стоп.' 'вердикт: ⛔ возврат → go-implementer') $(has 'причин 0')" "близнец: поле «вердикт: ⛔» — тоже поле (стоп решит исполнитель) → 0"
 assert "0" "$(ttg 'Влей PR #5 по правилу; вердикт без условий не нужен для снятия ветки.' > /dev/null; printf '%s\n' 'Сними влитую ветку 1-x.' > "$W/task.txt"; bash "$P" --task-text "$W/task.txt" --agent git-operator > "$W/out" 2>&1; echo $?)" "близнец: задание git-operator без слова «вердикт» — не судится"
 assert "0" "$(printf '%s\n' 'Если вердикт check-verifier — не ✅, стоп.' > "$W/task.txt"; bash "$P" --task-text "$W/task.txt" --agent go-implementer > "$W/out" 2>&1; echo $?)" "близнец: другому агенту — не судится"
+assert "0 да" "$(ttg 'Вливание — по правилу из задания; вердикт роли — в возврат, по вердикту не спорить.') $(has 'причин 0')" "близнец: слово «вердикт» без значения — не условие, не судится (ложное срабатывание на телах агентов, перепись 2026-10-22)"
+assert "1 да" "$(ttg 'Если вердикт landing-reviewer не accept — стоп.') $(has 'TASK-VERDICT строка 1')" "условие на значение словом accept без поля → TASK-VERDICT"
+for f in "$HERE/../CLAUDE.md" "$HERE"/../.claude/agents/*.md; do
+    assert "нет" "$(bash "$P" --task-text "$f" --agent git-operator > "$W/out" 2>&1; has 'TASK-VERDICT')" "близнец: настоящий текст ${f##*/} — TASK-VERDICT молчит"
+done
 printf '%s' '{"allow_squash_merge":false,"allow_merge_commit":true,"allow_rebase_merge":false,"delete_branch_on_merge":true}' > "$W/c/repos_o_r.json"
 printf '%s' '{"allow_squash_merge":true,"allow_merge_commit":true,"allow_rebase_merge":true,"delete_branch_on_merge":false}' > "$W/c/repos_o_new.json"
 printf '%s' '{"allow_merge_commit":true}' > "$W/c/repos_o_ro.json"
@@ -700,7 +705,7 @@ assert "1 нет" "$(PATH="$W/kb:$PATH" mut vault-key 'test("mountpath$"; "i")' 
 assert "0" "$(KUBE_NODES="$W/nodes-infra.json" PATH="$W/kb:$PATH" mut cl-false '64 | 69) reasons+=' '64 | 69) heads+=' "cluster $KC")" "мутант «отказ стража не ложь»: узел -infra- проходит — проба выше его ловит"
 # ws#1314 — вердикт полем, настройки вливания.
 assert "0" "$(mut verdict '|| reasons+=("TASK-VERDICT' '|| : || reasons+=("TASK-VERDICT' --task-text 'x' > /dev/null; printf '%s\n' 'Если вердикт check-verifier ниже — не ✅, стоп.' 'check-verifier: ; мо' > "$W/task.txt"; bash "$W/ms/lane-precheck.sh" --task-text "$W/task.txt" --agent git-operator > "$W/out" 2>&1; echo $?)" "мутант «вердикт не судится»: задание без поля проходит — проба выше его ловит"
-assert "1" "$(mut vfield '[^:]*:[[:space:]]*(✅|⛔) ]] && vfield=1' '[^:]*:[[:space:]]*(never) ]] && vfield=1' --task-text 'x' > /dev/null; printf '%s\n' 'Если вердикт — не ✅, стоп.' '- вердикт check-verifier: ✅ принято' > "$W/task.txt"; bash "$W/ms/lane-precheck.sh" --task-text "$W/task.txt" --agent git-operator > "$W/out" 2>&1; echo $?)" "мутант «поле вердикта не узнаётся»: близнец с полем краснеет — проба выше его ловит"
+assert "1" "$(mut vfield '[^:]*:.*(✅|⛔|accept|return) ]]; then vfield=1' '[^:]*:.*(never) ]]; then vfield=1' --task-text 'x' > /dev/null; printf '%s\n' 'Если вердикт — не ✅, стоп.' '- вердикт check-verifier: ✅ принято' > "$W/task.txt"; bash "$W/ms/lane-precheck.sh" --task-text "$W/task.txt" --agent git-operator > "$W/out" 2>&1; echo $?)" "мутант «поле вердикта не узнаётся»: близнец с полем краснеет — проба выше его ловит"
 assert "0" "$(mut repo-merge 'elif [ "$got" != "squash=false merge=true rebase=false delete=true" ]; then' 'elif false; then' 'repo-merge o/new')" "мутант «настройки не сверяются»: умолчания GitHub проходят — проба выше его ловит"
 assert "0" "$(LANE_PRECHECK_GIT_BASE="$W/gb" mut pushed '[ "$kind" = pushed ] && [ "$got" != "$want" ]' 'false' "pushed o/r 1-lane $BASE_SHA")" "мутант «голова отправки не сверяется»: непредъявленная голова проходит — проба выше его ловит"
 
