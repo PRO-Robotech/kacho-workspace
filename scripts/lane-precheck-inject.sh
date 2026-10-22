@@ -517,6 +517,51 @@ for f in 'Не жди' 'Каждый Bash ≤ 60 с' 'Ни один вызов �
 done
 assert "0 да" "$(bash "$P" --task-text "$HERE/../CLAUDE.md" > "$W/out" 2>&1; echo $?) $(has '; причин 0')" "близнец: CLAUDE.md целиком (норма «Не жди», «дольше 300 с — --enqueue; повтор») → 0"
 
+echo "== дом документа предусловием path (ws#1271)"
+prem "path $L 1-lane b.md" "path $L 1-lane docs/"
+assert "1 да" "$(runp) $(has "REASON PREMISE-FALSE path $L 1-lane docs/: дома нет")" "каталога нет в ревизии → PREMISE-FALSE «дома нет»"
+prem "path $L 1-lane scripts/"
+assert "0" "$(runp)" "близнец: каталог есть в ревизии (слэш на конце) → 0"
+prem "path $L 1-lane b.md"
+assert "0 да" "$(runp) $(has 'предусловий 1; ложных 0, не судимо 0')" "близнец: файл есть в ревизии → 0"
+prem "path $L нет-ревизии b.md"
+assert "2 да" "$(runp) $(has 'VOID PREMISE-FORM path')" "ревизии нет → не судимо, код 2"
+
+echo "== задание автору приёмки — перепись координат до раздачи (ws#1271)"
+tta() { printf '%s\n' "$@" > "$W/task.txt"; bash "$P" --task-text "$W/task.txt" --agent acceptance-author > "$W/out" 2>&1; echo $?; }
+ACC='Приёмка: смена контракта ListUsers, дом — b.md, задача o/r#20, ветка 1-lane.'
+CEN=("- \`path $L 1-lane b.md\`" '- `task o/r#20 open`' '- `branch o/r 1-lane`')
+assert "1 да да да" "$(tta "$ACC") $(has 'REASON TASK-COORD-CENSUS') $(has 'дом (path') $(has 'задача (task')" "задание автору приёмки без переписи (урок «дом приёмки по задаче продукта») → TASK-COORD-CENSUS, недостающие виды названы"
+assert "0 да" "$(tta "$ACC" "${CEN[@]}") $(has 'причин 0; агент acceptance-author; строк переписи 3')" "близнец: та же с переписью дом · задача · ветка, сверка сошлась → 0"
+assert "1 да" "$(tta "$ACC" "- \`path $L 1-lane docs/x-acceptance.md\`" '- `task o/r#20 open`' '- `branch o/r 1-lane`') $(has 'REASON TASK-COORD-FALSE перепись не сошлась: PREMISE-FALSE path')" "дом по памяти: файла в ревизии нет → TASK-COORD-FALSE с причиной предусловия"
+assert "1 да" "$(tta "$ACC" "${CEN[@]}" 'Сосед — o/r#21, его ветку не трогать.') $(has 'REASON TASK-COORD-UNCENSUSED строка 5: «o/r#21»')" "номер задачи вне переписи → TASK-COORD-UNCENSUSED со строкой"
+assert "1 да" "$(tta "$ACC" "${CEN[@]}" 'Образец — docs/specs/sub-phase-F6b-x-acceptance.md.') $(has 'TASK-COORD-UNCENSUSED строка 5: «docs/specs/sub-phase-F6b-x-acceptance.md»')" "путь приёмки вне переписи → TASK-COORD-UNCENSUSED"
+printf '%s' '{"number":20,"state":"open","title":"x"}' > "$W/c/repos_o_kacho-workspace_issues_20.json"
+assert "0" "$(tta "$ACC" "${CEN[@]}" 'Сосед — ws#20.' "- \`task o/kacho-workspace#20\`")" "близнец: короткая форма ws#N сверяется с task <владелец>/kacho-workspace#N"
+assert "2 да" "$(tta 'Приёмка: дом — b.md, задача o/r#22.' "- \`path $L 1-lane b.md\`" '- `task o/r#22`' '- `branch o/r 1-lane`') $(has 'VOID перепись не судима (код 2)')" "трекер не ответил на строку переписи → код 2, не зелёное"
+assert "0 да" "$(tt "$ACC") $(has 'агент не назван')" "близнец: то же задание без --agent — перепись не требуется, агент назван в переписи"
+assert "0" "$(printf '%s\n' "$ACC" > "$W/task.txt"; bash "$P" --task-text "$W/task.txt" --agent go-implementer > "$W/out" 2>&1; echo $?)" "близнец: задание другому агенту — перепись не требуется"
+assert "0 да" "$(tt "$ACC" '- `path /ws/tmp/heavy-slots/c 1-lane b.md`' '- `alive /ws/.cache/heavy-slots/x main --enqueue`') $(has 'причин 0')" "близнец: строка переписи с «heavy-slot» и «--enqueue» в пути — данные, а не долгий шаг (корень 5 провалов под TMPDIR слота)"
+
+echo "== строка слияния в задании — форма «#<N> merge #<M>» (ws#1278)"
+assert "1 да" "$(tt 'Слей ветку коммитом «#808 merge 746: сборка».') $(has 'REASON TASK-MERGE-FORM строка 1: «#808 merge 746:»')" "«#808 merge 746: …» (урок: хук ветки отверг) → TASK-MERGE-FORM со строкой"
+assert "1 да" "$(tt 'Сводка.' 'git commit -m "#808 merge 1272-wave-premise: цепочка"') $(has 'TASK-MERGE-FORM строка 2: «#808 merge 1272-wave-premise:»')" "вливаемая — именем ветки → TASK-MERGE-FORM"
+assert "1 да нет" "$(tt 'Сначала «#808 merge #746: a», затем «#808 merge 747: b».') $(has 'TASK-MERGE-FORM строка 1: «#808 merge 747:»') $(has '«#808 merge #746')" "две строки слияния в строке задания — судится каждая, законная молчит"
+assert "0 да" "$(tt 'Слей ветку коммитом «#808 merge #746: сборка».') $(has 'строк 1; причин 0')" "близнец: «#808 merge #746: …» → 0"
+assert "0 да" "$(tt 'Догон базы — «#808 merge main: догон базы».' 'git commit -m "#808 merge #746"') $(has 'строк 2; причин 0')" "близнец: «merge main» и «merge #746» без хвоста → 0"
+assert "0 да" "$(tt 'Форма — «#<N> merge #<M>: …»; номер задачи kacho#808 merge-ветки не трогает.') $(has 'причин 0')" "близнец: шаблон формы без чисел и ссылка репо#N — не строка слияния → 0"
+# Класс, а не перечень (возврат check-verifier по ws#1278): шесть строк, которые хук отвергает, а
+# прежний распознаватель «#N, один пробел, merge» пропускал.
+assert "1 да" "$(tt 'Слей коммитом «#808 merge: сборка».') $(has 'TASK-MERGE-FORM строка 1: «#808 merge: сборка».»')" "(а) слияние без номера вливаемой → TASK-MERGE-FORM"
+assert "1 да" "$(tt 'Слей коммитом «#808  merge #746».') $(has 'TASK-MERGE-FORM строка 1: «#808  merge #746».»')" "(а) два пробела до merge → TASK-MERGE-FORM"
+assert "1 да" "$(tt 'Слей коммитом «#808 Merge #746».') $(has 'TASK-MERGE-FORM строка 1: «#808 Merge #746».»')" "(а) Merge с заглавной (хук различает регистр) → TASK-MERGE-FORM"
+assert "1 да" "$(tt $'Слей коммитом «#808\tmerge 746».') $(has 'REASON TASK-MERGE-FORM строка 1')" "(а) табуляция до merge → TASK-MERGE-FORM"
+assert "1 да" "$(tt 'merge #746') $(has 'TASK-MERGE-FORM строка 1: «merge #746» — тема слияния без «#<N> »')" "(б) тема без #N в начале строки → TASK-MERGE-FORM"
+assert "1 да" "$(tt "git commit -m \"Merge branch 'x'\"") $(has "TASK-MERGE-FORM строка 1: «Merge branch 'x'")" "(б) тема git по умолчанию за кавычкой → TASK-MERGE-FORM"
+assert "0 да" "$(tt 'Догони 1273 слиянием merge --no-ff, затем `git merge --abort` при конфликте.' '- `git merge-base --is-ancestor A HEAD`' 'Слей «#808 merge #746: сборка»; вливание — `gh pr merge 5 --merge`.' 'Форма «#<N> merge main: …»; #808 mergeable.' 'merge --no-ff — так сливаются ветки.' '- merge kacho — выполнено; `merge ntf/p006` отказано, `merge origin/main` тоже.' '`MERGE INTO t USING s`' 'Тема вливания — «#678 merge #<N>: …», «#296 merge #M: …».' 'Влей PR #898 merge commit'"'"'ом; первая сборка влита PR #3073 merge 8725b886.') $(has 'строк 9; причин 0')" "близнецы класса: merge посреди прозы, команды git и gh, ключ и ссылка после merge (и в начале строки), SQL, шаблон с местом номера, «PR #N merge» в прозе, законная форма, mergeable → 0"
+assert "1 да" "$(tt 'выполни слияние с сообщением «#1107 Merge origin/main into 1107-x»') $(has 'TASK-MERGE-FORM строка 1: «#1107 Merge origin/main')" "(а) из переписи заданий: «#1107 Merge origin/main into …» → TASK-MERGE-FORM"
+assert "1 да да" "$(tt '«Merge pull request #69 from o/x», «Merge main into 1266».') $(has 'TASK-MERGE-FORM строка 1: «Merge pull request') $(has 'TASK-MERGE-FORM строка 1: «Merge main into')" "(б) темы GitHub и «X into Y» за кавычкой → TASK-MERGE-FORM каждая"
+
 echo "== мутанты lane-precheck (по одной правке; проба выше обязана покраснеть)"
 mut() {  # <имя> <было> <стало> <файл предусловий|--task-text строки…> — печатает код мутанта
     local m="$W/mut-lp.sh"
@@ -543,6 +588,24 @@ assert "1" "$(mut limit 'while [[ "$w" =~ (bash|вызов[[:alpha:]]*)' 'while 
 assert "1" "$(mut thresh 'while [[ "$w" =~ (^|[^[:alpha:]_])${cmp}' 'while false && [[ "$w" =~ (^|[^[:alpha:]_])${cmp}' --task-text 'Ни один вызов не держит ожидание дольше 10 минут')" "мутант «порог-запрет не снят»: норма CLAUDE.md краснеет"
 assert "0" "$(mut ne 'while [[ "$w" =~ (^|[^[:alpha:]])не[[:space:]]+$cmp ]]' 'while false' --task-text 'жди не дольше 10 мин')" "мутант «не дольше» прочитан порогом: разрешённый срок проходит"
 assert "1" "$(mut forecast 'w="${l//ожидаем/_}"' 'w="$l"' --task-text 'ожидаемое окончание через 20 мин')" "мутант «прогноз не снят»: «ожидаемое окончание» краснеет"
+mut_a() {  # <имя> <было> <стало> <строки задания…> — код мутанта на задании автору приёмки
+    local nm="$1" a="$2" b="$3"; shift 3
+    mut "$nm" "$a" "$b" --task-text "$@" > /dev/null
+    printf '%s\n' "$@" > "$W/task.txt"; bash "$W/ms/lane-precheck.sh" --task-text "$W/task.txt" --agent acceptance-author > "$W/out" 2>&1; echo $?
+}
+assert "0" "$(mut_a census '[ -z "$miss" ] || reasons+=("TASK-COORD-CENSUS' 'true || reasons+=("TASK-COORD-CENSUS' 'Приёмка: смена контракта ListUsers.')" "мутант «перепись не требуется»: задание без переписи проходит — проба выше его ловит"
+assert "0" "$(mut_a verify 'if [ "${#cen[@]}" -gt 0 ]; then' 'if false; then' "$ACC" "- \`path $L 1-lane docs/x-acceptance.md\`" '- `task o/r#20 open`' '- `branch o/r 1-lane`')" "мутант «перепись не сверяется»: дом по памяти проходит"
+assert "1" "$(mut census-data '${BASH_REMATCH[1]}"; continue' '${BASH_REMATCH[1]}"' --task-text '- `path /ws/tmp/heavy-slots/c 1-lane b.md`')" "мутант «строка переписи судится на ожидание»: путь под heavy-slots даёт TASK-RETURN — проба выше его ловит"
+assert "0" "$(mut_a mention 'reasons+=("TASK-COORD-UNCENSUSED' ': || reasons+=("TASK-COORD-UNCENSUSED' "$ACC" "${CEN[@]}" 'Сосед — o/r#21.')" "мутант «упоминание вне переписи не судится»: o/r#21 проходит"
+assert "0" "$(mut merge-form '|| reasons+=("TASK-MERGE-FORM' '|| : || reasons+=("TASK-MERGE-FORM' --task-text 'Слей ветку коммитом «#808 merge 746: сборка».')" "мутант «форма слияния не судится»: «#808 merge 746» проходит — проба выше его ловит"
+assert "0" "$(mut merge-space '[[:space:]]+[Mm][Ee][Rr][Gg][Ee]([[:space:]]+' ' [Mm][Ee][Rr][Gg][Ee]([[:space:]]+' --task-text 'Слей коммитом «#808  merge #746».')" "мутант «пробел до merge — один» (прежний перечень форм): два пробела проходят — проба выше его ловит"
+assert "0" "$(mut merge-case '[Mm][Ee][Rr][Gg][Ee]([[:space:]]+[^[:space:]]*|' 'merge([[:space:]]+[^[:space:]]*|' --task-text 'Слей коммитом «#808 Merge #746».')" "мутант «merge лишь строчными»: Merge проходит — проба выше его ловит"
+assert "0" "$(mut merge-bare 'while [[ "$r" =~ $mrb ]]; do' 'while false; do' --task-text 'merge #746')" "мутант «тема без #N не судится» (класс б): «merge #746» проходит — проба выше его ловит"
+assert "1" "$(mut merge-any '[[:space:]]+(#[0-9]+[^[:space:]]*|(branch|remote-tracking|tag|commit|pull)[[:space:]]+[^[:space:]]*|[^-[:space:]][^[:space:]]*[[:space:]]+into([[:space:]]|$)))' '[[:space:]]+([^-[:space:]][^[:space:]]*))' --task-text '- merge kacho — выполнено; `merge ntf/p006` отказано, `merge origin/main` тоже.')" "мутант «любая ссылка после merge — тема»: команда «merge kacho» краснеет — проба выше его ловит"
+assert "1" "$(mut merge-tpl '|| [[ "$mc" =~ $mtpl ]] ||' '||' --task-text 'Тема вливания — «#678 merge #<N>: …», «#296 merge #M: …».')" "мутант «шаблон — строка»: «#678 merge #<N>: …» краснеет — проба выше его ловит"
+assert "1" "$(mut merge-pr '|| [[ "$pre" =~ (^|[^[:alnum:]_])[Pp][Rr][[:space:]]+$ ]] ||' '||' --task-text 'Влей PR #898 merge commit'"'"'ом.')" "мутант «PR #N merge — тема»: проза о запросе краснеет — проба выше его ловит"
+assert "0" "$(mut merge-default '(branch|remote-tracking|tag|commit|pull)' '(never-such)' --task-text "git commit -m \"Merge branch 'x'\"")" "мутант «тема git по умолчанию не узнана»: «Merge branch 'x'» проходит — проба выше его ловит"
+assert "1" "$(mut merge-lawful '(#[0-9]+|main)([^0-9A-Za-z_]|$)' '(#[0-9]+)([^0-9A-Za-z_]|$)' --task-text 'Догон базы — «#808 merge main: догон базы».')" "мутант «merge main не узнан»: законная форма краснеет — проба выше его ловит"
 
 assert "0" "$(LANE_PRECHECK_GIT_BASE="$W/gb" mut pushed '[ "$kind" = pushed ] && [ "$got" != "$want" ]' 'false' "pushed o/r 1-lane $BASE_SHA")" "мутант «голова отправки не сверяется»: непредъявленная голова проходит — проба выше его ловит"
 

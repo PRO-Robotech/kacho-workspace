@@ -28,7 +28,9 @@
 #   · классы стража = классам слота (`heavy-slot.sh --classes`), и порядок стража —
 #     по убыванию бюджета слота: из нескольких найденных он берёт первый;
 #   · каждая запись SCRIPTS есть в дереве продукта — запись без предмета молча
-#     перестала бы что-либо ловить.
+#     перестала бы что-либо ловить;
+#   · класс suite (ws#1291): каждый набор `scripts/lib/suites.py` (прогонщик и
+#     доказательство) и каждый шаг ci.yaml с именем набора или пробы — suite.
 # Нет дерева продукта (${KACHO_MONOREPO:-<корень>/project/kacho}) — его части «не
 # выполнились».
 #
@@ -143,15 +145,15 @@ denies go-race     'bash -lc "go test -race ./..."'
 denies go-race     'bash -ec "go test -race ./..."'
 denies go-race     'sh -xc "go test -race ./..."'
 denies go-race     'bash -euo pipefail -c "go test -race ./..."'
-passes             'bash -lc "go test ./..."'
+passes             'bash -lc "go vet ./..."'
 passes             'bash -o pipefail -c "go vet ./..."'
 denies go-race     'export GOFLAGS=-race; go test ./...'
-passes             'export GOFLAGS=-count=1; go test ./...'
+passes             'export GOFLAGS=-count=1; go vet ./...'
 denies go-race     'go test -race=1 ./...'
 denies go-race     'go test -race=TRUE ./...'
-passes             'go test -race=false ./...'
+denies go-unit     'go test -race=false ./...'  # любой go test — внешний кластер (ws#1301)
 denies go-race     'R=-race; go test $R ./...'
-passes             'R=-v; go test $R ./...'
+passes             'R=-v; go vet $R ./...'
 denies docker      'D=docker; $D run alpine'
 passes             'D=docker; $D ps'
 denies go-race     'find . -name x -exec go test -race {} \;'
@@ -165,32 +167,32 @@ EOF"
 
 echo "── круг 3: строка дочерней оболочке из переменных строки, экспорт, \$@"
 denies go-race     'C="go test -race ./..."; bash -c "$C"'
-passes             'C="go test ./..."; bash -c "$C"'
+passes             'C="go vet ./..."; bash -c "$C"'
 passes             'C="go test -race ./..."; bash -c $C'
 denies go-race     "C='go test -race ./...'; sh -c \"\$C\""
 passes             "C='go vet ./...'; sh -c \"\$C\""
 denies go-race     "export FLAGS=-race; bash -c 'go test \$FLAGS ./...'"
-passes             "FLAGS=-race; bash -c 'go test \$FLAGS ./...'"
+denies go-unit     "FLAGS=-race; bash -c 'go test \$FLAGS ./...'"  # любой go test (ws#1301)
 denies go-race     "FLAGS=-race bash -c 'go test \$FLAGS ./...'"
 denies go-race     "R=-race; export R; bash -c 'go test \$R ./...'"
 denies go-race     "set -a; FLAGS=-race; bash -c 'go test \$FLAGS ./...'"
 denies go-race     'X=go; bash -c "$X test -race ./..."'
-passes             'X=go; bash -c "$X test ./..."'
+passes             'X=go; bash -c "$X vet ./..."'
 denies go-race     'F="-race ./..."; bash -c "go test $F"'
-passes             'F="-v ./..."; bash -c "go test $F"'
+passes             'F="-v ./..."; bash -c "go vet $F"'
 denies go-race     "R=-race; eval 'go test \$R ./...'"
-passes             "R=-v; eval 'go test \$R ./...'"
+passes             "R=-v; eval 'go vet \$R ./...'"
 denies go-race     "bash -c '\"\$@\"' _ go test -race ./..."
-passes             "bash -c '\"\$@\"' _ go test ./..."
+passes             "bash -c '\"\$@\"' _ go vet ./..."
 denies go-race     "sh -c 'exec go test \$1 ./...' sh -race"
-passes             "sh -c 'exec go test \$1 ./...' sh -v"
+passes             "sh -c 'exec go vet \$1 ./...' sh -v"
 HOOKENV=(GOFLAGS=-race)
 denies go-race     'go test ./...'
 HOOKENV=()
 
 echo "── круг 3: опции обёрток, go -C, go run/build -race"
 denies go-race     '/usr/bin/time -v go test -race ./...'
-passes             '/usr/bin/time -v go test ./...'
+passes             '/usr/bin/time -v go vet ./...'
 denies go-race     '/usr/bin/time -o /tmp/t -f %M go test -race ./...'
 denies go-race     'time -p go test -race ./...'
 passes             'time -p go vet ./...'
@@ -199,11 +201,11 @@ passes             'command -v go test -race ./...'
 denies go-race     'exec -a x go test -race ./...'
 denies go-race     'env -S "go test -race ./..."'
 denies go-race     'go -C services/vpc test -race ./...'
-passes             'go -C services/vpc test ./...'
+passes             'go -C services/vpc vet ./...'
 denies go-race     'go run -race ./cmd/x'
 passes             'go run ./cmd/x'
 denies go-race     'go build -race -o x .'
-passes             'go build -o x .'
+denies go-unit     'go build -o x .'  # сборка — внешний кластер (ws#1301)
 
 echo "── незнакомые обёртки; строка оболочке у watch, script, parallel, flock"
 denies go-race     'strace -f go test -race ./...'
@@ -225,7 +227,7 @@ denies go-race     'flock -w 5 /tmp/l go test -race ./...'
 denies lint        'gosec ./...'
 passes             'gosec -version'
 denies go-race     'docker exec box go test -race ./...'
-passes             'docker exec box go test ./...'
+passes             'docker exec box go vet ./...'
 denies docker      'docker buildx bake'
 passes             'docker buildx ls'
 
@@ -273,10 +275,36 @@ print(" ".join(t for t in ("Bash", "Monitor") if any(re.fullmatch(m, t) for m in
 ' "$ROOT/.claude/settings.json")"
 assert "Bash Monitor" "$wired" "settings.json: heavy-guard провязан на PreToolUse и для Bash, и для Monitor"
 
+echo "── машина владельца — не для прогонов (ws#1301): любая сборка и тест — отказ, git и правка файла — пропуск"
+denies go-unit     'go test ./...'
+denies go-unit     'cd services/vpc && go test -run TestX ./internal/...'
+denies go-unit     'go build ./...'
+denies go-unit     'make test-unit'
+denies go-unit     'make e2e-smoke-test'
+denies suite       'pytest -q tools/'
+denies suite       'python3 -m pytest tools/'
+denies stand       'npx playwright test'
+denies stand       'npm run test:e2e'
+denies ci-local    'npm test'
+denies ci-local    'npm ci --prefix ui-future'
+denies ci-local    'npm run typecheck'
+denies ci-local    'npx vitest run'
+passes             'git status'
+passes             'git diff --stat origin/main...HEAD'
+passes             'gh issue view 1301'
+passes             "sed -i 's/a/b/' f.txt"
+passes             'gofmt -l .'
+passes             'go version'
+passes             'go list ./...'
+passes             'npm --version'
+passes             'npm run dev'
+passes             'make generate'
+passes             'python3 -c "print(1)"'
+passes             'playwright --version'
+
 echo "── законный близнец той же формы → пропуск молча"
-passes 'go test ./...'
-passes 'go test -run Race ./...'
 passes 'go vet ./...'
+passes 'go vet -run Race ./...'
 passes 'docker ps'
 passes 'docker compose logs'
 passes 'kind get clusters'
@@ -457,6 +485,104 @@ passes 'git push origin x' "$WORK/ws"
 passes "cd $WORK/prod && git push --no-verify"
 : > "$WORK/ws/scripts/ci-local.sh"
 passes 'git push origin x' "$WORK/ws"
+# Воркспейс (в корне — scripts/heavy-slot.sh): его pre-push гонит наборы run-all.sh — отправка
+# тяжела классом ci-local (ws#1291); близнец — хук воркспейса без наборов.
+: > "$WORK/ws/scripts/heavy-slot.sh"
+denies ci-local 'git push origin x' "$WORK/ws"
+echo 'echo без наборов' > "$WORK/ws/scripts/hooks/pre-push"
+passes 'git push origin x' "$WORK/ws"
+passes 'git -C "$X" push origin x' "$WORK/ws"
+
+echo "── наборы и пробы воркспейса — класс suite: голый запуск отказан, слот и чтение — пропуск (ws#1291)"
+# Синтетический воркспейс: корень с scripts/heavy-slot.sh, набор с прогонщиком, доказательством
+# и проверкой, мутанты, отдельная проба и проба хука. Близнец места — то же дерево без
+# scripts/heavy-slot.sh (клон продукта): имя то же, класса нет.
+SX="$WORK/sx"; PX="$WORK/px"
+for d in "$SX" "$PX"; do
+    mkdir -p "$d/.git" "$d/scripts/tg-gate" "$d/scripts/ls" "$d/.claude/hooks/h"
+    for f in scripts/tg-gate/run-all.sh scripts/tg-gate/inject.sh scripts/tg-gate/inject-2-x.sh \
+             scripts/tg-gate/check-01-x.sh scripts/ls/mutants.py scripts/ls/explore-mutants.py \
+             scripts/x-inject.sh .claude/hooks/h/prove.sh; do echo 'true' > "$d/$f"; done
+done
+: > "$SX/scripts/heavy-slot.sh"
+denies suite 'bash scripts/tg-gate/run-all.sh' "$SX"
+denies suite './scripts/tg-gate/run-all.sh' "$SX"
+denies suite 'bash scripts/tg-gate/inject.sh' "$SX"
+denies suite 'bash scripts/tg-gate/inject-2-x.sh' "$SX"
+denies suite 'timeout 600 bash scripts/tg-gate/inject.sh > inj.log 2>&1; echo rc=$?' "$SX"
+denies suite 'cd scripts/tg-gate && bash inject.sh' "$SX"
+denies suite "bash $SX/scripts/x-inject.sh" "$WORK"
+denies suite 'python3 scripts/ls/mutants.py' "$SX"
+denies suite 'python3 -u -W ignore scripts/ls/mutants.py -j 4' "$SX"
+denies suite 'python3 scripts/ls/explore-mutants.py' "$SX"
+denies suite 'bash .claude/hooks/h/prove.sh' "$SX"
+echo 'go test -race ./...' > "$SX/scripts/tg-gate/run-all.sh"
+denies go-race 'bash scripts/tg-gate/run-all.sh' "$SX"
+echo 'true' > "$SX/scripts/tg-gate/run-all.sh"
+passes 'bash scripts/tg-gate/check-01-x.sh' "$SX"
+passes 'cat scripts/tg-gate/run-all.sh' "$SX"
+passes 'bash -n scripts/tg-gate/inject.sh' "$SX"
+passes 'python3 -m py_compile scripts/ls/mutants.py' "$SX"
+passes 'python3 -c "print(1)" scripts/ls/mutants.py' "$SX"
+passes 'grep -n run-all.sh scripts/tg-gate/inject.sh' "$SX"
+passes "/ws/scripts/heavy-slot.sh suite -- bash scripts/tg-gate/inject.sh" "$SX"
+passes "bash /ws/scripts/heavy-slot.sh suite -- python3 scripts/ls/mutants.py" "$SX"
+passes 'bash scripts/tg-gate/run-all.sh' "$PX"
+passes 'python3 scripts/ls/mutants.py' "$PX"
+# Мутанты: порча по одному решению — каждую обязан поймать свой случай выше; место вызова — $6
+# (по умолчанию $SX): порчу признака воркспейса ловит лишь близнец места $PX.
+sx_mut() {
+    local id="$1" form="$2" want="$3" at="${6:-$SX}" md="$WORK/smut-$1" rc
+    mkdir -p "$md/heavy-guard"; cp "$HOOK" "$md/heavy-guard.sh"
+    if ! python3 -c '
+import sys
+s = open(sys.argv[1], encoding="utf-8").read()
+if s.count(sys.argv[3]) != 1:
+    sys.exit(1)
+open(sys.argv[2], "w", encoding="utf-8").write(s.replace(sys.argv[3], sys.argv[4]))' "$GUARD" "$md/heavy-guard/guard.py" "$4" "$5"; then
+        assert "построен" "не построен" "мутант $id: фрагмент порчи в guard.py не единствен"; return
+    fi
+    rc="$(HOOK_RUN="$md/heavy-guard.sh" run "$form" "$at")"
+    assert "убит" "$([ "$rc" != "$want" ] && echo убит || echo выжил)" "мутант $id ($form в ${at##*/}): с порчей код $rc, без неё $want"
+}
+sx_mut python-blind 'python3 scripts/ls/mutants.py' 2 \
+    'return "suite" if script and suite_member(resolve(script, cwd, alt)) else None' 'return None'
+sx_mut no-marker 'bash scripts/tg-gate/run-all.sh' 0 \
+    'if top and os.path.isfile(os.path.join(top, "scripts", "heavy-slot.sh")):' 'if top:' "$PX"
+sx_mut shell-blind 'bash scripts/tg-gate/inject.sh' 2 \
+    'return best(got | ({"suite"} if suite_member(resolve(script, cwd, alt)) else set()))' 'return best(got)'
+sx_mut path-blind './scripts/tg-gate/run-all.sh' 2 \
+    'c = best(got | ({"suite"} if suite_member(resolve(argv[0], cwd, alt)) else set()))' 'c = best(got)'
+# Перепись дерева воркспейса этой копии: каждый набор suites.py (прогонщик и доказательство) и
+# каждый шаг конвейера ci.yaml, чьё имя — набор или проба, страж обязан назвать suite. Шаги без
+# такого имени печатаются поимённо — «не набор» названо, а не умолчано.
+if [ -f "$ROOT/scripts/lib/suites.py" ] && [ -f "$ROOT/.github/workflows/ci.yaml" ]; then
+    ns=0; nok=0
+    while IFS= read -r s; do
+        [ -n "$s" ] || continue
+        for f in run-all.sh inject.sh; do
+            [ -f "$ROOT/scripts/$s/$f" ] || continue
+            ns=$((ns + 1)); c="$(python3 "$GUARD" --classify "bash scripts/$s/$f" "$ROOT" < /dev/null)"
+            [ "$c" = suite ] && nok=$((nok + 1)) || echo "  [FAIL] набор suites.py: scripts/$s/$f — класс «$c», ждали suite" >&2
+        done
+    done < <(python3 "$ROOT/scripts/lib/suites.py" suites "$ROOT")
+    assert "да" "$([ "$ns" -gt 0 ] && [ "$ns" = "$nok" ] && echo да || echo нет)" "наборы suites.py: файлов $ns, класс suite у $nok (ноль — перепись ослепла)"
+    nc=0; ncs=0; other=()
+    while IFS= read -r f; do
+        [ -f "$ROOT/$f" ] || continue
+        nc=$((nc + 1)); c="$(python3 "$GUARD" --classify "bash $f" "$ROOT" < /dev/null)"
+        # класс тяжелее suite — скрипт сам собирает или тестирует (ws#1301: remote-heavy/inject.sh
+        # зовёт go build) — назван, не пропущен; пропуск — класс «-»
+        if [ "$c" = suite ]; then ncs=$((ncs + 1)); elif [ "$c" = - ]; then other+=("$f"); else echo "  [INFO] шаг ci.yaml $f — класс «$c» тяжелее suite: скрипт сам собирает или тестирует"; fi
+    done < <(grep -E '^[[:space:]]+run:' "$ROOT/.github/workflows/ci.yaml" | grep -oE '(^|[ =])scripts/[A-Za-z0-9_./-]+\.(sh|py)' | sed 's/^[ =]//' | sort -u)
+    bad="$(printf '%s\n' "${other[@]}" | grep -E '(run-all|inject|prove|mutants|run-suites|hook-proofs)[^/]*$' || true)"
+    assert "" "$bad" "шаги ci.yaml с именем набора или пробы — все тяжёлые, ни один не пропущен (шагов $nc, suite $ncs)"
+    echo "  [CENSUS] ci.yaml: шагов-скриптов $nc, suite $ncs; не набор: ${other[*]:-—}"
+    assert "да" "$([ "$ncs" -gt 0 ] && echo да || echo нет)" "перепись ci.yaml нашла наборы (ноль — разбор ослеп)"
+else
+    echo "  [VOID] нет scripts/lib/suites.py или .github/workflows/ci.yaml в $ROOT — перепись наборов не выполнялась" >&2
+    void=$((void + 1))
+fi
 
 echo "── make и скрипт: тяжесть выводится из дерева, make не исполняется"
 M="$WORK/mk"; MARK="$WORK/mark"
@@ -512,10 +638,10 @@ passes         './sh/tool' "$M"
 denies stand   'for s in sh/h*.sh; do bash "$s"; done' "$M"
 passes         'for s in sh/l*.sh; do bash "$s"; done' "$M"
 denies go-race 'export GOFLAGS=-race; bash sh/unit.sh' "$M"
-passes         'export GOFLAGS=-count=1; bash sh/unit.sh' "$M"
+denies go-unit 'export GOFLAGS=-count=1; bash sh/unit.sh' "$M"  # любой go test (ws#1301)
 denies go-race 'export GOFLAGS=-race; make plain' "$M"
 denies go-race 'make plain GOFLAGS=-race' "$M"
-passes         'make plain' "$M"
+denies go-unit 'make plain' "$M"  # любой go test (ws#1301)
 assert "нет" "$([ -e "$MARK" ] && echo да || echo нет)" "страж не исполнял ни одного рецепта (метки нет)"
 
 echo "── не Bash и поломка стража"
