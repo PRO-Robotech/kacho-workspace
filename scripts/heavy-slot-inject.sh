@@ -1048,7 +1048,8 @@ printf '#!/usr/bin/env bash\nexec "$(git rev-parse --show-toplevel)/scripts/hook
 git init -q --bare "$W/bare-j.git"
 jref() { git -C "$W/bare-j.git" rev-parse --verify --quiet "refs/heads/$1" > /dev/null && echo да || echo нет; }
 jrec() { (cd "$RJ" && bash scripts/hooks/prepush-new-commits.sh --recorded "$1") && echo да || echo нет; }
-jlog() { grep -c "^$1" "$HL" 2> /dev/null || true; }
+# Счёт строк журнала хука; журнала нет — 0, а не пусто (ws#1334: мутант «79 — итог» краснел на main).
+jlog() { [ -e "$HL" ] || { echo 0; return; }; grep -c "^$1" "$HL" || true; }
 jnew() { echo "$1" > "$RJ/n-$1"; git -C "$RJ" add -A; sandbox_git -C "$RJ" commit -q -m "$1"; git -C "$RJ" rev-parse HEAD; }
 jpush() { local s="$1" ref="$2"; shift 2; rm -f "$W/argv"; RDIR="$RJ" rslot env FAKE_EXEC=1 FAKE_EXEC_CLONE=1 HOOK_LOG="$HL" "$@" bash "$s" ci-local -- git push -q "$W/bare-j.git" HEAD:refs/heads/"$ref"; }
 jargv() { [ -e "$W/argv" ] && echo Job || echo без-Job; }
