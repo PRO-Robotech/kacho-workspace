@@ -32,8 +32,11 @@ class ProducerExperiments(unittest.TestCase):
         subprocess.run(['git', 'init', '-q', str(cls.co)], check=True)
         (cls.co / 'source.txt').write_text('actual producer fixture\n')
         subprocess.run(['git', '-C', str(cls.co), 'add', 'source.txt'], check=True)
-        subprocess.run(['git', '-C', str(cls.co), '-c', 'user.name=Fixture', '-c',
-                        'user.email=fixture@example.invalid', 'commit', '-qm', 'fixture'], check=True)
+        subprocess.run(['bash', '-c',
+                        'source "$1"; sandbox_git_home "$2" && '
+                        'sandbox_git -C "$3" commit -qm fixture', 'fixture',
+                        str(HERE / 'lib/sandbox-git-home.sh'),
+                        str(cls.co / 'git-home'), str(cls.co)], check=True)
         cls.head = M.git(str(cls.co), 'rev-parse', 'HEAD')
         cls.tree = M.git(str(cls.co), 'rev-parse', 'HEAD^{tree}')
         cls.job = json.loads((FIX / 'iam-job.json').read_text())
