@@ -261,6 +261,18 @@
 {
 set -uo pipefail
 
+# ДИСПОЗИЦИЯ СИГНАЛОВ (ws#1274): команда слота получает SIGPIPE и SIGHUP по умолчанию, как в
+# конвейере. SIG_IGN вызывающего (nohup, python, отсоединённый шаг) наследовала команда, а bash
+# снять полученный при входе SIG_IGN не может; timeout сбрасывает лишь SIGHUP (замер 2026-10-21,
+# uutils 0.8.0): `yes | head -n 1` давал 1 вместо 141, и пробы сигналов судили обёртку, а не код.
+# Перезапуск — лишь при заглушённом PIPE или HUP и один раз: метка KACHO_SIGDISP снимается сразу.
+# Держит scripts/heavy-slot-signal-inject.sh: вызывающие с каждым сигналом врозь и мутанты маски.
+_sigign="$(sed -n 's/^SigIgn:[[:space:]]*//p' /proc/$$/status 2>/dev/null)"
+if [ "${KACHO_SIGDISP:-}" != 1 ] && [[ "${_sigign:-0}" =~ ^[0-9a-fA-F]+$ ]] && (( 16#${_sigign:-0} & 0x1001 )); then
+    exec env --default-signal=PIPE,HUP KACHO_SIGDISP=1 bash "$0" "$@"
+fi
+unset KACHO_SIGDISP _sigign
+
 # Общий каталог — от домашнего каталога учётки, а не от $HOME: иначе HOME=… был бы
 # ещё одной ручкой, уводящей вызов из общей очереди.
 SHARED="$(getent passwd "$(id -u)" | cut -d: -f6)/.cache/heavy-slots"
@@ -330,8 +342,8 @@ ci-local|10240|scripts/ci-local.sh; git push в клон, чей pre-push зов
 lint|8192|golangci-lint run, govulncheck, gosec, make lint|golangci-lint run ./... по монорепо, холодный кэш линтера — 4,5 ГиБ
 docker|4096|docker run/create/start/build, docker compose up/run/build|общий класс — предел, а не прогноз: docker run получает --memory=бюджет
 go-unit|4096|go test и go build без -race и integration; make с «test» в имени цели (ws#1301: любая сборка и тест — во внешний кластер)|предел, а не прогноз: ниже замера go test -race свои пакеты services/vpc (49) — 3,5 ГиБ (строка go-race); Job — профиль go-race run.sh
-stand|8192|kind create cluster; make dev-up, reload-svc*, stand-ns-run; helm install/upgrade (stand-ns-up, -down, -census — без слота, ws#1143)|узел kind — до 2,9 ГиБ (9 показаний docker stats в журналах сессий); сборка образов dev-up последовательная, её память в BuildKit не замерена
-newman|2048|newman run; make e2e-newman, e2e-test; newman-e2e.sh, newman-parallel.sh|newman run самой большой коллекции (2,7 МБ, отчёт json) — 0,4 ГиБ; JOBS=1
+stand|8192|kind create cluster; make dev-up, reload-svc*, stand-ns-run; helm install/upgrade (stand-ns-up, -down, -census — без слота, ws#1143; stand-ns-run RUNNER=<вид> клона kacho и stand-own.sh runner клона kaname — без слота, pod ns стенда, ws#1303, ws#1321)|узел kind — до 2,9 ГиБ (9 показаний docker stats в журналах сессий); сборка образов dev-up последовательная, её память в BuildKit не замерена
+newman|2048|newman run; make e2e-newman, e2e-test; newman-e2e.sh, newman-parallel.sh (пробы стенда — stand-ns-run RUNNER=newman|browser без слота, ws#1303)|newman run самой большой коллекции (2,7 МБ, отчёт json) — 0,4 ГиБ; JOBS=1
 suite|1536|наборы и пробы воркспейса: scripts/<набор>/run-all.sh, inject.sh, *-inject.sh, mutants.py, prove.sh (heavy-guard, ws#1291)|пик отправки воркспейса со всеми run-all.sh — 790 МиБ × 1,5, вверх до 512 (бронь SUBJECT_BUDGETS); tooling-gate/inject.sh — 206 МиБ за 1449 с (журнал слотов, 2026-10-21)'
 
 say() { printf 'heavy-slot: %s\n' "$*" >&2; }
@@ -825,6 +837,41 @@ push_homes() {
     [ "${#set[@]}" -eq 0 ] || say "клоны для наборов хука отправки выставлены из основного клона воркспейса: ${set[*]} (заданную вами переменную слот не трогает)"
     [ "${#lacks[@]}" -eq 0 ] || say "НЕ выставлено — наборы хука уйдут в [VOID]: ${lacks[*]}"
     return 0
+}
+# local_push_untracked <команда…> — ci-local, `git push` с хуком из клона продукта (kacho, kaname,
+# corelib) идёт ЛОКАЛЬНО (флаг --local, кластер недоступен, переходник Job-а ответил 78 — отправка
+# несёт не голову копии, как у аннотированного тега): локальный хук судит РАБОЧЕЕ ДЕРЕВО, а не
+# отправляемую ревизию. Неотслеживаемое в копии (не игнорируемое git) — отказ 64 до запуска с
+# путями и формой чистой копии: урок 2026-10-19 (ws#1280) — отправка тега из общего клона kaname
+# краснела хуком от чужой неотслеживаемой папки с Go-кодом. Тот же класс — правка отслеживаемого
+# файла без неотслеживаемого (приёмка ws#1280, C2): хук судил бы её, а не отправляемую ревизию, —
+# тоже 64 с путями. Во внешнем кластере Job судит коммит, и там рабочее дерево не судится (правку
+# отслеживаемого маршрут отказывает раньше: 77 «закоммить правки»). Клон воркспейса не судится: его
+# хук сам уходит во временную копию.
+# Хук, сам судящий чистоту копии, читает `git status --porcelain` вне комментария (kacho — уходит во
+# временную копию вершины, corelib — отказывает сам; замер 2026-10-21: kacho 1, corelib 1, kaname 0):
+# его клон слот не судит — отказ слота отнял бы у kacho законную отправку. Научится хук kaname —
+# проверка слота снимется сама. ГРАНИЦА: признак — текст хука, а не его поведение; клон продукта
+# узнаётся по origin формы `…PRO-Robotech/<имя>[.git]` — origin с хвостовым «/» либо локальным путём
+# не опознаётся, и такая отправка идёт без суждения (приёмка ws#1280, C5).
+local_push_untracked() {
+    local top url list n hook what
+    [ "$CLASS" = ci-local ] || return 0
+    CMD_R=("$@"); git_push_form
+    if [ -z "$GIT_IDX" ]; then GDIR="$PWD"; return 0; fi
+    top="$(git -C "$GDIR" rev-parse --show-toplevel 2>/dev/null)"; GIT_IDX=""; GDIR="$PWD"
+    [ -n "$top" ] || return 0
+    url="$(git -C "$top" remote get-url origin 2>/dev/null)"
+    case "$url" in *PRO-Robotech/kacho|*PRO-Robotech/kacho.git|*PRO-Robotech/kaname|*PRO-Robotech/kaname.git|*PRO-Robotech/corelib|*PRO-Robotech/corelib.git) ;; *) return 0 ;; esac
+    hook="$(grep -v '^[[:space:]]*#' "$top/scripts/hooks/pre-push" 2>/dev/null)"
+    grep -q 'status --porcelain' <<<"$hook" && return 0
+    what="неотслеживаемое"
+    list="$(git -C "$top" ls-files --others --exclude-standard --directory 2>/dev/null)"
+    [ -n "$list" ] || { what="правки отслеживаемого"; list="$(git -C "$top" diff --name-only HEAD -- 2>/dev/null)"; }
+    [ -n "$list" ] || return 0
+    n="$(printf '%s\n' "$list" | wc -l)"
+    say "локальная отправка из копии $top (${WHY_LOCAL:-маршрут локальный}): в копии $what, путей $n ($(printf '%s\n' "$list" | head -n 3 | tr '\n' ' ' | sed 's/ $//')) — локальный хук судит рабочее дерево, а не отправляемую ревизию: чужое неотслеживаемое либо правка отслеживаемого меняет его вердикт (ws#1280). Отправка из чистой копии: git -C $top worktree add --detach <каталог вне копии> <ревизия> && cd <каталог> && heavy-slot.sh ci-local -- git push …. Команда не запускалась"
+    exit 64
 }
 # push_where — для команды `git … push` (любой класс, обёртки перед git, -C) печатает, откуда и
 # куда идёт отправка, и отказывает 64 до постановки в очередь, когда она кладёт голову ПЕРВИЧНОЙ
@@ -1402,6 +1449,12 @@ fi
 # словом строки оболочки) и строка оболочки без внешней формы stand-ns-* при
 # принимающем кластере — 77 с формой своего ns; stand-ns-* без stand-ns-run (kubectl и helm к
 # ns кластера) маршрут не судит, прочие (reload-svc, stand-ns-run CMD, пробы) — no_route_judge.
+# Пробы стенда — newman и браузер (ws#1303): `stand-ns-run RUNNER=newman|browser` классом stand
+# либо newman исполняет CMD в pod ns стенда (kacho#3346), на машине kubectl, git и tar — внешний
+# маршрут без слота, журнал «remote … route=stand-runner»; условия — у stand_ns_light (вид — из
+# строки STAND_RUNNER_KINDS механизма клона). Без RUNNER и класс newman вне стенда — no_route_judge.
+# Клон kaname (ws#1321, kaname#940): `bash .github/scripts/stand-own.sh runner [--out D] [--ship F]…
+# -- КОМАНДА` — тот же маршрут, вид own из строки STAND_RUNNER_KINDS stand-own.sh.
 # Проверка кластера — `timeout $CHECK_S run.sh --available` (срок и повтор — по замеру,
 # у CHECK_S): current-context она не читает
 # и не меняет (контекст — явный, шапка run.sh). Занят (75) — НЕ недоступен (решение
@@ -1758,7 +1811,10 @@ ext_run() {
     printf 'run_at=%s\n' "$(now)" >> "$EXT_T"
     if ! mkfifo "$fifo" 2>/dev/null; then "$@"; rc=$?; ext_leave; return "$rc"; fi
     ext_filter < "$fifo" & fp=$!
-    "$@" 2> "$fifo" 0<&0 & ch=$!
+    # Фильтр пишет stderr прогона в ТОТ ЖЕ журнал вызова (у --enqueue — <база>.log билета): он
+    # сосед run.sh, не предок и не потомок, и run.sh называл его чужим писателем — «вывод
+    # прогонов перемешается» (урок 2026-10-19, ws#1280). REMOTE_HEAVY_OUT_PEER называет его своим.
+    REMOTE_HEAVY_OUT_PEER="$fp" "$@" 2> "$fifo" 0<&0 & ch=$!
     trap 'kill -TERM "$ch" 2>/dev/null' INT TERM HUP
     wait "$ch"; rc=$?
     while kill -0 "$ch" 2>/dev/null; do wait "$ch"; rc=$?; done
@@ -1849,7 +1905,11 @@ portable_script() {
 route_static() {
     local url
     RS_KNOWN=""; RS_TOP=""; RS_REPO=""; RS_PROFILE=""; RS_WHY=""; RS_MACHINE=""
-    case "$CLASS" in go-race|go-unit|integration|lint|ci-local|suite) ;; *) WHY_LOCAL="класс «$CLASS» внешнего пути не имеет"; return 1 ;; esac
+    case "$CLASS" in
+        go-race|go-unit|integration|lint|ci-local|suite) ;;
+        newman) WHY_LOCAL="класс «newman» вне стенда внешнего пути не имеет — пробы стенда: $RUNNER_HINT"; return 1 ;;
+        *) WHY_LOCAL="класс «$CLASS» внешнего пути не имеет"; return 1 ;;
+    esac
     payload
     case "$PAY" in
         go|make|golangci-lint|gosec|govulncheck|ci-local.sh) RS_KNOWN=1 ;;
@@ -1926,7 +1986,9 @@ remote_route() {
 # кластере слот откажет 77 (нагрузка не опознана, подъём локального стенда, строка оболочки).
 route_print() {
     local kind why top url
-    if [ "$CLASS" = stand ]; then
+    if { [ "$CLASS" = stand ] || [ "$CLASS" = newman ]; } && stand_ns_light && [ -n "$SN_RUNNER" ]; then
+        kind=external; why="стенд и команда — pod раннера $SN_RUNNER в ns внешнего кластера ($SN_HOW), на машине — $SN_TOOLS (ws#1303)"
+    elif [ "$CLASS" = stand ]; then
         if stand_static; then
             top="$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null)"; url="$(git -C "${top:-.}" remote get-url origin 2>/dev/null)"
             case "$url" in *PRO-Robotech/kacho|*PRO-Robotech/kacho.git) ;; *) url="" ;; esac
@@ -1937,7 +1999,7 @@ route_print() {
             elif stand_moot; then
                 kind=local; why="снятие локального стенда — машину освобождает, маршрут не судится"
             else
-                kind=none; why="у команды стенда внешнего маршрута нет$( [ -n "$ST_RUN" ] && echo ' (CMD stand-ns-run идёт на машине)') — при доступном кластере 77, маршрут — $NO_ROUTE_TASK; локально лишь при недоступном (ws#1301)"
+                kind=none; why="у команды стенда внешнего маршрута нет$( [ -n "$ST_RUN" ] && echo " (CMD stand-ns-run идёт на машине; в pod стенда — $RUNNER_HINT)") — при доступном кластере 77, маршрут — $NO_ROUTE_TASK; локально лишь при недоступном (ws#1301)"
             fi
         elif [ -n "$ST_MK" ]; then
             kind=none; why="подъём локального стенда${ST_SIGN:+ (признак содержимого $ST_SIGN)} — при доступном кластере 77: стенд — make stand-ns-up в ns внешнего кластера"
@@ -2034,6 +2096,12 @@ ADAPTER
 #     отслеживаются; в deploy/ ни правок, ни неотслеживаемых файлов; GNUmakefile и
 #     makefile (make взял бы их раньше Makefile) нет;
 #   · окружение без MAKEFILES, MAKEFLAGS, MFLAGS, GNUMAKEFLAGS, BASH_ENV, ENV.
+# Раннер стенда own клона kaname (ws#1321, kaname#940) — `bash <путь>` (без ключей bash) либо
+# `<путь>` по настоящему пути .github/scripts/stand-own.sh клона (origin PRO-Robotech/kaname,
+# скрипт отслеживается, в .github/ ни правок, ни неотслеживаемых файлов; путь — не ссылка на файл,
+# ROOT раннера — `cd <каталог пути>/../..` — сам клон), подкоманда runner,
+# ключи --out и --ship со значением без $ и `, затем «--» и команда (её исполняет pod); вид own —
+# в строке STAND_RUNNER_KINDS скрипта. Без строки (маршрут выключен), с правкой, чужой скрипт — 77.
 # Прочее — под слотом, как было: stand-ns-run (CMD идёт на машине, пик 798 МиБ),
 # строка оболочки, обёртки, -f и иные ключи, иные цели и присваивания (MAKEFILES=,
 # MAKEFILE= в их числе), чужой каталог и чужой скрипт.
@@ -2052,12 +2120,47 @@ stand_ns_clone_deploy() {  # <каталог> — 0, если это deploy/ ч�
     [ -z "$(git -C "$top" status --porcelain --untracked-files=all -- deploy 2>/dev/null)" ] || return 1
     [ ! -e "$d/GNUmakefile" ] && [ ! -e "$d/makefile" ]
 }
+# stand_ns_runner <deploy> <вид> — 0, если механизм клона (stand-ns.sh, строка STAND_RUNNER_KINDS)
+# знает раннер этого вида: прогон `stand-ns-run RUNNER=<вид>` исполняет CMD в pod пространства
+# стенда (kacho#3346), на машине — kubectl, git и tar (ws#1303). SN_RUNNER — вид.
+stand_ns_runner() {
+    local kinds
+    [[ "$2" =~ ^[a-z]+$ ]] || return 1
+    kinds="$(sed -n 's/^STAND_RUNNER_KINDS="\([a-z ]*\)"$/\1/p' "$1/scripts/stand-ns.sh" 2>/dev/null | head -n 1)"
+    [[ " $kinds " == *" $2 "* ]] || return 1
+    SN_RUNNER="$2"; SN_HOW="stand-ns run --runner клона kacho"; SN_TOOLS="kubectl, git и tar"
+}
+# stand_own_runner <путь> — 0, если путь — .github/scripts/stand-own.sh чистого клона kaname,
+# чья строка STAND_RUNNER_KINDS называет вид own (ws#1321): `runner … -- КОМАНДА` исполняет
+# команду в pod своего пространства внешнего кластера (kaname#940). SN_RUNNER — own.
+stand_own_runner() {
+    local s top url kinds
+    s="$(readlink -f -- "$1" 2>/dev/null)" || return 1
+    # сам путь — не ссылка на файл: соседей (HERE) скрипт берёт из каталога своего пути, а каталог
+    # ссылки неотслеживаем и не судится
+    [ "$(cd -- "$(dirname -- "$1")" 2>/dev/null && pwd -P)/$(basename -- "$1")" = "$s" ] || return 1
+    top="$(git -C "$(dirname -- "$s")" rev-parse --show-toplevel 2>/dev/null)" && top="$(cd "$top" && pwd -P)" || return 1
+    # ROOT раннера — клон, чей коммит судится: скрипт берёт его как `cd HERE/../.. && pwd` без -P
+    # (ссылка на каталог в пути уводит ROOT из клона), сверка повторяет его вычисление
+    [ "$(cd -- "$(dirname -- "$1")" 2>/dev/null && cd -- ../.. 2>/dev/null && pwd -P)" = "$top" ] || return 1
+    # путь клона kaname, не воркспейса: сверка снятием префикса — запись `$top/…sh` rules-gate
+    # check-14 резолвит от корня воркспейса как вызов хука (ws#1321)
+    [ "${s#"$top"/}" = .github/scripts/stand-own.sh ] || return 1
+    url="$(git -C "$top" remote get-url origin 2>/dev/null)"
+    case "$url" in *PRO-Robotech/kaname|*PRO-Robotech/kaname.git) ;; *) return 1 ;; esac
+    git -C "$top" ls-files --error-unmatch .github/scripts/stand-own.sh >/dev/null 2>&1 || return 1
+    [ -z "$(git -C "$top" status --porcelain --untracked-files=all -- .github 2>/dev/null)" ] || return 1
+    kinds="$(sed -n 's/^STAND_RUNNER_KINDS="\([a-z ]*\)"$/\1/p' "$s" 2>/dev/null | head -n 1)"
+    [[ " $kinds " == *" own "* ]] || return 1
+    SN_RUNNER=own; SN_HOW="stand-own.sh runner клона kaname"; SN_TOOLS="kubectl, git, tar, gzip, jq и python3"
+}
 stand_ns_light() {
-    local i n=${#CMD_R[@]} w d s t=0 v
+    local i n=${#CMD_R[@]} w d s t=0 v run=0 rk=""
+    SN_RUNNER=""; SN_HOW=""; SN_TOOLS=""
     for v in MAKEFILES MAKEFLAGS MFLAGS GNUMAKEFLAGS BASH_ENV ENV; do [ -z "${!v:-}" ] || return 1; done
     payload
     [ -z "$PAY_SH" ] && [ -n "$PAY_I" ] || return 1
-    case "$PAY_I:$(basename -- "${CMD_R[0]}")" in 0:make|0:stand-ns.sh|1:bash) ;; *) return 1 ;; esac
+    case "$PAY_I:$(basename -- "${CMD_R[0]}")" in 0:make|0:stand-ns.sh|0:stand-own.sh|1:bash) ;; *) return 1 ;; esac
     i=$(( PAY_I + 1 ))
     case "$PAY" in
         make)
@@ -2069,20 +2172,50 @@ stand_ns_light() {
                     -C) d="$(cd "$d" 2>/dev/null && cd -- "${CMD_R[$(( i + 1 ))]:-}" 2>/dev/null && pwd -P)" || return 1
                         i=$(( i + 2 )) ;;
                     stand-ns-up|stand-ns-down|stand-ns-census) t=$(( t + 1 )); i=$(( i + 1 )) ;;
-                    NS=*|STACK=*|REF=*|EXPIRED=*)
-                        v="${w#*=}"; [[ "$v" != *'$'* && "$v" != *'`'* ]] || return 1; i=$(( i + 1 )) ;;
+                    stand-ns-run) run=1; i=$(( i + 1 )) ;;
+                    NS=*|STACK=*|REF=*|EXPIRED=*|RUNNER=*|OUT=*|KEEP=*|DIR=*)
+                        v="${w#*=}"; [[ "$v" != *'$'* && "$v" != *'`'* ]] || return 1
+                        [ "${w%%=*}" != RUNNER ] || rk="$v"; i=$(( i + 1 )) ;;
+                    CMD=*) i=$(( i + 1 )) ;;  # исполняет pod раннера, не машина (ниже)
                     *) return 1 ;;
                 esac
             done
+            # stand-ns-run — лишь ОДНОЙ целью и с раннером механизма клона: CMD идёт в pod.
+            if [ "$run" = 1 ]; then
+                [ "$t" -eq 0 ] && stand_ns_clone_deploy "$d" && stand_ns_runner "$d" "$rk"; return
+            fi
+            [ -z "$rk" ] || return 1
+            for w in "${CMD_R[@]:$(( PAY_I + 1 ))}"; do case "$w" in CMD=*|OUT=*|KEEP=*|DIR=*) return 1 ;; esac; done
             [ "$t" -gt 0 ] && stand_ns_clone_deploy "$d" ;;
         stand-ns.sh)
             s="$(readlink -f -- "${CMD_R[$PAY_I]}" 2>/dev/null)" || return 1
             [ "${CMD_R[$PAY_I]}" != "${CMD_R[$PAY_I]#*/}" ] || return 1  # путь, а не поиск по PATH
             stand_ns_clone_deploy "$(dirname -- "$(dirname -- "$s")")" || return 1
             [ "$s" = "$(cd "$(dirname -- "$(dirname -- "$s")")" && pwd -P)/scripts/stand-ns.sh" ] || return 1
-            case "${CMD_R[$i]:-}" in up|down|census|forward|unforward) ;; *) return 1 ;; esac
+            case "${CMD_R[$i]:-}" in
+                up|down|census|forward|unforward) ;;
+                run)  # run NS [ключи] --runner K [ключи] -- КОМАНДА: слова после -- исполняет pod
+                    i=$(( i + 1 ))
+                    while [ "$i" -lt "$n" ] && [ "${CMD_R[$i]}" != -- ]; do
+                        w="${CMD_R[$i]}"; [[ "$w" != *'$'* && "$w" != *'`'* ]] || return 1
+                        [ "$w" != --runner ] || rk="${CMD_R[$(( i + 1 ))]:-}"
+                        i=$(( i + 1 ))
+                    done
+                    [ "$i" -lt "$n" ] && stand_ns_runner "$(dirname -- "$(dirname -- "$s")")" "$rk"; return ;;
+                *) return 1 ;;
+            esac
             for w in "${CMD_R[@]:$(( i + 1 ))}"; do [[ "$w" != *'$'* && "$w" != *'`'* ]] || return 1; done
             return 0 ;;
+        stand-own.sh)  # runner [--out D] [--ship F]… -- КОМАНДА: слова после -- исполняет pod (ws#1321)
+            [ "${CMD_R[$PAY_I]}" != "${CMD_R[$PAY_I]#*/}" ] || return 1  # путь, а не поиск по PATH
+            [ "${CMD_R[$i]:-}" = runner ] || return 1
+            i=$(( i + 1 ))
+            while [ "$i" -lt "$n" ] && [ "${CMD_R[$i]}" != -- ]; do
+                case "${CMD_R[$i]}" in --out|--ship) ;; *) return 1 ;; esac
+                w="${CMD_R[$(( i + 1 ))]:-}"; [ -n "$w" ] && [[ "$w" != *'$'* && "$w" != *'`'* ]] || return 1
+                i=$(( i + 2 ))
+            done
+            [ "$(( i + 1 ))" -lt "$n" ] && stand_own_runner "${CMD_R[$PAY_I]}"; return ;;
         *) return 1 ;;
     esac
 }
@@ -2098,6 +2231,8 @@ stand_ns_light() {
 # без stand-ns-run (на машине kubectl и helm к ns внешнего кластера) и снятие локального стенда
 # (dev-down, kind … delete — машину освобождает): stand_moot, NR_MOOT.
 NO_ROUTE_TASK="ws#1303"
+# Форма внешнего маршрута проб стенда (ws#1303, kacho#3346): newman и браузер — в pod ns стенда.
+RUNNER_HINT="make -C deploy stand-ns-run NS=t<N>-<коротко> RUNNER=newman|browser CMD='…' клона kacho с механизмом раннера (STAND_RUNNER_KINDS в deploy/scripts/stand-ns.sh); клона kaname — bash .github/scripts/stand-own.sh runner -- КОМАНДА (STAND_RUNNER_KINDS=\"own\", ws#1321)"
 NR_MOOT=""
 # no_route_judge — внешнего пути у команды нет (WHY_LOCAL): один опрос кластера без профиля.
 no_route_judge() {
@@ -2151,11 +2286,18 @@ CMD_R=("$@"); WHY_LOCAL=""; ROUTE=(); GIT_IDX=""; GDIR="$PWD"; LOCAL_PROOF=""; L
 WAIT_T0="$(now)"   # начало срока заявки: внешний вход, кластер и очередь памяти считают от него (ws#1244)
 suite_payload
 if [ -n "$ROUTE_ONLY" ]; then route_print; exit 0; fi
-if [ "$CLASS" = stand ] && stand_ns_light; then
+# Раннер стенда (ws#1303): `stand-ns-run RUNNER=<вид>` классом stand либо newman — подъём, CMD в
+# pod пространства стенда, снятие; на машине kubectl, git и tar — внешний маршрут, слота нет.
+if { [ "$CLASS" = stand ] || [ "$CLASS" = newman ]; } && stand_ns_light && { [ "$CLASS" = stand ] || [ -n "$SN_RUNNER" ]; }; then
     busy=0
     for f in "$DIR"/active/*.slot; do [ -e "$f" ] && busy=$(( busy + 1 )); done
-    journal_early "external-ns class=stand slot=нет busy_slots=$busy waited=0s who=$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD cmd=$(printf '%q ' "${CMD_R[@]}")"
-    say "класс stand: «$(printf '%s ' "${CMD_R[@]:$PAY_I:3}")…» работает лишь с ns внешнего кластера (на машине — kubectl и helm) — слот машины не занимается: занято слотов $busy из $SLOTS_MAX, ожидание 0 с (ws#1143)"
+    if [ -n "$SN_RUNNER" ]; then
+        journal_early "remote class=$CLASS route=stand-runner runner=$SN_RUNNER slot=нет busy_slots=$busy why=CMD в pod ns стенда ($SN_HOW) who=$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD cmd=$(printf '%q ' "${CMD_R[@]}")"
+        say "класс $CLASS уходит во внешний кластер: стенд и команда — pod раннера $SN_RUNNER в ns стенда (на машине — $SN_TOOLS) — слот машины не занимается (ws#1303)"
+    else
+        journal_early "external-ns class=stand slot=нет busy_slots=$busy waited=0s who=$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD cmd=$(printf '%q ' "${CMD_R[@]}")"
+        say "класс stand: «$(printf '%s ' "${CMD_R[@]:$PAY_I:3}")…» работает лишь с ns внешнего кластера (на машине — kubectl и helm) — слот машины не занимается: занято слотов $busy из $SLOTS_MAX, ожидание 0 с (ws#1143)"
+    fi
     exec "$@"
 fi
 if [ -n "$LOCAL_SET" ]; then
@@ -2188,6 +2330,7 @@ elif [ "$REMOTE_ON" = 1 ]; then
 else
     WHY_LOCAL="режим проб без двойника run.sh — маршрут не судился"
 fi
+local_push_untracked "$@"
 
 ID="$(now)-$$"
 P="$DIR/active/$ID"

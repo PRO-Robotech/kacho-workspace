@@ -87,6 +87,9 @@ assert 64 "$(slot bash "$SLOT" docker true)" "без «--» — 64"
 assert 64 "$(slot HEAVY_SLOT_BUDGET_MIB=200000 bash "$SLOT" docker -- true)" "бюджет больше потолка — 64, а не вечное ожидание"
 assert 3 "$(slot bash "$SLOT" docker -- bash -c 'exit 3')" "исполнившаяся команда — её собственный код"
 
+# Диспозиция сигналов команды слота (ws#1274) — scripts/heavy-slot-signal-inject.sh: машину она не
+# судит и потому переносима (Job профиля ws, шаг конвейера), а эта проба внешнего маршрута не имеет.
+
 echo "── ci-local держит ssh отправки живым: GIT_SSH_COMMAND с keepalive, заданное — сильнее (урок 2026-10-16)"
 # git push открывает ssh до хука отправки; минуты хука простаивающее соединение
 # площадка снимает, и push умирал PIPE (141) после зелёного хука.
@@ -776,6 +779,65 @@ RK="$W/rclone-sn"; git init -q -b 984-s "$RK"; git -C "$RK" remote add origin ht
 mkdir -p "$RK/deploy/scripts"; printf 'stand-ns-run:\n\t@true\n' > "$RK/deploy/Makefile"; printf '#!/usr/bin/env bash\ntrue\n' > "$RK/deploy/scripts/stand-ns.sh"
 git -C "$RK" add deploy; sandbox_git -C "$RK" commit -q -m sn
 assert "0 none да" "$(route "$RK" stand -- make -C deploy stand-ns-run 'NS=t<задача>-w1' 'CMD=<шаги>') $(has "$W/out" 'CMD stand-ns-run идёт на машине')" "stand-ns-run: CMD идёт на машине → none (ws#1301)"
+assert "0 none да" "$(route "$RK" stand -- make -C deploy stand-ns-run 'NS=t<задача>-w1' RUNNER=newman 'CMD=<шаги>') $(has "$W/out" 'RUNNER=newman|browser')" "stand-ns-run RUNNER=newman, механизм без раннера → none с формой раннера (ws#1303)"
+RK3="$W/rclone-sn3"; git init -q -b 1303-r "$RK3"; git -C "$RK3" remote add origin https://github.com/PRO-Robotech/kacho.git
+mkdir -p "$RK3/deploy/scripts"; cp "$RK/deploy/Makefile" "$RK3/deploy/"; printf '#!/usr/bin/env bash\nSTAND_RUNNER_KINDS="newman browser"\ntrue\n' > "$RK3/deploy/scripts/stand-ns.sh"
+git -C "$RK3" add deploy; sandbox_git -C "$RK3" commit -q -m sn
+assert "0 external да" "$(route "$RK3" stand -- make -C deploy stand-ns-run 'NS=t<задача>-w1' RUNNER=newman DIR=deploy 'CMD=<шаги>') $(has "$W/out" 'pod раннера newman')" "stand-ns-run RUNNER=newman в клоне с механизмом раннера → external (ws#1303)"
+assert "0 external" "$(route "$RK3" newman -- make -C deploy stand-ns-run 'NS=t<задача>-w1' RUNNER=browser 'CMD=<пробы>')" "класс newman, RUNNER=browser → external"
+assert "0 none" "$(route "$RK3" stand -- make -C deploy stand-ns-run 'NS=t<задача>-w1' RUNNER=chrome 'CMD=<шаги>')" "близнец: вид вне STAND_RUNNER_KINDS → none"
+assert "0 none да" "$(route "$RK3" newman -- newman run x.json) $(has "$W/out" 'RUNNER=newman|browser')" "класс newman вне стенда → none с формой раннера"
+echo dirty >> "$RK3/deploy/Makefile"
+assert "0 none" "$(route "$RK3" stand -- make -C deploy stand-ns-run 'NS=t<задача>-w1' RUNNER=newman 'CMD=<шаги>')" "близнец: правка deploy/ клона → none (pod исполняет коммит, механизм не судим)"
+git -C "$RK3" checkout -q deploy/Makefile
+# Раннер стенда own клона kaname (ws#1321, kaname#940): `bash .github/scripts/stand-own.sh runner
+# [--out D] [--ship F]… -- КОМАНДА`, вид own — строка STAND_RUNNER_KINDS скрипта. Без строки —
+# маршрут выключен: none (77 при доступном кластере), как механизм kacho без раннера.
+RN="$W/rclone-own"; git init -q -b 940-r "$RN"; git -C "$RN" remote add origin https://github.com/PRO-Robotech/kaname.git
+mkdir -p "$RN/.github/scripts"; printf '#!/usr/bin/env bash\ntrue\n' > "$RN/.github/scripts/stand-own.sh"; chmod +x "$RN/.github/scripts/stand-own.sh"
+git -C "$RN" add .github; sandbox_git -C "$RN" commit -q -m own
+assert "0 none да" "$(route "$RN" stand -- bash .github/scripts/stand-own.sh runner -- true) $(has "$W/out" 'у команды стенда внешнего маршрута нет')" "stand-own.sh runner, механизм без STAND_RUNNER_KINDS (маршрут выключен) → none (ws#1321)"
+sed 's|^    \[\[ " \$kinds " == \*" own "\* \]\] \|\| return 1$|    :|' "$SLOT" > "$W/slot-mut-own.sh"
+assert "1 0 external" "$(diff "$SLOT" "$W/slot-mut-own.sh" | grep -c '^<') $(RSLOT="$W/slot-mut-own.sh" route "$RN" stand -- bash .github/scripts/stand-own.sh runner -- true)" "мутант «вид own не сверяется»: выключенный маршрут → external — утверждение выше его ловит"
+sed -i '1a STAND_RUNNER_KINDS="own"' "$RN/.github/scripts/stand-own.sh"; sandbox_git -C "$RN" commit -q -am runner
+assert "0 external да да" "$(route "$RN" stand -- bash .github/scripts/stand-own.sh runner --out o --ship ghjob.py -- python3 /work/ship/ghjob.py x stand /src /work/out) $(has "$W/out" 'pod раннера own') $(has "$W/out" 'stand-own.sh runner клона kaname')" "stand-own.sh runner в клоне kaname с видом own → external (ws#1321)"
+assert "0 external" "$(route "$RN" newman -- .github/scripts/stand-own.sh runner -- newman run x)" "класс newman, путь скрипта первым словом → external"
+assert "0 none" "$(route "$RN" stand -- bash .github/scripts/stand-own.sh up)" "близнец: подкоманда не runner → none"
+assert "0 none" "$(route "$RN" stand -- bash .github/scripts/stand-own.sh runner --out o --)" "близнец: после -- команды нет → none"
+assert "0 none" "$(route "$RN" stand -- bash .github/scripts/stand-own.sh runner --keep 1 -- true)" "близнец: ключ вне --out и --ship → none"
+# shellcheck disable=SC2016  # значение — предмет суждения
+assert "0 none" "$(route "$RN" stand -- bash .github/scripts/stand-own.sh runner --out '$(id)' -- true)" "близнец: значение ключа с \$ → none"
+assert "0 none" "$(route "$RN" stand -- bash -x .github/scripts/stand-own.sh runner -- true)" "близнец: ключ bash → none"
+assert "0 none" "$(route "$RN" stand -- env bash .github/scripts/stand-own.sh runner -- true)" "близнец: обёртка перед bash → none"
+# Три сверки пути stand_own_runner — каждая своим близнецом, который гаснет лишь на ней, и мутантом,
+# снимающим лишь её строку (ws#1321): ссылка на файл, ROOT раннера, путь в клоне.
+mutown() { grep -vF -- "$2" "$SLOT" > "$W/slot-mut-$1.sh"; diff "$SLOT" "$W/slot-mut-$1.sh" | grep -c '^<'; }
+mkdir -p "$RN/l1/l2" "$RN/x"; ln -s ../../.github/scripts/stand-own.sh "$RN/l1/l2/stand-own.sh"
+ln -s .github/scripts "$RN/s"; ln -s ../.github/scripts "$RN/x/y"; printf 'l1/\ns\nx/\n' > "$RN/.git/info/exclude"
+assert "0 none" "$(route "$RN" stand -- bash l1/l2/stand-own.sh runner -- true)" "близнец: путь — ссылка на файл с именем stand-own.sh, ROOT — клон → none (соседи скрипта — из каталога ссылки)"
+# shellcheck disable=SC2016  # строка слота — образец снятия
+assert "1 0 external" "$(mutown link 'pwd -P)/$(basename -- "$1")" = "$s" ] || return 1') $(RSLOT="$W/slot-mut-link.sh" route "$RN" stand -- bash l1/l2/stand-own.sh runner -- true)" "мутант «нет сверки ссылки»: ссылка на файл → external — утверждение выше его ловит"
+assert "0 none" "$(route "$RN" stand -- bash s/stand-own.sh runner -- true)" "близнец: каталог пути — ссылка, ROOT раннера (cd HERE/../.. без -P) — родитель клона → none"
+# shellcheck disable=SC2016  # строка слота — образец снятия
+assert "1 0 external" "$(mutown root 'cd -- ../.. 2>/dev/null && pwd -P)" = "$top" ] || return 1') $(RSLOT="$W/slot-mut-root.sh" route "$RN" stand -- bash s/stand-own.sh runner -- true)" "мутант «нет сверки ROOT»: ссылка на каталог → external — утверждение выше его ловит"
+assert "0 external" "$(route "$RN" stand -- bash x/y/stand-own.sh runner -- true)" "законный близнец: каталог пути — ссылка, ROOT раннера — клон, соседи — настоящий каталог → external (сверка судит ROOT, не всякую ссылку)"
+rm -rf "$RN/l1" "$RN/s" "$RN/x"; : > "$RN/.git/info/exclude"
+mkdir -p "$RN/tools/own"; cp "$RN/.github/scripts/stand-own.sh" "$RN/tools/own/"; git -C "$RN" add tools; sandbox_git -C "$RN" commit -q -m copy
+assert "0 none" "$(route "$RN" stand -- bash tools/own/stand-own.sh runner -- true)" "близнец: закоммиченная копия stand-own.sh вне .github/scripts, ROOT — клон → none (сверка пути)"
+# shellcheck disable=SC2016  # строка слота — образец снятия
+assert "1 0 external" "$(mutown path '[ "${s#"$top"/}" = .github/scripts/stand-own.sh ] || return 1') $(RSLOT="$W/slot-mut-path.sh" route "$RN" stand -- bash tools/own/stand-own.sh runner -- true)" "мутант «нет сверки пути»: копия вне .github/scripts → external — утверждение выше его ловит"
+git -C "$RN" rm -q -r tools; sandbox_git -C "$RN" commit -q -m uncopy
+touch "$RN/.github/scripts/extra.sh"
+assert "0 none" "$(route "$RN" stand -- bash .github/scripts/stand-own.sh runner -- true)" "близнец: неотслеживаемый файл в .github/ клона → none"
+rm -f "$RN/.github/scripts/extra.sh"; echo '# правка' >> "$RN/.github/scripts/stand-own.sh"
+assert "0 none" "$(route "$RN" stand -- bash .github/scripts/stand-own.sh runner -- true)" "близнец: правка stand-own.sh вне коммита → none (pod исполняет коммит)"
+git -C "$RN" checkout -q .github
+git -C "$RN" remote set-url origin https://github.com/PRO-Robotech/kacho.git
+assert "0 none" "$(route "$RN" stand -- bash .github/scripts/stand-own.sh runner -- true)" "близнец: тот же скрипт в клоне не kaname → none"
+git -C "$RN" remote set-url origin https://github.com/PRO-Robotech/kaname.git
+sed -i 's/^STAND_RUNNER_KINDS="own"$/STAND_RUNNER_KINDS="newman"/' "$RN/.github/scripts/stand-own.sh"; sandbox_git -C "$RN" commit -q -am kind
+assert "0 none" "$(route "$RN" stand -- bash .github/scripts/stand-own.sh runner -- true)" "близнец: STAND_RUNNER_KINDS без own → none"
+assert "0 external да" "$(route "$RK3" stand -- make -C deploy stand-ns-run 'NS=t<задача>-w1' RUNNER=newman DIR=deploy 'CMD=<шаги>') $(has "$W/out" 'stand-ns run --runner клона kacho')" "близнец (ws#1321): раннер kacho не меняется — external, механизм kacho назван"
 assert "0 external да" "$(route "$RK" stand -- make -C deploy stand-ns-up 'NS=t<задача>-w1') $(has "$W/out" 'stand-ns')" "близнец: stand-ns-up в клоне kacho с механизмом stand-ns → external (стенд — ns внешнего кластера)"
 assert "0 none да" "$(route "$RK" stand -- make -C deploy dev-up) $(has "$W/out" 'подъём локального стенда')" "подъём локального стенда → none (при доступном кластере было бы 77)"
 assert "0 none да" "$(route "$RK" stand -- python3 -c pass) $(has "$W/out" 'у команды стенда внешнего маршрута нет')" "команда стенда без признака → none: внешнего маршрута нет (ws#1301)"
@@ -1010,6 +1072,46 @@ be="$(jn ' enter id=')"; rm -f "$HL"
 assert "0 1 да $((be + 1))" "$(rslot env FAKE_AVAIL=1 FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- git push -q "$W/bare.git" HEAD:refs/heads/1115-w) $(grep -c '^job=нет ' "$HL" 2>/dev/null) $(has_ref 1115-w) $(jn ' enter id=')" "близнец: кластер недоступен → хук локально слотом (enter в журнале)"
 be="$(jn ' enter id=')"; b78="$(jn 'route=push rc=1 hook_rc=78 ')"; rm -f "$HL"
 assert "77   нет $be $((b78 + 1))" "$(rslot env FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- git push -q "$W/bare.git" HEAD~1:refs/heads/1115-v) $(grep -c '^job=1 ' "$HL" 2>/dev/null) $(grep -c '^job=нет ' "$HL" 2>/dev/null) $(has_ref 1115-v) $(jn ' enter id=') $(jn 'route=push rc=1 hook_rc=78 ')" "отправка не головы копии: переходник — 78, Job не звался, та же отправка локально слотом с хуком"
+echo "── локальная отправка из клона продукта с неотслеживаемым: 64 с путями до хука (ws#1280)"
+# Урок 2026-10-19: отправка тега из общего клона kaname ушла локально (переходник — 78: объект тега
+# не голова копии), и локальный хук покраснел от чужой неотслеживаемой папки с Go-кодом.
+mkdir -p "$R/h.stray" && echo 'package stray' > "$R/h.stray/x.go"; rm -f "$HL"
+# lpush <ссылка> [ENV=…] — отправка не головы (HEAD~1) мимо Job; локально она идёт лишь при недоступном
+# кластере (FAKE_AVAIL=1; при доступном — 77, ws#1301); «код хук-звался ссылка-есть».
+lpush() { local ref="$1"; shift; echo "$(rslot env FAKE_EXEC=1 HOOK_LOG="$HL" "$@" bash "${LSLOT:-$SLOT}" ci-local -- git push -q "$W/bare.git" HEAD~1:refs/heads/"$ref") $([ -s "$HL" ] && echo да || echo нет) $(has_ref "$ref")"; }
+assert "64 нет нет да да" "$(lpush 1280-a FAKE_AVAIL=1) $(has "$W/err" 'в копии неотслеживаемое, путей 1 (h.stray/)') $(has "$W/err" 'Отправка из чистой копии')" "локальная отправка из копии с чужой неотслеживаемой папкой: 64 до хука, путь и форма чистой копии названы, ссылки нет"
+rm -f "$HL"
+assert "0 да да" "$(rslot env FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- git push -q "$W/bare.git" HEAD:refs/heads/1280-b) $([ -s "$HL" ] && echo да || echo нет) $(has_ref 1280-b)" "близнец: голова копии — хук Job-ом судит коммит, неотслеживаемое не судится — отправка идёт"
+rm -f "$HL"; printf 'h.stray/\n' >> "$R/.git/info/exclude"
+assert "0 да да" "$(lpush 1280-c FAKE_AVAIL=1)" "близнец: та же папка игнорируется git — локальная отправка идёт"
+sed -i '/^h\.stray\/$/d' "$R/.git/info/exclude"; rm -f "$HL"
+# shellcheck disable=SC2016  # образец sed: $ — буквальный знак строки слота
+sed 's/^\( *\)list="\$(git -C "\$top" ls-files --others --exclude-standard --directory 2>\/dev\/null)"/\1list=""/' "$SLOT" > "$W/slot-mut-1280b.sh"
+assert "1 0 да да" "$(diff "$SLOT" "$W/slot-mut-1280b.sh" | grep -c '^<') $(LSLOT="$W/slot-mut-1280b.sh" lpush 1280-d FAKE_AVAIL=1)" "мутант «неотслеживаемое не судится»: отправка ушла с хуком по грязному дереву — проба выше его ловит"
+# Хук, сам судящий чистоту (`git status --porcelain` вне комментария: kacho, corelib), — его клон
+# слот не судит; та же строка лишь в комментарии хука — не признак. Хук правлен в рабочем дереве, не
+# коммитом: кластер «недоступен» (FAKE_AVAIL=1) — иначе маршрут отказал бы 77 «закоммить правки».
+cp "$R/scripts/hooks/pre-push" "$W/hook.orig"
+printf '# git status --porcelain — лишь в комментарии\n' >> "$R/scripts/hooks/pre-push"; rm -f "$HL"
+assert "64 нет нет" "$(lpush 1280-f FAKE_AVAIL=1)" "близнец: «status --porcelain» лишь в комментарии хука — слот судит, 64"
+printf 'git status --porcelain > /dev/null\n' >> "$R/scripts/hooks/pre-push"; rm -f "$HL"
+assert "0 да да" "$(lpush 1280-g FAKE_AVAIL=1)" "хук сам судит чистоту копии (kacho, corelib) — слот не судит, отправка идёт с его хуком"
+cp "$W/hook.orig" "$R/scripts/hooks/pre-push"
+rm -rf "$R/h.stray"; rm -f "$HL"
+assert "0 да да" "$(lpush 1280-e FAKE_AVAIL=1)" "близнец: папка снята — та же локальная отправка идёт"
+# Правка отслеживаемого без неотслеживаемого (приёмка ws#1280, C2) — тот же класс: локальный хук
+# судил бы её, а не отправляемую ревизию. Кластер «недоступен» (FAKE_AVAIL=1): при доступном маршрут
+# отказывает раньше — 77 «закоммить правки» (близнец ниже).
+echo c >> "$R/f"; rm -f "$HL"
+assert "64 нет нет да" "$(lpush 1280-h FAKE_AVAIL=1) $(has "$W/err" 'в копии правки отслеживаемого, путей 1 (f)')" "правка отслеживаемого, неотслеживаемого нет: 64 до хука, путь назван, ссылки нет"
+rm -f "$HL"
+assert "77 нет нет да" "$(lpush 1280-i) $(has "$W/err" 'закоммить правки')" "близнец: та же правка при доступном кластере — маршрут отказывает раньше (77), хук не звался"
+# shellcheck disable=SC2016  # образец мутанта — литерал строки слота
+M1280C_A='list="$(git -C "$top" diff --name-only HEAD -- 2>/dev/null)"'
+M1280C_T="$(cat "$SLOT")"; printf '%s\n' "${M1280C_T/"$M1280C_A"/list=\"\"}" > "$W/slot-mut-1280c.sh"; rm -f "$HL"
+assert "1 0 да да" "$(diff "$SLOT" "$W/slot-mut-1280c.sh" | grep -c '^<') $(LSLOT="$W/slot-mut-1280c.sh" lpush 1280-j FAKE_AVAIL=1)" "мутант «правка отслеживаемого не судится»: отправка ушла с хуком по правленому дереву — проба выше его ловит"
+git -C "$R" checkout -q -- f; rm -f "$HL"
+assert "0 да да" "$(lpush 1280-k FAKE_AVAIL=1)" "близнец: правка снята — та же локальная отправка идёт"
 # Замок отправки (класс «параллельные-отправки-ветки», 5 случаев: вторая отправка той же ветки
 # теряла ref ПОСЛЕ полного хука): идёт отправка (репозиторий, ветка) — вторая отказывает 64 ДО хука.
 PLF="$HEAVY_SLOT_DIR/push-locks/bare--1314-l.lock"; mkdir -p "${PLF%/*}"; rm -f "$W/held"
@@ -1277,7 +1379,7 @@ snx() { [ -e "$W/$1" ] && echo да || echo нет; }
 # (файл слота появляется раньше строки журнала) счёт не сдвигает.
 ens() { grep -cE ' enter id=[^ ]+ class=stand ' "$JL" 2>/dev/null || true; }
 # snclr — снять метки исполнения: каждое утверждение судит лишь свой вызов.
-snclr() { rm -f "$W/ev-ran" "$W/sn-up" "$W/sn-down" "$W/sn-census" "$W/sn-run" "$W/sn-devup" "$W/sn-forward" "$W/sn-unforward"; }
+snclr() { rm -f "$W/ev-ran" "$W/sn-up" "$W/sn-down" "$W/sn-census" "$W/sn-run" "$W/sn-devup" "$W/sn-forward" "$W/sn-unforward" "$W/sn-own"; }
 # sn <каталог> <команда…> — класс stand без ожидания слота: код; метки сняты до вызова.
 sn() { local d="$1"; shift; snclr; RDIR="$d" rslot env HEAVY_SLOT_WAIT_S=0 bash "$SLOT" stand -- "$@"; }
 # snenv <каталог> <ПЕРЕМЕННАЯ=…> <команда…> — то же с переменной в окружении вызова слота.
@@ -1331,6 +1433,47 @@ assert "77 нет" "$(sn "$KC" bash deploy/scripts/stand-ns.sh run t1143-x -- tr
 assert "77 нет" "$(sn "$SN" bash -c 'make -s stand-ns-up NS=t1143-x') $(snx sn-up)" "близнец: строка оболочки со stand-ns-up → 77: внешнего маршрута нет, на машине не исполнялся (ws#1301)"
 assert "77 нет" "$(sn "$SN" make -s stand-ns-up stand-ns-run NS=t1143-x) $(snx sn-up)" "близнец: stand-ns-up вместе с иной целью → 77: внешнего маршрута нет, на машине не исполнялся (ws#1301)"
 assert "74 нет" "$(FAKE_AVAIL=1 sn "$SN" make -s dev-up) $(snx sn-devup)" "близнец: локальный kind-стенд (dev-up, кластер недоступен) → под слотом, 74"
+# Раннер стенда (ws#1303, kacho#3346): механизм клона знает раннер (строка STAND_RUNNER_KINDS
+# stand-ns.sh) — stand-ns-run RUNNER=<вид> идёт без слота: CMD исполняет pod ns стенда, на машине
+# kubectl, git и tar; журнал — remote route=stand-runner. Слоты всё ещё заняты держателями.
+# snc <класс> <каталог> <команда…> — как sn, но классом из довода.
+snc() { local c="$1" d="$2"; shift 2; snclr; RDIR="$d" rslot env HEAVY_SLOT_WAIT_S=0 bash "$SLOT" "$c" -- "$@"; }
+assert "77 нет" "$(sn "$SN" make -s stand-ns-run NS=t1143-x RUNNER=newman 'CMD=x') $(snx sn-run)" "близнец: механизм клона без STAND_RUNNER_KINDS — RUNNER=newman → 77, на машине не исполнялся"
+sed -i '1a STAND_RUNNER_KINDS="newman browser"' "$SN/scripts/stand-ns.sh"; sandbox_git -C "$KC" commit -q -am runner
+br="$(jn ' remote class=stand route=stand-runner runner=newman ')"; be="$(ens)"
+# shellcheck disable=SC2016  # CMD раскрывает pod раннера, не слот
+assert "0 да $be $((br + 1))" "$(sn "$SN" make -s stand-ns-run NS=t1143-x RUNNER=newman 'CMD=newman run x; echo $HOME') $(snx sn-run) $(ens) $(jn ' remote class=stand route=stand-runner runner=newman ')" "stand-ns-run RUNNER=newman при трёх занятых слотах → исполнился сразу, слота не брал, журнал remote route=stand-runner (ws#1303)"
+nb="$(jn ' remote class=newman route=stand-runner runner=browser ')"
+assert "0 да $((nb + 1))" "$(snc newman "$SN" make -s stand-ns-run NS=t1143-x RUNNER=browser DIR=ui-future/e2e 'CMD=npx playwright test') $(snx sn-run) $(jn ' remote class=newman route=stand-runner runner=browser ')" "класс newman, RUNNER=browser → внешний маршрут, слота нет"
+assert "0 да" "$(sn "$KC" bash deploy/scripts/stand-ns.sh run t1143-x --runner newman -- newman run x) $(snx sn-run)" "stand-ns.sh run --runner newman клона → без слота"
+assert "77 нет" "$(sn "$KC" bash deploy/scripts/stand-ns.sh run t1143-x -- newman run x) $(snx sn-run)" "близнец: stand-ns.sh run без --runner → 77"
+assert "77 нет" "$(sn "$SN" make -s stand-ns-run NS=t1143-x RUNNER=chrome 'CMD=x') $(snx sn-run)" "близнец: вид раннера вне STAND_RUNNER_KINDS → 77, на машине не исполнялся"
+# shellcheck disable=SC2016  # значение — предмет суждения
+assert "77 нет нет" "$(sn "$SN" make -s stand-ns-run NS=t1143-x 'RUNNER=$(shell touch '"$W"'/ev-ran)' 'CMD=x') $(snx sn-run) $(snx ev-ran)" "близнец: значение RUNNER с \$ → 77"
+assert "77 нет" "$(sn "$SN" make -s stand-ns-up stand-ns-run NS=t1143-x RUNNER=newman 'CMD=x') $(snx sn-up)" "близнец: stand-ns-run с раннером вместе с иной целью → 77"
+assert "74 нет" "$(sn "$SN" make -s stand-ns-up 'CMD=x') $(snx sn-up)" "близнец: CMD у цели без раннера — не лёгкая форма: под слотом, 74 (как присваивание вне NS, STACK, REF, EXPIRED)"
+assert "77 да" "$(snc newman "$SN" newman run x.json) $(has "$W/err" 'RUNNER=newman|browser')" "класс newman вне стенда при доступном кластере → 77 с формой раннера, не local"
+# Раннер стенда own клона kaname (ws#1321): stand-own.sh runner исполняется без слота лишь при виде
+# own в строке STAND_RUNNER_KINDS неправленого отслеживаемого скрипта клона kaname.
+KN="$W/kn"; git init -q -b 940-x "$KN"; git -C "$KN" remote add origin https://github.com/PRO-Robotech/kaname.git
+mkdir -p "$KN/.github/scripts"; printf '#!/usr/bin/env bash\ntouch "%s/sn-own"\n' "$W" > "$KN/.github/scripts/stand-own.sh"; chmod +x "$KN/.github/scripts/stand-own.sh"
+git -C "$KN" add .github; sandbox_git -C "$KN" commit -q -m own
+assert "77 нет" "$(sn "$KN" bash .github/scripts/stand-own.sh runner -- true) $(snx sn-own)" "маршрут выключен: stand-own.sh без STAND_RUNNER_KINDS → 77, на машине не исполнялся (ws#1321)"
+sed -i '1a STAND_RUNNER_KINDS="own"' "$KN/.github/scripts/stand-own.sh"; sandbox_git -C "$KN" commit -q -am runner
+bo="$(jn ' remote class=stand route=stand-runner runner=own ')"; be="$(ens)"
+assert "0 да $be $((bo + 1))" "$(sn "$KN" bash .github/scripts/stand-own.sh runner --ship ghjob.py -- python3 /work/ship/ghjob.py) $(snx sn-own) $(ens) $(jn ' remote class=stand route=stand-runner runner=own ')" "stand-own.sh runner клона kaname при трёх занятых слотах → исполнился сразу, слота не брал, журнал remote route=stand-runner runner=own"
+assert "0 да" "$(sn "$KN" .github/scripts/stand-own.sh runner -- true) $(snx sn-own)" "путь скрипта первым словом → без слота"
+ln -s .github/scripts "$KN/s"; printf 's\n' > "$KN/.git/info/exclude"
+assert "77 нет" "$(sn "$KN" bash s/stand-own.sh runner -- true) $(snx sn-own)" "близнец: каталог пути — ссылка, ROOT раннера — родитель клона → 77, на машине не исполнялся"
+rm -f "$KN/s"; : > "$KN/.git/info/exclude"
+echo '# правка' >> "$KN/.github/scripts/stand-own.sh"
+assert "77 нет" "$(sn "$KN" bash .github/scripts/stand-own.sh runner -- true) $(snx sn-own)" "близнец: правка stand-own.sh вне коммита → 77, на машине не исполнялся"
+git -C "$KN" checkout -q .github
+assert "77 нет" "$(sn "$KN" bash .github/scripts/stand-own.sh up) $(snx sn-own)" "близнец: подкоманда не runner → 77"
+# shellcheck disable=SC2016  # значение — предмет суждения
+assert "77 нет нет" "$(sn "$KN" bash .github/scripts/stand-own.sh runner --out '$(touch '"$W"'/ev-ran)' -- true) $(snx sn-own) $(snx ev-ran)" "близнец: значение --out с \$ → 77"
+br="$(jn ' remote class=stand route=stand-runner runner=newman ')"
+assert "0 да $((br + 1))" "$(sn "$SN" make -s stand-ns-run NS=t1143-x RUNNER=newman 'CMD=x') $(snx sn-run) $(jn ' remote class=stand route=stand-runner runner=newman ')" "близнец (ws#1321): раннер kacho не меняется — без слота, журнал runner=newman"
 # ГРАНИЦА (шапка heavy-slot.sh): закоммиченный в клон рецепт и подмена PATH — без слота.
 printf 'stand-ns-census:\n\t@touch "%s/ev-ran"\n' "$W" > "$SN/Makefile"; sandbox_git -C "$KC" commit -q -am heavy
 boundary "0 да" "$(sn "$SN" make -s stand-ns-census) $(snx ev-ran)" "рецепт, закоммиченный в deploy/Makefile клона, исполняет тяжёлое без слота"
@@ -1344,6 +1487,7 @@ assert "8192" "$(env "${REAL[@]}" bash "$SLOT" --budget stand 2>/dev/null)" "б�
 touch "$W/sn-release"; wait "$SH1" "$SH2" "$SH3"
 be="$(ens)"
 assert "0 да $((be + 1))" "$(FAKE_AVAIL=1 sn "$SN" make -s dev-up) $(snx sn-devup) $(ens)" "близнец: слоты вышли — тот же dev-up входит в слот (enter в журнале)"
+assert "0 да" "$(FAKE_AVAIL=1 snc newman "$SN" true) $(has "$W/err" 'локально — кластер недоступен')" "близнец (ws#1303): класс newman вне стенда при недоступном кластере → локально, причина названа"
 
 git init -q -b nodigits "$W/rclone2"; git -C "$W/rclone2" remote add origin https://github.com/PRO-Robotech/kacho.git
 echo a > "$W/rclone2/f"; git -C "$W/rclone2" add f; sandbox_git -C "$W/rclone2" commit -q -m p
@@ -1478,6 +1622,13 @@ if [ "${1:-}" = --available ]; then
     exit "$rc"
 fi
 label="${*: -1}"
+# ws#1280: GATE_PEER — записать, назван ли run.sh своим писателем его журнала (stdout) процесс,
+# который туда пишет: pid из REMOTE_HEAVY_OUT_PEER держит тот же файл открытым как stderr.
+if [ -n "${GATE_PEER:-}" ]; then
+    r=нет; o="$(readlink "/proc/$$/fd/1")"
+    for p in ${REMOTE_HEAVY_OUT_PEER:-}; do [ -n "$o" ] && [ "$(readlink "/proc/$p/fd/2" 2>/dev/null)" = "$o" ] && r=да; done
+    echo "$r" > "$GATE_PEER"
+fi
 mkdir -p "$GATE_DIR/st"; mkdir "$GATE_DIR/st/$label"
 n="$(ls "$GATE_DIR/st" | wc -l)"; [ "$n" -le "$(cat "$GATE_DIR/maxst" 2>/dev/null || echo 0)" ] || echo "$n" > "$GATE_DIR/maxst"
 if [ -n "${GATE_START_HOLD:-}" ]; then
@@ -1612,6 +1763,19 @@ mark2() {
 }
 assert "A B 0" "$(mark2)" "учёт снят строкой «ns … создано»: места на два — второй стартовал (A B), пока первый ещё исполняется (завершений 0)"
 assert "1 A 0" "$(diff "$SLOT" "$W/slot-mut-1176c.sh" | grep -c '^<') $(mark2 "$W/slot-mut-1176c.sh")" "мутант «фильтр не снимает учёт»: A считается дважды — второй ждёт (стартов лишь A; проба выше его ловит)"
+echo "── внешний путь --enqueue: журнал билета — свой файл, фильтр stderr слота — названный свой писатель (ws#1280)"
+# Урок 2026-10-19: run.sh предупреждал «вывод прогонов перемешается» на журнале билета — в него пишет
+# фильтр stderr слота (ext_filter), сосед run.sh, а не предок и не потомок.
+gnew; rm -f "$W/peer1" "$W/peer2"
+r1="$(genq "$R" P1 GATE_PEER="$W/peer1")"; RP1="$(rcof)"; r2="$(genq "$R" P2 GATE_PEER="$W/peer2")"; RP2="$(rcof)"
+c1="$(await_rc "$RP1")"; c2="$(await_rc "$RP2")"
+assert "0/0 0/0 да да да" "$r1/$r2 $c1/$c2 $(cat "$W/peer1" 2>/dev/null || echo нет) $(cat "$W/peer2" 2>/dev/null || echo нет) $([ -n "$RP1" ] && [ "${RP1%.rc}.log" != "${RP2%.rc}.log" ] && [ "${RP1%.rc}.log" != "$JL" ] && [ "${RP2%.rc}.log" != "$JL" ] && echo да || echo нет)" "два билета --enqueue: журналы разные и не журнал слотов; фильтр stderr слота назван run.sh своим писателем журнала"
+# shellcheck disable=SC2016  # образец sed: $ — буквальный знак строки слота
+sed 's/^\( *\)REMOTE_HEAVY_OUT_PEER="\$fp" "\$@" 2>/\1"$@" 2>/' "$SLOT" > "$W/slot-mut-1280a.sh"
+gnew; rm -f "$W/peer1"; GSLOT="$W/slot-mut-1280a.sh"
+r1="$(genq "$R" P3 GATE_PEER="$W/peer1")"; RP1="$(rcof)"; c1="$(await_rc "$RP1")"
+assert "1 0 нет" "$(diff "$SLOT" "$W/slot-mut-1280a.sh" | grep -c '^<') $c1 $(cat "$W/peer1" 2>/dev/null || echo нет)" "мутант «фильтр не назван»: run.sh не знает своего писателя — проба выше его ловит"
+GSLOT=""
 # Страховка: run.sh без строки «ns … создано» учёт держит не дольше EXT_HOLD_S (ручка проб).
 gnew; rm -f "$W/hold3"
 r1="$(genq "$R" A GATE_CAP_MIB=2000 GATE_HOLD="$W/hold3" GATE_NOMARK=1 HEAVY_SLOT_EXT_HOLD_S=2)"; RA="$(rcof)"; wait_order "A" 40
@@ -1957,12 +2121,18 @@ kreset() {
     esac
     rm -f "$W/knpm.log" "$W/khook"
 }
+# Бюджет вызова — свой, не общие 64 МиБ раздела «вызов»: переходник зовёт настоящий node
+# (deps-ready.mjs, пустой node — 40 МиБ RSS) под bash слота, git push и хуком, и без предела ядра
+# (pod без systemd --user: запасной путь, RSS дерева раз в GUARD_S) дерево то влезало в 64, то нет —
+# 76 в случайном кейсе раздела (ws#1321: два прогона из двух, кейсы k19 и k3). Предмет раздела —
+# зависимости консоли, не предел; пик — строкой MEASURE в конце раздела.
+KBUD=512; KJL0="$(wc -l < "$JL" 2>/dev/null || echo 0)"
 # kpush [ENV=…] -- <слова git push после «push»> — ci-local слотом из копии; код слота.
 kpush() {
     local e=()
     rm -f "$W/knpm.log" "$W/khook"
     while [ "$1" != -- ]; do e+=("$1"); shift; done; shift
-    (cd "$KS" && slot PATH="$KPATH" KNPM_LOG="$W/knpm.log" KHOOK="$W/khook" "${e[@]+"${e[@]}"}" bash "${KSLOT:-$SLOT}" ci-local -- git push -q origin "$@")
+    (cd "$KS" && slot PATH="$KPATH" KNPM_LOG="$W/knpm.log" KHOOK="$W/khook" HEAVY_SLOT_BUDGET_MIB="$KBUD" "${e[@]+"${e[@]}"}" bash "${KSLOT:-$SLOT}" ci-local -- git push -q origin "$@")
 }
 knpm() { [ -s "$W/knpm.log" ] && tr '\n' ';' < "$W/knpm.log" || echo нет; }
 khook() { [ -s "$W/khook" ] && cut -d' ' -f1,2 "$W/khook" || echo нет; }
@@ -2105,6 +2275,7 @@ assert "0 ran" "$(KSLOT="$KM/gall.sh" kpush KACHO_PREPUSH_GROUP=' ' -- HEAD:refs
 assert "64 нет" "$(KSLOT="$KM/gword.sh" kpush KACHO_PREPUSH_GROUP='go all' -- HEAD:refs/heads/m7b) $(khook)" "мутант «all — любым словом»: «go all» получает отказ, хотя ci-local консоль не гонит — проба g5b его ловит"
 assert "0 ran" "$(KSLOT="$KM/gprange.sh" kpush KACHO_PUSH_RANGE="$KNO..$KNO" -- HEAD:refs/heads/m8) $(khook | cut -d' ' -f1)" "мутант «группы спрошены с диапазоном вызывающего»: суждение разошлось с хуком — проба g6 его ловит"
 assert "64 нет" "$(KSLOT="$KM/trunk.sh" kpush KACHO_TRUNK_REF=ui -- HEAD:refs/heads/m9) $(khook)" "мутант «база диапазона без KACHO_TRUNK_REF»: пустой у хука диапазон судится как правка консоли — проба g7 его ловит"
+echo "  [MEASURE] консоль (ws#1321): пик слота kpush $(tail -n +"$(( KJL0 + 1 ))" "$JL" | grep ' leave .*class=ci-local .*budget='"$KBUD"'MiB ' | sed -n 's/.* peak=\([0-9]*\)MiB .*/\1/p' | sort -n | tail -n 1) МиБ при бюджете $KBUD, вызовов $(tail -n +"$(( KJL0 + 1 ))" "$JL" | grep -c ' leave .*class=ci-local .*budget='"$KBUD"'MiB '), предел $(tail -n +"$(( KJL0 + 1 ))" "$JL" | grep ' leave .*class=ci-local ' | sed -n 's/.* limiter=\([^ ]*\).*/\1/p' | sort -u | tr '\n' ' ')"
 fi
 
 echo "[CENSUS] heavy-slot: утверждений $((pass + fail)), сошлось $pass, разошлось $fail; граница (не ловится, заявлено в шапке) $bound; не построено частей $void"

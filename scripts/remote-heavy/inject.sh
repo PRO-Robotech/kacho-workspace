@@ -162,7 +162,10 @@
 #      KX1-all — во всех контейнерах Job, init тоже, $ лишь парами
 #   O1 строки run.sh после выбора ns несут его имя
 #   O2 stderr — файл, в который пишет посторонний живой процесс → предупреждение с
-#      его pid; близнец O2b файл держат только предки прогона → молчание
+#      его pid; близнец O2b файл держат только предки прогона → молчание; O2c тот
+#      же писатель назван своим (REMOTE_HEAVY_OUT_PEER, фильтр heavy-slot.sh) → молчание,
+#      O2c-m мутант без этой строки → предупреждение (ws#1280); O2d назван другой pid,
+#      посторонний жив → предупреждение, O2d-m мутант «назван хоть кто-то» → молчание
 #   G1 остатки kill -9 (каталог, процесс, ns, ссылка) мёртвого владельца → сняты
 #   G2 близнецы: живой владелец и ns с чужой меткой — не тронуты
 #   E1 ревизия с пинами helm и node в ci.yaml, профиль с go test → пины в окружении
@@ -2969,6 +2972,52 @@ go_run o2 env FAKE_EXIT=0 "${B[@]}" --short o2 -- true
 kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null
 expect_rc O2 0
 if grep -q 'пишет и другой процесс' "$OUT" && grep -q "pid $holder" "$OUT"; then ok; else bad O2 "общий файл вывода не назван"; fi
+# O2c — близнец O2: тот же посторонний писатель назван своим (REMOTE_HEAVY_OUT_PEER — так
+# heavy-slot.sh называет свой фильтр stderr прогона, ws#1280) → молчание
+fresh
+: > "$BOX/o2c.out"
+( exec 3>> "$BOX/o2c.out"; exec sleep 60 ) & holder=$!
+for _ in $(seq 1 50); do [ -e "/proc/$holder/fd/3" ] && break; sleep 0.1; done
+go_run o2c env FAKE_EXIT=0 REMOTE_HEAVY_OUT_PEER="1 $holder" "${B[@]}" --short o2c -- true
+kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null
+expect_rc O2c 0
+if grep -q 'пишет и другой процесс' "$OUT"; then bad O2c "свой писатель из REMOTE_HEAVY_OUT_PEER назван посторонним"; else ok; fi
+# O2c-m — мутант run.sh без строки REMOTE_HEAVY_OUT_PEER: тот же вход → предупреждение (проба O2c его ловит)
+grep -v 'REMOTE_HEAVY_OUT_PEER:-' "$RUN" > "$BOX/run-mut-1280.sh"
+BM=("${B[@]}"); BM[1]="$BOX/run-mut-1280.sh"
+fresh
+: > "$BOX/o2m.out"
+( exec 3>> "$BOX/o2m.out"; exec sleep 60 ) & holder=$!
+for _ in $(seq 1 50); do [ -e "/proc/$holder/fd/3" ] && break; sleep 0.1; done
+go_run o2m env FAKE_EXIT=0 REMOTE_HEAVY_OUT_PEER="1 $holder" "${BM[@]}" --short o2m -- true
+kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null
+nd="$(diff "$RUN" "$BOX/run-mut-1280.sh" | grep -c '^<')"
+if [ "$nd" = 1 ] && [ "${B[1]}" = "$RUN" ] && grep -q 'пишет и другой процесс' "$OUT"; then ok
+else bad O2c-m "мутант без REMOTE_HEAVY_OUT_PEER не построен либо не предупредил — проба O2c мимо предмета"; fi
+# O2d — близнец O2c (возврат приёмки ws#1280): в REMOTE_HEAVY_OUT_PEER назван ДРУГОЙ pid, посторонний
+# писатель жив → предупреждение с его pid: имя пира снимает лишь названного, а не всех
+fresh
+: > "$BOX/o2d.out"
+( exec 3>> "$BOX/o2d.out"; exec sleep 60 ) & holder=$!
+for _ in $(seq 1 50); do [ -e "/proc/$holder/fd/3" ] && break; sleep 0.1; done
+go_run o2d env FAKE_EXIT=0 REMOTE_HEAVY_OUT_PEER="1 $$" "${B[@]}" --short o2d -- true
+kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null
+expect_rc O2d 0
+if grep -q 'пишет и другой процесс' "$OUT" && grep -q "pid $holder" "$OUT"; then ok; else bad O2d "назван другой пир — посторонний писатель не назван"; fi
+# O2d-m — мутант «назван хоть кто-то — посторонних не искать»: тот же вход → молчание (проба O2d его ловит)
+# shellcheck disable=SC2016  # образцы мутанта — литералы строки run.sh
+O2D_A='[[ " ${REMOTE_HEAVY_OUT_PEER:-} " == *" $pid "* ]] && continue' O2D_B='[ -n "${REMOTE_HEAVY_OUT_PEER:-}" ] && continue'
+O2D_T="$(cat "$RUN")"; printf '%s\n' "${O2D_T/"$O2D_A"/"$O2D_B"}" > "$BOX/run-mut-1280d.sh"
+BM=("${B[@]}"); BM[1]="$BOX/run-mut-1280d.sh"
+fresh
+: > "$BOX/o2dm.out"
+( exec 3>> "$BOX/o2dm.out"; exec sleep 60 ) & holder=$!
+for _ in $(seq 1 50); do [ -e "/proc/$holder/fd/3" ] && break; sleep 0.1; done
+go_run o2dm env FAKE_EXIT=0 REMOTE_HEAVY_OUT_PEER="1 $$" "${BM[@]}" --short o2dm -- true
+kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null
+nd="$(diff "$RUN" "$BOX/run-mut-1280d.sh" | grep -c '^<')"
+if [ "$nd" = 1 ] && [ "${B[1]}" = "$RUN" ] && ! grep -q 'пишет и другой процесс' "$OUT"; then ok
+else bad O2d-m "мутант «назван хоть кто-то» не построен либо предупредил — проба O2d мимо предмета"; fi
 # O2b — близнец: файл держат только предки прогона (timeout, env) → молчание
 if grep -q 'пишет и другой процесс' "$BOX/o1.out"; then OUT="$BOX/o1.out"; bad O2b "предупреждение без постороннего писателя"; else ok; fi
 
