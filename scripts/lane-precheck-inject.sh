@@ -623,6 +623,25 @@ assert "нет" "$(ttk 'Стенд: ~/.kube/cctl/probe--lab1.yaml.' "- \`cluster
 assert "1 да" "$(KUBE_NODES="$W/nodes-infra.json" ttk "Стенд: $KC." "- \`cluster $KC\`") $(has 'REASON TASK-COORD-FALSE перепись не сошлась: PREMISE-FALSE cluster')" "кластер переписи не доказан узлами → TASK-COORD-FALSE"
 assert "0 да" "$(ttk 'Кубконфиги профилей лежат в ~/.kube/cctl/ — бери файл из настройки слота.') $(has 'причин 0')" "близнец: каталог кубконфигов — не кластер → 0"
 
+echo "== задание git-operator: вердикт полем; настройки вливания репозитория (пачка уроков ws#1314)"
+ttg() { printf '%s\n' "$@" > "$W/task.txt"; bash "$P" --task-text "$W/task.txt" --agent git-operator > "$W/out" 2>&1; echo $?; }
+assert "1 да" "$(ttg 'Роль: git-operator. Если вердикт check-verifier ниже — не ✅, стоп. Иначе: ветку 468 включи в сборку.' 'check-verifier: ; мо') $(has 'REASON TASK-VERDICT строка 1')" "задание git-operator с условием на вердикт, а поля вердикта нет (уроки 09b14c00, f0f94389) → TASK-VERDICT"
+assert "0 да" "$(ttg 'Если вердикт check-verifier — не ✅, стоп.' '- вердикт check-verifier: ✅ принято @abc1234') $(has 'причин 0')" "близнец: поле «вердикт …: ✅» есть → 0"
+assert "0 да" "$(ttg 'Если вердикт check-verifier — не ✅, стоп.' 'вердикт: ⛔ возврат → go-implementer') $(has 'причин 0')" "близнец: поле «вердикт: ⛔» — тоже поле (стоп решит исполнитель) → 0"
+assert "0" "$(ttg 'Влей PR #5 по правилу; вердикт без условий не нужен для снятия ветки.' > /dev/null; printf '%s\n' 'Сними влитую ветку 1-x.' > "$W/task.txt"; bash "$P" --task-text "$W/task.txt" --agent git-operator > "$W/out" 2>&1; echo $?)" "близнец: задание git-operator без слова «вердикт» — не судится"
+assert "0" "$(printf '%s\n' 'Если вердикт check-verifier — не ✅, стоп.' > "$W/task.txt"; bash "$P" --task-text "$W/task.txt" --agent go-implementer > "$W/out" 2>&1; echo $?)" "близнец: другому агенту — не судится"
+printf '%s' '{"allow_squash_merge":false,"allow_merge_commit":true,"allow_rebase_merge":false,"delete_branch_on_merge":true}' > "$W/c/repos_o_r.json"
+printf '%s' '{"allow_squash_merge":true,"allow_merge_commit":true,"allow_rebase_merge":true,"delete_branch_on_merge":false}' > "$W/c/repos_o_new.json"
+printf '%s' '{"allow_merge_commit":true}' > "$W/c/repos_o_ro.json"
+prem 'repo-merge o/r'
+assert "0" "$(runp)" "repo-merge: коммит слияния, без сквоша и rebase, ветка снимается → 0"
+prem 'repo-merge o/new'
+assert "1 да да" "$(runp) $(has 'REASON PREMISE-FALSE repo-merge o/new') $(has 'allow_squash_merge=true')" "новый репозиторий с настройками по умолчанию (уроки 6c51014f, 1e621e48) → PREMISE-FALSE, расхождение названо"
+prem 'repo-merge o/ro'
+assert "2 да" "$(runp) $(has 'VOID REPO-SETTINGS-UNSEEN repo-merge o/ro')" "настройки не видны (нет прав) → не судимо, код 2"
+prem 'repo-merge o/none'
+assert "1 да" "$(runp) $(has 'репозитория нет')" "репозитория нет → PREMISE-FALSE"
+
 echo "== мутанты lane-precheck (по одной правке; проба выше обязана покраснеть)"
 mut() {  # <имя> <было> <стало> <файл предусловий|--task-text строки…> — печатает код мутанта
     local m="$W/mut-lp.sh"
@@ -679,6 +698,10 @@ assert "0" "$(PATH="$W/kb:$PATH" mut ver-all '[[ "$x" =~ ^(cluster|vault-mount)[
 assert "0" "$(PATH="$W/kb:$PATH" mut vault-own 'if [[ " $own " == *" $vm "* ]]; then' 'if true; then' "vault-mount $KC default system-1")" "мутант «mount не сверяется с VaultConfig»: «system-1» проходит — проба выше его ловит"
 assert "1 нет" "$(PATH="$W/kb:$PATH" mut vault-key 'test("mountpath$"; "i")' 'test("^mountPath$")' "vault-mount $KC default system-1") $(has 'begetk8s-system-1 secret')" "мутант «одна схема ключа mount»: kvMountPath пропал из живых mount — проба выше его ловит"
 assert "0" "$(KUBE_NODES="$W/nodes-infra.json" PATH="$W/kb:$PATH" mut cl-false '64 | 69) reasons+=' '64 | 69) heads+=' "cluster $KC")" "мутант «отказ стража не ложь»: узел -infra- проходит — проба выше его ловит"
+# ws#1314 — вердикт полем, настройки вливания.
+assert "0" "$(mut verdict '|| reasons+=("TASK-VERDICT' '|| : || reasons+=("TASK-VERDICT' --task-text 'x' > /dev/null; printf '%s\n' 'Если вердикт check-verifier ниже — не ✅, стоп.' 'check-verifier: ; мо' > "$W/task.txt"; bash "$W/ms/lane-precheck.sh" --task-text "$W/task.txt" --agent git-operator > "$W/out" 2>&1; echo $?)" "мутант «вердикт не судится»: задание без поля проходит — проба выше его ловит"
+assert "1" "$(mut vfield '[^:]*:[[:space:]]*(✅|⛔) ]] && vfield=1' '[^:]*:[[:space:]]*(never) ]] && vfield=1' --task-text 'x' > /dev/null; printf '%s\n' 'Если вердикт — не ✅, стоп.' '- вердикт check-verifier: ✅ принято' > "$W/task.txt"; bash "$W/ms/lane-precheck.sh" --task-text "$W/task.txt" --agent git-operator > "$W/out" 2>&1; echo $?)" "мутант «поле вердикта не узнаётся»: близнец с полем краснеет — проба выше его ловит"
+assert "0" "$(mut repo-merge 'elif [ "$got" != "squash=false merge=true rebase=false delete=true" ]; then' 'elif false; then' 'repo-merge o/new')" "мутант «настройки не сверяются»: умолчания GitHub проходят — проба выше его ловит"
 assert "0" "$(LANE_PRECHECK_GIT_BASE="$W/gb" mut pushed '[ "$kind" = pushed ] && [ "$got" != "$want" ]' 'false' "pushed o/r 1-lane $BASE_SHA")" "мутант «голова отправки не сверяется»: непредъявленная голова проходит — проба выше его ловит"
 
 [ -z "${CHERRY_GV:-}" ] || assert "1" "$(mut tags-cut 'if [ "${nf:-0}" -gt 0 ]; then keep=' 'if true; then keep=' "cherry-vet $CHERRY_GV 774")" "мутант «теги не отсекаются»: tools.go даёт ложь vet — проба выше его ловит"

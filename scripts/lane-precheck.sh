@@ -82,6 +82,11 @@
 #                                                 любого ключа `*mountPath` его spec — класс, не одна схема;
 #                                                 печатается `VAULT-MOUNT <VaultConfig> <mount>; тот же mount у:
 #                                                 …`, ложно — с живыми mount и владельцами; адреса не печатаются;
+#   repo-merge <владелец/репо>                    настройки вливания — норма `git-issues.md#gi-merge-method`:
+#                                                 сквоша и rebase нет, коммит слияния есть, ветка снимается
+#                                                 (`delete_branch_on_merge`); ws#1314, уроки 6c51014f,
+#                                                 1e621e48: новый репозиторий создан с настройками по
+#                                                 умолчанию — шаг после `gh repo create`; не видны — VOID;
 #   proof <владелец/репо>#<N>                     у задачи есть `DoD-proof @<sha>`;
 #   verdict <файл записи роли> <accept|return>    `verdict.value` записи: ✅ / ⛔.
 # Ложное — `REASON PREMISE-FALSE …`, код 1. Не судимо (трекер не ответил, строка вне
@@ -134,6 +139,10 @@
 #                         mount Vault; путь `auth/<mount>/…` без слова mount не узнаётся;
 #   TASK-CLUSTER-UNCENSUSED путь кубконфига (`…/.kube/<файл>`; каталог со «/» на конце — не кластер)
 #                         вне строк `cluster`/`vault-mount` переписи: кластер назван без проверки.
+# Задание `--agent git-operator` (ws#1314, уроки 09b14c00, f0f94389 — задание побочного workflow
+# склеило возврат check-verifier текстом, поле вердикта ушло пустым):
+#   TASK-VERDICT          текст ставит условие на вердикт (слово «вердикт»), а строки-поля
+#                         «вердикт…: ✅|⛔» нет.
 # Код 0 — причин нет; 1 — есть; 2 — прочитано ноль строк либо перепись не судима.
 #
 # ЧТО СУДИТ (каждый пункт — своя причина, строкой `REASON <КОД> <текст>`):
@@ -250,7 +259,7 @@ knorm() {
 if [ -n "$task_text" ]; then
     [ "${#pos[@]}" -eq 0 ] && [ -z "$premise" ] || usage
     [ -r "$task_text" ] || { echo "lane-precheck: текста задания $task_text нет; вердикта нет" >&2; exit 2; }
-    reasons=() n=0 limits=() longstep="" ret="" cen=() cenk="" coords=() void="" kpaths=() vaultseen="" mountline=""
+    reasons=() n=0 limits=() longstep="" ret="" cen=() cenk="" coords=() void="" kpaths=() vaultseen="" mountline="" vmention="" vfield=""
     kre='(~|\$\{HOME\}|\$HOME)?[A-Za-z0-9_./-]*/\.kube/[A-Za-z0-9_.@/-]*'
     num='[0-9]+([.,][0-9]+)?'; sec='(с|сек[[:alpha:]]*|s|мин(ут[[:alpha:]]*)?|m)([^[:alnum:]]|$)'
     cmp='(дольше|больше|более|свыше)'
@@ -267,6 +276,11 @@ if [ -n "$task_text" ]; then
         else
             # Vault mount и кластер (ws#1307): упоминание — данные для суда после всего текста.
             [[ "$l" == *vault* ]] && vaultseen=1
+            # Вердикт (ws#1314): условие на него и строка-поле «вердикт…: ✅|⛔».
+            if [[ "$line" =~ [Вв][Ее][Рр][Дд][Ии][Кк][Тт] ]]; then
+                vmention="${vmention:-$n}"
+                [[ "$line" =~ [Вв][Ее][Рр][Дд][Ии][Кк][Тт][^:]*:[[:space:]]*(✅|⛔) ]] && vfield=1
+            fi
             if [ -z "$mountline" ] && { [[ "$l" =~ (^|[^[:alpha:]])mount|mountpath ]] || [[ "$line" =~ (^|[^[:alpha:]])[Мм][Аа][Уу][Нн][Тт] ]]; }; then mountline="$n"; fi
             r="$line"
             while [[ "$r" =~ $kre ]]; do
@@ -357,6 +371,8 @@ if [ -n "$task_text" ]; then
         [[ "$kcen" == *" $(knorm "$kv") "* ]] \
             || reasons+=("TASK-CLUSTER-UNCENSUSED строка $kn: «$kv» вне переписи — кластер назван без проверки контекста -client и префикса узлов; внеси строкой cluster $kv")
     done
+    [ "$agent" != git-operator ] || [ -z "$vmention" ] || [ -n "$vfield" ] \
+        || reasons+=("TASK-VERDICT строка $vmention: условие на вердикт без строки-поля «вердикт <роль>: ✅|⛔» — вердикт роли подставляется полем из её ВОЗВРАТа, не склейкой текста; иначе git-operator остановится по отсутствию")
     # Сверка переписи: автору приёмки — вся; прочим — строки cluster и vault-mount.
     ver=()
     for x in "${cen[@]+"${cen[@]}"}"; do
@@ -435,6 +451,15 @@ if [ -n "$premise" ]; then
                 if [ "$rc" = 3 ]; then reasons+=("PREMISE-FALSE $line: ветки $b на origin нет — ожидалась голова $want")
                 elif [ "$rc" != 0 ]; then voids+=("GH-UNREADABLE $line")
                 elif [ "$got" != "$want" ]; then reasons+=("PREMISE-FALSE $line: голова $b на origin ${got:-пуста}, ожидалась $want"); fi ;;
+            repo-merge)
+                if ! [[ "$a" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || [ -n "$b" ]; then voids+=("PREMISE-FORM $line: форма — repo-merge <владелец/репо>"); continue; fi
+                got="$(ghget "repos/$a" '"squash=\(.allow_squash_merge) merge=\(.allow_merge_commit) rebase=\(.allow_rebase_merge) delete=\(.delete_branch_on_merge)"')"; rc=$?
+                if [ "$rc" = 3 ]; then reasons+=("PREMISE-FALSE $line: репозитория нет")
+                elif [ "$rc" != 0 ]; then voids+=("GH-UNREADABLE $line")
+                elif [[ "$got" == *null* ]]; then voids+=("REPO-SETTINGS-UNSEEN $line: настройки вливания не видны ($got) — нет прав на репозиторий")
+                elif [ "$got" != "squash=false merge=true rebase=false delete=true" ]; then
+                    reasons+=("PREMISE-FALSE $line: $(sed 's/squash=/allow_squash_merge=/; s/merge=/allow_merge_commit=/2; s/rebase=/allow_rebase_merge=/; s/delete=/delete_branch_on_merge=/' <<< "$got") — норма false/true/false/true (gi-merge-method): gh api -X PATCH repos/$a -F allow_squash_merge=false -F allow_rebase_merge=false -F allow_merge_commit=true -F delete_branch_on_merge=true")
+                fi ;;
             cluster)
                 if [ -z "$a" ] || [ -n "$b" ]; then voids+=("PREMISE-FORM $line: форма — cluster <кубконфиг>"); continue; fi
                 # Предикат один — у run.sh (СТРАЖ ПО УЗЛАМ); его WHY — без адресов и имён контекстов.
