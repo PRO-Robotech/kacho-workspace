@@ -101,5 +101,39 @@ rc="$(hs "$W/none" ci-local -- make -C "$W/none" git push)"
 assert "не0 да" "$([ "$rc" != 0 ] && echo не0 || echo 0) $(asked)" "make git push — не отправка: лёгкого пути нет (код $rc), кластер спрошен"
 assert "0" "$(slots)" "после всех проб слотов машины 0"
 
+echo "── мутанты слота: каждое утверждение выше читает свой предмет"
+# smut <имя> <фрагмент> <замена> — копия слота с порчей рядом с настоящим признаком.
+smut() {
+    mkdir -p "$W/m-$1"; cp "$PH" "$W/m-$1/push-hook.sh"
+    python3 -c '
+import sys
+s = open(sys.argv[1], encoding="utf-8").read()
+if s.count(sys.argv[3]) != 1:
+    sys.exit(1)
+open(sys.argv[2], "w", encoding="utf-8").write(s.replace(sys.argv[3], sys.argv[4]))' "$SLOT" "$W/m-$1/heavy-slot.sh" "$2" "$3"
+}
+if smut always-light '    [ "$rc" = 1 ]
+}' '    true
+}'; then
+    (cd "$W/tree" && bash "$W/m-always-light/heavy-slot.sh" ci-local -- git push -q origin HEAD:refs/heads/mut-a > /dev/null 2>&1)
+    assert "есть" "$(ref mut-a)" "мутант «всякая отправка лёгкая»: клон с хуком отправил без слота — утверждение «хук tree: ветки нет» его ловит"
+else assert "построен" "не построен" "мутант always-light: фрагмент не единствен"; fi
+if smut no-light 'if [ "$CLASS" = ci-local ] && push_light; then
+    journal_early' 'if false; then
+    journal_early'; then
+    rm -f "$W/argv"; (cd "$W/none" && bash "$W/m-no-light/heavy-slot.sh" ci-local -- git push -q origin HEAD:refs/heads/mut-b > /dev/null 2>&1)
+    assert "нет да" "$(ref mut-b) $(asked)" "мутант «лёгкого пути нет»: клон без хука идёт к кластеру — утверждение «ветка в приёмнике, кластер не спрошен» его ловит"
+else assert "построен" "не построен" "мутант no-light: фрагмент не единствен"; fi
+if smut wrapper-any '            *) return 1 ;;
+        esac
+    done
+    i=$(( i + 1 ))' '            *) i=$(( i + 1 )) ;;
+        esac
+    done
+    i=$(( i + 1 ))'; then
+    rm -f "$W/argv"; (cd "$W/none" && bash "$W/m-wrapper-any/heavy-slot.sh" ci-local -- make -C "$W/none" git push > /dev/null 2>&1)
+    assert "нет" "$(asked)" "мутант «любое слово перед git — обёртка»: make git push исполнен лёгким — утверждение «make git push: кластер спрошен» его ловит"
+else assert "построен" "не построен" "мутант wrapper-any: фрагмент не единствен"; fi
+
 echo "[CENSUS] push-hook-inject: утверждений $((pass + fail)), сошлось $pass, разошлось $fail"
 [ "$fail" -eq 0 ]

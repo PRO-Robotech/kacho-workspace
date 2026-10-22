@@ -26,7 +26,7 @@
 # откажет сама); 64 — вызов неверен.
 set -u
 
-opts=() hp_cli="" gdir="" wtree="" cdir="$PWD"
+opts=() gdir="" wtree="" cdir="$PWD"
 while [ "$#" -gt 0 ]; do
     case "$1" in
         -C|--git-dir|--work-tree)
@@ -42,7 +42,7 @@ while [ "$#" -gt 0 ]; do
             opts+=("$1"); shift ;;
         -c)
             [ "$#" -ge 2 ] || { printf 'PUSH-HOOK\tnone\tу опции -c нет значения\n'; exit 64; }
-            case "${2,,}" in core.hookspath=*) hp_cli="${2#*=}"; opts+=(-c "$2") ;; esac
+            case "${2,,}" in core.hookspath=*) opts+=(-c "$2") ;; esac
             shift 2 ;;
         *) shift ;;
     esac
@@ -54,7 +54,6 @@ if [ -z "$gd" ]; then
     exit 2
 fi
 hp="$(git "${opts[@]}" config core.hooksPath 2>/dev/null)" || hp=""
-[ -n "$hp" ] || hp="$hp_cli"
 if [ -n "$hp" ]; then
     printf 'PUSH-HOOK\tpresent\tcore.hooksPath=%s — хуки git берёт оттуда\n' "$hp"
     exit 0
