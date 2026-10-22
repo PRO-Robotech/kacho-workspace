@@ -1942,12 +1942,18 @@ kreset() {
     esac
     rm -f "$W/knpm.log" "$W/khook"
 }
+# Бюджет вызова — свой, не общие 64 МиБ раздела «вызов»: переходник зовёт настоящий node
+# (deps-ready.mjs, пустой node — 40 МиБ RSS) под bash слота, git push и хуком, и без предела ядра
+# (pod без systemd --user: запасной путь, RSS дерева раз в GUARD_S) дерево то влезало в 64, то нет —
+# 76 в случайном кейсе раздела (ws#1321: два прогона из двух, кейсы k19 и k3). Предмет раздела —
+# зависимости консоли, не предел; пик — строкой MEASURE в конце раздела.
+KBUD=512; KJL0="$(wc -l < "$JL" 2>/dev/null || echo 0)"
 # kpush [ENV=…] -- <слова git push после «push»> — ci-local слотом из копии; код слота.
 kpush() {
     local e=()
     rm -f "$W/knpm.log" "$W/khook"
     while [ "$1" != -- ]; do e+=("$1"); shift; done; shift
-    (cd "$KS" && slot PATH="$KPATH" KNPM_LOG="$W/knpm.log" KHOOK="$W/khook" "${e[@]+"${e[@]}"}" bash "${KSLOT:-$SLOT}" ci-local -- git push -q origin "$@")
+    (cd "$KS" && slot PATH="$KPATH" KNPM_LOG="$W/knpm.log" KHOOK="$W/khook" HEAVY_SLOT_BUDGET_MIB="$KBUD" "${e[@]+"${e[@]}"}" bash "${KSLOT:-$SLOT}" ci-local -- git push -q origin "$@")
 }
 knpm() { [ -s "$W/knpm.log" ] && tr '\n' ';' < "$W/knpm.log" || echo нет; }
 khook() { [ -s "$W/khook" ] && cut -d' ' -f1,2 "$W/khook" || echo нет; }
@@ -2090,6 +2096,7 @@ assert "0 ran" "$(KSLOT="$KM/gall.sh" kpush KACHO_PREPUSH_GROUP=' ' -- HEAD:refs
 assert "64 нет" "$(KSLOT="$KM/gword.sh" kpush KACHO_PREPUSH_GROUP='go all' -- HEAD:refs/heads/m7b) $(khook)" "мутант «all — любым словом»: «go all» получает отказ, хотя ci-local консоль не гонит — проба g5b его ловит"
 assert "0 ran" "$(KSLOT="$KM/gprange.sh" kpush KACHO_PUSH_RANGE="$KNO..$KNO" -- HEAD:refs/heads/m8) $(khook | cut -d' ' -f1)" "мутант «группы спрошены с диапазоном вызывающего»: суждение разошлось с хуком — проба g6 его ловит"
 assert "64 нет" "$(KSLOT="$KM/trunk.sh" kpush KACHO_TRUNK_REF=ui -- HEAD:refs/heads/m9) $(khook)" "мутант «база диапазона без KACHO_TRUNK_REF»: пустой у хука диапазон судится как правка консоли — проба g7 его ловит"
+echo "  [MEASURE] консоль (ws#1321): пик слота kpush $(tail -n +"$(( KJL0 + 1 ))" "$JL" | grep ' leave .*class=ci-local .*budget='"$KBUD"'MiB ' | sed -n 's/.* peak=\([0-9]*\)MiB .*/\1/p' | sort -n | tail -n 1) МиБ при бюджете $KBUD, вызовов $(tail -n +"$(( KJL0 + 1 ))" "$JL" | grep -c ' leave .*class=ci-local .*budget='"$KBUD"'MiB '), предел $(tail -n +"$(( KJL0 + 1 ))" "$JL" | grep ' leave .*class=ci-local ' | sed -n 's/.* limiter=\([^ ]*\).*/\1/p' | sort -u | tr '\n' ' ')"
 fi
 
 echo "[CENSUS] heavy-slot: утверждений $((pass + fail)), сошлось $pass, разошлось $fail; граница (не ловится, заявлено в шапке) $bound; не построено частей $void"
