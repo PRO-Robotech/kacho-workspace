@@ -1562,6 +1562,14 @@ esac
 say "ёмкость: $PLACE_CAP, потолок $MAX_PAR (KACHO_REMOTE_HEAVY_MAX)"
 
 BOX="$(mktemp -d "${TMPDIR:-/tmp}/remote-heavy.XXXXXX")" || { say "рабочий каталог не создан"; exit 69; }
+OPERATOR_DEF="${KACHO_OPERATOR_DEFINITION:-}"
+OPERATOR_UID=""; OPERATOR_NS_UID=""
+OPERATOR_HELPER="$SELF_DIR/../operator-stand.py"
+if [ -n "$OPERATOR_DEF" ]; then
+    printf '%s\0' "${CMD[@]}" | python3 -c 'import json,sys; json.dump(sys.stdin.buffer.read().decode().split("\0")[:-1], sys.stdout)' > "$BOX/operator-argv.json" || exit 69
+    python3 "$OPERATOR_HELPER" authorize --definition "$OPERATOR_DEF" --head "$SHA" --argv "$BOX/operator-argv.json" \
+        || { say "operator definition не соответствует команде/голове/runner — не выполнилось"; exit 69; }
+fi
 CREATED=0; BG=""; DONE=0; TMPREF=""
 RP="$BOX/red"; mkdir -p "$RP" || { say "каталог разбора красных групп не создан"; exit 69; }
 record_owner() { printf '%s\n%s\n%s\n%s\n' "$OWNER" "$NSNAME" "$CREATED" "$KEEP_H" > "$BOX/owner"; }
@@ -1589,6 +1597,15 @@ cleanup() {
     fi
     if kc delete ns "$NSNAME" --wait=true --timeout=300s >/dev/null; then
         say "ns $NSNAME снято"
+        if [ -n "$OPERATOR_UID" ]; then
+            local left
+            if left="$(kc get ns "$NSNAME" --ignore-not-found -o name)" && [ -z "$left" ]; then
+                python3 "$OPERATOR_HELPER" complete --uid "$OPERATOR_UID" --namespace-uid "$OPERATOR_NS_UID" \
+                    || say "operator receipt: cleanup не записан — проверка остаётся непринятой"
+            else
+                say "operator receipt: отсутствие ns не подтверждено — проверка остаётся непринятой"
+            fi
+        fi
     else
         say "ns $NSNAME НЕ снято за 300 с — его поймает перепись по kacho.io/expires ($EXPIRES)"
     fi
@@ -3152,6 +3169,8 @@ $WSUSER_SH"
 # исполняет шаг над синтетическим прогоном.
 # shellcheck disable=SC2016  # раскрывается в pod, не здесь
 PG=1; case "$PROFILE" in lint|ws) PG=0 ;; esac
+[ -z "$OPERATOR_DEF" ] || PREP="$PREP
+export HEAVY_OPERATOR_RECEIPT=1"
 REDLOG_SH="$(cat <<'REDLOG'
 # redlog-begin
 heavy_red() {
@@ -3222,11 +3241,28 @@ heavy_cmd() {
   rm -f /work/heavy-ws.max; heavy_ws_take "$mc" "$ms" /work/heavy-ws.max
   ( while :; do sleep 2; heavy_ws_take "$mc" "$ms" /work/heavy-ws.max; done ) > /dev/null 2>&1 & wsp=$!
   exec {fd}> >(tee /work/heavy-cmd.out); tp=$!
+  if [ "${HEAVY_OPERATOR_RECEIPT:-}" = 1 ]; then
+    local source_clean=clean source_status source_head source_tree
+    source_status="$(git status --porcelain --untracked-files=all)" || source_clean=dirty
+    source_head="$(git rev-parse HEAD)" || source_clean=dirty
+    source_tree="$(git rev-parse 'HEAD^{tree}')" || source_clean=dirty
+    [ -z "$source_status" ] || source_clean=dirty
+    printf 'REMOTE_SOURCE_V1 before %s %s %s\n' "$source_head" "$source_tree" "$source_clean"
+  fi
   "$@" >&"$fd" 2>&1; rc=$?
   exec {fd}>&-
   kill "$wsp" 2>/dev/null; wait "$wsp" 2>/dev/null
   heavy_ws_take "$mc" "$ms" /work/heavy-ws.max
   for _ in 1 2 3 4 5 6 7 8 9 10; do kill -0 "$tp" 2>/dev/null || break; sleep 0.5; done
+  if [ "${HEAVY_OPERATOR_RECEIPT:-}" = 1 ]; then
+    source_clean=clean
+    kill -0 "$tp" 2>/dev/null && source_clean=dirty
+    source_status="$(git status --porcelain --untracked-files=no)" || source_clean=dirty
+    source_head="$(git rev-parse HEAD)" || source_clean=dirty
+    source_tree="$(git rev-parse 'HEAD^{tree}')" || source_clean=dirty
+    [ -z "$source_status" ] || source_clean=dirty
+    printf 'REMOTE_SOURCE_V1 after %s %s %s\n' "$source_head" "$source_tree" "$source_clean"
+  fi
   # ПИК (ws#1195): память run — memory.peak cgroup контейнера (вся его жизнь, байты),
   # CPU — usage_usec за время команды, рабочая память — наибольшая выборка (ws#1293).
   # Нечитаемое — «—», строка есть всегда.
@@ -3514,6 +3550,18 @@ fi
 [[ "$RUN_RC" =~ ^[0-9]+$ ]] || { say "код команды не прочитан («$RUN_RC») — не выполнилось"; exit 69; }
 red_collect "$RUN_RC"
 peak_note "$PROFILE" "$RUN_RC"
+if [ -n "$OPERATOR_DEF" ]; then
+    kc -n "$NSNAME" get job run -o json > "$BOX/operator-job.json" &&
+    kc -n "$NSNAME" get pod "$POD" -o json > "$BOX/operator-pod.json" &&
+    kc get ns "$NSNAME" -o json > "$BOX/operator-namespace.json" &&
+    kc -n "$NSNAME" logs "$POD" -c run > "$BOX/operator.log" &&
+    OPERATOR_UID="$(python3 "$OPERATOR_HELPER" capture --definition "$OPERATOR_DEF" \
+        --job "$BOX/operator-job.json" --pod "$BOX/operator-pod.json" \
+        --namespace "$BOX/operator-namespace.json" --log "$BOX/operator.log")" &&
+    OPERATOR_NS_UID="$(jq -r .metadata.uid "$BOX/operator-namespace.json")" \
+        || { say "operator receipt не захвачен — не выполнилось"; OPERATOR_UID=""; exit 69; }
+    say "operator receipt: Job UID $OPERATOR_UID, definition $OPERATOR_DEF (cleanup ещё не подтверждён)"
+fi
 say "команда завершилась кодом $RUN_RC за $(( T2 - T1 )) с (всего $(( T2 - T0 )) с от создания Job)"
 exit "$RUN_RC"
 }
