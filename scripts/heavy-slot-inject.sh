@@ -670,10 +670,18 @@ fi
 printf '%s\n' "$@" > "$FAKE_ARGV"
 # FAKE_EXEC=1 — исполнить команду в --src/--workdir, как Job (FAKE_IN_JOB=1 видит она).
 if [ "${FAKE_EXEC:-0}" = 1 ]; then
-    src=""; wd=.
-    while [ "$#" -gt 0 ] && [ "$1" != -- ]; do case "$1" in --src) src="$2"; shift 2 ;; --workdir) wd="$2"; shift 2 ;; *) shift ;; esac; done
+    src=""; wd=.; ref=""
+    while [ "$#" -gt 0 ] && [ "$1" != -- ]; do case "$1" in --src) src="$2"; shift 2 ;; --workdir) wd="$2"; shift 2 ;; --ref) ref="$2"; shift 2 ;; *) shift ;; esac; done
     shift
     [ -n "${FAKE_EXEC_RC:-}" ] && exit "$FAKE_EXEC_RC"
+    # FAKE_EXEC_CLONE=1 — как pod: свой клон со СВОЕЙ .git на --ref; снимается после команды (ws#1288).
+    if [ "${FAKE_EXEC_CLONE:-0}" = 1 ]; then
+        c="$(mktemp -d "$FAKE_ARGV.pod.XXXXXX")"
+        env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_CONFIG_PARAMETERS git clone -q --no-local "$src" "$c/t" 2> /dev/null &&
+            env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_CONFIG_PARAMETERS git -C "$c/t" checkout -q --detach "$ref" || { rm -rf "$c"; exit 69; }
+        (cd "$c/t/$wd" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_CONFIG_PARAMETERS FAKE_IN_JOB=1 "$@" < /dev/null); rc=$?
+        rm -rf "$c"; exit "$rc"
+    fi
     (cd "$src/$wd" && FAKE_IN_JOB=1 "$@" < /dev/null); exit $?
 fi
 exit 17
@@ -1031,6 +1039,72 @@ M1280C_T="$(cat "$SLOT")"; printf '%s\n' "${M1280C_T/"$M1280C_A"/list=\"\"}" > "
 assert "1 0 да да" "$(diff "$SLOT" "$W/slot-mut-1280c.sh" | grep -c '^<') $(LSLOT="$W/slot-mut-1280c.sh" lpush 1280-j FAKE_AVAIL=1)" "мутант «правка отслеживаемого не судится»: отправка ушла с хуком по правленому дереву — проба выше его ловит"
 git -C "$R" checkout -q -- f; rm -f "$HL"
 assert "0 да да" "$(lpush 1280-k FAKE_AVAIL=1)" "близнец: правка снята — та же локальная отправка идёт"
+
+echo "── маршрут Job: запись проверенного — на машине, повтор проверенной вершины Job не ставит (ws#1288, kacho#3336)"
+# Приёмка ws#1288: Job судит в своём клоне со своей .git, запись хука оставалась в поде, и
+# ускорение в маршруте Job не срабатывало ни разу. Здесь «pod» — клон со СВОЕЙ .git
+# (FAKE_EXEC_CLONE двойника); предикат — настоящий prepush-new-commits.sh воркспейса (побайтово
+# равен копии kacho — check-28); хук клона повторяет форму хука kacho: предикат 0 — «наборы не
+# нужны», KACHO_PREPUSH_SKIP_ONLY=1 — 79 вместо наборов, наборы — строкой в журнал, зелёный —
+# запись вершины (HOOK_NOREC — диапазон не покрыл, не пишет; FAKE_DIVERGE — предикату не верит).
+RJ="$W/rjob"; git init -q -b 1288-x "$RJ"; git -C "$RJ" remote add origin https://github.com/PRO-Robotech/kacho.git
+mkdir -p "$RJ/scripts/hooks"; cp "$HERE/hooks/prepush-new-commits.sh" "$RJ/scripts/hooks/"
+cat > "$RJ/scripts/hooks/pre-push" << 'JHOOK'
+#!/usr/bin/env bash
+in="$(cat)"; tip="$(printf '%s\n' "$in" | awk 'NF >= 4 { print $2; exit }')"
+pred="$(git rev-parse --show-toplevel)/scripts/hooks/prepush-new-commits.sh"
+if [ -z "${FAKE_DIVERGE:-}" ] && printf '%s\n' "$in" | bash "$pred" > /dev/null 2>&1; then
+    echo "skip job=${FAKE_IN_JOB:-нет}" >> "$HOOK_LOG"; echo "pre-push: наборы не нужны" >&2; exit 0
+fi
+[ "${KACHO_PREPUSH_SKIP_ONLY:-0}" != 1 ] || exit 79
+echo "suites job=${FAKE_IN_JOB:-нет} $tip" >> "$HOOK_LOG"
+[ "${HOOK_RC:-0}" = 0 ] || exit "$HOOK_RC"
+[ -n "${HOOK_NOREC:-}" ] || bash "$pred" --record "$tip" >&2
+exit 0
+JHOOK
+chmod +x "$RJ/scripts/hooks/pre-push"; echo a > "$RJ/f"; git -C "$RJ" add -A; sandbox_git -C "$RJ" commit -q -m base
+# shellcheck disable=SC2016
+printf '#!/usr/bin/env bash\nexec "$(git rev-parse --show-toplevel)/scripts/hooks/pre-push" "$@"\n' > "$RJ/.git/hooks/pre-push"; chmod +x "$RJ/.git/hooks/pre-push"
+git init -q --bare "$W/bare-j.git"
+jref() { git -C "$W/bare-j.git" rev-parse --verify --quiet "refs/heads/$1" > /dev/null && echo да || echo нет; }
+jrec() { (cd "$RJ" && bash scripts/hooks/prepush-new-commits.sh --recorded "$1") && echo да || echo нет; }
+jlog() { grep -c "^$1" "$HL" 2> /dev/null || true; }
+jnew() { echo "$1" > "$RJ/n-$1"; git -C "$RJ" add -A; sandbox_git -C "$RJ" commit -q -m "$1"; git -C "$RJ" rev-parse HEAD; }
+jpush() { local s="$1" ref="$2"; shift 2; rm -f "$W/argv"; RDIR="$RJ" rslot env FAKE_EXEC=1 FAKE_EXEC_CLONE=1 HOOK_LOG="$HL" "$@" bash "$s" ci-local -- git push -q "$W/bare-j.git" HEAD:refs/heads/"$ref"; }
+jargv() { [ -e "$W/argv" ] && echo Job || echo без-Job; }
+rm -f "$HL"; JH="$(jnew j1)"
+br="$(jn 'route=push rc=0 hook_rc=0 verified=record ')"
+assert "0 Job 1 да да 1 $((br + 1))" "$(jpush "$SLOT" 1288-a) $(jargv) $(jlog 'suites job=1 ') $(jref 1288-a) $(jrec "$JH") $(wc -l < "$RJ/.git/kacho-prepush-verified") $(jn 'route=push rc=0 hook_rc=0 verified=record ')" "J1: новая вершина — хук Job-ом в клоне со своей .git, зелёный; вершина внесена в запись МАШИНЫ (строка heavy-slot-push-verified), verified=record в журнале"
+bs="$(jn 'route=push rc=0 hook_rc=0 verified=skip ')"; rm -f "$HL"
+assert "0 без-Job 0 1 да да $((bs + 1))" "$(jpush "$SLOT" 1288-b) $(jargv) $(jlog 'suites ') $(jlog 'skip job=нет') $(jref 1288-b) $(has "$W/err" 'Job не ставится') $(jn 'route=push rc=0 hook_rc=0 verified=skip ')" "J2: та же вершина новым именем — Job не ставится, хук идёт на машине до «наборы не нужны», ссылка ушла, verified=skip"
+rm -f "$HL"
+assert "0 Job 1 да" "$(jpush "$SLOT" 1288-c FAKE_DIVERGE=1) $(jargv) $(jlog 'suites job=1 ') $(jref 1288-c)" "близнец J2: предикат сказал 0, хук на машине погнал бы наборы (79) — хук уходит Job-ом, а не теряется и не гонит наборы на машине"
+rm -f "$HL"; JN="$(jnew j2)"
+assert "0 Job 1 нет" "$(jpush "$SLOT" 1288-d HOOK_NOREC=1) $(jargv) $(jlog 'suites job=1 ') $(jrec "$JN")" "близнец J1: хук в Job зелёный, но вершину не записал (диапазон не покрыл) — на машине записи нет"
+rm -f "$HL"
+assert "0 Job 1" "$(jpush "$SLOT" 1288-e) $(jargv) $(jlog 'suites job=1 ')" "близнец J2: незаписанная вершина новым именем — Job снова ставится"
+rm -f "$HL"; JR="$(jnew j3)"
+assert "1 Job нет нет" "$(jpush "$SLOT" 1288-f HOOK_RC=1) $(jargv) $(jref 1288-f) $(jrec "$JR")" "близнец J1: хук в Job красный — отправки нет, вершина не записана"
+# Мутанты на месте правки: каждый ложится одной строкой и роняет свою пробу выше.
+# shellcheck disable=SC2016  # выражения в кавычках — текст переходника, раскрывать нельзя
+sed 's/^if \[ -f "\$pred" \] && (cd "\$HS_TOP" && printf/if false \&\& (cd "$HS_TOP" \&\& printf/' "$SLOT" > "$W/slot-mut-1288pre.sh"
+# shellcheck disable=SC2016
+sed 's/^if \[ "\$rc" = 0 \] && \[ -f "\$pred" \] && grep -qxF/if false \&\& grep -qxF/' "$SLOT" > "$W/slot-mut-1288rec.sh"
+# shellcheck disable=SC2016
+sed 's/^    if \[ "\$rc" -ne 79 \]; then echo skip/    if true; then echo skip/' "$SLOT" > "$W/slot-mut-1288div.sh"
+for m in pre rec div; do assert 1 "$(diff "$SLOT" "$W/slot-mut-1288$m.sh" | grep -c '^<')" "мутант ws#1288 «$m» лёг ровно одной строкой"; done
+rm -f "$HL"; JM="$(jnew j4)"
+assert "0 Job" "$(jpush "$SLOT" 1288-g) $(jargv)" "посев мутанта «pre»: вершина j4 записана на машине"
+rm -f "$HL"
+assert "0 Job 1" "$(jpush "$W/slot-mut-1288pre.sh" 1288-h) $(jargv) $(jlog 'suites job=1 ')" "мутант «запись машины до Job не спрошена»: записанная вершина снова гонит Job — проба J2 его ловит"
+rm -f "$HL"; JM="$(jnew j5)"
+assert "0 Job нет" "$(jpush "$W/slot-mut-1288rec.sh" 1288-i) $(jargv) $(jrec "$JM")" "мутант «запись пода не возвращается»: зелёный Job — на машине записи нет (прежний дефект приёмки) — проба J1 его ловит"
+# Посев мутанта «div»: голова j5 (мутант «rec» её не записал) вносится в запись машины, иначе
+# предикат скажет «не проверена», отправка уйдёт в Job мимо строки мутанта и проба промолчит.
+(cd "$RJ" && bash scripts/hooks/prepush-new-commits.sh --record "$JM") > /dev/null 2>&1
+assert "да" "$(jrec "$JM")" "посев мутанта «div»: вершина j5 записана на машине — переходник дойдёт до ветви 79"
+rm -f "$HL"
+assert "1 без-Job 0" "$(jpush "$W/slot-mut-1288div.sh" 1288-j FAKE_DIVERGE=1) $(jargv) $(jlog 'suites ')" "мутант «79 — итог»: расхождение хука с предикатом роняет отправку без Job — близнец J2 (79 → Job) его ловит"
 rm -f "$W/argv" "$W/argv.avail"
 assert "77 да нет нет" "$(rslot bash "$SLOT" stand -- bash -c 'touch "$1"' x "$W/st1" dev-up) $(has "$W/err" 'во внешний кластер: в deploy/ продукта make stand-ns-up NS=t984-') $([ -e "$W/st1" ] && echo да || echo нет) $([ -e "$W/argv" ] && echo да || echo нет)" "стенд: dev-up при доступном кластере → 77 с формой своего ns, команда не запускалась"
 assert "--available" "$(tr '\n' ' ' < "$W/argv.avail" | sed 's/ $//')" "стенд судит кластер без профиля: стенд ставит stand-ns.sh, не Job профиля"
