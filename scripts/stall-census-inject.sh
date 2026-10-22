@@ -332,7 +332,7 @@ fmutant "сброс по любой записи user агента, а не по
 fmutant "прерывание в журнале — не сброс" "        if r.get('type') == 'user' and interrupted(r):" "        if False:" reset_cases
 fmutant "продолжение в журнале верхнего уровня не ищется" "            if moved(aid, apath):" "            if False:" reset_cases
 fmutant "moved без сравнения mtime" "    return os.path.isfile(top) and os.path.getmtime(top) >= os.path.getmtime(apath)" "    return os.path.isfile(top)" reset_cases
-fmutant "workflow: остановка не спрашивается" "                if harness_stopped(aid, t if t is not None else os.path.getmtime(apath)):" "                if False:" reset_cases
+fmutant "workflow: остановка не спрашивается" "                if t is not None and harness_stopped(aid, t):" "                if False:" reset_cases
 fmutant "workflow: failed — не завершение" "if j.get('type') in ('result', 'failed') and j.get('agentId'):" "if j.get('type') == 'result' and j.get('agentId'):" reset_cases
 fmutant "возобновление — по префиксу id" "rb'resumedAgentId\\\\*\"\\s*:\\s*\\\\*\"' + re.escape(ab) + rb'\\\\*\"')" "rb'resumedAgentId\\\\*\"\\s*:\\s*\\\\*\"' + re.escape(ab))" reset_cases
 

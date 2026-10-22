@@ -452,7 +452,7 @@ def harness_marks(aid, t):
     """(последнее уведомление, последнее возобновление) агента в главном журнале; окно — до t - 5 с."""
     ab = aid.encode()
     note = re.compile(rb'<task-id>' + re.escape(ab) + rb'</task-id>(?:(?!</task-notification>).)*?<status>([a-z_]+)</status>', re.S)
-    resumed = re.compile(rb'resumedAgentId\\*"\s*:\s*\\*"' + re.escape(ab))
+    resumed = re.compile(rb'resumedAgentId\\*"\s*:\s*\\*"' + re.escape(ab) + rb'\\*"')
     n_last = r_last = None
     size, total = 4 << 20, os.path.getsize(main)
     while True:
@@ -512,7 +512,8 @@ try:
         jpath = os.path.join(wdir, 'journal.jsonl')
         if os.path.exists(jpath):
             for j in records(tail_lines(jpath, 1 << 20)):
-                if j.get('type') == 'result' and j.get('agentId'):
+                # failed — агент workflow снят харнессом (живая форма: 133 записи, ws#1343)
+                if j.get('type') in ('result', 'failed') and j.get('agentId'):
                     finished.add(j['agentId'])
         for apath in glob.glob(os.path.join(wdir, 'agent-*.jsonl')):
             aid = os.path.basename(apath)[len('agent-'):-len('.jsonl')]
@@ -544,6 +545,10 @@ try:
                 continue
             idle = (now - t) / 60
             if idle >= AGENT_MIN:
+                # остановлен харнессом без продолжения (приёмка ws#1343, E7): как у верхнего уровня
+                if t is not None and harness_stopped(aid, t):
+                    stopped_seen += 1
+                    continue
                 label = ''
                 meta = apath[:-len('.jsonl')] + '.meta.json'
                 try:
