@@ -809,11 +809,12 @@ CLOSE = re.compile(r"(?i)(?<![\w-])(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s*:
 DOD_LIB = os.environ["DOD_LIB"]
 range_shas = [c.get("sha", "") for c in commits if c.get("sha")]
 def proof_revs(r, n, items):
-    """[(ревизия, привязана ли к диапазону запроса)] строк-доказательств комментариев."""
+    """[(ревизия, привязана ли к диапазону запроса, частичная ли)] строк-доказательств комментариев, по порядку."""
     if not os.path.isfile(os.path.join(DOD_LIB, "dod_proof.jq")):
         void(f"распознавателя доказательства DoD нет: {DOD_LIB}/dod_proof.jq — скрипт запущен не из каталога scripts/ целиком (рецепт — шапка, «ЗАПУСК»)")
     q = subprocess.run(["jq", "-L", DOD_LIB, "-r", "--argjson", "range", json.dumps(range_shas),
-                        'include "dod_proof"; .[] | (.body // "") | dod_proof_revisions[] | [., (dod_proof_bound($range) | tostring)] | @tsv'],
+                        'include "dod_proof"; .[] | (.body // "") | dod_proof_marks[] | .partial as $p | .rev'
+                        ' | [., (dod_proof_bound($range) | tostring), ($p | tostring)] | @tsv'],
                        input=json.dumps([it or {} for it in items]), capture_output=True, text=True)
     if q.returncode != 0:
         void(f"комментарии {r}#{n}: распознаватель доказательства DoD вышел кодом {q.returncode}: {q.stderr.strip()[:200]}")
@@ -842,10 +843,16 @@ for r, n in closes:
         if len(items) < 100:
             break
         page += 1
-    if any(bound == "true" for _, bound in shas):
+    # Закрывает ПОСЛЕДНЕЕ доказательство диапазона и лишь полное (ws#1320 (в)) — то же, что
+    # `dod_proof_closes_in` у merge-readiness и генератора тела: частичное после полного — Refs.
+    bound = [m for m in shas if m[1] == "true"]
+    full = [m for m in shas if m[2] == "false"]
+    if bound and bound[-1][2] == "false":
         proven += 1
-    elif shas:
-        reason("CLOSES-WITHOUT-PROOF", f"{r}#{n}: DoD-proof есть ({', '.join(s[:12] for s, _ in shas)}), но ни один sha не коммит запроса — Refs, а не Closes")
+    elif any(m[1] == "true" for m in full):
+        reason("CLOSES-WITHOUT-PROOF", f"{r}#{n}: последнее доказательство диапазона @{bound[-1][0][:12]} частичное (после полного) — Refs, а не Closes")
+    elif full:
+        reason("CLOSES-WITHOUT-PROOF", f"{r}#{n}: DoD-proof есть ({', '.join(m[0][:12] for m in full)}), но ни один sha не коммит запроса — Refs, а не Closes")
     else:
         reason("CLOSES-WITHOUT-PROOF", f"{r}#{n}: комментария «DoD-proof @<sha>» нет — Refs, а не Closes")
 census.append(f"закрытие: Closes {len(closes)}, с доказательством {proven}")

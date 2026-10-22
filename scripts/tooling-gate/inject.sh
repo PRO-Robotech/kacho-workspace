@@ -1668,7 +1668,9 @@ fi
 # непрочитанный диапазон за прочитанный (PF-RANGE-UNREAD) и неполный — за полный
 # (PF-RANGE-SHORT); близнец пишет привязку срезом.
 b="$(mksandbox)"
-if mr_patch "$b/$MR_REL" 's/dod_proof_revisions_in\(\$range\) \| length > 0\)/dod_proof)/' \
+# Решение Closes — `dod_proof_closes_in` (ws#1320 (в): последнее доказательство диапазона); порча
+# подменяет его прежним «распознано хоть где-то».
+if mr_patch "$b/$MR_REL" 's/dod_proof_closes_in\(\$range\)/any(.[]; (.body \/\/ "") | dod_proof)/' \
     "распознанное вместо привязанного"; then
     run_c09_red "$b" "инъекция: merge-readiness засчитывает ревизию вне диапазона — краснеет" PF-OUTSIDE
 fi

@@ -376,6 +376,8 @@ fi
 # строки закрытия. Исходы: у всех строк закрытия доказательство
 # есть либо строк нет — путь идёт дальше; хоть у одной нет — код 1 с номерами;
 # комментарии хоть одной задачи не прочитаны — код 2 (находка рядом с ним — 1).
+# Закрывает ПОСЛЕДНЕЕ доказательство диапазона и лишь полное (`dod_proof_closes_in`, ws#1320):
+# частичное после полного — Closes без доказательства, как у генератора тела.
 #
 # МНОЖЕСТВО ЗАДАЧ — ОБЪЕДИНЕНИЕ ДВУХ ИСТОЧНИКОВ. Первый — ответ хостинга
 # `closingIssuesReferences`: ровно то, что он закроет вливанием, в любой форме
@@ -405,6 +407,7 @@ else
   proof_unread=()
   proof_absent=()
   proof_outside=()
+  proof_partial=()
   proof_ok=0
   # Диапазон PR — для привязки ревизии доказательства (шапка раздела).
   range_base=$(jq -r '.baseRefOid // ""' <<<"$pr_json")
@@ -450,8 +453,12 @@ else
     jq -e -s 'all(.[]; type == "array")' >/dev/null 2>&1 <"$cfile" \
       || parse_broken "ответ о комментариях задачи $ref_repo#$ref_num не разбирается как список"
     if jq -L "$dod_lib" -e -s --argjson range "$range_json" \
-        'include "dod_proof"; add // [] | any(.[]; (.body // "") | dod_proof_revisions_in($range) | length > 0)' >/dev/null <"$cfile"; then
+        'include "dod_proof"; add // [] | dod_proof_closes_in($range)' >/dev/null <"$cfile"; then
       proof_ok=$((proof_ok + 1))
+    elif jq -L "$dod_lib" -e -s --argjson range "$range_json" \
+        'include "dod_proof"; add // [] | any(.[]; (.body // "") | dod_proof_revisions_in($range) | length > 0)' >/dev/null <"$cfile"; then
+      proof_missing+=("$ref_repo#$ref_num")
+      proof_partial+=("$ref_repo#$ref_num")
     elif jq -L "$dod_lib" -e -s 'include "dod_proof"; add // [] | any(.[]; (.body // "") | dod_proof)' >/dev/null <"$cfile"; then
       proof_missing+=("$ref_repo#$ref_num")
       proof_outside+=("$ref_repo#$ref_num")
@@ -468,6 +475,8 @@ else
     printf '    %s\n' "${proof_missing[@]}"
     [ "${#proof_outside[@]}" -eq 0 ] \
       || echo "  из них доказательство есть, но ревизия — не коммит диапазона: $(printf '%s ' "${proof_outside[@]}")"
+    [ "${#proof_partial[@]}" -eq 0 ] \
+      || echo "  из них полное доказательство диапазона есть, но последнее доказательство диапазона частичное (ws#1320): $(printf '%s ' "${proof_partial[@]}")"
     echo "  исполнитель публикует доказательство в задаче, либо строка закрытия заменяется на Refs"
     echo
     echo "merge-readiness: СЛИВАТЬ НЕЛЬЗЯ — Closes без доказательства DoD"

@@ -123,6 +123,13 @@
 #   M79 Reverts: единица — лишь коммит доказательства, без слияния полосы → check-01
 #   M80 dod_proof.jq: раздел неисполненного не судится                   → check-01, check-05
 #   M81 Reverts: внесённое заново, но откаченное следом, снимает откат    → check-01
+#   (M78 ловит случай #77: откат с правкой по строке git — внесённое заново откатом отката по
+#   patch-id не видно; при откате тем же диффом внесение заново — и откат отката, M78 там слеп.)
+# ws#1320 (в): решает ПОСЛЕДНЕЕ доказательство диапазона (`dod_proof_closes_in`) у троих судей Closes.
+#   M82 pr-body: последнее частичное не судится                          → check-01, check-05
+#   M83 dod_proof.jq: последнее — лишь из полных (прежнее «любое полное»)  → check-01, check-05
+#   M84 merge-readiness: любое привязанное полное (прежнее)              → check-05
+#   M85 landing-precheck (ж): любое привязанное полное (прежнее)         → check-05
 #
 # Хранилище для check-04 берётся из HEAD настоящего воркспейса (`RITUALS_WS`):
 # копия несёт только код ритуалов и их общие зависимости.
@@ -432,8 +439,8 @@ inject "M69 dod_proof.jq: привязка снята (генератор)" chec
     'def dod_proof_bound($range): . as $rev | any($range[]; startswith($rev));' \
     'def dod_proof_bound($range): true;' ../lib/dod_proof.jq
 inject "M70 merge-readiness: распознанное вместо привязанного" check-05-dod-judges-agree.py \
-    "(.body // \"\") | dod_proof_revisions_in(\$range) | length > 0)'" \
-    "(.body // \"\") | dod_proof)'" ../merge-readiness.sh
+    "add // [] | dod_proof_closes_in(\$range)'" \
+    "add // [] | any(.[]; (.body // \"\") | dod_proof)'" ../merge-readiness.sh
 inject "M71 landing-precheck (ж): привязка не спрошена" check-05-dod-judges-agree.py \
     '(dod_proof_bound($range) | tostring)' '("true")' ../landing-precheck.sh
 inject "M72 pr-body: флаг привязки не читается" check-05-dod-judges-agree.py \
@@ -456,6 +463,19 @@ inject "M81 Reverts: внесённое заново не судится на о
     'if d not in (x, c) and is_ancestor(c, d) and self._stands(d)]' 'if d not in (x, c) and is_ancestor(c, d)]'
 inject "M79 Reverts: единица — лишь коммит доказательства" check-01-pr-body.py \
     '            if x == rev or (len(parents) > 1' '            if x == rev or (False'
+for c in check-01-pr-body.py check-05-dod-judges-agree.py; do
+    inject "M82 pr-body: последнее частичное не судится ($c)" "$c" \
+        '        if inside and last and last.get("partial"):' '        if False:'
+    inject "M83 dod_proof.jq: последнее — лишь из полных ($c)" "$c" \
+        'dod_proof_marks[] | select(.rev | dod_proof_bound($range))] | last;' \
+        'dod_proof_marks[] | select(.partial | not) | select(.rev | dod_proof_bound($range))] | last;' ../lib/dod_proof.jq
+done
+inject "M84 merge-readiness: любое привязанное полное" check-05-dod-judges-agree.py \
+    "add // [] | dod_proof_closes_in(\$range)'" \
+    "add // [] | any(.[]; (.body // \"\") | dod_proof_revisions_in(\$range) | length > 0)'" ../merge-readiness.sh
+inject "M85 landing-precheck (ж): любое привязанное полное" check-05-dod-judges-agree.py \
+    '    if bound and bound[-1][2] == "false":' \
+    '    if any(m[1] == "true" for m in full):' ../landing-precheck.sh
 for c in check-01-pr-body.py check-05-dod-judges-agree.py; do
     inject "M80 dod_proof.jq: раздел неисполненного не судится ($c)" "$c" \
         '  | any($l[]; _dod_unmet_line) as $unmet' '  | false as $unmet' ../lib/dod_proof.jq
