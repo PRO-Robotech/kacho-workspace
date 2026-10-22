@@ -104,6 +104,37 @@ assert "не0 нет да" "$([ "$rc" != 0 ] && echo не0 || echo 0) $(ref hook
 rm -f "$W/argv"
 rc="$(hs "$W/none" ci-local -- make -C "$W/none" git push)"
 assert "не0 да" "$([ "$rc" != 0 ] && echo не0 || echo 0) $(asked)" "make git push — не отправка: лёгкого пути нет (код $rc), кластер спрошен"
+echo "── слот: окружение, -C и --git-dir перед git — лёгкий путь лишь по признаку целевого клона (возврат приёмки)"
+printf '[core]\n\thooksPath = %s\n' "$W/hookdir" > "$W/gcfg"
+mkdir -p "$W/h"; cp "$W/gcfg" "$W/h/.gitconfig"
+# heavyform <имя> <слова команды…> — из клона без хука: лёгкого пути нет (код ≠ 0, ветки нет,
+# хук локально не исполнен, кластер спрошен).
+heavyform() {
+    local id="$1" rc; shift
+    rm -f "$W/argv" "$W"/ran.*
+    rc="$(hs "$W/none" ci-local -- "$@" push -q origin "HEAD:refs/heads/e-$id")"
+    assert "не0 нет нет да" "$([ "$rc" != 0 ] && echo не0 || echo 0) $(ref "e-$id") $(ls "$W"/ran.* > /dev/null 2>&1 && echo да || echo нет) $(asked)" "«$id»: код $rc ≠ 0, ветки нет, хук не исполнен, кластер спрошен"
+}
+heavyform git-dir-env env "GIT_DIR=$W/inst/.git" git
+heavyform work-tree-env env "GIT_WORK_TREE=$W/tree" git
+heavyform config-count env GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath "GIT_CONFIG_VALUE_0=$W/hookdir" git
+heavyform config-params env "GIT_CONFIG_PARAMETERS='core.hooksPath'='$W/hookdir'" git
+heavyform config-global env "GIT_CONFIG_GLOBAL=$W/gcfg" git
+heavyform home env "HOME=$W/h" git
+heavyform dash-C git -C "$W/inst"
+heavyform git-dir-opt git "--git-dir=$W/inst/.git"
+heavyform env-chdir env -C "$W/inst" git
+rm -f "$W/argv"
+assert "0 есть нет" "$(hs "$W/tree" ci-local -- env -C "$W/none" git push -q origin HEAD:refs/heads/e-chdir-light) $(ref e-chdir-light) $(asked)" "близнец: env -C <клон без хука> из клона с хуком — лёгкая, ветка в приёмнике, кластер не спрошен"
+rm -f "$W/argv" "$W"/ran.*
+rc="$( (cd "$W/none" && GIT_CONFIG_GLOBAL="$W/gcfg" bash "$SLOT" ci-local -- git push -q origin HEAD:refs/heads/e-global > "$W/out" 2> "$W/err"); echo $?)"
+assert "не0 нет да" "$([ "$rc" != 0 ] && echo не0 || echo 0) $(ref e-global) $(asked)" "глобальный слой core.hooksPath в окружении слота: код $rc ≠ 0, ветки нет, кластер спрошен"
+for brk in 'exit 1' 'exit 2' 'if then'; do
+    k="brk-${brk// /_}"; mkdir -p "$W/m-$k"; cp "$SLOT" "$W/m-$k/heavy-slot.sh"; printf '%s\n' "$brk" > "$W/m-$k/push-hook.sh"
+    rm -f "$W/argv" "$W"/ran.*
+    rc="$( (cd "$W/inst" && bash "$W/m-$k/heavy-slot.sh" ci-local -- git push -q origin "HEAD:refs/heads/$k" > /dev/null 2>&1); echo $?)"
+    assert "не0 нет нет" "$([ "$rc" != 0 ] && echo не0 || echo 0) $(ref "$k") $([ -e "$W/ran.inst" ] && echo да || echo нет)" "сломанный признак («$brk») в клоне с хуком: код $rc ≠ 0, ветки нет, хук не исполнен — лёгкой отправка не стала"
+done
 assert "0" "$(slots)" "после всех проб слотов машины 0"
 
 echo "── мутанты слота: каждое утверждение выше читает свой предмет"
@@ -139,6 +170,14 @@ if smut wrapper-any '            *) return 1 ;;
     rm -f "$W/argv"; (cd "$W/none" && bash "$W/m-wrapper-any/heavy-slot.sh" ci-local -- make -C "$W/none" git push > /dev/null 2>&1)
     assert "нет" "$(asked)" "мутант «любое слово перед git — обёртка»: make git push исполнен лёгким — утверждение «make git push: кластер спрошен» его ловит"
 else assert "построен" "не построен" "мутант wrapper-any: фрагмент не единствен"; fi
+if smut no-dash-C '            -C|-c|--git-dir|--work-tree|--namespace) o+=("$w" "${CMD_R[$(( i + 1 ))]:-}"); i=$(( i + 2 )) ;;' '            -C|-c|--git-dir|--work-tree|--namespace) i=$(( i + 2 )) ;;'; then
+    (cd "$W/none" && bash "$W/m-no-dash-C/heavy-slot.sh" ci-local -- git -C "$W/inst" push -q origin HEAD:refs/heads/mut-c > /dev/null 2>&1)
+    assert "есть" "$(ref mut-c)" "мутант «-C признаку не передан»: клон с хуком отправил лёгким — утверждение «dash-C» его ловит"
+else assert "построен" "не построен" "мутант no-dash-C: фрагмент не единствен"; fi
+if smut env-transparent '                *=*) [ -n "$ev" ] || return 1; o=("$w" "${o[@]}"); i=$(( i + 1 )) ;;' '                *=*) i=$(( i + 1 )) ;;'; then
+    rm -f "$W"/ran.*; (cd "$W/none" && bash "$W/m-env-transparent/heavy-slot.sh" ci-local -- env "GIT_DIR=$W/inst/.git" git push -q origin HEAD:refs/heads/mut-d > /dev/null 2>&1)
+    assert "есть" "$(ref mut-d)" "мутант «присваивания признаку не переданы»: env GIT_DIR=<клон с хуком> отправил лёгким — утверждение «git-dir-env» его ловит"
+else assert "построен" "не построен" "мутант env-transparent: фрагмент не единствен"; fi
 
 echo "[CENSUS] push-hook-inject: утверждений $((pass + fail)), сошлось $pass, разошлось $fail"
 [ "$fail" -eq 0 ]

@@ -540,6 +540,45 @@ ph_mut hookspath-cli "$PN" "git -c core.hooksPath=$WORK/hookdir push origin HEAD
 ph_mut installed "$WORK/push-inst" 'git push origin HEAD' 'if [ -x "$gd/hooks/pre-push" ]' 'if false'
 ph_mut tree "$WORK/push-tree" 'git push origin HEAD' 'if [ -n "$top" ] && [ -e "$top/scripts/hooks/pre-push" ]; then' 'if false; then'
 ph_mut git-dir "$PN" "git --git-dir=$WORK/push-inst/.git push origin HEAD" '            opts+=("$1"); shift ;;' '            shift ;;'
+
+echo "── git push: окружение и смена каталога перед git — признак целевого клона (возврат приёмки ws#1335)"
+# GIT_DIR, GIT_WORK_TREE, GIT_CONFIG_*, HOME, XDG_CONFIG_HOME меняют то, что исполнит git: такая
+# отправка тяжела (признак значения не исполняет — страж судит команду до её разрешения); законный
+# близнец — переменная закрытого перечня (GIT_TERMINAL_PROMPT, GIT_SSH_COMMAND, GIT_SSH, GIT_ASKPASS).
+printf '[core]\n\thooksPath = %s\n' "$WORK/hookdir" > "$WORK/gcfg"
+denies ci-local "GIT_DIR=$WORK/push-inst/.git git push origin HEAD" "$PN"
+denies ci-local "env GIT_DIR=$WORK/push-inst/.git git push origin HEAD" "$PN"
+denies ci-local "export GIT_DIR=$WORK/push-inst/.git; git push origin HEAD" "$PN"
+denies ci-local "GIT_WORK_TREE=$WORK/push-tree git push origin HEAD" "$PN"
+denies ci-local "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=$WORK/hookdir git push origin HEAD" "$PN"
+denies ci-local "GIT_CONFIG_PARAMETERS=x git push origin HEAD" "$PN"
+denies ci-local "GIT_CONFIG_GLOBAL=$WORK/gcfg git push origin HEAD" "$PN"
+denies ci-local "HOME=$WORK/ghome git push origin HEAD" "$PN"
+denies ci-local "XDG_CONFIG_HOME=$WORK/ghome git push origin HEAD" "$PN"
+denies ci-local "env -C $WORK/push-inst git push origin HEAD" "$PN"
+denies ci-local "env --chdir=$WORK/push-inst git push origin HEAD" "$PN"
+denies ci-local "env -C $WORK git -C push-inst push origin HEAD" "$PN"
+passes "GIT_TERMINAL_PROMPT=0 git push origin HEAD" "$PN"
+passes "env GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND=ssh git push origin HEAD" "$PN"
+passes "env -C $PN git push origin HEAD" "$WORK/push-inst"
+passes "GIT_DIR=$WORK/push-inst/.git; git push origin HEAD" "$PN"
+# Глобальный слой core.hooksPath (окружение самого вызова: GIT_CONFIG_GLOBAL стража) — отказ;
+# близнец — глобальный файл без hooksPath.
+HOOKENV=(GIT_CONFIG_GLOBAL="$WORK/gcfg"); denies ci-local 'git push origin HEAD' "$PN"
+printf '[color]\n\tui = never\n' > "$WORK/gcfg-none"
+HOOKENV=(GIT_CONFIG_GLOBAL="$WORK/gcfg-none"); passes 'git push origin HEAD' "$PN"
+HOOKENV=(GIT_CONFIG_GLOBAL="$WORK/gcfg")
+ph_mut global-layer "$PN" 'git push origin HEAD' 'hp="$(git "${opts[@]}" config core.hooksPath 2>/dev/null)"' 'hp="$(git "${opts[@]}" config --local core.hooksPath 2>/dev/null)"'
+HOOKENV=()
+ph_mut env-git-dir "$PN" "env GIT_DIR=$WORK/push-inst/.git git push origin HEAD" '    GIT_*) printf' '    GIT_NONE_*) printf'
+# Сломанный признак (код 2 без строки, код 1 без строки «absent», синтаксическая ошибка) —
+# отказ и клону с хуком, и клону без хука: «не репозиторий» — только строка PUSH-HOOK none.
+for brk in 'exit 2' 'exit 1' 'if then'; do
+    md="$WORK/mut-brk-${brk// /_}"; mkdir -p "$md/.claude/hooks/heavy-guard" "$md/scripts"
+    cp "$HOOK" "$md/.claude/hooks/heavy-guard.sh"; cp "$GUARD" "$md/.claude/hooks/heavy-guard/guard.py"
+    printf '%s\n' "$brk" > "$md/scripts/push-hook.sh"
+    assert "2 2" "$(HOOK_RUN="$md/.claude/hooks/heavy-guard.sh" run 'git push origin HEAD' "$WORK/push-inst") $(HOOK_RUN="$md/.claude/hooks/heavy-guard.sh" run 'git push origin HEAD' "$PN")" "сломанный признак («$brk») — отказ ci-local клону с хуком и без: признак не ответил строкой — отправка не лёгкая"
+done
 fi
 
 echo "── наборы и пробы воркспейса — класс suite: голый запуск отказан, слот и чтение — пропуск (ws#1291)"
