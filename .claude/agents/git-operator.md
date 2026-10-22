@@ -348,7 +348,7 @@ PR сборки в волну — голова сборки и ветки зад
    на origin — стволы сверки (#821);
 3. origin: голову PR снимает `--delete-branch` (настройка `delete_branch_on_merge=true` во всех
    четырёх репозиториях — только её); ветки задач сборки и не снятую голову —
-   `flock -w 240 ~/.cache/heavy-slots/interim.lock git push origin --delete <ветка>…` (занят — код 1, повтор коротким шагом; `-w` ≥ 300 отказывает `no-wait-guard`); затем
+   `flock -w 60 ~/.cache/heavy-slots/interim.lock git push origin --delete <ветка>…` (занят — код 1, повтор коротким шагом; `-w` > 60 отказывает `no-wait-guard`); затем
    `git ls-remote --heads origin <ветка>` пуст (`git-issues.md#gi-prune-remote`);
 4. копия: `git -C <копия> status --porcelain` пуст — `git worktree remove <копия>`; непуст — не
    снимаю, путь и файлы в возврат; `--force` не применяю;
@@ -380,7 +380,7 @@ PR сборки в волну — голова сборки и ветки зад
 моложе окна — печатает пометкой `[ДЕРЖИТСЯ: …]` (#821). Стоп сверх переписи: та же ветка в
 другом клоне вне «ВЛИТЫ» или в его копии (`git worktree list --porcelain`). Перед снятием голова
 `git ls-remote --heads origin <ветка>` равна голове переписи — сдвинулась, не снимаю, обе sha
-в возврат; затем `flock -w 240 ~/.cache/heavy-slots/interim.lock git push origin --delete <ветка>…` (занят — код 1, повтор коротким шагом; `-w` ≥ 300 отказывает `no-wait-guard`),
+в возврат; затем `flock -w 60 ~/.cache/heavy-slots/interim.lock git push origin --delete <ветка>…` (занят — код 1, повтор коротким шагом; `-w` > 60 отказывает `no-wait-guard`),
 после — `git ls-remote --heads origin <ветка>` пуст. Норма конца сессии по каждому клону —
 `к снятию 0` и `к снятию на origin 0`; поглощённые пофайлово на origin перепись не видит, и до
 #851 этот ноль — нижняя граница.

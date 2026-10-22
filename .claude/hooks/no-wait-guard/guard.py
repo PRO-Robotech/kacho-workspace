@@ -21,7 +21,8 @@
   watch         — `watch …` (бесконечный повтор);
   long-sleep    — `sleep N`, N ≥ 300 с;
   long-timeout  — `timeout N …`, N ≥ 600 с;
-  flock-wait    — `flock -w N` с N ≥ 300 и `flock` без -n/-w (ждёт без предела);
+  flock-wait    — `flock -w|--wait|--timeout N` с N > 60 (ws#1344: `flock -w 290` циклом ждал CI)
+                  и `flock` без -n/-w (ждёт без предела);
   busy-read     — `read` из бесконечного источника: `read -t N < /dev/zero` (/dev/urandom,
                   /dev/random; свой `<`, `<>` либо `done < …` охватывающего цикла) и `read`
                   после `yes |` / `cat /dev/zero |`: ожидание, держащее 100 % ядра; отказ — при
@@ -51,7 +52,7 @@ run_in_background отсоединением не считается: живой
 `kill -0 …` и `pkill -0 …` (сигнал 0 ничего не шлёт), `pkill -F <pid-файл>`, `pkill -P <pid>` (кроме 1),
 `pkill -g <pgid>`, `pkill -s <sid>`, `pgrep`, `pidof`, `ps` без снятия.
 РАЗРЕШЕНО: `read` из файла (`read -r l < f`, `while read …; done < f`), `head -c N
-/dev/urandom`, `yes | <не read>`; `sleep` < 300 вне цикла, `timeout` < 600, `flock -n`, `flock -w` < 300,
+/dev/urandom`, `yes | <не read>`; `sleep` < 300 вне цикла, `timeout` < 600, `flock -n`, `flock -w` ≤ 60,
 одно чтение CI (`gh pr checks` без --watch, `gh run view`), `heavy-slot.sh` (без
 `--wait` он не ждёт; `--wait` ≤ 300 судит сам слот).
 
@@ -105,7 +106,7 @@ import guard as hg  # noqa: E402 — общий лексер слов с heavy-g
 
 SLEEP_MAX = 300      # с: sleep от этого — ожидание
 TIMEOUT_MAX = 600    # с: timeout от этого — ожидание
-FLOCK_MAX = 300      # с: flock -w от этого — ожидание
+FLOCK_MAX = 60       # с: flock -w дольше этого — ожидание; короче — взаимоисключающая секция (ws#1344)
 FOR_MAX = 300        # с: итераций × sleep в цикле for от этого — ожидание
 EXEMPT_MAX_MIN = 9   # мин: потолок метки ci-watcher
 EXEMPT = re.compile(r"#\s*no-wait-exempt\s+([A-Za-z0-9_-]+)\s+(\d+)m\b")
@@ -158,7 +159,7 @@ CLASS_TEXT = {
     "watch": "watch — бесконечный повтор в переднем плане",
     "long-sleep": "sleep ≥ %d с" % SLEEP_MAX,
     "long-timeout": "timeout ≥ %d с без отсоединения" % TIMEOUT_MAX,
-    "flock-wait": "flock ждёт замка ≥ %d с или без предела" % FLOCK_MAX,
+    "flock-wait": "flock ждёт замка дольше %d с или без предела" % FLOCK_MAX,
     "busy-read": "read из /dev/zero, /dev/urandom или после yes | — ожидание на 100 % ядра",
     "pattern-kill": "снятие процессов не по pid: цель выбрана по имени, строке запуска, ресурсу или «все процессы uid»",
 }
@@ -922,7 +923,7 @@ class Judge:
                 elif re.match(r"^-w\d", a):
                     w = duration(a[2:])
                 k += 1
-            if not nb and (w is None or w >= FLOCK_MAX):
+            if not nb and (w is None or w > FLOCK_MAX):
                 self.add("flock-wait", shown, bound)
             rest = args[k + 1:]  # после файла замка — команда или -c строка
             if rest[:1] in (["-c"], ["--command"]) and len(rest) > 1:
@@ -1063,7 +1064,7 @@ def deny(found, err, ws, cmd=None):
         "  · слот тяжёлого — %s/scripts/heavy-slot.sh <класс> -- …: занят — код 74 сразу," % ws,
         "    ожидание только явным --wait N ≤ 300; дольше — ОДИН раз --enqueue <каталог> (билет",
         "    держится до 2 ч; перезапуск на 74/75 ставит в конец очереди — запрещён);",
-        "  · разрешено: sleep < %d вне цикла, timeout < %d, flock -n / -w < %d," % (SLEEP_MAX, TIMEOUT_MAX, FLOCK_MAX),
+        "  · разрешено: sleep < %d вне цикла, timeout < %d, flock -n / -w ≤ %d," % (SLEEP_MAX, TIMEOUT_MAX, FLOCK_MAX),
         "    цикл for с перечнем в тексте и итераций × sleep < %d; `&` без wait." % FOR_MAX,
         "Исключение — только ci-watcher: метка `# no-wait-exempt ci-watcher <N>m`, N ≤ %d, форма" % EXEMPT_MAX_MIN,
         "под timeout ≤ N·60 с. Флаг run_in_background отсоединением не считается.",
