@@ -260,7 +260,7 @@ kase "близнец: выведенный ноль, наборы сверх о�
 kase "ожидаемое ready kacho «full: true, jobs: []» — полный обязан нести все задания" -; expected '.jobs = []' > "$C/exp.json"; want 1 STAND-EXPECT-LEDGER
 kase "ожидаемое ready kacho: заданий 4 из ведомости 5" -; expected '.jobs |= .[:4]' > "$C/exp.json"; want 1 STAND-EXPECT-LEDGER
 kase "ожидаемое: ledger подменён двумя заданиями" -; expected '.ledger |= .[:2] | .jobs = .ledger' > "$C/exp.json"; want 1 STAND-EXPECT-LEDGER
-kase "ожидаемое: задание вне ведомости" -; expected '.jobs += ["ci.yaml:lint"]' > "$C/exp.json"; want 1 STAND-EXPECT-LEDGER
+kase "ожидаемое: задание вне ведомости" -; expected '.jobs += ["ci.yaml:lint"]' > "$C/exp.json"; want 1 'STAND-EXPECT-LEDGER(?=\tзадания ожидаемого вне ведомости STAND: ci\.yaml:lint)'
 kase "ожидаемое: репозиторий вне ведомости" -; expected '.repo = "PRO-Robotech/elsewhere"' > "$C/exp.json"; want 1 STAND-EXPECT-LEDGER
 kase "ожидаемое: источник не ведомости (none у kacho)" -; expected '.source = "none"' > "$C/exp.json"; want 1 STAND-EXPECT-LEDGER
 kase "близнец only-red: целевой черновик, часть заданий — полнотой не судится" '.mode = "only-red" | .planned = 2 | .suites = [.suites[0], .suites[2]]' '.suites[2] |= (.outcome = "red" | .quote = "q")'; expected '.draft = "true" | .full = false | .jobs = ["ci.yaml:unit-shard","e2e-newman.yml:shard"]' > "$C/exp.json"; printf -- '--of\n%s\n--expect\n%s\n' "$C/prev.json" "$C/exp.json" > "$C/args"; want 0 -
@@ -364,11 +364,11 @@ ckase "перенос: набор unit-shard под именем go-race — ч�
 ckase "перенос: ban6 под другим именем — имени нет в реестре jobs" '.suites[3] |= (.name = "newman:edge-isolation" | .carried_from = $a)' '.suites[3].name = "newman:edge-isolation"'; want 1 'STAND-CARRY-AREA(?=\tnewman:edge-isolation [^\t]*нет в реестре jobs)'
 ckase "перенос: путь вне ведомости областей — закрыто" ".carry_basis[\$a] |= (.changed += [\"$D\"] | .inputs = \"  не вход $D — нет\n  не вход $BAN6 — нет\nstand-ns inputs: Dockerfile 23, контекстов 9, образов go 7; изменённых путей 2, из них входов сборки 0\")"
 jq --arg x "$D" '.files += [{filename: $x}]' "$C/compare.json" > "$C/c" && mv "$C/c" "$C/compare.json"; want 1 STAND-CARRY-AREA
-ckase "перенос: перечень путей отчёта короче площадки" -; jq --arg x "$D" '.files += [{filename: $x}]' "$C/compare.json" > "$C/c" && mv "$C/c" "$C/compare.json"; want 1 STAND-CARRY-BASIS
+ckase "перенос: перечень путей отчёта короче площадки" -; jq --arg x "$D" '.files += [{filename: $x}]' "$C/compare.json" > "$C/c" && mv "$C/c" "$C/compare.json"; want 1 'STAND-CARRY-BASIS(?=\t[^\t]*: путей отчёта 1, площадки 2)'
 ckase "перенос: вывод inputs не называет путь разности" ".carry_basis[\$a].inputs = \"stand-ns inputs: Dockerfile 23, контекстов 9, образов go 7; изменённых путей 1, из них входов сборки 0\""; want 1 STAND-CARRY-BASIS
 ckase "перенос: обоснования для ревизии нет" '.carry_basis = {}'; want 1 STAND-CARRY-BASIS
 ckase "перенос: A не предок головы" -; jq '.status = "diverged" | .behind_by = 2' "$C/compare.json" > "$C/c" && mv "$C/c" "$C/compare.json"; want 1 STAND-CARRY-BASIS
-ckase "перенос: перечень площадки обрезан на 300" -; jq '.files = [range(300) | {filename: "f\(.)"}]' "$C/compare.json" > "$C/c" && mv "$C/c" "$C/compare.json"; want 1 STAND-CARRY-BASIS
+ckase "перенос: перечень площадки обрезан на 300" -; jq '.files = [range(300) | {filename: "f\(.)"}]' "$C/compare.json" > "$C/c" && mv "$C/c" "$C/compare.json"; want 1 'STAND-CARRY-BASIS(?=\t[^\t]*обрезан \(300\))'
 ckase "перенос: в источнике набор красный" - '.suites[2] |= (.outcome = "red" | .quote = "q")'; want 1 STAND-CARRY-SOURCE
 ckase "перенос: число исполненного разошлось с источником" - '.suites[2].executed = 3850 | .suites[2].total = 3850'; want 1 STAND-CARRY-SOURCE
 ckase "перенос: источник о другой ревизии" - ".head = \"$H2\""; want 1 STAND-CARRY-SOURCE
@@ -427,6 +427,11 @@ kcase "перенос kaname: строка группы карты снята �
 kmap '.groups |= map(select(.id != "integration"))'; want 1 'STAND-CARRY-AREA(?=\tstand: выбор CI по разности [0-9a-f]{12}\.\.head полный \(путь не выбирает ни одна группа)'
 kcase "перенос kaname: тронута сама карта выбора — полный, отказ" \
     '.suites |= map(if (.name == "unit:all") then del(.carried_from) else (.) end)' .github/ci-paths.json; want 1 'STAND-CARRY-AREA(?=\tstand: выбор CI по разности [^\t]*тронут источник карты)'
+# Голова вывела свою карту из full_on и отдала её группе: выбор CI уже не полный — перенос закрывает
+# сам суд (источник области изменён), а не карта, которую он судит.
+kcase "перенос kaname: карта сняла себя из full_on — источник карты тронут, отказ" \
+    '.suites |= map(if (.name == "unit:all") then del(.carried_from) else (.) end)' .github/ci-paths.json
+kmap '.full_on = [] | .groups[0].paths += [".github/ci-paths.json"]'; want 1 'STAND-CARRY-AREA(?=\tstand: выбор CI по разности [^\t]*тронут источник карты)'
 kcase "перенос kaname: набор под чужим именем — не «<ключ>[:<часть>]», отказ" '.suites[3].name = "own-stand"'; ksuites "$KR" | jq '.suites[3].name = "own-stand"' > "$C/src.json"; want 1 'STAND-CARRY-AREA(?=\town-stand \(e2e-newman\.yml:stand\): имя набора)'
 kcase "перенос kaname: задания нет в карте — отказ" '.suites[3].job = "e2e-newman.yml:stand-own"'; ksuites "$KR" | jq '.suites[3].job = "e2e-newman.yml:stand-own"' > "$C/src.json"; want 1 'STAND-CARRY-AREA(?=\tstand \(e2e-newman\.yml:stand-own\): задания нет в карте)'
 kcase "перенос kaname: строка ведомости областей снята — закрыто" -
