@@ -59,6 +59,12 @@ trap '_rc=$?; rm -rf "$W" 2>/dev/null || rm -rf "$W" || echo "ПРЕДУПРЕЖ
 
 HEAD_SHA="$(jq -r '.head.sha' "$FIX/pull.json")"
 pass=0; fail=0
+# Ведомость ci-read случая (ws#1331) — синтетическая, а не живая: строка kacho/1266
+# живёт, пока жив эпик, и проба не должна краснеть от её снятия. Подмена общая у
+# предпроверки, merge-readiness и ci-read (CI_READ_EXPECTED); путь без подмены — ведомость
+# рядом со скриптом в архиве origin/main — судит раздел «ведомость ci-read».
+printf '# ведомость случая kacho#3036\nPRO-Robotech/kacho\t1266\t74\tсинтетика пробы\n' > "$W/ledger.tsv"
+export CI_READ_EXPECTED="$W/ledger.tsv"
 
 # Подмена gh: отвечает только на `gh api <путь>`; путь → файл песочницы пробы.
 cat > "$W/gh" <<'GH'
@@ -571,7 +577,8 @@ mrcase() {
           statusCheckRollup: [$c[0].check_runs[] | {name, conclusion: (.conclusion | ascii_upcase)}]}' > "$W/case/prview.json"
     jq '{required_status_checks: {contexts: [.check_runs[].name] | unique}}' "$W/case/check-runs.json" > "$W/case/protection.json"
     rm -rf "$W/ws"; mkdir -p "$W/ws/scripts"
-    cp "$HERE/merge-readiness.sh" "$HERE/ci-read.sh" "$HERE/ci-read-expected.tsv" "$W/ws/scripts/"
+    cp "$HERE/merge-readiness.sh" "$HERE/ci-read.sh" "$W/ws/scripts/"
+    cp "$W/ledger.tsv" "$W/ws/scripts/ci-read-expected.tsv"
     [ "$1" = 0 ] || cp -r "$HERE/lib" "$W/ws/scripts/lib"
     # Подпись песочницы — её корневой gitconfig (scripts/lib/sandbox-git-home.sh).
     sandbox_git -C "$W/ws" init -q
@@ -874,6 +881,100 @@ bmutant() {  # bmutant <имя> <литерал сверки, заменяемы
 bmutant no-subset '[ -z "$miss" ]' 'jq ".[0].sha = \"beef\" + .[0].sha[4:]" "$W/case/commits.json" > "$W/case/compare.json"'
 bmutant no-head '[ "$clast" = "$HEAD_SHA" ]' 'jq ".[:-2] + [.[-1], .[-2]]" "$W/case/commits.json" > "$W/case/compare.json"'
 bmutant no-distinct '[ "$cgot" = "$DECLARED" ]' 'jq ".[:-2] + [.[-3], .[-1]]" "$W/case/commits.json" > "$W/case/compare.json"'
+
+echo "== ведомость ci-read: пара (репозиторий, база) без строки — отказ до старта демона (ws#1331)"
+# Класс: vault-operator#20 → 13-prod-ready — предпроверка land, а ci-read.sh демона
+# вливания — VOID «пары нет в ведомости». Каждый случай меняет ОДИН факт ведомости
+# против близнеца; исход сверяется с НАСТОЯЩИМ ci-read.sh на той же ведомости: он
+# обязан сказать «нет в ведомости» ровно там, где предпроверка дала CI-LEDGER-MISSING
+# (дальше ведомости ci-read здесь не идёт: подменный gh не знает --paginate — это VOID
+# иного текста, и он не судится).
+# ledger <имя> <содержимое строки случая> — ведомость случая $W/ledger-<имя>.tsv
+ledger() { printf '# ведомость случая\n%b\n' "$2" > "$W/ledger-$1.tsv"; }
+ledger present 'PRO-Robotech/kacho\t1266\t74\tосн'
+ledger absent 'PRO-Robotech/kacho\tmain\t74\tосн'
+ledger commented '#PRO-Robotech/kacho\t1266\t74\tосн'
+ledger zero 'PRO-Robotech/kacho\t1266\t0\tосн'
+ledger text 'PRO-Robotech/kacho\t1266\tмного\tосн'
+ledger repo 'PRO-Robotech/kaname\t1266\t74\tосн'
+ledger empty ''
+# lcase <имя ведомости> <ожидание: land|missing> <имя пробы>
+lcase() {
+    twin
+    FAKE="$W/case" LANDING_PRECHECK_GH="$W/gh" LANDING_PRECHECK_MERGE_READINESS="$W/mr0" CI_READ_EXPECTED="$W/ledger-$1.tsv" \
+        bash "$TOOL" PRO-Robotech/kacho 3036 > "$W/out" 2>&1
+    echo $? > "$W/code"
+    if [ "$2" = land ]; then
+        expect 0 - "$3: код 0"
+    else
+        expect 1 $'REASON\tCI-LEDGER-MISSING\tпары PRO-Robotech/kacho / 1266 нет в ведомости' "$3: CI-LEDGER-MISSING"
+    fi
+    FAKE="$W/case" CI_READ_GH="$W/gh" CI_READ_EXPECTED="$W/ledger-$1.tsv" CI_STATE_DIR="$W/ci-state" \
+        bash "$HERE/ci-read.sh" PRO-Robotech/kacho 3036 > "$W/ci.out" 2>&1
+    local said=land
+    grep -q $'^VOID\tпары PRO-Robotech/kacho / 1266 нет в ведомости' "$W/ci.out" && said=missing
+    if [ "$said" = "$2" ]; then echo "  [OK]   $3: настоящий ci-read.sh на той же ведомости — то же ($said)"; pass=$((pass + 1))
+    else echo "  [FAIL] $3: предпроверка ждёт «$2», ci-read.sh говорит «$said»:" >&2; sed 's/^/           /' "$W/ci.out" >&2; fail=$((fail + 1)); fi
+}
+lcase present land "строка пары есть"
+if grep -q $'^CENSUS\tведомость ci-read: PRO-Robotech/kacho / 1266 — строка есть, проверок не меньше 74 (подмена CI_READ_EXPECTED: ' "$W/out"; then
+    echo "  [OK]   перепись называет строку, число и источник ведомости"; pass=$((pass + 1))
+else echo "  [FAIL] перепись не называет строку ведомости:" >&2; sed 's/^/           /' "$W/out" >&2; fail=$((fail + 1)); fi
+lcase absent missing "строка того же репозитория, другой базы"
+lcase repo missing "строка той же базы, другого репозитория"
+lcase commented missing "строка закомментирована"
+lcase zero missing "число строки 0"
+lcase text missing "число строки не число"
+lcase empty missing "ведомость без строк"
+twin
+FAKE="$W/case" LANDING_PRECHECK_GH="$W/gh" LANDING_PRECHECK_MERGE_READINESS="$W/mr0" CI_READ_EXPECTED="$W/no-such-ledger.tsv" \
+    bash "$TOOL" PRO-Robotech/kacho 3036 > "$W/out" 2>&1; echo $? > "$W/code"
+expect 2 $'VOID\tведомость ci-read' "ведомость не читается — вердикта нет, а не land"
+# Мутанты предпроверки: судимость строки снята; пара выбрана по одному репозиторию.
+mkdir -p "$W/mut"; ln -sfn "$HERE/hooks" "$W/mut/hooks"; ln -sfn "$HERE/lib" "$W/mut/lib"
+lmutant() {  # lmutant <имя> <литерал> <замена> <ведомость случая, на которой мутант обязан дать land>
+    local out="$W/mut/precheck-ledger-$1.sh"
+    FROM="$2" TO="$3" perl -pe 's/\Q$ENV{FROM}\E/$ENV{TO}/' "$TOOL" > "$out"
+    if cmp -s "$TOOL" "$out"; then echo "  [FAIL] мутант «$1»: образец не найден" >&2; fail=$((fail + 1)); return; fi
+    twin
+    FAKE="$W/case" LANDING_PRECHECK_GH="$W/gh" LANDING_PRECHECK_MERGE_READINESS="$W/mr0" CI_READ_EXPECTED="$W/ledger-$4.tsv" \
+        bash "$out" PRO-Robotech/kacho 3036 > "$W/out" 2>&1
+    local code=$?
+    if [ "$code" = 0 ]; then echo "  [OK]   мутант «$1» проваливает пробу «$4»: код 0 там, где CI-LEDGER-MISSING"; pass=$((pass + 1))
+    else echo "  [FAIL] мутант «$1» не пойман: код $code" >&2; sed 's/^/           /' "$W/out" >&2; fail=$((fail + 1)); fi
+}
+# shellcheck disable=SC2016  # литералы — текст предпроверки
+lmutant row-not-judged 'LEDGER_OK=0' 'LEDGER_OK=1' absent
+# shellcheck disable=SC2016
+lmutant repo-only ' && $2==b {print $3' ' {print $3' absent
+# Путь без подмены — ведомость РЯДОМ со скриптом в архиве origin/main (рецепт «ЗАПУСК»),
+# та же, что у ci-read.sh демона: в origin/main песочницы пары нет, в её рабочей копии —
+# есть; судит origin/main. Затем пара заведена в origin/main — код 0.
+mrcase 1
+rm -rf "$W/ws/scripts"; cp -r "$HERE" "$W/ws/scripts"
+cp "$W/ledger-absent.tsv" "$W/ws/scripts/ci-read-expected.tsv"
+sandbox_git -C "$W/ws" add -A; sandbox_git -C "$W/ws" commit -qm ledger-without-pair
+rm -rf "$W/origin.git"; sandbox_git init -q --bare "$W/origin.git"
+sandbox_git -C "$W/ws" push -q "$W/origin.git" HEAD:refs/heads/main
+sandbox_git -C "$W/ws" remote remove origin 2>/dev/null
+sandbox_git -C "$W/ws" remote add origin "$W/origin.git"
+cp "$W/ledger-present.tsv" "$W/ws/scripts/ci-read-expected.tsv"   # рабочая копия — с парой
+rm -rf "$W/ws/tmp"; mkdir -p "$W/ws/tmp"
+lrecipe() {
+    env -u TMPDIR -u CI_READ_EXPECTED WS="$W/ws" S=landing-precheck.sh \
+        FAKE="$W/case" LANDING_PRECHECK_GH="$W/gh" PATH="$W:$PATH" \
+        bash -c "$RECIPE" _ PRO-Robotech/kacho 3036 > "$W/out" 2>&1
+    echo $? > "$W/code"
+}
+lrecipe
+expect 1 $'REASON\tCI-LEDGER-MISSING\tпары PRO-Robotech/kacho / 1266 нет в ведомости' "рецепт без подмены: пары нет в origin/main (в рабочей копии есть) — CI-LEDGER-MISSING"
+sandbox_git -C "$W/ws" add -A; sandbox_git -C "$W/ws" commit -qm ledger-with-pair
+sandbox_git -C "$W/ws" push -q "$W/origin.git" HEAD:refs/heads/main
+lrecipe
+expect 0 - "рецепт без подмены: пара заведена в origin/main — код 0"
+if grep -q $'^CENSUS\tведомость ci-read: PRO-Robotech/kacho / 1266 — строка есть, проверок не меньше 74 (/.*/scripts/ci-read-expected.tsv)$' "$W/out"; then
+    echo "  [OK]   перепись называет ведомость рядом со скриптом архива, без подмены"; pass=$((pass + 1))
+else echo "  [FAIL] перепись не называет ведомость архива:" >&2; sed 's/^/           /' "$W/out" >&2; fail=$((fail + 1)); fi
 
 echo "== предпосылка"
 twin; echo '<html>' > "$W/case/pull.json"; run 0
