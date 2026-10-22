@@ -712,6 +712,11 @@ def main():
         if st == 'open' and not why:
             why = ['OPEN %s — исхода нет (mark <ключ> <статус> <ссылка>)' % k]
         print('lessons: класс «%s» — %s%s; случаев %d' % (k, st, ' ' + ref if ref else '', len(by.get(k) or [])))
+        # Каждый случай — id, агент, дата и текст ЦЕЛИКОМ (ws#1314, урок 1cafa5fc: общий перечень
+        # режет до 140 знаков и id не даёт — пачке приходилось писать свой разбор ведомости).
+        for r in by.get(k) or []:
+            print('  ?%s %s %s: %s' % (r['id'][:8], time.strftime('%Y-%m-%d', time.gmtime(float(r.get('ts') or 0))),
+                                       r.get('agent') or '—', ' '.join(str(r.get('raw', '')).split())))
         if why:
             print('\n'.join(why))
             return 1
