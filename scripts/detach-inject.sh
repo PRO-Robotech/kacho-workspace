@@ -134,6 +134,12 @@ echo x'; assert "64" "$SRC" "echo после перевода строки — 6
     printf 'steps/\n' > "$R/repo/.gitignore"
     st "$R/repo/steps" true; assert "0" "$SRC" "близнец: тот же каталог, игнорируемый git, — 0"
     st "$R/s"; assert "64" "$SRC" "без «-- <команда>» — 64"
+    # Урок 239bf44d: `heavy-slot.sh --enqueue` сам отсоединяется и выходит сразу — внутри
+    # detach.sh start его ожидатель гибнет вместе со службой шага, .rc не появляется.
+    st "$R/s" bash /ws/scripts/heavy-slot.sh --enqueue "$R/q" docker -- true
+    assert "64 да" "$SRC $(grep -qF 'сам отсоединяется' <<< "$OUT" && echo да || echo нет)" "heavy-slot.sh --enqueue внутри detach.sh start — 64 с причиной (урок 239bf44d)"
+    st "$R/s" echo --enqueue; settle "$RCF"
+    assert "0 0" "$SRC $(status "$RCF")" "близнец: «--enqueue» доводом не слота — запускается"
     echo "== предмет сменился за время прогона (класс правка-во-время-прогона, 7 случаев)"
     # Копия git с отслеживаемым скриптом; шаг ждёт файл-сигнал (до 10 с), проба правит между
     # стартом и сигналом — правка гарантированно ВНУТРИ прогона, без гонки.
@@ -303,6 +309,7 @@ mutant and-as-semicolon '[ "${pre: -2}" != "&&" ] &&' 'true &&'
 mutant trailing-echo-allowed '&& [[ "$last" =~ ^(echo|printf)([[:space:]]|$) ]]; then' '&& false; then'
 mutant name-not-unique '-$$-$(printf' '-$(printf'
 mutant tree-unchecked '= true ] && [ "$ign" = 0 ]; then' '= true ] && false; then'
+mutant enqueue-allowed 'exit 64 ;; esac ;; esac; done' ';; esac ;; esac; done'
 mutant fp-unjudged '[ -f "$base.fp" ] && [ -f "$base.fp-end" ] && ! cmp -s' 'false && ! cmp -s'
 mutant fp-end-at-status 'if [ -f "$base.fp" ] && [ -f "$base.fp-end" ]' 'if (cd "$(dirname "$base")/.." && detach_fp bash s.sh > "$base.fp-end" 2> /dev/null); [ -f "$base.fp" ] && [ -f "$base.fp-end" ]'
 mutant boot-unread '[ "$mt" -lt "$bt" ]; then' '[ "$mt" -lt 0 ]; then' detach-launch.sh boot_cases

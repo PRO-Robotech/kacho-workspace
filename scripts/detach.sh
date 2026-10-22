@@ -98,6 +98,9 @@ start)
         fi
         prev="$a"
     done
+    # `heavy-slot.sh --enqueue` сам отсоединяется и выходит сразу: внутри службы шага его ожидатель
+    # гибнет с ней, .rc не появляется (урок 239bf44d) — форма одна, без detach.sh.
+    for a in "$@"; do case "$a" in --enqueue) case " $* " in *heavy-slot*) say "heavy-slot.sh --enqueue сам отсоединяется и печатает свой .rc — зови его напрямую, без detach.sh start"; exit 64 ;; esac ;; esac; done
     mkdir -p "$dir" 2>/dev/null || { say "каталог «$dir» не заводится — не запущено"; exit 69; }
     dir="$(cd "$dir" && pwd -P)"
     ign=1
