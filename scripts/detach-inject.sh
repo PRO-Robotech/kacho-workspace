@@ -40,6 +40,10 @@ reap_steps() {
 }
 # shellcheck disable=SC2154
 trap '_rc=$?; rm -rf "$W" 2>/dev/null || rm -rf "$W" || echo "ПРЕДУПРЕЖДЕНИЕ: временный каталог $W не снят; код проверки $_rc сохранён" >&2; exit $_rc' EXIT
+# shellcheck source=lib/sandbox-git-home.sh
+. "$HERE/lib/sandbox-git-home.sh"
+sandbox_git_home "$W/home" || exit 2
+git() { sandbox_git "$@"; }
 
 pass=0; fail=0
 assert() {
@@ -130,6 +134,40 @@ echo x'; assert "64" "$SRC" "echo после перевода строки — 6
     printf 'steps/\n' > "$R/repo/.gitignore"
     st "$R/repo/steps" true; assert "0" "$SRC" "близнец: тот же каталог, игнорируемый git, — 0"
     st "$R/s"; assert "64" "$SRC" "без «-- <команда>» — 64"
+    # Урок 239bf44d: `heavy-slot.sh --enqueue` сам отсоединяется и выходит сразу — внутри
+    # detach.sh start его ожидатель гибнет вместе со службой шага, .rc не появляется.
+    st "$R/s" bash /ws/scripts/heavy-slot.sh --enqueue "$R/q" docker -- true
+    assert "64 да" "$SRC $(grep -qF 'сам отсоединяется' <<< "$OUT" && echo да || echo нет)" "heavy-slot.sh --enqueue внутри detach.sh start — 64 с причиной (урок 239bf44d)"
+    st "$R/s" echo --enqueue; settle "$RCF"
+    assert "0 0" "$SRC $(status "$RCF")" "близнец: «--enqueue» доводом не слота — запускается"
+    echo "== предмет сменился за время прогона (класс правка-во-время-прогона, 7 случаев)"
+    # Копия git с отслеживаемым скриптом; шаг ждёт файл-сигнал (до 10 с), проба правит между
+    # стартом и сигналом — правка гарантированно ВНУТРИ прогона, без гонки.
+    local G="$R/g" go
+    git init -q "$G"   # подпись коммитов пробы — HOME песочницы (sandbox-git-home.sh, check-16)
+    printf 'steps/\ngo\n' > "$G/.gitignore"
+    printf 'for i in $(seq 1 40); do [ -e go ] && break; sleep 0.25; done\nexit 0\n' > "$G/s.sh"
+    git -C "$G" add . && git -C "$G" commit -qm base
+    fp_run() {  # <правка во время прогона> <правка после исхода> — код status
+        rm -f "$G/go"
+        (cd "$G" && bash "$D" start "$G/steps" -- bash s.sh > "$W/start.out" 2>&1)
+        RCF="$(sed -n 's/^идёт: pid [0-9]*; журнал [^;]*; rc \([^;]*\);.*/\1/p' "$W/start.out")"
+        go="$(sed -n 's/^идёт: pid \([0-9]*\);.*/\1/p' "$W/start.out")"; [ -n "$go" ] && PGS+=("$go")
+        (cd "$G" && eval "$1"); : > "$G/go"; settle "$RCF"
+        (cd "$G" && eval "$2"); status "$RCF"
+    }
+    assert "0" "$(fp_run : :)" "контроль: предмет не менялся — status 0"
+    assert "5 да да" "$(fp_run 'echo "# правка" >> s.sh' :) $(grep -qF 'прогон недействителен' "$W/st.out" && echo да || echo нет) $(grep -qF 'правка отслеживаемого' "$W/st.out" && echo да || echo нет)" "скрипт шага правлен во время прогона (bash дочитывает файл) — 5 «прогон недействителен», что сменилось названо"
+    git -C "$G" checkout -q -- s.sh
+    assert "5 да" "$(fp_run 'git commit -q --allow-empty -m mid' :) $(grep -qF 'голова' "$W/st.out" && echo да || echo нет)" "коммит в копию во время прогона (урок 6bfe3810) — 5, сменилась голова"
+    assert "0" "$(fp_run : 'echo "# после" >> s.sh; git commit -qam after')" "близнец: правка и коммит ПОСЛЕ исхода — прогон действителен, 0 (отпечаток конца снят при выходе команды, не при status)"
+    assert "0" "$(fp_run 'echo x > new-untracked.txt' :)" "близнец: новый неотслеживаемый файл — граница объявлена, не предмет (0)"
+    rm -f "$G/new-untracked.txt"
+    printf 'for i in $(seq 1 40); do [ -e %s/go ] && break; sleep 0.25; done\nexit 3\n' "$G" > "$R/outside.sh"
+    rm -f "$G/go"; (cd "$R" && bash "$D" start "$R/steps" -- bash "$R/outside.sh" > "$W/start.out" 2>&1)
+    RCF="$(sed -n 's/^идёт: pid [0-9]*; журнал [^;]*; rc \([^;]*\);.*/\1/p' "$W/start.out")"
+    echo '# правка' >> "$R/outside.sh"; : > "$G/go"; settle "$RCF"
+    assert "5 да" "$(status "$RCF") $(grep -qF "файл $R/outside.sh" "$W/st.out" && echo да || echo нет)" "скрипт-довод вне git правлен во время прогона — 5, файл назван (красный исход тоже не судится)"
 }
 
 # boot_cases — машина перезагружена: файлы шага старше загрузки, процесса нет — причина названа.
@@ -286,6 +324,9 @@ mutant and-as-semicolon '[ "${pre: -2}" != "&&" ] &&' 'true &&'
 mutant trailing-echo-allowed '&& [[ "$last" =~ ^(echo|printf)([[:space:]]|$) ]]; then' '&& false; then'
 mutant name-not-unique '-$$-$(printf' '-$(printf'
 mutant tree-unchecked '= true ] && [ "$ign" = 0 ]; then' '= true ] && false; then'
+mutant enqueue-allowed 'exit 64 ;; esac ;; esac; done' ';; esac ;; esac; done'
+mutant fp-unjudged '[ -f "$base.fp" ] && [ -f "$base.fp-end" ] && ! cmp -s' 'false && ! cmp -s'
+mutant fp-end-at-status 'if [ -f "$base.fp" ] && [ -f "$base.fp-end" ]' 'if (cd "$(dirname "$base")/.." && detach_fp bash s.sh > "$base.fp-end" 2> /dev/null); [ -f "$base.fp" ] && [ -f "$base.fp-end" ]'
 mutant boot-unread '[ "$mt" -lt "$bt" ]; then' '[ "$mt" -lt 0 ]; then' detach-launch.sh boot_cases
 mutant hup-inherited 'env --default-signal=PIPE,HUP DETACH_TAG' 'env --default-signal=PIPE DETACH_TAG' detach.sh sig_cases
 if [ "$SYSD" = 1 ]; then

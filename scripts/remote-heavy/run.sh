@@ -29,6 +29,9 @@
 #   run.sh --request --profile <профиль> [--repo <kacho|kaname|corelib|kacho-workspace>]
 #                           «mCPU МиБ» запроса pod по замеру (ЗАПРОС ПО ЗАМЕРУ); к кластеру
 #                           не обращается; 69 — строки профиля в PEAKS нет, 64 — вызов вне формы
+#   run.sh --guard          только КОНТЕКСТ и СТРАЖ ПО УЗЛАМ, без прав и размещения: 0 — кластер
+#                           профиля доказан; 69 — нет; 64 — переменная вне формы; 70 — дефект
+#                           обёртки (предусловие `cluster` в lane-precheck.sh --premise, ws#1307)
 #   run.sh --profiles       профили, их запросы по репозиториям (ЗАПРОС ПО ЗАМЕРУ) и основание
 #
 # КЛАСТЕР. Кубконфиг берётся из KACHO_REMOTE_KUBECONFIG, иначе из первой строки
@@ -1126,6 +1129,17 @@ avail_args() {
 }
 
 case "${1:-}" in
+    --guard)
+        # Только суд кластера — КОНТЕКСТ и СТРАЖ ПО УЗЛАМ (шапка), без прав и размещения:
+        # предусловие `cluster` задания (lane-precheck.sh --premise, ws#1307) спрашивает
+        # этот же предикат, а не свою копию.
+        [ "$#" -eq 1 ] || { say "--guard без аргументов, получено «${*:2}»"; exit 64; }
+        resolve_kubeconfig; grc=$?
+        [ "$grc" = 0 ] || { say "$WHY"; [ "$grc" = 64 ] && exit 64; exit 69; }
+        node_guard; grc=$?
+        [ "$grc" = 2 ] && defect "$WHY"
+        [ "$grc" = 0 ] || { say "$WHY"; exit 69; }
+        echo "remote-heavy: кластер профиля доказан — контекст -client, узлы с префиксом <профиль>-client-"; exit 0 ;;
     --request)
         avail_args "${@:2}" && [ -n "$AV_PROFILE" ] && [ -z "$AV_PF" ] \
             || { say "--request --profile <профиль> [--repo kacho|kaname|corelib|kacho-workspace|vault-operator|kaname-iam-operator|registry-operator], получено «${*:2}»"; exit 64; }

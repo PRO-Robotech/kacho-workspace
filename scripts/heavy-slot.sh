@@ -895,7 +895,7 @@ push_where() {
     # превращает refspec в имена удаляемых веток. Заменяющее суждение — только о refspec, кладущем
     # ГОЛОВУ копии (HEAD, @ либо имя её текущей ветки в роли источника) в иную ветку: прочее — отправка
     # названной ветки по имени (`origin 1182-lane`) либо удаление — голову корня никуда не кладёт.
-    local del="" pos=() kind src dsta
+    local del="" pos=() kind src dsta dests=() rn lf d
     i=$(( PUSH_AT + 1 ))
     while [ "$i" -lt "$n" ]; do
         w="${CMD_R[$i]}"
@@ -924,6 +924,7 @@ push_where() {
         esac
         shown+=("$kind")
         case "$dsta" in ''|refs/*) continue ;; esac
+        dests+=("$dsta")
         { [ "$src" = HEAD ] || [ "$src" = @ ] || { [ -n "$br" ] && [ "$src" = "$br" ] && [[ "${w#+}" == *:* ]]; }; } || continue
         [ "$dsta" = "$br" ] || bad="${bad:+$bad }$dsta"
     done
@@ -933,6 +934,27 @@ push_where() {
     if [ -n "$bad" ] && push_to_foreign_branch "$top"; then
         say "git push из первичной копии воркспейса ($top) кладёт её голову в ветку «$bad» при текущей «${br:-отсоединённая}»: ветки, которой здесь нет, — а ветка задачи живёт в КОПИИ задачи (ws#1182: так ветка чужого репозитория легла в этот). Из копии: cd <копия> && heavy-slot.sh … либо git -C <копия> push …. Команда не запускалась"
         exit 64
+    fi
+    # Замок отправки (класс уроков «параллельные-отправки-ветки», 5 случаев 2026-10-19…22: вторая
+    # отправка той же ветки теряла ref ПОСЛЕ полного хука — «cannot lock ref», «reference already
+    # exists»): на (репозиторий, ветка) — один процесс; вторая отказывает 64 ДО хука. Замок держит
+    # открытый дескриптор, его наследует команда отправки (и заявка --enqueue) — снимается с её
+    # выходом. Внутренний вход заявки (--queued) замок не берёт: его держит дескриптор, унаследованный
+    # от постановки (--enqueue); метки в окружении нет — окружение хука слот не засоряет (HS_*).
+    if [ "$CLASS" = ci-local ] && [ "${#dests[@]}" -gt 0 ] && [ -z "$QUEUED" ]; then
+        rn="${rem:-origin}"
+        case "$rn" in */* | *:*) ;; *) rn="$(git -C "$top" remote get-url "$rn" 2>/dev/null || printf '%s' "$rn")" ;; esac
+        rn="${rn%/}"; rn="${rn%.git}"; rn="${rn##*[/:]}"
+        mkdir -p "$DIR/push-locks" 2>/dev/null
+        for d in "${dests[@]}"; do
+            lf="$DIR/push-locks/$rn--${d//\//%}.lock"
+            exec {PLFD}>> "$lf" || continue
+            if ! flock -n "$PLFD"; then
+                say "отправка ветки «$d» репозитория $rn уже идёт ($(cat "$lf.who" 2>/dev/null || echo 'держатель не назван')) — вторая теряла бы ref после полного хука; новую голову — после .rc первой (ws#1314). Команда не запускалась"
+                exit 64
+            fi
+            printf 'pid %s · %s\n' "$$" "$PWD" > "$lf.who"
+        done
     fi
     [ "$CLASS" != ci-local ] || push_homes "$top"
     GIT_IDX=""; GDIR="$PWD"
@@ -1261,11 +1283,19 @@ fi
 # Отправка слотом ci-local (урок 2026-10-16, ws#1110): git push открывает ssh ДО хука
 # отправки, хук идёт минутами, и простаивающее соединение площадка снимает — push
 # умирал PIPE кодом 141 уже после зелёного хука (журнал слотов: 26 из 26 таких выходов
-# — после ≥ 368 с). Слот держит соединение живым, не трогая заданного вызывающим:
-# GIT_SSH_COMMAND, GIT_SSH и core.sshCommand (любого слоя), если есть, сильнее: git
-# предпочёл бы поставленный слотом GIT_SSH_COMMAND заданному вызывающим GIT_SSH.
-if [ "$CLASS" = ci-local ] && [ -z "${GIT_SSH_COMMAND:-}" ] && [ -z "${GIT_SSH:-}" ] && [ -z "$(git -C "$PWD" config core.sshCommand 2>/dev/null)" ]; then
-    export GIT_SSH_COMMAND="ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=40"
+# — после ≥ 368 с). Слот держит соединение живым: GIT_SSH и core.sshCommand (любого слоя)
+# вызывающего не трогаются — git предпочёл бы им поставленный слотом GIT_SSH_COMMAND.
+# Заданный вызывающим GIT_SSH_COMMAND вида `ssh …` без ServerAliveInterval получает keepalive
+# ЗА своими опциями (уроки 6fb9cbf3, 789e4f3d 2026-10-20: цепочки tmp/autoland экспортировали
+# свой `ssh -o BatchMode=yes` — keepalive слота пропадал, 141 после зелёного хука): у ssh
+# побеждает первое значение опции, так что своё вызывающего сильнее; не-ssh команда — как есть.
+KEEPALIVE="-o ServerAliveInterval=30 -o ServerAliveCountMax=40"
+if [ "$CLASS" = ci-local ] && [ -n "${GIT_SSH_COMMAND:-}" ]; then
+    if [[ "$GIT_SSH_COMMAND" =~ ^[[:space:]]*([^[:space:]]*/)?ssh([[:space:]]|$) ]] && [[ "${GIT_SSH_COMMAND,,}" != *serveraliveinterval* ]]; then
+        export GIT_SSH_COMMAND="$GIT_SSH_COMMAND $KEEPALIVE"
+    fi
+elif [ "$CLASS" = ci-local ] && [ -z "${GIT_SSH:-}" ] && [ -z "$(git -C "$PWD" config core.sshCommand 2>/dev/null)" ]; then
+    export GIT_SSH_COMMAND="ssh $KEEPALIVE"
 fi
 
 # Ручки — до первой записи: отказ не оставляет следа в общем каталоге.
@@ -1830,7 +1860,10 @@ kacho-workspace|.claude/hooks/*/mutants.py|ci-local,suite'
 # машины, docker, память машины), а не дерево: Job их не воспроизводит, и в pod они дают не
 # вердикт, а чужое красное (живой прогон heavy-slot-inject.sh Job-ом ws 2026-10-22: «все слоты
 # заняты — 74» получил 0) либо «не построено». Запись — путь в дереве; файла нет — запись
-# устарела, и перепись heavy-slot-inject это называет. Внешнего пути у них нет: при доступном кластере 77, маршрут — NO_ROUTE_TASK (ws#1301).
+# устарела, и перепись heavy-slot-inject это называет. Внешнего пути у них нет по построению, и
+# перечень — ЗАКРЫТЫЙ законный локальный маршрут (решение диспетчера 2026-10-22, ws#1314): запись
+# идёт в слоте машины с доказательством «предмет — машина» (журнал: local … proof=машина: <путь>) и
+# лимитом памяти класса; прочее без внешнего пути — 77 (NO_ROUTE_TASK, ws#1301).
 MACHINE='scripts/heavy-slot-inject.sh
 scripts/session-memcap-inject.sh'
 # portable_script — 0, если слово нагрузки (PAY_I) — скрипт ведомости PORTABLE этого клона и класса;
@@ -1872,7 +1905,7 @@ portable_script() {
 # профиля ws несёт среду наборов, а не go и make (ws#1304), — у прочего внешнего пути нет (no_route_judge).
 route_static() {
     local url
-    RS_KNOWN=""; RS_TOP=""; RS_REPO=""; RS_PROFILE=""; RS_WHY=""
+    RS_KNOWN=""; RS_TOP=""; RS_REPO=""; RS_PROFILE=""; RS_WHY=""; RS_MACHINE=""
     case "$CLASS" in
         go-race|go-unit|integration|lint|ci-local|suite) ;;
         newman) WHY_LOCAL="класс «newman» вне стенда внешнего пути не имеет — пробы стенда: $RUNNER_HINT"; return 1 ;;
@@ -1901,6 +1934,7 @@ route_static() {
             if [ "$PAY" = git ] && [ -n "$RS_KNOWN" ]; then
                 RS_WHY="клон воркспейса, хук отправки — Job профиля ws"
             elif RS_KNOWN="" && portable_script && grep -qxF -- "$PORT_REL" <<< "$MACHINE"; then
+                RS_MACHINE="$PORT_REL"
                 WHY_LOCAL="клон воркспейса: $PORT_REL судит машину (systemd --user, cgroup памяти, docker — запись MACHINE), Job её не воспроизводит: внешнего пути нет"; return 1
             elif [ -n "$PORT_REL" ]; then
                 RS_KNOWN=1; RS_WHY="клон воркспейса, скрипт ведомости PORTABLE $PORT_REL — Job профиля ws"
@@ -1976,6 +2010,8 @@ route_print() {
         else
             kind=none; why="строку оболочки «${PAY_SH:-$PAY}» слот не судит — при доступном кластере 77"
         fi
+    elif { route_static; [ -n "$RS_MACHINE" ]; }; then   # MACHINE: route_static — 1 (внешнего пути нет), RS_MACHINE — запись
+        kind=local; why="предмет — машина ($RS_MACHINE, запись MACHINE): доступа к предмету из кластера нет по построению — локально в слоте, лимит памяти слота"
     elif route_static; then
         if [ -n "$RS_KNOWN" ]; then kind=external; why="Job внешнего кластера: профиль $RS_PROFILE, репозиторий $RS_REPO — $RS_WHY (при недоступном кластере — локально с доказательством)"
         else kind=none; why="нагрузка «${PAY_SH:-$PAY}» не опознана как переносимая (go, make, линтеры, ci-local.sh; скрипт ведомости PORTABLE относительным путём) — при доступном кластере 77"; fi
@@ -2285,6 +2321,14 @@ elif [ "$REMOTE_ON" = 1 ]; then
         fi
     fi
     ext_leave
+    # MACHINE (решение диспетчера 2026-10-22 по правилу владельца «использовать только в одном случае
+    # если доступа к кластеру нету»): предмет — сама машина, из кластера к нему доступа нет по
+    # построению — запись закрытого перечня идёт в слоте машины с доказательством; прочее без
+    # внешнего пути — no_route_judge (при доступном кластере 77).
+    if [ -n "${RS_MACHINE:-}" ] && [ -z "$PROOF" ]; then
+        PROOF="машина: $RS_MACHINE"
+        WHY_LOCAL="предмет — машина ($RS_MACHINE, запись MACHINE): Job её не воспроизводит, доступа к предмету из кластера нет — слот машины, лимит памяти класса"
+    fi
     [ -n "$PROOF$NR_MOOT" ] || no_route_judge
     say "локально — $WHY_LOCAL"
 else
