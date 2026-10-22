@@ -16,6 +16,9 @@
 # настоящим входом PreToolUse, и читается код И текст: отказ обязан назвать класс
 # и готовую строку «heavy-slot.sh <класс> -- <команда>» — текст отказа часть
 # свойства (`testing.md`, finding-text-is-part-of-property).
+# Лёгкая форма на машине владельца (ws#1301: python3, node, bash -n, shellcheck, openssl, go
+# vet|run|install) — отказ ДРУГИМ текстом (`light`): класс слота, маршрут remote и ws#1303, и не
+# «тяжёлая»; мутанты поэтому сравнивают исход целиком — код и первую строку отказа.
 #
 # Тяжесть make-цели и скрипта страж выводит из дерева: на синтетическом дереве
 # (цепочка предпосылок, `$(MAKE) -C`, переменные, `-n`, скрипт в скрипте, цикл по
@@ -75,6 +78,20 @@ denies() {
     cls="$(sed -n 's/.*класс «\([^»]*\)».*/\1/p' "$WORK/out" | head -n 1)"
     fix="нет"; grep -qF -- "/ws/scripts/heavy-slot.sh $1 -- " "$WORK/out" && fix="да"
     assert "2 $1 да" "$rc $cls $fix" "отказ «$1»: $(printf '%s' "$2" | tr '\n' ' ')"
+    denied=$((denied + 1))
+}
+
+# light <класс слота> <команда> [cwd] — лёгкая форма на машине владельца (ws#1301): отказ, класс
+# слота назван, строка через слот готова, маршрут remote и его пробел (ws#1303) названы, и это НЕ
+# отказ «тяжёлая команда» — форма не тяжела, а не на своём месте.
+light() {
+    local rc cls fix route heavy
+    rc="$(run "$2" "${3:-}")"
+    cls="$(sed -n 's/.*класс слота «\([^»]*\)».*/\1/p' "$WORK/out" | head -n 1)"
+    fix="нет"; grep -qF -- "/ws/scripts/heavy-slot.sh $1 -- " "$WORK/out" && fix="да"
+    route="нет"; grep -qF 'маршрут — внешний кластер' "$WORK/out" && grep -qF 'ws#1303' "$WORK/out" && route="да"
+    heavy="нет"; grep -qF 'тяжёлая команда' "$WORK/out" && heavy="да"
+    assert "2 $1 да да нет" "$rc $cls $fix $route $heavy" "лёгкая на машине «$1»: $(printf '%s' "$2" | tr '\n' ' ')"
     denied=$((denied + 1))
 }
 
@@ -145,84 +162,84 @@ denies go-race     'bash -lc "go test -race ./..."'
 denies go-race     'bash -ec "go test -race ./..."'
 denies go-race     'sh -xc "go test -race ./..."'
 denies go-race     'bash -euo pipefail -c "go test -race ./..."'
-passes             'bash -lc "go vet ./..."'
-passes             'bash -o pipefail -c "go vet ./..."'
+passes             'bash -lc "go list ./..."'
+passes             'bash -o pipefail -c "go list ./..."'
 denies go-race     'export GOFLAGS=-race; go test ./...'
-passes             'export GOFLAGS=-count=1; go vet ./...'
+passes             'export GOFLAGS=-count=1; go list ./...'
 denies go-race     'go test -race=1 ./...'
 denies go-race     'go test -race=TRUE ./...'
 denies go-unit     'go test -race=false ./...'  # любой go test — внешний кластер (ws#1301)
 denies go-race     'R=-race; go test $R ./...'
-passes             'R=-v; go vet $R ./...'
+passes             'R=-v; go list $R ./...'
 denies docker      'D=docker; $D run alpine'
 passes             'D=docker; $D ps'
 denies go-race     'find . -name x -exec go test -race {} \;'
-passes             'find . -name x -exec go vet {} \;'
+passes             'find . -name x -exec go list {} \;'
 denies go-race     "bash <<'EOF'
 go test -race ./...
 EOF"
 passes             "bash <<'EOF'
-go vet ./...
+go list ./...
 EOF"
 
 echo "── круг 3: строка дочерней оболочке из переменных строки, экспорт, \$@"
 denies go-race     'C="go test -race ./..."; bash -c "$C"'
-passes             'C="go vet ./..."; bash -c "$C"'
+passes             'C="go list ./..."; bash -c "$C"'
 passes             'C="go test -race ./..."; bash -c $C'
 denies go-race     "C='go test -race ./...'; sh -c \"\$C\""
-passes             "C='go vet ./...'; sh -c \"\$C\""
+passes             "C='go list ./...'; sh -c \"\$C\""
 denies go-race     "export FLAGS=-race; bash -c 'go test \$FLAGS ./...'"
 denies go-unit     "FLAGS=-race; bash -c 'go test \$FLAGS ./...'"  # любой go test (ws#1301)
 denies go-race     "FLAGS=-race bash -c 'go test \$FLAGS ./...'"
 denies go-race     "R=-race; export R; bash -c 'go test \$R ./...'"
 denies go-race     "set -a; FLAGS=-race; bash -c 'go test \$FLAGS ./...'"
 denies go-race     'X=go; bash -c "$X test -race ./..."'
-passes             'X=go; bash -c "$X vet ./..."'
+passes             'X=go; bash -c "$X list ./..."'
 denies go-race     'F="-race ./..."; bash -c "go test $F"'
-passes             'F="-v ./..."; bash -c "go vet $F"'
+passes             'F="-v ./..."; bash -c "go list $F"'
 denies go-race     "R=-race; eval 'go test \$R ./...'"
-passes             "R=-v; eval 'go vet \$R ./...'"
+passes             "R=-v; eval 'go list \$R ./...'"
 denies go-race     "bash -c '\"\$@\"' _ go test -race ./..."
-passes             "bash -c '\"\$@\"' _ go vet ./..."
+passes             "bash -c '\"\$@\"' _ go list ./..."
 denies go-race     "sh -c 'exec go test \$1 ./...' sh -race"
-passes             "sh -c 'exec go vet \$1 ./...' sh -v"
+passes             "sh -c 'exec go list \$1 ./...' sh -v"
 HOOKENV=(GOFLAGS=-race)
 denies go-race     'go test ./...'
 HOOKENV=()
 
 echo "── круг 3: опции обёрток, go -C, go run/build -race"
 denies go-race     '/usr/bin/time -v go test -race ./...'
-passes             '/usr/bin/time -v go vet ./...'
+passes             '/usr/bin/time -v go list ./...'
 denies go-race     '/usr/bin/time -o /tmp/t -f %M go test -race ./...'
 denies go-race     'time -p go test -race ./...'
-passes             'time -p go vet ./...'
+passes             'time -p go list ./...'
 denies go-race     'command -p go test -race ./...'
 passes             'command -v go test -race ./...'
 denies go-race     'exec -a x go test -race ./...'
 denies go-race     'env -S "go test -race ./..."'
 denies go-race     'go -C services/vpc test -race ./...'
-passes             'go -C services/vpc vet ./...'
+passes             'go -C services/vpc list ./...'
 denies go-race     'go run -race ./cmd/x'
-passes             'go run ./cmd/x'
+light go-unit      'go run ./cmd/x'  # анализ и сборка на машине — лёгкая форма (ws#1301)
 denies go-race     'go build -race -o x .'
 denies go-unit     'go build -o x .'  # сборка — внешний кластер (ws#1301)
 
 echo "── незнакомые обёртки; строка оболочке у watch, script, parallel, flock"
 denies go-race     'strace -f go test -race ./...'
-passes             'strace -f go vet ./...'
+passes             'strace -f go list ./...'
 passes             'echo go test -race ./...'
 passes             'chmod +x scripts/ci-local.sh'
 denies go-race     'systemd-run --user --scope -p MemoryMax=16G go test -race ./...'
-passes             'systemd-run --user --scope -p MemoryMax=16G go vet ./...'
+passes             'systemd-run --user --scope -p MemoryMax=16G go list ./...'
 denies go-race     "watch -n 5 'go test -race ./...'"
 passes             'watch -n 5 docker ps'
 denies go-race     "script -qc 'go test -race ./...' /dev/null"
-passes             "script -qc 'go vet ./...' /dev/null"
+passes             "script -qc 'go list ./...' /dev/null"
 denies go-race     "parallel -j2 'go test -race {}' ::: ./a ./b"
-passes             "parallel -j2 'go vet {}' ::: ./a ./b"
+passes             "parallel -j2 'go list {}' ::: ./a ./b"
 denies go-race     'parallel go test -race ::: ./a'
 denies go-race     "flock /tmp/l -c 'go test -race ./...'"
-passes             "flock /tmp/l -c 'go vet ./...'"
+passes             "flock /tmp/l -c 'go list ./...'"
 denies go-race     'flock -w 5 /tmp/l go test -race ./...'
 denies lint        'gosec ./...'
 passes             'gosec -version'
@@ -243,7 +260,7 @@ denies go-race     'env -S"go test -race ./..."'
 denies go-race     "env -S'go test -race ./...'"
 denies go-race     'env --split-string="go test -race ./..."'
 denies go-race     'env -iS "go test -race ./..."'
-passes             'env -S"go vet ./..."'
+passes             'env -S"go list ./..."'
 denies newman      'newman --verbose run c.json'
 mkdir -p "$WORK/nomk"
 denies lint        'make lint' "$WORK/nomk"
@@ -299,12 +316,156 @@ passes             'go list ./...'
 passes             'npm --version'
 passes             'npm run dev'
 passes             'make generate'
-passes             'python3 -c "print(1)"'
+passes             'python3 --version'
 passes             'playwright --version'
 
+echo "── лёгкие формы на машине владельца (ws#1301, 2026-10-22): отказ с маршрутом remote, близнецы — пропуск"
+mkdir -p "$WORK/lt"
+printf '#!/usr/bin/env python3\nprint(1)\n' > "$WORK/lt/tool.py"
+printf '#!/usr/bin/node\nconsole.log(1)\n' > "$WORK/lt/tool.js"
+printf '#!/usr/bin/env bash\necho ok\n' > "$WORK/lt/ok.sh"
+# предпроверка и pr-body: лёгкое — своим текстом (уровень скрипта страж не судит)
+printf '#!/usr/bin/env bash\npython3 -c "print(1)"\ngo vet ./...\nshellcheck x.sh\nbash -n x.sh\n' > "$WORK/lt/pr-body.sh"
+chmod +x "$WORK/lt/"*
+echo "   каждая форма"
+light suite   'python3 -c "print(1)"'
+light suite   "python3 - <<'EOF'
+print(1)
+EOF"
+light suite   'python3 -I -c "import json,sys; print(json.load(sys.stdin))" < f.json'
+light suite   'python3 scripts/x/check-02-y.py'
+light suite   'python3 -m json.tool f.json'
+light suite   'python3'
+light suite   'python -u x.py'
+light suite   'bash -n x.sh'
+light suite   'sh -n x.sh'
+light suite   "bash -c 'set -n; true'"
+light suite   "bash -n <<'EOF'
+echo x
+EOF"
+light suite   'shellcheck x.sh'
+light suite   'shellcheck -S warning -x a.sh b.sh'
+light suite   "node -e 'console.log(1)'"
+light suite   'node x.js'
+light suite   'openssl rand -hex 16'
+light suite   'openssl x509 -in c.pem -noout -text'
+light go-unit 'go vet ./...'
+light go-unit 'go vet -run Race ./...'
+light go-unit 'go -C services/vpc vet ./...'
+light go-unit 'go run ./cmd/x'
+light go-unit 'go install ./cmd/x'
+light suite   './tool.py' "$WORK/lt"
+light suite   './tool.js' "$WORK/lt"
+echo "   обёртки не уводят"
+light suite   'env A=1 python3 -c 1'
+light suite   'env -i PATH=/usr/bin python3 x.py'
+light suite   "bash -c 'python3 -c 1'"
+light suite   'sh -c "shellcheck x.sh"'
+light suite   "bash -lc 'node -e 1'"
+light suite   'timeout 60 python3 x.py'
+light suite   'nice -n 10 shellcheck x.sh'
+light go-unit 'nice go vet ./...'
+light suite   'nohup python3 x.py > o.log 2>&1'
+light suite   'ls *.sh | xargs shellcheck'
+light suite   "find . -name '*.sh' -exec bash -n {} \\;"
+light suite   'X=$(python3 -c 1); echo $X'
+light suite   'cat f.json | python3 -c "import sys"'
+light suite   'cd /x && python3 x.py'
+light suite   'for f in a.sh b.sh; do shellcheck "$f"; done'
+light suite   'strace -f python3 x.py'
+light suite   "bash <<'EOF'
+python3 -c 1
+EOF"
+light suite   'exec openssl rand 8'
+TOOL=Monitor
+light suite   'tail -f run.log | python3 -u filter.py'
+TOOL=Bash
+echo "   тяжёлое прежде лёгкого в одной строке"
+denies go-race 'python3 -c 1; go test -race ./...'
+denies go-race "bash -c 'python3 -c 1; go test -race ./...'"
+echo "   законные близнецы"
+passes  'git status'
+passes  'gh pr view 1 --json body -q .body'
+passes  'jq -r .a f.json'
+passes  "grep -n 'python3 -c' f.sh"
+passes  "sed -n '1p' x.py"
+passes  "awk '{print \$1}' f"
+passes  'kubectl --context x-client -n t1-x get pods'
+passes  "kubectl -n t1-x exec p -- python3 -c 'print(1)'"
+passes  'kubectl -n t1-x exec p -- go vet ./...'
+passes  'tar -czf x.tgz dir'
+passes  "/ws/scripts/heavy-slot.sh suite -- python3 -c 'print(1)'"
+passes  'bash /ws/scripts/heavy-slot.sh suite -- bash -n x.sh'
+passes  'env KACHO_TASK=1 /ws/scripts/heavy-slot.sh go-unit -- go vet ./...'
+passes  '/ws/scripts/detach.sh start d -- /ws/scripts/heavy-slot.sh suite -- shellcheck x.sh'
+passes  'bash pr-body.sh kacho origin/main HEAD > b.md' "$WORK/lt"
+passes  './pr-body.sh' "$WORK/lt"
+passes  './ok.sh' "$WORK/lt"
+passes  'bash ok.sh' "$WORK/lt"
+passes  'python3 -V'
+passes  'node --version'
+passes  'shellcheck --version'
+passes  'openssl version'
+passes  'go list ./...'
+passes  'go env GOPATH'
+passes  'gofmt -l .'
+passes  'which python3 node shellcheck'
+passes  'command -v python3'
+passes  "echo 'python3 -c 1; bash -n x.sh'"
+passes  'git commit -m "python3 -c x; bash -n y; go vet"'
+passes  "cat > f.py <<'EOF'
+import os
+EOF"
+passes  'ls python3'
+echo "   мутанты: порча по одному решению — каждую ловит свой случай выше"
+lt_mut() {  # lt_mut <имя> <команда> <cwd> <было> <стало>: исход с порчей отличен от исхода без неё
+    local id="$1" md="$WORK/lmut-$1" want got
+    mkdir -p "$md/heavy-guard"; cp "$HOOK" "$md/heavy-guard.sh"
+    if ! python3 -c '
+import sys
+s = open(sys.argv[1], encoding="utf-8").read()
+if s.count(sys.argv[3]) != 1:
+    sys.exit(1)
+open(sys.argv[2], "w", encoding="utf-8").write(s.replace(sys.argv[3], sys.argv[4]))' "$GUARD" "$md/heavy-guard/guard.py" "$4" "$5"; then
+        assert "построен" "не построен" "мутант $id: фрагмент порчи в guard.py не единствен"; return
+    fi
+    want="$(run "$2" "$3")|$(head -n 1 "$WORK/out")"
+    got="$(HOOK_RUN="$md/heavy-guard.sh" run "$2" "$3")|$(head -n 1 "$WORK/out")"
+    assert "убит" "$([ "$want" != "$got" ] && echo убит || echo выжил)" "мутант $id ($(printf '%s' "$2" | tr '\n' ' ')): с порчей «${got%%|*}», без неё «${want%%|*}»"
+}
+lt_mut level-blind 'bash pr-body.sh' "$WORK/lt" \
+    '        return local_form(base, args) if level == 0 else None  # python3 на машине (ws#1301)' \
+    '        return local_form(base, args)  # python3 на машине (ws#1301)'
+lt_mut remote-exec-blind "kubectl -n t1-x exec p -- python3 -c 1" "$WORK" \
+    'elif level == 0 and k < len(args) and base not in REMOTE_EXEC and' 'elif level == 0 and k < len(args) and'
+lt_mut remote-exec-heads "kubectl -n t1-x exec p -- go vet ./..." "$WORK" \
+    'if c and not (c.startswith(LOCAL) and base in REMOTE_EXEC):' 'if c:'
+lt_mut version-blind 'python3 -V' "$WORK" \
+    'return None if args and all(a in PY_VERSION for a in args) else LOCAL + "suite"' 'return LOCAL + "suite"'
+lt_mut node-blind "node -e 1" "$WORK" '    if base in LOCAL_FORMS:
+        return local_form' '    if False:
+        return local_form'
+lt_mut shebang-blind './tool.py' "$WORK/lt" \
+    '        if head and (PYTHONS.match(head) or head in LOCAL_FORMS):' '        if False:'
+lt_mut go-vet-blind 'go vet ./...' "$WORK" \
+    'if sub in ("vet", "run", "install") and level == 0:' 'if False:'
+lt_mut heredoc-noexec-blind "bash -n <<'EOF'
+echo x
+EOF" "$WORK" '                elif level == 0:  # noexec' '                elif False:  # noexec'
+lt_mut heavy-first 'python3 -c 1; go test -race ./...' "$WORK" \
+    'if hit[0] == "knob" or not hit[1].startswith(LOCAL):' 'if True:'
+lt_mut best-heavy-first "bash -c 'python3 -c 1; go test -race ./...'" "$WORK" \
+    '    for c in RANK:
+        if c in classes:
+            return c
+    return min(' '    for c in ():
+        if c in classes:
+            return c
+    return min('
+
 echo "── законный близнец той же формы → пропуск молча"
-passes 'go vet ./...'
-passes 'go vet -run Race ./...'
+passes 'go list ./...'
+passes 'go list -e ./...'
 passes 'docker ps'
 passes 'docker compose logs'
 passes 'kind get clusters'
@@ -336,7 +497,7 @@ knob   HEAVY_SLOT_LIMIT_GIB=1   'HEAVY_SLOT_LIMIT_GIB=1 HEAVY_SLOT_WAIT_S=99999 
 knob   HEAVY_SLOT_LIMIT_GIB=40  'HEAVY_SLOT_LIMIT_GIB=40 /ws/scripts/heavy-slot.sh docker -- true'
 passes 'FOO=1 /ws/scripts/heavy-slot.sh docker -- true'
 
-echo "── синтаксическая проверка — не исполнение (ws#1247): noexec — пропуск, близнецы — прежний отказ"
+echo "── синтаксическая проверка — не исполнение (ws#1247): noexec — не тяжёлое: в строке команды лёгкая форма (ws#1301), близнецы — прежний отказ тяжёлой"
 # Каждая форма судится ДВАЖДЫ: стражем (на месте @H@ — `go test -race ./...`) и настоящей
 # оболочкой (на месте @H@ — запись метки): отказ обязан быть формой, которая ИСПОЛНЯЕТ
 # тело, пропуск — формой, которая его НЕ исполняет. Так причина отказа («тяжёлая
@@ -355,11 +516,16 @@ nx_ran() {
     (cd "$NXO" && HOME="$NXO" timeout 20 "${NXS[@]}" bash -c "${1//@H@/touch $NXO/ran}") > /dev/null 2>&1 < /dev/null
     if [ -e "$NXO/ran" ]; then echo да; else echo нет; fi
 }
-# nx <пропуск|класс> <форма> — страж и настоящая оболочка над одной формой
+# nx <пропуск|лёгкая|класс> <форма> — страж и настоящая оболочка над одной формой. «лёгкая» —
+# отказ лёгкой форме на машине (ws#1301) при НЕисполненном теле: noexec не тяжёл, но не на месте.
 nx() {
-    local o="${2//@H@/touch $NXO/ran}"
-    if [ "$1" = пропуск ]; then passes "${2//@H@/go test -race ./...}" "$NX"; else denies "$1" "${2//@H@/go test -race ./...}" "$NX"; fi
-    assert "$([ "$1" = пропуск ] && echo нет || echo да)" "$(nx_ran "$2")" "оболочка: тело $([ "$1" = пропуск ] && echo НЕ )исполнено — $(printf '%s' "$o" | tr '\n' ' ')"
+    local o="${2//@H@/touch $NXO/ran}" body=да
+    case "$1" in
+        пропуск) passes "${2//@H@/go test -race ./...}" "$NX"; body=нет ;;
+        лёгкая)  light suite "${2//@H@/go test -race ./...}" "$NX"; body=нет ;;
+        *)       denies "$1" "${2//@H@/go test -race ./...}" "$NX" ;;
+    esac
+    assert "$body" "$(nx_ran "$2")" "оболочка: тело $([ "$body" = нет ] && echo НЕ )исполнено — $(printf '%s' "$o" | tr '\n' ' ')"
 }
 # nx_cons <класс> <форма> — отказ КОНСЕРВАТИВЕН: страж не полагается на поведение версии
 # оболочки, которое man называет иначе; исход оракула печатается, но не утверждается
@@ -368,22 +534,22 @@ nx_cons() {
     echo "         оракул здесь: тело исполнено — $(nx_ran "$2"); отказ консервативен"
 }
 nx go-race   'bash heavy.sh'
-nx пропуск   'bash -n heavy.sh'
-nx пропуск   'sh -n heavy.sh'
-nx пропуск   'bash -nx heavy.sh'
-nx пропуск   'bash -xn heavy.sh'
-nx пропуск   'bash -n -x heavy.sh'
-nx пропуск   'bash -o noexec heavy.sh'
-nx пропуск   'bash -n scripts/ci-local.sh'
-nx пропуск   'bash -n -c "@H@"'
-nx пропуск   'bash -nc "@H@"'
-nx пропуск   "bash -c 'set -n; @H@'"
-nx пропуск   "sh -c 'set -n; @H@'"
-nx пропуск   "bash -c 'set -e; set -o noexec; @H@'"
-nx пропуск   "bash -n <<'EOF'
+nx лёгкая    'bash -n heavy.sh'
+nx лёгкая    'sh -n heavy.sh'
+nx лёгкая    'bash -nx heavy.sh'
+nx лёгкая    'bash -xn heavy.sh'
+nx лёгкая    'bash -n -x heavy.sh'
+nx лёгкая    'bash -o noexec heavy.sh'
+nx лёгкая    'bash -n scripts/ci-local.sh'
+nx лёгкая    'bash -n -c "@H@"'
+nx лёгкая    'bash -nc "@H@"'
+nx лёгкая    "bash -c 'set -n; @H@'"
+nx лёгкая    "sh -c 'set -n; @H@'"
+nx лёгкая    "bash -c 'set -e; set -o noexec; @H@'"
+nx лёгкая    "bash -n <<'EOF'
 @H@
 EOF"
-nx пропуск   "bash -c 'set -n
+nx лёгкая    "bash -c 'set -n
 @H@'"
 echo "   близнецы «почти совпадение» — прежний отказ"
 nx go-race   'bash heavy.sh -n'
@@ -422,22 +588,23 @@ nx_cons go-race "bash -i -n <<'EOF'
 EOF"
 nx_cons go-race "bash -i +i -c 'set -n; @H@'"
 echo "   близнецы без -i — пропуск (значение опции с буквой i — не -i)"
-nx пропуск   "bash -x -c 'set -n; @H@'"
-nx пропуск   "bash -o pipefail -c 'set -n; @H@'"
-nx пропуск   "bash <<'EOF'
+nx лёгкая    "bash -x -c 'set -n; @H@'"
+nx лёгкая    "bash -o pipefail -c 'set -n; @H@'"
+nx лёгкая    "bash <<'EOF'
 set -n
 @H@
 EOF"
 echo "   живые формы исполнителей (журналы сессий, 2026-10)"
 nx ci-local  "/bin/bash -c '. tmp/land-3261.sh' ; echo syn=\$?"
-nx пропуск   "/bin/bash -c 'set -n; . tmp/land-3261.sh' ; echo syn=\$?"
-nx пропуск   'bash -n tmp/land-3261.sh; echo rc=$?'
-nx пропуск   'for f in heavy.sh tmp/land-3261.sh; do bash -n "$f" || echo "SYNTAX $f"; done'
+nx лёгкая    "/bin/bash -c 'set -n; . tmp/land-3261.sh' ; echo syn=\$?"
+nx лёгкая    'bash -n tmp/land-3261.sh; echo rc=$?'
+nx лёгкая    'for f in heavy.sh tmp/land-3261.sh; do bash -n "$f" || echo "SYNTAX $f"; done'
 # Мутанты: порча стража по одному решению — каждую обязан поймать свой случай выше.
 # Порча — точная замена фрагмента копии guard.py (фрагмент ровно один, иначе мутант
-# устарел и не построен); убита, если страж с порчей вышел не тем кодом, что без неё.
+# устарел и не построен); убита, если исход стража с порчей — код И первая строка отказа — не тот,
+# что без неё: отказ тяжёлой и отказ лёгкой форме (ws#1301) — оба код 2, различает их текст.
 nx_mut() {
-    local id="$1" form="$2" want="$3" md="$WORK/mut-$1" rc
+    local id="$1" form="$2" want="$3" md="$WORK/mut-$1" rc base got
     mkdir -p "$md/heavy-guard"; cp "$HOOK" "$md/heavy-guard.sh"
     if ! python3 -c '
 import sys
@@ -447,8 +614,10 @@ if s.count(sys.argv[3]) != 1:
 open(sys.argv[2], "w", encoding="utf-8").write(s.replace(sys.argv[3], sys.argv[4]))' "$GUARD" "$md/heavy-guard/guard.py" "$4" "$5"; then
         assert "построен" "не построен" "мутант $id: фрагмент порчи в guard.py не единствен"; return
     fi
-    rc="$(HOOK_RUN="$md/heavy-guard.sh" run "${form//@H@/go test -race ./...}" "$NX")"
-    assert "убит" "$([ "$rc" != "$want" ] && echo убит || echo выжил)" "мутант $id ($(printf '%s' "$form" | tr '\n' ' ')): с порчей код $rc, без неё $want"
+    rc="$(run "${form//@H@/go test -race ./...}" "$NX")"; base="$rc|$(head -n 1 "$WORK/out")"
+    assert "$want" "$rc" "мутант $id: без порчи код $want"
+    rc="$(HOOK_RUN="$md/heavy-guard.sh" run "${form//@H@/go test -race ./...}" "$NX")"; got="$rc|$(head -n 1 "$WORK/out")"
+    assert "убит" "$([ "$got" != "$base" ] && echo убит || echo выжил)" "мутант $id ($(printf '%s' "$form" | tr '\n' ' ')): с порчей «${got:0:90}», без неё «${base:0:90}»"
 }
 nx_mut n-past-script 'bash heavy.sh -n' 2 \
     $'            k += 1 + j\n            continue\n        break\n    return on' \
@@ -458,10 +627,10 @@ nx_mut plus-ignored 'bash -n +n heavy.sh' 2 \
     $'                if ch == "n":\n                    on = True'
 nx_mut set-anywhere "bash -c '@H@; set -n'" 2 'm = SET_HEAD.match(t)' 'm = SET_HEAD.search(t)'
 nx_mut set-pipe "bash -c 'set -n | cat; @H@'" 2 '(;|&&|\|\||\n|$)")' '(;|&&|\|\||\||&|\n|$)")'
-nx_mut cluster-exact 'bash -nx heavy.sh' 0 '                if ch == "n":' '                if ch == "n" and a in ("-n", "+n"):'
+nx_mut cluster-exact 'bash -nx heavy.sh' 2 '                if ch == "n":' '                if ch == "n" and a in ("-n", "+n"):'
 nx_mut heredoc-blind "bash -n <<'EOF'
 @H@
-EOF" 0 '                if shell_interactive(argv[1:]) or not (shell_noexec(argv[1:]) or set_noexec_first(body)):' '                if True:'
+EOF" 2 '                if shell_interactive(argv[1:]) or not (shell_noexec(argv[1:]) or set_noexec_first(body)):' '                if True:'
 nx_mut interactive-ignored "bash -ic 'set -n; @H@'" 2 \
     $'        if a[0] == "-" and "i" in a[1:]:\n            return True' \
     $'        if False:\n            return True'
@@ -521,14 +690,14 @@ denies go-race 'bash scripts/tg-gate/run-all.sh' "$SX"
 echo 'true' > "$SX/scripts/tg-gate/run-all.sh"
 passes 'bash scripts/tg-gate/check-01-x.sh' "$SX"
 passes 'cat scripts/tg-gate/run-all.sh' "$SX"
-passes 'bash -n scripts/tg-gate/inject.sh' "$SX"
-passes 'python3 -m py_compile scripts/ls/mutants.py' "$SX"
-passes 'python3 -c "print(1)" scripts/ls/mutants.py' "$SX"
+light suite 'bash -n scripts/tg-gate/inject.sh' "$SX"
+light suite 'python3 -m py_compile scripts/ls/mutants.py' "$SX"
+light suite 'python3 -c "print(1)" scripts/ls/mutants.py' "$SX"
 passes 'grep -n run-all.sh scripts/tg-gate/inject.sh' "$SX"
 passes "/ws/scripts/heavy-slot.sh suite -- bash scripts/tg-gate/inject.sh" "$SX"
 passes "bash /ws/scripts/heavy-slot.sh suite -- python3 scripts/ls/mutants.py" "$SX"
 passes 'bash scripts/tg-gate/run-all.sh' "$PX"
-passes 'python3 scripts/ls/mutants.py' "$PX"
+light suite 'python3 scripts/ls/mutants.py' "$PX"
 # Мутанты: порча по одному решению — каждую обязан поймать свой случай выше; место вызова — $6
 # (по умолчанию $SX): порчу признака воркспейса ловит лишь близнец места $PX.
 sx_mut() {
@@ -542,11 +711,15 @@ if s.count(sys.argv[3]) != 1:
 open(sys.argv[2], "w", encoding="utf-8").write(s.replace(sys.argv[3], sys.argv[4]))' "$GUARD" "$md/heavy-guard/guard.py" "$4" "$5"; then
         assert "построен" "не построен" "мутант $id: фрагмент порчи в guard.py не единствен"; return
     fi
-    rc="$(HOOK_RUN="$md/heavy-guard.sh" run "$form" "$at")"
-    assert "убит" "$([ "$rc" != "$want" ] && echo убит || echo выжил)" "мутант $id ($form в ${at##*/}): с порчей код $rc, без неё $want"
+    # исход — код И первая строка: отказ suite и отказ лёгкой форме (ws#1301) — оба код 2
+    rc="$(run "$form" "$at")"; local base="$rc|$(head -n 1 "$WORK/out")" got
+    assert "$want" "$rc" "мутант $id: без порчи код $want"
+    rc="$(HOOK_RUN="$md/heavy-guard.sh" run "$form" "$at")"; got="$rc|$(head -n 1 "$WORK/out")"
+    assert "убит" "$([ "$got" != "$base" ] && echo убит || echo выжил)" "мутант $id ($form в ${at##*/}): с порчей «${got:0:90}», без неё «${base:0:90}»"
 }
 sx_mut python-blind 'python3 scripts/ls/mutants.py' 2 \
-    'return "suite" if script and suite_member(resolve(script, cwd, alt)) else None' 'return None'
+    $'        if script and suite_member(resolve(script, cwd, alt)):\n            return "suite"' \
+    $'        if False:\n            return "suite"'
 sx_mut no-marker 'bash scripts/tg-gate/run-all.sh' 0 \
     'if top and os.path.isfile(os.path.join(top, "scripts", "heavy-slot.sh")):' 'if top:' "$PX"
 sx_mut shell-blind 'bash scripts/tg-gate/inject.sh' 2 \
@@ -634,7 +807,7 @@ denies stand   'source sh/heavy.sh' "$M"
 denies newman  'bash sh/outer.sh' "$M"
 denies docker  'bash sh/box.sh' "$M"
 passes         'bash sh/light.sh' "$M"
-passes         './sh/tool' "$M"
+light suite    './sh/tool' "$M"
 denies stand   'for s in sh/h*.sh; do bash "$s"; done' "$M"
 passes         'for s in sh/l*.sh; do bash "$s"; done' "$M"
 denies go-race 'export GOFLAGS=-race; bash sh/unit.sh' "$M"
