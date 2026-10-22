@@ -87,57 +87,8 @@ assert 64 "$(slot bash "$SLOT" docker true)" "без «--» — 64"
 assert 64 "$(slot HEAVY_SLOT_BUDGET_MIB=200000 bash "$SLOT" docker -- true)" "бюджет больше потолка — 64, а не вечное ожидание"
 assert 3 "$(slot bash "$SLOT" docker -- bash -c 'exit 3')" "исполнившаяся команда — её собственный код"
 
-echo "── диспозиция сигналов: команда слота — SIGPIPE и SIGHUP по умолчанию, как в конвейере (ws#1274)"
-# Замер 2026-10-21 (GNU timeout 9.7, uutils timeout 0.8.0): timeout СБРАСЫВАЕТ унаследованный
-# SIG_IGN на SIGHUP и СОХРАНЯЕТ его на SIGPIPE; bash снять SIG_IGN, полученный при входе, не
-# может. Под вызывающим с SIG_IGN (nohup, python) `yes | head -n 1` давал 1 вместо 141, а
-# пробы сигналов краснели либо зеленели в зависимости от обёртки, а не от кода.
-# Вывод команды: «<код yes | head> <биты SIG_IGN на PIPE|HUP>»; конвейер — «141 0».
-# shellcheck disable=SC2016  # строка дочерней оболочки, раскрывает она
-SIGP='set -o pipefail; yes | head -n 1 > /dev/null; p=$?; i=$(sed -n "s/^SigIgn:[[:space:]]*//p" /proc/$$/status); printf "%s %s" "$p" $(( 16#$i & 0x1001 ))'
-IGN=(python3 -c 'import os, signal, sys; signal.signal(signal.SIGPIPE, signal.SIG_IGN); signal.signal(signal.SIGHUP, signal.SIG_IGN); os.execvp(sys.argv[1], sys.argv[1:])')
-sigrun() { local s="$1"; shift; slot "$@" bash "$s" docker -- bash -c "$SIGP" > /dev/null; cat "$W/out"; }
-assert "141 0" "$(sigrun "$SLOT")" "контроль: вызывающий без SIG_IGN — 141, ничего не заглушено"
-assert "141 0" "$(sigrun "$SLOT" "${IGN[@]}")" "вызывающий с SIG_IGN на PIPE и HUP — команда их не наследует"
-assert "141 0" "$(sigrun "$SLOT" "${IGN[@]}" timeout 60)" "то же под timeout над слотом — тот же исход"
-assert "141 0" "$(slot "${IGN[@]}" bash "$SLOT" docker -- timeout 60 bash -c "$SIGP" > /dev/null; cat "$W/out")" "то же под timeout внутри команды — тот же исход"
-python3 - "$SLOT" "$W/sigmut.sh" <<'PYM' && SIGMUT=да || SIGMUT=нет
-import sys, re
-s, d = sys.argv[1:3]
-t = open(s, encoding="utf-8").read()
-a = "    exec env --default-signal=PIPE,HUP KACHO_SIGDISP=1 bash \"$0\" \"$@\"\n"
-if t.count(a) != 1:
-    sys.exit(1)
-open(d, "w", encoding="utf-8").write(t.replace(a, "    :\n"))
-PYM
-assert "да" "$SIGMUT" "мутант «диспозиция не восстановлена» лёг ровно одной строкой"
-assert "1 4097" "$(sigrun "$W/sigmut.sh" "${IGN[@]}")" "мутант «диспозиция не восстановлена»: под SIG_IGN вызывающего — 1 и заглушённые PIPE|HUP, проба выше его ловит"
-# Вызывающий с ОДНИМ заглушённым сигналом (возврат приёмки ws#1274): маска перезапуска судит биты
-# PIPE (0x1000) и HUP (0x1) врозь. Вход «оба заглушены» её не держит: маска из одного бита на нём
-# тоже перезапускает. «Только PIPE» — python, а timeout над слотом сбрасывает лишь HUP; «только HUP» — nohup.
-IGNP=(python3 -c 'import os, signal, sys; signal.signal(signal.SIGPIPE, signal.SIG_IGN); os.execvp(sys.argv[1], sys.argv[1:])')
-assert "141 0" "$(sigrun "$SLOT" "${IGNP[@]}")" "вызывающий с SIG_IGN только на PIPE — команда его не наследует"
-assert "141 0" "$(sigrun "$SLOT" "${IGNP[@]}" timeout 60)" "то же под timeout над слотом — тот же исход"
-assert "141 0" "$(sigrun "$SLOT" nohup)" "вызывающий nohup (SIG_IGN только на HUP) — команда его не наследует"
-# sigmask <файл> <маска> — копия слота с маской перезапуска <маска> вместо 0x1001 (ровно одно вхождение).
-sigmask() {
-    python3 - "$SLOT" "$1" "$2" <<'PYM'
-import sys
-s, d, m = sys.argv[1:4]
-t = open(s, encoding="utf-8").read()
-a = "& 0x1001 )); then\n"
-if t.count(a) != 1:
-    sys.exit(1)
-open(d, "w", encoding="utf-8").write(t.replace(a, "& " + m + " )); then\n"))
-PYM
-}
-sigmask "$W/sigmask-hup.sh" 0x1 && SIGM1=да || SIGM1=нет
-sigmask "$W/sigmask-pipe.sh" 0x1000 && SIGM2=да || SIGM2=нет
-assert "да да" "$SIGM1 $SIGM2" "мутанты маски «только HUP» (0x1) и «только PIPE» (0x1000) легли ровно одной строкой"
-assert "1 4096" "$(sigrun "$W/sigmask-hup.sh" "${IGNP[@]}")" "мутант маски 0x1: вызывающий «только PIPE» — 1 и заглушённый PIPE, случай «только PIPE» его ловит"
-assert "1 4096" "$(sigrun "$W/sigmask-hup.sh" "${IGNP[@]}" timeout 60)" "мутант маски 0x1 под timeout над слотом — тот же отказ, случай с timeout его ловит"
-assert "141 1" "$(sigrun "$W/sigmask-pipe.sh" nohup)" "мутант маски 0x1000: вызывающий nohup — заглушённый HUP дошёл до команды, случай nohup его ловит"
-assert "141 0 141 0" "$(sigrun "$W/sigmask-hup.sh" "${IGN[@]}") $(sigrun "$W/sigmask-pipe.sh" "${IGN[@]}")" "оба мутанта маски проходят вход «PIPE и HUP» — держат их лишь случаи с одним сигналом"
+# Диспозиция сигналов команды слота (ws#1274) — scripts/heavy-slot-signal-inject.sh: машину она не
+# судит и потому переносима (Job профиля ws, шаг конвейера), а эта проба внешнего маршрута не имеет.
 
 echo "── ci-local держит ssh отправки живым: GIT_SSH_COMMAND с keepalive, заданное — сильнее (урок 2026-10-16)"
 # git push открывает ssh до хука отправки; минуты хука простаивающее соединение
