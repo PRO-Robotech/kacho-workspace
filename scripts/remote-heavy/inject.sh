@@ -32,7 +32,7 @@
 #      2026-10-09 «тебе можно ставить только в client»)
 #   X2 KACHO_REMOTE_CONTEXT не на -client  → 64; к kubectl ни одного обращения;
 #      близнец X2b — на client → 0; X2c названного нет → 69
-#   X3 в файле нет контекста -client       → 69, run и --available, шаг назван
+#   X3 в файле нет контекста -client       → 69, run, --available и --guard, шаг назван
 #   X4 контекстов -client два              → 69, шаг назван
 #   R4 ns уже есть (близнец K1)            → 64; чужое ns НЕ снято
 #   A1 Job — в своём ns t<N>-heavy-*, условий узла по стенду нет: ни
@@ -222,13 +222,14 @@
 #   L1 вывод всех случаев без адреса сервера, IPv4/IPv6 узлов и pod, токена,
 #      имён контекстов и пути кубконфига (F4: stdout лога тоже)
 #   V1 кластер не отвечает (--available)   → 69, причина без адреса
-#   W1 узлы с -infra-                       → 69, run и --available, записей ноль, шаг
+#   W1 узлы с -infra-                       → 69, run, --available и --guard, записей ноль, шаг
 #      назван (решение владельца 2026-10-10 «По префиксу нод можешь понять тот
 #      кластер или нет, куб конфет мог меняться»)
 #   W2 узлы смешанные (client и infra)      → 69, записей ноль
 #   W3 узлов ноль                           → 69, run и --available, записей ноль
 #   W4 узлы чужого профиля (-client-)       → 69, записей ноль
-#   W5 узлы профиля → 0, и перепись узлов — раньше первой записи
+#   W5 узлы профиля → 0, и перепись узлов — раньше первой записи; W5g то же --guard
+#      (предусловие `cluster` lane-precheck.sh, ws#1307) → 0, записей ноль
 #   W6 профиль из имени файла <учётка>--<профиль>.yaml без переменной → 0;
 #      близнец W6b тот же файл, узлы чужого профиля → 69
 #   W7 профиль не выводится (ни имени, ни переменной) → 69 до кластера
@@ -2011,12 +2012,14 @@ kubeconfig_with "$CTX_INFRA" "$CTX_INFRA" > "$BOX/kc-noclient"
 kubeconfig_with "$CTX_INFRA" "$CTX_INFRA" "$CTX_CLIENT" lab-b2-client > "$BOX/kc-twoclient"
 for cs in "noclient:X3:нет контекста с суффиксом -client" "twoclient:X4:выбор неоднозначен"; do
     IFS=: read -r f nm why <<< "$cs"
-    for mode in run avail; do
+    for mode in run avail guard; do
         fresh
         if [ "$mode" = run ]; then
             go_run "$nm-$mode" env KACHO_REMOTE_KUBECONFIG="$BOX/kc-$f" FAKE_EXIT=0 "${B[@]}" --short x3 -- true
-        else
+        elif [ "$mode" = avail ]; then
             go_run "$nm-$mode" env KACHO_REMOTE_KUBECONFIG="$BOX/kc-$f" bash "$RUN" --available
+        else
+            go_run "$nm-$mode" env KACHO_REMOTE_KUBECONFIG="$BOX/kc-$f" bash "$RUN" --guard
         fi
         expect_rc "$nm $mode" 69
         if [ "$(cluster_calls)" -gt 0 ]; then bad "$nm $mode" "к кластеру обращались"; else ok; fi
@@ -2554,12 +2557,14 @@ N_FOREIGN="$( { wnode lab2-client-p00l-a; wnode lab2-client-p00l-b; } | items)"
 N_CLIENT="$( { wnode lab1-client-p00l-a; wnode lab1-client-zz9-b; } | items)"
 for cs in "w1:$N_INFRA:с -infra- 2" "w2:$N_MIXED:с -infra- 1" "w3:$N_ZERO:узлов в контексте ноль" "w4:$N_FOREIGN:с префиксом <профиль>-client- 0"; do
     nm="${cs%%:*}"; rest="${cs#*:}"; nodes="${rest%:*}"; why="${rest##*:}"; NM="${nm^^}"
-    for mode in run avail; do
+    for mode in run avail guard; do
         fresh
         if [ "$mode" = run ]; then
             go_run "$nm-$mode" env FAKE_EXIT=0 FAKE_NODES="$nodes" "${B[@]}" --short "$nm" -- true
-        else
+        elif [ "$mode" = avail ]; then
             go_run "$nm-$mode" env FAKE_NODES="$nodes" bash "$RUN" --available
+        else
+            go_run "$nm-$mode" env FAKE_NODES="$nodes" bash "$RUN" --guard
         fi
         expect_rc "$NM $mode" 69
         if [ "$(writes)" -eq 0 ]; then ok; else bad "$NM $mode" "изменяющих вызовов $(writes) при узлах не того кластера"; fi
@@ -2573,6 +2578,11 @@ expect_rc W5 0
 first_nodes="$(grep -nE '(^| )get nodes' "$BOX/state/calls" | head -n 1 | cut -d: -f1)"
 first_write="$(grep -nE '(^| )(create|apply|delete|exec) ' "$BOX/state/calls" | grep -v 'auth can-i' | head -n 1 | cut -d: -f1)"
 if [ -n "$first_nodes" ] && [ -n "$first_write" ] && [ "$first_nodes" -lt "$first_write" ]; then ok; else bad W5 "перепись узлов (строка ${first_nodes:-нет}) не раньше первой записи (строка ${first_write:-нет})"; fi
+# W5g — --guard (предусловие `cluster` lane-precheck, ws#1307) на узлах профиля → 0, записей ноль
+fresh
+go_run w5g env FAKE_NODES="$N_CLIENT" bash "$RUN" --guard
+expect_rc W5g 0
+if [ "$(writes)" -eq 0 ] && grep -q 'кластер профиля доказан' "$OUT"; then ok; else bad W5g "записей $(writes) либо строки «доказан» нет"; fi
 # W6 — профиль из имени файла, переменной нет → 0; W6b — тот же файл, узлы чужого профиля → 69
 cp "$BOX/kubeconfig" "$BOX/probe--lab1.yaml"
 fresh

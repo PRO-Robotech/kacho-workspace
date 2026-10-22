@@ -562,6 +562,67 @@ assert "0 да" "$(tt 'Догони 1273 слиянием merge --no-ff, зат�
 assert "1 да" "$(tt 'выполни слияние с сообщением «#1107 Merge origin/main into 1107-x»') $(has 'TASK-MERGE-FORM строка 1: «#1107 Merge origin/main')" "(а) из переписи заданий: «#1107 Merge origin/main into …» → TASK-MERGE-FORM"
 assert "1 да да" "$(tt '«Merge pull request #69 from o/x», «Merge main into 1266».') $(has 'TASK-MERGE-FORM строка 1: «Merge pull request') $(has 'TASK-MERGE-FORM строка 1: «Merge main into')" "(б) темы GitHub и «X into Y» за кавычкой → TASK-MERGE-FORM каждая"
 
+echo "== Vault mount и кластер стенда в задании — парой из переписи (ws#1307)"
+# Двойник kubectl — на PATH: предусловие `cluster` зовёт настоящий `remote-heavy/run.sh --guard`
+# (контекст -client и узлы), `vault-mount` — get vaultconfigs. Ответы — файлами окружения.
+mkdir -p "$W/kb" "$W/home/.kube/cctl"
+cat > "$W/kb/kubectl" <<'KB'
+#!/usr/bin/env bash
+case " $* " in
+    *" config get-contexts "*) printf '%s\n' ${KUBE_CTX:-lab1-client lab1-infra} ;;
+    *" config view "*) echo "https://k.invalid:6443" ;;
+    *" get nodes "*) cat "$KUBE_NODES" ;;
+    *" get vaultconfigs.vault.in-cloud.io "*) [ -r "${KUBE_VC:-}" ] || { echo "error: the server could not be reached" >&2; exit 1; }; cat "$KUBE_VC" ;;
+    *) echo "kubectl-двойник: вызов вне словаря: $*" >&2; exit 1 ;;
+esac
+KB
+chmod +x "$W/kb/kubectl"
+KC="$W/home/.kube/cctl/probe--lab1.yaml"; echo 'apiVersion: v1' > "$KC"
+printf '%s' '{"items":[{"metadata":{"name":"lab1-client-p00l-a"}},{"metadata":{"name":"lab1-client-zz9-b"}}]}' > "$W/nodes-client.json"
+printf '%s' '{"items":[{"metadata":{"name":"lab1-client-p00l-a"}},{"metadata":{"name":"lab1-infra-q11-b"}}]}' > "$W/nodes-infra.json"
+# Одно имя mount в двух Vault (урок 2026-10-22): `default` — новая схема (managerAuth), `root-vault` —
+# прежняя (auth): распознаватель mount — по классу «ключ *mountPath в spec», а не по одной форме.
+jq -n '{items: [
+  {metadata: {name: "default"}, spec: {address: "https://a.invalid:8200", managerAuth: {method: "kubernetes", mountPath: "begetk8s-system-1", role: "vault-operator"}, storage: {kvMountPath: "secret"}}},
+  {metadata: {name: "root-vault"}, spec: {address: "https://b.invalid:8200", auth: {mountPath: "begetk8s-system-1"}}},
+  {metadata: {name: "vault-bucket"}, spec: {address: "https://a.invalid:8200", managerAuth: {mountPath: "begetk8s-system-test"}}}]}' > "$W/vc.json"
+export KUBE_NODES="$W/nodes-client.json" KUBE_VC="$W/vc.json"
+runk() { PATH="$W/kb:$PATH" bash "$P" --premise "$W/premise.txt" > "$W/out" 2>&1; echo $?; }
+prem "vault-mount $KC default begetk8s-system-1"
+assert "0 да да" "$(runk) $(has 'VAULT-MOUNT default begetk8s-system-1') $(has 'тот же mount у: root-vault')" "vault-mount: mount из VaultConfig → 0; второй Vault с тем же mount назван"
+prem "vault-mount $KC root-vault begetk8s-system-1"
+assert "0" "$(runk)" "близнец: прежняя схема spec.auth.mountPath — тот же класс ключа → 0"
+prem "vault-mount $KC default system-1"
+assert "1 да да" "$(runk) $(has 'REASON PREMISE-FALSE vault-mount') $(has 'mount VaultConfig default: begetk8s-system-1 secret')" "mount по имени кластера («system-1», урок aec76d41) → PREMISE-FALSE, живые mount VaultConfig названы"
+prem "vault-mount $KC vault-bucket begetk8s-system-1"
+assert "1 да" "$(runk) $(has 'begetk8s-system-1 — mount VaultConfig default root-vault')" "mount чужого Vault → PREMISE-FALSE, владельцы mount названы"
+prem "vault-mount $KC nosuch begetk8s-system-1"
+assert "1 да" "$(runk) $(has 'VaultConfig nosuch в кластере нет')" "VaultConfig нет → PREMISE-FALSE"
+prem "vault-mount $KC default"
+assert "2 да" "$(runk) $(has 'VOID PREMISE-FORM vault-mount')" "пары нет (mount не назван) → не судимо, код 2"
+assert "2 да" "$(prem "vault-mount $KC default begetk8s-system-1"; KUBE_VC=/nonexistent runk) $(has 'VOID KUBE-UNREADABLE vault-mount')" "кластер не ответил → VOID, не зелёное"
+prem "cluster $KC"
+assert "0 да" "$(runk) $(has "CLUSTER $KC: кластер профиля доказан")" "cluster: контекст -client и узлы профиля → 0 (тот же предикат, что run.sh)"
+assert "1 да да" "$(KUBE_NODES="$W/nodes-infra.json" runk) $(has 'REASON PREMISE-FALSE cluster') $(has 'с -infra- 1')" "cluster: узел -infra- → PREMISE-FALSE с причиной стража"
+assert "1 да" "$(KUBE_CTX=lab1-infra runk) $(has 'нет контекста с суффиксом -client')" "cluster: нет контекста -client (урок 631571e6) → PREMISE-FALSE"
+prem "cluster $W/home/.kube/cctl/none--lab1.yaml"
+assert "1 да" "$(runk) $(has 'не читается')" "cluster: кубконфига нет → PREMISE-FALSE"
+# HOME не подменяется: jq машины — обёртка из ~/.local (sandbox-git-home.sh, шапка).
+ttk() { printf '%s\n' "$@" > "$W/task.txt"; PATH="$W/kb:$PATH" bash "$P" --task-text "$W/task.txt" > "$W/out" 2>&1; echo $?; }
+assert "1 да" "$(ttk 'Разведай роли mount begetk8s-system-1 в Vault.') $(has 'REASON TASK-VAULT-MOUNT строка 1')" "mount Vault без пары из переписи (урок ada21c45) → TASK-VAULT-MOUNT"
+assert "0 да" "$(ttk 'Разведай роли mount begetk8s-system-1 в Vault.' "- \`vault-mount $KC default begetk8s-system-1\`") $(has 'причин 0')" "близнец: пара Vault+mount строкой переписи, сверка сошлась → 0"
+assert "1 да" "$(ttk 'Разведай mount кластера в Vault.' "- \`vault-mount $KC default system-1\`") $(has 'REASON TASK-COORD-FALSE')" "пара по памяти (mount не из VaultConfig) → TASK-COORD-FALSE любому агенту"
+assert "1 да" "$(ttk 'Сверь kvMountPath секрета Vault.') $(has 'TASK-VAULT-MOUNT строка 1')" "класс «*mountPath»: kvMountPath в тексте о Vault → TASK-VAULT-MOUNT"
+assert "1 да" "$(ttk 'Vault арендатора.' 'Маунт тот же, что в корне.') $(has 'TASK-VAULT-MOUNT строка 2')" "кириллицей «маунт» в задании о Vault → TASK-VAULT-MOUNT"
+assert "0 да" "$(ttk 'Vault agent: проверь volumeMounts пода и FailedMount в событиях.') $(has 'причин 0')" "близнец: volumeMounts и FailedMount — не mount Vault → 0"
+assert "0 да" "$(ttk 'Смонтируй tmpfs: mount -t tmpfs none /x.') $(has 'причин 0')" "близнец: mount без Vault в задании → 0"
+assert "1 да" "$(ttk 'Стенд: kubectl --kubeconfig ~/.kube/cctl/probe--lab1.yaml get ns.') $(has 'REASON TASK-CLUSTER-UNCENSUSED строка 1: «~/.kube/cctl/probe--lab1.yaml»')" "кластер назван без проверки -client и узлов (урок 631571e6) → TASK-CLUSTER-UNCENSUSED"
+assert "1 да" "$(ttk "Стенд: kubectl --kubeconfig $KC get ns.") $(has "TASK-CLUSTER-UNCENSUSED строка 1: «$KC»")" "абсолютный путь кубконфига вне переписи → TASK-CLUSTER-UNCENSUSED"
+assert "0 да" "$(ttk "Стенд: kubectl --kubeconfig $KC get ns." "- \`cluster $KC\`") $(has 'причин 0')" "близнец: тот же кластер строкой переписи cluster, сверка сошлась → 0"
+assert "нет" "$(ttk 'Стенд: ~/.kube/cctl/probe--lab1.yaml.' "- \`cluster \$HOME/.kube/cctl/probe--lab1.yaml\`" > /dev/null; has 'TASK-CLUSTER-UNCENSUSED')" "близнец: «~/…» в тексте и «\$HOME/…» в переписи — один кубконфиг (раскрытие ~, точка конца фразы снята)"
+assert "1 да" "$(KUBE_NODES="$W/nodes-infra.json" ttk "Стенд: $KC." "- \`cluster $KC\`") $(has 'REASON TASK-COORD-FALSE перепись не сошлась: PREMISE-FALSE cluster')" "кластер переписи не доказан узлами → TASK-COORD-FALSE"
+assert "0 да" "$(ttk 'Кубконфиги профилей лежат в ~/.kube/cctl/ — бери файл из настройки слота.') $(has 'причин 0')" "близнец: каталог кубконфигов — не кластер → 0"
+
 echo "== мутанты lane-precheck (по одной правке; проба выше обязана покраснеть)"
 mut() {  # <имя> <было> <стало> <файл предусловий|--task-text строки…> — печатает код мутанта
     local m="$W/mut-lp.sh"
@@ -573,8 +634,8 @@ if t.count(a) != 1:
     sys.exit(1)
 open(d, "w", encoding="utf-8").write(t.replace(a, b))
 PYM
-    # Мутант — в своём каталоге рядом со ссылками на lib/ и hooks/: HERE мутанта находит их, дерево не тронуто.
-    mkdir -p "$W/ms"; ln -sfn "$(dirname "$P")/lib" "$W/ms/lib"; ln -sfn "$(dirname "$P")/hooks" "$W/ms/hooks"
+    # Мутант — в своём каталоге рядом со ссылками на lib/, hooks/ и remote-heavy/: HERE мутанта находит их, дерево не тронуто.
+    mkdir -p "$W/ms"; ln -sfn "$(dirname "$P")/lib" "$W/ms/lib"; ln -sfn "$(dirname "$P")/hooks" "$W/ms/hooks"; ln -sfn "$(dirname "$P")/remote-heavy" "$W/ms/remote-heavy"
     mv "$m" "$W/ms/lane-precheck.sh"; m="$W/ms/lane-precheck.sh"
     if [ "$4" = --task-text ]; then shift 4; printf '%s\n' "$@" > "$W/task.txt"; bash "$m" --task-text "$W/task.txt" > "$W/out" 2>&1; echo $?
     else shift 3; printf '%s\n' "$@" > "$W/premise.txt"; bash "$m" --premise "$W/premise.txt" > "$W/out" 2>&1; echo $?; fi
@@ -594,7 +655,7 @@ mut_a() {  # <имя> <было> <стало> <строки задания…> �
     printf '%s\n' "$@" > "$W/task.txt"; bash "$W/ms/lane-precheck.sh" --task-text "$W/task.txt" --agent acceptance-author > "$W/out" 2>&1; echo $?
 }
 assert "0" "$(mut_a census '[ -z "$miss" ] || reasons+=("TASK-COORD-CENSUS' 'true || reasons+=("TASK-COORD-CENSUS' 'Приёмка: смена контракта ListUsers.')" "мутант «перепись не требуется»: задание без переписи проходит — проба выше его ловит"
-assert "0" "$(mut_a verify 'if [ "${#cen[@]}" -gt 0 ]; then' 'if false; then' "$ACC" "- \`path $L 1-lane docs/x-acceptance.md\`" '- `task o/r#20 open`' '- `branch o/r 1-lane`')" "мутант «перепись не сверяется»: дом по памяти проходит"
+assert "0" "$(mut_a verify 'if [ "${#ver[@]}" -gt 0 ]; then' 'if false; then' "$ACC" "- \`path $L 1-lane docs/x-acceptance.md\`" '- `task o/r#20 open`' '- `branch o/r 1-lane`')" "мутант «перепись не сверяется»: дом по памяти проходит"
 assert "1" "$(mut census-data '${BASH_REMATCH[1]}"; continue' '${BASH_REMATCH[1]}"' --task-text '- `path /ws/tmp/heavy-slots/c 1-lane b.md`')" "мутант «строка переписи судится на ожидание»: путь под heavy-slots даёт TASK-RETURN — проба выше его ловит"
 assert "0" "$(mut_a mention 'reasons+=("TASK-COORD-UNCENSUSED' ': || reasons+=("TASK-COORD-UNCENSUSED' "$ACC" "${CEN[@]}" 'Сосед — o/r#21.')" "мутант «упоминание вне переписи не судится»: o/r#21 проходит"
 assert "0" "$(mut merge-form '|| reasons+=("TASK-MERGE-FORM' '|| : || reasons+=("TASK-MERGE-FORM' --task-text 'Слей ветку коммитом «#808 merge 746: сборка».')" "мутант «форма слияния не судится»: «#808 merge 746» проходит — проба выше его ловит"
@@ -607,6 +668,17 @@ assert "1" "$(mut merge-pr '|| [[ "$pre" =~ (^|[^[:alnum:]_])[Pp][Rr][[:space:]]
 assert "0" "$(mut merge-default '(branch|remote-tracking|tag|commit|pull)' '(never-such)' --task-text "git commit -m \"Merge branch 'x'\"")" "мутант «тема git по умолчанию не узнана»: «Merge branch 'x'» проходит — проба выше его ловит"
 assert "1" "$(mut merge-lawful '(#[0-9]+|main)([^0-9A-Za-z_]|$)' '(#[0-9]+)([^0-9A-Za-z_]|$)' --task-text 'Догон базы — «#808 merge main: догон базы».')" "мутант «merge main не узнан»: законная форма краснеет — проба выше его ловит"
 
+# ws#1307 — Vault mount и кластер стенда.
+assert "0" "$(mut vault-census '|| reasons+=("TASK-VAULT-MOUNT' '|| : || reasons+=("TASK-VAULT-MOUNT' --task-text 'Разведай роли mount begetk8s-system-1 в Vault.')" "мутант «mount без пары не судится»: голый mount проходит — проба выше его ловит"
+assert "0" "$(mut vault-kv '(^|[^[:alpha:]])mount|mountpath ]]' '(^|[^[:alpha:]])mount ]]' --task-text 'Сверь kvMountPath секрета Vault.')" "мутант «mount лишь отдельным словом» (перечень форм): kvMountPath проходит — проба выше его ловит"
+assert "0" "$(mut vault-ru '[[ "$line" =~ (^|[^[:alpha:]])[Мм][Аа][Уу][Нн][Тт] ]]' 'false' --task-text 'Vault арендатора.' 'Маунт тот же, что в корне.')" "мутант «маунт кириллицей не узнан»: проходит — проба выше его ловит"
+assert "1" "$(mut vault-edge '(^|[^[:alpha:]])mount|mountpath ]]' 'mount|mountpath ]]' --task-text 'Vault agent: проверь volumeMounts пода и FailedMount в событиях.')" "мутант «граница слова снята»: volumeMounts краснеет — близнец выше его ловит"
+assert "0" "$(mut cl-census '|| reasons+=("TASK-CLUSTER-UNCENSUSED' '|| : || reasons+=("TASK-CLUSTER-UNCENSUSED' --task-text 'Стенд: kubectl --kubeconfig ~/.kube/cctl/probe--lab1.yaml get ns.')" "мутант «кластер вне переписи не судится»: проходит — проба выше его ловит"
+assert "1" "$(mut cl-dir '[[ "$kp" == */ ||' '[[ "$kp" == */never ||' --task-text 'Кубконфиги профилей лежат в ~/.kube/cctl/ — бери файл из настройки слота.')" "мутант «каталог — кластер»: близнец каталога краснеет — проба выше его ловит"
+assert "0" "$(PATH="$W/kb:$PATH" mut ver-all '[[ "$x" =~ ^(cluster|vault-mount)[[:space:]] ]]' 'false' --task-text 'Разведай mount кластера в Vault.' "- \`vault-mount $KC default system-1\`")" "мутант «пара сверяется лишь автору приёмки»: пара по памяти проходит — проба выше его ловит"
+assert "0" "$(PATH="$W/kb:$PATH" mut vault-own 'if [[ " $own " == *" $vm "* ]]; then' 'if true; then' "vault-mount $KC default system-1")" "мутант «mount не сверяется с VaultConfig»: «system-1» проходит — проба выше его ловит"
+assert "1 нет" "$(PATH="$W/kb:$PATH" mut vault-key 'test("mountpath$"; "i")' 'test("^mountPath$")' "vault-mount $KC default system-1") $(has 'begetk8s-system-1 secret')" "мутант «одна схема ключа mount»: kvMountPath пропал из живых mount — проба выше его ловит"
+assert "0" "$(KUBE_NODES="$W/nodes-infra.json" PATH="$W/kb:$PATH" mut cl-false '64 | 69) reasons+=' '64 | 69) heads+=' "cluster $KC")" "мутант «отказ стража не ложь»: узел -infra- проходит — проба выше его ловит"
 assert "0" "$(LANE_PRECHECK_GIT_BASE="$W/gb" mut pushed '[ "$kind" = pushed ] && [ "$got" != "$want" ]' 'false' "pushed o/r 1-lane $BASE_SHA")" "мутант «голова отправки не сверяется»: непредъявленная голова проходит — проба выше его ловит"
 
 [ -z "${CHERRY_GV:-}" ] || assert "1" "$(mut tags-cut 'if [ "${nf:-0}" -gt 0 ]; then keep=' 'if true; then keep=' "cherry-vet $CHERRY_GV 774")" "мутант «теги не отсекаются»: tools.go даёт ложь vet — проба выше его ловит"
