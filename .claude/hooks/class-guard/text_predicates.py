@@ -345,7 +345,9 @@ def b_shell(src: Source) -> list[Finding]:
         # различитель — ЧЬЯ это оболочка. В рецепте Makefile каждая строка исполняется
         # своей, и `cd .. && docker build` смещения не оставляет (6 таких строк в 5
         # файлах дерева) — поэтому отметка стоит на форме, а роль файла решает после.
-        if re.search(r"\bcd\s+(?!\.\.|-)\S+.*&&", line) and re.search(r"&&.*\bcd\s+(\.\.|-)", line):
+        # Уход, открывающий подоболочку (`$(cd X && … && cd ..)`, `( cd X …)`), смещения
+        # тоже не оставляет (урок ws#1290, 8474172b).
+        if re.search(r"(?<!\()(?<!\( )\bcd\s+(?!\.\.|-)\S+.*&&", line) and re.search(r"&&.*\bcd\s+(\.\.|-)", line):
             src.note("B10")
             if src.path.endswith((".sh", ".bash")):
                 f.append(Finding(

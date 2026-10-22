@@ -689,8 +689,9 @@ P=$(w b10n.sh <<'SH'
 #!/usr/bin/env bash
 (cd project/kacho && make build)
 make -C project/kacho build
+head=$(cd project/kacho && git rev-parse HEAD && cd ..)
 SH
-); expect_silent B10 Write "$P" "подоболочка и make -C"
+); expect_silent B10 Write "$P" "подоболочка, подстановка и make -C"
 
 P=$(w b11.sh <<'SH'
 #!/usr/bin/env bash
