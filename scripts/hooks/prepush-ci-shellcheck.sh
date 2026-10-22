@@ -16,7 +16,9 @@
 # есть строка-вызов `shellcheck …` — не `shellcheck --version`/`-V` (это шаг-установщик); шаг,
 # где вызов несёт `|| true`, конвейер объявил справочным — он не судится. Каталог —
 # `working-directory` шага либо `defaults.run.working-directory` задания, иначе корень дерева.
-# Текст исполняется оболочкой (шаблоны `*.sh` раскрывает она, как bash конвейера), но лишь когда
+# Текст исполняется оболочкой конвейера — без `shell` `bash -e`, `shell: bash` — `bash --noprofile
+# --norc -eo pipefail` (строки шага — через «;», первая упавшая роняет шаг), иная — вне формы;
+# шаблоны `*.sh` раскрывает она, как в конвейере, — но лишь когда
 # КАЖДАЯ строка шага — вызов shellcheck словами без метасимволов оболочки либо `set` с флагами;
 # иначе шаг — отказ формы (код 1), а не молчание.
 # Версия — пин `SHELLCHECK_VERSION` НА ШАГ: env шага сильнее env задания, то — верхнего (так их
@@ -44,10 +46,12 @@ CALL = re.compile(r"^shellcheck(\s|$)")
 INFO = re.compile(r"^shellcheck\s+(--version|-V)(\s|$)")
 d = yaml.safe_load(open(sys.argv[1], encoding="utf-8")) or {}
 pin0 = (d.get("env") or {}).get("SHELLCHECK_VERSION")
+sh0 = ((d.get("defaults") or {}).get("run") or {}).get("shell")
 for jk, j in (d.get("jobs") or {}).items():
     j = j or {}
     wd0 = ((j.get("defaults") or {}).get("run") or {}).get("working-directory") or "."
     pinj = (j.get("env") or {}).get("SHELLCHECK_VERSION", pin0)
+    shj = ((j.get("defaults") or {}).get("run") or {}).get("shell") or sh0
     for st in j.get("steps") or []:
         r = st.get("run") if isinstance(st, dict) else None
         if not isinstance(r, str):
@@ -57,9 +61,13 @@ for jk, j in (d.get("jobs") or {}).items():
         if not calls or any("|| true" in x for x in calls):
             continue
         pin = (st.get("env") or {}).get("SHELLCHECK_VERSION", pinj)
+        # Оболочка — как у конвейера: без shell — `bash -e {0}`, shell: bash — `bash --noprofile
+        # --norc -eo pipefail {0}`; иную хук исполнить так же не может — вне формы.
+        sh = st.get("shell") or shj
         ok = all(SAFE.match(x) or SETL.match(x) for x in lines)
+        form = ("ok-e" if sh is None else "ok-bash" if sh == "bash" else "shell") if ok else "bad"
         print("STEP\t%s\t%s\t%s\t%s\t%s\t%s" % (
-            "ok" if ok else "bad", jk, str(st.get("name") or "—").replace("\t", " "),
+            form, jk, str(st.get("name") or "—").replace("\t", " "),
             st.get("working-directory") or wd0, "-" if pin in (None, "") else pin, " ; ".join(lines).replace("\t", " ")))
 YAMLSTEPS
 )" || { echo "ci-shellcheck: [VOID] разбор ci.yaml не исполнился" >&2; exit 2; }
@@ -71,16 +79,22 @@ if [ -z "$have" ]; then
     echo "ci-shellcheck: [VOID] shellcheck не найден — шаги конвейера не исполнены" >&2; exit 2
 fi
 
-n=0 bad=0 nv=0 pins=""
+n=0 bad=0 nv=0 pins="" shell=()
 while IFS=$'\t' read -r kind form job name wd pin run; do
     [ "$kind" = STEP ] || continue
     # Пустое поле табуляция-разделитель схлопнула бы (IFS пробельный): пина нет — «-».
     [ "$pin" != - ] || pin=""
     n=$((n + 1)); pins="${pins:+$pins,}${pin:-—}"
-    if [ "$form" != ok ]; then
-        echo "ci-shellcheck: [FAIL] $job / $name — текст шага вне формы «строки shellcheck и set без метасимволов»: $run" >&2
-        bad=$((bad + 1)); continue
-    fi
+    case "$form" in
+        ok-e) shell=(bash -e) ;;
+        ok-bash) shell=(bash --noprofile --norc -eo pipefail) ;;
+        shell)
+            echo "ci-shellcheck: [FAIL] $job / $name — оболочка шага не bash: исполнить его так же, как конвейер, хук не может: $run" >&2
+            bad=$((bad + 1)); continue ;;
+        *)
+            echo "ci-shellcheck: [FAIL] $job / $name — текст шага вне формы «строки shellcheck и set без метасимволов»: $run" >&2
+            bad=$((bad + 1)); continue ;;
+    esac
     if [ -z "$pin" ]; then
         echo "ci-shellcheck: [VOID] $job / $name — пина SHELLCHECK_VERSION нет (шаг, задание, верх): версия CI не названа, паритет не судим" >&2
         nv=$((nv + 1)); continue
@@ -89,7 +103,7 @@ while IFS=$'\t' read -r kind form job name wd pin run; do
         echo "ci-shellcheck: [VOID] $job / $name — shellcheck $have, а пин конвейера $pin — вердикт был бы не паритетен" >&2
         nv=$((nv + 1)); continue
     fi
-    out="$(cd "$tree/$wd" 2>/dev/null && bash -c "$run" 2>&1)"; rc=$?
+    out="$(cd "$tree/$wd" 2>/dev/null && "${shell[@]}" -c "$run" 2>&1)"; rc=$?
     if [ "$rc" = 0 ]; then
         echo "ci-shellcheck: [PASS] $job / $name — ($wd) $run" >&2
     else
