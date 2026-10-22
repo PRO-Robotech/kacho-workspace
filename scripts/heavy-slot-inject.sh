@@ -800,9 +800,24 @@ assert "0 none" "$(route "$RN" stand -- bash .github/scripts/stand-own.sh runner
 assert "0 none" "$(route "$RN" stand -- bash .github/scripts/stand-own.sh runner --out '$(id)' -- true)" "близнец: значение ключа с \$ → none"
 assert "0 none" "$(route "$RN" stand -- bash -x .github/scripts/stand-own.sh runner -- true)" "близнец: ключ bash → none"
 assert "0 none" "$(route "$RN" stand -- env bash .github/scripts/stand-own.sh runner -- true)" "близнец: обёртка перед bash → none"
-ln -s .github/scripts/stand-own.sh "$RN/own-link.sh"; printf 'own-link.sh\n' > "$RN/.git/info/exclude"
-assert "0 none" "$(route "$RN" stand -- bash own-link.sh runner -- true)" "близнец: путь — ссылка на скрипт клона → none"
-rm -f "$RN/own-link.sh"
+# Три сверки пути stand_own_runner — каждая своим близнецом, который гаснет лишь на ней, и мутантом,
+# снимающим лишь её строку (ws#1321): ссылка на файл, ROOT раннера, путь в клоне.
+mutown() { grep -vF -- "$2" "$SLOT" > "$W/slot-mut-$1.sh"; diff "$SLOT" "$W/slot-mut-$1.sh" | grep -c '^<'; }
+mkdir -p "$RN/l1/l2" "$RN/x"; ln -s ../../.github/scripts/stand-own.sh "$RN/l1/l2/stand-own.sh"
+ln -s .github/scripts "$RN/s"; ln -s ../.github/scripts "$RN/x/y"; printf 'l1/\ns\nx/\n' > "$RN/.git/info/exclude"
+assert "0 none" "$(route "$RN" stand -- bash l1/l2/stand-own.sh runner -- true)" "близнец: путь — ссылка на файл с именем stand-own.sh, ROOT — клон → none (соседи скрипта — из каталога ссылки)"
+# shellcheck disable=SC2016  # строка слота — образец снятия
+assert "1 0 external" "$(mutown link 'pwd -P)/$(basename -- "$1")" = "$s" ] || return 1') $(RSLOT="$W/slot-mut-link.sh" route "$RN" stand -- bash l1/l2/stand-own.sh runner -- true)" "мутант «нет сверки ссылки»: ссылка на файл → external — утверждение выше его ловит"
+assert "0 none" "$(route "$RN" stand -- bash s/stand-own.sh runner -- true)" "близнец: каталог пути — ссылка, ROOT раннера (cd HERE/../.. без -P) — родитель клона → none"
+# shellcheck disable=SC2016  # строка слота — образец снятия
+assert "1 0 external" "$(mutown root 'cd -- ../.. 2>/dev/null && pwd -P)" = "$top" ] || return 1') $(RSLOT="$W/slot-mut-root.sh" route "$RN" stand -- bash s/stand-own.sh runner -- true)" "мутант «нет сверки ROOT»: ссылка на каталог → external — утверждение выше его ловит"
+assert "0 external" "$(route "$RN" stand -- bash x/y/stand-own.sh runner -- true)" "законный близнец: каталог пути — ссылка, ROOT раннера — клон, соседи — настоящий каталог → external (сверка судит ROOT, не всякую ссылку)"
+rm -rf "$RN/l1" "$RN/s" "$RN/x"; : > "$RN/.git/info/exclude"
+mkdir -p "$RN/tools/own"; cp "$RN/.github/scripts/stand-own.sh" "$RN/tools/own/"; git -C "$RN" add tools; sandbox_git -C "$RN" commit -q -m copy
+assert "0 none" "$(route "$RN" stand -- bash tools/own/stand-own.sh runner -- true)" "близнец: закоммиченная копия stand-own.sh вне .github/scripts, ROOT — клон → none (сверка пути)"
+# shellcheck disable=SC2016  # строка слота — образец снятия
+assert "1 0 external" "$(mutown path '[ "${s#"$top"/}" = .github/scripts/stand-own.sh ] || return 1') $(RSLOT="$W/slot-mut-path.sh" route "$RN" stand -- bash tools/own/stand-own.sh runner -- true)" "мутант «нет сверки пути»: копия вне .github/scripts → external — утверждение выше его ловит"
+git -C "$RN" rm -q -r tools; sandbox_git -C "$RN" commit -q -m uncopy
 touch "$RN/.github/scripts/extra.sh"
 assert "0 none" "$(route "$RN" stand -- bash .github/scripts/stand-own.sh runner -- true)" "близнец: неотслеживаемый файл в .github/ клона → none"
 rm -f "$RN/.github/scripts/extra.sh"; echo '# правка' >> "$RN/.github/scripts/stand-own.sh"
@@ -1381,6 +1396,9 @@ sed -i '1a STAND_RUNNER_KINDS="own"' "$KN/.github/scripts/stand-own.sh"; sandbox
 bo="$(jn ' remote class=stand route=stand-runner runner=own ')"; be="$(ens)"
 assert "0 да $be $((bo + 1))" "$(sn "$KN" bash .github/scripts/stand-own.sh runner --ship ghjob.py -- python3 /work/ship/ghjob.py) $(snx sn-own) $(ens) $(jn ' remote class=stand route=stand-runner runner=own ')" "stand-own.sh runner клона kaname при трёх занятых слотах → исполнился сразу, слота не брал, журнал remote route=stand-runner runner=own"
 assert "0 да" "$(sn "$KN" .github/scripts/stand-own.sh runner -- true) $(snx sn-own)" "путь скрипта первым словом → без слота"
+ln -s .github/scripts "$KN/s"; printf 's\n' > "$KN/.git/info/exclude"
+assert "77 нет" "$(sn "$KN" bash s/stand-own.sh runner -- true) $(snx sn-own)" "близнец: каталог пути — ссылка, ROOT раннера — родитель клона → 77, на машине не исполнялся"
+rm -f "$KN/s"; : > "$KN/.git/info/exclude"
 echo '# правка' >> "$KN/.github/scripts/stand-own.sh"
 assert "77 нет" "$(sn "$KN" bash .github/scripts/stand-own.sh runner -- true) $(snx sn-own)" "близнец: правка stand-own.sh вне коммита → 77, на машине не исполнялся"
 git -C "$KN" checkout -q .github
