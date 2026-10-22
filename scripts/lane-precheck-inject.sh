@@ -647,6 +647,10 @@ assert "2 да" "$(runp) $(has 'VOID REPO-SETTINGS-UNSEEN repo-merge o/ro')" "н
 prem 'repo-merge o/none'
 assert "1 да" "$(runp) $(has 'репозитория нет')" "репозитория нет → PREMISE-FALSE"
 
+echo "== локаль C (pod Job): русский текст судится так же (ws#1314)"
+assert "1 да" "$(printf '%s\n' 'Если вердикт check-verifier ниже — не ✅, стоп.' > "$W/task.txt"; env -u LC_ALL -u LC_CTYPE LANG=C bash "$P" --task-text "$W/task.txt" --agent git-operator > "$W/out" 2>&1; echo $?) $(has 'TASK-VERDICT строка 1')" "LANG=C: условие на вердикт кириллицей узнаётся (скрипт сам ставит C.UTF-8)"
+assert "1 да" "$(printf '%s\n' 'Vault арендатора.' 'Маунт тот же.' > "$W/task.txt"; env -u LC_ALL -u LC_CTYPE LANG=C bash "$P" --task-text "$W/task.txt" > "$W/out" 2>&1; echo $?) $(has 'TASK-VAULT-MOUNT строка 2')" "LANG=C: «Маунт» с заглавной узнаётся"
+
 echo "== мутанты lane-precheck (по одной правке; проба выше обязана покраснеть)"
 mut() {  # <имя> <было> <стало> <файл предусловий|--task-text строки…> — печатает код мутанта
     local m="$W/mut-lp.sh"
