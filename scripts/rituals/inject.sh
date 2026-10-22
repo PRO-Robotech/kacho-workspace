@@ -249,6 +249,11 @@ cell() {
     rm -rf "$tmp/c$i"
     { printf '%s\t%s\t%s\t%s\n' "$rc" "$want" "$(( (t1 - t0) / 1000000 ))" "$label"
       printf '%s\n' "$out" | tail -n 15; } > "$tmp/res/$i.part" && mv "$tmp/res/$i.part" "$tmp/res/$i"
+    # Ход — строкой по завершении случая, не в конце: задание, снятое пределом, оставляет
+    # в журнале исполненное (одна строка короче PIPE_BUF пишется целиком).
+    local v="OK]  "; [ "$rc" = "$want" ] || v="FAIL]"
+    printf '[inject %s №%d %s (ожидали код %s, получили %s; %d с)\n' "$v" "$i" "$label" \
+        "$want" "$rc" "$(( (t1 - t0) / 1000000000 ))"
 }
 
 # cover <каталог плана> <каталог исходов> — каждому номеру плана ровно один разборчивый
@@ -619,18 +624,27 @@ done
 export -f copy mutate run_check cell
 export here ws tmp
 t_run0="$(date +%s)"
-seq 0 $((planned - 1)) | xargs -P "$jobs" -I{} bash -c 'cell "$1"' _ {}
+# Очередь — долгие первыми (check-01 — 18,2 с случай против 0,1–7,5 с прочих, прогон
+# 39777966207): короткие добирают хвост, последний исполнитель не стоит один на долгом.
+for ((i = 0; i < planned; i++)); do
+    if [ "$(cat "$tmp/plan/$i/check")" = check-01-pr-body.py ]; then echo "$i"; fi
+done > "$tmp/queue"
+for ((i = 0; i < planned; i++)); do
+    if [ "$(cat "$tmp/plan/$i/check")" != check-01-pr-body.py ]; then echo "$i"; fi
+done >> "$tmp/queue"
+xargs -P "$jobs" -I{} bash -c 'cell "$1"' _ {} < "$tmp/queue"
 t_run1="$(date +%s)"
 
-ok=0; bad=0; slow=()
+# Итог — по плану, в его порядке: строки хода выше идут в порядке завершения; провал
+# повторяется здесь с хвостом вывода самопробы.
+ok=0; bad=0
 for ((i = 0; i < planned; i++)); do
     [ -f "$tmp/res/$i" ] || continue
     IFS=$'\t' read -r got want ms label < "$tmp/res/$i"
     if [ "$got" = "$want" ]; then
-        echo "[inject OK]   $label (ожидали код $want, получили $got; $((ms / 1000)) с)"
         ok=$((ok + 1))
     else
-        echo "[inject FAIL] $label (ожидали код $want, получили $got; $((ms / 1000)) с)" >&2
+        echo "[inject FAIL] №$i $label (ожидали код $want, получили $got; $((ms / 1000)) с)" >&2
         tail -n +2 "$tmp/res/$i" | sed 's/^/    /' >&2
         bad=$((bad + 1))
     fi
