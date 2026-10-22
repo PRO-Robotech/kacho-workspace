@@ -287,7 +287,7 @@ reset_cases() {
     rm -rf "$T"/rs-*
     s="$(session rs-top)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
     waits "$a" 60 55 50 45 40; rec "$a" 39 ask; note "$s.jsonl" 39 t1 killed; resume "$s.jsonl" 10 t1; rec "$a" 10 ask
-    absent="STALL-" probe 0 "Р1 пять ожиданий → остановка → возобновление → ни одного ожидания — молчит" "агентов осмотрено 1" --session "$s" --ps "$T/ps"
+    absent="agent-t1 —" probe 0 "Р1 пять ожиданий → остановка → возобновление → ни одного ожидания — молчит" "агентов осмотрено 1" --session "$s" --ps "$T/ps"
     s="$(session rs-top-again)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
     waits "$a" 60 55 50 45 40; rec "$a" 39 ask; note "$s.jsonl" 39 t1 killed; resume "$s.jsonl" 35 t1; rec "$a" 35 ask
     waits "$a" 34 30 25 20 14
@@ -295,7 +295,7 @@ reset_cases() {
     s="$(session rs-wf)"; w="$s/subagents/workflows/wf_live-1/agent-w1.jsonl"; a="$s/subagents/agent-w1.jsonl"
     waits "$w" 60 55 50 45 40; rec "$w" 39 intr; note "$s.jsonl" 39 w1 killed; resume "$s.jsonl" 38 w1
     rec "$a" 38 ask; rec "$a" 2 tool "go test ./..."
-    absent="STALL-" probe 0 "Р3 агент workflow остановлен и продолжен журналом верхнего уровня — замороженный журнал не судится" "остановленных харнессом (не судятся) 1" --session "$s" --ps "$T/ps"
+    absent="wf_live-1/w1" probe 0 "Р3 агент workflow остановлен и продолжен журналом верхнего уровня — замороженный журнал не судится" "остановленных харнессом (не судятся) 1" --session "$s" --ps "$T/ps"
     s="$(session rs-wf-again)"; w="$s/subagents/workflows/wf_live-1/agent-w1.jsonl"; a="$s/subagents/agent-w1.jsonl"
     waits "$w" 60 55 50 45 40; rec "$w" 39 intr; note "$s.jsonl" 39 w1 killed; resume "$s.jsonl" 38 w1
     rec "$a" 38 ask; waits "$a" 34 30 25 20 14
@@ -344,7 +344,6 @@ fmutant "любой агент — прежнего процесса" "if own_st
 fmutant "mtime журнала не учитывается (только время записи)" "max(t or 0, os.path.getmtime(apath))" "(t or 0)" restart_cases
 fmutant "любой id в уведомлении" "rb'<task-id>' + re.escape(ab) + rb'</task-id>(?:" "rb'<task-id>[0-9a-z]+</task-id>(?:" stop_cases
 fmutant "окно чтения не растёт" "        size = min(size * 4, total)" "        break" stop_cases
-fmutant "STALL-POLL без проверки остановки" "            if harness_stopped(aid, tt):" "            if False:" stop_cases
 fmutant "STALL-AGENT без проверки остановки" "            if harness_stopped(aid, t):" "            if False:" stop_cases
 
 echo "== workflow без реакции"

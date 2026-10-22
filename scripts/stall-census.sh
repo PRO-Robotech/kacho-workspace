@@ -566,11 +566,9 @@ try:
         agents_seen += 1
         aid = os.path.basename(apath)[len('agent-'):-len('.jsonl')]
         n, span, last = poll_series(aid, apath)
-        tt = t if t is not None else int(os.path.getmtime(apath))
+        # Остановку после серии судит сброс серии (poll_series, ws#1343): отдельная проверка
+        # harness_stopped здесь ею поглощена (мутант её снятия выжил на stop_cases).
         if n >= 2 and span >= POLL_MIN:
-            if harness_stopped(aid, tt):
-                stopped_seen += 1
-                continue
             agent_finding('STALL-POLL %s — ожидание вместо работы: %d вызовов подряд за %d мин; последний: %s' % (os.path.basename(apath)[:-6], n, span, last), apath, t)
             continue
         if age_file < AGENT_MIN * 60:
