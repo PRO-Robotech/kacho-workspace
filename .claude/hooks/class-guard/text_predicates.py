@@ -189,6 +189,36 @@ _CLUSTER_IDENTITY = re.compile(
 )
 # Коммит вместе с настройками, задаваемыми на команду: `git -c user.email=… commit`
 # — та же команда, и подстрока «git commit» её не видит.
+# B7: корни вызова `find` — слова после имени и ключей -H/-L/-P до первого выражения
+# (`-name`, `(`, `!`, `,`) либо конца команды (`|`, `;`, `&`, `)`, обратная кавычка).
+_FIND_CALL = re.compile(r"\bfind(?=\s)")
+_FIND_WORD = re.compile(r"\s+((?:\"[^\"]*\"|'[^']*'|[^\s\"'|;&)`])+)")
+_SYSTEM_ROOT = re.compile(r"(/(tmp|var/tmp|proc|sys|dev|run)(/|$)|\$\{?(TMPDIR|TMP)\b)")
+
+
+def _find_roots(line: str, pos: int) -> list[str]:
+    roots: list[str] = []
+    options = True
+    while (m := _FIND_WORD.match(line, pos)):
+        word = m.group(1)
+        pos = m.end()
+        if options and word in ("-H", "-L", "-P"):
+            continue
+        options = False
+        if word[0] in "-(!\\,":
+            break
+        roots.append(word.replace('"', "").replace("'", ""))
+    return roots
+
+
+def _find_outside_tree(line: str) -> bool:
+    """Все корни всех вызовов `find` строки системны; вызов без корня — в дереве."""
+    calls = [_find_roots(line, m.end()) for m in _FIND_CALL.finditer(line)]
+    return bool(calls) and all(
+        roots and all(_SYSTEM_ROOT.match(r) for r in roots) for roots in calls
+    )
+
+
 _GIT_COMMIT = re.compile(r"\bgit\b(\s+-c\s+\S+)*\s+commit\b")
 
 # Окно, в котором ищется авторитет. Выбрано ОКНОМ, а не файлом целиком: файл с
@@ -316,12 +346,15 @@ def b_shell(src: Source) -> list[Finding]:
         # Второй различитель — КОРЕНЬ обхода: каталог, у которого индекса git нет по
         # устройству системы (/tmp, /var/tmp, /proc, /sys, /dev, /run, $TMPDIR), о составе
         # дерева не спрашивает — спрашивать там `git ls-files` нечего (урок 1c88ed65:
-        # `find /proc/[0-9]*/fd` в detach.sh, `find` по /tmp). ГРАНИЦА: корень переменной
-        # (`find "$D"`, mktemp) не разобран — судится, как прежде.
+        # `find /proc/[0-9]*/fd` в detach.sh, `find` по /tmp). Судятся ВСЕ корни каждого
+        # вызова `find` строки — до первого выражения (`-name`, `(`, `!`); вне дерева строка
+        # лишь тогда, когда системны все корни всех вызовов: `find /tmp "$ROOT"` обходит
+        # дерево вторым корнем и судится (CV-X1, приёмка 53b754628). ГРАНИЦА: корень
+        # переменной (`find "$D"`, mktemp) не разобран — судится, как прежде; вызов без
+        # корня (`find -name …`, обход `.`) — тоже.
         if re.search(r"(\$\(\s*find\s|`\s*find\s|^\s*find\s+\S+.*\|\s*(while|xargs))", line):
             src.note("B7")
-            root = re.search(r"\bfind\s+(?:-[HLP]\s+)*[\"']?([^\s\"']+)", line)
-            outside = root and re.match(r"(/(tmp|var/tmp|proc|sys|dev|run)(/|$)|\$\{?(TMPDIR|TMP)\b)", root.group(1))
+            outside = _find_outside_tree(line)
             if not outside and not re.search(r"-(mmin|mtime|newer|size|atime|ctime|delete|exec)\b", line):
                 f.append(Finding(
                     "B7", "состав дерева взят с диска, а не из индекса", src.path, ln, line.strip()[:110],
