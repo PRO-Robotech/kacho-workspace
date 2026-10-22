@@ -265,6 +265,18 @@
 {
 set -uo pipefail
 
+# ДИСПОЗИЦИЯ СИГНАЛОВ (ws#1274): команда слота получает SIGPIPE и SIGHUP по умолчанию, как в
+# конвейере. SIG_IGN вызывающего (nohup, python, отсоединённый шаг) наследовала команда, а bash
+# снять полученный при входе SIG_IGN не может; timeout сбрасывает лишь SIGHUP (замер 2026-10-21,
+# uutils 0.8.0): `yes | head -n 1` давал 1 вместо 141, и пробы сигналов судили обёртку, а не код.
+# Перезапуск — лишь при заглушённом PIPE или HUP и один раз: метка KACHO_SIGDISP снимается сразу.
+# Держит scripts/heavy-slot-signal-inject.sh: вызывающие с каждым сигналом врозь и мутанты маски.
+_sigign="$(sed -n 's/^SigIgn:[[:space:]]*//p' /proc/$$/status 2>/dev/null)"
+if [ "${KACHO_SIGDISP:-}" != 1 ] && [[ "${_sigign:-0}" =~ ^[0-9a-fA-F]+$ ]] && (( 16#${_sigign:-0} & 0x1001 )); then
+    exec env --default-signal=PIPE,HUP KACHO_SIGDISP=1 bash "$0" "$@"
+fi
+unset KACHO_SIGDISP _sigign
+
 # Общий каталог — от домашнего каталога учётки, а не от $HOME: иначе HOME=… был бы
 # ещё одной ручкой, уводящей вызов из общей очереди.
 SHARED="$(getent passwd "$(id -u)" | cut -d: -f6)/.cache/heavy-slots"
@@ -829,6 +841,41 @@ push_homes() {
     [ "${#set[@]}" -eq 0 ] || say "клоны для наборов хука отправки выставлены из основного клона воркспейса: ${set[*]} (заданную вами переменную слот не трогает)"
     [ "${#lacks[@]}" -eq 0 ] || say "НЕ выставлено — наборы хука уйдут в [VOID]: ${lacks[*]}"
     return 0
+}
+# local_push_untracked <команда…> — ci-local, `git push` с хуком из клона продукта (kacho, kaname,
+# corelib) идёт ЛОКАЛЬНО (флаг --local, кластер недоступен, переходник Job-а ответил 78 — отправка
+# несёт не голову копии, как у аннотированного тега): локальный хук судит РАБОЧЕЕ ДЕРЕВО, а не
+# отправляемую ревизию. Неотслеживаемое в копии (не игнорируемое git) — отказ 64 до запуска с
+# путями и формой чистой копии: урок 2026-10-19 (ws#1280) — отправка тега из общего клона kaname
+# краснела хуком от чужой неотслеживаемой папки с Go-кодом. Тот же класс — правка отслеживаемого
+# файла без неотслеживаемого (приёмка ws#1280, C2): хук судил бы её, а не отправляемую ревизию, —
+# тоже 64 с путями. Во внешнем кластере Job судит коммит, и там рабочее дерево не судится (правку
+# отслеживаемого маршрут отказывает раньше: 77 «закоммить правки»). Клон воркспейса не судится: его
+# хук сам уходит во временную копию.
+# Хук, сам судящий чистоту копии, читает `git status --porcelain` вне комментария (kacho — уходит во
+# временную копию вершины, corelib — отказывает сам; замер 2026-10-21: kacho 1, corelib 1, kaname 0):
+# его клон слот не судит — отказ слота отнял бы у kacho законную отправку. Научится хук kaname —
+# проверка слота снимется сама. ГРАНИЦА: признак — текст хука, а не его поведение; клон продукта
+# узнаётся по origin формы `…PRO-Robotech/<имя>[.git]` — origin с хвостовым «/» либо локальным путём
+# не опознаётся, и такая отправка идёт без суждения (приёмка ws#1280, C5).
+local_push_untracked() {
+    local top url list n hook what
+    [ "$CLASS" = ci-local ] || return 0
+    CMD_R=("$@"); git_push_form
+    if [ -z "$GIT_IDX" ]; then GDIR="$PWD"; return 0; fi
+    top="$(git -C "$GDIR" rev-parse --show-toplevel 2>/dev/null)"; GIT_IDX=""; GDIR="$PWD"
+    [ -n "$top" ] || return 0
+    url="$(git -C "$top" remote get-url origin 2>/dev/null)"
+    case "$url" in *PRO-Robotech/kacho|*PRO-Robotech/kacho.git|*PRO-Robotech/kaname|*PRO-Robotech/kaname.git|*PRO-Robotech/corelib|*PRO-Robotech/corelib.git) ;; *) return 0 ;; esac
+    hook="$(grep -v '^[[:space:]]*#' "$top/scripts/hooks/pre-push" 2>/dev/null)"
+    grep -q 'status --porcelain' <<<"$hook" && return 0
+    what="неотслеживаемое"
+    list="$(git -C "$top" ls-files --others --exclude-standard --directory 2>/dev/null)"
+    [ -n "$list" ] || { what="правки отслеживаемого"; list="$(git -C "$top" diff --name-only HEAD -- 2>/dev/null)"; }
+    [ -n "$list" ] || return 0
+    n="$(printf '%s\n' "$list" | wc -l)"
+    say "локальная отправка из копии $top (${WHY_LOCAL:-маршрут локальный}): в копии $what, путей $n ($(printf '%s\n' "$list" | head -n 3 | tr '\n' ' ' | sed 's/ $//')) — локальный хук судит рабочее дерево, а не отправляемую ревизию: чужое неотслеживаемое либо правка отслеживаемого меняет его вердикт (ws#1280). Отправка из чистой копии: git -C $top worktree add --detach <каталог вне копии> <ревизия> && cd <каталог> && heavy-slot.sh ci-local -- git push …. Команда не запускалась"
+    exit 64
 }
 # push_where — для команды `git … push` (любой класс, обёртки перед git, -C) печатает, откуда и
 # куда идёт отправка, и отказывает 64 до постановки в очередь, когда она кладёт голову ПЕРВИЧНОЙ
@@ -1738,7 +1785,10 @@ ext_run() {
     printf 'run_at=%s\n' "$(now)" >> "$EXT_T"
     if ! mkfifo "$fifo" 2>/dev/null; then "$@"; rc=$?; ext_leave; return "$rc"; fi
     ext_filter < "$fifo" & fp=$!
-    "$@" 2> "$fifo" 0<&0 & ch=$!
+    # Фильтр пишет stderr прогона в ТОТ ЖЕ журнал вызова (у --enqueue — <база>.log билета): он
+    # сосед run.sh, не предок и не потомок, и run.sh называл его чужим писателем — «вывод
+    # прогонов перемешается» (урок 2026-10-19, ws#1280). REMOTE_HEAVY_OUT_PEER называет его своим.
+    REMOTE_HEAVY_OUT_PEER="$fp" "$@" 2> "$fifo" 0<&0 & ch=$!
     trap 'kill -TERM "$ch" 2>/dev/null' INT TERM HUP
     wait "$ch"; rc=$?
     while kill -0 "$ch" 2>/dev/null; do wait "$ch"; rc=$?; done
@@ -2285,6 +2335,7 @@ elif [ "$REMOTE_ON" = 1 ]; then
 else
     WHY_LOCAL="режим проб без двойника run.sh — маршрут не судился"
 fi
+local_push_untracked "$@"
 
 ID="$(now)-$$"
 P="$DIR/active/$ID"

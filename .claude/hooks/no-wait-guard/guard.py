@@ -62,7 +62,9 @@ agent_type входа хука, когда оно есть) меткой не п
 Судит РАЗОБРАННУЮ строку: она режется на простые команды по операторам вне
 кавычек, собирается в списки, конвейеры, группы и циклы (while/until/for/if/{ }/( )),
 тела `bash -c`, `$(…)` и heredoc, поданного оболочке (`bash <<EOF`, `cat <<EOF | bash`),
-разбираются тем же разбором.
+разбираются тем же разбором; тело иного heredoc — данные. Тело, несущее вложенный
+открыватель того же ограничителя, оболочка закрывает его первой строкой — хвост после неё
+судится командами, и отказ называет это строками (ws#1279).
 Слова, присваивания и обёртки (nohup, nice, env, setsid, timeout, sudo и др.) снимаются
 функциями heavy-guard (`words`, `unwrap` логикой ниже) — второго лексера кавычек здесь нет.
 
@@ -995,11 +997,47 @@ def deny_kill(f):
     ]
 
 
-def deny(found, err, ws):
+def heredoc_early_close(text):
+    """Тело heredoc несёт вложенный открыватель ТОГО ЖЕ ограничителя (ws#1279): оболочка
+    закрывает внешний heredoc первой строкой-ограничителем, и текст после неё — уже команды,
+    а не данные. (ограничитель, строка открывателя, строка вложенного, строка закрытия) либо
+    None. Разбор тел — тот же, что у hg.strip_heredocs."""
+    lines, i = text.split("\n"), 0
+    while i < len(lines):
+        line = lines[i]
+        ends = [m.group(2) for m in hg.HEREDOC.finditer(line) if "<<<" not in line[max(0, m.start() - 1):m.start() + 3]]
+        opener, i = i, i + 1
+        for word in ends:
+            nested = None
+            while i < len(lines) and lines[i].strip() != word:
+                if nested is None and any(m.group(2) == word for m in hg.HEREDOC.finditer(lines[i])):
+                    nested = i
+                i += 1
+            if nested is not None and i < len(lines) and any(x.strip() for x in lines[i + 1:]):
+                return word, opener + 1, nested + 1, i + 1
+            i += 1
+    return None
+
+
+def early_close_hint(cmd):
+    """Строки отказа о преждевременно закрытом heredoc: без них полоса принимает отказ на
+    исполняемом хвосте за суждение о данных (урок 2026-10-19, ws#1279)."""
+    e = heredoc_early_close(cmd or "")
+    if e is None:
+        return []
+    return [
+        "  heredoc закрыт раньше задуманного: тело «%s» (строка %d) несёт вложенный открыватель того" % (e[0], e[1]),
+        "    же ограничителя (строка %d); оболочка закрывает внешний первой строкой «%s» (строка %d)," % (e[2], e[0], e[3]),
+        "    и текст после неё ИСПОЛНЯЕТ как команды — отказ судит его, а не данные. Смени ограничитель",
+        "    внешнего heredoc (например «%s_OUTER») либо положи текст файлом." % e[0],
+    ]
+
+
+def deny(found, err, ws, cmd=None):
     kill = next((x for x in found if x.cls in KILL_CLASSES), None)
     found = [x for x in found if x.cls not in KILL_CLASSES]
     if kill is not None and not found and not err:
-        sys.stderr.write("\n".join(deny_kill(kill)) + "\n")
+        sys.stderr.write("\n".join(deny_kill(kill) + early_close_hint(cmd)) + "\n")
         sys.exit(2)
     f = found[0] if found else None
     lines = deny_kill(kill) if kill is not None else []
@@ -1010,6 +1048,7 @@ def deny(found, err, ws):
             lines.append("  подсказка: %s" % CLASS_HINT[f.cls])
     if err:
         lines.append("  метка: %s" % err)
+    lines += early_close_hint(cmd)
     lines += [
         "Правило «Не жди» (CLAUDE.md, владелец 2026-10-11: «таски уходят в часовые таймауты и",
         "ничего не делают а мы ждем»): ни один вызов не держит ожидание дольше 10 минут.",
@@ -1062,7 +1101,7 @@ def main():
     ws = os.environ.get("CLAUDE_PROJECT_DIR") or os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
     found, err = judge(cmd, data.get("agent_type"))
     if found or err:
-        deny(found, err, ws)
+        deny(found, err, ws, cmd)
 
 
 if __name__ == "__main__":

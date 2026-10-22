@@ -87,6 +87,9 @@ assert 64 "$(slot bash "$SLOT" docker true)" "без «--» — 64"
 assert 64 "$(slot HEAVY_SLOT_BUDGET_MIB=200000 bash "$SLOT" docker -- true)" "бюджет больше потолка — 64, а не вечное ожидание"
 assert 3 "$(slot bash "$SLOT" docker -- bash -c 'exit 3')" "исполнившаяся команда — её собственный код"
 
+# Диспозиция сигналов команды слота (ws#1274) — scripts/heavy-slot-signal-inject.sh: машину она не
+# судит и потому переносима (Job профиля ws, шаг конвейера), а эта проба внешнего маршрута не имеет.
+
 echo "── ci-local держит ssh отправки живым: GIT_SSH_COMMAND с keepalive, заданное — сильнее (урок 2026-10-16)"
 # git push открывает ssh до хука отправки; минуты хука простаивающее соединение
 # площадка снимает, и push умирал PIPE (141) после зелёного хука.
@@ -1055,6 +1058,46 @@ be="$(jn ' enter id=')"; rm -f "$HL"
 assert "0 1 да $((be + 1))" "$(rslot env FAKE_AVAIL=1 FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- git push -q "$W/bare.git" HEAD:refs/heads/1115-w) $(grep -c '^job=нет ' "$HL" 2>/dev/null) $(has_ref 1115-w) $(jn ' enter id=')" "близнец: кластер недоступен → хук локально слотом (enter в журнале)"
 be="$(jn ' enter id=')"; b78="$(jn 'route=push rc=1 hook_rc=78 ')"; rm -f "$HL"
 assert "77   нет $be $((b78 + 1))" "$(rslot env FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- git push -q "$W/bare.git" HEAD~1:refs/heads/1115-v) $(grep -c '^job=1 ' "$HL" 2>/dev/null) $(grep -c '^job=нет ' "$HL" 2>/dev/null) $(has_ref 1115-v) $(jn ' enter id=') $(jn 'route=push rc=1 hook_rc=78 ')" "отправка не головы копии: переходник — 78, Job не звался, та же отправка локально слотом с хуком"
+echo "── локальная отправка из клона продукта с неотслеживаемым: 64 с путями до хука (ws#1280)"
+# Урок 2026-10-19: отправка тега из общего клона kaname ушла локально (переходник — 78: объект тега
+# не голова копии), и локальный хук покраснел от чужой неотслеживаемой папки с Go-кодом.
+mkdir -p "$R/h.stray" && echo 'package stray' > "$R/h.stray/x.go"; rm -f "$HL"
+# lpush <ссылка> [ENV=…] — отправка не головы (HEAD~1) мимо Job; локально она идёт лишь при недоступном
+# кластере (FAKE_AVAIL=1; при доступном — 77, ws#1301); «код хук-звался ссылка-есть».
+lpush() { local ref="$1"; shift; echo "$(rslot env FAKE_EXEC=1 HOOK_LOG="$HL" "$@" bash "${LSLOT:-$SLOT}" ci-local -- git push -q "$W/bare.git" HEAD~1:refs/heads/"$ref") $([ -s "$HL" ] && echo да || echo нет) $(has_ref "$ref")"; }
+assert "64 нет нет да да" "$(lpush 1280-a FAKE_AVAIL=1) $(has "$W/err" 'в копии неотслеживаемое, путей 1 (h.stray/)') $(has "$W/err" 'Отправка из чистой копии')" "локальная отправка из копии с чужой неотслеживаемой папкой: 64 до хука, путь и форма чистой копии названы, ссылки нет"
+rm -f "$HL"
+assert "0 да да" "$(rslot env FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- git push -q "$W/bare.git" HEAD:refs/heads/1280-b) $([ -s "$HL" ] && echo да || echo нет) $(has_ref 1280-b)" "близнец: голова копии — хук Job-ом судит коммит, неотслеживаемое не судится — отправка идёт"
+rm -f "$HL"; printf 'h.stray/\n' >> "$R/.git/info/exclude"
+assert "0 да да" "$(lpush 1280-c FAKE_AVAIL=1)" "близнец: та же папка игнорируется git — локальная отправка идёт"
+sed -i '/^h\.stray\/$/d' "$R/.git/info/exclude"; rm -f "$HL"
+# shellcheck disable=SC2016  # образец sed: $ — буквальный знак строки слота
+sed 's/^\( *\)list="\$(git -C "\$top" ls-files --others --exclude-standard --directory 2>\/dev\/null)"/\1list=""/' "$SLOT" > "$W/slot-mut-1280b.sh"
+assert "1 0 да да" "$(diff "$SLOT" "$W/slot-mut-1280b.sh" | grep -c '^<') $(LSLOT="$W/slot-mut-1280b.sh" lpush 1280-d FAKE_AVAIL=1)" "мутант «неотслеживаемое не судится»: отправка ушла с хуком по грязному дереву — проба выше его ловит"
+# Хук, сам судящий чистоту (`git status --porcelain` вне комментария: kacho, corelib), — его клон
+# слот не судит; та же строка лишь в комментарии хука — не признак. Хук правлен в рабочем дереве, не
+# коммитом: кластер «недоступен» (FAKE_AVAIL=1) — иначе маршрут отказал бы 77 «закоммить правки».
+cp "$R/scripts/hooks/pre-push" "$W/hook.orig"
+printf '# git status --porcelain — лишь в комментарии\n' >> "$R/scripts/hooks/pre-push"; rm -f "$HL"
+assert "64 нет нет" "$(lpush 1280-f FAKE_AVAIL=1)" "близнец: «status --porcelain» лишь в комментарии хука — слот судит, 64"
+printf 'git status --porcelain > /dev/null\n' >> "$R/scripts/hooks/pre-push"; rm -f "$HL"
+assert "0 да да" "$(lpush 1280-g FAKE_AVAIL=1)" "хук сам судит чистоту копии (kacho, corelib) — слот не судит, отправка идёт с его хуком"
+cp "$W/hook.orig" "$R/scripts/hooks/pre-push"
+rm -rf "$R/h.stray"; rm -f "$HL"
+assert "0 да да" "$(lpush 1280-e FAKE_AVAIL=1)" "близнец: папка снята — та же локальная отправка идёт"
+# Правка отслеживаемого без неотслеживаемого (приёмка ws#1280, C2) — тот же класс: локальный хук
+# судил бы её, а не отправляемую ревизию. Кластер «недоступен» (FAKE_AVAIL=1): при доступном маршрут
+# отказывает раньше — 77 «закоммить правки» (близнец ниже).
+echo c >> "$R/f"; rm -f "$HL"
+assert "64 нет нет да" "$(lpush 1280-h FAKE_AVAIL=1) $(has "$W/err" 'в копии правки отслеживаемого, путей 1 (f)')" "правка отслеживаемого, неотслеживаемого нет: 64 до хука, путь назван, ссылки нет"
+rm -f "$HL"
+assert "77 нет нет да" "$(lpush 1280-i) $(has "$W/err" 'закоммить правки')" "близнец: та же правка при доступном кластере — маршрут отказывает раньше (77), хук не звался"
+# shellcheck disable=SC2016  # образец мутанта — литерал строки слота
+M1280C_A='list="$(git -C "$top" diff --name-only HEAD -- 2>/dev/null)"'
+M1280C_T="$(cat "$SLOT")"; printf '%s\n' "${M1280C_T/"$M1280C_A"/list=\"\"}" > "$W/slot-mut-1280c.sh"; rm -f "$HL"
+assert "1 0 да да" "$(diff "$SLOT" "$W/slot-mut-1280c.sh" | grep -c '^<') $(LSLOT="$W/slot-mut-1280c.sh" lpush 1280-j FAKE_AVAIL=1)" "мутант «правка отслеживаемого не судится»: отправка ушла с хуком по правленому дереву — проба выше его ловит"
+git -C "$R" checkout -q -- f; rm -f "$HL"
+assert "0 да да" "$(lpush 1280-k FAKE_AVAIL=1)" "близнец: правка снята — та же локальная отправка идёт"
 
 echo "── маршрут Job: запись проверенного — на машине, повтор проверенной вершины Job не ставит (ws#1288, kacho#3336)"
 # Приёмка ws#1288: Job судит в своём клоне со своей .git, запись хука оставалась в поде, и
@@ -1555,6 +1598,13 @@ if [ "${1:-}" = --available ]; then
     exit "$rc"
 fi
 label="${*: -1}"
+# ws#1280: GATE_PEER — записать, назван ли run.sh своим писателем его журнала (stdout) процесс,
+# который туда пишет: pid из REMOTE_HEAVY_OUT_PEER держит тот же файл открытым как stderr.
+if [ -n "${GATE_PEER:-}" ]; then
+    r=нет; o="$(readlink "/proc/$$/fd/1")"
+    for p in ${REMOTE_HEAVY_OUT_PEER:-}; do [ -n "$o" ] && [ "$(readlink "/proc/$p/fd/2" 2>/dev/null)" = "$o" ] && r=да; done
+    echo "$r" > "$GATE_PEER"
+fi
 mkdir -p "$GATE_DIR/st"; mkdir "$GATE_DIR/st/$label"
 n="$(ls "$GATE_DIR/st" | wc -l)"; [ "$n" -le "$(cat "$GATE_DIR/maxst" 2>/dev/null || echo 0)" ] || echo "$n" > "$GATE_DIR/maxst"
 if [ -n "${GATE_START_HOLD:-}" ]; then
@@ -1689,6 +1739,19 @@ mark2() {
 }
 assert "A B 0" "$(mark2)" "учёт снят строкой «ns … создано»: места на два — второй стартовал (A B), пока первый ещё исполняется (завершений 0)"
 assert "1 A 0" "$(diff "$SLOT" "$W/slot-mut-1176c.sh" | grep -c '^<') $(mark2 "$W/slot-mut-1176c.sh")" "мутант «фильтр не снимает учёт»: A считается дважды — второй ждёт (стартов лишь A; проба выше его ловит)"
+echo "── внешний путь --enqueue: журнал билета — свой файл, фильтр stderr слота — названный свой писатель (ws#1280)"
+# Урок 2026-10-19: run.sh предупреждал «вывод прогонов перемешается» на журнале билета — в него пишет
+# фильтр stderr слота (ext_filter), сосед run.sh, а не предок и не потомок.
+gnew; rm -f "$W/peer1" "$W/peer2"
+r1="$(genq "$R" P1 GATE_PEER="$W/peer1")"; RP1="$(rcof)"; r2="$(genq "$R" P2 GATE_PEER="$W/peer2")"; RP2="$(rcof)"
+c1="$(await_rc "$RP1")"; c2="$(await_rc "$RP2")"
+assert "0/0 0/0 да да да" "$r1/$r2 $c1/$c2 $(cat "$W/peer1" 2>/dev/null || echo нет) $(cat "$W/peer2" 2>/dev/null || echo нет) $([ -n "$RP1" ] && [ "${RP1%.rc}.log" != "${RP2%.rc}.log" ] && [ "${RP1%.rc}.log" != "$JL" ] && [ "${RP2%.rc}.log" != "$JL" ] && echo да || echo нет)" "два билета --enqueue: журналы разные и не журнал слотов; фильтр stderr слота назван run.sh своим писателем журнала"
+# shellcheck disable=SC2016  # образец sed: $ — буквальный знак строки слота
+sed 's/^\( *\)REMOTE_HEAVY_OUT_PEER="\$fp" "\$@" 2>/\1"$@" 2>/' "$SLOT" > "$W/slot-mut-1280a.sh"
+gnew; rm -f "$W/peer1"; GSLOT="$W/slot-mut-1280a.sh"
+r1="$(genq "$R" P3 GATE_PEER="$W/peer1")"; RP1="$(rcof)"; c1="$(await_rc "$RP1")"
+assert "1 0 нет" "$(diff "$SLOT" "$W/slot-mut-1280a.sh" | grep -c '^<') $c1 $(cat "$W/peer1" 2>/dev/null || echo нет)" "мутант «фильтр не назван»: run.sh не знает своего писателя — проба выше его ловит"
+GSLOT=""
 # Страховка: run.sh без строки «ns … создано» учёт держит не дольше EXT_HOLD_S (ручка проб).
 gnew; rm -f "$W/hold3"
 r1="$(genq "$R" A GATE_CAP_MIB=2000 GATE_HOLD="$W/hold3" GATE_NOMARK=1 HEAVY_SLOT_EXT_HOLD_S=2)"; RA="$(rcof)"; wait_order "A" 40
