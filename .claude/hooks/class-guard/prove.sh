@@ -653,6 +653,42 @@ recent=$(find "$PROJ" -name '*.go' -mmin -60 | wc -l)
 SH
 ); expect_silent B7 Write "$P" "git ls-files и find по времени правки"
 
+# Корень обхода без индекса git (урок 1c88ed65): /proc — строка scripts/detach.sh, /tmp и $TMPDIR.
+P=$(w check-b7t.sh <<'SH'
+#!/usr/bin/env bash
+holder="$(find /proc/[0-9]*/fd -maxdepth 1 -lname "$lg" -print -quit 2>/dev/null)"
+for f in $(find /tmp/claude-x -name '*.log'); do probe "$f"; done
+find "$TMPDIR" -name 'hs-*' | while read -r f; do probe "$f"; done
+SH
+); expect_silent B7 Write "$P" "find по /proc, /tmp и \$TMPDIR — индекса там нет"
+
+# Близнец: tmp — подкаталог дерева, а не системный /tmp — судится.
+P=$(w check-b7r.sh <<'SH'
+#!/usr/bin/env bash
+for f in $(find "$ROOT/tmp" -name '*.go'); do probe "$f"; done
+SH
+); expect_fires B7 Write "$P" "find по \$ROOT/tmp — корень переменной"
+
+# Корней обхода несколько (CV-X1, приёмка 53b754628): судятся ВСЕ до первого выражения;
+# вне дерева строка лишь тогда, когда системны все корни.
+P=$(w check-b7m.sh <<'SH'
+#!/usr/bin/env bash
+for f in $(find /tmp "$ROOT" -name '*.go'); do probe "$f"; done
+SH
+); expect_fires B7 Write "$P" "find /tmp \"\$ROOT\" — второй корень дерево (CV-X1)"
+
+P=$(w check-b7n.sh <<'SH'
+#!/usr/bin/env bash
+for f in $(find -L "$ROOT" /proc/self/fd -name '*.go'); do probe "$f"; done
+SH
+); expect_fires B7 Write "$P" "find -L \"\$ROOT\" /proc — первый корень дерево"
+
+P=$(w check-b7s.sh <<'SH'
+#!/usr/bin/env bash
+for f in $(find -L /tmp/a "${TMPDIR:-/tmp}" /var/tmp -name '*.log'); do probe "$f"; done
+SH
+); expect_silent B7 Write "$P" "find по трём системным корням — индекса нет ни в одном"
+
 P=$(w check-b8.sh <<'SH'
 #!/usr/bin/env bash
 grep -q 'authzIntr.Unary()' --include='*.go' -r . || fail
