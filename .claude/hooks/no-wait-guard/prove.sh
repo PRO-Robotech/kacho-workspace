@@ -179,6 +179,10 @@ passes 'git commit -m "until x; do sleep 900; done; gh run watch"'
 passes 'echo "sleep 600"; grep -n "tail --pid" f'
 passes $'cat > f.sh <<EOF\nwhile :; do sleep 1; done\nEOF'
 passes $'cat <<EOF | grep sleep\nwhile :; do sleep 1; done\nEOF'
+# ws#1279: тело heredoc с кавыченным ограничителем к не-оболочке — данные
+passes $'cat <<\'EOF\' > a.md\nwhile true; do sleep 5; done\nEOF'
+passes $'python3 - <<\'PY\'\nprint("""until x; do sleep 5; done""")\nPY'
+passes $'python3 - <<\'OUT\'\ns = """\ncat <<\'PY\'\nPY\nwhile :; do sleep 5; done\n"""\nOUT'
 passes '/ws/scripts/heavy-slot.sh go-race -- go test -race ./...'
 passes '/ws/scripts/heavy-slot.sh --wait 300 go-race -- go test -race ./...'
 passes 'bash /ws/scripts/detach.sh start /ws/tmp/1225 -- bash /ws/scripts/heavy-slot.sh ci-local -- git push origin HEAD:refs/heads/1225-x'
@@ -331,6 +335,33 @@ boundary "снятие: script -qc"          "script -qc 'pkill -f x' /dev/null"
 boundary "снятие: strace"              'strace -f pkill -f x'
 boundary "снятие: find -exec"          'find /proc -maxdepth 1 -name 1 -exec kill {} \;'
 boundary "снятие: env -S"              "env -S 'pkill -f x'"
+
+echo "== heredoc, закрытый вложенным ограничителем, — отказ называет причину (ws#1279)"
+# Вход урока 2026-10-19: тело `python3 - <<'PY'` несло текст с вложенным `<<'PY'`; оболочка
+# закрыла внешний heredoc первой строкой «PY», и цикл после неё — исполняемая часть.
+EARLY=$'python3 - <<\'PY\'\ns = """\ncat <<\'PY\'\nPY\nwhile :; do sleep 5; done\n"""\nPY'
+early() {  # <страж> — «код названо-причины номера-строк»
+    local rc named lines
+    rc="$(run "$EARLY" "$1")"
+    named="нет"; grep -qF 'heredoc закрыт раньше задуманного: тело «PY» (строка 1)' "$WORK/out" && named="да"
+    lines="нет"; grep -qF '(строка 3); оболочка закрывает внешний первой строкой «PY» (строка 4)' "$WORK/out" && lines="да"
+    echo "$rc $named $lines"
+}
+assert "2 да да" "$(early "$HOOK")" "вложенный ограничитель того же имени: отказ, причина и строки названы"
+rc="$(run $'bash <<EOF\nwhile :; do sleep 1; done\nEOF')"
+assert "2 нет" "$rc $(grep -qF 'heredoc закрыт раньше' "$WORK/out" && echo да || echo нет)" "близнец: цикл в теле, поданном оболочке, — отказ без строки о закрытии"
+d="$WORK/early"; mkdir -p "$d/no-wait-guard" "$d/heavy-guard"
+cp "$HOOK" "$d/no-wait-guard.sh"; cp "$HOOK_DIR/heavy-guard/guard.py" "$d/heavy-guard/guard.py"
+if python3 - "$GUARD" "$d/no-wait-guard/guard.py" <<'PY'
+import sys
+s = open(sys.argv[1], encoding="utf-8").read()
+a = "    e = heredoc_early_close(cmd or \"\")\n"
+if s.count(a) != 1:
+    sys.exit(1)
+open(sys.argv[2], "w", encoding="utf-8").write(s.replace(a, "    e = None\n", 1))
+PY
+then assert "2 нет нет" "$(early "$d/no-wait-guard.sh")" "мутант «причина не названа»: проба выше его ловит"; muts=$((muts + 1))
+else echo "  [FAIL] мутант «причина не названа»: образец не найден в guard.py" >&2; fail=$((fail + 1)); fi
 
 echo "== поломка стража — пропуск со словом «СЛОМАН», а не отказ"
 mkdir -p "$WORK/broken/no-wait-guard"

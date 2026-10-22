@@ -47,6 +47,12 @@ Bash был корнем воркспейса, и коммит лёг в main в
                     `cwd` входа хука тем же разбором; не вычислим (`cd "$X"` без
                     присваивания в строке) — класс не судится.
 
+Третий предмет — чтение, дающее ложный «нет данных» (ws#1288, урок сессии 2026-10-20):
+  run-list-short-sha — `gh run list --commit <не полная sha>` (4–39 hex, любой агент): gh
+                    сверяет значение с полным `headSha` точно, префикс даёт `[]`, и «прогонов нет»
+                    читается как факт (измерено: 40 знаков — 1 прогон, 12 знаков — 0, одна
+                    ревизия). Значение из переменной (`$SHA`) не судится: текст его не знает.
+
 РАЗРЕШЕНО: `gh api <путь>` без тела и метода (GET), `gh api --method GET … -f q=…`
 (поля уходят строкой запроса), `gh api graphql -f query='query{…}'`, `compare`,
 `git merge-base`; у git-operator — изменяющие вызовы, кроме путей вливания;
@@ -104,7 +110,9 @@ CLASS_TEXT = {
     "pr-merge": "gh pr merge вне правила вливания",
     "commit-unanchored": "git add/commit после относительного cd или -C",
     "commit-trunk": "git add/commit в стволе основного клона",
+    "run-list-short-sha": "gh run list --commit с неполной sha",
 }
+SHORT_SHA = re.compile(r"[0-9a-fA-F]{4,39}")
 TRUNKS = {"main", "master"}
 COMMIT_SUBS = {"add", "commit"}
 # глобальные ключи git со значением отдельным словом (кроме -C, он — шаг каталога)
@@ -204,6 +212,26 @@ def judge_api(args, agent, shown):
                        ("метод %s" % method if re.fullmatch(r"[A-Z]+", method) else
                         "метод не вычислим по тексту — запись не исключена") if method
                        else "тело (-f/-F/--input) без --method GET — gh шлёт POST")
+    return None
+
+
+def judge_run_list(args, shown):
+    """`gh run list … --commit <sha>`: значение — 4–39 hex знаков → находка (gh ждёт все 40)."""
+    i = 0
+    while i < len(args):
+        a, val = args[i], None
+        if a in ("--commit", "-c"):
+            val = args[i + 1] if i + 1 < len(args) else ""
+            i += 1
+        elif a.startswith("--commit="):
+            val = a.split("=", 1)[1]
+        elif a.startswith("-c") and not a.startswith("--") and len(a) > 2:
+            val = a[2:].lstrip("=")
+        if val is not None and SHORT_SHA.fullmatch(val.strip("'\"")):
+            return Finding("run-list-short-sha", shown,
+                           "sha из %d знаков, gh ждёт 40: префикс даёт [] — «прогонов нет» ложно"
+                           % len(val.strip("'\"")))
+        i += 1
     return None
 
 
@@ -420,6 +448,8 @@ class Walker:
         f = None
         if sub[:1] == ["api"]:
             f = judge_api(args[args.index("api") + 1:], self.agent, shown)
+        elif sub[:2] == ["run", "list"]:
+            f = judge_run_list(args[args.index("list") + 1:], shown)
         elif sub[:2] == ["pr", "merge"]:
             f = judge_pr_merge(args[args.index("merge") + 1:], self.agent, shown)
         if f:
@@ -452,6 +482,15 @@ def deny(found):
     f = found[0]
     if f.cls.startswith("commit-"):
         deny_commit(f, len(found) - 1)
+    if f.cls == "run-list-short-sha":
+        sys.stderr.write("\n".join([
+            "GH-API-GUARD: отказ — `gh run list --commit` с неполной sha вернёт [] (ws#1288).",
+            "  форма: %s — %s" % (CLASS_TEXT[f.cls], hg.clip(f.text, 200)),
+            "  почему: %s" % f.why,
+            "Полная sha: `git rev-parse <ревизия>` либо `gh pr view <N> --json headRefOid -q .headRefOid`;",
+            "`scripts/ci-read.sh` печатает её сам. Пустой ответ при короткой sha — не «прогонов нет».",
+        ]) + "\n")
+        sys.exit(2)
     lines = [
         "GH-API-GUARD: отказ — вызов меняет состояние хостинга мимо посадки.",
         "  форма: %s — %s" % (CLASS_TEXT[f.cls], hg.clip(f.text, 200)),
@@ -464,7 +503,8 @@ def deny(found):
         "    либо git merge-base <base> <head> в своей копии;",
         "  · влита ли голова: git merge-base --is-ancestor <head> origin/<base>;",
         "  · поиск с параметрами: gh api --method GET search/issues -f q='…';",
-        "  · комментарий, метка, задача — gh issue/pr comment|edit (их ведёт git-operator).",
+        "  · комментарий, метка, задача — gh issue/pr comment|edit (их ведёт git-operator);",
+        "    правка своего комментария (DoD-proof) — gh issue comment <N> --edit-last.",
         "Вливание — только git-operator: gh pr merge <N> --merge --match-head-commit <sha>;",
         "repos/*/merges, pulls/*/merge, --auto, --admin запрещены всем.",
     ]

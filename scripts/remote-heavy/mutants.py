@@ -45,6 +45,13 @@ INJECT = os.path.join(HERE, "inject.sh")
 
 # (id, проба, что портит, фрагмент, замена)
 MUTANTS = [
+    # ВОШЕДШИЕ (ws#1302): вошедший без ns держит место и предел.
+    ("pending-no-place", "PD", "вошедшие без ns не раскладываются по узлам — второй вход по тому же месту проходит",
+     "placement \"$ncpu\" \"$nmib\" \"$BUSY_DEM${AV_PENDING:+$'\\n'$AV_PENDING}\"; prc=$?",
+     "placement \"$ncpu\" \"$nmib\" \"$BUSY_DEM\"; prc=$?"),
+    ("pending-no-limit", "PDm", "предел P не считает вошедших без ns",
+     "if [ $(( n + np )) -ge \"$MAX_PAR\" ]; then",
+     "if [ \"$n\" -ge \"$MAX_PAR\" ]; then"),
     # СРЕДА ВОРКСПЕЙСА (ws#1304): профиль ws — репозиторий, провязка сверки, шаги образа без go.
     ('ws-repo-off', 'WS1', 'клон воркспейса не принят run.sh: профиль ws без репозитория',
      'case "$REPO" in kacho|kaname|corelib|kacho-workspace) ;;',

@@ -235,6 +235,11 @@ denies_commit "$CT" 'git add -A && git commit -m x'
 denies_commit "$CT" "cd $S/ws/tmp && git add -A"
 denies_commit "$CT" "git -C $S/ws commit -qam x"
 denies_commit "$CT" "K=$S/ws; cd \$K && git add -A"
+# переменная ОКРУЖЕНИЯ с абсолютным путём в ствол — якорь, ствол и есть ствол (ws#1287, урок 1c338472)
+export GHG_TRUNK="$S/ws"
+denies_commit "$CT" 'cd "$GHG_TRUNK" && git add -A && git commit -m x'
+denies_commit "$CT" 'git -C "${GHG_TRUNK}" commit -qam x'
+unset GHG_TRUNK
 denies_commit "$CU" 'cd tmp/kn-878-int && git add -A && git commit -m x'
 denies_commit "$CU" 'git -C tmp/kn-878-int commit -m x'
 denies_commit "$CU" 'pushd tmp/kn-878-int && git add -A'
@@ -275,6 +280,34 @@ boundary "иная запись истории"         'git merge --no-edit ori
 boundary "переменная без присваивания" 'cd "$Q" && git add -A && git commit -m x'
 boundary "каталог из подстановки"      'cd "$(git rev-parse --show-toplevel)" && git add -A'
 CWD=/tmp
+
+echo "== gh run list --commit с неполной sha — ложный «прогонов нет» (ws#1288)"
+# denies_short <команда> — отказ 2, класс назван, правильное чтение (полная sha) в тексте.
+denies_short() {
+    local rc named fix
+    rc="$(run "$1")"
+    named="нет"; grep -qF -- 'gh run list --commit с неполной sha' "$WORK/out" && named="да"
+    fix="нет"; grep -qF 'headRefOid' "$WORK/out" && fix="да"
+    assert "2 да да" "$rc $named $fix" "отказ${AGENT:+ [$AGENT]} (неполная sha): $1"
+    denied=$((denied + 1))
+}
+FULL=68aa62d88a1b4c3d2e1f0a9b8c7d6e5f4a3b2c1d
+for ag in ci-watcher scout git-operator; do
+    AGENT=$ag
+    denies_short 'gh run list -R PRO-Robotech/kacho --commit 68aa62d88a1b --json workflowName,status,conclusion'
+done
+AGENT=ci-watcher
+denies_short 'gh run list --commit=68aa62d --json status'
+denies_short 'gh run list -c 68aa62d88a1b'
+denies_short 'gh run list -c68aa62d88a1b'
+denies_short 'gh run list --commit "68aa62d88a1b"'
+denies_short "X=\$(gh run list -R a/b --commit abcdef1 --json status); echo \$X"
+passes "gh run list -R PRO-Robotech/kacho --commit $FULL --json workflowName,status,conclusion"
+passes "gh run list --commit=$FULL"
+passes 'gh run list --commit "$HEAD_SHA" --json status'
+passes 'gh run list -R PRO-Robotech/kacho --branch 1288-x --json status'
+passes 'gh run view 123 --json status'
+AGENT=""
 
 echo "== граница (ГРАНИЦА шапки guard.py) — известно, не ловится"
 boundary "вызов внутри скрипта"        'bash ./merge-base.sh'
@@ -338,6 +371,11 @@ mutant "mutation не судится"             'bad = [f for f in fields if M
 mutant "GraphQL-чтение — как запись"     '        return None
     if merge_path' '        return Finding("graphql-write", shown, "x")
     if merge_path' "gh api graphql -f query='query{ viewer { login } }'" ci-watcher
+mutant "run list: префикс не судится"    '        if val is not None and SHORT_SHA.fullmatch(' '        if False and SHORT_SHA.fullmatch(' 'gh run list --commit 68aa62d88a1b' ci-watcher
+mutant "run list: --commit= не разобран" '        elif a.startswith("--commit="):' '        elif False:' 'gh run list --commit=68aa62d' ci-watcher
+mutant "run list: -c не разобран"        '        if a in ("--commit", "-c"):' '        if a in ("--commit",):' 'gh run list -c 68aa62d88a1b' ci-watcher
+mutant "run list: подкоманда не судится" '        elif sub[:2] == ["run", "list"]:' '        elif False:' 'gh run list --commit 68aa62d88a1b' ci-watcher
+mutant "run list: полная sha — находка"  '{4,39}' '{4,40}' "gh run list --commit $FULL" ci-watcher
 mutant "pr merge у любого агента"        '    if agent != OPERATOR:
         return Finding("pr-merge"' '    if False:
         return Finding("pr-merge"' 'gh pr merge 7 --merge --match-head-commit abc' ci-watcher

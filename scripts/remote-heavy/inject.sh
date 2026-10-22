@@ -114,6 +114,11 @@
 #   DT pod Terminating (deletionTimestamp, Running) держит место: → 75; близнец DTb —
 #      тот же pod Succeeded → 0. PN pod Pending с nodeName держит место → 75; близнец
 #      PNb — тот же pod без узла в чужом ns → 0
+#   PD вошедший без ns (--pending, ws#1302) держит место своим запросом, как ns без pod → 75
+#      с «вошедших без ns 1»; близнец PDb — пустой файл → 0; PDm — предел считает вошедших
+#      (1 идущий + 1 вошедший при пределе 2 → 75), близнец PDmb → 0; PDf/PDn — строка вне
+#      формы либо файла нет → 64 до кластера; RQ — --request = запрос --profiles, без
+#      кластера, RQ0/RQx — вне формы → 64
 #   Q1 стенд (pod ns kacho) на всех узлах, место есть → --available 0 и прогон 0
 #      (стенд узел не запирает)
 #   QR запрос по замеру (ws#1195): память pod — p90 пика строки PEAKS профиля и
@@ -157,7 +162,10 @@
 #      KX1-all — во всех контейнерах Job, init тоже, $ лишь парами
 #   O1 строки run.sh после выбора ns несут его имя
 #   O2 stderr — файл, в который пишет посторонний живой процесс → предупреждение с
-#      его pid; близнец O2b файл держат только предки прогона → молчание
+#      его pid; близнец O2b файл держат только предки прогона → молчание; O2c тот
+#      же писатель назван своим (REMOTE_HEAVY_OUT_PEER, фильтр heavy-slot.sh) → молчание,
+#      O2c-m мутант без этой строки → предупреждение (ws#1280); O2d назван другой pid,
+#      посторонний жив → предупреждение, O2d-m мутант «назван хоть кто-то» → молчание
 #   G1 остатки kill -9 (каталог, процесс, ns, ссылка) мёртвого владельца → сняты
 #   G2 близнецы: живой владелец и ns с чужой меткой — не тронуты
 #   E1 ревизия с пинами helm и node в ci.yaml, профиль с go test → пины в окружении
@@ -2764,6 +2772,45 @@ expect_rc CPN 75
 fresh
 go_run cpnb env FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$cpn_pods" bash "$RUN" --available --profile ci-local --repo kaname
 expect_rc CPNb 0
+# PD — ВОШЕДШИЕ без ns (--pending, ws#1302): строка вошедшего держит место своим запросом, как
+# ns без pod. Тот же узел, что CPN (свободно запрос × 2 − 100m), идущих нет, вошедший с запросом
+# ci-local kaname → 75 и «вошедших без ns 1»; близнец PDb — пустой файл → 0 (=CPNb).
+printf 'hs-7 %s %s\n' "$cp_cpu" "$cp_mib" > "$BOX/pend1"; : > "$BOX/pend0"
+fresh
+go_run pd env FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$cpn_pods" bash "$RUN" --available --profile ci-local --repo kaname --pending "$BOX/pend1"
+expect_rc PD 75
+if grep -q 'места под запрос.*в том числе вошедших без ns 1' "$OUT"; then ok; else bad PD-why "причина 75 не называет вошедшего без ns"; fi
+fresh
+go_run pdb env FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$cpn_pods" bash "$RUN" --available --profile ci-local --repo kaname --pending "$BOX/pend0"
+expect_rc PDb 0
+# PDm — предел P считает вошедших: KACHO_REMOTE_HEAVY_MAX=2, идущий 1 + вошедший 1 → 75; близнец
+# PDmb — тот же идущий без вошедшего → 0 (место есть: без запроса судится лишь открытый узел).
+fresh; seed_ns t7-heavy-pdm '+1 hour'
+go_run pdm env KACHO_REMOTE_HEAVY_MAX=2 bash "$RUN" --available --pending "$BOX/pend1"
+expect_rc PDm 75
+if grep -q 'идущих тяжёлых прогонов 1, вошедших без ns 1 при пределе 2' "$OUT"; then ok; else bad PDm-why "предел не назвал вошедших"; fi
+fresh; seed_ns t7-heavy-pdm '+1 hour'
+go_run pdmb env KACHO_REMOTE_HEAVY_MAX=2 bash "$RUN" --available --pending "$BOX/pend0"
+expect_rc PDmb 0
+# PDf — строка вне формы «имя mCPU МиБ» → 64 до кластера; файла нет → 64.
+printf 'hs-7 4000\n' > "$BOX/pendf"
+fresh
+go_run pdf bash "$RUN" --available --profile ci-local --pending "$BOX/pendf"
+expect_rc PDf 64
+if [ ! -s "$BOX/state/calls" ]; then ok; else bad PDf-calls "при строке вне формы был вызов кластера"; fi
+fresh
+go_run pdn bash "$RUN" --available --pending "$BOX/нет-файла"
+expect_rc PDn 64
+# RQ — --request: запрос pod «mCPU МиБ» тем же sizing, что --profiles (ci-local kaname — cp_cpu,
+# cp_mib), к кластеру не обращается; без --profile → 64; профиля нет → 64.
+fresh
+go_run rq bash "$RUN" --request --profile ci-local --repo kaname
+expect_rc RQ 0
+if [ "$(grep -E '^[0-9]+ [0-9]+$' "$OUT")" = "$cp_cpu $cp_mib" ] && [ ! -s "$BOX/state/calls" ]; then ok; else bad RQ "--request не равен запросу --profiles ($cp_cpu $cp_mib) либо обращался к кластеру"; fi
+go_run rq0 bash "$RUN" --request
+expect_rc RQ0 64
+go_run rqx bash "$RUN" --request --profile nosuch
+expect_rc RQx 64
 # CPR — гонка ёмкостью: первая перепись идущих не видит, чужое ns создано мгновением
 # раньше своего (FAKE_RACE, без pod); со старшим места нет → 75, своё ns снято, Job нет;
 # близнец CPRb без гонки → 0. Потолок не держит: он 25.
@@ -2922,6 +2969,52 @@ go_run o2 env FAKE_EXIT=0 "${B[@]}" --short o2 -- true
 kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null
 expect_rc O2 0
 if grep -q 'пишет и другой процесс' "$OUT" && grep -q "pid $holder" "$OUT"; then ok; else bad O2 "общий файл вывода не назван"; fi
+# O2c — близнец O2: тот же посторонний писатель назван своим (REMOTE_HEAVY_OUT_PEER — так
+# heavy-slot.sh называет свой фильтр stderr прогона, ws#1280) → молчание
+fresh
+: > "$BOX/o2c.out"
+( exec 3>> "$BOX/o2c.out"; exec sleep 60 ) & holder=$!
+for _ in $(seq 1 50); do [ -e "/proc/$holder/fd/3" ] && break; sleep 0.1; done
+go_run o2c env FAKE_EXIT=0 REMOTE_HEAVY_OUT_PEER="1 $holder" "${B[@]}" --short o2c -- true
+kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null
+expect_rc O2c 0
+if grep -q 'пишет и другой процесс' "$OUT"; then bad O2c "свой писатель из REMOTE_HEAVY_OUT_PEER назван посторонним"; else ok; fi
+# O2c-m — мутант run.sh без строки REMOTE_HEAVY_OUT_PEER: тот же вход → предупреждение (проба O2c его ловит)
+grep -v 'REMOTE_HEAVY_OUT_PEER:-' "$RUN" > "$BOX/run-mut-1280.sh"
+BM=("${B[@]}"); BM[1]="$BOX/run-mut-1280.sh"
+fresh
+: > "$BOX/o2m.out"
+( exec 3>> "$BOX/o2m.out"; exec sleep 60 ) & holder=$!
+for _ in $(seq 1 50); do [ -e "/proc/$holder/fd/3" ] && break; sleep 0.1; done
+go_run o2m env FAKE_EXIT=0 REMOTE_HEAVY_OUT_PEER="1 $holder" "${BM[@]}" --short o2m -- true
+kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null
+nd="$(diff "$RUN" "$BOX/run-mut-1280.sh" | grep -c '^<')"
+if [ "$nd" = 1 ] && [ "${B[1]}" = "$RUN" ] && grep -q 'пишет и другой процесс' "$OUT"; then ok
+else bad O2c-m "мутант без REMOTE_HEAVY_OUT_PEER не построен либо не предупредил — проба O2c мимо предмета"; fi
+# O2d — близнец O2c (возврат приёмки ws#1280): в REMOTE_HEAVY_OUT_PEER назван ДРУГОЙ pid, посторонний
+# писатель жив → предупреждение с его pid: имя пира снимает лишь названного, а не всех
+fresh
+: > "$BOX/o2d.out"
+( exec 3>> "$BOX/o2d.out"; exec sleep 60 ) & holder=$!
+for _ in $(seq 1 50); do [ -e "/proc/$holder/fd/3" ] && break; sleep 0.1; done
+go_run o2d env FAKE_EXIT=0 REMOTE_HEAVY_OUT_PEER="1 $$" "${B[@]}" --short o2d -- true
+kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null
+expect_rc O2d 0
+if grep -q 'пишет и другой процесс' "$OUT" && grep -q "pid $holder" "$OUT"; then ok; else bad O2d "назван другой пир — посторонний писатель не назван"; fi
+# O2d-m — мутант «назван хоть кто-то — посторонних не искать»: тот же вход → молчание (проба O2d его ловит)
+# shellcheck disable=SC2016  # образцы мутанта — литералы строки run.sh
+O2D_A='[[ " ${REMOTE_HEAVY_OUT_PEER:-} " == *" $pid "* ]] && continue' O2D_B='[ -n "${REMOTE_HEAVY_OUT_PEER:-}" ] && continue'
+O2D_T="$(cat "$RUN")"; printf '%s\n' "${O2D_T/"$O2D_A"/"$O2D_B"}" > "$BOX/run-mut-1280d.sh"
+BM=("${B[@]}"); BM[1]="$BOX/run-mut-1280d.sh"
+fresh
+: > "$BOX/o2dm.out"
+( exec 3>> "$BOX/o2dm.out"; exec sleep 60 ) & holder=$!
+for _ in $(seq 1 50); do [ -e "/proc/$holder/fd/3" ] && break; sleep 0.1; done
+go_run o2dm env FAKE_EXIT=0 REMOTE_HEAVY_OUT_PEER="1 $$" "${BM[@]}" --short o2dm -- true
+kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null
+nd="$(diff "$RUN" "$BOX/run-mut-1280d.sh" | grep -c '^<')"
+if [ "$nd" = 1 ] && [ "${B[1]}" = "$RUN" ] && ! grep -q 'пишет и другой процесс' "$OUT"; then ok
+else bad O2d-m "мутант «назван хоть кто-то» не построен либо предупредил — проба O2d мимо предмета"; fi
 # O2b — близнец: файл держат только предки прогона (timeout, env) → молчание
 if grep -q 'пишет и другой процесс' "$BOX/o1.out"; then OUT="$BOX/o1.out"; bad O2b "предупреждение без постороннего писателя"; else ok; fi
 
