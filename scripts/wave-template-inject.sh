@@ -469,7 +469,7 @@ ok(r.res.ok === true && by(r.calls, c => c.label === 'mech:ready') === 1 && /gh 
 r = await run({ args, plan: [P('r0.json')], ci: [{ code: 5 }, { code: 5 }] })
 ok(r.res.ok === true && by(r.calls, c => c.label === 'mech:ready') === 1 && by(r.calls, c => c.label.startsWith('mech:ci:')) === 1, 'после перевода в ready — ни второго чтения, ни второго перевода', JSON.stringify(r.res).slice(0, 200))
 r = await run({ args, plan: [P('r0.json')] })
-ok(/открой ЧЕРНОВИКОМ \(`gh pr create --draft`\)/.test(prm(r.calls, 'mech:assemble:1')) && /affected\.py --base origin\/\S+ --run/.test(prm(r.calls, 'mech:assemble:1')), 'сборка: PR черновиком, выбор затронутого до каждой отправки')
+ok(/открой ЧЕРНОВИКОМ \(`gh pr create --draft`\)/.test(prm(r.calls, 'mech:assemble:1')) && /затронутое до отправки судит хук отправки Job-ом слота/.test(prm(r.calls, 'mech:assemble:1')) && !/python3|affected\.py/.test(prm(r.calls, 'mech:assemble:1')), 'сборка: PR черновиком, затронутое — хук отправки Job-ом, python3 на машине нет (ws#1301)')
 ok(/`RITUAL_REPO_DIR=\/ws\/tmp\/wave-9\/assemble bash \/ws\/scripts\/pr-body\.sh PRO-Robotech\/kacho-workspace origin\/main HEAD > \/ws\/tmp\/wave-9\/reports\/pr-body-1\.md`/.test(prm(r.calls, 'mech:assemble:1')) && /gh pr create --draft --body-file/.test(prm(r.calls, 'mech:assemble:1')) && /руками не пишется/.test(prm(r.calls, 'mech:assemble:1')), 'сборка: тело PR — только вывод pr-body.sh (ws#1146), руками не пишется', prm(r.calls, 'mech:assemble:1').slice(-600))
 const alS = prm(r.calls, 'mech:autoland')
 ok(/`RITUAL_REPO_DIR=\/ws\/tmp\/wave-9\/assemble bash \/ws\/scripts\/pr-body\.sh PRO-Robotech\/kacho-workspace origin\/main f{40} > \/ws\/tmp\/wave-9\/reports\/pr-body-land\.md && gh pr edit 7 -R PRO-Robotech\/kacho-workspace --body-file /.test(alS) && alS.indexOf('pr-body.sh') < alS.indexOf(' start --repo'), 'посадка: тело PR заново генератором до старта демона', alS.slice(-700))
@@ -1310,12 +1310,13 @@ mutant "CI читается не ci-read.sh" "recipeRun('ci-read.sh', (A.repo ||
 mutant "код 3 толкуется как зелёный" "3: 'running', 4: 'stale', 5:" "3: 'green', 4: 'stale', 5:"
 mutant "код 4 толкуется как зелёный" "3: 'running', 4: 'stale', 5:" "3: 'running', 4: 'green', 5:"
 # ws#1013: целевой зелёный черновика — не вливание; перевод в ready ровно один раз;
-# сборка открывает PR черновиком и гоняет выбор затронутого до отправки.
+# сборка открывает PR черновиком; затронутое до отправки — хук отправки Job-ом (ws#1301).
 mutant "код 5 (целевой) толкуется как зелёный" "5: 'targeted-green' }" "5: 'green' }"
 mutant "легенда CI без кода 5" " · 4 база устарела · 5 целевой зелёный черновика (не основание вливать);" " · 4 база устарела;"
 mutant "после ready шаблон ждёт CI (ws#1152)" $'    break\n  }\n  if (ciState(ci) !== \'running\') break' $'    continue\n  }\n  if (ciState(ci) !== \'running\') break'
 mutant "PR волны не черновиком" "открой ЧЕРНОВИКОМ (\`gh pr create --draft\`)" "открой"
-mutant "доводки без выбора затронутого" "\`python3 .github/scripts/affected.py --base origin/" "\`true --base origin/"
+mutant "доводки без суда затронутого" "затронутое до отправки судит хук отправки Job-ом слота" "затронутое до отправки не судится"
+mutant "доводки — python3 на машине (ws#1301)" "на машине не гоняется (ws#1301)" "до отправки в копии — \`python3 .github/scripts/affected.py --run\`"
 mutant "неизвестный код — зелёный" "CI_STATE[r.code]) || 'unread'" "CI_STATE[r.code]) || 'green'"
 mutant "голова CI не судится" " || (readied && ciState(ci) === 'targeted-green')) || ciHead !== asm.head)" " || (readied && ciState(ci) === 'targeted-green')))"
 mutant "код 0 без строки merged — влито" "sha40((alOut.match(/^merged ([0-9a-f]{40})/) || [])[1])" "'e'.repeat(40)"
