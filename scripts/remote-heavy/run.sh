@@ -247,12 +247,18 @@
 # неоднозначен, вне формы, шаг есть без ключа или конвейер не разобран — 69 до
 # кластера. buf — `version` шага bufbuild/buf-setup-action, бинарь выпуска с
 # суммой из sha256.txt выпуска (ws#1110: цели proto-* standalone kaname без buf
-# давали «условие не создано»). Шага setup-helm нет, а задания идут на хостовом
+# давали «условие не создано»). yq (ws#1296) — пин `go install …mikefarah/yq/v4@vX`
+# конвейера (шаг чартов kacho): без него `make helm-manifest-test` в pod падал
+# «FATAL: нужен yq (mikefarah v4)» кодом 2 — красным вместо «не выполнилось». Ставится
+# бинарь выпуска того же тега (сборка в pod стоила бы десятки секунд), сумма SHA-256 —
+# из `checksums` выпуска, столбец — по `checksums_hashes_order`; сверка — mikefarah и
+# версия пина. Упоминание mikefarah/yq иной формой (`@latest`, `@v4.53`, шаг
+# `uses: mikefarah/yq@…`) — 69 до кластера, а не «yq не требуется». Шага setup-helm нет, а задания идут на хостовом
 # образе ubuntu-* — helm ОБРАЗА: ранер конвейера несёт его в PATH (ws#1110:
 # render-guard kaname «helm не в PATH» только в pod); образ метки — по таблице
 # README actions/runner-images, версия — строка «- Helm X.Y.Z» Readme образа;
 # таблица или Readme не получены, метка не найдена, версий больше одной — 69.
-# После установки — отдельная СВЕРКА PATH перед командой: helm, node и buf
+# После установки — отдельная СВЕРКА PATH перед командой: helm, node, buf и yq
 # с версией пина обязаны быть на месте, иначе команда не запускается и
 # run.sh выходит 69 строкой «не выполнилось — среда: …». Так прогон без
 # инструмента не выдаётся ни за зелёный, ни за красный.
@@ -1356,11 +1362,18 @@ image_helm() {
     [ "$(wc -l <<< "$vals")" -eq 1 ] || { say "helm образа ранера неоднозначен на $SHA: $(tr '\n' ' ' <<< "$vals")— версию не выбрать"; return 2; }
     printf '%s\n' "$vals"
 }
-HELM_PIN=""; NODE_PIN=""; BUF_PIN=""; HELM_SRC=""
+HELM_PIN=""; NODE_PIN=""; BUF_PIN=""; YQ_PIN=""; HELM_SRC=""
 if [ "$PROFILE" != lint ] && [ "$PROFILE" != ws ]; then
     HELM_PIN="$(step_pin azure/setup-helm version helm)"; [ "$?" -eq 2 ] && exit 69
     NODE_PIN="$(step_pin actions/setup-node node-version node)"; [ "$?" -eq 2 ] && exit 69
     BUF_PIN="$(step_pin bufbuild/buf-setup-action version buf)"; [ "$?" -eq 2 ] && exit 69
+    YQ_PIN="$(pin_of 'mikefarah/yq/v4')"; [ "$?" -eq 2 ] && exit 69
+    # Форма, которой pin_of не знает (`@latest`, `@v4.53`, `@v4.53.6-rc1`, шаг
+    # `uses: mikefarah/yq@…`), оставляла пин пустым либо брала его у соседнего задания:
+    # yq не ставился («не требуется»), команда краснела вместо «не выполнилось» (ws#1296,
+    # приёмка). Каждое упоминание mikefarah/yq — пин `…/v4@vX.Y.Z` целиком, иначе 69.
+    YQ_ODD="$(grep -oE 'mikefarah/yq[^[:space:]"'\'']*' <<< "$WF" | grep -vxE 'mikefarah/yq/v4@v[0-9]+\.[0-9]+\.[0-9]+' | sort -u)"
+    [ -z "$YQ_ODD" ] || { say "пин yq на $SHA: mikefarah/yq в конвейере формой, которую разбор пина не знает: $(tr '\n' ' ' <<< "$YQ_ODD")— разбирается лишь go install …mikefarah/yq/v4@vX.Y.Z, версию не выбрать"; exit 69; }
     [[ -z "$HELM_PIN" || "$HELM_PIN" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { say "пин helm на $SHA вне формы vX.Y.Z: «$HELM_PIN»"; exit 69; }
     [[ -z "$NODE_PIN" || "$NODE_PIN" =~ ^[0-9]+(\.[0-9]+){0,2}$ ]] || { say "пин node на $SHA вне формы N[.N[.N]]: «$NODE_PIN»"; exit 69; }
     [[ -z "$BUF_PIN" || "$BUF_PIN" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]] || { say "пин buf на $SHA вне формы [v]X.Y.Z: «$BUF_PIN»"; exit 69; }
@@ -1369,7 +1382,9 @@ if [ "$PROFILE" != lint ] && [ "$PROFILE" != ws ]; then
         HELM_PIN="$(image_helm)"; [ "$?" -eq 2 ] && exit 69
         HELM_SRC="образ ранера"
     fi
-    [ -n "$HELM_PIN$NODE_PIN$BUF_PIN" ] || say "helm, node и buf: пинов в конвейере ревизии и helm в образе ранера нет — не ставлю и не сверяю (в конвейере их тоже нет)"
+    [ -n "$HELM_PIN$NODE_PIN$BUF_PIN$YQ_PIN" ] || say "helm, node, buf и yq: пинов в конвейере ревизии и helm в образе ранера нет — не ставлю и не сверяю (в конвейере их тоже нет)"
+else
+    say "профиль lint: helm, node, buf, yq, jq, PyYAML и pytest не ставятся (их ставят профили с go test) — отказ команды «нужен <инструмент>» здесь — выбор профиля, а не вердикт; такой команде — профиль ci-local"
 fi
 [ "$PROFILE" != ws ] || NODE_PIN="$WS_NODE"   # СРЕДА ВОРКСПЕЙСА: ранер несёт node в образе, пина в ci.yaml нет
 
@@ -1853,6 +1868,38 @@ FILEB
 )"
 [ "$PROFILE" = ci-local ] && PREP="$PREP
 $FILE_SH"
+# PYTEST (ws#1296): прогонщик проб python kacho (.github/scripts/run-python-probes.py) без
+# pytest отказывает «нет pytest … прогон НЕ ВЫПОЛНЕН», и самопроверка в helm-manifest-test
+# краснела в pod; конвейер ставит его шагом `pip install pytest` задания чартов. pip образ
+# не несёт: колёса py3-none-any (pytest и зависимости для python ≥ 3.11) с пином суммы
+# распаковываются в site-packages интерпретатора, как PyYAML — видимость без окружения
+# (ws#1207) сверяется подпроцессом `env -i`. Маркеры — граница, по которой inject.sh
+# исполняет шаг над двойником сети. Стоит ДО шага пакетов: за «# pkgs-end» следует
+# установка golangci-lint (проба G1 стережёт её склейку с маркером).
+# shellcheck disable=SC2016  # раскрывается в pod, не здесь
+PYTEST_SH='# pytest-begin
+py="$(command -v python3)" || pf "python3 в образе нет"
+if ! env -i "$py" -c "import pytest" >/dev/null 2>&1; then
+  pts="$("$py" -c "import site; print(site.getsitepackages()[0])" 2>/dev/null)" && [ -n "$pts" ] || pf "pytest: каталог site-packages интерпретатора $py не назван"
+  echo "remote-heavy: ставлю pytest 9.1.1 в $pts" >&2
+  mkdir -p /work/dl/pt "$pts" || pf "каталог загрузки не создан"
+  for e in pytest-9.1.1-py3-none-any.whl:37a86b45efb9a47a61a36449063e8e18d0cab3161329fc099eb21783169c4f0c \
+           pluggy-1.7.0-py3-none-any.whl:7dd7b0d8832ba3cb632c306926ded123429211b83641b35dc5c41ad2d34f9bec \
+           iniconfig-2.3.1-py3-none-any.whl:9121e2c1fdb355232495be3194c8dfe87ccc2d5dee45947b78e68f499790d7a7 \
+           packaging-26.3-py3-none-any.whl:d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c \
+           pygments-2.21.0-py3-none-any.whl:2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9; do
+    w="${e%%:*}"; n="${w%%-*}"
+    curl -fsSL --retry 4 --retry-all-errors --retry-delay 3 --connect-timeout 10 --max-time 180 -o "/work/dl/pt/$w" "https://files.pythonhosted.org/packages/py3/${n:0:1}/$n/$w" \
+      && echo "${e#*:}  /work/dl/pt/$w" | sha256sum -c --quiet - \
+      && "$py" -m zipfile -e "/work/dl/pt/$w" "$pts" || pf "pytest 9.1.1: колесо $w не поставлено"
+  done
+  rm -rf /work/dl/pt
+fi
+pv="$(env -i "$py" -c "import pytest; print(pytest.__version__)" 2>/dev/null)" || pf "pytest не виден подпроцессу с пустым окружением ($py)"
+echo "remote-heavy: pytest $pv (без окружения)" >&2
+# pytest-end'
+[ "$PROFILE" = lint ] || PREP="$PREP
+$PYTEST_SH"
 [ "$PROFILE" = lint ] || PREP="$PREP
 $PKGS_SH"
 # Ожидание сборки file и сверка ИСПОЛНЕНИЕМ — перед видимостью: бинарь, не узнающий
@@ -1902,7 +1949,7 @@ echo \"remote-heavy: ставлю golangci-lint $LINT_PIN\" >&2; GOBIN=/work/bin
 [ "$PROFILE" = ci-local ] && [ -n "$GOSEC_PIN" ] && \
     PREP="$PREP
 echo \"remote-heavy: ставлю gosec $GOSEC_PIN\" >&2; GOBIN=/work/bin go install github.com/securego/gosec/v2/cmd/gosec@$GOSEC_PIN || pf \"gosec $GOSEC_PIN не поставлен\""
-# СРЕДА: helm, node и buf — версий пина конвейера ревизии, в /work/bin, с проверкой
+# СРЕДА: helm, node, buf и yq — версий пина конвейера ревизии, в /work/bin, с проверкой
 # контрольной суммы, опубликованной рядом с архивом. Отказ — «remote-heavy-prep:»,
 # то есть 69, а не красное.
 # shellcheck disable=SC2016  # раскрывается в pod, не здесь
@@ -1936,6 +1983,16 @@ if [ -n "${HEAVY_BUF:-}" ]; then
     && grep -E "^[0-9a-f]{64}  $f\$" sums | sha256sum -c --quiet --strict - \
     && install -m 0755 "$f" /work/bin/buf ) || pf "buf $HEAVY_BUF не поставлен"
 fi
+if [ -n "${HEAVY_YQ:-}" ]; then
+  echo "remote-heavy: ставлю yq $HEAVY_YQ" >&2
+  a="$(ha amd64)" || pf "yq: архитектура $(uname -m) не поддержана"
+  f="yq_linux_$a"; u="https://github.com/mikefarah/yq/releases/download/$HEAVY_YQ"; mkdir -p /work/dl/yq || pf "каталог загрузки не создан"
+  ( cd /work/dl/yq && curl -fsSL --retry 3 -o "$f" "$u/$f" \
+    && curl -fsSL --retry 3 -o order "$u/checksums_hashes_order" && curl -fsSL --retry 3 -o sums "$u/checksums" \
+    && i="$(grep -nx "SHA-256" order | cut -d: -f1)" && [ -n "$i" ] \
+    && awk -v f="$f" -v i="$i" '"'"'$1 == f { h = $(i + 1); n++ } END { if (n == 1 && length(h) == 64 && h !~ /[^0-9a-f]/) print h "  " f; else exit 1 }'"'"' sums | sha256sum -c --quiet --strict - \
+    && install -m 0755 "$f" /work/bin/yq ) || pf "yq $HEAVY_YQ не поставлен"
+fi
 rm -rf /work/dl
 # install-end'
 # Сверка среды — отдельно от установки и последней из инструментов перед командой
@@ -1960,7 +2017,12 @@ if [ -n "${HEAVY_BUF:-}" ]; then
   bv="$(buf --version 2>/dev/null)"
   [ "$bv" = "$HEAVY_BUF" ] || tf "buf в PATH — «$bv», пин конвейера $HEAVY_BUF"
 fi
-echo "remote-heavy: среда — helm ${hv:-не требуется}, node ${nv:-не требуется}, buf ${bv:-не требуется}" >&2
+if [ -n "${HEAVY_YQ:-}" ]; then
+  command -v yq >/dev/null 2>&1 || tf "yq $HEAVY_YQ (пин конвейера) нет в PATH — пробы, зовущие yq, не равны конвейеру"
+  yv="$(yq --version 2>/dev/null)"
+  case "$yv" in *mikefarah*" version $HEAVY_YQ") yv="$HEAVY_YQ (mikefarah)" ;; *) tf "yq в PATH — «$yv», пин конвейера mikefarah $HEAVY_YQ";; esac
+fi
+echo "remote-heavy: среда — helm ${hv:-не требуется}, node ${nv:-не требуется}, buf ${bv:-не требуется}, yq ${yv:-не требуется}" >&2
 # tools-end'
 # МОДУЛИ: `go mod download` модуля дерева — до команды, каждым профилем, как шаг
 # конвейера перед тестами (ws#1018). Сборка тянет лишь импортированное, а пробы
@@ -3234,7 +3296,7 @@ jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg goimg "$GO_IMAGE" --arg dimg "
     --argjson deadline "$(( TIMEOUT_S + WAIT_START_S ))" --argjson dind "$DIND" \
     --arg cr "${RUN_CPU_REQ}m" --arg cl "$CPU_LIM" --arg mr "${RUN_MEM_REQ}Mi" --arg ml "${RUN_MEM_LIM}Mi" --arg eph "$EPH" \
     --arg dcr "$DCR" --arg dcl "$DCL" --arg dmr "$DMR" --arg dml "$DML" \
-    --arg pgimg "$PG_IMAGE" --arg pgsh "$PG_SH" --argjson pg "$PG" --arg pgcr "${PG_REQ_M}m" --arg pgmr "${PG_REQ_MIB}Mi" --arg dindsh "$DIND_SH" --arg deny "$DENY_PROBE" --arg helm "$HELM_PIN" --arg node "$NODE_PIN" --arg buf "$BUF_PIN" \
+    --arg pgimg "$PG_IMAGE" --arg pgsh "$PG_SH" --argjson pg "$PG" --arg pgcr "${PG_REQ_M}m" --arg pgmr "${PG_REQ_MIB}Mi" --arg dindsh "$DIND_SH" --arg deny "$DENY_PROBE" --arg helm "$HELM_PIN" --arg node "$NODE_PIN" --arg buf "$BUF_PIN" --arg yq "$YQ_PIN" \
     --arg pull "$PULL_IMG" --arg pushin "$PUSH_INPUT" --arg gname "$GIT_NAME" --arg gemail "$GIT_EMAIL" --arg wssc "$WS_SC" --slurpfile cmdv <(printf '%s' "$CMD_JSON") '
 # kubelet раскрывает в command, args и value env контейнера $(ИМЯ) значением env и
 # сворачивает $$ в $ (ws#1142: составной Job потерял переменные и коды осей). Каждый
@@ -3266,7 +3328,7 @@ def kesc_c: (if .command then .command |= map(kesc) else (.) end)
         resources: {requests: {cpu: "100m", memory: "256Mi"}, limits: {cpu: "2", memory: "2Gi"}},
         volumeMounts: [{name: "work", mountPath: "/work"}]}]),
      containers: ([{name: "run", image: $goimg, command: (["bash", "-c", $prep, "run"] + $cmdv[0]),
-       env: ([{name: "HEAVY_WORKDIR", value: $wd}, {name: "HEAVY_PULL", value: $pull}, {name: "HEAVY_DENY_PROBE", value: $deny}, {name: "HEAVY_HELM", value: $helm}, {name: "HEAVY_NODE", value: $node}, {name: "HEAVY_BUF", value: $buf}, {name: "HEAVY_PUSH_INPUT", value: $pushin}, {name: "HEAVY_GIT_NAME", value: $gname}, {name: "HEAVY_GIT_EMAIL", value: $gemail}, {name: "GOTOOLCHAIN", value: "local"},
+       env: ([{name: "HEAVY_WORKDIR", value: $wd}, {name: "HEAVY_PULL", value: $pull}, {name: "HEAVY_DENY_PROBE", value: $deny}, {name: "HEAVY_HELM", value: $helm}, {name: "HEAVY_NODE", value: $node}, {name: "HEAVY_BUF", value: $buf}, {name: "HEAVY_YQ", value: $yq}, {name: "HEAVY_PUSH_INPUT", value: $pushin}, {name: "HEAVY_GIT_NAME", value: $gname}, {name: "HEAVY_GIT_EMAIL", value: $gemail}, {name: "GOTOOLCHAIN", value: "local"},
               {name: "GOMODCACHE", value: "/cache/mod"}, {name: "GOCACHE", value: "/cache/build"},
               {name: "GOLANGCI_LINT_CACHE", value: "/cache/lint"}, {name: "CI", value: "true"}]
              + (if $wssc != "" then [{name: "HEAVY_SHELLCHECK", value: $wssc},
@@ -3292,7 +3354,7 @@ kc create -f "$BOX/job.json" >/dev/null || { say "Job не создан (не в
 T0="$(now)"
 REQ_SPEC="$(jq -c '.spec.template.spec' "$BOX/job.json")"
 verify_spec Job "$(kc -n "$NSNAME" get job run -o json 2>/dev/null | jq -c '.spec.template.spec // empty' 2>/dev/null)"
-say "Job создан: образ $IMG_NAME$([ -n "$LINT_PIN" ] && [ "$PROFILE" != go-race ] && [ "$PROFILE" != integration ] && echo ", golangci-lint $LINT_PIN"), cpu ${RUN_CPU_REQ}m/$CPU_LIM, память $RUN_MEM_REQ/$RUN_MEM_LIM МиБ$([ "$DIND" = 1 ] && echo ', dind')$([ -n "$HELM_PIN$NODE_PIN$BUF_PIN" ] && echo ", helm ${HELM_PIN:-нет пина}${HELM_SRC:+ ($HELM_SRC)}, node ${NODE_PIN:-нет пина}, buf ${BUF_PIN:-нет пина}")"
+say "Job создан: образ $IMG_NAME$([ -n "$LINT_PIN" ] && [ "$PROFILE" != go-race ] && [ "$PROFILE" != integration ] && echo ", golangci-lint $LINT_PIN"), cpu ${RUN_CPU_REQ}m/$CPU_LIM, память $RUN_MEM_REQ/$RUN_MEM_LIM МиБ$([ "$DIND" = 1 ] && echo ', dind')$([ -n "$HELM_PIN$NODE_PIN$BUF_PIN$YQ_PIN" ] && echo ", helm ${HELM_PIN:-нет пина}${HELM_SRC:+ ($HELM_SRC)}, node ${NODE_PIN:-нет пина}, buf ${BUF_PIN:-нет пина}, yq ${YQ_PIN:-нет пина}")"
 
 # pod_state — «имя|фаза|fetch|run|код run|причина run|сообщение run|ожидание|
 # планирование|отказ userns». Отказ userns — строка «remote-heavy-userns: …» в
