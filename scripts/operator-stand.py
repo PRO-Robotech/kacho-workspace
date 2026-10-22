@@ -84,8 +84,10 @@ def git(co, *args):
 
 def api(repo, endpoint, raw=False):
     # The executable override is the same fixture seam as stand-report.sh.
-    output = command([os.environ.get('STAND_REPORT_GH', 'gh'), 'api',
-                      'repos/' + repo + '/' + endpoint])
+    # Raw job logs retain ANSI bytes for the parser; they are never printed.
+    output = command([os.environ.get('STAND_REPORT_GH', 'gh'), 'api'] +
+                     (['--allow-escape-sequences'] if raw else []) +
+                     ['repos/' + repo + '/' + endpoint])
     return output if raw else json.loads(output)
 
 

@@ -181,6 +181,19 @@ class ProducerExperiments(unittest.TestCase):
             with self.assertRaises(M.Unread):
                 M.pages('org/repo', 'endpoint', 'jobs')
 
+    def test_api_raw_escape_boundary(self):
+        raw = (FIX / 'vault-ginkgo.log').read_text()
+        def gh(argv, cwd=None):
+            if argv[-1].endswith('/logs'):
+                M.require('--allow-escape-sequences' in argv, 'gh refused terminal escapes')
+                return raw
+            self.assertNotIn('--allow-escape-sequences', argv)
+            return '{"ok": true}'
+        with patch.object(M, 'command', gh):
+            self.assertEqual(M.census(M.api('org/repo', 'actions/jobs/1/logs', raw=True), 'ginkgo-v2'), 5)
+            self.assertEqual(M.api('org/repo', 'actions/runs/1'), {'ok': True})
+            with self.assertRaises(M.Unread): gh(['gh', 'api', 'repos/org/repo/actions/jobs/1/logs'])
+
     def test_api_error_negative(self):
         with patch.object(M, 'api', side_effect=M.Unread('HTTP403')):
             with self.assertRaises(M.Unread):
