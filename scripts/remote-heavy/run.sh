@@ -233,6 +233,8 @@
 # кластер не уходит ни одного секрета, а неотправленная ревизия доставляется так
 # же, как отправленная. Bundle несёт историю, поэтому проверки, читающие git
 # (`git ls-files`, предок ли ствол), видят дерево как в клоне конвейера.
+# Доставок разом на машине — не больше KACHO_REMOTE_HEAVY_DELIVER_MAX (3; ожидание места —
+# до KACHO_REMOTE_HEAVY_DELIVER_WAIT_S, 300 с), обрыв потока — повтор до 3 попыток (ws#1359).
 #
 # ВЕРСИИ — из дерева ревизии, а не из машины: go — строка toolchain (иначе go)
 # в go.mod, golangci-lint и gosec — пин `go install …@vX` в .github/workflows/ci.y*ml.
@@ -1230,6 +1232,17 @@ if ! [[ "$NSNAME" =~ ^t${TASK}-heavy-[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]] || [ "${#
     say "ns «$NSNAME» вне формы t$TASK-heavy-<слово> (≤ 63 знака) — run.sh создаёт и снимает только свои ns"; exit 64
 fi
 TAG="[$NSNAME] "
+# `go test` без флага срока падает по 10m go по умолчанию, хотя прогон ограничен своим сроком
+# (ws#1359, уроки d2342723, b3e88eb2, 30baae92: pg и migrations kaname — ложное красное). Флаг —
+# сроком прогона, сразу за `test`; команду со своим -timeout и иные формы не трогаем.
+if [ "${#CMD[@]}" -ge 2 ] && [ "${CMD[0]}" = go ] && [ "${CMD[1]}" = test ]; then
+    GT_OWN=0
+    for a in "${CMD[@]:2}"; do [[ "$a" =~ ^--?(test\.)?timeout(=|$) ]] && GT_OWN=1; done
+    if [ "$GT_OWN" = 0 ]; then
+        CMD=(go test "-timeout=${TIMEOUT_S}s" "${CMD[@]:2}")
+        say "go test без -timeout: срок пакета — срок прогона ${TIMEOUT_S} с (-timeout=${TIMEOUT_S}s), а не 10m по умолчанию go"
+    fi
+fi
 
 # ── ревизия и версии ─────────────────────────────────────────────────────────
 SRC="${SRC:-$WS/project/$REPO}"
@@ -1439,6 +1452,20 @@ lineage() {
     done
     return 1
 }
+# git_transport <pid> — 0, если pid — из поддерева ближайшего предка `git` и вне ветки этого
+# прогона: транспорт самой отправки (`sh -c ssh …` у `git push … > журнал 2>&1`) держит тот же
+# журнал, а вывода прогона не пишет (ws#1359, уроки 8d6c3ae0, 34c5501c). Писатель в ветке хука,
+# где идёт и этот прогон, — не транспорт: его вывод перемешается.
+GIT_ANC=""
+for _p in $ANCESTORS; do [ "$(cat "/proc/$_p/comm" 2>/dev/null)" = git ] && { GIT_ANC="$_p"; break; }; done
+git_transport() {
+    local q="$1" prev=""
+    [ -n "$GIT_ANC" ] || return 1
+    while [[ "$q" =~ ^[0-9]+$ ]] && [ "$q" -gt 1 ] && [ "$q" != "$GIT_ANC" ]; do
+        prev="$q"; q="$(awk '/^PPid:/ { print $2 }' "/proc/$q/status" 2>/dev/null)"
+    done
+    [ "$q" = "$GIT_ANC" ] && [ -n "$prev" ] && [[ "$ANCESTORS" != *" $prev "* ]]
+}
 # shared_out <fd> <имя потока> — предупреждение, если fd — обычный файл, в который
 # пишет посторонний живой процесс. Путь в строку не идёт — только имя файла.
 shared_out() {
@@ -1449,6 +1476,7 @@ shared_out() {
         pid="${link#/proc/}"; pid="${pid%%/*}"; fdn="${link##*/}"
         [ "$pid" = $$ ] && continue
         lineage "$pid" && continue
+        git_transport "$pid" && continue
         [[ " ${REMOTE_HEAVY_OUT_PEER:-} " == *" $pid "* ]] && continue
         fl="$(awk '/^flags:/ { print $2 }' "/proc/$pid/fdinfo/$fdn" 2>/dev/null)"
         [[ "$fl" =~ ^[0-7]+$ ]] || continue
@@ -3444,9 +3472,42 @@ done
 verify_spec "pod $POD" "$(kc -n "$NSNAME" get pods -l job-name=run -o json 2>/dev/null \
                           | jq -c --arg p "$POD" '.items[] | select(.metadata.name == $p) | .spec' 2>/dev/null)"
 guard_write "доставка исходников" || guard_exit $?
-kc -n "$NSNAME" exec -i "$POD" -c fetch -- sh -c 'cat > /work/in.bundle && touch /work/in.done' < "$BOX/src.bundle" & wait_bg $! \
-    || { say "исходники не доставлены в pod (не выполнилось)"; exit 69; }
-say "исходники доставлены: $(( $(stat -c %s "$BOX/src.bundle") / 1048576 )) МиБ bundle за $(( $(now) - T0 )) с от создания Job"
+# Поток exec рвётся под одновременными доставками (ws#1359, уроки 311cca3d, 1274ebc4: семь по
+# 49 МиБ — обрыв 69 в 5 из 9). На машине — не больше DELIVER_MAX доставок разом: замки
+# deliver.<i>.lock в каталоге слотов (его заводит heavy-slot, run.sh — нет); не дождался места
+# за DELIVER_WAIT_S — идёт без замка, строкой. Обрыв — повтор, пока fetch ждёт, до DELIVER_TRIES
+# попыток. Запись — во временный файл и переименование: оборванная попытка не оставляет in.done,
+# принятое повтор не перезаписывает.
+DELIVER_MAX="${KACHO_REMOTE_HEAVY_DELIVER_MAX:-3}"; DELIVER_WAIT_S="${KACHO_REMOTE_HEAVY_DELIVER_WAIT_S:-300}"; DELIVER_TRIES=3
+[[ "$DELIVER_MAX" =~ ^[1-9][0-9]?$ ]] && [[ "$DELIVER_WAIT_S" =~ ^[0-9]{1,4}$ ]] \
+    || { say "KACHO_REMOTE_HEAVY_DELIVER_MAX 1–99 и KACHO_REMOTE_HEAVY_DELIVER_WAIT_S 0–9999 с, получено «$DELIVER_MAX», «$DELIVER_WAIT_S» (не выполнилось)"; exit 69; }
+DL_DIR="${HEAVY_SLOT_DIR:-$(getent passwd "$(id -u)" | cut -d: -f6)/.cache/heavy-slots}"; DLK=""; DL_T0="$(now)"; DL_WAITED=0
+if ! [ -d "$DL_DIR" ] || ! [ -w "$DL_DIR" ]; then
+    say "доставка без предела мест: каталога слотов $(basename -- "$DL_DIR") нет либо он не на запись"
+else
+    while [ -z "$DLK" ]; do
+        for i in $(seq 0 $(( DELIVER_MAX - 1 ))); do
+            exec {DLK}>>"$DL_DIR/deliver.$i.lock" && flock -n "$DLK" && break
+            [ -n "$DLK" ] && exec {DLK}>&-; DLK=""
+        done
+        [ -n "$DLK" ] && break
+        [ $(( $(now) - DL_T0 )) -ge "$DELIVER_WAIT_S" ] && { say "доставка: все $DELIVER_MAX мест заняты дольше $DELIVER_WAIT_S с — иду без замка"; break; }
+        [ "$DL_WAITED" = 1 ] || say "доставка: заняты все $DELIVER_MAX мест на машине — жду до $DELIVER_WAIT_S с"
+        DL_WAITED=1; sleep 1 & wait_bg $!
+    done
+    [ -z "$DLK" ] || [ "$DL_WAITED" = 0 ] || say "доставка ждала свободного места $(( $(now) - DL_T0 )) с (разом не больше $DELIVER_MAX)"
+fi
+dtry=1
+until kc -n "$NSNAME" exec -i "$POD" -c fetch -- sh -c '[ -e /work/in.done ] || [ -e /work/src ] || { cat > /work/in.part && mv /work/in.part /work/in.bundle && touch /work/in.done; }' < "$BOX/src.bundle" & wait_bg $!; do
+    IFS='|' read -r _ _ FETCH_ST _ <<< "$(pod_state)"
+    if [ "$dtry" -ge "$DELIVER_TRIES" ] || [ "$FETCH_ST" != running ]; then
+        say "исходники не доставлены в pod: попыток $dtry из $DELIVER_TRIES, fetch ${FETCH_ST:-нет} (не выполнилось)"; exit 69
+    fi
+    say "доставка исходников оборвалась (попытка $dtry из $DELIVER_TRIES) — повтор"
+    dtry=$(( dtry + 1 ))
+done
+[ -z "$DLK" ] || { exec {DLK}>&-; DLK=""; }
+say "исходники доставлены: $(( $(stat -c %s "$BOX/src.bundle") / 1048576 )) МиБ bundle за $(( $(now) - T0 )) с от создания Job$([ "$dtry" -gt 1 ] && echo " (попыток $dtry)")"
 
 # ── команда ──────────────────────────────────────────────────────────────────
 while :; do

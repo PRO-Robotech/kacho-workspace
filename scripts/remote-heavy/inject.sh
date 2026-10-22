@@ -165,7 +165,19 @@
 #      его pid; близнец O2b файл держат только предки прогона → молчание; O2c тот
 #      же писатель назван своим (REMOTE_HEAVY_OUT_PEER, фильтр heavy-slot.sh) → молчание,
 #      O2c-m мутант без этой строки → предупреждение (ws#1280); O2d назван другой pid,
-#      посторонний жив → предупреждение, O2d-m мутант «назван хоть кто-то» → молчание
+#      посторонний жив → предупреждение, O2d-m мутант «назван хоть кто-то» → молчание;
+#      O2g писатель — транспорт двойника `git` (второй его ребёнок, не ветка прогона) →
+#      молчание, O2g-m мутант без строки git_transport → предупреждение; O2h писатель в
+#      ветке хука под тем же `git` → предупреждение, O2h-m мутант «любой потомок git» →
+#      молчание (ws#1359)
+#   DL доставка (ws#1359): DL1 первый поток оборван → повтор, 0, попыток 2; DL1-m мутант
+#      DELIVER_TRIES=1 → 69; DL2 оборваны все три → 69 «попыток 3 из 3»; DL3 близнец без
+#      обрыва — одна попытка, строки повтора нет; DL4 заняты все 3 места → ждёт и
+#      называет ожидание, 0; DL4b занято 2 из 3 → молчание; DL4-m мутант без flock →
+#      ожидания нет; DL5 места не освободились за срок → «иду без замка», 0
+#   GT `go test` без срока (ws#1359): GT1 → `-timeout=<срок прогона>s` сразу за test и
+#      строка; GT2 свой `-timeout 100m`, GT3 `-test.timeout=5m` → команда не тронута;
+#      GT2-m мутант «свой срок не ищется» → GT2 тронута
 #   G1 остатки kill -9 (каталог, процесс, ns, ссылка) мёртвого владельца → сняты
 #   G2 близнецы: живой владелец и ns с чужой меткой — не тронуты
 #   E1 ревизия с пинами helm и node в ci.yaml, профиль с go test → пины в окружении
@@ -500,7 +512,14 @@ case "$1 ${2:-}" in
             initContainerStatuses:[{name:"fetch",state:{terminated:{exitCode:0}}}],
             containerStatuses:[{name:"run",state:{terminated:{exitCode:$rc,reason:$r,message:$m}}}]}
             + (if $ev == "1" then {reason: "Evicted", message: "The node was low on resource: memory."} else {} end)')" ;;
-    "exec -i") cat > "$S/bundle"; touch "$S/delivered" ;;
+    "exec -i")
+        # FAKE_DELIVER_FAIL=N — первые N доставок рвутся посреди потока (ws#1359): часть
+        # stdin прочитана, код 1, «delivered» нет; попытки считаются в deliver-tries.
+        n=$(( $(cat "$S/deliver-tries" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$S/deliver-tries"
+        if [ "$n" -le "${FAKE_DELIVER_FAIL:-0}" ]; then
+            head -c 1024 > /dev/null; echo "error: stream error: stream ID 3; INTERNAL_ERROR; received from peer" >&2; exit 1
+        fi
+        cat > "$S/bundle"; touch "$S/delivered" ;;
     "logs -f")
         echo "строка лога команды: pod $FAKE_POD_IP, dind $FAKE_POD_IP6"
         # FAKE_LOG_FILE — поток лога шага красных групп (RG*); без него — итог шага
@@ -3020,6 +3039,121 @@ if [ "$nd" = 1 ] && [ "${B[1]}" = "$RUN" ] && ! grep -q 'пишет и друг�
 else bad O2d-m "мутант «назван хоть кто-то» не построен либо предупредил — проба O2d мимо предмета"; fi
 # O2b — близнец: файл держат только предки прогона (timeout, env) → молчание
 if grep -q 'пишет и другой процесс' "$BOX/o1.out"; then OUT="$BOX/o1.out"; bad O2b "предупреждение без постороннего писателя"; else ok; fi
+# O2g/O2h — двойник `git push … > журнал 2>&1` (ws#1359): процесс с именем git держит журнал,
+# у него два ребёнка — писатель и ветка с run.sh. FAKE_GIT_MODE=transport — писатель прямой
+# ребёнок git (транспорт `sh -c ssh`); hook — писатель ребёнок ветки хука, где идёт и run.sh.
+mkdir -p "$BOX/gitbin"
+cat > "$BOX/gitbin/git" <<'GIT'
+#!/bin/bash
+if [ "$FAKE_GIT_MODE" = transport ]; then
+    ( exec sleep 60 ) & w=$!
+    "$@"; rc=$?
+else
+    bash -c '( exec sleep 60 ) & w=$!; echo "$w" > "$FAKE_GIT_PIDF"; "$@"; rc=$?; kill "$w"; exit "$rc"' hook "$@"; rc=$?
+fi
+[ -z "${w:-}" ] || { echo "$w" > "$FAKE_GIT_PIDF"; kill "$w"; }
+exit "$rc"
+GIT
+chmod +x "$BOX/gitbin/git"
+fresh
+go_run o2g env FAKE_EXIT=0 FAKE_GIT_MODE=transport FAKE_GIT_PIDF="$BOX/o2g.pid" "$BOX/gitbin/git" "${B[@]}" --short o2g -- true
+expect_rc O2g 0
+if [ -s "$BOX/o2g.pid" ] && ! grep -q 'пишет и другой процесс' "$OUT"; then ok; else bad O2g "транспорт git назван посторонним писателем (pid-файл: $(cat "$BOX/o2g.pid" 2>/dev/null))"; fi
+grep -v '^        git_transport "\$pid" && continue$' "$RUN" > "$BOX/run-mut-1359g.sh"
+BM=("${B[@]}"); BM[1]="$BOX/run-mut-1359g.sh"
+fresh
+go_run o2gm env FAKE_EXIT=0 FAKE_GIT_MODE=transport FAKE_GIT_PIDF="$BOX/o2gm.pid" "$BOX/gitbin/git" "${BM[@]}" --short o2gm -- true
+nd="$(diff "$RUN" "$BOX/run-mut-1359g.sh" | grep -c '^<')"
+if [ "$nd" = 1 ] && grep -q 'пишет и другой процесс' "$OUT"; then ok
+else bad O2g-m "мутант без git_transport не построен ($nd) либо промолчал — проба O2g мимо предмета"; fi
+fresh
+go_run o2h env FAKE_EXIT=0 FAKE_GIT_MODE=hook FAKE_GIT_PIDF="$BOX/o2h.pid" "$BOX/gitbin/git" "${B[@]}" --short o2h -- true
+expect_rc O2h 0
+if [ -s "$BOX/o2h.pid" ] && grep -q "пишет и другой процесс (pid $(cat "$BOX/o2h.pid")" "$OUT"; then ok; else bad O2h "писатель в ветке хука не назван"; fi
+# shellcheck disable=SC2016  # образцы мутанта — литералы строки run.sh
+O2H_A='[ "$q" = "$GIT_ANC" ] && [ -n "$prev" ] && [[ "$ANCESTORS" != *" $prev "* ]]' O2H_B='[ "$q" = "$GIT_ANC" ]'
+O2H_T="$(cat "$RUN")"; printf '%s\n' "${O2H_T/"$O2H_A"/"$O2H_B"}" > "$BOX/run-mut-1359h.sh"
+BM=("${B[@]}"); BM[1]="$BOX/run-mut-1359h.sh"
+fresh
+go_run o2hm env FAKE_EXIT=0 FAKE_GIT_MODE=hook FAKE_GIT_PIDF="$BOX/o2hm.pid" "$BOX/gitbin/git" "${BM[@]}" --short o2hm -- true
+nd="$(diff "$RUN" "$BOX/run-mut-1359h.sh" | grep -c '^<')"
+if [ "$nd" = 1 ] && ! grep -q 'пишет и другой процесс' "$OUT"; then ok
+else bad O2h-m "мутант «любой потомок git» не построен ($nd) либо предупредил — проба O2h мимо предмета"; fi
+
+# DL — доставка исходников: повтор оборванного потока и места на машине (ws#1359)
+fresh
+go_run dl1 env FAKE_EXIT=0 FAKE_DELIVER_FAIL=1 "${B[@]}" --short dl1 -- true
+expect_rc DL1 0
+if [ "$(cat "$BOX/state/deliver-tries" 2>/dev/null)" = 2 ] && grep -q 'оборвалась (попытка 1 из 3) — повтор' "$OUT" && grep -q 'исходники доставлены: .*(попыток 2)' "$OUT"; then ok
+else bad DL1 "оборванный поток не повторён: попыток $(cat "$BOX/state/deliver-tries" 2>/dev/null)"; fi
+sed 's/^\(DELIVER_MAX=.*\)DELIVER_TRIES=3$/\1DELIVER_TRIES=1/' "$RUN" > "$BOX/run-mut-1359d.sh"
+BM=("${B[@]}"); BM[1]="$BOX/run-mut-1359d.sh"
+fresh
+go_run dl1m env FAKE_EXIT=0 FAKE_DELIVER_FAIL=1 "${BM[@]}" --short dl1m -- true
+nd="$(diff "$RUN" "$BOX/run-mut-1359d.sh" | grep -c '^<')"
+if [ "$nd" = 1 ] && [ "$RC" = 69 ]; then ok; else bad DL1-m "мутант DELIVER_TRIES=1 не построен ($nd) либо дал $RC — проба DL1 мимо предмета"; fi
+fresh
+go_run dl2 env FAKE_EXIT=0 FAKE_DELIVER_FAIL=3 "${B[@]}" --short dl2 -- true
+expect_rc DL2 69
+if [ "$(cat "$BOX/state/deliver-tries" 2>/dev/null)" = 3 ] && grep -q 'не доставлены в pod: попыток 3 из 3' "$OUT"; then ok; else bad DL2 "исчерпанные попытки не названы"; fi
+fresh
+go_run dl3 env FAKE_EXIT=0 "${B[@]}" --short dl3 -- true
+expect_rc DL3 0
+if [ "$(cat "$BOX/state/deliver-tries" 2>/dev/null)" = 1 ] && ! grep -q 'повтор\|ждала свободного\|без замка' "$OUT"; then ok; else bad DL3 "доставка без обрыва дала повтор либо ожидание"; fi
+# dl_hold <число мест> <вывод прогона> <образец> — держит замки deliver.0…N-1 каталога слотов,
+# пока в выводе прогона нет строки по образцу (срок — предикат, а не время; предел — срок go_run).
+DL_DONE='исходники доставлены\|не доставлены'
+dl_hold() {
+    mkdir -p "$BOX/slots"; rm -f "$BOX/dl.held"
+    ( for i in $(seq 0 $(( $1 - 1 ))); do exec {f}>>"$BOX/slots/deliver.$i.lock"; flock "$f"; done; : > "$BOX/dl.held"
+      for _ in $(seq 1 900); do grep -q "$3" "$2" 2>/dev/null && exit 0; sleep 0.1; done ) &
+    DLH=$!
+    for _ in $(seq 1 50); do [ -e "$BOX/dl.held" ] && break; sleep 0.1; done
+}
+fresh; dl_hold 3 "$BOX/dl4.out" 'заняты все 3 мест на машине'
+go_run dl4 env FAKE_EXIT=0 KACHO_REMOTE_HEAVY_DELIVER_WAIT_S=40 "${B[@]}" --short dl4 -- true
+kill "$DLH" 2>/dev/null; wait "$DLH" 2>/dev/null
+expect_rc DL4 0
+if grep -q 'доставка ждала свободного места [0-9]* с (разом не больше 3)' "$OUT" && ! grep -q 'без замка' "$OUT"; then ok; else bad DL4 "занятые места не дождались"; fi
+fresh; dl_hold 2 "$BOX/dl4b.out" "$DL_DONE"
+go_run dl4b env FAKE_EXIT=0 KACHO_REMOTE_HEAVY_DELIVER_WAIT_S=40 "${B[@]}" --short dl4b -- true
+kill "$DLH" 2>/dev/null; wait "$DLH" 2>/dev/null
+expect_rc DL4b 0
+if ! grep -q 'ждала свободного\|без замка' "$OUT"; then ok; else bad DL4b "при свободном третьем месте доставка ждала"; fi
+sed 's/ && flock -n "\$DLK" && break$/ \&\& break/' "$RUN" > "$BOX/run-mut-1359l.sh"
+BM=("${B[@]}"); BM[1]="$BOX/run-mut-1359l.sh"
+fresh; dl_hold 3 "$BOX/dl4m.out" "$DL_DONE"
+go_run dl4m env FAKE_EXIT=0 KACHO_REMOTE_HEAVY_DELIVER_WAIT_S=40 "${BM[@]}" --short dl4m -- true
+kill "$DLH" 2>/dev/null; wait "$DLH" 2>/dev/null
+nd="$(diff "$RUN" "$BOX/run-mut-1359l.sh" | grep -c '^<')"
+if [ "$nd" = 1 ] && ! grep -q 'ждала свободного' "$OUT"; then ok; else bad DL4-m "мутант без flock не построен ($nd) либо ждал — проба DL4 мимо предмета"; fi
+fresh; dl_hold 3 "$BOX/dl5.out" "$DL_DONE"
+go_run dl5 env FAKE_EXIT=0 KACHO_REMOTE_HEAVY_DELIVER_WAIT_S=2 "${B[@]}" --short dl5 -- true
+kill "$DLH" 2>/dev/null; wait "$DLH" 2>/dev/null
+expect_rc DL5 0
+if grep -q 'все 3 мест заняты дольше 2 с — иду без замка' "$OUT" && [ -e "$BOX/state/delivered" ]; then ok; else bad DL5 "срок ожидания места не соблюдён"; fi
+
+# GT — `go test` без срока получает срок прогона (ws#1359)
+gt_cmd() { mapfile -d '' -t GTA < <(kx argv "$BOX/state/job.json" run); printf '%s ' "${GTA[@]:4}"; }
+fresh
+go_run gt1 env FAKE_EXIT=0 "${B[@]}" --short gt1 -- go test ./internal/pg/...
+expect_rc GT1 0
+if [ "$(gt_cmd)" = "go test -timeout=5400s ./internal/pg/... " ] && grep -q 'go test без -timeout: срок пакета — срок прогона 5400 с' "$OUT"; then ok
+else bad GT1 "срок не добавлен: «$(gt_cmd)»"; fi
+fresh
+go_run gt2 env FAKE_EXIT=0 "${B[@]}" --short gt2 -- go test -timeout 100m ./internal/pg/...
+expect_rc GT2 0
+if [ "$(gt_cmd)" = "go test -timeout 100m ./internal/pg/... " ] && ! grep -q 'go test без -timeout' "$OUT"; then ok; else bad GT2 "свой срок тронут: «$(gt_cmd)»"; fi
+fresh
+go_run gt3 env FAKE_EXIT=0 "${B[@]}" --short gt3 -- go test ./x -test.timeout=5m
+expect_rc GT3 0
+if [ "$(gt_cmd)" = "go test ./x -test.timeout=5m " ]; then ok; else bad GT3 "срок -test.timeout тронут: «$(gt_cmd)»"; fi
+sed 's/ && GT_OWN=1; done$/ \&\& :; done/' "$RUN" > "$BOX/run-mut-1359t.sh"
+BM=("${B[@]}"); BM[1]="$BOX/run-mut-1359t.sh"
+fresh
+go_run gt2m env FAKE_EXIT=0 "${BM[@]}" --short gt2m -- go test -timeout 100m ./internal/pg/...
+nd="$(diff "$RUN" "$BOX/run-mut-1359t.sh" | grep -c '^<')"
+if [ "$nd" = 1 ] && [ "$(gt_cmd)" != "go test -timeout 100m ./internal/pg/... " ]; then ok; else bad GT2-m "мутант не построен ($nd) либо не тронул свой срок — проба GT2 мимо предмета"; fi
 
 # ── локальная уборка после kill -9 ──────────────────────────────────────────
 # shellcheck disable=SC2086  # поля stat — слова
