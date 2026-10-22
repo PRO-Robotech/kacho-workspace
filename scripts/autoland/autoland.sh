@@ -40,6 +40,7 @@
 #
 # --subject — заголовок коммита слияния формы правила ветки `#<M> merge #<N>: <суть>`
 # (N — этот PR; ws#1029: без --subject хостинг берёт заголовок PR, и правило ветки краснит).
+# KACHO_TASK — номер задачи слота отправки догона; не задан — M темы (ws#1263).
 # --allow — коды причин landing-precheck (строки REASON<TAB><код>), которые выдал
 # диспетчер: код 1 landing-precheck, все причины которого в списке, вливанию не мешает.
 # На ci-read и merge-readiness допуск не действует. --timeout — предел ожидания,
@@ -225,6 +226,14 @@ parse_args() {
     [[ "$HEAD" =~ ^[0-9a-f]{40}$ ]] || die "--head «$HEAD» не sha40"
     [[ "$SUBJECT" =~ ^#[0-9]+\ merge\ #${PR}:\ [^[:space:]] ]] \
         || die "--subject «$SUBJECT» не формы «#<M> merge #$PR: <суть>» (правило ветки, ws#1029)"
+    # Номер задачи слота (ws#1263): отправка догона идёт из ОТСОЕДИНЁННОЙ копии, ветки в ней нет, и
+    # heavy-slot.sh берёт номер лишь из KACHO_TASK — без него 77 трижды и void в догоне (демон ws#1336,
+    # 2026-10-22, второй случай). Не задан — «#<M>» темы; не номер — отказ здесь, а не в догоне.
+    [ -n "${KACHO_TASK:-}" ] || KACHO_TASK="${SUBJECT%% *}"
+    KACHO_TASK="${KACHO_TASK#\#}"
+    [[ "$KACHO_TASK" =~ ^[1-9][0-9]*$ ]] \
+        || die "номер задачи слота «$KACHO_TASK» (KACHO_TASK, иначе «#<M>» темы) не номер — отправка догона из отсоединённой копии отказала бы 77"
+    export KACHO_TASK
     if [ -n "$STAND_REPORT$STAND_EXPECT" ]; then
         [ -n "$STAND_REPORT" ] && [ -n "$STAND_EXPECT" ] || die "--stand-report и --stand-expect — только вместе"
         [ -r "$STAND_REPORT" ] || die "отчёт стенда «$STAND_REPORT» не читается"
