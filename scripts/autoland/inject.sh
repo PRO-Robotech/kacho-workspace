@@ -117,7 +117,11 @@
 #   guard        — no-wait-guard пропускает команды start и status, а цикл ожидания
 #                  агентом (until … sleep) — отказ;
 #   static       — исполняемый текст демона без форсирующих флагов, обхода хуков, догона
-#                  базы и изменяющего `gh api`.
+#                  базы и изменяющего `gh api`;
+#   q-task       — номер задачи слота отправки догона (ws#1263, демон ws#1336 вышел void 77):
+#                  KACHO_TASK не задан — отправка получила M темы «#<M> merge …»; близнец —
+#                  заданный KACHO_TASK сильнее темы; в args — «#0» темы и KACHO_TASK не номер —
+#                  отказ start кодом 2; в detach — номер темы в окружении демона.
 #
 # МУТАНТЫ — копия autoland.sh с одним дефектом обязана уронить свою сцену: без
 # --match-head-commit, с --admin, без --delete-branch, допуск всех причин, без сверки
@@ -478,6 +482,12 @@ s_args() {
     AUTOLAND_DIR="$FX/run" AUTOLAND_WS="$T/ws0" bash "$AL" start --repo "$REPO" --pr "$PR" --head "$HEAD_A" \
         --subject "$SUBJ" --stand-report "$FX/rep.json" > "$FX/a3" 2>&1; rc=$?
     ok args "--stand-report без --stand-expect — код 2" eval '[ "$rc" -eq 2 ]'
+    env -u KACHO_TASK AUTOLAND_DIR="$FX/run" AUTOLAND_WS="$T/ws0" bash "$AL" start --repo "$REPO" --pr "$PR" --head "$HEAD_A" \
+        --subject "#0 merge #$PR: проба" > "$FX/a4" 2>&1; rc=$?
+    ok args "тема «#0 …» без KACHO_TASK — отказ start кодом 2 «номер задачи слота», не void в догоне" eval '[ "$rc" -eq 2 ] && grep -q "номер задачи слота «0»" "$FX/a4"'
+    KACHO_TASK=abc AUTOLAND_DIR="$FX/run" AUTOLAND_WS="$T/ws0" bash "$AL" start --repo "$REPO" --pr "$PR" --head "$HEAD_A" \
+        --subject "$SUBJ" > "$FX/a5" 2>&1; rc=$?
+    ok args "KACHO_TASK не номер — отказ start кодом 2" eval '[ "$rc" -eq 2 ] && grep -q "номер задачи слота «abc»" "$FX/a5"'
     ok args ".state не заведён" eval '! ls "$FX"/run/*.state >/dev/null 2>&1'
     ok args "ни один демон не отсоединён" eval '! ls "$FX"/run/*.pid >/dev/null 2>&1'
     reap
@@ -488,7 +498,7 @@ s_detach() {
     export AL_FX="$FX"
     t0=$(date +%s)
     mk_tooling_tree "$FX/tt"
-    out="$(AUTOLAND_GH="$T/gh" AUTOLAND_GATES="$T/gates" AUTOLAND_DIR="$FX/run" AUTOLAND_WS="$T/ws0" AUTOLAND_CLONES="" \
+    out="$(env -u KACHO_TASK AUTOLAND_GH="$T/gh" AUTOLAND_GATES="$T/gates" AUTOLAND_DIR="$FX/run" AUTOLAND_WS="$T/ws0" AUTOLAND_CLONES="" \
         AUTOLAND_TOOLING_TREE="$FX/tt/ws" AUTOLAND_LAG="$LAG" \
         CI_STATE_DIR="$FX/cs" AUTOLAND_INTERIM_LOCK="$T/interim.lock" bash "$AL" start --repo "$REPO" --pr "$PR" --head "$HEAD_A" \
         --subject "$SUBJ" --poll 1 --timeout 60)"; rc=$?
@@ -499,6 +509,7 @@ s_detach() {
     ok detach "start — код 0 за $dt с (< 6)" eval '[ "$rc" -eq 0 ] && [ "$dt" -lt 6 ]'
     ok detach "start печатает pid, журнал и state" eval '[[ "$pid" =~ ^[0-9]+$ ]] && grep -qP "^журнал\t" <<< "$out" && [ -f "$st" ]'
     ok detach "демон жив после возврата start" kill -0 "$pid"
+    ok detach "KACHO_TASK не задан — в окружении демона номер темы (4000)" eval 'tr "\0" "\n" < "/proc/$pid/environ" | grep -qx "KACHO_TASK=4000"'
     sid_me="$(ps -o sid= -p $$ | tr -d ' ')"; sid_d="$(ps -o sid= -p "$pid" 2>/dev/null | tr -d ' ')"
     ok detach "демон в своём сеансе ($sid_d ≠ $sid_me)" eval '[ -n "$sid_d" ] && [ "$sid_d" != "$sid_me" ]'
     sleep 2
@@ -985,7 +996,7 @@ printf '#!/usr/bin/env bash\nexit 0\n' > "$T/gates-q/branch-audit.sh"
 cat > "$T/pushq" <<'PUSH'
 #!/usr/bin/env bash
 Q="$AL_Q"; ref="${!#}"; ref="${ref##*refs/heads/}"; n="${ref#p}"; d="$Q/pr/$n"
-printf 'push %s @%s\n' "$*" "$(git rev-parse HEAD)" >> "$Q/push.calls"
+printf 'push %s @%s task=%s\n' "$*" "$(git rev-parse HEAD)" "${KACHO_TASK:-—}" >> "$Q/push.calls"
 mode="$(cat "$d/push" 2>/dev/null)"
 case "$mode" in
   busy-once) rm -f "$d/push"; echo "heavy-slot: слот занят, очередь 1" >&2; exit 74 ;;
@@ -1027,7 +1038,7 @@ run_q() {  # <N> [доводы…] — демон N в фоне; QREPO_<N> — �
     # Демон и площадка пишут коммиты слияния — подписью песочницы (её HOME); обёртки
     # инструментов в ~/.local, резолвящие себя от HOME, видны и оттуда (ссылкой, не копией).
     [ -e "$SANDBOX_GIT_HOME/.local" ] || [ ! -d "$HOME/.local" ] || ln -s "$HOME/.local" "$SANDBOX_GIT_HOME/.local"
-    sandbox_run env AL_Q="$Q" AUTOLAND_GH="$T/ghq" AUTOLAND_GATES="$T/gates-q" AUTOLAND_DIR="$Q/run" AUTOLAND_WS="$T/ws0" \
+    sandbox_run env -u KACHO_TASK ${QTASK:+KACHO_TASK="$QTASK"} AL_Q="$Q" AUTOLAND_GH="$T/ghq" AUTOLAND_GATES="$T/gates-q" AUTOLAND_DIR="$Q/run" AUTOLAND_WS="$T/ws0" \
         AUTOLAND_CLONES="${QCLONE-$Q/clone}" CI_STATE_DIR="$Q/cs" AUTOLAND_INTERIM_LOCK="$T/interim.lock" AUTOLAND_PUSH="$T/pushq" \
         AUTOLAND_HEAD_SYNC=0 AUTOLAND_HEAD_SYNC_POLL=1 AUTOLAND_QUEUE_POLL=1 AUTOLAND_CATCHUP_LIMIT="${QLIMIT:-2}" \
         AUTOLAND_TAG="${r%%/*}__${r#*/}__${n}__${h:0:12}" \
@@ -1163,6 +1174,16 @@ s_q_push() {  # отправка догона: слот занят, хук от�
     printf 'cd %q && git checkout -q p4301 && echo m >> p4301.txt && git commit -qam "#4301 сдвиг" && git push -q origin p4301 && git checkout -q main\n' "$Q/seed" > "$Q/pr/4301/move.sh"
     run_q 4301; wait_q 4301; ST_Q 4301
     ok q-push "ветка ушла во время догона — head-moved «во время догона базы»" eval '[ "$RC" = 5 ] && st_is head-moved && st_has "во время догона базы"'
+}
+s_q_task() {  # номер задачи слота отправки догона (ws#1263): из «#<M>» темы; KACHO_TASK — сильнее
+    new_fx q-task; mk_q 4301; base_push main b.txt b
+    run_q 4301; wait_q 4301; ST_Q 4301
+    ok q-task "KACHO_TASK не задан — отправка догона из отсоединённой копии получила номер темы 4000, merged" \
+        eval '[ "$RC" = 0 ] && st_is merged && grep -q "^push .* task=4000$" "$Q/push.calls"'
+    new_fx q-task-env; mk_q 4301; base_push main b.txt b
+    QTASK=4301 run_q 4301; wait_q 4301; ST_Q 4301
+    ok q-task "близнец: KACHO_TASK задан — отправка с ним, не с темой" \
+        eval '[ "$RC" = 0 ] && st_is merged && grep -q "^push .* task=4301$" "$Q/push.calls"'
 }
 s_q_limit() {  # предел догонов
     new_fx q-limit; mk_q 4301; base_push main b.txt b
@@ -1311,7 +1332,7 @@ ALL=(s_green s_red s_moved_start s_moved_gates s_moved_merge s_allow_ok s_allow_
      s_ff s_ff_overlap s_ff_worktree s_ff_foreign s_ff_hang s_ff_epic s_lag s_lag_own s_lag_nofetch s_lag_hang
      s_start_stale s_head_sync
      s_status s_empty_code s_lp_head s_census s_guard s_static
-     s_q3 s_q_spelling s_q_diff_base s_q_dead s_q_live s_q_queued s_q_stale_ext s_q_conflict s_q_push s_q_limit s_q_stale_lag s_q_fetch s_q_lock
+     s_q3 s_q_spelling s_q_diff_base s_q_dead s_q_live s_q_queued s_q_stale_ext s_q_conflict s_q_push s_q_task s_q_limit s_q_stale_lag s_q_fetch s_q_lock
      s_q_pinned s_q_pin_twins s_real_states s_real_replica)
 
 AL="$AL_REAL"
@@ -1448,6 +1469,10 @@ mutant pinned-stand-catch-up s_q_pinned '[ -z "$REVIEWS$STAND_REPORT$STAND_EXPEC
 mutant pinned-catchup-at-turn s_q_pinned 'if [ "$PINNED" = 0 ]; then catchup turn' 'if true; then catchup turn'
 mutant pinned-stale-at-turn-catches-up s_q_pinned 'if [ "$PINNED" = 1 ]; then finish stale-base' 'if false; then finish stale-base'
 mutant pinned-stale-in-queue-waits s_q_pinned '[ "$PINNED" = 0 ] || finish stale-base "ci-read код 4 в очереди' 'true || finish stale-base "ci-read код 4 в очереди'
+mutant task-from-subject-dropped s_q_task '[ -n "${KACHO_TASK:-}" ] || KACHO_TASK="${SUBJECT%% *}"' ':'
+mutant task-subject-overrides-env s_q_task '[ -n "${KACHO_TASK:-}" ] || KACHO_TASK="${SUBJECT%% *}"' 'KACHO_TASK="${SUBJECT%% *}"'
+mutant task-not-exported s_q_task,s_detach $'    export KACHO_TASK\n' $'\n'
+mutant task-unchecked s_args '[[ "$KACHO_TASK" =~ ^[1-9][0-9]*$ ]] \' 'true \'
 mutant catchup-fetch-unchecked s_q_fetch 'if ! GIT_TERMINAL_PROMPT=0 git -C "$c" fetch' 'if false && git -C "$c" fetch'
 
 reap
