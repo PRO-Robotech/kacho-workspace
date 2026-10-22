@@ -1260,7 +1260,7 @@ assert "77 нет" "$(sn "$SN" make -s stand-ns-run NS=t1143-x RUNNER=chrome 'CM
 # shellcheck disable=SC2016  # значение — предмет суждения
 assert "77 нет нет" "$(sn "$SN" make -s stand-ns-run NS=t1143-x 'RUNNER=$(shell touch '"$W"'/ev-ran)' 'CMD=x') $(snx sn-run) $(snx ev-ran)" "близнец: значение RUNNER с \$ → 77"
 assert "77 нет" "$(sn "$SN" make -s stand-ns-up stand-ns-run NS=t1143-x RUNNER=newman 'CMD=x') $(snx sn-up)" "близнец: stand-ns-run с раннером вместе с иной целью → 77"
-assert "77 нет" "$(sn "$SN" make -s stand-ns-up 'CMD=x') $(snx sn-up)" "близнец: CMD у цели без раннера → 77"
+assert "74 нет" "$(sn "$SN" make -s stand-ns-up 'CMD=x') $(snx sn-up)" "близнец: CMD у цели без раннера — не лёгкая форма: под слотом, 74 (как присваивание вне NS, STACK, REF, EXPIRED)"
 assert "77 да" "$(snc newman "$SN" newman run x.json) $(has "$W/err" 'RUNNER=newman|browser')" "класс newman вне стенда при доступном кластере → 77 с формой раннера, не local"
 # ГРАНИЦА (шапка heavy-slot.sh): закоммиченный в клон рецепт и подмена PATH — без слота.
 printf 'stand-ns-census:\n\t@touch "%s/ev-ran"\n' "$W" > "$SN/Makefile"; sandbox_git -C "$KC" commit -q -am heavy
