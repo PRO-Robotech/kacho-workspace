@@ -22,7 +22,7 @@
   long-sleep    — `sleep N`, N ≥ 300 с;
   long-timeout  — `timeout N …`, N ≥ 600 с;
   flock-wait    — `flock -w|--wait|--timeout N` с N > 60 (ws#1344: `flock -w 290` циклом ждал CI)
-                  и `flock` без -n/-w (ждёт без предела);
+                  и `flock` без -n/-w (ждёт без предела) — кроме как под внешним `timeout` ≤ 60;
   busy-read     — `read` из бесконечного источника: `read -t N < /dev/zero` (/dev/urandom,
                   /dev/random; свой `<`, `<>` либо `done < …` охватывающего цикла) и `read`
                   после `yes |` / `cat /dev/zero |`: ожидание, держащее 100 % ядра; отказ — при
@@ -923,7 +923,9 @@ class Judge:
                 elif re.match(r"^-w\d", a):
                     w = duration(a[2:])
                 k += 1
-            if not nb and (w is None or w > FLOCK_MAX):
+            # внешний timeout ограничивает и ожидание замка (приёмка ws#1344: `timeout 50 flock -w 290`)
+            eff = w if bound is None else (bound if w is None else min(w, bound))
+            if not nb and (eff is None or eff > FLOCK_MAX):
                 self.add("flock-wait", shown, bound)
             rest = args[k + 1:]  # после файла замка — команда или -c строка
             if rest[:1] in (["-c"], ["--command"]) and len(rest) > 1:
