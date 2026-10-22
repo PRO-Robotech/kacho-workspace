@@ -306,6 +306,23 @@ reset_cases() {
     s="$(session rs-any)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
     waits "$a" 60 55 50 45 40; rec "$a" 12 intrmid; rec "$a" 10 ask
     printf '{"type":"assistant","timestamp":"%s","message":{"role":"assistant","content":[{"type":"tool_use","name":"SendMessage","input":{"to":"t1","message":"верни остаток"}}]}}\n' "$(iso 10)" >> "$s.jsonl"
+    # Р7–Р10 — приёмка check-verifier (E7, E9, E10): остановка без продолжения, mtime продолжения, префикс id.
+    s="$(session rs-wf-killed)"; w="$s/subagents/workflows/wf_live-1/agent-w1.jsonl"
+    waits "$w" 60 55 50 45 40; rec "$w" 39 intr; note "$s.jsonl" 39 w1 killed
+    absent="wf_live-1/w1" probe 0 "Р7 агент workflow прерван и убит, продолжения нет, 39 мин тишины — не застой" "остановленных харнессом (не судятся) 1" --session "$s" --ps "$T/ps"
+    s="$(session rs-wf-failed)"; w="$s/subagents/workflows/wf_live-1/agent-w1.jsonl"
+    waits "$w" 60 55 50 45 40; rec "$w" 39 intr
+    printf '{"type":"failed","key":"v2:x","agentId":"w1"}\n' > "$s/subagents/workflows/wf_live-1/journal.jsonl"
+    absent="wf_live-1/w1" probe 0 "Р8 журнал workflow пишет failed по агенту — завершён, не застой" "workflow живых 1" --session "$s" --ps "$T/ps"
+    s="$(session rs-wf-intr-live)"; w="$s/subagents/workflows/wf_live-1/agent-w1.jsonl"
+    waits "$w" 60 55 50 45 40; rec "$w" 39 intr
+    probe 1 "Р8б близнец: прерывание без уведомления и без failed — STALL-AGENT, как у верхнего уровня" "STALL-AGENT wf_live-1/w1" --session "$s" --ps "$T/ps"
+    s="$(session rs-wf-old-top)"; w="$s/subagents/workflows/wf_live-1/agent-w1.jsonl"; a="$s/subagents/agent-w1.jsonl"
+    rec "$a" 70 tool "go test ./..."; waits "$w" 60 55 50 45 40 35 25
+    probe 1 "Р9 журнал верхнего уровня СТАРШЕ журнала workflow — продолжения нет, судится workflow: STALL-POLL" "STALL-POLL wf_live-1/w1" --session "$s" --ps "$T/ps"
+    s="$(session rs-prefix)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    waits "$a" 60 55 50 45 40; rec "$a" 39 ask; resume "$s.jsonl" 10 t12
+    probe 1 "Р10 возобновлён t12, а не t1 — префикс id не сброс: STALL-POLL" "STALL-POLL agent-t1" --session "$s" --ps "$T/ps"
     probe 1 "Р6 близнец: после серии лишь сообщение, фраза о прерывании и упоминание id в главном журнале — не сброс, STALL-POLL" "STALL-POLL agent-t1 — ожидание вместо работы: 5 вызовов подряд за 60 мин" --session "$s" --ps "$T/ps"
 }
 reset_cases
@@ -314,6 +331,10 @@ fmutant "сброс по любой записи главного журнала
 fmutant "сброс по любой записи user агента, а не по прерыванию" "        if r.get('type') == 'user' and interrupted(r):" "        if r.get('type') == 'user':" reset_cases
 fmutant "прерывание в журнале — не сброс" "        if r.get('type') == 'user' and interrupted(r):" "        if False:" reset_cases
 fmutant "продолжение в журнале верхнего уровня не ищется" "            if moved(aid, apath):" "            if False:" reset_cases
+fmutant "moved без сравнения mtime" "    return os.path.isfile(top) and os.path.getmtime(top) >= os.path.getmtime(apath)" "    return os.path.isfile(top)" reset_cases
+fmutant "workflow: остановка не спрашивается" "                if harness_stopped(aid, t if t is not None else os.path.getmtime(apath)):" "                if False:" reset_cases
+fmutant "workflow: failed — не завершение" "if j.get('type') in ('result', 'failed') and j.get('agentId'):" "if j.get('type') == 'result' and j.get('agentId'):" reset_cases
+fmutant "возобновление — по префиксу id" "rb'resumedAgentId\\\\*\"\\s*:\\s*\\\\*\"' + re.escape(ab) + rb'\\\\*\"')" "rb'resumedAgentId\\\\*\"\\s*:\\s*\\\\*\"' + re.escape(ab))" reset_cases
 
 echo "== агент прежнего процесса claude не судится (2026-10-19: после --resume хук звал застоем агентов умершего процесса)"
 # restart_cases — свой claude 100 (CLAUDE_PID) со стартом etimes назад; агент писал до
