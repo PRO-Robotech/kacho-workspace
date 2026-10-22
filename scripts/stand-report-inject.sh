@@ -183,12 +183,21 @@ ecommit() { sandbox_run git -C "$C/co" add -A && sandbox_run git -C "$C/co" comm
 # want <код> <код причины | -> — ожидание случая; «-» — ни одной строки REASON; маршруты и образец
 # VOID прежнего ожидания (kc_want) снимаются — их пишут после want
 want() { printf '%s' "$1" > "$C/code"; printf '%s' "$2" > "$C/want"; rm -f "$C/routes" "$C/voidre"; }
+# tooledit <sed-выражение…> — случай со своей правкой инструмента (строка ведомости снята). Правка
+# ложится на СУДИМЫЙ инструмент — настоящий либо мутант: прежде случай судил свою копию настоящего и
+# на любом мутанте краснел от неё, а не от мутанта, — «убивал» все мутанты, до которых доходил.
+tooledit() { printf '%s\n' "$@" > "$C/tooledit"; }
+edited() {  # edited <инструмент> <случай> → путь правленой копии рядом с судьёй маршрута; правка не легла — пусто
+    local e=() x out="$WM/$(basename "$2").$(basename "$1")"
+    while IFS= read -r x; do e+=(-e "$x"); done < "$2/tooledit"
+    sed "${e[@]}" "$1" > "$out" && ! cmp -s "$out" "$1" && printf '%s' "$out"
+}
 judge() {  # judge <скрипт> <каталог случая> → 0 сошлось
     local c="$2" out code
     if [ -f "$c/expect" ]; then  # случай подкоманды expect: код и задания либо строка VOID
         local eargs=() tool="$1"; [ ! -f "$c/args" ] || mapfile -t eargs < "$c/args"
         # Случай со своей правкой инструмента (строка ведомости снята) судит её, мутант — нет.
-        [ ! -f "$c/tool" ] || [ "$1" != "$TOOL" ] || tool="$(cat "$c/tool")"
+        if [ -f "$c/tooledit" ]; then tool="$(edited "$1" "$c")" || return 1; fi
         # Повтор случая (мутант) судит ТОТ ЖЕ вход: неотслеживаемое, которого не было при первом
         # прогоне (__pycache__ мутанта pycache-written), снимается до прогона —
         # иначе красное следующих случаев шло от грязной копии, а не от правки мутанта.
@@ -209,7 +218,7 @@ judge() {  # judge <скрипт> <каталог случая> → 0 сошло
         return
     fi
     local extra tool="$1"; mapfile -t extra < "$c/args"
-    [ ! -f "$c/tool" ] || [ "$1" != "$TOOL" ] || tool="$(cat "$c/tool")"
+    if [ -f "$c/tooledit" ]; then tool="$(edited "$1" "$c")" || return 1; fi
     out="$(CASE="$c" STAND_REPORT_GH="$W/gh" bash "$tool" check "$c/r.json" --head "$(cat "$c/head" 2>/dev/null || echo "$H")" "${extra[@]}" 2>&1)"; code=$?
     printf '%s\n' "$out" > "$c/out.$(basename "$1")"
     [ "$code" = "$(cat "$c/code")" ] || return 1
@@ -294,10 +303,10 @@ printf '%s' "${KN3/stand	внешний кластер/stand	нет}" > "$C/rout
 ecase "expect kaname: скрипта контейнерных проб в голове нет — VOID, интеграция «нет»" PRO-Robotech/kaname; rm "$C/co/.github/scripts/run-integration.sh"; ecommit; want 2 -
 printf '%s' "${KN3/integration	внешний кластер/integration	нет}" > "$C/routes"; printf '%s' '[^\t]*ci\.yml:integration — нет: [^\t]*не опознана как переносимая' > "$C/voidre"
 ecase "expect kaname: строки маршрута у задания нет — VOID «нет»" PRO-Robotech/kaname; ecommit; want 2 -
-sed '/^    "ci\.yml:unit": \[/d' "$TOOL" > "$WM/norow.sh"; echo "$WM/norow.sh" > "$C/tool"
+tooledit '/^    "ci\.yml:unit": \[/d'
 printf '%s' "${KN3/unit	внешний кластер/unit	нет}" > "$C/routes"; printf '%s' '[^\t]*ci\.yml:unit — нет: [^\t]*STAND_ROUTE' > "$C/voidre"
 ecase "expect kaname: судья маршрута не ответил — VOID" PRO-Robotech/kaname; ecommit; want 2 -
-sed 's|^SLOT="\$HERE/heavy-slot\.sh"|SLOT="$HERE/heavy-slot-нет.sh"|' "$TOOL" > "$WM/noslot.sh"; echo "$WM/noslot.sh" > "$C/tool"
+tooledit 's|^SLOT="\$HERE/heavy-slot\.sh"|SLOT="$HERE/heavy-slot-нет.sh"|'
 printf '%s' 'heavy-slot\.sh --route [^\t]*не ответил' > "$C/voidre"
 ecase "expect kacho: ready, механизм stand-ns в голове — пять заданий стенда, маршрут — KC_STAND" PRO-Robotech/kacho; ecommit; printf -- '--base\norigin/main\n--draft\nfalse\n' > "$C/args"; kc_want "$LEDGER"
 KC5='ci.yaml:integration	внешний кластер;ci.yaml:unit-shard	внешний кластер;console-e2e.yml:probes	внешний кластер;e2e-newman.yml:shard	внешний кластер;production-posture.yml:stand	внешний кластер;'
@@ -421,7 +430,7 @@ kcase "перенос kaname: тронута сама карта выбора �
 kcase "перенос kaname: набор под чужим именем — не «<ключ>[:<часть>]», отказ" '.suites[3].name = "own-stand"'; ksuites "$KR" | jq '.suites[3].name = "own-stand"' > "$C/src.json"; want 1 'STAND-CARRY-AREA(?=\town-stand \(e2e-newman\.yml:stand\): имя набора)'
 kcase "перенос kaname: задания нет в карте — отказ" '.suites[3].job = "e2e-newman.yml:stand-own"'; ksuites "$KR" | jq '.suites[3].job = "e2e-newman.yml:stand-own"' > "$C/src.json"; want 1 'STAND-CARRY-AREA(?=\tstand \(e2e-newman\.yml:stand-own\): задания нет в карте)'
 kcase "перенос kaname: строка ведомости областей снята — закрыто" -
-sed -e 's/набором стенда не являющийся"]]},$/набором стенда не являющийся"]]}/' -e '/^  "PRO-Robotech\/kaname": {"map"/d' "$TOOL" > "$WM/noarea.sh"; echo "$WM/noarea.sh" > "$C/tool"
+tooledit 's/набором стенда не являющийся"]]},$/набором стенда не являющийся"]]}/' '/^  "PRO-Robotech\/kaname": {"map"/d'
 want 1 'STAND-CARRY-AREA(?=\tunit:all: у PRO-Robotech/kaname ведомости областей нет)'
 kcase "перенос kaname: площадка не отдала карту — VOID" -; : > "$C/kref"; want 2 -
 
