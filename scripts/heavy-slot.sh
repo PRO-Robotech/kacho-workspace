@@ -184,6 +184,22 @@
 # несколько) переходник отклоняет кодом 78, и слот гонит ту же команду локально с
 # причиной; Job не состоялся (69, 75) — тот код, «не выполнилось».
 #
+# ЗАПИСЬ ПРОВЕРЕННОГО — НА МАШИНЕ, А НЕ В ПОДЕ (ws#1288, kacho#3336). Хук пишет вершину,
+# судившуюся зелёным, в `<общий каталог git>/kacho-prepush-verified` и по ней не гонит
+# наборы второй раз (scripts/hooks/prepush-new-commits.sh). Job судит в своём клоне со
+# своей .git: запись остаётся в поде и снимается с ним, а ускорение в этом маршруте не
+# срабатывает ни разу (приёмка ws#1288, опыт Xclone). Поэтому переходник: (1) ДО Job
+# спрашивает предикат головы о записи ЭТОГО клона; ответ 0 — хук идёт здесь с
+# KACHO_PREPUSH_SKIP_ONLY=1 и выходит своей ветвью «наборы не нужны» (стражи атрибуции
+# и добавленных файлов отрабатывают как всегда); 79 — хук наборы бы погнал (расхождение
+# с предикатом), и хук уходит Job-ом; (2) в Job после хука спрашивает запись ПОДА
+# (`--recorded <вершина>`: она пуста до хука, значит, вершину записал этот прогон) и
+# печатает «heavy-slot-push-verified: <вершина>»; (3) при коде Job 0 и этой строке о
+# голове вносит вершину в запись машины тем же предикатом. Решение — полем verified=
+# (skip | record | —) строки remote-done журнала. ГРАНИЦА: строку может напечатать
+# сам хук отправляемой головы — тот же, кто вправе писать запись (защитой от умысла
+# она не служит, шапка предиката).
+#
 # ЗАВИСИМОСТИ КОНСОЛИ ЛОКАЛЬНО (ws#1190). Хук kacho отказывает «проверки консоли НЕ ВЫПОЛНЯЛИСЬ»
 # в КОНЦЕ прогона (~6 мин слота), если правка трогает ui-future/, а в судимом дереве нет
 # node_modules (уроки 9c8c12aa, 7fead8dc, 5ecbb391 — ведомость tmp/reports/lessons.jsonl
@@ -1918,20 +1934,48 @@ route_print() {
 # переходник отклонил отправку кодом 78 (не голова копии) — тогда слот идёт локально;
 # иначе выходит кодом отправки либо Job-а, который не состоялся.
 push_remote() {
-    local sh rcf h rc hrc t0
+    local sh rcf h rc hrc how t0
     sh="$DIR/push/$(now)-$$"; rcf="$sh/rc"
     mkdir -p "$sh/hooks" || { WHY_LOCAL="каталог переходника $sh не создан"; return 0; }
     for h in "$HOOKS_ORIG"/*; do
         case "${h##*/}" in pre-push|*.sample) continue ;; esac
         [ -f "$h" ] && [ -x "$h" ] && ln -s "$h" "$sh/hooks/${h##*/}"
     done
-    # shellcheck disable=SC2016  # текст переходника раскрывает он сам
-    printf '%s\n' '#!/usr/bin/env bash' 'set -uo pipefail' 'lines="$(cat)"' \
-        'tips="$(printf "%s\n" "$lines" | awk '"'"'NF >= 4 && $2 !~ /^0+$/ { print $2 }'"'"' | sort -u)"' \
-        'if [ -z "$tips" ]; then printf "%s\n" "$lines" | exec "$HS_ORIG" "$@"; fi' \
-        'if [ "$tips" != "$HS_HEAD" ]; then echo 78 > "$HS_RC"; echo "heavy-slot: отправка несёт не голову копии ($(printf "%s" "$tips" | cut -c1-8 | tr "\n" " ")) — Job судит голову; слот повторит отправку локально" >&2; exit 1; fi' \
-        'bash "$HS_RUN" --task "$HS_TASK" --repo "$HS_REPO" --ref "$tips" --src "$HS_TOP" --workdir . --profile "$HS_PROFILE" --push-input "$lines" -- bash -c '"'"'printf "%s\n" "$0" | bash scripts/hooks/pre-push "$1" "$2"'"'"' "$lines" "$@"' \
-        'rc=$?; echo "$rc" > "$HS_RC"; exit "$rc"' > "$sh/hooks/pre-push"
+    # Переходник; запись проверенного — шапка, «ЗАПИСЬ ПРОВЕРЕННОГО — НА МАШИНЕ» (ws#1288).
+    cat > "$sh/hooks/pre-push" << 'ADAPTER'
+#!/usr/bin/env bash
+set -uo pipefail
+lines="$(cat)"
+tips="$(printf '%s\n' "$lines" | awk 'NF >= 4 && $2 !~ /^0+$/ { print $2 }' | sort -u)"
+if [ -z "$tips" ]; then printf '%s\n' "$lines" | exec "$HS_ORIG" "$@"; fi
+if [ "$tips" != "$HS_HEAD" ]; then
+    echo 78 > "$HS_RC"
+    echo "heavy-slot: отправка несёт не голову копии ($(printf '%s' "$tips" | cut -c1-8 | tr '\n' ' ')) — Job судит голову; слот повторит отправку локально" >&2
+    exit 1
+fi
+pred="$HS_TOP/scripts/hooks/prepush-new-commits.sh"
+if [ -f "$pred" ] && (cd "$HS_TOP" && printf '%s\n' "$lines" | bash "$pred") >&2; then
+    echo "heavy-slot: вершина ${tips:0:12} — в записи проверенного этого клона: Job не ставится, хук идёт здесь до своей ветви «наборы не нужны»" >&2
+    printf '%s\n' "$lines" | KACHO_PREPUSH_SKIP_ONLY=1 "$HS_ORIG" "$@"; rc=$?
+    if [ "$rc" -ne 79 ]; then echo skip > "$HS_RC.how"; echo "$rc" > "$HS_RC"; exit "$rc"; fi
+    echo "heavy-slot: хук здесь погнал бы наборы (79) — хук уходит Job-ом" >&2
+fi
+{
+    bash "$HS_RUN" --task "$HS_TASK" --repo "$HS_REPO" --ref "$tips" --src "$HS_TOP" --workdir . --profile "$HS_PROFILE" --push-input "$lines" -- \
+        bash -c 'printf "%s\n" "$1" | bash scripts/hooks/pre-push "$2" "$3"; rc=$?; [ "$rc" -ne 0 ] || [ ! -f scripts/hooks/prepush-new-commits.sh ] || ! bash scripts/hooks/prepush-new-commits.sh --recorded "$0" || echo "heavy-slot-push-verified: $0"; exit "$rc"' "$tips" "$lines" "$@"
+    echo "$?" > "$HS_RC"
+} 2>&1 | tee "$HS_RC.out"
+rc="$(cat "$HS_RC" 2> /dev/null)"
+[ -n "$rc" ] || { rc=75; echo "$rc" > "$HS_RC"; }
+if [ "$rc" = 0 ] && [ -f "$pred" ] && grep -qxF "heavy-slot-push-verified: $tips" "$HS_RC.out"; then
+    if (cd "$HS_TOP" && bash "$pred" --record "$tips") >&2; then
+        echo record > "$HS_RC.how"
+    else
+        echo "heavy-slot: вершина ${tips:0:12} в запись проверенного машины не внесена — следующая отправка погонит Job" >&2
+    fi
+fi
+exit "$rc"
+ADAPTER
     chmod +x "$sh/hooks/pre-push"
     local cmd=("${CMD_R[@]:0:$(( GIT_IDX + 1 ))}" -c "core.hooksPath=$sh/hooks" "${CMD_R[@]:$(( GIT_IDX + 1 ))}")
     journal_early "remote class=$CLASS route=push profile=$PUSH_PROFILE task=$TASK repo=$PUSH_REPO ref=$PUSH_HEAD why=$RS_WHY who=$(git -C "$PUSH_TOP" branch --show-current 2>/dev/null)@$PWD cmd=$(printf '%q ' "${CMD_R[@]}")"
@@ -1939,8 +1983,8 @@ push_remote() {
     t0="$(now)"
     ext_run env HS_ORIG="$HOOKS_ORIG/pre-push" HS_HEAD="$PUSH_HEAD" HS_RC="$rcf" HS_RUN="$REMOTE_RUN" HS_TASK="$TASK" \
         HS_REPO="$PUSH_REPO" HS_PROFILE="$PUSH_PROFILE" HS_TOP="$PUSH_TOP" "${cmd[@]}"
-    rc=$?; hrc="$(cat "$rcf" 2>/dev/null)"; rm -rf -- "$sh"
-    journal_early "remote-done class=$CLASS route=push rc=$rc hook_rc=${hrc:-—} dur=$(( $(now) - t0 ))s profile=$PUSH_PROFILE repo=$PUSH_REPO"
+    rc=$?; hrc="$(cat "$rcf" 2>/dev/null)"; how="$(cat "$rcf.how" 2>/dev/null)"; rm -rf -- "$sh"
+    journal_early "remote-done class=$CLASS route=push rc=$rc hook_rc=${hrc:-—} verified=${how:-—} dur=$(( $(now) - t0 ))s profile=$PUSH_PROFILE repo=$PUSH_REPO"
     case "$hrc" in
         78) WHY_LOCAL="отправка несёт не голову копии — Job судит голову"; return 0 ;;
         69|74|75|124|125)
