@@ -268,8 +268,17 @@ jobs:
           path: .ci-kacho-affected
           # каталог процессов kacho (в нём affected.py и ci-paths.json) — не весь ствол
           sparse-checkout: .github
+      # Область переноса kaname (ws#1148) выводится из карты CI его дерева: предпосылка —
+      # настоящие affected.py и ci-paths.json ствола kaname, тем же способом.
+      - name: checkout карты выбора kaname
+        uses: actions/checkout@v7
+        with:
+          repository: PRO-Robotech/kaname
+          ref: main
+          path: .ci-kaname-affected
+          sparse-checkout: .github
       - name: отчёт внешнего стенда не называет зелёным обрезанный, чужой и красный прогон
-        run: STAND_REPORT_KACHO="$PWD/.ci-kacho-affected" bash scripts/stand-report-inject.sh
+        run: STAND_REPORT_KACHO="$PWD/.ci-kacho-affected" STAND_REPORT_KANAME="$PWD/.ci-kaname-affected" bash scripts/stand-report-inject.sh
       # Тяжёлый прогон во внешнем кластере (ws#984) — инструмент, не набор: предмет
       # его — кластер, которого у ранера нет. Доказательство гонит run.sh против
       # двойника kubectl: ns снимается на успехе, падении команды, TERM и OOM, код

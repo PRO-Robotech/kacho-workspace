@@ -3408,7 +3408,7 @@ run_says 1 "$b" "инъекция: ci-read снова красный при ид
 b="$(mksandbox)"
 c21_sub "$b/.github/workflows/ci.yaml" "bash scripts/stand-report-inject.sh" "true"
 run_says 1 "$b" "инъекция: конвейер не гонит доказательство отчёта стенда — краснеет" "$C23" "конвейер гонит доказательство"
-CISR='        run: STAND_REPORT_KACHO="$PWD/.ci-kacho-affected" bash scripts/stand-report-inject.sh'
+CISR='        run: STAND_REPORT_KACHO="$PWD/.ci-kacho-affected" STAND_REPORT_KANAME="$PWD/.ci-kaname-affected" bash scripts/stand-report-inject.sh'
 b="$(mksandbox)"
 c21_sub "$b/.github/workflows/ci.yaml" "$CISR" '        # bash scripts/stand-report-inject.sh
         run: "true"'
