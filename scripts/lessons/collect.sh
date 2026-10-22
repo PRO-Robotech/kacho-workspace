@@ -8,6 +8,7 @@
 # usage:
 #   collect.sh scan   [--budget С]          дописать новые уроки в ведомость
 #   collect.sh status [<ключ>]               перечень «что делать» (код 1) либо 0; с ключом — один класс (ключ один, иначе 64)
+#                                            и каждый его случай: ?<id> дата агент: текст ведомости целиком
 #   collect.sh signal [--budget С]          scan + строка сигнала, только новое (хук)
 #   collect.sh report                        классы, случаи, статусы, доля «не держит»
 #   collect.sh mark <ключ> <статус> <ссылка> open|edited|mechanism|landed|verified|rejected
