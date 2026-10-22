@@ -760,6 +760,17 @@ RK="$W/rclone-sn"; git init -q -b 984-s "$RK"; git -C "$RK" remote add origin ht
 mkdir -p "$RK/deploy/scripts"; printf 'stand-ns-run:\n\t@true\n' > "$RK/deploy/Makefile"; printf '#!/usr/bin/env bash\ntrue\n' > "$RK/deploy/scripts/stand-ns.sh"
 git -C "$RK" add deploy; sandbox_git -C "$RK" commit -q -m sn
 assert "0 none да" "$(route "$RK" stand -- make -C deploy stand-ns-run 'NS=t<задача>-w1' 'CMD=<шаги>') $(has "$W/out" 'CMD stand-ns-run идёт на машине')" "stand-ns-run: CMD идёт на машине → none (ws#1301)"
+assert "0 none да" "$(route "$RK" stand -- make -C deploy stand-ns-run 'NS=t<задача>-w1' RUNNER=newman 'CMD=<шаги>') $(has "$W/out" 'RUNNER=newman|browser')" "stand-ns-run RUNNER=newman, механизм без раннера → none с формой раннера (ws#1303)"
+RK3="$W/rclone-sn3"; git init -q -b 1303-r "$RK3"; git -C "$RK3" remote add origin https://github.com/PRO-Robotech/kacho.git
+mkdir -p "$RK3/deploy/scripts"; cp "$RK/deploy/Makefile" "$RK3/deploy/"; printf '#!/usr/bin/env bash\nSTAND_RUNNER_KINDS="newman browser"\ntrue\n' > "$RK3/deploy/scripts/stand-ns.sh"
+git -C "$RK3" add deploy; sandbox_git -C "$RK3" commit -q -m sn
+assert "0 external да" "$(route "$RK3" stand -- make -C deploy stand-ns-run 'NS=t<задача>-w1' RUNNER=newman DIR=deploy 'CMD=<шаги>') $(has "$W/out" 'pod раннера newman')" "stand-ns-run RUNNER=newman в клоне с механизмом раннера → external (ws#1303)"
+assert "0 external" "$(route "$RK3" newman -- make -C deploy stand-ns-run 'NS=t<задача>-w1' RUNNER=browser 'CMD=<пробы>')" "класс newman, RUNNER=browser → external"
+assert "0 none" "$(route "$RK3" stand -- make -C deploy stand-ns-run 'NS=t<задача>-w1' RUNNER=chrome 'CMD=<шаги>')" "близнец: вид вне STAND_RUNNER_KINDS → none"
+assert "0 none да" "$(route "$RK3" newman -- newman run x.json) $(has "$W/out" 'RUNNER=newman|browser')" "класс newman вне стенда → none с формой раннера"
+echo dirty >> "$RK3/deploy/Makefile"
+assert "0 none" "$(route "$RK3" stand -- make -C deploy stand-ns-run 'NS=t<задача>-w1' RUNNER=newman 'CMD=<шаги>')" "близнец: правка deploy/ клона → none (pod исполняет коммит, механизм не судим)"
+git -C "$RK3" checkout -q deploy/Makefile
 assert "0 external да" "$(route "$RK" stand -- make -C deploy stand-ns-up 'NS=t<задача>-w1') $(has "$W/out" 'stand-ns')" "близнец: stand-ns-up в клоне kacho с механизмом stand-ns → external (стенд — ns внешнего кластера)"
 assert "0 none да" "$(route "$RK" stand -- make -C deploy dev-up) $(has "$W/out" 'подъём локального стенда')" "подъём локального стенда → none (при доступном кластере было бы 77)"
 assert "0 none да" "$(route "$RK" stand -- python3 -c pass) $(has "$W/out" 'у команды стенда внешнего маршрута нет')" "команда стенда без признака → none: внешнего маршрута нет (ws#1301)"
@@ -1231,6 +1242,26 @@ assert "77 нет" "$(sn "$KC" bash deploy/scripts/stand-ns.sh run t1143-x -- tr
 assert "77 нет" "$(sn "$SN" bash -c 'make -s stand-ns-up NS=t1143-x') $(snx sn-up)" "близнец: строка оболочки со stand-ns-up → 77: внешнего маршрута нет, на машине не исполнялся (ws#1301)"
 assert "77 нет" "$(sn "$SN" make -s stand-ns-up stand-ns-run NS=t1143-x) $(snx sn-up)" "близнец: stand-ns-up вместе с иной целью → 77: внешнего маршрута нет, на машине не исполнялся (ws#1301)"
 assert "74 нет" "$(FAKE_AVAIL=1 sn "$SN" make -s dev-up) $(snx sn-devup)" "близнец: локальный kind-стенд (dev-up, кластер недоступен) → под слотом, 74"
+# Раннер стенда (ws#1303, kacho#3346): механизм клона знает раннер (строка STAND_RUNNER_KINDS
+# stand-ns.sh) — stand-ns-run RUNNER=<вид> идёт без слота: CMD исполняет pod ns стенда, на машине
+# kubectl, git и tar; журнал — remote route=stand-runner. Слоты всё ещё заняты держателями.
+# snc <класс> <каталог> <команда…> — как sn, но классом из довода.
+snc() { local c="$1" d="$2"; shift 2; snclr; RDIR="$d" rslot env HEAVY_SLOT_WAIT_S=0 bash "$SLOT" "$c" -- "$@"; }
+assert "77 нет" "$(sn "$SN" make -s stand-ns-run NS=t1143-x RUNNER=newman 'CMD=x') $(snx sn-run)" "близнец: механизм клона без STAND_RUNNER_KINDS — RUNNER=newman → 77, на машине не исполнялся"
+sed -i '1a STAND_RUNNER_KINDS="newman browser"' "$SN/scripts/stand-ns.sh"; sandbox_git -C "$KC" commit -q -am runner
+br="$(jn ' remote class=stand route=stand-runner runner=newman ')"; be="$(ens)"
+# shellcheck disable=SC2016  # CMD раскрывает pod раннера, не слот
+assert "0 да $be $((br + 1))" "$(sn "$SN" make -s stand-ns-run NS=t1143-x RUNNER=newman 'CMD=newman run x; echo $HOME') $(snx sn-run) $(ens) $(jn ' remote class=stand route=stand-runner runner=newman ')" "stand-ns-run RUNNER=newman при трёх занятых слотах → исполнился сразу, слота не брал, журнал remote route=stand-runner (ws#1303)"
+nb="$(jn ' remote class=newman route=stand-runner runner=browser ')"
+assert "0 да $((nb + 1))" "$(snc newman "$SN" make -s stand-ns-run NS=t1143-x RUNNER=browser DIR=ui-future/e2e 'CMD=npx playwright test') $(snx sn-run) $(jn ' remote class=newman route=stand-runner runner=browser ')" "класс newman, RUNNER=browser → внешний маршрут, слота нет"
+assert "0 да" "$(sn "$KC" bash deploy/scripts/stand-ns.sh run t1143-x --runner newman -- newman run x) $(snx sn-run)" "stand-ns.sh run --runner newman клона → без слота"
+assert "77 нет" "$(sn "$KC" bash deploy/scripts/stand-ns.sh run t1143-x -- newman run x) $(snx sn-run)" "близнец: stand-ns.sh run без --runner → 77"
+assert "77 нет" "$(sn "$SN" make -s stand-ns-run NS=t1143-x RUNNER=chrome 'CMD=x') $(snx sn-run)" "близнец: вид раннера вне STAND_RUNNER_KINDS → 77, на машине не исполнялся"
+# shellcheck disable=SC2016  # значение — предмет суждения
+assert "77 нет нет" "$(sn "$SN" make -s stand-ns-run NS=t1143-x 'RUNNER=$(shell touch '"$W"'/ev-ran)' 'CMD=x') $(snx sn-run) $(snx ev-ran)" "близнец: значение RUNNER с \$ → 77"
+assert "77 нет" "$(sn "$SN" make -s stand-ns-up stand-ns-run NS=t1143-x RUNNER=newman 'CMD=x') $(snx sn-up)" "близнец: stand-ns-run с раннером вместе с иной целью → 77"
+assert "77 нет" "$(sn "$SN" make -s stand-ns-up 'CMD=x') $(snx sn-up)" "близнец: CMD у цели без раннера → 77"
+assert "77 да" "$(snc newman "$SN" newman run x.json) $(has "$W/err" 'RUNNER=newman|browser')" "класс newman вне стенда при доступном кластере → 77 с формой раннера, не local"
 # ГРАНИЦА (шапка heavy-slot.sh): закоммиченный в клон рецепт и подмена PATH — без слота.
 printf 'stand-ns-census:\n\t@touch "%s/ev-ran"\n' "$W" > "$SN/Makefile"; sandbox_git -C "$KC" commit -q -am heavy
 boundary "0 да" "$(sn "$SN" make -s stand-ns-census) $(snx ev-ran)" "рецепт, закоммиченный в deploy/Makefile клона, исполняет тяжёлое без слота"
@@ -1244,6 +1275,7 @@ assert "8192" "$(env "${REAL[@]}" bash "$SLOT" --budget stand 2>/dev/null)" "б�
 touch "$W/sn-release"; wait "$SH1" "$SH2" "$SH3"
 be="$(ens)"
 assert "0 да $((be + 1))" "$(FAKE_AVAIL=1 sn "$SN" make -s dev-up) $(snx sn-devup) $(ens)" "близнец: слоты вышли — тот же dev-up входит в слот (enter в журнале)"
+assert "0 да" "$(FAKE_AVAIL=1 snc newman "$SN" true) $(has "$W/err" 'локально — кластер недоступен')" "близнец (ws#1303): класс newman вне стенда при недоступном кластере → локально, причина названа"
 
 git init -q -b nodigits "$W/rclone2"; git -C "$W/rclone2" remote add origin https://github.com/PRO-Robotech/kacho.git
 echo a > "$W/rclone2/f"; git -C "$W/rclone2" add f; sandbox_git -C "$W/rclone2" commit -q -m p

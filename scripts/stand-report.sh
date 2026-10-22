@@ -151,9 +151,9 @@ export STAND_ROUTE_JSON='{
   "PRO-Robotech/kacho": {
     "ci.yaml:unit-shard": ["go-race", ["make", "test-unit", "SHARD=<шард>"]],
     "ci.yaml:integration": ["integration", ["make", "test-integration"]],
-    "e2e-newman.yml:shard": ["stand", ["make", "-C", "deploy", "stand-ns-run", "NS=t<задача>-w<k>", "CMD=<шаги шарда>"]],
-    "console-e2e.yml:probes": ["stand", ["make", "-C", "deploy", "stand-ns-run", "NS=t<задача>-w<k>", "CMD=<пробы консоли>"]],
-    "production-posture.yml:stand": ["stand", ["make", "-C", "deploy", "stand-ns-run", "NS=t<задача>-w<k>", "STACK=<стек матрицы>", "CMD=<перепись посадки>"]]
+    "e2e-newman.yml:shard": ["stand", ["make", "-C", "deploy", "stand-ns-run", "NS=t<задача>-w<k>", "RUNNER=newman", "DIR=deploy", "CMD=<шаги шарда>"]],
+    "console-e2e.yml:probes": ["stand", ["make", "-C", "deploy", "stand-ns-run", "NS=t<задача>-w<k>", "RUNNER=browser", "DIR=ui-future/e2e", "CMD=<пробы консоли>"]],
+    "production-posture.yml:stand": ["stand", ["make", "-C", "deploy", "stand-ns-run", "NS=t<задача>-w<k>", "STACK=<стек матрицы>", "RUNNER=newman", "DIR=deploy", "CMD=<перепись посадки>"]]
   },
   "PRO-Robotech/kaname": {
     "ci.yml:unit": ["go-race", ["go", "test", "./...", "-race", "-short", "-count=1", "-timeout", "25m"]],

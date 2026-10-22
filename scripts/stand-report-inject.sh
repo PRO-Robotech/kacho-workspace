@@ -126,7 +126,7 @@ ecase() {
     # контейнерных проб и стенд own, чей census спрашивает выбор пути (форма kaname#841).
     if [ "$2" = PRO-Robotech/kacho ]; then
         mkdir -p "$C/co/deploy/scripts"; printf 'stand-ns-run:\n\t@bash scripts/stand-ns.sh run "$(NS)"\n' > "$C/co/deploy/Makefile"
-        printf '#!/usr/bin/env bash\necho stand-ns "$@"\n' > "$C/co/deploy/scripts/stand-ns.sh"
+        printf '#!/usr/bin/env bash\nSTAND_RUNNER_KINDS="newman browser"\necho stand-ns "$@"\n' > "$C/co/deploy/scripts/stand-ns.sh"
     fi
     if [ "$2" = PRO-Robotech/kaname ]; then
         printf 'jobs:\n  stand: {}\n' > "$C/co/.github/workflows/e2e-newman.yml"
@@ -293,9 +293,12 @@ printf '%s' 'heavy-slot\.sh --route [^\t]*не ответил' > "$C/voidre"
 ecase "expect kacho: ready, механизм stand-ns в голове — пять заданий, все внешние" PRO-Robotech/kacho; ecommit; printf -- '--base\norigin/main\n--draft\nfalse\n' > "$C/args"; want 0 "$LEDGER"
 KC5='ci.yaml:integration	внешний кластер;ci.yaml:unit-shard	внешний кластер;console-e2e.yml:probes	внешний кластер;e2e-newman.yml:shard	внешний кластер;production-posture.yml:stand	внешний кластер;'
 printf '%s' "$KC5" > "$C/routes"
-ecase "expect kacho: stand-ns в голове нет — VOID, три задания стенда локальные" PRO-Robotech/kacho; rm "$C/co/deploy/scripts/stand-ns.sh"; ecommit; printf -- '--base\norigin/main\n--draft\nfalse\n' > "$C/args"; want 2 -
-printf '%s' "$(sed 's/console-e2e.yml:probes	внешний кластер/console-e2e.yml:probes	локальный/; s/e2e-newman.yml:shard	внешний кластер/e2e-newman.yml:shard	локальный/; s/production-posture.yml:stand	внешний кластер/production-posture.yml:stand	локальный/' <<< "$KC5")" > "$C/routes"
-printf '%s' 'маршрута во внешний кластер нет[^\t]*e2e-newman\.yml:shard — локальный: [^\t]*stand-ns' > "$C/voidre"
+ecase "expect kacho: stand-ns в голове нет — VOID, три задания стенда без маршрута" PRO-Robotech/kacho; rm "$C/co/deploy/scripts/stand-ns.sh"; ecommit; printf -- '--base\norigin/main\n--draft\nfalse\n' > "$C/args"; want 2 -
+printf '%s' "$(sed 's/console-e2e.yml:probes	внешний кластер/console-e2e.yml:probes	нет/; s/e2e-newman.yml:shard	внешний кластер/e2e-newman.yml:shard	нет/; s/production-posture.yml:stand	внешний кластер/production-posture.yml:stand	нет/' <<< "$KC5")" > "$C/routes"
+printf '%s' 'маршрута во внешний кластер нет[^\t]*e2e-newman\.yml:shard — нет: [^\t]*stand-ns' > "$C/voidre"
+ecase "expect kacho: механизм stand-ns без раннера (ws#1303) — VOID, три задания стенда без маршрута" PRO-Robotech/kacho; sed -i '/^STAND_RUNNER_KINDS=/d' "$C/co/deploy/scripts/stand-ns.sh"; ecommit; printf -- '--base\norigin/main\n--draft\nfalse\n' > "$C/args"; want 2 -
+printf '%s' "$(sed 's/console-e2e.yml:probes	внешний кластер/console-e2e.yml:probes	нет/; s/e2e-newman.yml:shard	внешний кластер/e2e-newman.yml:shard	нет/; s/production-posture.yml:stand	внешний кластер/production-posture.yml:stand	нет/' <<< "$KC5")" > "$C/routes"
+printf '%s' 'маршрута во внешний кластер нет[^\t]*console-e2e\.yml:probes — нет: [^\t]*RUNNER=newman\|browser' > "$C/voidre"
 ecase "expect kacho-workspace: заданий на кластере нет — выведенный ноль" PRO-Robotech/kacho-workspace; ecommit; want 0 '[]'
 ecase "expect: репозиторий вне ведомости — VOID" PRO-Robotech/elsewhere; ecommit; want 2 -
 ecase "expect: копия не на голове — VOID" PRO-Robotech/kacho-workspace; ecommit; echo "$H" > "$C/head"; want 2 -
