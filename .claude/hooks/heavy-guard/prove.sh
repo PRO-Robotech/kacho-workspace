@@ -479,6 +479,7 @@ echo "── git push: тяжёл там, где git исполнит хук о�
 # Клон без хука — лёгкая отправка (решение диспетчера 2026-10-22, вариант б); у каждого вида хука
 # — отказ и законный близнец, отличный одним фактом.
 # Подпись песочницы — из корневого gitconfig (scripts/lib/sandbox-git-home.sh, tooling-gate check-16).
+# shellcheck source-path=SCRIPTDIR
 # shellcheck source=../../../scripts/lib/sandbox-git-home.sh
 . "$ROOT/scripts/lib/sandbox-git-home.sh"
 if ! sandbox_git_home "$WORK/ghome"; then
