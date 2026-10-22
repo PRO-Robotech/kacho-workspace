@@ -481,9 +481,9 @@ inject "M85 landing-precheck (ж): любое привязанное полно�
     '    if any(m[1] == "true" for m in full):' ../landing-precheck.sh
 inject "M86 close-wave: последнее — лишь из полных (прежнее «любое полное»)" check-02-close-wave.py \
     "head='include \"dod_proof\"; dod_proof_last'" \
-    "head='include \"dod_proof\"; [.[] | (.html_url // \"\") as \$u | (.body // \"\") | dod_proof_marks[] | select(.partial | not) | . + {url: \$u}] | last'"
+    "head='include \"dod_proof\"; [.[] | (.html_url // \"\") as \$u | (.body // \"\") | dod_proof_marks[] | select(.partial | not) | .+{url: \$u}] | last'"
 inject "M87 dod_proof.jq: последнее без диапазона — лишь из полных" check-02-close-wave.py \
-    'dod_proof_marks[] | . + {url: $u}] | last;' 'dod_proof_marks[] | select(.partial | not) | . + {url: $u}] | last;' ../lib/dod_proof.jq
+    'dod_proof_marks[] | .+{url: $u}] | last;' 'dod_proof_marks[] | select(.partial | not) | .+{url: $u}] | last;' ../lib/dod_proof.jq
 for c in check-01-pr-body.py check-05-dod-judges-agree.py; do
     inject "M80 dod_proof.jq: раздел неисполненного не судится ($c)" "$c" \
         '  | any($l[]; _dod_unmet_line) as $unmet' '  | false as $unmet' ../lib/dod_proof.jq
