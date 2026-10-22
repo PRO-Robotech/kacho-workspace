@@ -93,6 +93,40 @@ jobs:
           set -e
           shellcheck -x -- m/*.sh"
 assert "1 да" "$(run multi) $(has 'многострочный')" "многострочный run: со shellcheck и SC2086 в предмете — код 1, шаг назван (исполнен либо отвергнут формой), не выброшен молча"
+# 1n и обратный: дефектная строка не последняя либо последняя — код 1 в обоих (конвейер исполняет
+# шаг без shell как `bash -e {0}`: первая упавшая строка роняет шаг).
+yml multi-first "env:
+  SHELLCHECK_VERSION: \"$have\"
+jobs:
+  j:
+    runs-on: x
+    steps:
+      - name: дефект первым
+        run: |
+          shellcheck -x m/bad.sh
+          shellcheck -x a/x.sh"
+assert "1" "$(run multi-first)" "многострочный: дефектная строка первой, чистая последней — код 1 (опыт 1n)"
+yml multi-last "env:
+  SHELLCHECK_VERSION: \"$have\"
+jobs:
+  j:
+    runs-on: x
+    steps:
+      - name: дефект последним
+        run: |
+          shellcheck -x a/x.sh
+          shellcheck -x m/bad.sh"
+assert "1" "$(run multi-last)" "многострочный: чистая строка первой, дефектная последней — код 1"
+yml multi-shell "env:
+  SHELLCHECK_VERSION: \"$have\"
+jobs:
+  j:
+    runs-on: x
+    steps:
+      - name: чужая оболочка
+        shell: sh
+        run: shellcheck -x a/x.sh"
+assert "1 да" "$(run multi-shell) $(has 'оболочка')" "шаг с shell, отличной от bash, — вне формы, код 1 (исполнить как конвейер хук не может)"
 yml multi-ok "env:
   SHELLCHECK_VERSION: \"$have\"
 jobs:
