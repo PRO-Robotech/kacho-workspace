@@ -2008,7 +2008,9 @@ stand_own_runner() {
     # сам путь — не ссылка: ROOT скрипт берёт из своего пути, клон — тот, чей коммит судится
     [ "$(cd -- "$(dirname -- "$1")" 2>/dev/null && pwd -P)/$(basename -- "$1")" = "$s" ] || return 1
     top="$(git -C "$(dirname -- "$s")" rev-parse --show-toplevel 2>/dev/null)" && top="$(cd "$top" && pwd -P)" || return 1
-    [ "$s" = "$top/.github/scripts/stand-own.sh" ] || return 1
+    # путь клона kaname, не воркспейса: сверка снятием префикса — запись `$top/…sh` rules-gate
+    # check-14 резолвит от корня воркспейса как вызов хука (ws#1321)
+    [ "${s#"$top"/}" = .github/scripts/stand-own.sh ] || return 1
     url="$(git -C "$top" remote get-url origin 2>/dev/null)"
     case "$url" in *PRO-Robotech/kaname|*PRO-Robotech/kaname.git) ;; *) return 1 ;; esac
     git -C "$top" ls-files --error-unmatch .github/scripts/stand-own.sh >/dev/null 2>&1 || return 1
