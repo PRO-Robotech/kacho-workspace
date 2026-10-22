@@ -12,19 +12,23 @@
 # testcontainers уходят туда, а локально остаётся то, что без машины не делается.
 #
 # ФОРМА
-#   run.sh --task <N> --repo <kacho|kaname|corelib> --ref <ревизия>
-#          [--profile go-race|integration|lint|ci-local] [--src <клон>]
+#   run.sh --task <N> --repo <kacho|kaname|corelib|kacho-workspace> --ref <ревизия>
+#          [--profile go-race|integration|lint|ci-local|ws] [--src <клон>]
 #          [--workdir <путь в дереве>] [--short <слово>] [--ns <имя>]
 #          [--timeout <с>] [--keep <часы ≤ 12>] [--push-input <вход pre-push>]
 #          -- <команда> [аргументы…]
-#   run.sh --available [--profile <профиль> [--repo <kacho|kaname|corelib>]]
+#   run.sh --available [--profile <профиль> [--repo <kacho|kaname|corelib|kacho-workspace>]] [--pending <файл>]
 #                           0 — кластер отвечает, ns создавать вправе и pod есть где
 #                           встать; 69 — нет (в том числе открытого узла нет, см.
 #                           РАЗМЕЩЕНИЕ); 75 — идущих тяжёлых прогонов уже предел (см.
 #                           ПРЕДЕЛ) либо места под запрос профиля нет ни на одном узле
 #                           70 — ДЕФЕКТ ОБЁРТКИ: ответ кластера прочитан, а разбор
 #                           отказал; не недоступность — heavy-slot локально не уходит
-#                           (ws#1210). Ответ кластера идёт в jq файлом, не словом argv
+#                           (ws#1210). Ответ кластера идёт в jq файлом, не словом argv.
+#                           --pending — ВОШЕДШИЕ (ниже): запросы прогонов, ns ещё не создавших
+#   run.sh --request --profile <профиль> [--repo <kacho|kaname|corelib|kacho-workspace>]
+#                           «mCPU МиБ» запроса pod по замеру (ЗАПРОС ПО ЗАМЕРУ); к кластеру
+#                           не обращается; 69 — строки профиля в PEAKS нет, 64 — вызов вне формы
 #   run.sh --guard          только КОНТЕКСТ и СТРАЖ ПО УЗЛАМ, без прав и размещения: 0 — кластер
 #                           профиля доказан; 69 — нет; 64 — переменная вне формы; 70 — дефект
 #                           обёртки (предусловие `cluster` в lane-precheck.sh --premise, ws#1307)
@@ -105,14 +109,22 @@
 # «уборка прежних запусков: …».
 #
 # ПРЕДЕЛ. Квота стоит на одно ns, а общего предела в кластере нет (ревью ws#984,
-# F3). Допуск прогона решает запрос прогона (ЗАПРОС ПО ЗАМЕРУ, РАЗМЕЩЕНИЕ); число
-# одновременных тяжёлых прогонов KACHO_REMOTE_HEAVY_MAX (по умолчанию 6) — лишь
-# верхняя страховка над ним: прежний счёт штуками (2) держал лёгкие в очереди при
-# месте под них, а размещение сажало прогон до 100 % узла. Идущим считается ns
-# kacho.io/kind=heavy, не снимаемое, со сроком в будущем и без завершённого Job.
-# Перепись — до создания ns (предел достигнут — 75, ns не создаётся) и после него:
-# две гонки, прошедшие первую проверку разом, разрешаются по времени создания —
-# запуск, оказавшийся сверх предела, снимает своё ns и выходит 75.
+# F3). Сколько тяжёлых прогонов идёт разом, решает КЛАСТЕР (ws#1293): ЁМКОСТЬ в
+# РАЗМЕЩЕНИИ раскладывает по узлам запросы идущих и запрос нового. Число
+# KACHO_REMOTE_HEAVY_MAX (1–64, по умолчанию 25) — лишь потолок безопасности над ней.
+# 25 — наибольшее, что держит кластер переписи 2026-10-21 по ОБОИМ ресурсам: 5 узлов
+# по 15 500m и 31 197 МиБ allocatable; наименьший запрос таблицы — 2 000m и 5 376 МиБ
+# (lint kaname), на пустой узел — min(⌊15 500 / 2 000⌋ = 7, ⌊31 197 / 5 376⌋ = 5) = 5,
+# всего 5 × 5 = 25: потолок ёмкости не режет, а больше 25 кластер не посадит. С фоном
+# переписи (275–1 375m, 1 220–4 676 МиБ на узел) — lint kacho 22, integration kacho 20,
+# go-race kacho 9, ci-local kaname 15, ci-local kacho 15 (7 680 МиБ и 4 000m — по три
+# на узел и по CPU, и по памяти). Прежняя константа 6 (до 8 переменной) держала 8 заявок в очереди
+# при 5 узлах. Идущим
+# считается ns kacho.io/kind=heavy, не снимаемое, со сроком в будущем и без
+# завершённого Job. Перепись — до создания ns (потолок либо ёмкость исчерпаны — 75,
+# ns не создаётся) и после него: две гонки, прошедшие первую проверку разом,
+# разрешаются по времени создания — запуск сверх потолка либо тот, чей запрос не
+# ложится вместе со СТАРШИМИ идущими, снимает своё ns и выходит 75.
 #
 # УБОРКА ПРОСРОЧЕННЫХ (ws#1195). Перед переписью идущих run.sh снимает тяжёлые ns
 # (метка kacho.io/kind=heavy, имя t<N>-heavy-…), чей срок kacho.io/expires прошёл,
@@ -125,9 +137,11 @@
 # перечень чужих — своей строкой, когда он не пуст.
 #
 # ПИК (ws#1195). Шаг в pod после команды печатает «remote-heavy-peak: <memory.peak
-# байт> <usage_usec за команду> <секунд>» cgroup контейнера run; run.sh печатает пик
-# и пишет строку «remote-peak class=… repo=… run_peak=…MiB req=…MiB cpu_avg=…m …» в
-# журнал слотов — из неё правится PEAKS. dind — свой cgroup, его пик не пишется.
+# байт> <usage_usec за команду> <секунд> <пик рабочей памяти, байт>» cgroup контейнера
+# run (рабочая — memory.current − inactive_file выборкой, ws#1293); run.sh печатает пик
+# и пишет строку «remote-peak class=… repo=… run_peak=…MiB ws_peak=…MiB req=…MiB
+# cpu_avg=…m …» в журнал слотов — из неё правится PEAKS: запрос по ws_peak, предел по
+# run_peak. dind — свой cgroup, его пик не пишется.
 #
 # ИЗОЛЯЦИЯ. pod — в своём пространстве пользователей (hostUsers: false): root
 # контейнера — непривилегированный uid узла, возможности SYS_ADMIN, NET_ADMIN и
@@ -149,7 +163,7 @@
 # (запрос pod — сумма контейнеров и боковых, но не меньше наибольшего init) не
 # меньше запроса прогона (ЗАПРОС ПО ЗАМЕРУ) — и по CPU, и по памяти. Запаса узла
 # сверх запроса нет (ws#1195): запас 20 % allocatable (ws#1143) держал пустыми
-# 3 100m и 6 038 МиБ на узел — больше запроса ci-local kacho (7 680 МиБ) на кластере, —
+# 3 100m и 6 038 МиБ на узел — больше тогдашнего запроса ci-local kacho (7 680 МиБ) на кластере, —
 # а запас прогона уже в его запросе (p90 пика × 1,2), запас узла под систему и порог
 # выселения — в allocatable. Прогон сверх запроса памяти — до предела run; узлу не
 # хватило памяти — kubelet выселяет pod сверх запроса первым, и это «не
@@ -157,6 +171,33 @@
 # причиной); открытые есть, места нет — 75; pod ждёт, а годного не осталось — выход
 # сразу тем же кодом. --available без --profile судит лишь открытый узел; с
 # --profile без --repo — наибольший запрос профиля.
+# ЁМКОСТЬ (ws#1293). Место под ОДИН pod не говорит, сколько тяжёлых ляжет: pod
+# идущего ns, ещё не севший на узел, и ns, чей Job pod ещё не создал, места на узле
+# не держат, а займут. Поэтому до ns и в --available размещение раскладывает по
+# открытым узлам запросы идущих тяжёлых ns без узла (по убыванию CPU, затем памяти;
+# каждый — на узел, свободнее всего остающийся после него по доле CPU и памяти, как
+# разносит планировщик по умолчанию, а не first-fit, который оставил бы место крупнее
+# настоящего) — pod без nodeName своим запросом, ns без pod СВОИМ запросом — и лишь
+# затем ищет место новому; севшие (и Pending с nodeName, и Terminating) уже вычтены
+# из свободного своего узла. Свой запрос ns — аннотации kacho.io/request-cpu (m) и
+# kacho.io/request-mib, которые run.sh ставит при создании ns; без них — профиль из
+# имени t<N>-heavy-<профиль>-… и репозиторий из метки kacho.io/repo (нет метки —
+# наибольший запрос профиля); профиль не узнан — наибольший запрос таблицы. Запрос
+# нового за чужой ns не берётся: старший ci-local kacho (7 680 МиБ) — не ci-local
+# kaname (4 608 МиБ). Сумма по кластеру не годится: 3 000m на каждом из двух узлов —
+# не место под 4 000m.
+# Строка «ёмкость: тяжёлых N, помещается M (узлов K, свободно C CPU / G ГиБ), потолок
+# P» — N идущих, M — сколько тяжёлых держит кластер с этим запросом (идущие, что
+# легли, и новые того же запроса на остатке), K — открытых узлов, C и G — остаток
+# после идущих. Допуск — M > N и N < P; запрос не назван (--available без
+# --profile) — судится лишь открытый узел.
+# ВОШЕДШИЕ (ws#1302). Прогон, которому вход уже дан, а ns он ещё не создал (heavy-slot пустил
+# его, run.sh идёт к созданию), переписи кластера не виден — и второй вход по тому же месту
+# прошёл бы. `--available --pending <файл>` берёт их строками «имя mCPU МиБ»: каждая
+# раскладывается по узлам как ns без pod своим запросом (тем же путём, что идущие) и входит
+# в счёт предела P. Строка вне формы — 64; пустой файл — ни одного вошедшего. Вошедшие входят
+# в «тяжёлых N» строки ёмкости и названы там же («в том числе вошедших без ns W»). Запрос
+# вошедшего heavy-slot берёт у `--request` — тем же sizing, что и прогон.
 #
 # ВЫВОД (ws#991). Строки run.sh после выбора ns несут его имя: два прогона в одном
 # потоке различимы. Если stderr или stdout прогона — обычный файл, в который пишет
@@ -209,12 +250,18 @@
 # неоднозначен, вне формы, шаг есть без ключа или конвейер не разобран — 69 до
 # кластера. buf — `version` шага bufbuild/buf-setup-action, бинарь выпуска с
 # суммой из sha256.txt выпуска (ws#1110: цели proto-* standalone kaname без buf
-# давали «условие не создано»). Шага setup-helm нет, а задания идут на хостовом
+# давали «условие не создано»). yq (ws#1296) — пин `go install …mikefarah/yq/v4@vX`
+# конвейера (шаг чартов kacho): без него `make helm-manifest-test` в pod падал
+# «FATAL: нужен yq (mikefarah v4)» кодом 2 — красным вместо «не выполнилось». Ставится
+# бинарь выпуска того же тега (сборка в pod стоила бы десятки секунд), сумма SHA-256 —
+# из `checksums` выпуска, столбец — по `checksums_hashes_order`; сверка — mikefarah и
+# версия пина. Упоминание mikefarah/yq иной формой (`@latest`, `@v4.53`, шаг
+# `uses: mikefarah/yq@…`) — 69 до кластера, а не «yq не требуется». Шага setup-helm нет, а задания идут на хостовом
 # образе ubuntu-* — helm ОБРАЗА: ранер конвейера несёт его в PATH (ws#1110:
 # render-guard kaname «helm не в PATH» только в pod); образ метки — по таблице
 # README actions/runner-images, версия — строка «- Helm X.Y.Z» Readme образа;
 # таблица или Readme не получены, метка не найдена, версий больше одной — 69.
-# После установки — отдельная СВЕРКА PATH перед командой: helm, node и buf
+# После установки — отдельная СВЕРКА PATH перед командой: helm, node, buf и yq
 # с версией пина обязаны быть на месте, иначе команда не запускается и
 # run.sh выходит 69 строкой «не выполнилось — среда: …». Так прогон без
 # инструмента не выдаётся ни за зелёный, ни за красный.
@@ -379,6 +426,44 @@
 # не кодом теста; шаг не исполнился — «remote-heavy-prep:», 69. Исполнением судит
 # inject.sh (двойник демона docker), предел держит мутант pull-no-limit.
 #
+# СРЕДА ВОРКСПЕЙСА (ws#1304). Профиль ws — клон воркспейса (--repo kacho-workspace, и только он;
+# иная пара профиля и репозитория — 64): хук отправки воркспейса и его наборы и пробы (run-all.sh,
+# inject.sh, mutants.py, prove.sh), которые слот уводит сюда (heavy-slot.sh, ведомость PORTABLE).
+# Замер 2026-10-22 по журналу слотов: после расширения кластера до 5 узлов 117 запусков клона
+# воркспейса шли на машине «внешнего пути нет», 150 ожиданий слота — при занятых трёх из трёх и
+# свободных 46–73 ГиБ, а кластер занят на 43 % CPU. Образ — WS_IMAGE: golang той же версии, что
+# у Job продуктов (узлы держат его тёплым: холодный pull — 5–10 мин), с bash, git, curl, python3 и
+# go — его зовут пробы оснастки, собирающие Go-программы (inject.sh remote-heavy: RG1, D1, PW), как
+# ранер конвейера несёт go в образе; модулей у дерева воркспейса нет — шага модулей нет; ни dind,
+# ни pgclient. Перепись `command -v` по scripts/ и .claude/hooks/ дерева (2026-10-22): python3 21,
+# jq 14, go 7, gh 5, node 4, shellcheck 3, yq 1, bats 1; gh, systemd-run, docker, kubectl — нет и
+# у ранера конвейера либо с подменой в пробе. Среда — как у конвейера воркспейса (ci.yaml,
+# .github/actions/suite-prerequisites):
+#   • jq и PyYAML — шаг пакетов (как у прочих профилей);
+#   • node мажора WS_NODE — шагом СРЕДЫ (INSTALL_SH, сумма SHASUMS256): wave.js исполняют
+#     пробы шаблона волны (wave-template-inject.sh без node — VOID); ранер несёт node в образе;
+#   • yq v4 (mikefarah, его зовут пробы, `yq -i`), shellcheck пина `env.SHELLCHECK_VERSION`
+#     конвейера ревизии и bats-core (ранер ставит его apt'ом, 1.10.0 у ubuntu-24.04) — шаг
+#     WSTOOLS_SH: версия и sha256 зашиты в тексте, архив — python3 tarfile (xz в образе может
+#     не быть); пин shellcheck дерева не равен зашитому — 69 до кластера: суммы под него нет;
+#   • клоны kacho, kaname и corelib — `git clone` с GitHub (публичны, токена нет) в project/
+#     дерева pod, полной историей, как checkout предпосылок конвейера (fetch-depth: 0); хук
+#     выводит их из project/ канонической копии, наборы стволов без них — VOID-отказ. Клоны
+#     идут ФОНОМ под прочую подготовку, ждутся перед видимостью; не склонировался — 69;
+#   • принадлежность номера ветки (хук отправки спрашивает трекер о задаче при создании ветки):
+#     токена в pod нет, поэтому PREPUSH_GH хука — читатель публичного API (gh-issue-public в
+#     /work/bin): ровно форма вызова хука «api repos/<o>/<r>/issues/<n> --jq <выражение>»,
+#     прочее — отказ 4; предел анонимного API (60 запросов в час на адрес) исчерпан — ответ
+#     трекера не получен, и хук отказывает своим «принадлежность не проверена»;
+#   • учётка git и провязка хуков — как у ci-local (УЧЁТКА GIT, ХУКИ КЛОНА);
+#   • команда — от пользователя runner (uid 1001), как у ранера конвейера: root pod обходит права
+#     файлов, и пробы «не записываема» (chmod 0400) краснели чужим красным; подготовка — под root,
+#     шаг «# wsuser-begin» передаёт дерево и кэш и судит запись в 0400 положительным контролем.
+# Сверка среды — ПОСЛЕ видимости, подпроцессом с пустым окружением и PATH образа (шаг
+# «# wscheck-begin»): bash, python3 с yaml, git, curl, go, node, jq, yq v4, shellcheck пина, bats; нет либо не
+# та версия — «remote-heavy-prep: среда: <имя> …», то есть 69 «не выполнилось», а не красное
+# набора через минуты. ЗАПРОС — строки ws PEAKS: КОНСЕРВАТИВНЫЙ до замера в кластере (ниже).
+#
 # КОДЫ: код команды, если она исполнилась; 64 — вызов неверен; 69 — механизм
 # недоступен (кластер, узлы не того кластера — СТРАЖ, образ, доставка, пин, СРЕДА, МОДУЛИ, ЗАВИСИМОСТИ КОНСОЛИ, УЧЁТКА GIT, сеть
 # pod, открытого узла нет — РАЗМЕЩЕНИЕ); 75 — кластер занят (ПРЕДЕЛ либо места под профиль нет), pod не начал
@@ -406,6 +491,15 @@ WS="$(dirname "${_common:-$SELF_DIR/../../.git}")"
 REGISTRY="mirror.gcr.io/library"
 DIND_IMAGE="$REGISTRY/docker:29-dind"
 CLI_IMAGE="$REGISTRY/docker:29-cli"
+# Образ профиля ws (СРЕДА ВОРКСПЕЙСА): golang toolchain продуктов на 2026-10-22 (go1.26.9 в go.mod
+# kacho, kaname, corelib) — тот же образ, что у их Job, тёплый на узлах; bash, git, curl, python3.
+# Продукты сменили toolchain — образ ws остаётся прежним и тянется холодным, пока его не поднимут здесь.
+WS_IMAGE="$REGISTRY/golang:1.26.9"
+# node профиля ws — мажор, как машина владельца и пин setup-node конвейера kacho (26).
+WS_NODE=26
+# Версия shellcheck профиля ws — та, что несёт шаг WSTOOLS_SH (суммы — там же); пин дерева
+# (env.SHELLCHECK_VERSION конвейера ревизии) обязан совпасть, иначе 69 до кластера.
+WS_SHELLCHECK=0.11.0
 # Клиент postgres (psql, pg_dump…) берётся из образа, а не из apt в pod (ws#1178):
 # kubelet тянет образ через зеркало, как golang и docker, сети pod это не требует.
 # Выпуск Debian образа ОБЯЗАН совпадать с выпуском образа golang (оба — trixie): общие
@@ -423,7 +517,7 @@ WAIT_START_S=1800
 DEFAULT_TIMEOUT_S=5400
 MAX_TIMEOUT_S=14400
 MAX_KEEP_H=12
-MAX_PAR="${KACHO_REMOTE_HEAVY_MAX:-6}"  # страховка над РАЗМЕЩЕНИЕМ: на кластере переписи 2026-10-18 оно сажает по 3 ci-local kaname либо integration kacho на узел
+MAX_PAR="${KACHO_REMOTE_HEAVY_MAX:-25}"  # потолок безопасности над ЁМКОСТЬЮ (ПРЕДЕЛ в шапке): 5 узлов × 5 наименьших запросов по памяти
 GUARD_TTL_S=30       # СТРАЖ: через сколько секунд узлы переписываются заново
 SWEEP_AGE_S=7200     # УБОРКА ПРОСРОЧЕННЫХ: тяжёлое ns без живого Job старше этого снимается
 
@@ -451,10 +545,34 @@ SWEEP_AGE_S=7200     # УБОРКА ПРОСРОЧЕННЫХ: тяжёлое ns 
 # ней — memory.peak ОДНОГО контейнера run: dind и контейнеры testcontainers в нём не
 # считаны. Для lint (dind нет) строка правится по run_peak; для ci-local, go-race и
 # integration run_peak — лишь нижняя граница пика pod, и правка по нему занизит запрос.
+# ЗАПРОС И ПРЕДЕЛ — РАЗНЫЕ ПИКИ (ws#1293, решение диспетчера 2026-10-21). memory.peak
+# считает и кэш страниц, который ядро отдаёт по требованию: по нему запрос завышен
+# (ci-local kacho в кластере — run_peak p90 12 389 МиБ, запрос 15 104 МиБ: один прогон
+# на узел, пять на кластер — хуже прежнего). Запрос (p90 строки) — по РАБОЧЕЙ памяти
+# без кэша, как её считает kubelet (memory.current − inactive_file, пик выборкой —
+# ws_peak строки «remote-peak»); предел run (наибольший пик строки) — по ПОЛНОМУ пику
+# с кэшем. Строки ci-local kacho и kaname — так: p90 прежний (до n ≥ PEAK_MIN_N строк
+# «remote-peak class=ci-local repo=<репо>» с ws_peak — предикат `grep -c 'remote-peak
+# class=ci-local repo=kacho .*ws_peak=[0-9]' журнала слотов`, 0 на 2026-10-21; затем
+# p90 и n строки — по ws_peak), наибольший — полный пик кластера, если он выше
+# локального. Пометка: p90 и n этих двух строк — ПРЕЖНИЕ (локальные), не кластерные.
+# Кластер, журнал слотов 2026-10-19…21 (по 03:18 +03:00), run_peak: ci-local kacho —
+# 88 строк, p90 12 389 МиБ, наибольший 13 118; ci-local kaname — 67 строк, p90 6 444,
+# наибольший 7 010; выселений ноль. Предел run обоих — 16 ГиБ профиля (13 118 × 1,2 =
+# 15 742 МиБ — до ГиБ 16).
+# Строки ws (ws#1304) — КОНСЕРВАТИВНО до замера: прогонов профиля ws в кластере 0 (поле n —
+# прогоны кластера), p90 и наибольший — не замер Job. Основание числа — журнал слотов машины
+# 2026-09-24…10-22, строки leave классов ci-local и suite клонов воркспейса от 60 с (скрипт
+# tmp/ws-remote-meas/peaks.py полосы ws#1304): 259 прогонов, p90 556 МиБ, наибольший 7 428 МиБ
+# (отправки — 206, p90 519; скрипты — 53, p90 до 5 711). В pod к ним добавляются клоны трёх
+# продуктов (git clone полной историей) — поэтому p90 строки поднят до 2 048 МиБ (запрос pod
+# 2 560 МиБ), наибольший — локальный (предел run 9 ГиБ). Правка — когда строк «remote-peak
+# class=ws repo=kacho-workspace … ws_peak=» станет не меньше PEAK_MIN_N (предикат — grep -c по
+# журналу слотов): p90 и n — по ws_peak, наибольший — по run_peak.
 PEAK_MIN_N=5
 PEAK_MARGIN_PCT=120
-PEAKS='ci-local|kacho|645|6316|9421
-ci-local|kaname|181|3840|6476
+PEAKS='ci-local|kacho|645|6316|13118
+ci-local|kaname|181|3840|7010
 ci-local|corelib|2|2388|2388
 ci-local|*|828|6185|9421
 go-race|kacho|48|11143|13992
@@ -468,14 +586,17 @@ integration|*|84|5434|6982
 lint|kacho|5|4815|4815
 lint|kaname|6|4298|4298
 lint|corelib|1|55|55
-lint|*|12|4491|4815'
+lint|*|12|4491|4815
+ws|kacho-workspace|0|2048|7428
+ws|*|0|2048|7428'
 
 # профиль|cpu pod, m (run и dind)|cpu предел run|память предел run (не ниже пика ×
 # PEAK_MARGIN_PCT)|ephemeral|dind|основание. Запрос памяти — по PEAKS (выше).
 PROFILES='go-race|4000|12|16Gi|40Gi|1|go test -race по монорепо; предел 16 ГиБ — пик kacho 13 992 МиБ × 1,2 поднимает его до 17 ГиБ
 integration|2000|6|10Gi|40Gi|1|make test-integration; контейнеры testcontainers — в dind, у него свой предел
 lint|2000|8|12Gi|20Gi|0|golangci-lint run ./... по монорепо, холодный кэш
-ci-local|4000|12|16Gi|40Gi|1|scripts/ci-local.sh; группы вне go требуют инструментов, которых в образе нет'
+ci-local|4000|12|16Gi|40Gi|1|scripts/ci-local.sh; группы вне go требуют инструментов, которых в образе нет
+ws|2000|8|8Gi|20Gi|0|наборы, пробы и хук отправки воркспейса (СРЕДА ВОРКСПЕЙСА): bash и python3 по одному процессу, мутанты — -j; запрос памяти консервативный до замера'
 # dind: cpu запрос|cpu предел|память запрос|память предел. Запрос — его собственный
 # расход (замер 2026-10-18: 1m и 23 МиБ в идущем ci-local); память контейнеров
 # testcontainers, которые он держит, входит в запрос pod по PEAKS.
@@ -496,6 +617,15 @@ profile_row() {
 # to_m <cpu> — милли-CPU; to_mib <память> — МиБ (единицы Mi и Gi, как пишет таблица).
 to_m() { case "$1" in *m) printf '%s\n' "${1%m}" ;; *) printf '%s\n' "$(( $1 * 1000 ))" ;; esac; }
 to_mib() { case "$1" in *Gi) printf '%s\n' "$(( ${1%Gi} * 1024 ))" ;; *Mi) printf '%s\n' "${1%Mi}" ;; *) return 1 ;; esac; }
+# profile_repos <профиль> — репозитории профиля: ws — лишь kacho-workspace, прочие — три продукта.
+profile_repos() { if [ "$1" = ws ]; then echo kacho-workspace; else echo kacho kaname corelib; fi; }
+# pair_ok <профиль> <репозиторий> — профиль ws и клон воркспейса — только друг с другом
+# (СРЕДА ВОРКСПЕЙСА): образ ws без go, а в образе golang нет среды наборов воркспейса.
+pair_ok() {
+    if [ "$1" = ws ] && [ "$2" != kacho-workspace ]; then say "профиль ws — лишь для --repo kacho-workspace (образ без go), получено «$2»"; return 1; fi
+    if [ "$1" != ws ] && [ "$2" = kacho-workspace ]; then say "--repo kacho-workspace — лишь профиль ws (среда наборов воркспейса), получено «$1»"; return 1; fi
+    return 0
+}
 
 # peak_row <профиль> <репозиторий> — строка PEAKS, которой судится запрос: своя, если
 # прогонов в ней не меньше PEAK_MIN_N, иначе «*» профиля. Код 1 — строки нет.
@@ -530,12 +660,14 @@ sizing() {
     if [ "$dind" = 1 ]; then dcr="$(to_m "$dcr")"; dmr="$(to_mib "$dmr")"; else dcr=0; dmr=0; fi
     RUN_CPU_REQ=$(( NEED_CPU - dcr ))
     RUN_MEM_REQ=$(( NEED_MIB - dmr ))
-    [ "$1" = lint ] || { RUN_CPU_REQ=$(( RUN_CPU_REQ - PG_REQ_M )); RUN_MEM_REQ=$(( RUN_MEM_REQ - PG_REQ_MIB )); }
+    case "$1" in lint|ws) ;; *) RUN_CPU_REQ=$(( RUN_CPU_REQ - PG_REQ_M )); RUN_MEM_REQ=$(( RUN_MEM_REQ - PG_REQ_MIB )) ;; esac
     RUN_MEM_LIM="$(to_mib "$liml")"
     mx=$(( (mx * PEAK_MARGIN_PCT + 102399) / 102400 )); mx=$(( mx * 1024 ))
     [ "$mx" -gt "$RUN_MEM_LIM" ] && RUN_MEM_LIM="$mx"
     [ "$RUN_MEM_LIM" -ge "$RUN_MEM_REQ" ] || RUN_MEM_LIM="$RUN_MEM_REQ"
-    if [ "$r" = "$2" ]; then
+    if [ "$n" = 0 ]; then
+        SIZE_WHY="КОНСЕРВАТИВНО до замера: прогонов профиля $1 в кластере 0, p90 $p90 МиБ строки PEAKS × $PEAK_MARGIN_PCT % — не по пику Job"
+    elif [ "$r" = "$2" ]; then
         SIZE_WHY="по замеру: репозиторий $2, прогонов $n, p90 пика $p90 МиБ × $PEAK_MARGIN_PCT %"
     else
         SIZE_WHY="по замеру профиля: репозиторий $2 — прогонов меньше $PEAK_MIN_N, строка «*» ($n прогонов, p90 $p90 МиБ × $PEAK_MARGIN_PCT %)"
@@ -673,15 +805,16 @@ red_home() {
 # «remote-peak» в журнал слотов ($HEAVY_SLOT_DIR, по умолчанию ~/.cache/heavy-slots),
 # если его каталог есть. Пика нет (строки шага не дошло) — так и пишется, «—».
 peak_note() {
-    local b="—" u="—" sec="—" mib="—" avg="—" d
-    [ -s "$RP/peak" ] && read -r b u sec < "$RP/peak"
+    local b="—" u="—" sec="—" wb="—" mib="—" wmib="—" avg="—" d
+    [ -s "$RP/peak" ] && read -r b u sec wb < "$RP/peak"
     [[ "$b" =~ ^[0-9]+$ ]] && mib=$(( (b + 1048575) / 1048576 ))
+    [[ "$wb" =~ ^[0-9]+$ ]] && wmib=$(( (wb + 1048575) / 1048576 ))
     [[ "$u" =~ ^[0-9]+$ ]] && [[ "$sec" =~ ^[0-9]+$ ]] && [ "$sec" -gt 0 ] && avg=$(( u / sec / 1000 ))
-    say "пик run: память $mib МиБ при запросе $RUN_MEM_REQ и пределе $RUN_MEM_LIM МиБ, CPU в среднем ${avg}m за ${sec} с (запрос ${RUN_CPU_REQ}m)"
+    say "пик run: память $mib МиБ (рабочая, без кэша страниц, $wmib МиБ) при запросе $RUN_MEM_REQ и пределе $RUN_MEM_LIM МиБ, CPU в среднем ${avg}m за ${sec} с (запрос ${RUN_CPU_REQ}m)"
     d="${HEAVY_SLOT_DIR:-$(getent passwd "$(id -u)" | cut -d: -f6)/.cache/heavy-slots}"
     [ -d "$d" ] || return 0
-    printf '%s remote-peak class=%s repo=%s rc=%s run_peak=%sMiB req=%sMiB lim=%sMiB cpu_avg=%sm cpu_req=%sm dur=%ss ns=%s\n' \
-        "$(date -Is)" "$1" "$REPO" "$2" "$mib" "$RUN_MEM_REQ" "$RUN_MEM_LIM" "$avg" "$RUN_CPU_REQ" "$sec" "$NSNAME" >> "$d/journal.log" 2>/dev/null
+    printf '%s remote-peak class=%s repo=%s rc=%s run_peak=%sMiB ws_peak=%sMiB req=%sMiB lim=%sMiB cpu_avg=%sm cpu_req=%sm dur=%ss ns=%s\n' \
+        "$(date -Is)" "$1" "$REPO" "$2" "$mib" "$wmib" "$RUN_MEM_REQ" "$RUN_MEM_LIM" "$avg" "$RUN_CPU_REQ" "$sec" "$NSNAME" >> "$d/journal.log" 2>/dev/null
 }
 # red_collect <код команды> — собрать копии красных групп из $RP, сверить, замаскировать,
 # положить в каталог и назвать его. Итога «total» нет — разбор полного лога контейнера.
@@ -799,10 +932,12 @@ available() {
 }
 
 valid_max_par() {
-    [[ "$MAX_PAR" =~ ^[1-8]$ ]] || { say "KACHO_REMOTE_HEAVY_MAX — от 1 до 8, получено «$MAX_PAR»"; return 1; }
+    [[ "$MAX_PAR" =~ ^([1-9]|[1-5][0-9]|6[0-4])$ ]] || { say "KACHO_REMOTE_HEAVY_MAX — от 1 до 64, получено «$MAX_PAR»"; return 1; }
 }
 
-# busy_heavy — идущие тяжёлые ns, старшие первыми (время создания, затем имя).
+# busy_heavy — идущие тяжёлые ns, старшие первыми (время создания, затем имя),
+# строкой «имя cpu МиБ репозиторий»: запрос — из аннотаций kacho.io/request-cpu и
+# kacho.io/request-mib, репозиторий — из метки kacho.io/repo; нет либо не по форме — «-».
 # Идущее — kacho.io/kind=heavy, не снимается, срок kacho.io/expires в будущем
 # (ns без срока — идущее: не знаем, что оно не занято) и ни один его Job не
 # завершён. Код 1 — перепись не прочитана (кластер); 2 — прочитана, а разбор отказал
@@ -821,7 +956,50 @@ busy_heavy() {
          | select((.status.phase // "Active") != "Terminating")
          | select((.metadata.annotations["kacho.io/expires"] // "9999") > $now)
          | select(.metadata.name as $n | $done | any(. == $n) | not)]
-      | sort_by(.metadata.creationTimestamp // "", .metadata.name) | .[].metadata.name' || return 2
+      | sort_by(.metadata.creationTimestamp // "", .metadata.name) | .[]
+      | [.metadata.name,
+         ((.metadata.annotations["kacho.io/request-cpu"] // "") | tostring | if test("^[1-9][0-9]{0,6}$") then (.) else "-" end),
+         ((.metadata.annotations["kacho.io/request-mib"] // "") | tostring | if test("^[1-9][0-9]{0,7}$") then (.) else "-" end),
+         ((.metadata.labels["kacho.io/repo"] // "") | tostring | if IN("kacho", "kaname", "corelib") then (.) else "-" end)]
+      | join(" ")' || return 2
+}
+# busy_demand — СВОЙ запрос каждого идущего ns (ЁМКОСТЬ в шапке): вход — строки
+# busy_heavy, выход — «имя mCPU МиБ» в том же порядке. Аннотации запроса — как есть;
+# без них — профиль из имени t<N>-heavy-<профиль>-… и репозиторий метки (sizing в
+# подоболочке: NEED_* своего прогона не трогаются); профиль не узнан — наибольший
+# запрос таблицы по CPU и по памяти, а не запрос нового.
+busy_demand() {
+    local n c m r rest p pr d tmax=""
+    while read -r n c m r; do
+        [ -n "$n" ] || continue
+        if [ "$c" != - ] && [ "$m" != - ]; then printf '%s %s %s\n' "$n" "$c" "$m"; continue; fi
+        [ "$r" = - ] && r=""
+        rest="${n#t*-heavy-}"; p=""
+        while IFS='|' read -r pr _; do
+            case "$rest" in "$pr"-*) p="$pr"; break ;; esac
+        done <<< "$PROFILES"
+        d=""
+        [ -n "$p" ] && d="$(sizing "$p" "$r" && printf '%s %s' "$NEED_CPU" "$NEED_MIB")"
+        if [ -z "$d" ]; then
+            [ -n "$tmax" ] || tmax="$(table_max)"
+            d="$tmax"
+        fi
+        printf '%s %s\n' "$n" "$d"
+    done
+}
+# table_max — наибольший запрос таблицы: «mCPU МиБ», каждое — наибольшее по профилям
+# PROFILES и репозиториям kacho, kaname, corelib.
+table_max() {
+    local pr r d c m mc=0 mm=0
+    while IFS='|' read -r pr _; do
+        for r in kacho kaname corelib; do
+            d="$(sizing "$pr" "$r" && printf '%s %s' "$NEED_CPU" "$NEED_MIB")" || continue
+            read -r c m <<< "$d"
+            [ "$c" -gt "$mc" ] && mc="$c"
+            [ "$m" -gt "$mm" ] && mm="$m"
+        done
+    done <<< "$PROFILES"
+    printf '%s %s\n' "$mc" "$mm"
 }
 # defect <что> — ДЕФЕКТ ОБЁРТКИ: ответ кластера прочитан, а run.sh его не обработал.
 # Это не недоступность кластера: код 70 (EX_SOFTWARE), и heavy-slot по нему локально
@@ -830,29 +1008,36 @@ defect() {
     say "дефект обёртки run.sh: $1 — это не недоступность кластера (код 70, не выполнилось, не красное)"
     exit 70
 }
-# busy_read [хвост] — перепись идущих в BUSY: не прочитана — 69, не разобрана — 70.
+# busy_read [хвост] — перепись идущих: имена в BUSY, «имя mCPU МиБ» в BUSY_DEM (тот же
+# порядок); не прочитана — 69, не разобрана — 70.
 busy_read() {
-    local rc
-    BUSY="$(busy_heavy)"; rc=$?
+    local rc raw
+    raw="$(busy_heavy)"; rc=$?
     case "$rc" in
-        0) return 0 ;;
+        0) BUSY="$(cut -d' ' -f1 <<< "$raw")"; BUSY_DEM="$(busy_demand <<< "$raw")"; return 0 ;;
         2) defect "перепись идущих тяжёлых ns прочитана, а разбор её отказал${1:-}" ;;
         *) say "перепись идущих тяжёлых ns не прочитана${1:-}"; exit 69 ;;
     esac
 }
 
-# placement <mCPU> <МиБ> — РАЗМЕЩЕНИЕ в шапке. Код 0 — годный узел есть; 69 — узла,
-# открытого для планирования, нет; 75 — такой есть, но места под запрос нет; 1 —
-# перепись не прочитана; 2 — прочитана, а разбор отказал (дефект обёртки, ws#1210). Причина — в PLACE_WHY, перепись — в PLACE_CENSUS.
+# placement <mCPU> <МиБ> [<идущие тяжёлые ns: строки «имя mCPU МиБ» busy_demand>] —
+# РАЗМЕЩЕНИЕ и ЁМКОСТЬ в шапке. Идущие названы — их запросы без узла раскладываются по
+# открытым узлам раньше нового (pod без nodeName — своим запросом, ns без живого pod —
+# СВОИМ запросом из строки); не названы — судится лишь место под один pod (ожидание
+# планирования: своё ns уже среди идущих, и его pod считался бы дважды). Запрос не
+# назван (0 и 0) — судится лишь открытый узел. Код 0 — новый ложится; 69 —
+# узла, открытого для планирования, нет; 75 — такой есть, но после идущих места под
+# запрос нет; 1 — перепись не прочитана; 2 — прочитана, а разбор отказал (дефект
+# обёртки, ws#1210). Причина — в PLACE_WHY, перепись — в PLACE_CENSUS, ёмкость — в
+# PLACE_CAP («тяжёлых N, помещается M (узлов K, свободно C CPU / G ГиБ)»).
 placement() {
     local nj pj r
-    PLACE_WHY=""; PLACE_CENSUS=""
+    PLACE_WHY=""; PLACE_CENSUS=""; PLACE_CAP=""
     nj="$(kc get nodes -o json 2>/dev/null)" || { PLACE_WHY="узлы не прочитаны"; return 1; }
     pj="$(kc get pods -A -o json 2>/dev/null)" || { PLACE_WHY="pod кластера не прочитаны"; return 1; }
     # Перепись pod кластера — сотни КиБ, а строка аргумента ограничена ядром
     # (128 КиБ): вход — файлами, а не --argjson (опыт 2026-10-09 на кластере).
-    r="$(jq -nr --slurpfile N <(printf '%s' "$nj") --slurpfile P <(printf '%s' "$pj") --argjson cpu "$1" --argjson mem "$2" '
-      $N[0] as $n | $P[0] as $p |
+    r="$(jq -nr --slurpfile N <(printf '%s' "$nj") --slurpfile P <(printf '%s' "$pj") --rawfile B <(printf '%s' "${3:-}") --argjson cpu "$1" --argjson mem "$2" '
       def mcpu: tostring | if endswith("m") then (.[:-1] | tonumber) else (tonumber * 1000) end;
       def mib: tostring | capture("^(?<v>[0-9.]+)(?<u>[A-Za-z]*)$") as $c
         | ($c.v | tonumber) * ({"": 1, "k": 1000, "M": 1e6, "G": 1e9, "T": 1e12,
@@ -862,7 +1047,13 @@ placement() {
       def eff($r): ([(.spec.containers // []), ((.spec.initContainers // []) | map(select(.restartPolicy == "Always")))] | map(rq($r)) | add)
                    as $main | ([((.spec.initContainers // []) | map(select(.restartPolicy != "Always")))[] | [.] | rq($r)] | max // 0)
                    as $init | [$main, $init] | max;
-      [$p.items[] | select((.status.phase // "") as $ph | $ph != "Succeeded" and $ph != "Failed") | select(.spec.nodeName)] as $live
+      # slots — сколько pod нового запроса ложится на узел; запрос не назван (0 и 0) — без предела.
+      def slots: [(if $cpu > 0 then (.fcpu / $cpu | floor) else 1e9 end), (if $mem > 0 then (.fmem / $mem | floor) else 1e9 end)] | min | [., 0] | max;
+      $N[0] as $n | $P[0] as $p
+      | ($B | split("\n") | map(select(length > 0) | split(" ") | {n: .[0], c: (.[1] | tonumber), m: (.[2] | tonumber)})) as $bq
+      | ($bq | map(.n)) as $busy
+      | [$p.items[] | select((.status.phase // "") as $ph | $ph != "Succeeded" and $ph != "Failed")] as $alive
+      | [$alive[] | select(.spec.nodeName)] as $live
       | [$n.items[] | .metadata.name as $nm
          | {open: ((any(.status.conditions[]?; .type == "Ready" and .status == "True"))
                    and ((.spec.unschedulable // false) | not)
@@ -870,19 +1061,64 @@ placement() {
             acpu: (.status.allocatable.cpu // "0" | mcpu), amem: (.status.allocatable.memory // "0" | mib),
             fcpu: ((.status.allocatable.cpu // "0" | mcpu) - ([$live[] | select(.spec.nodeName == $nm) | eff("cpu")] | add // 0)),
             fmem: ((.status.allocatable.memory // "0" | mib) - ([$live[] | select(.spec.nodeName == $nm) | eff("memory")] | add // 0))}] as $ns
+      | [$ns[] | select(.open)] as $open
+      | ([$alive[] | select(.spec.nodeName | not) | select(.metadata.namespace | IN($busy[])) | {c: eff("cpu"), m: eff("memory")}]
+         + [$bq[] | select(.n as $x | $alive | any(.metadata.namespace == $x) | not) | {c: .c, m: .m}]
+         | sort_by(-.c, -.m)) as $dem
+      | (reduce $dem[] as $d ({bins: $open, un: 0};
+          ([.bins | to_entries[] | select(.value.fcpu >= $d.c and .value.fmem >= $d.m)
+            | {k: .key, s: ((.value.fcpu - $d.c) / ([.value.acpu, 1] | max) + (.value.fmem - $d.m) / ([.value.amem, 1] | max))}]
+           | sort_by(-.s, .k) | map(.k) | first) as $i
+          | if $i == null then .un += 1 else (.bins[$i].fcpu -= $d.c | .bins[$i].fmem -= $d.m) end)) as $pk
+      | ($pk.bins | map(slots) | add // 0) as $extra
       | [($ns | length), ($ns | map(select(.open | not)) | length),
          ($ns | map(select(.open)) | length),
-         ($ns | map(select(.open and .fcpu >= $cpu and .fmem >= $mem)) | length)] | map(tostring) | join(" ")' 2>/dev/null)" \
+         ($pk.bins | map(select(slots >= 1)) | length),
+         $pk.un, ($busy | length),
+         (if $cpu == 0 and $mem == 0 then "-" else ($busy | length) - $pk.un + $extra end),
+         (([$pk.bins[].fcpu | select(. > 0)] | add // 0) / 100 | floor / 10),
+         (([$pk.bins[].fmem | select(. > 0)] | add // 0) / 102.4 | floor / 10)] | map(tostring) | join(" ")' 2>/dev/null)" \
         || { PLACE_WHY="перепись узлов и pod прочитана, а разбор её отказал"; return 2; }
-    local all closed open fit
-    read -r all closed open fit <<< "$r"
+    local all closed open fit un nb cap fc fm
+    read -r all closed open fit un nb cap fc fm <<< "$r"
     PLACE_CENSUS="узлов $all: закрыты для планирования $closed, открыты $open, из них с местом $fit"
+    [ "$cap" = - ] && cap="без предела (запрос не назван)"
+    PLACE_CAP="тяжёлых $nb, помещается $cap (узлов $open, свободно ${fc/./,} CPU / ${fm/./,} ГиБ)"
     [ "${all:-0}" -gt 0 ] || { PLACE_WHY="узлов в кластере ноль — переписывать нечего"; return 1; }
-    [ "$fit" -gt 0 ] && return 0
+    [ "$fit" -gt 0 ] && { [ "$un" = 0 ] || [ "$1/$2" = 0/0 ]; } && return 0
     if [ "$open" -eq 0 ]; then
         PLACE_WHY="открытого для планирования узла нет ($PLACE_CENSUS) — pod не встанет"; return 69
     fi
-    PLACE_WHY="места под запрос (cpu ${1}m, память $2 МиБ) по CPU и памяти нет ни на одном открытом узле ($PLACE_CENSUS)"; return 75
+    local unw=""
+    [ "$un" = 0 ] || unw="; не легли и идущие без узла: $un"
+    PLACE_WHY="места под запрос (cpu ${1}m, память $2 МиБ) по CPU и памяти после идущих нет ни на одном открытом узле ($PLACE_CENSUS; ёмкость: $PLACE_CAP$unw)"; return 75
+}
+
+# avail_args <доводы после --available|--request> — разбор: AV_PROFILE, AV_REPO, AV_PENDING
+# (содержимое файла --pending, строки «имя mCPU МиБ»); вне формы — 64 с причиной.
+avail_args() {
+    AV_PROFILE=""; AV_REPO=""; AV_PENDING=""; AV_PF=""
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            --profile) [ -n "${2:-}" ] && [ -z "$AV_PROFILE" ] || return 1; AV_PROFILE="$2"; shift 2 ;;
+            --repo) [ -n "${2:-}" ] && [ -z "$AV_REPO" ] || return 1; AV_REPO="$2"; shift 2 ;;
+            --pending) [ -n "${2:-}" ] && [ -z "$AV_PF" ] || return 1; AV_PF="$2"; shift 2 ;;
+            *) return 1 ;;
+        esac
+    done
+    [ -z "$AV_REPO" ] || [ -n "$AV_PROFILE" ] || return 1
+    case "$AV_REPO" in ''|kacho|kaname|corelib|kacho-workspace) ;; *) say "--repo kacho|kaname|corelib|kacho-workspace, получено «$AV_REPO»"; exit 64 ;; esac
+    [ -z "$AV_REPO" ] || pair_ok "$AV_PROFILE" "$AV_REPO" || exit 64
+    if [ -n "$AV_PROFILE" ]; then
+        profile_row "$AV_PROFILE" >/dev/null || { say "профиля «$AV_PROFILE» нет: $(cut -d'|' -f1 <<< "$PROFILES" | tr '\n' ' ')"; exit 64; }
+    fi
+    if [ -n "$AV_PF" ]; then
+        [ -r "$AV_PF" ] || { say "--pending: файл «$AV_PF» не читается"; exit 64; }
+        AV_PENDING="$(grep -v '^$' "$AV_PF")"
+        [ -z "$AV_PENDING" ] || ! grep -qvE '^[A-Za-z0-9._-]{1,63} [1-9][0-9]{0,6} [1-9][0-9]{0,7}$' <<< "$AV_PENDING" \
+            || { say "--pending: строка вне формы «имя mCPU МиБ»: «$(grep -vE '^[A-Za-z0-9._-]{1,63} [1-9][0-9]{0,6} [1-9][0-9]{0,7}$' <<< "$AV_PENDING" | head -n 1)»"; exit 64; }
+    fi
+    return 0
 }
 
 case "${1:-}" in
@@ -897,14 +1133,16 @@ case "${1:-}" in
         [ "$grc" = 2 ] && defect "$WHY"
         [ "$grc" = 0 ] || { say "$WHY"; exit 69; }
         echo "remote-heavy: кластер профиля доказан — контекст -client, узлы с префиксом <профиль>-client-"; exit 0 ;;
+    --request)
+        avail_args "${@:2}" && [ -n "$AV_PROFILE" ] && [ -z "$AV_PF" ] \
+            || { say "--request --profile <профиль> [--repo kacho|kaname|corelib|kacho-workspace], получено «${*:2}»"; exit 64; }
+        sizing "$AV_PROFILE" "$AV_REPO" || { say "запрос профиля $AV_PROFILE не выведен из PEAKS: строки профиля в таблице нет (не выполнилось)"; exit 69; }
+        printf '%s %s\n' "$NEED_CPU" "$NEED_MIB"; exit 0 ;;
     --available)
         need="0 0"; avw=""
-        if [ -n "${2:-}" ]; then
-            { [ "$2" = --profile ] && [ "$#" -eq 3 ]; } || { [ "$2" = --profile ] && [ "$#" -eq 5 ] && [ "$4" = --repo ]; } \
-                || { say "--available [--profile <профиль> [--repo kacho|kaname|corelib]], получено «${*:2}»"; exit 64; }
-            [ "$#" -eq 3 ] || case "$5" in kacho|kaname|corelib) ;; *) say "--repo kacho|kaname|corelib, получено «$5»"; exit 64 ;; esac
-            profile_row "$3" >/dev/null || { say "профиля «$3» нет: $(cut -d'|' -f1 <<< "$PROFILES" | tr '\n' ' ')"; exit 64; }
-            sizing "$3" "${5:-}" || { say "запрос профиля $3 не выведен из PEAKS: строки профиля в таблице нет (не выполнилось)"; exit 69; }
+        avail_args "${@:2}" || { say "--available [--profile <профиль> [--repo kacho|kaname|corelib|kacho-workspace]] [--pending <файл>], получено «${*:2}»"; exit 64; }
+        if [ -n "$AV_PROFILE" ]; then
+            sizing "$AV_PROFILE" "$AV_REPO" || { say "запрос профиля $AV_PROFILE не выведен из PEAKS: строки профиля в таблице нет (не выполнилось)"; exit 69; }
             need="$NEED_CPU $NEED_MIB"; avw="; запрос pod: cpu ${NEED_CPU}m, память $NEED_MIB МиБ — $SIZE_WHY"
         fi
         valid_max_par || exit 64
@@ -912,20 +1150,20 @@ case "${1:-}" in
         [ "$arc" = 2 ] && defect "$WHY"
         [ "$arc" = 0 ] || { say "$WHY"; [ "$arc" = 64 ] && exit 64; exit 69; }
         busy_read; busy="$BUSY"
-        n="$(grep -c . <<< "$busy")"
-        if [ "$n" -ge "$MAX_PAR" ]; then say "кластер занят: идущих тяжёлых прогонов $n при пределе $MAX_PAR (KACHO_REMOTE_HEAVY_MAX)"; exit 75; fi
-        # shellcheck disable=SC2086  # «mCPU МиБ» — два слова
-        placement $need; prc=$?
+        n="$(grep -c . <<< "$busy")"; np="$(grep -c . <<< "$AV_PENDING")"
+        if [ $(( n + np )) -ge "$MAX_PAR" ]; then say "кластер занят: идущих тяжёлых прогонов $n, вошедших без ns $np при пределе $MAX_PAR (KACHO_REMOTE_HEAVY_MAX)"; exit 75; fi
+        read -r ncpu nmib <<< "$need"
+        placement "$ncpu" "$nmib" "$BUSY_DEM${AV_PENDING:+$'\n'$AV_PENDING}"; prc=$?
         case "$prc" in
             0) ;;
             1) say "размещение не проверено: $PLACE_WHY"; exit 69 ;;
             2) defect "размещение не проверено: $PLACE_WHY" ;;
-            *) say "$PLACE_WHY"; exit "$prc" ;;
+            *) say "$PLACE_WHY${AV_PENDING:+ (в том числе вошедших без ns $np)}"; exit "$prc" ;;
         esac
-        echo "remote-heavy: кластер отвечает, создавать ns вправе; идущих тяжёлых прогонов $n из $MAX_PAR; $PLACE_CENSUS$avw"; exit 0 ;;
+        echo "remote-heavy: кластер отвечает, создавать ns вправе; ёмкость: $PLACE_CAP${AV_PENDING:+ (в том числе вошедших без ns $np)}, потолок $MAX_PAR (KACHO_REMOTE_HEAVY_MAX); $PLACE_CENSUS$avw"; exit 0 ;;
     --profiles)
         while IFS='|' read -r n _ _ _ eph d basis; do
-            for r in kacho kaname corelib; do
+            for r in $(profile_repos "$n"); do
                 sizing "$n" "$r" || { say "запрос профиля $n для $r не выведен из PEAKS: строки профиля в таблице нет (не выполнилось)"; exit 69; }
                 printf '%-12s %-8s pod cpu %sm память %s МиБ · run cpu %sm/%s память %s/%s МиБ · диск %s · dind %s\n%-21s %s\n' "$n" "$r" "$NEED_CPU" "$NEED_MIB" \
                     "$RUN_CPU_REQ" "$(cut -d'|' -f3 <<< "$(profile_row "$n")")" "$RUN_MEM_REQ" "$RUN_MEM_LIM" "$eph" "$([ "$d" = 1 ] && echo да || echo нет)" "" "$SIZE_WHY"
@@ -959,9 +1197,10 @@ done
 [ "$#" -ge 1 ] || { say "нет команды: run.sh … -- <команда>"; exit 64; }
 CMD=("$@")
 [[ "$TASK" =~ ^[1-9][0-9]{0,6}$ ]] || { say "--task <N> — номер задачи, получено «$TASK»"; exit 64; }
-case "$REPO" in kacho|kaname|corelib) ;; *) say "--repo kacho|kaname|corelib, получено «$REPO»"; exit 64 ;; esac
+case "$REPO" in kacho|kaname|corelib|kacho-workspace) ;; *) say "--repo kacho|kaname|corelib|kacho-workspace, получено «$REPO»"; exit 64 ;; esac
 [ -n "$REF" ] || { say "--ref <ревизия> обязателен"; exit 64; }
 ROW="$(profile_row "$PROFILE")" || { say "профиля «$PROFILE» нет: $(cut -d'|' -f1 <<< "$PROFILES" | tr '\n' ' ')"; exit 64; }
+pair_ok "$PROFILE" "$REPO" || exit 64
 IFS='|' read -r _ _ CPU_LIM _ EPH DIND _ <<< "$ROW"
 [[ "$TIMEOUT_S" =~ ^[0-9]+$ ]] && [ "$TIMEOUT_S" -ge 60 ] && [ "$TIMEOUT_S" -le "$MAX_TIMEOUT_S" ] \
     || { say "--timeout — от 60 до $MAX_TIMEOUT_S с, получено «$TIMEOUT_S»"; exit 64; }
@@ -997,7 +1236,7 @@ SHA="$(git -C "$SRC" rev-parse --verify --quiet "$REF^{commit}")" || { say "ре
 MAIN_SHA="$(git -C "$SRC" rev-parse --verify --quiet 'refs/remotes/origin/main^{commit}')" || MAIN_SHA=""
 # Корневая учётка вызывающей копии (УЧЁТКА GIT в шапке) — до первого обращения к кластеру.
 GIT_NAME=""; GIT_EMAIL=""
-if [ "$PROFILE" = ci-local ]; then
+if [ "$PROFILE" = ci-local ] || [ "$PROFILE" = ws ]; then
     GIT_NAME="$(git -C "$SRC" config --global --includes --get user.name 2>/dev/null)" || GIT_NAME=""
     GIT_EMAIL="$(git -C "$SRC" config --global --includes --get user.email 2>/dev/null)" || GIT_EMAIL=""
     if [ -z "$GIT_NAME" ] || [ -z "$GIT_EMAIL" ] || [[ "$GIT_NAME$GIT_EMAIL" == *$'\n'* ]]; then
@@ -1008,10 +1247,13 @@ if [ "$PROFILE" = ci-local ]; then
         say "учётка git: корневой у вызывающей копии нет — Job идёт без неё (не отправка)"
     fi
 fi
+GOVER=""
+if [ "$PROFILE" != ws ]; then
 GOMOD="$(git -C "$SRC" show "$SHA:go.mod" 2>/dev/null)" || { say "go.mod на $SHA не прочитан"; exit 69; }
 GOVER="$(sed -n 's/^toolchain go\([0-9][0-9.]*\)$/\1/p' <<< "$GOMOD" | head -n 1)"
 [ -n "$GOVER" ] || GOVER="$(sed -n 's/^go \([0-9]*\.[0-9]*\.[0-9]*\)$/\1/p' <<< "$GOMOD" | head -n 1)"
 [ -n "$GOVER" ] || { say "версия go на $SHA не выводится: нет строки toolchain и полной строки go в go.mod"; exit 69; }
+fi
 WF=""
 for f in .github/workflows/ci.yaml .github/workflows/ci.yml; do
     WF="$(git -C "$SRC" show "$SHA:$f" 2>/dev/null)" && break
@@ -1030,7 +1272,19 @@ GOSEC_PIN="$(pin_of 'securego/gosec/v2/cmd/gosec')"; [ "$?" -eq 2 ] && exit 69
 if [ "$PROFILE" = lint ] && [ -z "$LINT_PIN" ]; then
     say "профиль lint: пина golangci-lint в конвейере $REPO на $SHA нет — версию не выбрать"; exit 69
 fi
-GO_IMAGE="$REGISTRY/golang:$GOVER"
+GO_IMAGE="$REGISTRY/golang:$GOVER"; IMG_NAME="golang:$GOVER"
+[ "$PROFILE" != ws ] || { GO_IMAGE="$WS_IMAGE"; IMG_NAME="${WS_IMAGE##*/}"; LINT_PIN=""; GOSEC_PIN=""; }
+# Пин shellcheck профиля ws — пин конвейера ревизии (env.SHELLCHECK_VERSION, как его ставит ci.yaml
+# воркспейса) обязан совпасть с WS_SHELLCHECK: суммы под иную версию в шаге WSTOOLS_SH нет.
+WS_SC=""
+if [ "$PROFILE" = ws ]; then
+    WS_SC="$(python3 -c 'import sys, yaml
+d = yaml.safe_load(sys.stdin)
+v = ((d or {}).get("env") or {}).get("SHELLCHECK_VERSION") if isinstance(d, dict) else None
+print(v if isinstance(v, str) else "")' <<< "$WF" 2>&1)" || { say "пин shellcheck на $SHA: конвейер не разобран (python3 с yaml): $(head -n 1 <<< "$WS_SC") — версию не выбрать"; exit 69; }
+    [ -n "$WS_SC" ] || { say "пин shellcheck на $SHA: env.SHELLCHECK_VERSION конвейера нет — версию не выбрать"; exit 69; }
+    [ "$WS_SC" = "$WS_SHELLCHECK" ] || { say "пин shellcheck на $SHA — $WS_SC, а шаг WSTOOLS_SH несёт сумму лишь $WS_SHELLCHECK — обнови WS_SHELLCHECK и сумму в run.sh (не выполнилось, Job не создавался)"; exit 69; }
+fi
 # step_pin <шаг uses> <ключ> <имя> — единственное значение `with.<ключ>` у шагов
 # `uses: <шаг>@…` конвейера ревизии (СРЕДА в шапке). Конвейер разбирается как YAML
 # (python3 с yaml), а не строками: порядок ключей шага и поточная форма
@@ -1122,11 +1376,18 @@ image_helm() {
     [ "$(wc -l <<< "$vals")" -eq 1 ] || { say "helm образа ранера неоднозначен на $SHA: $(tr '\n' ' ' <<< "$vals")— версию не выбрать"; return 2; }
     printf '%s\n' "$vals"
 }
-HELM_PIN=""; NODE_PIN=""; BUF_PIN=""; HELM_SRC=""
-if [ "$PROFILE" != lint ]; then
+HELM_PIN=""; NODE_PIN=""; BUF_PIN=""; YQ_PIN=""; HELM_SRC=""
+if [ "$PROFILE" != lint ] && [ "$PROFILE" != ws ]; then
     HELM_PIN="$(step_pin azure/setup-helm version helm)"; [ "$?" -eq 2 ] && exit 69
     NODE_PIN="$(step_pin actions/setup-node node-version node)"; [ "$?" -eq 2 ] && exit 69
     BUF_PIN="$(step_pin bufbuild/buf-setup-action version buf)"; [ "$?" -eq 2 ] && exit 69
+    YQ_PIN="$(pin_of 'mikefarah/yq/v4')"; [ "$?" -eq 2 ] && exit 69
+    # Форма, которой pin_of не знает (`@latest`, `@v4.53`, `@v4.53.6-rc1`, шаг
+    # `uses: mikefarah/yq@…`), оставляла пин пустым либо брала его у соседнего задания:
+    # yq не ставился («не требуется»), команда краснела вместо «не выполнилось» (ws#1296,
+    # приёмка). Каждое упоминание mikefarah/yq — пин `…/v4@vX.Y.Z` целиком, иначе 69.
+    YQ_ODD="$(grep -oE 'mikefarah/yq[^[:space:]"'\'']*' <<< "$WF" | grep -vxE 'mikefarah/yq/v4@v[0-9]+\.[0-9]+\.[0-9]+' | sort -u)"
+    [ -z "$YQ_ODD" ] || { say "пин yq на $SHA: mikefarah/yq в конвейере формой, которую разбор пина не знает: $(tr '\n' ' ' <<< "$YQ_ODD")— разбирается лишь go install …mikefarah/yq/v4@vX.Y.Z, версию не выбрать"; exit 69; }
     [[ -z "$HELM_PIN" || "$HELM_PIN" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { say "пин helm на $SHA вне формы vX.Y.Z: «$HELM_PIN»"; exit 69; }
     [[ -z "$NODE_PIN" || "$NODE_PIN" =~ ^[0-9]+(\.[0-9]+){0,2}$ ]] || { say "пин node на $SHA вне формы N[.N[.N]]: «$NODE_PIN»"; exit 69; }
     [[ -z "$BUF_PIN" || "$BUF_PIN" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]] || { say "пин buf на $SHA вне формы [v]X.Y.Z: «$BUF_PIN»"; exit 69; }
@@ -1135,8 +1396,11 @@ if [ "$PROFILE" != lint ]; then
         HELM_PIN="$(image_helm)"; [ "$?" -eq 2 ] && exit 69
         HELM_SRC="образ ранера"
     fi
-    [ -n "$HELM_PIN$NODE_PIN$BUF_PIN" ] || say "helm, node и buf: пинов в конвейере ревизии и helm в образе ранера нет — не ставлю и не сверяю (в конвейере их тоже нет)"
+    [ -n "$HELM_PIN$NODE_PIN$BUF_PIN$YQ_PIN" ] || say "helm, node, buf и yq: пинов в конвейере ревизии и helm в образе ранера нет — не ставлю и не сверяю (в конвейере их тоже нет)"
+else
+    say "профиль lint: helm, node, buf, yq, jq, PyYAML и pytest не ставятся (их ставят профили с go test) — отказ команды «нужен <инструмент>» здесь — выбор профиля, а не вердикт; такой команде — профиль ci-local"
 fi
+[ "$PROFILE" != ws ] || NODE_PIN="$WS_NODE"   # СРЕДА ВОРКСПЕЙСА: ранер несёт node в образе, пина в ci.yaml нет
 
 # ── владелец и уборка прежних запусков (ЛОКАЛЬНАЯ УБОРКА в шапке) ──────────────
 # proc_start <pid> — время старта процесса (поле 22 /proc/<pid>/stat, в тиках).
@@ -1285,13 +1549,14 @@ fi
 # Размещение — до ns (РАЗМЕЩЕНИЕ в шапке): pod, которому негде встать, ns не заводит.
 sizing "$PROFILE" "$REPO" || { say "запрос профиля $PROFILE для $REPO не выведен из PEAKS (не выполнилось)"; exit 69; }
 say "запрос pod: cpu ${NEED_CPU}m, память $NEED_MIB МиБ — $SIZE_WHY"
-placement "$NEED_CPU" "$NEED_MIB"; prc=$?
+placement "$NEED_CPU" "$NEED_MIB" "$BUSY_DEM"; prc=$?
 case "$prc" in
     0) ;;
     1) say "размещение не проверено: $PLACE_WHY (не выполнилось)"; exit 69 ;;
     2) defect "размещение не проверено: $PLACE_WHY" ;;
     *) say "$PLACE_WHY — ns не создаётся (не выполнилось)"; exit "$prc" ;;
 esac
+say "ёмкость: $PLACE_CAP, потолок $MAX_PAR (KACHO_REMOTE_HEAVY_MAX)"
 
 BOX="$(mktemp -d "${TMPDIR:-/tmp}/remote-heavy.XXXXXX")" || { say "рабочий каталог не создан"; exit 69; }
 CREATED=0; BG=""; DONE=0; TMPREF=""
@@ -1339,12 +1604,16 @@ LIFE_S=$(( TIMEOUT_S + WAIT_START_S + 600 ))
 EXPIRES="$(date -u -d "@$(( $(now) + LIFE_S ))" +%Y-%m-%dT%H:%M:%SZ)"
 PSA=baseline; [ "$DIND" = 1 ] && PSA=privileged
 
-jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg repo "$REPO" --arg exp "$EXPIRES" --arg psa "$PSA" --arg owner "$OWNER" --arg keep "$KEEP_H" '{
+# kacho.io/request-cpu и kacho.io/request-mib — запрос pod (ЁМКОСТЬ в шапке): по ним
+# младший запуск считает это ns, пока его Job pod ещё не создал.
+jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg repo "$REPO" --arg exp "$EXPIRES" --arg psa "$PSA" --arg owner "$OWNER" --arg keep "$KEEP_H" \
+      --arg rc "$NEED_CPU" --arg rm "$NEED_MIB" '{
   apiVersion: "v1", kind: "Namespace",
   metadata: {name: $ns,
     labels: {"kacho.io/task": $task, "kacho.io/stand": "test", "kacho.io/kind": "heavy", "kacho.io/repo": $repo,
              "pod-security.kubernetes.io/enforce": $psa},
-    annotations: ({"kacho.io/expires": $exp, "kacho.io/owner": $owner} + (if $keep != "" then {"kacho.io/keep": $keep} else {} end))}}' > "$BOX/ns.json"
+    annotations: ({"kacho.io/expires": $exp, "kacho.io/owner": $owner, "kacho.io/request-cpu": $rc, "kacho.io/request-mib": $rm}
+                  + (if $keep != "" then {"kacho.io/keep": $keep} else {} end))}}' > "$BOX/ns.json"
 # create, а не apply: существующее ns create не трогает, а apply переписал бы его
 # метки, и trap снял бы чужое.
 guard_write "создание ns" || guard_exit $?
@@ -1367,6 +1636,14 @@ if [ "$pos" -gt "$MAX_PAR" ]; then
     KEEP_H=""  # прогона не было — оставлять для разбора нечего
     say "кластер занят: прогон $pos-й по времени создания при пределе $MAX_PAR (KACHO_REMOTE_HEAVY_MAX) — снимаю своё ns (не выполнилось)"; exit 75
 fi
+# ЁМКОСТЬ при гонке: свой запрос — после СТАРШИХ идущих, каждый своим запросом (тем же
+# busy_demand, что до ns); младшие уступают сами.
+placement "$NEED_CPU" "$NEED_MIB" "$(head -n "$(( pos - 1 ))" <<< "$BUSY_DEM")"; prc=$?
+case "$prc" in
+    0|1) ;;  # не прочитано — до ns размещение доказано, ожидание планирования переспросит
+    2) defect "размещение после создания ns не проверено: $PLACE_WHY" ;;
+    *) KEEP_H=""; say "кластер занят: прогон $pos-й по времени создания, а со старшими идущими $PLACE_WHY — снимаю своё ns (не выполнилось)"; exit "$prc" ;;
+esac
 
 # ── сеть ns (ИЗОЛЯЦИЯ в шапке) ───────────────────────────────────────────────
 dns="$(kc get svc -A -o json 2>/dev/null | jq -c '[.items[]
@@ -1605,6 +1882,38 @@ FILEB
 )"
 [ "$PROFILE" = ci-local ] && PREP="$PREP
 $FILE_SH"
+# PYTEST (ws#1296): прогонщик проб python kacho (.github/scripts/run-python-probes.py) без
+# pytest отказывает «нет pytest … прогон НЕ ВЫПОЛНЕН», и самопроверка в helm-manifest-test
+# краснела в pod; конвейер ставит его шагом `pip install pytest` задания чартов. pip образ
+# не несёт: колёса py3-none-any (pytest и зависимости для python ≥ 3.11) с пином суммы
+# распаковываются в site-packages интерпретатора, как PyYAML — видимость без окружения
+# (ws#1207) сверяется подпроцессом `env -i`. Маркеры — граница, по которой inject.sh
+# исполняет шаг над двойником сети. Стоит ДО шага пакетов: за «# pkgs-end» следует
+# установка golangci-lint (проба G1 стережёт её склейку с маркером).
+# shellcheck disable=SC2016  # раскрывается в pod, не здесь
+PYTEST_SH='# pytest-begin
+py="$(command -v python3)" || pf "python3 в образе нет"
+if ! env -i "$py" -c "import pytest" >/dev/null 2>&1; then
+  pts="$("$py" -c "import site; print(site.getsitepackages()[0])" 2>/dev/null)" && [ -n "$pts" ] || pf "pytest: каталог site-packages интерпретатора $py не назван"
+  echo "remote-heavy: ставлю pytest 9.1.1 в $pts" >&2
+  mkdir -p /work/dl/pt "$pts" || pf "каталог загрузки не создан"
+  for e in pytest-9.1.1-py3-none-any.whl:37a86b45efb9a47a61a36449063e8e18d0cab3161329fc099eb21783169c4f0c \
+           pluggy-1.7.0-py3-none-any.whl:7dd7b0d8832ba3cb632c306926ded123429211b83641b35dc5c41ad2d34f9bec \
+           iniconfig-2.3.1-py3-none-any.whl:9121e2c1fdb355232495be3194c8dfe87ccc2d5dee45947b78e68f499790d7a7 \
+           packaging-26.3-py3-none-any.whl:d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c \
+           pygments-2.21.0-py3-none-any.whl:2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9; do
+    w="${e%%:*}"; n="${w%%-*}"
+    curl -fsSL --retry 4 --retry-all-errors --retry-delay 3 --connect-timeout 10 --max-time 180 -o "/work/dl/pt/$w" "https://files.pythonhosted.org/packages/py3/${n:0:1}/$n/$w" \
+      && echo "${e#*:}  /work/dl/pt/$w" | sha256sum -c --quiet - \
+      && "$py" -m zipfile -e "/work/dl/pt/$w" "$pts" || pf "pytest 9.1.1: колесо $w не поставлено"
+  done
+  rm -rf /work/dl/pt
+fi
+pv="$(env -i "$py" -c "import pytest; print(pytest.__version__)" 2>/dev/null)" || pf "pytest не виден подпроцессу с пустым окружением ($py)"
+echo "remote-heavy: pytest $pv (без окружения)" >&2
+# pytest-end'
+[ "$PROFILE" = lint ] || PREP="$PREP
+$PYTEST_SH"
 [ "$PROFILE" = lint ] || PREP="$PREP
 $PKGS_SH"
 # Ожидание сборки file и сверка ИСПОЛНЕНИЕМ — перед видимостью: бинарь, не узнающий
@@ -1654,7 +1963,7 @@ echo \"remote-heavy: ставлю golangci-lint $LINT_PIN\" >&2; GOBIN=/work/bin
 [ "$PROFILE" = ci-local ] && [ -n "$GOSEC_PIN" ] && \
     PREP="$PREP
 echo \"remote-heavy: ставлю gosec $GOSEC_PIN\" >&2; GOBIN=/work/bin go install github.com/securego/gosec/v2/cmd/gosec@$GOSEC_PIN || pf \"gosec $GOSEC_PIN не поставлен\""
-# СРЕДА: helm, node и buf — версий пина конвейера ревизии, в /work/bin, с проверкой
+# СРЕДА: helm, node, buf и yq — версий пина конвейера ревизии, в /work/bin, с проверкой
 # контрольной суммы, опубликованной рядом с архивом. Отказ — «remote-heavy-prep:»,
 # то есть 69, а не красное.
 # shellcheck disable=SC2016  # раскрывается в pod, не здесь
@@ -1688,6 +1997,16 @@ if [ -n "${HEAVY_BUF:-}" ]; then
     && grep -E "^[0-9a-f]{64}  $f\$" sums | sha256sum -c --quiet --strict - \
     && install -m 0755 "$f" /work/bin/buf ) || pf "buf $HEAVY_BUF не поставлен"
 fi
+if [ -n "${HEAVY_YQ:-}" ]; then
+  echo "remote-heavy: ставлю yq $HEAVY_YQ" >&2
+  a="$(ha amd64)" || pf "yq: архитектура $(uname -m) не поддержана"
+  f="yq_linux_$a"; u="https://github.com/mikefarah/yq/releases/download/$HEAVY_YQ"; mkdir -p /work/dl/yq || pf "каталог загрузки не создан"
+  ( cd /work/dl/yq && curl -fsSL --retry 3 -o "$f" "$u/$f" \
+    && curl -fsSL --retry 3 -o order "$u/checksums_hashes_order" && curl -fsSL --retry 3 -o sums "$u/checksums" \
+    && i="$(grep -nx "SHA-256" order | cut -d: -f1)" && [ -n "$i" ] \
+    && awk -v f="$f" -v i="$i" '"'"'$1 == f { h = $(i + 1); n++ } END { if (n == 1 && length(h) == 64 && h !~ /[^0-9a-f]/) print h "  " f; else exit 1 }'"'"' sums | sha256sum -c --quiet --strict - \
+    && install -m 0755 "$f" /work/bin/yq ) || pf "yq $HEAVY_YQ не поставлен"
+fi
 rm -rf /work/dl
 # install-end'
 # Сверка среды — отдельно от установки и последней из инструментов перед командой
@@ -1712,7 +2031,12 @@ if [ -n "${HEAVY_BUF:-}" ]; then
   bv="$(buf --version 2>/dev/null)"
   [ "$bv" = "$HEAVY_BUF" ] || tf "buf в PATH — «$bv», пин конвейера $HEAVY_BUF"
 fi
-echo "remote-heavy: среда — helm ${hv:-не требуется}, node ${nv:-не требуется}, buf ${bv:-не требуется}" >&2
+if [ -n "${HEAVY_YQ:-}" ]; then
+  command -v yq >/dev/null 2>&1 || tf "yq $HEAVY_YQ (пин конвейера) нет в PATH — пробы, зовущие yq, не равны конвейеру"
+  yv="$(yq --version 2>/dev/null)"
+  case "$yv" in *mikefarah*" version $HEAVY_YQ") yv="$HEAVY_YQ (mikefarah)" ;; *) tf "yq в PATH — «$yv», пин конвейера mikefarah $HEAVY_YQ";; esac
+fi
+echo "remote-heavy: среда — helm ${hv:-не требуется}, node ${nv:-не требуется}, buf ${bv:-не требуется}, yq ${yv:-не требуется}" >&2
 # tools-end'
 # МОДУЛИ: `go mod download` модуля дерева — до команды, каждым профилем, как шаг
 # конвейера перед тестами (ws#1018). Сборка тянет лишь импортированное, а пробы
@@ -2668,11 +2992,138 @@ echo "remote-heavy: инструментов подготовки в станд�
 # expose-end
 EXPOSE
 )"
-PREP="$PREP
+# СРЕДА ВОРКСПЕЙСА (шапка; ws#1304) — шаги профиля ws. Клоны продуктов — ФОНОМ сразу после
+# пакетов (сеть до GitHub — та же предпосылка, что у buf и jq), ждутся перед видимостью.
+# Маркеры — граница, по которой inject.sh берёт текст из Job и исполняет его.
+# shellcheck disable=SC2016  # раскрывается в pod, не здесь
+WSCLONE_SH="$(cat <<'WSCLONE'
+# wsclone-begin
+wc0=$(date +%s); wcp=""
+mkdir -p /work/src/project || pf "клоны продуктов: каталог project/ не создан"
+for r in kacho kaname corelib; do
+  if [ -e "/work/src/project/$r" ]; then echo "remote-heavy: клон $r уже в дереве — не клонирую" >&2; continue; fi
+  ( GIT_TERMINAL_PROMPT=0 git clone -q "https://github.com/PRO-Robotech/$r.git" "/work/src/project/$r" > "/work/clone-$r.log" 2>&1 \
+      || echo "код $?" > "/work/clone-$r.fail" ) &
+  wcp="$wcp $!"
+done
+echo "remote-heavy: клоны kacho, kaname, corelib — с GitHub фоном, полной историей (как предпосылки конвейера воркспейса)" >&2
+# wsclone-end
+WSCLONE
+)"
+# shellcheck disable=SC2016  # раскрывается в pod, не здесь
+WSTOOLS_SH="$(cat <<'WSTOOLS'
+# wstools-begin
+wdl() { curl -fsSL --retry 4 --retry-all-errors --retry-delay 3 --connect-timeout 10 --max-time 180 -o "$2" "$1" && printf '%s  %s\n' "$3" "$2" | sha256sum -c --quiet -; }
+mkdir -p /work/dl/ws /work/bin || pf "каталог загрузки не создан"
+case "$(uname -m)" in
+  x86_64) ya=amd64; ysum=b96de04645707e14a12f52c37e6266832e03c29e95b9b139cddcae7314466e69
+          sca=x86_64; scsum=8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198 ;;
+  aarch64|arm64) ya=arm64; ysum=a02cc637409db44a9f9cb55ea92c40019582ba88083c4d930a727ec4b59ed439
+          sca=aarch64; scsum=12b331c1d2db6b9eb13cfca64306b1b157a86eb69db83023e261eaa7e7c14588 ;;
+  *) pf "среда воркспейса: архитектура $(uname -m) не поддержана" ;;
+esac
+if ! command -v yq >/dev/null 2>&1; then
+  echo "remote-heavy: ставлю yq v4.45.4" >&2
+  wdl "https://github.com/mikefarah/yq/releases/download/v4.45.4/yq_linux_$ya" /work/dl/ws/yq "$ysum" \
+    && install -m 0755 /work/dl/ws/yq /work/bin/yq || pf "yq v4.45.4 не поставлен"
+fi
+if [ "$(shellcheck --version 2>/dev/null | sed -n 's/^version: //p')" != "$HEAVY_SHELLCHECK" ]; then
+  [ "$HEAVY_SHELLCHECK" = 0.11.0 ] || pf "shellcheck: пин $HEAVY_SHELLCHECK, а сумма в шаге — лишь 0.11.0"
+  echo "remote-heavy: ставлю shellcheck $HEAVY_SHELLCHECK" >&2
+  f="shellcheck-v$HEAVY_SHELLCHECK.linux.$sca.tar.xz"
+  wdl "https://github.com/koalaman/shellcheck/releases/download/v$HEAVY_SHELLCHECK/$f" "/work/dl/ws/$f" "$scsum" \
+    && python3 -c 'import sys, tarfile
+t = tarfile.open(sys.argv[1], "r:xz"); m = t.getmember(sys.argv[2])
+open(sys.argv[3], "wb").write(t.extractfile(m).read())' "/work/dl/ws/$f" "shellcheck-v$HEAVY_SHELLCHECK/shellcheck" /work/bin/shellcheck \
+    && chmod 0755 /work/bin/shellcheck || pf "shellcheck $HEAVY_SHELLCHECK не поставлен"
+fi
+if ! command -v bats >/dev/null 2>&1; then
+  echo "remote-heavy: ставлю bats-core 1.10.0" >&2
+  wdl https://github.com/bats-core/bats-core/archive/refs/tags/v1.10.0.tar.gz /work/dl/ws/bats.tgz a1a9f7875aa4b6a9480ca384d5865f1ccf1b0b1faead6b47aa47d79709a5c5fd \
+    && tar -xzf /work/dl/ws/bats.tgz -C /work/dl/ws && bash /work/dl/ws/bats-core-1.10.0/install.sh /work/bats >/dev/null \
+    && ln -sf /work/bats/bin/bats /work/bin/bats || pf "bats-core 1.10.0 не поставлен"
+fi
+# Читатель трекера для хука отправки (PREPUSH_GH): публичный API, токена нет; форма — ровно
+# вызов хука, прочее — отказ 4. Ответ не 200 — «HTTP <код>» в stderr, код 1 (хук ищет «HTTP 404»).
+cat > /work/bin/gh-issue-public <<'GHP'
+#!/usr/bin/env bash
+set -uo pipefail
+if [ "$#" -ne 4 ] || [ "$1" != api ] || [ "$3" != --jq ] || ! [[ "$2" =~ ^repos/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/issues/[0-9]+$ ]]; then
+  echo "gh-issue-public: поддержан лишь вызов «api repos/<o>/<r>/issues/<n> --jq <выражение>» — токена в pod нет" >&2; exit 4
+fi
+b="$(mktemp)" || exit 1
+code="$(curl -sSL --retry 2 --retry-delay 3 --connect-timeout 10 --max-time 30 -H 'Accept: application/vnd.github+json' -o "$b" -w '%{http_code}' "https://api.github.com/$2")" \
+  || { echo "gh-issue-public: api.github.com не ответил" >&2; rm -f "$b"; exit 1; }
+if [ "$code" = 200 ]; then jq -r "$4" < "$b"; rc=$?
+else echo "gh: HTTP $code: $(jq -r '.message // empty' < "$b" 2>/dev/null | head -c 200) (https://api.github.com/$2)" >&2; rc=1; fi
+rm -f "$b"; exit "$rc"
+GHP
+chmod 0755 /work/bin/gh-issue-public || pf "читатель трекера не поставлен"
+rm -rf /work/dl/ws
+# wstools-end
+WSTOOLS
+)"
+# shellcheck disable=SC2016  # раскрывается в pod, не здесь
+WSCLONEWAIT_SH="$(cat <<'WSCW'
+# wsclonewait-begin
+for x in $wcp; do wait "$x"; done
+wcs=""
+for r in kacho kaname corelib; do
+  [ ! -f "/work/clone-$r.fail" ] || pf "клон $r: git clone https://github.com/PRO-Robotech/$r не исполнился ($(cat "/work/clone-$r.fail")) — $(tail -n 1 "/work/clone-$r.log" 2>/dev/null)"
+  h="$(git -C "/work/src/project/$r" rev-parse -q --verify 'refs/remotes/origin/main^{commit}' 2>/dev/null)" || pf "клон $r: ствола origin/main нет"
+  wcs="$wcs $r@${h:0:12}"
+done
+echo "remote-heavy: клоны продуктов —$wcs, $(( $(date +%s) - wc0 )) с от начала клонирования" >&2
+# wsclonewait-end
+WSCW
+)"
+# Сверка среды воркспейса — ПОСЛЕ видимости: подпроцессом с пустым окружением и PATH образа
+# golang (HEAVY_STD_PATH — его подмена в пробах), как наборы и хук зовут инструменты.
+# shellcheck disable=SC2016  # раскрывается в pod, не здесь
+WSCHECK_SH="$(cat <<'WSCHECK'
+# wscheck-begin
+tf() { echo "remote-heavy-prep: среда: $1" | tee /dev/termination-log >&2; exit 125; }
+# PATH образа golang (ENV образа: /go/bin и /usr/local/go/bin перед путями Debian) — go там, а не в
+# /usr/local/bin; живой прогон 2026-10-22 без них отказал «go нет» при go в образе.
+sp="${HEAVY_STD_PATH:-/go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin}"
+wx() { env -i PATH="$sp" HOME="${HOME:-/root}" bash -c "$1" 2>&1; }
+for t in bash python3 git curl go node jq yq shellcheck bats; do
+  [ -n "$(env -i PATH="$sp" bash -c "command -v $t" 2>/dev/null)" ] || tf "$t нет в PATH образа — наборы и хук воркспейса зовут его, прогон не равен конвейеру"
+done
+wx 'python3 -c "import yaml"' > /dev/null || tf "python3-yaml: модуль yaml не виден python3 подпроцесса с пустым окружением"
+v="$(wx 'yq --version')"; case "$v" in *" v4."*) ;; *) tf "yq в PATH — «$(head -n 1 <<< "$v")», нужен v4 (mikefarah)" ;; esac
+v="$(wx 'shellcheck --version' | sed -n 's/^version: //p')"; [ "$v" = "$HEAVY_SHELLCHECK" ] || tf "shellcheck в PATH — «$v», пин конвейера $HEAVY_SHELLCHECK"
+v="$(wx 'bats --version')"; case "$v" in "Bats "*) ;; *) tf "bats не исполняется — «$(head -n 1 <<< "$v")»" ;; esac
+echo "remote-heavy: среда воркспейса — $(wx 'bash --version' | head -n 1 | cut -d' ' -f1-4), $(wx 'python3 --version'), $(wx 'git --version'), $(wx 'go version' | cut -d' ' -f3), node $(wx 'node --version'), $(wx 'jq --version'), $(wx 'yq --version' | sed 's/.* //'), shellcheck $HEAVY_SHELLCHECK, $(wx 'bats --version')" >&2
+# wscheck-end
+WSCHECK
+)"
+# Команда воркспейса — от непривилегированного пользователя, как у ранера конвейера (runner): root
+# pod обходит права файлов, и проба «запись не записываема» (chmod 0400, rituals check-03) дала в
+# pod чужое красное (живая отправка 2026-10-22). Подготовка остаётся под root; положительный
+# контроль — команда runner не пишет в файл 0400. Позиционные доводы шага — команда (bash -c).
+# shellcheck disable=SC2016  # раскрывается в pod, не здесь
+WSUSER_SH="$(cat <<'WSUSER'
+# wsuser-begin
+id -u runner > /dev/null 2>&1 || useradd -m -u 1001 -U -s /bin/bash runner > /dev/null 2>&1 || pf "пользователь runner (uid 1001) не заведён"
+[ ! -f /root/.gitconfig ] || install -o runner -g runner -m 0644 /root/.gitconfig /home/runner/.gitconfig || pf "учётка git не передана runner"
+chown -R runner:runner /work/src /cache || pf "дерево и кэш не переданы runner"
+command -v setpriv > /dev/null 2>&1 || pf "setpriv нет в образе — сменить пользователя команды нечем"
+wu="$(setpriv --reuid=1001 --regid=1001 --init-groups sh -c 'f=$(mktemp) && chmod 0400 "$f" && { echo x >> "$f"; } 2>/dev/null; r=$?; rm -f "$f"; echo "$(id -u) $r"')"
+[ "${wu% *}" = 1001 ] && [ "${wu#* }" != 0 ] || pf "пользователь команды не сменён либо права файлов ему не указ (uid и код записи в 0400: «$wu»)"
+set -- setpriv --reuid=1001 --regid=1001 --init-groups env HOME=/home/runner USER=runner LOGNAME=runner "$@"
+echo "remote-heavy: команда — от пользователя runner (uid 1001), как у ранера конвейера: запись в файл 0400 ему отказана" >&2
+# wsuser-end
+WSUSER
+)"
+[ "$PROFILE" = ws ] && PREP="$PREP
+$WSCLONE_SH
+$WSTOOLS_SH"
+[ "$PROFILE" = ws ] || PREP="$PREP
 $MODDL_SH"
 [ "$DIND" = 1 ] && PREP="$PREP
 $PULL_SH"
-[ "$PROFILE" = ci-local ] && PREP="$PREP
+{ [ "$PROFILE" = ci-local ] || [ "$PROFILE" = ws ]; } && PREP="$PREP
 $GITID_SH
 $HOOKS_SH"
 [ "$PROFILE" = lint ] || PREP="$PREP
@@ -2680,19 +3131,24 @@ $INSTALL_SH
 $TOOLS_SH"
 [ "$PROFILE" = ci-local ] && [ "$REPO" = kacho ] && PREP="$PREP
 $NPMCI_SH"
-[ "$PROFILE" = lint ] || PREP="$PREP
+[ "$PROFILE" = lint ] || [ "$PROFILE" = ws ] || PREP="$PREP
 $PGWAIT_SH"
 [ "$PROFILE" = ci-local ] && PREP="$PREP
 $FILEWAIT_SH"
 [ "$DIND" = 1 ] && PREP="$PREP
 $PULLWAIT_SH"
+[ "$PROFILE" = ws ] && PREP="$PREP
+$WSCLONEWAIT_SH"
 PREP="$PREP
 $EXPOSE_SH"
+[ "$PROFILE" = ws ] && PREP="$PREP
+$WSCHECK_SH
+$WSUSER_SH"
 # КРАСНЫЕ ГРУППЫ (шапка) — команда с копией вывода, затем дайджест и доставка
 # журналов красных групп потоком лога. Маркеры — граница, по которой inject.sh
 # исполняет шаг над синтетическим прогоном.
 # shellcheck disable=SC2016  # раскрывается в pod, не здесь
-PG=1; [ "$PROFILE" != lint ] || PG=0
+PG=1; case "$PROFILE" in lint|ws) PG=0 ;; esac
 REDLOG_SH="$(cat <<'REDLOG'
 # redlog-begin
 heavy_red() {
@@ -2739,22 +3195,45 @@ heavy_red() {
 # Копия вывода — tee за дескриптором, а не трубой: фоновый процесс команды,
 # унёсший её stdout, держал бы трубу открытой, и шаг ждал бы его до срока Job
 # (с exec этого не было — контейнер кончался с командой). tee ждётся не дольше 5 с.
+# heavy_ws_take <memory.current> <memory.stat> <файл наибольшего> — одна выборка
+# РАБОЧЕЙ памяти cgroup (как её считает kubelet: memory.current − inactive_file, байты);
+# наибольшая — в файл. Нечитаемое — выборки нет.
+heavy_ws_take() {
+  local cur="" k v ia="" m=0
+  { read -r cur < "$1"; } 2>/dev/null
+  { while read -r k v; do [ "$k" = inactive_file ] && { ia="$v"; break; }; done < "$2"; } 2>/dev/null
+  { [[ "$cur" =~ ^[0-9]+$ ]] && [[ "$ia" =~ ^[0-9]+$ ]]; } || return 0
+  { read -r m < "$3"; } 2>/dev/null; [[ "$m" =~ ^[0-9]+$ ]] || m=0
+  [ $(( cur - ia )) -gt "$m" ] && echo "$(( cur - ia ))" > "$3"
+  return 0
+}
 heavy_cmd() {
   local rc ev="${HEAVY_MEM_EVENTS:-/sys/fs/cgroup/memory.events}" o0 o1 fd tp
   local cs="${HEAVY_CPU_STAT:-/sys/fs/cgroup/cpu.stat}" c0 c1 t0 pk
+  local mc="${HEAVY_MEM_CURRENT:-/sys/fs/cgroup/memory.current}" ms="${HEAVY_MEM_STAT:-/sys/fs/cgroup/memory.stat}" wsp ws
   o0="$(awk '$1 == "oom_kill" { print $2 }' "$ev" 2>/dev/null)"
   c0="$(awk '$1 == "usage_usec" { print $2 }' "$cs" 2>/dev/null)"; t0="$(date +%s)"
+  # РАБОЧАЯ ПАМЯТЬ (ws#1293): memory.peak несёт и кэш страниц — запрос pod по нему
+  # завышен. Пик рабочей памяти — выборкой раз в 2 с за время команды и по выборке
+  # до и после неё; выборщик не держит вывод команды (его вывод — в /dev/null).
+  rm -f /work/heavy-ws.max; heavy_ws_take "$mc" "$ms" /work/heavy-ws.max
+  ( while :; do sleep 2; heavy_ws_take "$mc" "$ms" /work/heavy-ws.max; done ) > /dev/null 2>&1 & wsp=$!
   exec {fd}> >(tee /work/heavy-cmd.out); tp=$!
   "$@" >&"$fd" 2>&1; rc=$?
   exec {fd}>&-
+  kill "$wsp" 2>/dev/null; wait "$wsp" 2>/dev/null
+  heavy_ws_take "$mc" "$ms" /work/heavy-ws.max
   for _ in 1 2 3 4 5 6 7 8 9 10; do kill -0 "$tp" 2>/dev/null || break; sleep 0.5; done
   # ПИК (ws#1195): память run — memory.peak cgroup контейнера (вся его жизнь, байты),
-  # CPU — usage_usec за время команды. Нечитаемое — «—», строка есть всегда.
+  # CPU — usage_usec за время команды, рабочая память — наибольшая выборка (ws#1293).
+  # Нечитаемое — «—», строка есть всегда.
   pk="$(cat "${HEAVY_MEM_PEAK:-/sys/fs/cgroup/memory.peak}" 2>/dev/null)"
   c1="$(awk '$1 == "usage_usec" { print $2 }' "$cs" 2>/dev/null)"
+  ws=""; { read -r ws < /work/heavy-ws.max; } 2>/dev/null
   [[ "$pk" =~ ^[0-9]+$ ]] || pk="—"
+  [[ "$ws" =~ ^[0-9]+$ ]] || ws="—"
   { [[ "$c0" =~ ^[0-9]+$ ]] && [[ "$c1" =~ ^[0-9]+$ ]]; } && c1=$(( c1 - c0 )) || c1="—"
-  echo "remote-heavy-peak: $pk $c1 $(( $(date +%s) - t0 ))"
+  echo "remote-heavy-peak: $pk $c1 $(( $(date +%s) - t0 )) $ws"
   o1="$(awk '$1 == "oom_kill" { print $2 }' "$ev" 2>/dev/null)"
   if [[ "$o0" =~ ^[0-9]+$ ]] && [[ "$o1" =~ ^[0-9]+$ ]] && [ "$o1" -gt "$o0" ]; then
     echo "remote-heavy-oom: процесс команды убит пределом памяти (oom_kill $o0 → $o1, код $rc)" | tee /dev/termination-log >&2
@@ -2831,8 +3310,8 @@ jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg goimg "$GO_IMAGE" --arg dimg "
     --argjson deadline "$(( TIMEOUT_S + WAIT_START_S ))" --argjson dind "$DIND" \
     --arg cr "${RUN_CPU_REQ}m" --arg cl "$CPU_LIM" --arg mr "${RUN_MEM_REQ}Mi" --arg ml "${RUN_MEM_LIM}Mi" --arg eph "$EPH" \
     --arg dcr "$DCR" --arg dcl "$DCL" --arg dmr "$DMR" --arg dml "$DML" \
-    --arg pgimg "$PG_IMAGE" --arg pgsh "$PG_SH" --argjson pg "$PG" --arg pgcr "${PG_REQ_M}m" --arg pgmr "${PG_REQ_MIB}Mi" --arg dindsh "$DIND_SH" --arg deny "$DENY_PROBE" --arg helm "$HELM_PIN" --arg node "$NODE_PIN" --arg buf "$BUF_PIN" \
-    --arg pull "$PULL_IMG" --arg pushin "$PUSH_INPUT" --arg gname "$GIT_NAME" --arg gemail "$GIT_EMAIL" --slurpfile cmdv <(printf '%s' "$CMD_JSON") '
+    --arg pgimg "$PG_IMAGE" --arg pgsh "$PG_SH" --argjson pg "$PG" --arg pgcr "${PG_REQ_M}m" --arg pgmr "${PG_REQ_MIB}Mi" --arg dindsh "$DIND_SH" --arg deny "$DENY_PROBE" --arg helm "$HELM_PIN" --arg node "$NODE_PIN" --arg buf "$BUF_PIN" --arg yq "$YQ_PIN" \
+    --arg pull "$PULL_IMG" --arg pushin "$PUSH_INPUT" --arg gname "$GIT_NAME" --arg gemail "$GIT_EMAIL" --arg wssc "$WS_SC" --slurpfile cmdv <(printf '%s' "$CMD_JSON") '
 # kubelet раскрывает в command, args и value env контейнера $(ИМЯ) значением env и
 # сворачивает $$ в $ (ws#1142: составной Job потерял переменные и коды осей). Каждый
 # $ удваивается: kubelet свернёт его обратно, и байты дойдут до контейнера как есть.
@@ -2863,9 +3342,11 @@ def kesc_c: (if .command then .command |= map(kesc) else (.) end)
         resources: {requests: {cpu: "100m", memory: "256Mi"}, limits: {cpu: "2", memory: "2Gi"}},
         volumeMounts: [{name: "work", mountPath: "/work"}]}]),
      containers: ([{name: "run", image: $goimg, command: (["bash", "-c", $prep, "run"] + $cmdv[0]),
-       env: ([{name: "HEAVY_WORKDIR", value: $wd}, {name: "HEAVY_PULL", value: $pull}, {name: "HEAVY_DENY_PROBE", value: $deny}, {name: "HEAVY_HELM", value: $helm}, {name: "HEAVY_NODE", value: $node}, {name: "HEAVY_BUF", value: $buf}, {name: "HEAVY_PUSH_INPUT", value: $pushin}, {name: "HEAVY_GIT_NAME", value: $gname}, {name: "HEAVY_GIT_EMAIL", value: $gemail}, {name: "GOTOOLCHAIN", value: "local"},
+       env: ([{name: "HEAVY_WORKDIR", value: $wd}, {name: "HEAVY_PULL", value: $pull}, {name: "HEAVY_DENY_PROBE", value: $deny}, {name: "HEAVY_HELM", value: $helm}, {name: "HEAVY_NODE", value: $node}, {name: "HEAVY_BUF", value: $buf}, {name: "HEAVY_YQ", value: $yq}, {name: "HEAVY_PUSH_INPUT", value: $pushin}, {name: "HEAVY_GIT_NAME", value: $gname}, {name: "HEAVY_GIT_EMAIL", value: $gemail}, {name: "GOTOOLCHAIN", value: "local"},
               {name: "GOMODCACHE", value: "/cache/mod"}, {name: "GOCACHE", value: "/cache/build"},
               {name: "GOLANGCI_LINT_CACHE", value: "/cache/lint"}, {name: "CI", value: "true"}]
+             + (if $wssc != "" then [{name: "HEAVY_SHELLCHECK", value: $wssc},
+                                    {name: "PREPUSH_GH", value: "/work/bin/gh-issue-public"}] else [] end)
              + (if $dind == 1 then [{name: "DOCKER_HOST", value: "unix:///run/dind/docker.sock"},
                                     {name: "TESTCONTAINERS_RYUK_DISABLED", value: "true"}] else [] end)),
        resources: {requests: {cpu: $cr, memory: $mr, "ephemeral-storage": "1Gi"}, limits: {cpu: $cl, memory: $ml, "ephemeral-storage": $eph}},
@@ -2887,7 +3368,7 @@ kc create -f "$BOX/job.json" >/dev/null || { say "Job не создан (не в
 T0="$(now)"
 REQ_SPEC="$(jq -c '.spec.template.spec' "$BOX/job.json")"
 verify_spec Job "$(kc -n "$NSNAME" get job run -o json 2>/dev/null | jq -c '.spec.template.spec // empty' 2>/dev/null)"
-say "Job создан: образ golang:$GOVER$([ -n "$LINT_PIN" ] && [ "$PROFILE" != go-race ] && [ "$PROFILE" != integration ] && echo ", golangci-lint $LINT_PIN"), cpu ${RUN_CPU_REQ}m/$CPU_LIM, память $RUN_MEM_REQ/$RUN_MEM_LIM МиБ$([ "$DIND" = 1 ] && echo ', dind')$([ -n "$HELM_PIN$NODE_PIN$BUF_PIN" ] && echo ", helm ${HELM_PIN:-нет пина}${HELM_SRC:+ ($HELM_SRC)}, node ${NODE_PIN:-нет пина}, buf ${BUF_PIN:-нет пина}")"
+say "Job создан: образ $IMG_NAME$([ -n "$LINT_PIN" ] && [ "$PROFILE" != go-race ] && [ "$PROFILE" != integration ] && echo ", golangci-lint $LINT_PIN"), cpu ${RUN_CPU_REQ}m/$CPU_LIM, память $RUN_MEM_REQ/$RUN_MEM_LIM МиБ$([ "$DIND" = 1 ] && echo ', dind')$([ -n "$HELM_PIN$NODE_PIN$BUF_PIN$YQ_PIN" ] && echo ", helm ${HELM_PIN:-нет пина}${HELM_SRC:+ ($HELM_SRC)}, node ${NODE_PIN:-нет пина}, buf ${BUF_PIN:-нет пина}, yq ${YQ_PIN:-нет пина}")"
 
 # pod_state — «имя|фаза|fetch|run|код run|причина run|сообщение run|ожидание|
 # планирование|отказ userns». Отказ userns — строка «remote-heavy-userns: …» в

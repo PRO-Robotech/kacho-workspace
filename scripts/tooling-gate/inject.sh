@@ -3542,6 +3542,10 @@ echo "== check-25: хук отправки отвергает бинарь и ф
 C25=check-25-push-refuses-binary-and-large-added-files.sh
 G25="scripts/hooks/prepush-added-files.sh"
 b="$(mksandbox)"; run 0 "$b" "чистое дерево — молчит" "$C25"
+# Предпосылка — настоящий ELF по сигнатуре байт, а не по утилите file (её нет в образе Job ws,
+# ws#1304): `true` на пути — скрипт оболочки — без предмета (2), сигнатура названа.
+fb25="$(mktemp -d "$TMP/fbXXXXXX")"; printf '#!/bin/sh\nexit 0\n' > "$fb25/true"; chmod +x "$fb25/true"
+b="$(mksandbox)"; PATH="$fb25:$PATH" run_says 2 "$b" "предпосылка: true на пути — не ELF — без предмета, а не зелёное" "$C25" "сигнатура «#!/b», не ELF"
 # Мутанты стража: каждый снимает одно решение и обязан покраснеть СВОЕЙ пробой.
 b="$(mksandbox)"
 if mr_patch "$b/$G25" 's/\(size, b\x27\\0\x27 in data\[:PROBE\], data\[:PROBE\]\)/(size, False, data[:PROBE])/' \
@@ -3757,6 +3761,125 @@ fi
 b="$(mksandbox)"
 if swap_trap "$b" dq; then
     run_says 1 "$b" "белый список: действие в двойных кавычках с подстановкой — не в форме" "$C26" "собирается подстановкой"
+fi
+
+echo "== check-27: хук отправки не гонит наборы над проверенным и гонит над непроверенным (ws#1288) =="
+C27=check-27-push-hook-skips-sets-without-new-commits.sh
+G27="scripts/hooks/prepush-new-commits.sh"
+H27="scripts/hooks/pre-push"
+V27='verified\(\) \{ \[ -f .*'
+b="$(mksandbox)"; run 0 "$b" "чистое дерево — молчит" "$C27"
+b="$(mksandbox)"
+if mr_patch "$b/$G27" 's/^\[ "\$total" -eq 0 \]$/exit 0/m' "предикат всегда отвечает «непроверенных нет»"; then
+    run_says 2 "$b" "мутант: непроверенных нет всегда — новый коммит не доходит до наборов, предпосылка VOID" "$C27" "не дошла до заглушки наборов"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$G27" "s/^$V27\$/verified() { false; }/m" "запись проверенного не читается"; then
+    run_says 1 "$b" "мутант: запись не читается — новое имя на проверенной вершине гонит наборы — краснеет" "$C27" "T1b: новое имя на проверенной вершине — наборы шли"
+fi
+# M1 и M2 опыта check-verifier: прежняя посылка «опубликовано — значит, проверено».
+b="$(mksandbox)"
+if mr_patch "$b/$G27" "s/^$V27\$/verified() { [ -n \"\\\$(git for-each-ref --count=1 --contains \"\\\$1\" refs\\/remotes)\" ] || { [ -f \"\\\$ledger\" ] && grep -qxF -- \"\\\$1 \\\$ctxkey\" \"\\\$ledger\"; }; }/m" "M1: вычитаются ветки всех удалённых"; then
+    run_says 1 "$b" "мутант M1: проверенным считается опубликованное в любом удалённом — коммит форка уезжает без наборов — краснеет" "$C27" "D2b: коммит лишь в форке, отправка в origin адресом — наборы НЕ шли"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$G27" "s/^$V27\$/verified() { [ -n \"\\\$(git for-each-ref --count=1 --contains \"\\\$1\" refs\\/remotes\\/origin)\" ] || { [ -f \"\\\$ledger\" ] && grep -qxF -- \"\\\$1 \\\$ctxkey\" \"\\\$ledger\"; }; }/m" "M2: вычитаются ветки удалённого адресата"; then
+    run_says 1 "$b" "мутант M2: проверенным считается опубликованное в origin — черновик под обычным именем уезжает без наборов — краснеет" "$C27" "D1b: черновик wip/, затем то же под обычным именем — наборы НЕ шли"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$G27" "s/^$V27\$/verified() { local v k; [ -f \"\\\$ledger\" ] || return 1; while read -r v k; do [ \"\\\$k\" = \"\\\$ctxkey\" ] && git merge-base --is-ancestor \"\\\$1\" \"\\\$v\" 2>\\/dev\\/null && return 0; done < \"\\\$ledger\"; return 1; }/m" "предок записанной считается проверенным"; then
+    run_says 1 "$b" "мутант: предок записанной вершины проверен — краснеет" "$C27" "T-mid: предок проверенной вершины — наборы НЕ шли"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$G27" 's/"\$\{#f\[@\]\}" -gt 2 \]/"\${#f[@]}" -gt 99 ]/' "слияние с деревом проверенного родителя не узнаётся"; then
+    run_says 1 "$b" "мутант: слияние с деревом проверенного родителя — непроверенное — краснеет" "$C27" "слияние с деревом проверенного родителя — наборы шли"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$G27" 's/"\$\{#f\[@\]\}" -gt 2 \]/"\${#f[@]}" -gt 1 ]/' "коммит с деревом проверенного родителя проверен"; then
+    run_says 1 "$b" "мутант: пустой коммит поверх проверенной — проверен — краснеет" "$C27" "пустой коммит поверх проверенной вершины — наборы НЕ шли"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$G27" 's/if verified "\$p" && \[/if [/' "дерево родителя засчитано без записи родителя"; then
+    run_says 1 "$b" "мутант: слияние с деревом непроверенного родителя проверено — краснеет" "$C27" "слияние с деревом НЕпроверенного родителя — наборы НЕ шли"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$G27" 's/if verified "\$p" && \[ "\$\(git rev-parse "\$p\^\{tree\}"\)" = "\$t" \]; then/if true; then/' "любое слияние проверено"; then
+    run_says 1 "$b" "мутант: любое слияние проверено — догон молчит — краснеет" "$C27" "догон: дерево слияния отлично от обоих проверенных родителей — наборы НЕ шли"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$G27" 's/^    total=\$\(\(total \+ n\)\)$/    total=\$n/m' "судится лишь последняя ссылка"; then
+    run_says 1 "$b" "мутант: судится лишь последняя ссылка — краснеет" "$C27" "непроверенная перед проверенной — наборы НЕ шли"
+fi
+# Провязка хука: код предиката, запись после зелёного и только после зелёного.
+b="$(mksandbox)"
+if mr_patch "$b/$H27" 's/if \[ "\$nc_rc" -eq 0 \]; then/if true; then/' "хук не читает код предиката"; then
+    run_says 2 "$b" "мутант: хук не читает код предиката — наборы не идут и при новом, предпосылка VOID" "$C27" "не дошла до заглушки наборов"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$H27" 's/^record_verified\n/:\n/m' "хук не пишет запись после зелёного"; then
+    run_says 1 "$b" "мутант: зелёный прогон не записан — новое имя на проверенной гонит наборы — краснеет" "$C27" "T1b: новое имя на проверенной вершине — наборы шли"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$H27" 's/^(if \[ "\$\{#failed\[@\]\}" -gt 0 \]; then)$/$1\n    record_verified/m' "хук записывает и красную вершину"; then
+    run_says 1 "$b" "мутант: красная вершина записана проверенной — краснеет" "$C27" "красная вершина под новым именем — не записана проверенной — наборы НЕ шли"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$H27" 's/export KACHO_PREPUSH_CONTEXT="[^"\n]*"/export KACHO_PREPUSH_CONTEXT=/' "хук не передаёт условие вердикта"; then
+    run_says 1 "$b" "мутант: ревизии стволов не условие записи — ушедший вперёд ствол не гонит наборы — краснеет" "$C27" "ствол продукта ушёл вперёд — новое имя на проверенной вершине — наборы НЕ шли"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$G27" 's/^\[ -z "\$\{KACHO_PREPUSH_CONTEXT:-\}" \] \|\| ctxkey=.*$/:/m' "предикат не читает условие вердикта"; then
+    run_says 1 "$b" "мутант: предикат не читает условие — краснеет" "$C27" "ствол продукта ушёл вперёд — новое имя на проверенной вершине — наборы НЕ шли"
+fi
+b="$(mksandbox "$G27")"
+run 2 "$b" "предпосылка: предиката нет в дереве — VOID, а не успех" "$C27"
+
+echo "== check-28: копия хука воркспейса и kacho побайтово равна в стволе kacho (ws#1288) =="
+C28=check-28-hook-copy-matches-kacho-trunk.sh
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/sandbox-git-home.sh
+. "$WS/scripts/lib/sandbox-git-home.sh"
+k28="$TMP/kacho28"
+kacho28() {  # <same|diff|absent|absent-called> — синтетический клон kacho, ствол — refs/remotes/origin/main
+    rm -rf "$k28"; mkdir -p "$k28/scripts/hooks"
+    case "$1" in
+        same) cp "$WS/$G27" "$k28/$G27" ;;
+        diff) { cat "$WS/$G27"; echo '# лишняя строка'; } > "$k28/$G27" ;;
+    esac
+    if [ "$1" = absent-called ]; then
+        echo 'bash scripts/hooks/prepush-new-commits.sh' > "$k28/scripts/hooks/pre-push"
+    else
+        echo 'echo хук' > "$k28/scripts/hooks/pre-push"
+    fi
+    sandbox_git init -q "$k28" && sandbox_git -C "$k28" add -A &&
+        sandbox_git -C "$k28" commit -q -m k && sandbox_git -C "$k28" update-ref refs/remotes/origin/main HEAD
+}
+if sandbox_git_home "$TMP/home28"; then
+    export KACHO_HOME_KACHO="$k28"
+    kacho28 same; b="$(mksandbox)"; run 0 "$b" "копии равны в стволе kacho — молчит" "$C28"
+    kacho28 diff; b="$(mksandbox)"
+    run_says 1 "$b" "копия kacho на строку длиннее — краснеет и называет путь" "$C28" "$G27 расходится"
+    kacho28 same; b="$(mksandbox)"
+    if mr_patch "$b/$G27" 's/^set -uo pipefail$/set -uo pipefail\n# правка только в воркспейсе/m' "правка лишь копии воркспейса"; then
+        run_says 1 "$b" "правка лишь копии воркспейса — краснеет" "$C28" "$G27 расходится"
+    fi
+    kacho28 absent; b="$(mksandbox)"
+    run_says 0 "$b" "в стволе kacho файла нет, хук о нём молчит — ждёт ствола, не находка" "$C28" "ждёт ствола 1"
+    kacho28 absent-called; b="$(mksandbox)"
+    run_says 1 "$b" "в стволе kacho файла нет, а хук его зовёт — краснеет" "$C28" "файла в стволе нет"
+    kacho28 same; b="$(mksandbox)"
+    if mr_patch "$b/$G27" 's/путь scripts\/hooks\/prepush-new-commits\.sh в обоих/путь scripts\/hooks\/другой.sh в обоих/' "объявлен чужой путь"; then
+        run_says 1 "$b" "объявление называет другой путь — краснеет" "$C28" "пара обязана лежать по одному пути"
+    fi
+    b="$(mksandbox)"
+    if mr_patch "$b/$G27" 's/^# Пара: воркспейс/# пара снята: воркспейс/m' "объявление пары снято"; then
+        run 2 "$b" "объявлений пар ноль — VOID, а не успех" "$C28"
+    fi
+    KACHO_PAIR_REF=refs/remotes/origin/нет; export KACHO_PAIR_REF
+    b="$(mksandbox)"; run 2 "$b" "ревизия ствола kacho не резолвится — VOID" "$C28"
+    unset KACHO_PAIR_REF KACHO_HOME_KACHO
+else
+    premise_broken "check-28: корневой подписи нет — синтетический клон kacho не родится"
 fi
 
 echo
