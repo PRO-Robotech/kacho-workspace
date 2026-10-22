@@ -25,6 +25,11 @@
 #                sleep, sleep ≥ 100 с, tail --pid, gh run watch|view, gh pr checks,
 #                flock -w ≥ 100. Класс 1–3 замера (429 агент-ч из 605): каждый
 #                вызов ≤ 10 мин, поэтому «нет нового вызова» его не видит.
+#                Серия считается ПОСЛЕ последнего сброса (ws#1343): записи прерывания
+#                журнала агента, терминального уведомления либо возобновления в главном
+#                журнале; иная запись, называющая агента, не сброс. Журнал workflow, чей
+#                агент продолжен в `subagents/agent-<id>.jsonl` не старше его, не судится
+#                (счёт «остановленных харнессом»): судится продолжение.
 #   Завершённый агент — последняя запись user/assistant журнала есть ответ модели
 #                без вызова инструмента с stop_reason end_turn | stop_sequence |
 #                refusal либо без stop_reason при журнале, молчащем STALL_AGENT_MIN
@@ -301,25 +306,55 @@ findings = []
 WAIT = re.compile(r'\b(until|while)\b.*\bsleep\b|\bsleep\s+[0-9]{3,}|\btail\b.*--pid|\bgh\s+(run\s+(watch|view)|pr\s+checks)\b|\bflock\b.*-w\s*[0-9]{3,}', re.S)
 
 
-def poll_run(path, size=262144):
-    """Хвост вызовов агента, каждый из которых — ожидание: (число, минут с первого, последний)."""
+def interrupted(r):
+    """Запись user — прерывание харнесса «[Request interrupted …]» (строкой либо блоком text)."""
+    raw = r['message'].get('content') if isinstance(r.get('message'), dict) else None
+    texts = [raw] if isinstance(raw, str) else [c.get('text', '') for c in raw or [] if isinstance(c, dict)]
+    return any(str(x).lstrip().startswith('[Request interrupted') for x in texts)
+
+
+def poll_run(path, since=None, size=262144):
+    """Хвост вызовов агента, каждый из которых — ожидание: (число, минут с первого, последний,
+    время первого). Серия — лишь ПОСЛЕ сброса (ws#1343): последней записи прерывания журнала и
+    `since` (остановка или возобновление из главного журнала, `last_reset`)."""
     calls = []
     for r in records(tail_lines(path, size)):
+        if r.get('type') == 'user' and interrupted(r):
+            at = ts(r.get('timestamp', ''))
+            since = at if since is None or (at is not None and at > since) else since
         if r.get('type') != 'assistant' or not isinstance(r.get('message'), dict):
             continue
         for c in r['message'].get('content') or []:
             if isinstance(c, dict) and c.get('type') == 'tool_use':
                 cmd = str((c.get('input') or {}).get('command') or '')
                 calls.append((ts(r.get('timestamp', '')), c.get('name', ''), cmd))
-    n, first = 0, None
+    n, first, tail = 0, None, ''
     for t, name, cmd in reversed(calls):
+        if since is not None and (t is None or t <= since):
+            break
         if name in ('Bash', 'Monitor') and WAIT.search(cmd):
-            n, first = n + 1, t
+            n, first, tail = n + 1, t, tail or cmd
         else:
             break
     if not n or first is None:
-        return 0, 0, ''
-    return n, (now - first) / 60, ' '.join(calls[-1][2].split())[:160]
+        return 0, 0, '', None
+    return n, (now - first) / 60, ' '.join(tail.split())[:160], first
+
+
+def poll_series(aid, path):
+    """Серия ожиданий после последней остановки или возобновления (ws#1343): главный журнал
+    читается лишь тогда, когда серия по журналу агента уже тянет на находку."""
+    n, span, last, first = poll_run(path)
+    if n >= 2 and span >= POLL_MIN:
+        n, span, last, first = poll_run(path, last_reset(aid, first))
+    return n, span, last
+
+
+def moved(aid, apath):
+    """Журнал workflow заморожен: возобновлённый агент пишет в `subagents/agent-<id>.jsonl`
+    (живая форма 2026-10-22, ws#1343), и тот журнал не старше этого — судится он."""
+    top = os.path.join(session, 'subagents', 'agent-%s.jsonl' % aid)
+    return os.path.isfile(top) and os.path.getmtime(top) >= os.path.getmtime(apath)
 
 
 def last_message(path):
@@ -374,9 +409,7 @@ def last_message(path):
         return t, 'result', 'ответ модели после результата инструмента'
     # Прерывание харнесс пишет записью user с текстом «[Request interrupted …]» (строкой либо
     # блоком text): подпись — прерывание, вид и пороги прежние (ws#1242, пункт 2).
-    raw = r['message'].get('content')
-    texts = [raw] if isinstance(raw, str) else [c.get('text', '') for c in content if isinstance(c, dict)]
-    if any(str(x).lstrip().startswith('[Request interrupted') for x in texts):
+    if interrupted(r):
         return t, 'result', 'прервано пользователем'
     return t, 'result', 'ответ модели на сообщение'
 
@@ -401,6 +434,22 @@ def harness_stopped(aid, t):
     """
     if not aid or t is None:
         return False
+    n_last, r_last = harness_marks(aid, t)
+    return n_last is not None and n_last >= t - 3 and (r_last is None or r_last < n_last)
+
+
+def last_reset(aid, t):
+    """Последний сброс серии ожиданий агента (ws#1343): терминальное уведомление харнесса
+    (остановка) либо возобновление `SendMessage`; окно чтения накрывает t — первый вызов серии.
+    Любая иная запись главного журнала, называющая агента, сбросом не служит."""
+    if not aid or t is None:
+        return None
+    got = [x for x in harness_marks(aid, t) if x is not None]
+    return max(got) if got else None
+
+
+def harness_marks(aid, t):
+    """(последнее уведомление, последнее возобновление) агента в главном журнале; окно — до t - 5 с."""
     ab = aid.encode()
     note = re.compile(rb'<task-id>' + re.escape(ab) + rb'</task-id>(?:(?!</task-notification>).)*?<status>([a-z_]+)</status>', re.S)
     resumed = re.compile(rb'resumedAgentId\\*"\s*:\s*\\*"' + re.escape(ab))
@@ -434,7 +483,7 @@ def harness_stopped(aid, t):
         if size >= total or (covered is not None and covered <= t - 5):
             break
         size = min(size * 4, total)
-    return n_last is not None and n_last >= t - 3 and (r_last is None or r_last < n_last)
+    return n_last, r_last
 
 
 # ── Агенты: workflow живые и агенты верхнего уровня ─────────────────────
@@ -478,8 +527,11 @@ try:
                 if age_file < DONE_MIN * 60:
                     agents_seen += 1
                 continue
+            if moved(aid, apath):
+                stopped_seen += 1
+                continue
             agents_seen += 1
-            n, span, last = poll_run(apath)
+            n, span, last = poll_series(aid, apath)
             if n >= 2 and span >= POLL_MIN:
                 agent_finding('STALL-POLL %s/%s — ожидание вместо работы: %d вызовов подряд за %d мин; последний: %s' % (wid, aid, n, span, last), apath, t)
                 continue
@@ -512,8 +564,8 @@ try:
                 agents_seen += 1
             continue
         agents_seen += 1
-        n, span, last = poll_run(apath)
         aid = os.path.basename(apath)[len('agent-'):-len('.jsonl')]
+        n, span, last = poll_series(aid, apath)
         tt = t if t is not None else int(os.path.getmtime(apath))
         if n >= 2 and span >= POLL_MIN:
             if harness_stopped(aid, tt):
