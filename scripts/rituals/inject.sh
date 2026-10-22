@@ -122,6 +122,7 @@
 #   M78 Reverts: внесение заново тем же диффом не снимает отката         → check-01
 #   M79 Reverts: единица — лишь коммит доказательства, без слияния полосы → check-01
 #   M80 dod_proof.jq: раздел неисполненного не судится                   → check-01, check-05
+#   M81 Reverts: внесённое заново, но откаченное следом, снимает откат    → check-01
 #
 # Хранилище для check-04 берётся из HEAD настоящего воркспейса (`RITUALS_WS`):
 # копия несёт только код ритуалов и их общие зависимости.
@@ -451,6 +452,8 @@ inject "M77 Reverts: откат отката не снимает отката" c
     '            if self._stands(c) and not again:' '            if not again:'
 inject "M78 Reverts: внесение заново не снимает отката" check-01-pr-body.py \
     '            if self._stands(c) and not again:' '            if self._stands(c):'
+inject "M81 Reverts: внесённое заново не судится на откат" check-01-pr-body.py \
+    'if d not in (x, c) and is_ancestor(c, d) and self._stands(d)]' 'if d not in (x, c) and is_ancestor(c, d)]'
 inject "M79 Reverts: единица — лишь коммит доказательства" check-01-pr-body.py \
     '            if x == rev or (len(parents) > 1' '            if x == rev or (False'
 for c in check-01-pr-body.py check-05-dod-judges-agree.py; do

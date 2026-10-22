@@ -436,7 +436,8 @@ def rev_commit(rev: str) -> str:
 # `git patch-id --stable` (слияние — к первому родителю, как `git revert -m 1`), либо чьё
 # сообщение несёт строку git `This reverts [merge] commit <X>` (откат с разрешённым конфликтом
 # дифф не повторяет). Откат не действует, если откачен сам (откат отката) либо X внесён заново
-# после него коммитом того же диффа. Работа откачена — `Refs` с причиной, а не `Closes`.
+# после него коммитом того же диффа, который сам стоит (не откачен следом). Работа откачена —
+# `Refs` с причиной, а не `Closes`.
 REVERTS_RE = re.compile(r"^This reverts (?:merge )?commit ([0-9a-f]{7,40})\b", re.M)
 
 
@@ -488,7 +489,8 @@ class Reverts:
 
     def _undone_by(self, x: str):
         for c in self.undoers.get(x, []):
-            again = [d for d in self.by_fwd.get(self.fwd.get(x, ""), []) if d not in (x, c) and is_ancestor(c, d)]
+            again = [d for d in self.by_fwd.get(self.fwd.get(x, ""), [])
+                     if d not in (x, c) and is_ancestor(c, d) and self._stands(d)]
             if self._stands(c) and not again:
                 return c
         return None
