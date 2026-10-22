@@ -65,9 +65,11 @@ if [ "${#missing[@]}" -gt 0 ]; then
 fi
 ELF="$(type -P true || true)"
 [ -z "$ELF" ] || ELF="$(readlink -f "$ELF")"
-elf_kind="$( [ -z "$ELF" ] || file -b "$ELF" 2>/dev/null || true)"
-if [ "${elf_kind#ELF}" = "$elf_kind" ]; then
-    tooling_gate_void "$NAME" "настоящего исполняемого файла для инъекции нет ($ELF не ELF либо нет file)"
+# ELF — по сигнатуре первых четырёх байт (\177 E L F), а не по `file`: в образе Job профиля ws
+# (golang:1.26.9) утилиты file нет, и предпосылка там выходила VOID (ws#1304).
+elf_magic="$( [ -z "$ELF" ] || od -An -c -N4 -- "$ELF" 2>/dev/null | tr -d ' \n')"
+if [ "$elf_magic" != '177ELF' ]; then
+    tooling_gate_void "$NAME" "настоящего исполняемого файла для инъекции нет (${ELF:-true не найден} — сигнатура «$elf_magic», не ELF)"
     exit 2
 fi
 
@@ -166,6 +168,10 @@ fi
 branch 1189-elf; cp "$ELF" "$box/edge"; chmod +x "$box/edge"; commit "#1189 бинарь" edge
 expect_refuse edge "настоящий исполняемый файл (ELF) среди добавленных" "$(create 1189-elf)"
 expect_refuse "исполняемый бинарь" "отказ называет вид: исполняемый бинарь" "$(create 1189-elf)"
+# Вид без утилиты file (образ Job профиля ws её не несёт, ws#1304): file на пути молчит и
+# отказывает — вид по сигнатуре байт, отказ называет файл, а не трассировку.
+nofile="$TMP/nofile-bin"; mkdir -p "$nofile"; printf '#!/bin/sh\nexit 127\n' > "$nofile/file"; chmod +x "$nofile/file"
+expect_refuse "edge — исполняемый бинарь (ELF)" "file молчит — вид по сигнатуре, файл назван" "$(create 1189-elf)" PATH="$nofile:$PATH"
 
 branch 1189-blob; head -c 4096 "$ELF" > "$box/blob.dat"; commit "#1189 бинарь" blob.dat
 expect_refuse blob.dat "бинарь без режима исполнения" "$(create 1189-blob)"

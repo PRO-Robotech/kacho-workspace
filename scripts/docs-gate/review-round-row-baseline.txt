@@ -1,0 +1,16 @@
+# Ведомость check-10-review-round-row (ws#1273): прошлые круги ревью, чья строка не стоит в
+# «Истории review» приёмки на день заведения гейта (2026-10-21). Правка одобренной приёмки
+# сменила бы её отпечаток — прежнее не чинится, а перечисляется. Строка — `<приёмка> <sha256
+# записи>`, точный состав; строка, которой нечего исключать, — находка гейта: ведомость
+# только убывает. Новая строка сюда не дописывается — у нового круга строку пишет автор.
+sub-phase-F8-S4-console-access-key-login-screen-acceptance 624996ea100adbb98f229d1ecda7e8b1fd47c70e6231a777bbac87073bab3adf
+sub-phase-IAM-INT-1-interactive-login-capability-acceptance 0db91d597a98287ac2eb6164562e4ffd4516b85fddbe36d89b397a48b3fef678
+sub-phase-IAM-INT-1-interactive-login-capability-acceptance 3c78c5ee5e7b3abba10962d768f68afc0434d40348209279da9fd6629315313c
+sub-phase-IAM-INT-1-interactive-login-capability-acceptance a0aca4601671981099acff5008b624ca37ec68ae771895293d4ecbbfe915d7d6
+sub-phase-IAM-INT-1-interactive-login-capability-acceptance a5261c4fe9c1bb514a9c3f0820f171ca6035c6113e38cd51d55bc5021c54148a
+sub-phase-IAM-INT-1-interactive-login-capability-acceptance a8b67d272876869d03ecc189d68032f715c12b117d059734fbdd6ab619aa55ed
+sub-phase-IAM-INT-1-interactive-login-capability-acceptance ae24921b35142f3fe4a6660a356c177e7d9ba69b9918bf76f352001b37d59353
+sub-phase-KAN-AUTHN-1-presented-credential-on-public-listener-acceptance 2b613112090c678919465ca98fa79bef8c153d586a066eac8efe7b245b021179
+sub-phase-KAN-QUOTA-1-limit-authority-leaves-iam-acceptance e382a7083f0d3ffb0550f1ec3992e156dcd5b12bc264c486dd5a388d86bbf438
+sub-phase-SDD-1-kacho-change-graph-acceptance 9dad9256479b357c069793379b39b3a58d009c47d0414096dd9db41dabb95fcc
+sub-phase-SDD-1-kacho-change-graph-acceptance cc021e4e28512667d71f58d7fd430cf457c24f7059efffa37344e1e30e560fb9

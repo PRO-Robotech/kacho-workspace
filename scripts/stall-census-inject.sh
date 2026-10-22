@@ -274,6 +274,34 @@ fmutant "возобновление после остановки не учит�
 fmutant "возобновление не разбирается" "            if resumed.search(l):" "            if False:" stop_cases
 fmutant "уведомление старше записей агента принимается" " and n_last >= t - 3" "" stop_cases
 fmutant "снятие из очереди — уведомление" "(r.get('type') == 'queue-operation' and r.get('operation') != 'enqueue')" "False" stop_cases
+
+echo "== агент прежнего процесса claude не судится (2026-10-19: после --resume хук звал застоем агентов умершего процесса)"
+# restart_cases — свой claude 100 (CLAUDE_PID) со стартом etimes назад; агент писал до
+# старта — исполнялся прежним процессом; близнец — тот же журнал при claude старше агента.
+restart_cases() {
+    local s a
+    rm -rf "$T"/rst-*
+    printf '%s\n' "100 1 600 claude claude --resume x" > "$T/ps-young"     # стартовал 10 мин назад
+    printf '%s\n' "100 1 90000 claude claude --resume x" > "$T/ps-elder"   # стартовал 1500 мин назад
+    s="$(session rst-top)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    rec "$a" 30 tool "go test ./..."
+    CLAUDE_PID=100 absent="STALL-AGENT" probe 0 "агент верхнего уровня писал 30 мин назад, claude стартовал 10 мин назад — оборван перезапуском, не застой" "оборванных перезапуском claude (не судятся) 1" --session "$s" --ps "$T/ps-young"
+    CLAUDE_PID=100 probe 1 "близнец: тот же журнал, claude старше агента — STALL-AGENT" "STALL-AGENT agent-t1" --session "$s" --ps "$T/ps-elder"
+    s="$(session rst-poll)"; a="$s/subagents/workflows/wf_live-1/agent-a1.jsonl"
+    rec "$a" 40 tool "until grep -q rc= run.log; do sleep 60; done"; rec "$a" 30 tool "gh run view 7 --json status"; rec "$a" 12 tool "gh pr checks 7"
+    CLAUDE_PID=100 absent="STALL-POLL" probe 0 "агент workflow опрашивал до старта claude — оборван перезапуском, не STALL-POLL" "оборванных перезапуском claude (не судятся) 1" --session "$s" --ps "$T/ps-young"
+    CLAUDE_PID=100 probe 1 "близнец: те же опросы при живом claude старше — STALL-POLL" "STALL-POLL wf_live-1/a1" --session "$s" --ps "$T/ps-elder"
+    touch -d "@$((NOW - 180))" "$a"   # журнал дописан после старта записью без разбираемого времени
+    CLAUDE_PID=100 probe 1 "близнец: журнал менялся после старта claude (mtime 3 мин) — жив, STALL-POLL" "STALL-POLL wf_live-1/a1" --session "$s" --ps "$T/ps-young"
+    s="$(session rst-resumed)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    rec "$a" 60 tool; rec "$a" 5 ask
+    CLAUDE_PID=100 probe 0 "возобновлённый после старта (запись 5 мин назад) — судим заново, не «оборван»" "оборванных перезапуском claude (не судятся) 0" --session "$s" --ps "$T/ps-young"
+    probe 1 "близнец: свой claude не определён (нет CLAUDE_PID) — прежний суд, STALL-AGENT" "STALL-AGENT agent-t1" --session "$(printf '%s' "$T/rst-top")" --ps "$T/ps-young"
+}
+restart_cases
+fmutant "старт своего claude не читается" "    own_start = now - procs[own_pid][1]" "    own_start = None" restart_cases
+fmutant "любой агент — прежнего процесса" "if own_start is not None and last_t < own_start - 2:" "if own_start is not None:" restart_cases
+fmutant "mtime журнала не учитывается (только время записи)" "max(t or 0, os.path.getmtime(apath))" "(t or 0)" restart_cases
 fmutant "любой id в уведомлении" "rb'<task-id>' + re.escape(ab) + rb'</task-id>(?:" "rb'<task-id>[0-9a-z]+</task-id>(?:" stop_cases
 fmutant "окно чтения не растёт" "        size = min(size * 4, total)" "        break" stop_cases
 fmutant "STALL-POLL без проверки остановки" "            if harness_stopped(aid, tt):" "            if False:" stop_cases

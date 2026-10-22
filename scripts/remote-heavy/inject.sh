@@ -77,7 +77,7 @@
 #   C4b близнец без гонки                  → 0
 #   C5 гонка при --keep                    → 75, ns всё равно снято
 #   V2 --available при занятом кластере    → 75; близнец V2b → 0
-#   M1 KACHO_REMOTE_HEAVY_MAX=0            → 64
+#   M1 KACHO_REMOTE_HEAVY_MAX=0 и 65       → 64; близнец M1b 64 → 0
 #   AL перепись длиннее слова argv (128 КиБ, ws#1210): AL0 — предпосылка (ответ
 #      двойника длиннее); AL1 --available при 1000 тяжёлых ns с завершёнными Job → 0,
 #      близнец AL1b (3 ns) → 0; AL2 прогон → 0, Job создан; AL3 службы ns kacho
@@ -88,8 +88,37 @@
 #      (близнец Q1), AL5w страж фазы записи после смены файла (близнец W9b);
 #      AL6 политики ns kacho длиннее слова → проба закрытости svc-a, близнец AL6b
 #      малая перепись → та же проба; AL7 политики ns kacho не JSON → 70, Job нет
-#   M2 предел по умолчанию 6 — страховка над размещением: 6 идущих → 75;
-#      близнец M2b 5 идущих → 0 (C1–C5, V2 судят предел явным 2)
+#   M2 потолок по умолчанию 25, а не 6 (ws#1293): 6 идущих без запроса → 0, потолок
+#      назван (C1–C5, V2 судят потолок явным 2)
+#   CP ЁМКОСТЬ (ws#1293), фикстуры JSON узлов и pod: CP5 — 5 узлов, 6 идущих ci-local
+#      kaname сели → 0, «тяжёлых 6, помещается 15 (узлов 5», прогон 0; CP2 — близнец,
+#      2 узла: 6 идущих → 75 «помещается 6», 5 идущих → 0; CPB — раскладка по узлам:
+#      идущий pod без узла и новый в сумме кластера ложатся, по узлам нет → 75 и прогон
+#      без ns, близнец CPBb (на 100m больше места) → 0; CPN — ns без pod держит место
+#      (своим запросом; имя без профиля — наибольшим таблицы) → 75, близнец без него → 0;
+#      CPR — гонка: старший без pod занял место — своё ns снято, 75, Job нет; близнец
+#      CPRb без гонки → 0
+#   D8 СВОЙ запрос ns без pod (приёмка ws#1293, круг 1): узел 15 500m / 30 189 МиБ,
+#      свободно ci-local kacho + ci-local kaname − 1 МиБ, новый ci-local kaname. D8k — старшее ns ci-local kacho (имя
+#      и метка kacho.io/repo, без аннотаций) → 75 и прогон без ns; близнец D8t —
+#      старшее ci-local kaname → 0 и ns создано; D8u — имя без профиля → наибольший
+#      запрос таблицы → 75; D8a — аннотации запроса ci-local kacho при имени без
+#      профиля → 75, близнец D8ab — аннотации ci-local kaname → 0; D8r — гонка тем же
+#      правилом: старший ci-local kacho создан мгновением раньше → своё ns снято, 75,
+#      Job нет, близнец D8rb — старший ci-local kaname → 0; K5-req — run.sh ставит
+#      аннотации kacho.io/request-cpu и kacho.io/request-mib своего запроса
+#   D9 разнесение pod без узла (как планировщик по умолчанию): 2 узла, 8 идущих pod без
+#      узла по ⌈(30 189 − K + 1) / 4⌉ МиБ (K — ci-local kacho), новый ci-local kacho → 75
+#      (4 + 4, свободно меньше K); близнец D9b на 1 МиБ меньше → 0 (first-fit дал бы 0 и
+#      в D9)
+#   DT pod Terminating (deletionTimestamp, Running) держит место: → 75; близнец DTb —
+#      тот же pod Succeeded → 0. PN pod Pending с nodeName держит место → 75; близнец
+#      PNb — тот же pod без узла в чужом ns → 0
+#   PD вошедший без ns (--pending, ws#1302) держит место своим запросом, как ns без pod → 75
+#      с «вошедших без ns 1»; близнец PDb — пустой файл → 0; PDm — предел считает вошедших
+#      (1 идущий + 1 вошедший при пределе 2 → 75), близнец PDmb → 0; PDf/PDn — строка вне
+#      формы либо файла нет → 64 до кластера; RQ — --request = запрос --profiles, без
+#      кластера, RQ0/RQx — вне формы → 64
 #   Q1 стенд (pod ns kacho) на всех узлах, место есть → --available 0 и прогон 0
 #      (стенд узел не запирает)
 #   QR запрос по замеру (ws#1195): память pod — p90 пика строки PEAKS профиля и
@@ -113,9 +142,12 @@
 #      живого Job — сняты; --keep, живой Job (и при прошедшем сроке), молодое — нет;
 #      близнец «срок прошёл, Job завершён» — снят; стенд задачи с прошедшим
 #      сроком — перечнем, не снят; повтор — уборки нет (перепись после = 0)
-#   PK пик run (ws#1195): шаг ИСПОЛНЕНИЕМ печатает memory.peak и CPU за команду, без
-#      cgroup — «—»; run.sh пишет «remote-peak» в журнал слотов с репозиторием и
-#      запросом; каталога журнала нет — не создаёт
+#   PK пик run (ws#1195): шаг ИСПОЛНЕНИЕМ печатает memory.peak, CPU за команду и пик
+#      рабочей памяти (memory.current − inactive_file, ws#1293: выборка после команды —
+#      PK1-ws, наибольшая, а не последняя — PK1c, подъём посреди команды выборкой во
+#      время неё — PK1-mid), без cgroup — «—»; run.sh пишет
+#      «remote-peak» с run_peak и ws_peak в журнал слотов с репозиторием и запросом;
+#      каталога журнала нет — не создаёт
 #   EV pod выселен узлом → 69 (не код контейнера); близнец K4c — 137 без выселения
 #   Q3 единственный узел не готов / закрыт / taint NoSchedule → 69; прогон 69 без ns
 #   Q2 места под go-race нет ни на одном узле → 75 и прогон 75 без ns; близнец Q2b
@@ -144,10 +176,24 @@
 #      node не сошлась, чужая архитектура → 125 с названной причиной; мажор →
 #      последний выпуск мажора; пин 26.1 при v26.11.x в индексе → v26.1.x (не
 #      v26.11.x); полный пин 26.1.0 → ровно v26.1.0
+#   EY (ws#1296) yq: пин `go install …mikefarah/yq/v4@vX` ревизии → HEAVY_YQ в
+#      окружении run, строка «Job создан» его называет; сверка ИСПОЛНЕНИЕМ: yq нет,
+#      python-yq, чужой вендор той же версии, другая версия, версия-префикс → 125
+#      «среда: yq»; верный → 0 и
+#      строка среды называет его; установка ИСПОЛНЕНИЕМ: бинарь выпуска, сумма —
+#      столбец SHA-256 по checksums_hashes_order (два порядка, соседний столбец —
+#      приманка той же формы) → yq в bin; сумма не сошлась, строки файла нет,
+#      чужая архитектура → 125; профиль lint yq не ставит и печатает, чего не ставит
+#   PT (ws#1296) шаг pytest исполнением: пять колёс с пином суммы → pytest виден
+#      `env -i python3`; сумма одного колеса не сошлась → 125 с именем колеса и в
+#      site-packages его нет; pytest уже есть → сеть не зовётся; lint шага не несёт
 #   E8 пины законными формами YAML: ключи шага до uses, поточный шаг с
 #      ключом в кавычках → те же пины в окружении run (близнец E1)
 #   E9 шаг setup-helm без version, setup-node без node-version → 69 до кластера,
 #      шаг и ключ названы
+#   EY9 mikefarah/yq формой, которой разбор пина не знает (`@latest`, `@v4.53`,
+#      `@v4.53.6-rc1`, шаг uses, законный пин рядом с `@latest`) → 69, Job нет,
+#      форма названа; близнец — пин в кавычках → v4.53.6
 #   E10 пин node вне формы (lts/*) → 69, Job нет; E10b пин helm вне формы
 #      (latest) → 69, Job нет
 #   D1 модули, которые пробы читают ИСХОДНИКАМИ (ws#1018): Job каждого профиля
@@ -217,6 +263,9 @@
 #   RG13 обрыв внутри копии (нет end и total) → копии из полного лога контейнера
 #   RG6 красный код, красных групп ноль → строка с числом групп, каталога нет;
 #      RG6b итога нет нигде → «НЕ получены»
+#   WS1–WS6 профиль ws клона воркспейса (ws#1304): Job — образ продуктов, клоны продуктов, среда
+#      наборов, её сверка и команда от runner; пара профиля и репозитория; пин shellcheck; сверка
+#      среды, читатель трекера и установка с пином суммы исполнением (подробно — у случаев)
 #   L0 двойник сам печатает адрес и IPv4   → да (контроль пробы утечки)
 #   L0b двойник печатает адреса pod в stdout лога → да (контроль F4)
 #   L1 вывод всех случаев без адреса сервера, IPv4/IPv6 узлов и pod, токена,
@@ -360,10 +409,12 @@ case "$1 ${2:-}" in
             # C4/C5 под нагрузкой краснели по жребию (приёмка ws#1210, круг 1).
             t0="$(date -u +%s)"
             jq --arg t "$(date -u -d "@$t0" +%Y-%m-%dT%H:%M:%SZ)" '.metadata.creationTimestamp = $t | .status.phase = "Active"' "$3" > "$S/ns/$name"
-            # гонка: другой запуск создал своё ns секундой раньше
+            # гонка: другой запуск создал своё ns секундой раньше; FAKE_RACE_REPO — его
+            # метка kacho.io/repo (D8r: запрос старшего — по имени и метке)
             if [ -n "${FAKE_RACE:-}" ]; then
                 jq -n --arg n "$FAKE_RACE" --arg t "$(date -u -d "@$(( t0 - 1 ))" +%Y-%m-%dT%H:%M:%SZ)" --arg e "$(date -u -d '+1 hour' +%Y-%m-%dT%H:%M:%SZ)" \
-                    '{kind: "Namespace", metadata: {name: $n, creationTimestamp: $t, labels: {"kacho.io/kind": "heavy"}, annotations: {"kacho.io/expires": $e}}, status: {phase: "Active"}}' > "$S/ns/$FAKE_RACE"
+                    --arg r "${FAKE_RACE_REPO:-}" \
+                    '{kind: "Namespace", metadata: {name: $n, creationTimestamp: $t, labels: ({"kacho.io/kind": "heavy"} + (if $r != "" then {"kacho.io/repo": $r} else {} end)), annotations: {"kacho.io/expires": $e}}, status: {phase: "Active"}}' > "$S/ns/$FAKE_RACE"
             fi
         elif [ "$kind" = NetworkPolicy ]; then
             cp "$3" "$S/netpol.json"
@@ -511,6 +562,7 @@ pin_rev pins 'jobs:
       - uses: azure/setup-helm@0123  # v5
         with:
           version: v4.2.4
+      - run: go install github.com/mikefarah/yq/v4@v4.53.6
 '
 pin_rev pins2 'jobs:
   unit:
@@ -561,6 +613,35 @@ pin_rev pins4 'jobs:
       - uses: actions/setup-node@89ab
         with:
           cache: npm
+'
+# Формы mikefarah/yq, которых разбор пина не знает (ws#1296, приёмка): каждая —
+# одним фактом против законной `go install …/v4@vX.Y.Z` ревизии pins; yqmixed —
+# законный пин в одном задании и `@latest` в другом; yqquoted — законный близнец:
+# пин в кавычках.
+for c in "yqlatest go install github.com/mikefarah/yq/v4@latest" \
+         "yqshort go install github.com/mikefarah/yq/v4@v4.53" \
+         "yqrc go install github.com/mikefarah/yq/v4@v4.53.6-rc1" \
+         'yqquoted go install "github.com/mikefarah/yq/v4@v4.53.6"'; do
+    pin_rev "${c%% *}" "jobs:
+  charts:
+    steps:
+      - run: ${c#* }
+"
+done
+pin_rev yqaction 'jobs:
+  charts:
+    steps:
+      - uses: mikefarah/yq@v4.53.6
+        with:
+          cmd: yq --version
+'
+pin_rev yqmixed 'jobs:
+  charts:
+    steps:
+      - run: go install github.com/mikefarah/yq/v4@v4.53.6
+  lint:
+    steps:
+      - run: go install github.com/mikefarah/yq/v4@latest
 '
 
 # Ревизии среды ОБРАЗА ранера и buf (ws#1110), формы ci.yml kaname 746: задание на
@@ -866,6 +947,8 @@ else OUT="$BOX/e1.cmd"; bad E1 "установки helm и node с провер�
 if awk '/^# tools-check$/ { c = NR } /^heavy_cmd "\$@"$/ { e = NR } END { exit !(c && e && c < e) }' "$BOX/e1.cmd"; then ok
 else OUT="$BOX/e1.cmd"; bad E1 "сверки среды перед командой нет либо команда не своей строкой (за маркером — комментарий)"; fi
 if grep -q 'Job создан: .*helm v4.2.4, node 26' "$BOX/e1.out"; then ok; else OUT="$BOX/e1.out"; bad E1 "строка «Job создан» не называет helm и node"; fi
+if [ "$(envv "$EJ" HEAVY_YQ)" = v4.53.6 ]; then ok; else OUT="$EJ"; bad EY1 "пин yq в окружении run «$(envv "$EJ" HEAVY_YQ)», ждали v4.53.6"; fi
+if grep -q 'Job создан: .*, yq v4.53.6' "$BOX/e1.out"; then ok; else OUT="$BOX/e1.out"; bad EY1 "строка «Job создан» не называет yq v4.53.6"; fi
 # E2 сверка среды ИСПОЛНЕНИЕМ: текст из Job, PATH поддельный
 sed -n '/^# tools-check$/,/^# tools-end$/p' "$BOX/e1.cmd" | sed "s#/dev/termination-log#$BOX/etl#g" > "$BOX/tools.sh"
 ET="$BOX/etools"; mkdir -p "$ET"
@@ -904,6 +987,23 @@ buf_tools_case E2-buf-absent - 125
 buf_tools_case E2-buf-other 1.71.0 125
 buf_tools_case E2-buf-prefix 1.72.01 125
 buf_tools_case E2-buf-legit 1.72.0 0
+# yq (ws#1296): та же сверка — нет, python-yq, не та версия, версия-префикс → 125
+yq_tools_case() {
+    rm -f "$ET"/* "$BOX/etl"; [ "$2" = - ] || fake_tool yq "$2"
+    OUT="$BOX/$1.out"
+    env -i PATH="$ET:/usr/bin:/bin" HEAVY_YQ=v4.53.6 bash "$BOX/tools.sh" > "$OUT" 2>&1; RC=$?
+    expect_rc "$1" "$3"
+    if [ "$3" -ne 0 ]; then
+        if grep -q "^remote-heavy-prep: среда: yq" "$BOX/etl" 2>/dev/null; then ok; else bad "$1" "отказ «среда: yq» не записан в termination-log"; fi
+    elif ! grep -q 'yq v4.53.6 (mikefarah)' "$OUT"; then bad "$1" "строка среды не называет yq v4.53.6"; else ok; fi
+}
+yq_tools_case EY2-absent - 125
+yq_tools_case EY2-python-yq 'yq 3.4.3' 125
+# однофактный близнец EY2-legit: версия пина та же, вендор чужой
+yq_tools_case EY2-vendor 'yq (https://github.com/kislyuk/yq/) version v4.53.6' 125
+yq_tools_case EY2-other 'yq (https://github.com/mikefarah/yq/) version v4.53.5' 125
+yq_tools_case EY2-prefix 'yq (https://github.com/mikefarah/yq/) version v4.53.60' 125
+yq_tools_case EY2-legit 'yq (https://github.com/mikefarah/yq/) version v4.53.6' 0
 # ── пакеты без apt (ws#1178) ─────────────────────────────────────────────────
 # Подготовка pod не ходит на deb.debian.org: jq и PyYAML ставит шаг пакетов с пином
 # суммы, psql и pg_dump приносит контейнер pgclient из образа postgres.
@@ -1073,6 +1173,71 @@ if [ ! -e "$BOX/p.apt" ]; then ok; else bad P2 "шаг пакетов позва
 if grep -q 'github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-' "$BOX/p.log" && grep -q 'files.pythonhosted.org/.*pyyaml-6.0.2.tar.gz' "$BOX/p.log" && ! grep -qi debian "$BOX/p.log"; then ok
 else OUT="$BOX/p.log"; bad P2 "адреса загрузок не те: jq с GitHub и PyYAML с PyPI, без Debian"; fi
 if grep -q 'инструменты без пакетного менеджера — jq-1.7.1, PyYAML 6.0.2' "$BOX/P2.out"; then ok; else bad P2 "строка итога шага не называет версии"; fi
+# PT (ws#1296) — шаг pytest ИСПОЛНЕНИЕМ: текст из Job, сеть — двойник curl, колёса —
+#    настоящие zip той же формы (каталог пакета и dist-info), интерпретатор — venv
+#    песочницы без системных пакетов. Пинов в тексте пять, каждый — колесо py3-none-any;
+#    чисто → pytest виден `env -i python3` и строка называет версию; сумма одного колеса не
+#    сошлась (подмена — валидный zip, отличный лишь содержимым) → 125 и pytest не виден;
+#    pytest уже есть → сеть не зовётся; lint — шага нет (P1l-близнец по тексту).
+sed -n '/^# pytest-begin$/,/^# pytest-end$/p' "$BOX/e1.cmd" > "$BOX/pt.raw"
+if grep -q '^# pytest-end$' "$BOX/pt.raw"; then ok; else OUT="$BOX/e1.cmd"; bad PT "текста шага pytest в Job нет — исполнять нечего"; fi
+if ! grep -q '^# pytest-begin$' "$BOX/p1l.cmd"; then ok; else OUT="$BOX/p1l.cmd"; bad PT-lint "lint ставит pytest"; fi
+PTA="$BOX/ptassets"; PTS="$BOX/ptstub"; rm -rf "$PTA" "$PTS"; mkdir -p "$PTA/evil" "$PTS"
+grep -oE '[a-z]+-[0-9.]+-py3-none-any\.whl:[0-9a-f]{64}' "$BOX/pt.raw" > "$BOX/pt.pins"
+if [ "$(wc -l < "$BOX/pt.pins")" = 5 ] && [ "$(cut -d- -f1 "$BOX/pt.pins" | sort | tr '\n' ' ')" = "iniconfig packaging pluggy pygments pytest " ]; then ok
+else OUT="$BOX/pt.pins"; bad PT "пинов колёс в тексте не пять (pytest, pluggy, iniconfig, packaging, pygments): $(tr '\n' ' ' < "$BOX/pt.pins")"; fi
+cp "$BOX/pt.raw" "$BOX/pt.body"
+while IFS=: read -r ptw _; do
+    ptn="${ptw%%-*}"; ptv="${ptw#*-}"; ptv="${ptv%%-*}"
+    python3 -I -c 'import sys, zipfile
+w, n, v, mark = sys.argv[1:5]
+with zipfile.ZipFile(w, "w") as z:
+    z.writestr(n + "/__init__.py", "__version__ = \"" + v + "\"" + mark + "\n")
+    z.writestr(n + "-" + v + ".dist-info/METADATA", "Name: " + n + "\nVersion: " + v + "\n")' "$PTA/$ptw" "$ptn" "$ptv" ""
+    python3 -I -c 'import sys, zipfile
+w, n, v = sys.argv[1:4]
+with zipfile.ZipFile(w, "w") as z:
+    z.writestr(n + "/__init__.py", "__version__ = \"" + v + "\"  # подмена\n")
+    z.writestr(n + "-" + v + ".dist-info/METADATA", "Name: " + n + "\nVersion: " + v + "\n")' "$PTA/evil/$ptw" "$ptn" "$ptv"
+    sed -i -E "s/($ptw:)[0-9a-f]{64}/\1$(sha256sum < "$PTA/$ptw" | cut -d' ' -f1)/" "$BOX/pt.body"
+done < "$BOX/pt.pins"
+sed -i "s#/work#$PW#g" "$BOX/pt.body"
+# shellcheck disable=SC2016  # текст шага для исполнения в песочнице, не здесь
+{ echo 'pf() { echo "remote-heavy-prep: $1" >&2; exit 125; }'; cat "$BOX/pt.body"; } > "$BOX/pt.sh"
+cat > "$PTS/curl" <<'STUB'
+#!/bin/sh
+o=""; u=""
+while [ "$#" -gt 0 ]; do case "$1" in -o|--retry|--retry-delay|--connect-timeout|--max-time) [ "$1" = -o ] && o="$2"; shift 2 ;; -*) shift ;; *) u="$1"; shift ;; esac; done
+echo "$u" >> "$PT_LOG"
+case "$u" in
+  https://files.pythonhosted.org/packages/py3/*/*-py3-none-any.whl)
+    f="${u##*/}"; if [ -n "$STUB_BAD_PT" ] && [ "${f%%-*}" = "$STUB_BAD_PT" ]; then cat "$PT_ASSETS/evil/$f" > "$o"; else cat "$PT_ASSETS/$f" > "$o"; fi ;;
+  *) echo "curl: чужой адрес $u" >&2; exit 22 ;;
+esac
+STUB
+chmod +x "$PTS/curl"
+for t in bash cat cut env mkdir rm sha256sum; do ln -sf "$(command -v "$t")" "$PTS/$t"; done
+pt_clean() { local d; for d in pytest pluggy iniconfig packaging pygments; do rm -rf "${PSITE:?}/$d" "${PSITE:?}/$d"-*.dist-info; done; rm -rf "$PW/dl"; : > "$BOX/pt.log"; }
+pt_run() {
+    local n="$1" want="$2"; shift 2
+    OUT="$BOX/$n.out"
+    env -i PATH="$PTS:$PVENV/bin" PT_LOG="$BOX/pt.log" PT_ASSETS="$PTA" "$@" bash "$BOX/pt.sh" > "$OUT" 2>&1; RC=$?
+    cat "$OUT" >> "$ALL_OUT"
+    expect_rc "$n" "$want"
+}
+pt_clean
+if ! env -i "$PVENV/bin/python3" -c "import pytest" >/dev/null 2>&1; then ok; else bad PT0 "в venv песочницы pytest виден до шага — проба беспредметна"; fi
+pt_run PT-clean 0
+if [ "$(env -i "$PVENV/bin/python3" -c 'import pytest; print(pytest.__version__)' 2>/dev/null)" = 9.1.1 ] && grep -q 'remote-heavy: pytest 9.1.1 (без окружения)' "$BOX/PT-clean.out"; then ok
+else bad PT-clean "после шага pytest 9.1.1 не виден подпроцессу env -i либо строка не названа"; fi
+if [ "$(grep -c '^https://files.pythonhosted.org/packages/py3/./[a-z]*/[a-z]*-[0-9.]*-py3-none-any.whl$' "$BOX/pt.log")" = 5 ]; then ok
+else OUT="$BOX/pt.log"; bad PT-clean "адресов колёс не пять либо не той формы"; fi
+: > "$BOX/pt.log"; pt_run PT-present 0
+if [ ! -s "$BOX/pt.log" ]; then ok; else OUT="$BOX/pt.log"; bad PT-present "pytest уже есть, а сеть позвана"; fi
+pt_clean; pt_run PT-badsum 125 STUB_BAD_PT=pluggy
+if grep -q 'remote-heavy-prep: pytest 9.1.1: колесо pluggy-1.7.0-py3-none-any.whl не поставлено' "$BOX/PT-badsum.out"; then ok; else bad PT-badsum "отказ суммы не назван колесом"; fi
+if [ ! -e "$PSITE/pluggy/__init__.py" ]; then ok; else bad PT-badsum "колесо с несошедшейся суммой распаковано в site-packages"; fi
+pt_clean
 # P2a — arm64: берётся jq-linux-arm64
 p_stubs; p_run P2a 0 STUB_UNAME=aarch64
 if grep -q 'jq-linux-arm64' "$BOX/p.log"; then ok; else OUT="$BOX/p.log"; bad P2a "на aarch64 не взят jq-linux-arm64"; fi
@@ -1148,17 +1313,39 @@ if grep -q 'remote-heavy-prep: pgclient: .*/psql в образе postgres нет
 # P8 — ВСЕ профили, а не только integration (e1): у каждого, кроме lint, есть шаг пакетов,
 #      шаг pgwait ПЕРЕД командой и ПОСЛЕ сверки среды, контейнер pgclient; у lint — ничего
 #      из этого. Перечень профилей — из таблицы PROFILES самого run.sh.
+# Клон воркспейса пробы (профиль ws, ws#1304): дерева go нет, пин shellcheck — env конвейера.
+SRCW="$BOX/srcw"
+git init -q "$SRCW"; mkdir -p "$SRCW/.github/workflows" "$SRCW/scripts/tg"
+printf 'env:\n  SHELLCHECK_VERSION: "0.11.0"\njobs:\n  t:\n    runs-on: ubuntu-latest\n    steps:\n      - run: bash scripts/tg/run-all.sh\n' > "$SRCW/.github/workflows/ci.yaml"
+printf '#!/usr/bin/env bash\necho tg\n' > "$SRCW/scripts/tg/run-all.sh"
+git -C "$SRCW" add -A; sandbox_git -C "$SRCW" commit -q -m ws
+ws_rev() {
+    git -C "$SRCW" checkout -q -b "$1"
+    printf '%s' "$2" > "$SRCW/.github/workflows/ci.yaml"
+    sandbox_git -C "$SRCW" commit -q -am "$1"
+    git -C "$SRCW" checkout -q -
+}
+ws_rev sc10 'env:
+  SHELLCHECK_VERSION: "0.10.0"
+jobs: {}
+'
+ws_rev scnone 'jobs: {}
+'
 mapfile -t PPROFS < <(sed -n "/^PROFILES='/,/'\$/p" "$RUN" | sed -e "s/^PROFILES='//" | cut -d'|' -f1 | grep -E '^[a-z][a-z0-9-]*$')
 if [ "${#PPROFS[@]}" -ge 4 ]; then ok; else bad P8 "профилей в таблице run.sh прочитано ${#PPROFS[@]} (ждали не меньше 4) — судить нечем"; fi
 for prof in "${PPROFS[@]}"; do
     fresh
-    go_run "p8-$prof" env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref HEAD --src "$SRC" --profile "$prof" --short "p8$prof" -- true
+    p8r=kaname; p8s="$SRC"; [ "$prof" != ws ] || { p8r=kacho-workspace; p8s="$SRCW"; }   # ws — лишь клон воркспейса
+    go_run "p8-$prof" env FAKE_EXIT=0 bash "$RUN" --task 1 --repo "$p8r" --ref HEAD --src "$p8s" --profile "$prof" --short "p8$prof" -- true
     expect_rc "P8-$prof" 0
     cp "$BOX/state/job.json" "$BOX/p8-$prof-job.json" 2>/dev/null
     kx cmd "$BOX/p8-$prof-job.json" run 2 > "$BOX/p8-$prof.cmd" 2>/dev/null
     npkg="$(grep -c '^# pkgs-begin$' "$BOX/p8-$prof.cmd")"; npgw="$(grep -c '^# pgwait-begin$' "$BOX/p8-$prof.cmd")"
     if [ "$prof" = lint ]; then
         if [ "$npkg" = 0 ] && [ "$npgw" = 0 ] && [ -s "$BOX/p8-$prof.cmd" ]; then ok; else OUT="$BOX/p8-$prof.cmd"; bad "P8-$prof" "lint несёт шаг пакетов ($npkg) или ожидание клиента postgres ($npgw)"; fi
+        want="pg=0 image=- init=0 after_run=0 pg_mount=0 run_mount=0 volume=0"
+    elif [ "$prof" = ws ]; then
+        if [ "$npkg" = 1 ] && [ "$npgw" = 0 ]; then ok; else OUT="$BOX/p8-$prof.cmd"; bad "P8-$prof" "ws: шагов пакетов $npkg (ждали 1) и ожидания клиента postgres $npgw (ждали 0 — pgclient ему не нужен)"; fi
         want="pg=0 image=- init=0 after_run=0 pg_mount=0 run_mount=0 volume=0"
     else
         if [ "$npkg" = 1 ] && [ "$npgw" = 1 ]; then ok; else OUT="$BOX/p8-$prof.cmd"; bad "P8-$prof" "шагов пакетов $npkg и ожидания клиента postgres $npgw в Job профиля $prof (ждали по одному)"; fi
@@ -1192,14 +1379,14 @@ for prof in "${PPROFS[@]}"; do
     pc="$BOX/p8-$prof.cmd"
     sw="$(grep -c -E '^[[:space:]]*#.*\|\| pf' "$pc")"; sm="$(grep -c -E "$G1_MARK" "$pc")"
     if [ "$sw" = 0 ] && [ "$sm" = 0 ] && [ -s "$pc" ]; then ok; else OUT="$pc"; bad "G1-$prof" "строк-комментариев с командой подготовки: $sw (с «|| pf»), $sm (команда за маркером шага) — команда ушла в комментарий"; fi
-    if awk -v pg="$([ "$prof" = lint ] && echo 0 || echo 1)" '/^# pgwait-end$/ { w = NR } /^# expose-begin$/ { b++; x = NR } /^heavy_cmd "\$@"$/ { e = NR } /go install github.com\/golangci/ { g = NR }
+    if awk -v pg="$(case "$prof" in lint|ws) echo 0 ;; *) echo 1 ;; esac)" '/^# pgwait-end$/ { w = NR } /^# expose-begin$/ { b++; x = NR } /^heavy_cmd "\$@"$/ { e = NR } /go install github.com\/golangci/ { g = NR }
            END { exit !(b == 1 && e && x < e && (!pg || (w && w < x)) && (!g || g < x)) }' "$pc"; then ok
     else OUT="$pc"; bad "X0-$prof" "шага видимости нет, он не один либо стоит не после установок и не перед командой"; fi
     nh="$(grep -c '^# hooks-begin$' "$pc")"
-    if [ "$prof" = ci-local ]; then
+    if [ "$prof" = ci-local ] || [ "$prof" = ws ]; then
         if [ "$nh" = 1 ] && awk '/^# hooks-end$/ { h = NR } /^heavy_cmd "\$@"$/ { e = NR } END { exit !(h && e && h < e) }' "$pc"; then ok
-        else OUT="$pc"; bad H0 "шага провязки хуков перед командой в Job ci-local нет"; fi
-    elif [ "$nh" = 0 ]; then ok; else OUT="$pc"; bad "H0-$prof" "провязка хуков в Job профиля $prof — хук отправки гонит лишь ci-local"; fi
+        else OUT="$pc"; bad "H0-$prof" "шага провязки хуков перед командой в Job $prof нет"; fi
+    elif [ "$nh" = 0 ]; then ok; else OUT="$pc"; bad "H0-$prof" "провязка хуков в Job профиля $prof — хук отправки гонят лишь ci-local и ws"; fi
     case "$prof" in ci-local|lint)
         if grep -qE '^echo "remote-heavy: ставлю golangci-lint v2\.12\.2" >&2; GOBIN=/work/bin go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2\.12\.2 ' "$pc"; then ok
         else OUT="$pc"; bad "G2-$prof" "установки golangci-lint исполняемой строкой в Job профиля $prof нет"; fi ;;
@@ -1650,7 +1837,7 @@ if gi_in "$BOX/gi1.cmd"; then ok; else OUT="$BOX/gi1.cmd"; bad GI1 "шага з�
 if grep -qF "$GI_EMAIL" "$BOX/gi1.out"; then bad GI1 "адрес учётки напечатан в выводе run.sh"; else ok; fi
 # GI1-env: состав окружения КАЖДОГО контейнера Job — только разрешённые имена (до
 #     правки учётки и вход pre-push плюс HEAVY_GIT_NAME/EMAIL); envFrom нет
-GI_ALLOW="CI DOCKER_HOST GOCACHE GOLANGCI_LINT_CACHE GOMODCACHE GOTOOLCHAIN HEAVY_BUF HEAVY_DENY_PROBE HEAVY_GIT_EMAIL HEAVY_GIT_NAME HEAVY_HELM HEAVY_MAIN HEAVY_NODE HEAVY_PULL HEAVY_PUSH_INPUT HEAVY_SHA HEAVY_WORKDIR TESTCONTAINERS_RYUK_DISABLED"
+GI_ALLOW="CI DOCKER_HOST GOCACHE GOLANGCI_LINT_CACHE GOMODCACHE GOTOOLCHAIN HEAVY_BUF HEAVY_DENY_PROBE HEAVY_GIT_EMAIL HEAVY_GIT_NAME HEAVY_HELM HEAVY_MAIN HEAVY_NODE HEAVY_PULL HEAVY_PUSH_INPUT HEAVY_SHA HEAVY_WORKDIR HEAVY_YQ TESTCONTAINERS_RYUK_DISABLED"
 gi_extra="$(jq -r --arg a "$GI_ALLOW" '($a | split(" ")) as $al | [.spec.template.spec | (.containers[]?, .initContainers[]?) | (.env[]?.name), (if .envFrom then "envFrom" else empty end)] | unique | map(select(IN($al[]) | not)) | join(" ")' "$BOX/state/job.json" 2>/dev/null)" || gi_extra="(spec не разобран)"
 if [ -z "$gi_extra" ]; then ok; else bad GI1-env "в окружении Job имена вне разрешённого списка: $gi_extra"; fi
 # GI1-decoy: корневой gitconfig копии несёт приманки — ключ подписи, помощник
@@ -1746,6 +1933,11 @@ case "$u" in
   # Выпуск buf (ws#1110): sha256.txt — строки всех бинарей и архивов, как настоящий.
   */bufbuild/buf/releases/download/*/sha256.txt) ( cd "$STUB_ARCH/buf" && sha256sum buf-Linux-* ) | if [ -n "${STUB_BADSUM_BUF:-}" ]; then sed 's/^[0-9a-f]*/'"$Z"'/'; else cat; fi | out ;;
   */bufbuild/buf/releases/download/*/buf-Linux-*) cat "$STUB_ARCH/buf/${u##*/}" | out ;;
+  # Выпуск yq (ws#1296): порядок столбцов — checksums_hashes_order, строки checksums —
+  # «имя  хеш…» в этом порядке; соседний SHA-256 столбец SHA3-256 — приманка той же формы.
+  */mikefarah/yq/releases/download/*/checksums_hashes_order) cat "$STUB_ARCH/yq/order${STUB_YQ_ORDER:-}" | out ;;
+  */mikefarah/yq/releases/download/*/checksums) cat "$STUB_ARCH/yq/sums${STUB_YQ_ORDER:-}" | if [ -n "${STUB_BADSUM_YQ:-}" ]; then sed 's/ '"$(sha256sum "$STUB_ARCH/yq/yq_linux_amd64" | cut -d' ' -f1)"'/ '"$Z"'/'; else cat; fi | out ;;
+  */mikefarah/yq/releases/download/*/yq_linux_*) cat "$STUB_ARCH/yq/${u##*/}" | out ;;
   *) echo "двойник curl: адрес не знаком" >&2; exit 22 ;;
 esac
 STUB
@@ -1774,6 +1966,34 @@ install_case E7-buf-badsum "" "" 125 "buf 1.72.0 не поставлен" HEAVY_
 if [ -e "$IW/bin/buf" ]; then OUT="$BOX/E7-buf-badsum.out"; bad E7-buf-badsum "buf с несошедшейся суммой лежит в bin"; else ok; fi
 install_case E7-buf-arch "" "" 125 "buf: архитектура" HEAVY_BUF=1.72.0 STUB_ARCH_M=s390x
 install_case E7-helm-only v4.2.4 "" 0 "helm"
+# yq (ws#1296): выпуск с двумя порядками столбцов; соседний столбец SHA3-256 той же
+# формы (64 hex) — приманка: взятый не по порядку, он не сходится с бинарём.
+mkdir -p "$IA/yq"; printf '#!/bin/sh\necho "yq (https://github.com/mikefarah/yq/) version v4.53.6"\n' > "$IA/yq/yq_linux_amd64"; chmod +x "$IA/yq/yq_linux_amd64"
+cp "$IA/yq/yq_linux_amd64" "$IA/yq/yq_linux_arm64"; printf 'x\n' >> "$IA/yq/yq_linux_arm64"
+YD=1111111111111111111111111111111111111111111111111111111111111111
+printf 'CRC32\nMD5\nSHA-256\nSHA3-256\n' > "$IA/yq/order"; printf 'CRC32\nSHA3-256\nMD5\nSHA-256\n' > "$IA/yq/order-b"
+: > "$IA/yq/sums"; : > "$IA/yq/sums-b"
+for yf in yq_linux_arm64 yq_linux_amd64; do
+    yh="$(sha256sum "$IA/yq/$yf" | cut -d' ' -f1)"
+    printf '%s  0badc0de  0123456789abcdef0123456789abcdef  %s  %s\n' "$yf" "$yh" "$YD" >> "$IA/yq/sums"
+    printf '%s  0badc0de  %s  0123456789abcdef0123456789abcdef  %s\n' "$yf" "$YD" "$yh" >> "$IA/yq/sums-b"
+done
+yq_installed() {
+    local name="$1"; shift
+    install_case "$name" "" "" 0 "yq" HEAVY_YQ=v4.53.6 "$@"
+    if [ "$("$IW/bin/yq" --version 2>/dev/null)" = "yq (https://github.com/mikefarah/yq/) version v4.53.6" ]; then ok; else bad "$name" "в bin не бинарь выпуска amd64"; fi
+}
+yq_installed EY7-order-a
+yq_installed EY7-order-b STUB_YQ_ORDER=-b
+install_case EY7-badsum "" "" 125 "yq v4.53.6 не поставлен" HEAVY_YQ=v4.53.6 STUB_BADSUM_YQ=1
+if [ -e "$IW/bin/yq" ]; then OUT="$BOX/EY7-badsum.out"; bad EY7-badsum "yq с несошедшейся суммой лежит в bin"; else ok; fi
+install_case EY7-arch "" "" 125 "yq: архитектура" HEAVY_YQ=v4.53.6 STUB_ARCH_M=s390x
+# строки бинаря в checksums нет (лишь соседняя архитектура) → отказ, а не «сумма пуста — сошлось»
+cp "$IA/yq/order" "$IA/yq/order-norow"; grep '^yq_linux_arm64 ' "$IA/yq/sums" > "$IA/yq/sums-norow"
+install_case EY7-norow "" "" 125 "yq v4.53.6 не поставлен" HEAVY_YQ=v4.53.6 STUB_YQ_ORDER=-norow
+# SHA-256 в порядке столбцов нет → отказ
+printf 'CRC32\nMD5\n' > "$IA/yq/order-nocol"; cp "$IA/yq/sums" "$IA/yq/sums-nocol"
+install_case EY7-nocol "" "" 125 "yq v4.53.6 не поставлен" HEAVY_YQ=v4.53.6 STUB_YQ_ORDER=-nocol
 install_case E7-badsum v4.2.4 26 125 "helm v4.2.4 не поставлен" STUB_BADSUM=1
 install_case E7-arch v4.2.4 26 125 "helm: архитектура" STUB_ARCH_M=s390x
 install_case E7-badsum-node "" 26 125 "node v26.11.1 не поставлен" STUB_BADSUM_NODE=1
@@ -1801,6 +2021,24 @@ go_run e9 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref pins4 --src "
 expect_rc E9 69
 if [ -e "$BOX/state/job.json" ]; then bad E9 "Job создан при шаге без пина"; else ok; fi
 if grep -q 'шаг azure/setup-helm без скалярного with.version' "$OUT"; then ok; else bad E9 "шаг helm без version не назван"; fi
+# EY9 (ws#1296) mikefarah/yq формой, которой разбор пина не знает → 69 до кластера,
+#     Job нет, форма названа (прежде — «yq не требуется» и красная команда);
+#     yqmixed — законный пин рядом не амнистирует; близнец EY9-quoted → пин v4.53.6
+for c in "EY9-latest yqlatest mikefarah/yq/v4@latest" "EY9-short yqshort mikefarah/yq/v4@v4.53" \
+         "EY9-rc yqrc mikefarah/yq/v4@v4.53.6-rc1" "EY9-action yqaction mikefarah/yq@v4.53.6" \
+         "EY9-mixed yqmixed mikefarah/yq/v4@latest"; do
+    read -r cn cref cform <<< "$c"
+    fresh
+    go_run "$cn" env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref "$cref" --src "$SRC" --profile integration --short ey9 -- true
+    expect_rc "$cn" 69
+    if [ -e "$BOX/state/job.json" ]; then bad "$cn" "Job создан при неразобранной форме пина yq"; else ok; fi
+    if grep -qF "пин yq на " "$OUT" && grep -qF "разбор пина не знает: $cform " "$OUT"; then ok; else bad "$cn" "форма $cform не названа"; fi
+done
+fresh
+go_run EY9-quoted env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref yqquoted --src "$SRC" --profile integration --short ey9q -- true
+expect_rc EY9-quoted 0
+if [ "$(envv "$BOX/state/job.json" HEAVY_YQ)" = v4.53.6 ]; then ok
+else OUT="$BOX/state/job.json"; bad EY9-quoted "пин yq в кавычках: «$(envv "$BOX/state/job.json" HEAVY_YQ)», ждали v4.53.6"; fi
 # E10 пин вне формы → 69 до кластера, Job нет, причина названа
 for c in "E10 pins5 node" "E10b pins6 helm"; do
     read -r cn cref ctool <<< "$c"
@@ -1848,8 +2086,11 @@ expect_rc E4 0
 e4cmd="$(kx cmd "$BOX/state/job.json" run 2)"
 if [ -z "$(envv "$BOX/state/job.json" HEAVY_HELM)" ] && [ -n "$e4cmd" ] && ! grep -q 'get.helm.sh' <<< "$e4cmd"; then ok
 else OUT="$BOX/state/job.json"; bad E4 "lint ставит helm"; fi
+if [ -z "$(envv "$BOX/state/job.json" HEAVY_YQ)" ] && ! grep -q 'mikefarah/yq/releases' <<< "$e4cmd"; then ok
+else OUT="$BOX/state/job.json"; bad EY4 "lint ставит yq"; fi
+if grep -q 'профиль lint: helm, node, buf, yq, jq, PyYAML и pytest не ставятся' "$BOX/e4.out"; then ok; else OUT="$BOX/e4.out"; bad EY4 "lint не называет инструменты, которых не ставит"; fi
 # E5 ревизия без пинов — сверять нечего, строка это называет
-if grep -q 'helm, node и buf: пинов в конвейере ревизии и helm в образе ранера нет' "$BOX/u1.out" 2>/dev/null; then ok; else OUT="$BOX/u1.out"; bad E5 "отсутствие пинов не названо"; fi
+if grep -q 'helm, node, buf и yq: пинов в конвейере ревизии и helm в образе ранера нет' "$BOX/u1.out" 2>/dev/null; then ok; else OUT="$BOX/u1.out"; bad E5 "отсутствие пинов не названо"; fi
 # E6 run отказал сверкой среды → 69 «не выполнилось — среда», а не код команды
 fresh
 go_run e6 env FAKE_EXIT=125 FAKE_MSG="remote-heavy-prep: среда: helm v4.2.4 (пин конвейера) нет в PATH" bash "$RUN" --task 1 --repo kaname --ref pins --src "$SRC" --profile integration --short e6 -- true
@@ -1949,6 +2190,10 @@ if [ -f "$f" ]; then
     if [ "$d" -le 60 ]; then ok; else bad K5 "kacho.io/expires=$exp, ждали ≈ +5400 + 1800 + 600 с + 2 ч"; fi
     labels="$(jq -r '.metadata.labels | "\(.["kacho.io/task"]) \(.["kacho.io/stand"]) \(.["kacho.io/kind"])"' "$f")"
     if [ "$labels" = "1 test heavy" ]; then ok; else bad K5 "метки «$labels», ждали «1 test heavy»"; fi
+    # K5-req — аннотации запроса (ЁМКОСТЬ, ws#1293) — запрос pod прогона из --profiles
+    k5_want="$(bash "$RUN" --profiles 2>/dev/null | awk '$1 == "lint" && $2 == "kaname" { for (i = 1; i <= NF; i++) { if ($i == "cpu" && c == "") c = $(i+1); if ($i == "память" && m == "") m = $(i+1) } sub(/m$/, "", c); print c, m; exit }')"
+    k5_req="$(jq -r '"\(.metadata.annotations["kacho.io/request-cpu"] // "") \(.metadata.annotations["kacho.io/request-mib"] // "")"' "$f")"
+    if [[ "$k5_want" =~ ^[0-9]+\ [0-9]+$ ]] && [ "$k5_req" = "$k5_want" ]; then ok; else bad K5-req "аннотации запроса «$k5_req», ждали «$k5_want» (запрос lint kaname из --profiles)"; fi
 else
     bad K5 "ns с --keep снято"
 fi
@@ -2082,19 +2327,22 @@ expect_rc V2 75
 fresh; seed_ns t7-heavy-a '+1 hour'
 go_run v2b env KACHO_REMOTE_HEAVY_MAX=2 bash "$RUN" --available
 expect_rc V2b 0
-# M2 — предел по умолчанию — 6, страховка над размещением (ws#1143, ws#1195): 6 идущих
-# → 75 с пределом в причине; близнец — 5 идущих → 0
+# M2 — потолок по умолчанию 25, а не 6 (ws#1293): число прогонов даёт ЁМКОСТЬ (CP ниже);
+# 6 идущих при --available без запроса → 0, потолок назван строкой ёмкости
 fresh; for x in a b c d e f; do seed_ns "t7-heavy-$x" '+1 hour'; done
 go_run m2 bash "$RUN" --available
-expect_rc M2 75
-if grep -q 'идущих тяжёлых прогонов 6 при пределе 6' "$OUT"; then ok; else bad M2-why "предел по умолчанию не 6 либо не назван"; fi
-fresh; for x in a b c d e; do seed_ns "t7-heavy-$x" '+1 hour'; done
-go_run m2b bash "$RUN" --available
-expect_rc M2b 0
-# M1 — предел вне 1..8 → 64
+expect_rc M2 0
+if grep -q 'ёмкость: тяжёлых 6, помещается без предела (запрос не назван).*потолок 25 (KACHO_REMOTE_HEAVY_MAX)' "$OUT"; then ok; else bad M2-why "потолок по умолчанию не 25 либо строка ёмкости не напечатана"; fi
+# M1 — потолок вне 1..64 → 64; близнец M1b — 64 → 0
 fresh
 go_run m1 env KACHO_REMOTE_HEAVY_MAX=0 "${B[@]}" -- true
 expect_rc M1 64
+fresh
+go_run m1c env KACHO_REMOTE_HEAVY_MAX=65 "${B[@]}" -- true
+expect_rc M1-65 64
+fresh
+go_run m1b env FAKE_EXIT=0 KACHO_REMOTE_HEAVY_MAX=64 "${B[@]}" --short m1b -- true
+expect_rc M1b 0
 
 # ── перепись длиннее слова argv (ws#1210) ───────────────────────────────────
 # Слово argv ядро ограничивает MAX_ARG_STRLEN (32 страницы, 128 КиБ): перепись,
@@ -2121,7 +2369,7 @@ else bad AL0 "перепись двойника не длиннее слова a
 # AL1 — --available при переписи ns и Job длиннее слова → 0, идущих 0; близнец AL1b — малая
 go_run al1 bash "$RUN" --available
 expect_rc AL1 0
-if grep -q 'идущих тяжёлых прогонов 0 из' "$OUT" && ! grep -q 'Argument list too long' "$OUT"; then ok; else bad AL1 "перепись длиннее слова не разобрана"; fi
+if grep -q 'ёмкость: тяжёлых 0, помещается' "$OUT" && ! grep -q 'Argument list too long' "$OUT"; then ok; else bad AL1 "перепись длиннее слова не разобрана"; fi
 fresh; seed_idle 3
 go_run al1b bash "$RUN" --available
 expect_rc AL1b 0
@@ -2283,7 +2531,8 @@ ql_n=0; ql_raise=0
 while IFS='|' read -r qp _ _ qlim _; do
     [ -n "$qp" ] || continue
     case "$qlim" in *Gi) qlim=$(( ${qlim%Gi} * 1024 )) ;; *Mi) qlim="${qlim%Mi}" ;; esac
-    for qrp in kacho kaname corelib; do
+    qrps="kacho kaname corelib"; [ "$qp" != ws ] || qrps=kacho-workspace   # профиль ws — лишь клон воркспейса (ws#1304)
+    for qrp in $qrps; do
         qw_="$(ql_want "$qp" "$qrp")" || { bad "QL-$qp-$qrp" "строки PEAKS для $qp нет — норму вывести не из чего"; continue; }
         [ "$qw_" -gt "$qlim" ] && ql_raise=$((ql_raise + 1))
         qg="$(awk -v p="$qp" -v r="$qrp" '$1 == p && $2 == r { for (i = 1; i <= NF; i++) if ($i == "память" && $(i+1) ~ /\//) { split($(i+1), a, "/"); print a[2] } }' "$OUT" | head -n 1)"
@@ -2317,7 +2566,8 @@ expect_rc QE-prof 64
 # окон»). Узлы и фон — перепись 2026-10-18: два узла по 15 500m и 30 189 МиБ, фон без
 # тяжёлых — 2 265m/8 436 МиБ и 2 335m/9 460 МиБ (стенды и выкатка). Прогоны ci-local
 # садятся подряд; уже севший — pod с запросами из Job, который создал сам run.sh.
-# Ложатся шесть (kacho, kacho, kaname, kaname, kaname, kacho), седьмой — 75. Константа
+# Ложатся шесть (kacho, kacho, kaname, kaname, kaname, kacho), седьмой — 75: запрос
+# ci-local kacho — прежний 7 680 МиБ до замера рабочей памяти (ws#1293, PEAKS). Константа
 # 7/12 краснит третий, запас 20 % сверх запроса — пятый (mutants.py).
 BG="$(pod_j sys n1 Running 2265m 8436Mi) $(pod_j sys n2 Running 2335m 9460Mi)"
 pod_from_job() {  # pod_from_job <ns> <узел> — pod последнего Job пробы, лишь запросы
@@ -2445,6 +2695,218 @@ timeout 15 env PATH="$BOX/bin:$PATH" FAKE_STATE="$BOX/state" FAKE_HOST="$SERVER_
     KACHO_REMOTE_KUBECONFIG="$BOX/kubeconfig" TMPDIR="$BOX" "${B[@]}" --short q4b -- true > "$OUT" 2>&1
 RC=$?; cat "$OUT" >> "$ALL_OUT"
 expect_rc Q4b 124
+
+# ── ЁМКОСТЬ: предел тяжёлых — из кластера (ws#1293) ───────────────────────
+# Фикстуры — JSON узлов и pod двойника, без живого кластера. Узел — 15 500m и
+# 30 189 МиБ (node_j), прогон — ci-local kaname: запрос pod выводится из --profiles
+# run.sh (cpu 4 000m, память — PEAKS × 1,2), а не выписан.
+cp_req="$(bash "$RUN" --profiles 2>/dev/null | awk '$1 == "ci-local" && $2 == "kaname" { for (i = 1; i <= NF; i++) { if ($i == "cpu" && c == "") c = $(i+1); if ($i == "память" && m == "") m = $(i+1) } print c, m; exit }')"
+read -r cp_cpu cp_mib <<< "$cp_req"; cp_cpu="${cp_cpu%m}"
+if [[ "$cp_cpu" =~ ^[0-9]+$ ]] && [[ "$cp_mib" =~ ^[0-9]+$ ]] && [ "$(( 15500 / cp_cpu ))" = 3 ] && [ "$(( 30189 / cp_mib ))" -ge 3 ]; then ok
+else OUT=""; bad CP-premise "запрос ci-local kaname «$cp_req» не выведен либо узел 15 500m не держит ровно 3 по CPU — ожидания CP5/CP2 неверны"; fi
+pod_pend_j() {  # pod_pend_j <ns> <cpu> <память> — pod без узла (ждёт планирования)
+    jq -nc --arg ns "$1" --arg c "$2" --arg m "$3" '{metadata: {namespace: $ns, name: "p"},
+      spec: {containers: [{name: "c", resources: {requests: {cpu: $c, memory: $m}}}]}, status: {phase: "Pending"}}'
+}
+# cp_seed <узел…> — по идущему тяжёлому ns на каждый узел списка, pod ns сел на этот узел
+# с запросом ci-local kaname; pod — в CP_PODS.
+cp_seed() {
+    local i=0 x
+    CP_PODS=""
+    for x in "$@"; do
+        i=$((i + 1)); seed_ns "t7-heavy-cp$i" '+1 hour'
+        CP_PODS="$CP_PODS$(pod_j "t7-heavy-cp$i" "$x" Running "${cp_cpu}m" "${cp_mib}Mi")"$'\n'
+    done
+}
+CPB_RUN=(bash "$RUN" --task 1 --repo kaname --ref HEAD --src "$SRC" --profile ci-local)
+NODES5="$(for x in n1 n2 n3 n4 n5; do node_j "$x" 1 0 ""; done | items)"
+# CP5 — 5 узлов, 6 идущих сели (2, 2, 1, 1, 0) → новый ложится: помещается 6 + 1 + 1 + 2 + 2 + 3 = 15
+fresh; cp_seed n1 n1 n2 n2 n3 n4
+go_run cp5 env FAKE_NODES="$NODES5" FAKE_CLUSTER_PODS="$(printf '%s' "$CP_PODS" | items)" bash "$RUN" --available --profile ci-local --repo kaname
+expect_rc CP5 0
+if grep -q 'ёмкость: тяжёлых 6, помещается 15 (узлов 5, свободно [0-9,]* CPU / [0-9,]* ГиБ), потолок 25' "$OUT"; then ok; else bad CP5-line "строка «тяжёлых 6, помещается 15 (узлов 5, …), потолок 25» не напечатана"; fi
+fresh; cp_seed n1 n1 n2 n2 n3 n4
+go_run cp5r env FAKE_EXIT=0 FAKE_NODES="$NODES5" FAKE_CLUSTER_PODS="$(printf '%s' "$CP_PODS" | items)" "${CPB_RUN[@]}" --short cp5r -- true
+expect_rc CP5-run 0
+if [ "$(created)" = да ] && grep -q 'ёмкость: тяжёлых 6, помещается 15' "$OUT"; then ok; else bad CP5-run "ns не создано либо ёмкость не напечатана при месте на 5 узлах"; fi
+# CP2 — близнец: 2 узла, 6 идущих (3 и 3) → 75 «помещается 6»; 5 идущих → 0 «помещается 6»
+fresh; cp_seed n1 n1 n1 n2 n2 n2
+go_run cp2 env FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$(printf '%s' "$CP_PODS" | items)" bash "$RUN" --available --profile ci-local --repo kaname
+expect_rc CP2 75
+if grep -q 'места под запрос.*ёмкость: тяжёлых 6, помещается 6 (узлов 2' "$OUT"; then ok; else bad CP2-why "причина 75 без ёмкости «тяжёлых 6, помещается 6»"; fi
+fresh; cp_seed n1 n1 n1 n2 n2
+go_run cp2b env FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$(printf '%s' "$CP_PODS" | items)" bash "$RUN" --available --profile ci-local --repo kaname
+expect_rc CP2b 0
+if grep -q 'ёмкость: тяжёлых 5, помещается 6 (узлов 2' "$OUT"; then ok; else bad CP2b-line "ёмкость «тяжёлых 5, помещается 6» не напечатана"; fi
+# CPB — раскладка по узлам: свободно n1 — запрос × 2 − 100m, n2 — 3 000m; идущий pod без
+# узла (запрос ci-local kaname) и новый в сумме кластера ложатся, а по узлам — нет:
+# идущий займёт n1, новому места не останется → 75, ns не создаётся. Близнец CPBb —
+# n1 свободно ровно запрос × 2 → 0. Сумма по кластеру (мутант cluster-sum) даёт 0 и в CPB.
+cpb() {  # cpb <случай> <фон n1, m> <код>
+    local pods
+    pods="$( { pod_j sys n1 Running "$2m" 1Gi; pod_j sys n2 Running 12500m 1Gi; pod_pend_j t7-heavy-pend "${cp_cpu}m" "${cp_mib}Mi"; } | items)"
+    fresh; seed_ns t7-heavy-pend '+1 hour'
+    go_run "cpb-$1" env FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$pods" bash "$RUN" --available --profile ci-local --repo kaname
+    expect_rc "CPB-$1" "$3"
+    fresh; seed_ns t7-heavy-pend '+1 hour'
+    go_run "cpbr-$1" env FAKE_EXIT=0 FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$pods" "${CPB_RUN[@]}" --short "cpb$1" -- true
+    expect_rc "CPB-run-$1" "$3"
+    if [ "$3" = 0 ]; then
+        if [ "$(created)" = да ]; then ok; else bad "CPB-run-$1" "ns не создано при месте по узлам"; fi
+    else
+        if [ "$(created)" = нет ]; then ok; else bad "CPB-run-$1" "ns создано, хотя по узлам места нет"; fi
+    fi
+}
+cpb out "$(( 15500 - 2 * cp_cpu + 100 ))" 75
+cpb in "$(( 15500 - 2 * cp_cpu ))" 0
+# CPN — идущее ns без pod (Job pod ещё не создал) держит место своим запросом (имя без
+# профиля и без аннотаций — наибольшим таблицы): один узел, свободно запрос × 2 − 100m
+# → 75; близнец CPNb без идущего → 0
+cpn_pods="$(pod_j sys n1 Running "$(( 15500 - 2 * cp_cpu + 100 ))m" 1Gi | items)"
+fresh; seed_ns t7-heavy-nopod '+1 hour'
+go_run cpn env FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$cpn_pods" bash "$RUN" --available --profile ci-local --repo kaname
+expect_rc CPN 75
+fresh
+go_run cpnb env FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$cpn_pods" bash "$RUN" --available --profile ci-local --repo kaname
+expect_rc CPNb 0
+# PD — ВОШЕДШИЕ без ns (--pending, ws#1302): строка вошедшего держит место своим запросом, как
+# ns без pod. Тот же узел, что CPN (свободно запрос × 2 − 100m), идущих нет, вошедший с запросом
+# ci-local kaname → 75 и «вошедших без ns 1»; близнец PDb — пустой файл → 0 (=CPNb).
+printf 'hs-7 %s %s\n' "$cp_cpu" "$cp_mib" > "$BOX/pend1"; : > "$BOX/pend0"
+fresh
+go_run pd env FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$cpn_pods" bash "$RUN" --available --profile ci-local --repo kaname --pending "$BOX/pend1"
+expect_rc PD 75
+if grep -q 'места под запрос.*в том числе вошедших без ns 1' "$OUT"; then ok; else bad PD-why "причина 75 не называет вошедшего без ns"; fi
+fresh
+go_run pdb env FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$cpn_pods" bash "$RUN" --available --profile ci-local --repo kaname --pending "$BOX/pend0"
+expect_rc PDb 0
+# PDm — предел P считает вошедших: KACHO_REMOTE_HEAVY_MAX=2, идущий 1 + вошедший 1 → 75; близнец
+# PDmb — тот же идущий без вошедшего → 0 (место есть: без запроса судится лишь открытый узел).
+fresh; seed_ns t7-heavy-pdm '+1 hour'
+go_run pdm env KACHO_REMOTE_HEAVY_MAX=2 bash "$RUN" --available --pending "$BOX/pend1"
+expect_rc PDm 75
+if grep -q 'идущих тяжёлых прогонов 1, вошедших без ns 1 при пределе 2' "$OUT"; then ok; else bad PDm-why "предел не назвал вошедших"; fi
+fresh; seed_ns t7-heavy-pdm '+1 hour'
+go_run pdmb env KACHO_REMOTE_HEAVY_MAX=2 bash "$RUN" --available --pending "$BOX/pend0"
+expect_rc PDmb 0
+# PDf — строка вне формы «имя mCPU МиБ» → 64 до кластера; файла нет → 64.
+printf 'hs-7 4000\n' > "$BOX/pendf"
+fresh
+go_run pdf bash "$RUN" --available --profile ci-local --pending "$BOX/pendf"
+expect_rc PDf 64
+if [ ! -s "$BOX/state/calls" ]; then ok; else bad PDf-calls "при строке вне формы был вызов кластера"; fi
+fresh
+go_run pdn bash "$RUN" --available --pending "$BOX/нет-файла"
+expect_rc PDn 64
+# RQ — --request: запрос pod «mCPU МиБ» тем же sizing, что --profiles (ci-local kaname — cp_cpu,
+# cp_mib), к кластеру не обращается; без --profile → 64; профиля нет → 64.
+fresh
+go_run rq bash "$RUN" --request --profile ci-local --repo kaname
+expect_rc RQ 0
+if [ "$(grep -E '^[0-9]+ [0-9]+$' "$OUT")" = "$cp_cpu $cp_mib" ] && [ ! -s "$BOX/state/calls" ]; then ok; else bad RQ "--request не равен запросу --profiles ($cp_cpu $cp_mib) либо обращался к кластеру"; fi
+go_run rq0 bash "$RUN" --request
+expect_rc RQ0 64
+go_run rqx bash "$RUN" --request --profile nosuch
+expect_rc RQx 64
+# CPR — гонка ёмкостью: первая перепись идущих не видит, чужое ns создано мгновением
+# раньше своего (FAKE_RACE, без pod); со старшим места нет → 75, своё ns снято, Job нет;
+# близнец CPRb без гонки → 0. Потолок не держит: он 25.
+fresh
+go_run cpr env FAKE_EXIT=0 FAKE_RACE=t9-heavy-racer FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$cpn_pods" "${CPB_RUN[@]}" --short cpr -- true
+expect_rc CPR 75
+own_gone CPR t1-heavy-cpr
+no_job CPR
+if grep -q 'со старшими идущими места под запрос' "$OUT"; then ok; else bad CPR-why "причина гонки ёмкостью не названа"; fi
+fresh
+go_run cprb env FAKE_EXIT=0 FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$cpn_pods" "${CPB_RUN[@]}" --short cprb -- true
+expect_rc CPRb 0
+
+# ── D8: СВОЙ запрос идущего ns без pod (приёмка ws#1293, круг 1) ─────────────
+# Узел 15 500m и 30 189 МиБ, фон 100m и 30 189 − F МиБ, F = ci-local kacho + ci-local
+# kaname − 1: место под ОДИН ci-local kacho, но не под него и ci-local kaname разом;
+# ci-local kaname двоим места хватает (kaname меньше kacho). Запросы — из --profiles,
+# не выписаны; F выводится из них.
+ck_mib="$(bash "$RUN" --profiles 2>/dev/null | awk '$1 == "ci-local" && $2 == "kacho" { for (i = 1; i <= NF; i++) if ($i == "память") { print $(i+1); exit } }')"
+d8_free=$(( ${ck_mib:-0} + ${cp_mib:-0} - 1 ))
+if [[ "$ck_mib" =~ ^[0-9]+$ ]] && [ "$d8_free" -lt 30189 ] && [ "$ck_mib" -le "$d8_free" ] && [ $(( 2 * cp_mib )) -le "$d8_free" ] && [ $(( 2 * cp_cpu )) -le 15400 ]; then ok
+else OUT=""; bad D8-premise "запрос ci-local kacho «$ck_mib» и kaname «$cp_mib» не разводят случаи D8 на $d8_free МиБ свободных"; fi
+d8_pods="$(pod_j sys n1 Running 100m "$(( 30189 - d8_free ))Mi" | items)"
+# seed_req <ns> <репозиторий|-> [<cpu> <МиБ>] — идущее ns без pod с меткой репозитория и,
+# если названы, аннотациями запроса
+seed_req() {
+    seed_ns "$1" '+1 hour'
+    jq --arg r "$2" --arg c "${3:-}" --arg m "${4:-}" '
+      (if $r != "-" then .metadata.labels["kacho.io/repo"] = $r else (.) end)
+      | (if $c != "" then .metadata.annotations += {"kacho.io/request-cpu": $c, "kacho.io/request-mib": $m} else (.) end)' \
+      "$BOX/state/ns/$1" > "$BOX/x.json" && mv "$BOX/x.json" "$BOX/state/ns/$1"
+}
+d8() {  # d8 <случай> <код> <seed_req-аргументы…> — --available и прогон ci-local kaname
+    local id="$1" want="$2"; shift 2
+    fresh; seed_req "$@"
+    go_run "d8-$id" env FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$d8_pods" bash "$RUN" --available --profile ci-local --repo kaname
+    expect_rc "D8$id" "$want"
+    fresh; seed_req "$@"
+    go_run "d8r-$id" env FAKE_EXIT=0 FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$d8_pods" "${CPB_RUN[@]}" --short "d8$id" -- true
+    expect_rc "D8$id-run" "$want"
+    if [ "$want" = 0 ]; then
+        if [ "$(created)" = да ]; then ok; else bad "D8$id-run" "ns не создано при месте под старшего и нового"; fi
+    else
+        if [ "$(created)" = нет ]; then ok; else bad "D8$id-run" "ns создано, хотя старший своим запросом место занял"; fi
+    fi
+}
+d8 k 75 t7-heavy-ci-local-ab12 kacho
+d8 t 0 t7-heavy-ci-local-ab12 kaname
+d8 u 75 t7-heavy-zz -
+d8 a 75 t7-heavy-zz - "${cp_cpu}" "$ck_mib"
+d8 ab 0 t7-heavy-zz - "${cp_cpu}" "$cp_mib"
+# D8r — гонка тем же правилом: первая перепись пуста, старший ci-local kacho (имя и
+# метка) создан мгновением раньше своего → своё ns снято, 75, Job нет; близнец D8rb —
+# старший ci-local kaname → 0
+fresh
+go_run d8race env FAKE_EXIT=0 FAKE_RACE=t9-heavy-ci-local-r1 FAKE_RACE_REPO=kacho FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$d8_pods" "${CPB_RUN[@]}" --short d8race -- true
+expect_rc D8r 75
+own_gone D8r t1-heavy-d8race
+no_job D8r
+if grep -q 'со старшими идущими места под запрос' "$OUT"; then ok; else bad D8r-why "причина гонки ёмкостью не названа"; fi
+fresh
+go_run d8raceb env FAKE_EXIT=0 FAKE_RACE=t9-heavy-ci-local-r1 FAKE_RACE_REPO=kaname FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$d8_pods" "${CPB_RUN[@]}" --short d8raceb -- true
+expect_rc D8rb 0
+
+# ── D9: pod без узла — разнесением, а не first-fit ──────────────────────────
+# Два узла по 15 500m и 30 189 МиБ, 8 идущих ns, у каждого pod без узла (100m); новый
+# ci-local kacho (K МиБ). Разнесение кладёт 4 + 4: pod по ⌈(30 189 − K + 1) / 4⌉ МиБ
+# оставляют на каждом узле меньше K → 75; на 1 МиБ меньше — не меньше K → 0. First-fit
+# (сколько влезет на n1, остаток на n2) оставил бы n2 свободнее K и дал 0 в обоих.
+d9_red=$(( (30189 - ${ck_mib:-0} + 4) / 4 )); d9_twin=$(( d9_red - 1 ))
+d9_ff=$(( 30189 / (d9_red > 0 ? d9_red : 1) ))
+if [ $(( 30189 - 4 * d9_red )) -lt "$ck_mib" ] && [ $(( 30189 - 4 * d9_twin )) -ge "$ck_mib" ] \
+   && [ "$d9_ff" -gt 4 ] && [ "$d9_ff" -lt 8 ] && [ $(( 30189 - (8 - d9_ff) * d9_red )) -ge "$ck_mib" ]; then ok
+else OUT=""; bad D9-premise "запрос ci-local kacho «$ck_mib» не разводит D9 и D9b (pod по $d9_red и $d9_twin МиБ, first-fit кладёт на n1 $d9_ff)"; fi
+d9() {  # d9 <случай> <МиБ pod> <код>
+    local i pods=""
+    fresh
+    for i in 1 2 3 4 5 6 7 8; do seed_ns "t7-heavy-sp$i" '+1 hour'; pods="$pods$(pod_pend_j "t7-heavy-sp$i" 100m "$2Mi")"$'\n'; done
+    go_run "d9-$1" env FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$(printf '%s' "$pods" | items)" bash "$RUN" --available --profile ci-local --repo kacho
+    expect_rc "D9$1" "$3"
+}
+d9 "" "$d9_red" 75
+d9 b "$d9_twin" 0
+
+# ── DT, PN: pod Terminating и Pending с узлом держат место ──────────────────
+# Один узел; pod фона 100m и 30 189 − запрос ci-local kaname + 1 МиБ — места под
+# новый нет, пока pod считается. DT — pod Running с deletionTimestamp (Terminating) →
+# 75, близнец DTb — тот же pod Succeeded → 0; PN — pod Pending с nodeName → 75,
+# близнец PNb — тот же pod без узла (ns sys, не тяжёлое) → 0.
+dt_mib=$(( 30189 - cp_mib + 1 ))
+dtp() {  # dtp <случай> <код> <pod JSON>
+    fresh
+    go_run "dt-$1" env FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$(printf '%s\n' "$3" | items)" bash "$RUN" --available --profile ci-local --repo kaname
+    expect_rc "$1" "$2"
+}
+dtp DT 75 "$(pod_j sys n1 Running 100m "${dt_mib}Mi" | jq -c '.metadata.deletionTimestamp = "2026-10-21T00:00:00Z"')"
+dtp DTb 0 "$(pod_j sys n1 Succeeded 100m "${dt_mib}Mi" | jq -c '.metadata.deletionTimestamp = "2026-10-21T00:00:00Z"')"
+dtp PN 75 "$(pod_j sys n1 Pending 100m "${dt_mib}Mi")"
+dtp PNb 0 "$(pod_pend_j sys 100m "${dt_mib}Mi")"
 
 # ── команда доходит до контейнера байт в байт (ws#1142) ────────────────────
 # Составной Job потерял переменные и коды осей: kubelet свернул $$ в $ и раскрыл
@@ -2840,11 +3302,14 @@ expect_rc RG6b 1
 if [ "$(red_dirs rg6b)" -eq 0 ] && grep -q 'журналы красных групп НЕ получены' "$OUT"; then ok; else bad RG6b "отсутствие итога не названо"; fi
 
 # SW — уборка просроченных (ws#1195). seed_at <имя> <создано> <срок> <heavy 1|0> [keep]
+# Тяжёлое ns несёт аннотации запроса, как его ставит run.sh (D8): уборка судится
+# отдельно от ёмкости — запрос lint kaname, наименьший в таблице, место ему есть.
 seed_at() {
     jq -n --arg n "$1" --arg t "$(date -u -d "$2" +%Y-%m-%dT%H:%M:%SZ)" --arg e "$(date -u -d "$3" +%Y-%m-%dT%H:%M:%SZ)" --arg h "$4" --arg k "${5:-}" \
         '{kind: "Namespace", metadata: {name: $n, creationTimestamp: $t,
           labels: (if $h == "1" then {"kacho.io/kind": "heavy"} else {stand: "test"} end),
-          annotations: ({"kacho.io/expires": $e} + (if $k != "" then {"kacho.io/keep": $k} else {} end))}, status: {phase: "Active"}}' > "$BOX/state/ns/$1"
+          annotations: ({"kacho.io/expires": $e} + (if $k != "" then {"kacho.io/keep": $k} else {} end)
+                        + (if $h == "1" then {"kacho.io/request-cpu": "2000", "kacho.io/request-mib": "5376"} else {} end))}, status: {phase: "Active"}}' > "$BOX/state/ns/$1"
 }
 seed_live_job() { mkdir -p "$BOX/state/jobs"; jq -n --arg n "$1" '{metadata: {namespace: $n, name: "run"}, status: {active: 1}}' > "$BOX/state/jobs/$1"; }
 fresh
@@ -2875,7 +3340,7 @@ fresh; rm -rf "$BOX/state/ns"; cp -r "$BOX/sw-keep/ns" "$BOX/sw-keep/jobs" "$BOX
 go_run sw2 env FAKE_EXIT=0 "${B[@]}" --short sw2 -- true
 expect_rc SW2 0
 if grep -q 'уборка просроченных тяжёлых ns: снято' "$OUT"; then bad SW2 "повтор снова снимает — уборка не досчитала"; else ok; fi
-if grep -qx 't1-heavy-sw2' "$BOX/state/deleted" 2>/dev/null && [ "$(grep -c . "$BOX/state/deleted")" -eq 1 ]; then ok; else bad SW2-own "снято не одно своё ns прогона: $(tr '\n' ' ' < "$BOX/state/deleted" 2>/dev/null)"; fi
+if grep -qx 't1-heavy-sw2' "$BOX/state/deleted" 2>/dev/null && [ "$(grep -c . "$BOX/state/deleted")" -eq 1 ]; then ok; else bad SW2-own "снято не одно своё ns прогона: $(tr '\n' ' ' 2>/dev/null < "$BOX/state/deleted")"; fi
 # SW3 — --keep пишет аннотацию kacho.io/keep (по ней уборка его щадит)
 fresh
 go_run sw3 env FAKE_EXIT=0 "${B[@]}" --short sw3 --keep 2 -- true
@@ -2885,20 +3350,44 @@ if [ "$(jq -r '.metadata.annotations["kacho.io/keep"] // ""' "$BOX/state/ns/t1-h
 # PK — пик run (ws#1195). PK1 — исполнением шага: memory.peak и usage_usec за команду.
 if [ -s "$BOX/redlog-oom.sh" ]; then
     echo 3221225472 > "$RW/mpeak"; printf 'usage_usec 1000000\nuser_usec 1\n' > "$RW/cstat"
-    ( cd "$RW" && HEAVY_MEM_EVENTS="$RW/mev" HEAVY_MEM_PEAK="$RW/mpeak" HEAVY_CPU_STAT="$RW/cstat" bash "$BOX/redlog-oom.sh" \
-        bash -c 'printf "usage_usec 9000000\n" > "$1"' x "$RW/cstat" ) > "$BOX/pk1.out" 2>&1; RC=$?; OUT="$BOX/pk1.out"
+    # рабочая до команды 2 ГиБ − 512 МиБ; команда поднимает memory.current до 3 ГиБ →
+    # пик рабочей 2 684 354 560 (выборка после команды); PK1c — опускает до 1 ГиБ →
+    # наибольшая прежняя 1 610 612 736, а не последняя
+    pk_ws() {  # pk_ws <out> <memory.current, которое ставит команда>
+        echo 2147483648 > "$RW/mcur"; printf 'anon 1\ninactive_file 536870912\nactive_file 1\n' > "$RW/mstat"
+        ( cd "$RW" && HEAVY_MEM_EVENTS="$RW/mev" HEAVY_MEM_PEAK="$RW/mpeak" HEAVY_CPU_STAT="$RW/cstat" \
+            HEAVY_MEM_CURRENT="$RW/mcur" HEAVY_MEM_STAT="$RW/mstat" bash "$BOX/redlog-oom.sh" \
+            bash -c 'printf "usage_usec 9000000\n" > "$1"; echo "$3" > "$2"' x "$RW/cstat" "$RW/mcur" "$2" ) > "$1" 2>&1; RC=$?; OUT="$1"
+    }
+    pk_ws "$BOX/pk1.out" 3221225472
     expect_rc PK1 0
-    if grep -qE '^remote-heavy-peak: 3221225472 8000000 [0-9]+$' "$OUT"; then ok; else bad PK1 "строки пика с памятью и CPU за команду нет"; fi
-    ( cd "$RW" && HEAVY_MEM_EVENTS="$RW/mev" HEAVY_MEM_PEAK="$RW/nope" HEAVY_CPU_STAT="$RW/nope" bash "$BOX/redlog-oom.sh" true ) > "$BOX/pk1b.out" 2>&1; OUT="$BOX/pk1b.out"
-    if grep -qE '^remote-heavy-peak: — — [0-9]+$' "$OUT"; then ok; else bad PK1b "без cgroup строки пика «— —» нет"; fi
+    if grep -qE '^remote-heavy-peak: 3221225472 8000000 [0-9]+ [0-9]+$' "$OUT"; then ok; else bad PK1 "строки пика с памятью и CPU за команду нет"; fi
+    if grep -qE '^remote-heavy-peak: [0-9]+ [0-9]+ [0-9]+ 2684354560$' "$OUT"; then ok; else bad PK1-ws "пик рабочей памяти без кэша (выборка после команды) не напечатан"; fi
+    printf 'usage_usec 1000000\nuser_usec 1\n' > "$RW/cstat"
+    pk_ws "$BOX/pk1c.out" 1073741824
+    if grep -qE '^remote-heavy-peak: [0-9]+ [0-9]+ [0-9]+ 1610612736$' "$OUT"; then ok; else bad PK1c "пик рабочей памяти — не наибольшая выборка"; fi
+    # PK1-mid (приёмка ws#1293, порча cv-ws-no-loop): подъём ПОСРЕДИ команды — 4 ГиБ
+    # дольше двух шагов выборки (5 с при шаге 2 с), спад до 1 ГиБ до её конца. Пик
+    # рабочей — 4 ГиБ − 512 МиБ = 3 758 096 384 ловит лишь выборка во время команды:
+    # до неё 1 610 612 736, после — 536 870 912.
+    printf 'usage_usec 1000000\nuser_usec 1\n' > "$RW/cstat"
+    echo 2147483648 > "$RW/mcur"; printf 'anon 1\ninactive_file 536870912\nactive_file 1\n' > "$RW/mstat"
+    ( cd "$RW" && HEAVY_MEM_EVENTS="$RW/mev" HEAVY_MEM_PEAK="$RW/mpeak" HEAVY_CPU_STAT="$RW/cstat" \
+        HEAVY_MEM_CURRENT="$RW/mcur" HEAVY_MEM_STAT="$RW/mstat" bash "$BOX/redlog-oom.sh" \
+        bash -c 'echo 4294967296 > "$1"; sleep 5; echo 1073741824 > "$1"' x "$RW/mcur" ) > "$BOX/pk1mid.out" 2>&1; RC=$?; OUT="$BOX/pk1mid.out"
+    expect_rc PK1-mid 0
+    if grep -qE '^remote-heavy-peak: [0-9]+ [0-9]+ [0-9]+ 3758096384$' "$OUT"; then ok; else bad PK1-mid "подъём рабочей памяти посреди команды не пойман выборкой во время неё"; fi
+    ( cd "$RW" && HEAVY_MEM_EVENTS="$RW/mev" HEAVY_MEM_PEAK="$RW/nope" HEAVY_CPU_STAT="$RW/nope" \
+        HEAVY_MEM_CURRENT="$RW/nope" HEAVY_MEM_STAT="$RW/nope" bash "$BOX/redlog-oom.sh" true ) > "$BOX/pk1b.out" 2>&1; OUT="$BOX/pk1b.out"
+    if grep -qE '^remote-heavy-peak: — — [0-9]+ —$' "$OUT"; then ok; else bad PK1b "без cgroup строки пика «— — … —» нет"; fi
 else OUT=""; bad PK1 "шага в pod нет — пик исполнять нечего"; fi
 # PK2 — поток несёт пик → строка «пик run» и «remote-peak» в журнале слотов
-printf '%s\n' 'remote-heavy-peak: 2147483648 120000000 60' 'remote-heavy-redlog: total 0 0' > "$BOX/pk2.stream"
+printf '%s\n' 'remote-heavy-peak: 2147483648 120000000 60 1073741824' 'remote-heavy-redlog: total 0 0' > "$BOX/pk2.stream"
 fresh; rm -rf "$BOX/slots"; mkdir -p "$BOX/slots"
 go_run pk2 env FAKE_EXIT=0 FAKE_LOG_FILE="$BOX/pk2.stream" "${B[@]}" --short pk2 -- true
 expect_rc PK2 0
-if grep -q 'пик run: память 2048 МиБ при запросе .*CPU в среднем 2000m за 60 с' "$OUT"; then ok; else bad PK2 "пик run не напечатан"; fi
-if grep -qE ' remote-peak class=lint repo=kaname rc=0 run_peak=2048MiB req=[0-9]+MiB lim=[0-9]+MiB cpu_avg=2000m cpu_req=[0-9]+m dur=60s ns=t1-heavy-pk2$' "$BOX/slots/journal.log" 2>/dev/null; then ok; else OUT="$BOX/slots/journal.log"; bad PK2-journal "строки remote-peak в журнале слотов нет"; fi
+if grep -q 'пик run: память 2048 МиБ (рабочая, без кэша страниц, 1024 МиБ) при запросе .*CPU в среднем 2000m за 60 с' "$OUT"; then ok; else bad PK2 "пик run не напечатан"; fi
+if grep -qE ' remote-peak class=lint repo=kaname rc=0 run_peak=2048MiB ws_peak=1024MiB req=[0-9]+MiB lim=[0-9]+MiB cpu_avg=2000m cpu_req=[0-9]+m dur=60s ns=t1-heavy-pk2$' "$BOX/slots/journal.log" 2>/dev/null; then ok; else OUT="$BOX/slots/journal.log"; bad PK2-journal "строки remote-peak в журнале слотов нет"; fi
 if grep -q 'remote-heavy-peak' "$BOX/pk2.out"; then OUT="$BOX/pk2.out"; bad PK2-raw "сырая строка пика дошла до вывода"; else ok; fi
 # PK3 — каталога журнала нет → run.sh его не заводит
 fresh; rm -rf "$BOX/slots"
@@ -3237,6 +3726,189 @@ if grep -q -- '--profile integration' "$CN/calls" && grep -q 'в пачке inte
 rm -rf "$CN/v"; : > "$CN/calls"; CN_B='b/../x'
 cn_call CN4 64
 if [ ! -s "$CN/calls" ]; then ok; else bad CN4 "Job запущен при неверном --batch"; fi
+
+# ── СРЕДА ВОРКСПЕЙСА: профиль ws (ws#1304) ──────────────────────────────────
+# WS1 Job клона воркспейса: образ golang:1.26.9 (тот же, что у Job продуктов), ни dind, ни
+#     pgclient; подготовка несёт клоны продуктов, установку среды наборов, node мажора 26 и
+#     сверку среды (после видимости, перед командой), а не модули и pgwait; окружение — пин
+#     анализатора, node и читатель трекера; запрос — консервативная строка ws PEAKS (2 560 МиБ,
+#     предел 9 ГиБ), названный так
+# WS2 пара профиля и репозитория: ws — лишь kacho-workspace и наоборот → 64 до кластера;
+#     --available тем же правилом
+# WS3 пин shellcheck дерева не равен зашитому либо его нет → 69 до кластера, причина названа
+# WS4 сверка среды ИСПОЛНЕНИЕМ (текст из Job, PATH образа поддельный — HEAVY_STD_PATH): вся
+#     среда → 0; нет bats, нет yq, yq не v4, shellcheck не пина, yaml не виден python3 → 125 и
+#     «среда: <имя>» в termination-log (run.sh читает его как 69 — K6)
+# WS5 читатель трекера ИСПОЛНЕНИЕМ (двойник curl): задача → «N false», запрос на слияние → «N true»,
+#     нет → «HTTP 404» и код 1, иная форма вызова → 4
+fresh
+go_run ws1 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kacho-workspace --ref HEAD --src "$SRCW" --profile ws --short ws1 -- bash scripts/tg/run-all.sh
+expect_rc WS1 0
+WJ="$BOX/ws1-job.json"; cp "$BOX/state/job.json" "$WJ" 2>/dev/null
+if jq -e '.spec.template.spec | ([.containers[] | select(.name == "run") | .image] == ["mirror.gcr.io/library/golang:1.26.9"])
+          and ([.initContainers[]? | select(.name == "fetch") | .image] == ["mirror.gcr.io/library/golang:1.26.9"])
+          and ([(.initContainers // [])[], .containers[] | .name] - ["fetch", "run"] == [])' "$WJ" >/dev/null 2>&1; then ok
+else OUT="$WJ"; bad WS1 "Job профиля ws: образ не golang:1.26.9 либо есть контейнеры сверх fetch и run (dind, pgclient)"; fi
+if [ "$(kx env "$WJ" run HEAVY_SHELLCHECK)" = 0.11.0 ] && [ "$(kx env "$WJ" run PREPUSH_GH)" = /work/bin/gh-issue-public ] && [ "$(kx env "$WJ" run HEAVY_NODE)" = 26 ]; then ok
+else OUT="$WJ"; bad WS1 "окружение run: HEAVY_SHELLCHECK «$(kx env "$WJ" run HEAVY_SHELLCHECK)», PREPUSH_GH «$(kx env "$WJ" run PREPUSH_GH)», HEAVY_NODE «$(kx env "$WJ" run HEAVY_NODE)»"; fi
+kx cmd "$WJ" run 2 > "$BOX/ws1.cmd"
+for m in wsclone-begin wstools-begin gitid-begin hooks-begin install-begin tools-check wsclonewait-begin expose-begin wscheck-begin wsuser-begin; do
+    if grep -qx "# $m" "$BOX/ws1.cmd"; then ok; else OUT="$BOX/ws1.cmd"; bad WS1 "шага «# $m» в подготовке run нет"; fi
+done
+for m in moddl-begin pgwait-begin pull-begin npmci-begin file-begin; do
+    if grep -qx "# $m" "$BOX/ws1.cmd"; then OUT="$BOX/ws1.cmd"; bad WS1 "шаг «# $m» профилю ws не нужен (образ без go и pgclient), а он в подготовке"; else ok; fi
+done
+if awk '/^# wsclone-begin$/ { a = NR } /^# wsclonewait-begin$/ { b = NR } /^# expose-end$/ { c = NR } /^# wscheck-begin$/ { d = NR } /^# wsuser-begin$/ { u = NR } /^heavy_cmd "\$@"$/ { e = NR }
+        END { exit !(a && b && c && d && u && e && a < b && b < c && c < d && d < u && u < e) }' "$BOX/ws1.cmd"; then ok
+else OUT="$BOX/ws1.cmd"; bad WS1 "порядок: клоны фоном → ожидание клонов → видимость → сверка среды → пользователь команды → команда — нарушен"; fi
+if grep -qx 'set -- setpriv --reuid=1001 --regid=1001 --init-groups env HOME=/home/runner USER=runner LOGNAME=runner "$@"' "$BOX/ws1.cmd"; then ok
+else OUT="$BOX/ws1.cmd"; bad WS1 "команда профиля ws идёт не от пользователя runner (uid 1001): root pod обходит права файлов"; fi
+if [ "$(jq -r '.spec.template.spec.containers[] | select(.name == "run") | "\(.resources.requests.memory) \(.resources.limits.memory)"' "$WJ" 2>/dev/null)" = "2560Mi 9216Mi" ]; then ok
+else OUT="$WJ"; bad WS1 "запрос и предел памяти run — не 2560Mi и 9216Mi строки ws PEAKS"; fi
+bash "$RUN" --profiles > "$BOX/ws1.profiles" 2>/dev/null
+if grep -q 'КОНСЕРВАТИВНО до замера' "$BOX/ws1.out" || [ "$(grep -A1 '^ws ' "$BOX/ws1.profiles" | grep -c 'КОНСЕРВАТИВНО до замера')" -gt 0 ]; then ok
+else OUT="$BOX/ws1.out"; bad WS1 "запрос профиля ws не назван консервативным (--profiles)"; fi
+if grep -q 'Job создан: образ golang:1.26.9' "$BOX/ws1.out"; then ok; else OUT="$BOX/ws1.out"; bad WS1 "строка «Job создан» не называет образ профиля ws"; fi
+# WS2 — пара профиля и репозитория
+for pr in "ci-local kacho-workspace" "ws kacho" "lint kacho-workspace"; do
+    read -r p_ r_ <<< "$pr"; fresh
+    go_run "ws2-$p_-$r_" env FAKE_EXIT=0 bash "$RUN" --task 1 --repo "$r_" --ref HEAD --src "$SRCW" --profile "$p_" --short ws2 -- true
+    expect_rc "WS2-$p_-$r_" 64; no_cluster_call "WS2-$p_-$r_"
+done
+fresh; go_run ws2-avail env bash "$RUN" --available --profile ws --repo kacho
+expect_rc WS2-avail 64; no_cluster_call WS2-avail
+fresh; go_run ws2-avail-ok env bash "$RUN" --available --profile ws --repo kacho-workspace
+expect_rc WS2-avail-ok 0
+# WS3 — пин shellcheck дерева
+fresh; go_run ws3-sc10 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kacho-workspace --ref sc10 --src "$SRCW" --profile ws --short ws3 -- true
+expect_rc WS3-sc10 69; no_cluster_call WS3-sc10
+if grep -q 'пин shellcheck на .* — 0.10.0' "$OUT"; then ok; else bad WS3-sc10 "причина не названа (пин 0.10.0)"; fi
+fresh; go_run ws3-none env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kacho-workspace --ref scnone --src "$SRCW" --profile ws --short ws3 -- true
+expect_rc WS3-none 69; no_cluster_call WS3-none
+if grep -q 'env.SHELLCHECK_VERSION конвейера нет' "$OUT"; then ok; else bad WS3-none "причина не названа (пина нет)"; fi
+# WS4 — сверка среды исполнением над поддельным PATH образа
+sed -n '/^# wscheck-begin$/,/^# wscheck-end$/p' "$BOX/ws1.cmd" | sed "s#/dev/termination-log#$BOX/wtl#g" > "$BOX/wscheck.sh"
+if grep -q '^# wscheck-end$' "$BOX/wscheck.sh"; then ok; else OUT="$BOX/ws1.cmd"; bad WS4 "текста сверки среды воркспейса в Job нет — исполнять нечего"; fi
+WT="$BOX/wstd"; PY3="$(command -v python3)"
+# ws_std [без <имя>] [yq <версия>] [sc <версия>] [noyaml] — PATH образа: настоящие bash, git,
+# curl, jq, python3; yq, shellcheck и bats — двойники с выводом версии своего вида.
+ws_std() {
+    rm -rf "$WT"; mkdir -p "$WT"
+    local yv=v4.45.4 sv=0.11.0 skip="" noyaml=""
+    while [ "$#" -gt 0 ]; do case "$1" in без) skip="$2"; shift 2 ;; yq) yv="$2"; shift 2 ;; sc) sv="$2"; shift 2 ;; noyaml) noyaml=1; shift ;; esac; done
+    for t in bash git curl jq sed head cut; do [ "$t" = "$skip" ] || ln -s "$(command -v "$t")" "$WT/$t"; done
+    [ "$skip" = go ] || { printf '#!/bin/sh\necho "go version go1.26.9 linux/amd64"\n' > "$WT/go"; chmod +x "$WT/go"; }
+    [ "$skip" = node ] || { printf '#!/bin/sh\necho v26.8.1\n' > "$WT/node"; chmod +x "$WT/node"; }
+    if [ "$skip" != python3 ]; then
+        if [ -n "$noyaml" ]; then printf '#!/bin/sh\nexec %s -S "$@"\n' "$PY3" > "$WT/python3"; chmod +x "$WT/python3"
+        else ln -s "$PY3" "$WT/python3"; fi
+    fi
+    [ "$skip" = yq ] || { printf '#!/bin/sh\necho "yq (https://github.com/mikefarah/yq/) version %s"\n' "$yv" > "$WT/yq"; chmod +x "$WT/yq"; }
+    [ "$skip" = shellcheck ] || { printf '#!/bin/sh\nprintf "ShellCheck - shell script analysis tool\\nversion: %s\\nlicense: GNU\\n"\n' "$sv" > "$WT/shellcheck"; chmod +x "$WT/shellcheck"; }
+    [ "$skip" = bats ] || { printf '#!/bin/sh\necho "Bats 1.10.0"\n' > "$WT/bats"; chmod +x "$WT/bats"; }
+}
+# ws_case <случай> <код> <слово отказа | -> <аргументы ws_std…>
+ws_case() {
+    local c="$1" want="$2" word="$3"; shift 3
+    ws_std "$@"; rm -f "$BOX/wtl"; OUT="$BOX/$c.out"
+    HEAVY_STD_PATH="$WT" HEAVY_SHELLCHECK=0.11.0 bash "$BOX/wscheck.sh" > "$OUT" 2>&1; RC=$?
+    expect_rc "$c" "$want"
+    if [ "$want" -ne 0 ]; then
+        if grep -q "^remote-heavy-prep: среда: $word" "$BOX/wtl" 2>/dev/null; then ok; else bad "$c" "отказ «среда: $word» не записан в termination-log"; fi
+    elif grep -q 'среда воркспейса — .*shellcheck 0.11.0, Bats 1.10.0' "$OUT"; then ok; else bad "$c" "строка среды не называет инструменты"; fi
+}
+ws_case WS4-legit 0 -
+ws_case WS4-bats 125 "bats нет в PATH" без bats
+ws_case WS4-yq 125 yq без yq
+ws_case WS4-yq3 125 yq yq 3.4.1
+ws_case WS4-shellcheck 125 shellcheck sc 0.10.0
+ws_case WS4-shellcheck-absent 125 shellcheck без shellcheck
+ws_case WS4-git 125 git без git
+ws_case WS4-go 125 go без go
+ws_case WS4-node 125 node без node
+ws_case WS4-noyaml 125 python3-yaml noyaml
+# WS5 — читатель трекера (PREPUSH_GH) исполнением: текст из Job, curl — двойник api.github.com
+sed -n "/^cat > \/work\/bin\/gh-issue-public <<'GHP'$/,/^GHP$/p" "$BOX/ws1.cmd" | sed '1d;$d' > "$BOX/ghp.sh"
+mkdir -p "$BOX/ghbin"
+cat > "$BOX/ghbin/curl" <<'GHC'
+#!/usr/bin/env bash
+o=""; u=""
+while [ "$#" -gt 0 ]; do case "$1" in -o) o="$2"; shift 2 ;; -w|-H|--retry|--retry-delay|--connect-timeout|--max-time) shift 2 ;; -*) shift ;; *) u="$1"; shift ;; esac; done
+case "$u" in
+  */issues/11) echo '{"number":11,"title":"t"}' > "$o"; printf 200 ;;
+  */issues/12) echo '{"number":12,"pull_request":{"url":"x"}}' > "$o"; printf 200 ;;
+  *) echo '{"message":"Not Found"}' > "$o"; printf 404 ;;
+esac
+GHC
+chmod +x "$BOX/ghbin/curl"
+ghp() { env PATH="$BOX/ghbin:$PATH" bash "$BOX/ghp.sh" "$@" 2>&1; }
+# shellcheck disable=SC2016  # выражение jq — форма вызова хука
+JQX='"\(.number) \(.pull_request != null)"'
+if [ "$(ghp api repos/PRO-Robotech/kacho-workspace/issues/11 --jq "$JQX")" = "11 false" ]; then ok; else bad WS5 "задача → не «11 false»"; fi
+if [ "$(ghp api repos/PRO-Robotech/kacho-workspace/issues/12 --jq "$JQX")" = "12 true" ]; then ok; else bad WS5 "запрос на слияние → не «12 true»"; fi
+r5="$(ghp api repos/PRO-Robotech/kacho-workspace/issues/13 --jq "$JQX")"; c5=$?
+if [ "$c5" = 1 ] && grep -q 'HTTP 404' <<< "$r5"; then ok; else bad WS5 "нет задачи → код $c5, «$r5» (ждали 1 и «HTTP 404»)"; fi
+ghp api repos/PRO-Robotech/kacho-workspace/pulls/12 --jq "$JQX" >/dev/null; c5=$?
+if [ "$c5" = 4 ]; then ok; else bad WS5 "иная форма вызова → код $c5, ждали 4"; fi
+
+# WS6 — установка среды наборов ИСПОЛНЕНИЕМ: текст из Job, curl — двойник с поддельными архивами
+#     (yq — файл, shellcheck — .tar.xz, bats — .tar.gz с install.sh), суммы пина заменены суммами
+#     двойников (это же доказывает, что каждый пин стоит в тексте ровно один раз); PATH — лишь
+#     перечисленные инструменты машины (её yq, bats и shellcheck шаг не видит). Чисто → yq,
+#     анализатор, bats и читатель трекера в bin; архив подменён (yq, shellcheck, bats) либо сеть
+#     мертва → 125 и «… не поставлен» в termination-log
+WC="$BOX/wsc"; WK="$WC/work"; rm -rf "$WC"; mkdir -p "$WC/bin" "$WC/src/shellcheck-v0.11.0" "$WC/src/bats-core-1.10.0"
+for t in bash sh cp mkdir install ln chmod cat rm tar gzip xz python3 sha256sum sed uname printf head mktemp; do
+    p_="$(command -v "$t" 2>/dev/null)" && [ -n "$p_" ] && ln -sf "$p_" "$WC/bin/$t"
+done
+printf '#!/bin/sh\necho "yq (https://github.com/mikefarah/yq/) version v4.45.4"\n' > "$WC/yq"
+printf '#!/bin/sh\nprintf "ShellCheck\\nversion: 0.11.0\\n"\n' > "$WC/src/shellcheck-v0.11.0/shellcheck"; chmod +x "$WC/src/shellcheck-v0.11.0/shellcheck"
+# shellcheck disable=SC2016  # текст скрипта-двойника раскрывает он сам
+printf '#!/bin/sh\nmkdir -p "$1/bin" && printf "#!/bin/sh\\necho Bats 1.10.0\\n" > "$1/bin/bats" && chmod +x "$1/bin/bats"\n' > "$WC/src/bats-core-1.10.0/install.sh"
+python3 -c 'import sys, tarfile
+with tarfile.open(sys.argv[1], "w:xz") as t: t.add(sys.argv[2], arcname="shellcheck-v0.11.0/shellcheck")
+with tarfile.open(sys.argv[3], "w:gz") as t: t.add(sys.argv[4], arcname="bats-core-1.10.0/install.sh")' \
+    "$WC/sc.tar.xz" "$WC/src/shellcheck-v0.11.0/shellcheck" "$WC/bats.tgz" "$WC/src/bats-core-1.10.0/install.sh"
+cat > "$WC/bin/curl" <<'WSC'
+#!/bin/bash
+o=""; u=""
+while [ "$#" -gt 0 ]; do case "$1" in -o) o="$2"; shift 2 ;; --retry|--retry-delay|--connect-timeout|--max-time) shift 2 ;; -*) shift ;; *) u="$1"; shift ;; esac; done
+[ -z "${WSC_DOWN:-}" ] || exit 7
+case "$u" in
+  */mikefarah/yq/releases/download/v4.45.4/yq_linux_*) cp "$WSC_DIR/yq" "$o"; [ "${WSC_BAD:-}" != yq ] || echo x >> "$o" ;;
+  */koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.*.tar.xz) cp "$WSC_DIR/sc.tar.xz" "$o"; [ "${WSC_BAD:-}" != sc ] || echo x >> "$o" ;;
+  */bats-core/bats-core/archive/refs/tags/v1.10.0.tar.gz) cp "$WSC_DIR/bats.tgz" "$o"; [ "${WSC_BAD:-}" != bats ] || echo x >> "$o" ;;
+  *) echo "двойник curl: адрес не знаком: $u" >&2; exit 22 ;;
+esac
+WSC
+chmod +x "$WC/bin/curl"
+sed -n '/^# wstools-begin$/,/^# wstools-end$/p' "$BOX/ws1.cmd" > "$WC/raw.sh"
+y_pin="$(grep -oE 'ysum=[0-9a-f]{64}' "$WC/raw.sh" | head -n 1 | cut -d= -f2)"
+s_pin="$(grep -oE 'scsum=[0-9a-f]{64}' "$WC/raw.sh" | head -n 1 | cut -d= -f2)"
+b_pin="$(grep -oE 'v1\.10\.0\.tar\.gz /work/dl/ws/bats\.tgz [0-9a-f]{64}' "$WC/raw.sh" | awk '{print $3}')"
+if [ "$(grep -c "$y_pin" "$WC/raw.sh")" = 1 ] && [ "$(grep -c "$s_pin" "$WC/raw.sh")" = 1 ] && [ -n "$b_pin" ] && [ "$(grep -c "$b_pin" "$WC/raw.sh")" = 1 ]; then ok
+else OUT="$WC/raw.sh"; bad WS6 "пины сумм yq, shellcheck и bats не стоят в тексте установки ровно по одному разу"; fi
+# shellcheck disable=SC2016  # текст функции раскрывает исполняемый шаг
+{ printf 'pf() { echo "remote-heavy-prep: $1" > "%s/tl"; exit 125; }\n' "$WK"
+  sed -e "s#/work/#$WK/#g" -e "s#$y_pin#$(sha256sum < "$WC/yq" | cut -d' ' -f1)#" -e "s#$s_pin#$(sha256sum < "$WC/sc.tar.xz" | cut -d' ' -f1)#" \
+      -e "s#$b_pin#$(sha256sum < "$WC/bats.tgz" | cut -d' ' -f1)#" "$WC/raw.sh"; } > "$WC/wstools.sh"
+# ws6_case <случай> <код> <слово отказа | -> [окружение двойника…]
+ws6_case() {
+    local c="$1" want="$2" word="$3"; shift 3
+    rm -rf "$WK"; mkdir -p "$WK"; OUT="$BOX/$c.out"
+    env -i PATH="$WC/bin" HOME="$WC" WSC_DIR="$WC" HEAVY_SHELLCHECK=0.11.0 "$@" bash "$WC/wstools.sh" > "$OUT" 2>&1; RC=$?
+    expect_rc "$c" "$want"
+    if [ "$want" -ne 0 ]; then
+        if grep -q "^remote-heavy-prep: $word" "$WK/tl" 2>/dev/null; then ok; else bad "$c" "отказ «$word» не записан в termination-log"; fi
+    elif [ -x "$WK/bin/yq" ] && [ -x "$WK/bin/shellcheck" ] && [ -x "$WK/bats/bin/bats" ] && [ -x "$WK/bin/gh-issue-public" ] \
+         && [ "$("$WK/bin/shellcheck" --version | sed -n 's/^version: //p')" = 0.11.0 ]; then ok
+    else bad "$c" "после установки нет yq, shellcheck 0.11.0, bats либо читателя трекера"; fi
+}
+ws6_case WS6 0 -
+ws6_case WS6-yqsum 125 "yq v4.45.4 не поставлен" WSC_BAD=yq
+ws6_case WS6-scsum 125 "shellcheck 0.11.0 не поставлен" WSC_BAD=sc
+ws6_case WS6-batssum 125 "bats-core 1.10.0 не поставлен" WSC_BAD=bats
+ws6_case WS6-down 125 "yq v4.45.4 не поставлен" WSC_DOWN=1
 
 # L0 — двойник печатает адрес и IPv4 (иначе L1 пуста)
 OUT="$BOX/l0.out"

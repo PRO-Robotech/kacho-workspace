@@ -142,7 +142,8 @@ assert "да да" "$(grep -qE 'потолок машины: 70[.,]0 ГиБ' <<<
 assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_POLL_S=0 bash "$SLOT" docker -- touch "$W/k8") $(has "$W/err" 'HEAVY_SLOT_POLL_S')" "опрос 0 с (замок без паузы) — 64"
 assert "нет $before" "$(ls "$W"/k* >/dev/null 2>&1 && echo да || echo нет) $(seen)" "ни одна команда не запускалась, журнал общего каталога не тронут"
 # Близнец идёт в общую очередь без ожидания (ws#1004); занятая машина — 74, «не выполнилось».
-rc="$(slot "${REAL[@]}" timeout 90 bash "$SLOT" newman -- touch "$W/k5")"
+printf 'dev-down:\n\t@touch "%s"\n' "$W/k5" > "$W/k5.mk"  # снятие стенда маршрут не судит (ws#1301)
+rc="$(slot "${REAL[@]}" timeout 90 bash "$SLOT" stand -- make -s -f "$W/k5.mk" dev-down)"
 if [ "$rc" = 74 ] || [ "$rc" = 75 ] || [ "$rc" = 124 ]; then
     skip "машина занята — близнец общего каталога не построен ($rc)"
 else
@@ -570,11 +571,76 @@ t0="$(date +%s)"; kill -TERM "$S"; wait "$S"; rc=$?; t1="$(date +%s)"
 alive="нет"; kill -0 "$(cat "$W/cmdpid" 2>/dev/null || echo 999999)" 2>/dev/null && alive="да"
 assert "143 0 нет да" "$rc $(entries) $alive $([ $(( t1 - t0 )) -lt 10 ] && echo да || echo нет)" "TERM слоту → 143 сразу, записи нет, команда снята"
 
+echo "── порождения процессов — признак машины, как память: вход по порогу, пик и счёт в журнале (ws#1291)"
+# Счётчик подаётся синтетическим /proc/stat (HEAVY_SLOT_PROCSTAT): вход судит темп за окно 1 с,
+# сторож — темп за свой шаг. Рост счётчика в окне делает писатель пробы, а не машина: исход не
+# зависит от соседних полос. Каждый случай меняет ОДИН факт против близнеца.
+PS="$W/procstat"; echo "processes 1000" > "$PS"
+# spawn_storm <с> — писатель поднимает счётчик на 1000 каждые 0,1 с: темп ~10000/с.
+spawn_storm() { local i=0; while [ "$i" -lt $(( $1 * 10 )) ]; do i=$((i + 1)); echo "processes $(( 1000 + i * 1000 ))" > "$PS.tmp" && mv -f "$PS.tmp" "$PS"; sleep 0.1; done; }
+JS="$HEAVY_SLOT_DIR/journal.log"
+assert "0 1" "$(slot HEAVY_SLOT_PROCSTAT="$PS" HEAVY_SLOT_SPAWN_MAX=100 bash "$SLOT" docker -- true) $(grep -c ' enter id=.* spawn=0/s ' "$JS")" "близнец: счётчик стоит — темп 0/с ≤ 100, слот выдан, темп в строке enter"
+spawn_storm 4 & SPW=$!
+assert "74 да нет" "$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_PROCSTAT="$PS" HEAVY_SLOT_SPAWN_MAX=100 bash "$SLOT" --wait 0 docker -- touch "$W/sp1") $(has "$W/err" 'порождений процессов') $([ -e "$W/sp1" ] && echo да || echo нет)" "темп выше порога — место не выдано (74), причина «порождений процессов … > порога», команда не запускалась"
+wait "$SPW"; echo "processes 1000" > "$PS"
+assert "1" "$(grep -c ' busy class=docker .* spawn=[0-9][0-9]*/s ' "$JS")" "невыдача по темпу записана строкой busy с темпом"
+spawn_storm 4 & SPW=$!
+assert "0" "$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_PROCSTAT="$PS" HEAVY_SLOT_SPAWN_MAX=1000000 bash "$SLOT" --wait 0 docker -- true)" "близнец: тот же темп при пороге выше него — слот выдан"
+wait "$SPW"; echo "processes 1000" > "$PS"
+# Сторож: команда сама поднимает счётчик посреди прогона — первое превышение строкой spawn-over.
+# shellcheck disable=SC2016  # тело `bash -c` раскрывает дочерняя оболочка
+JUMP='sleep 2.5; echo "processes 900000" > "$0"; sleep 2.5'
+b0="$(grep -c ' spawn-over id=' "$JS")"
+assert "0 $((b0 + 1)) да" "$(slot HEAVY_SLOT_PROCSTAT="$PS" HEAVY_SLOT_SPAWN_MAX=100 bash "$SLOT" docker -- bash -c "$JUMP" "$PS") $(grep -c ' spawn-over id=' "$JS") $(grep -qE ' leave .* spawns=899000 spawn_peak=[0-9]+/s ' <<<"$(tail -n 1 "$JS")" && echo да || echo нет)" "темп посреди прогона выше порога — строка spawn-over, выход — spawns= и spawn_peak= в leave"
+echo "processes 1000" > "$PS"
+assert "0 $((b0 + 1))" "$(slot HEAVY_SLOT_PROCSTAT="$PS" HEAVY_SLOT_SPAWN_MAX=100000000 bash "$SLOT" docker -- bash -c "$JUMP" "$PS") $(grep -c ' spawn-over id=' "$JS")" "близнец: тот же скачок под порогом — spawn-over нет"
+assert "0 да" "$(slot bash "$SLOT" docker -- true) $(grep -qF ' spawns=— spawn_peak=—/s ' <<<"$(tail -n 1 "$JS")" && echo да || echo нет)" "режим проб без HEAVY_SLOT_PROCSTAT — темп не судится и назван «—», а не нулём"
+assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_PROCSTAT="$PS" bash "$SLOT" docker -- touch "$W/sp2") $(has "$W/err" 'HEAVY_SLOT_PROCSTAT')" "над настоящей памятью синтетический счётчик — ручка, 64"
+assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_SPAWN_MAX=999999 bash "$SLOT" docker -- touch "$W/sp3") $(has "$W/err" 'HEAVY_SLOT_SPAWN_MAX')" "над настоящей памятью порог порождений — ручка, 64"
+# shellcheck disable=SC2016  # образец sed и тело `sh -c` раскрывает не эта оболочка
+sed 's|^    \[ -n "\$srate" \] && \[ "\$srate" -gt "\$SPAWN_MAX" \] && full=|    false \&\& full=|' "$SLOT" > "$W/slot-mut-sp.sh"
+spawn_storm 4 & SPW=$!
+assert "1 0" "$(diff "$SLOT" "$W/slot-mut-sp.sh" | grep -c '^<') $(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_PROCSTAT="$PS" HEAVY_SLOT_SPAWN_MAX=100 bash "$W/slot-mut-sp.sh" --wait 0 docker -- true)" "мутант «темп входа не судится»: шторм входит (0) — проба «74 по темпу» выше его ловит"
+wait "$SPW"; echo "processes 1000" > "$PS"
+
+echo "── класс suite — наборы и пробы оснастки; нагрузка продукта под ним — 64 (ws#1291)"
+assert "1" "$(bash "$SLOT" --classes 2>/dev/null | grep -c '^suite ')" "класс suite в --classes"
+assert "1536" "$(bash "$SLOT" --budget suite)" "бюджет suite — 1536 МиБ (основание — в --classes)"
+# shellcheck disable=SC2016  # образец sed и тело `sh -c` раскрывает не эта оболочка
+assert "0 да" "$(slot bash "$SLOT" suite -- sh -c 'touch "$0"' "$W/su1") $([ -e "$W/su1" ] && echo да || echo нет)" "набор под suite исполняется слотом"
+for pl in "go version" "make -v" "golangci-lint version" "env FOO=1 go vet ./..." "nice -n 5 bash scripts/ci-local.sh"; do
+    # shellcheck disable=SC2086  # нагрузка — слова
+    assert "64 да" "$(slot bash "$SLOT" suite -- $pl) $(has "$W/err" 'нагрузка продукта')" "suite -- $pl → 64: нагрузке продукта положен свой класс"
+done
+assert "0" "$(slot bash "$SLOT" suite -- git --version)" "близнец: git без отправки под suite — исполняется"
+git init -q "$W/sugit"
+assert "64 да" "$(cd "$W/sugit" && slot bash "$SLOT" suite -- git push -q origin HEAD) $(has "$W/err" 'нагрузка продукта')" "suite -- git push → 64: отправке положен ci-local"
+assert "64 да" "$(cd "$W/sugit" && env HEAVY_SLOT_REMOTE_RUN="$W/nope" bash "$SLOT" --route suite -- go version 2>"$W/err" >/dev/null; echo $?) $(has "$W/err" 'нагрузка продукта')" "--route судит тем же: suite -- go → 64"
+
+echo "── --waits: ожидание входа класса по журналу — медиана для решения о пуле suite (ws#1291)"
+# Журнал синтетический: вошедшие suite 100/300/500 с, не дождавшийся 200 с, отказ 74, чужой класс,
+# строка старше окна. Каждая порча — один факт: окно, класс, вид строки.
+WJ="$W/wslots"; mkdir -p "$WJ"; wnow="$(date -Is)"; wold="$(date -Is -d '-30 hours')"
+{
+    echo "$wnow enter id=1 class=suite budget=1536MiB waited=100s head=x who=w cmd=c"
+    echo "$wnow enter id=2 class=suite budget=1536MiB waited=500s head=x who=w cmd=c"
+    echo "$wnow timeout class=suite budget=1536MiB ahead=1 waited=200s ticket=t who=w cmd=c"
+    echo "$wnow enter id=3 class=suite budget=1536MiB waited=300s head=x who=w cmd=c"
+    echo "$wnow busy class=suite budget=1536MiB ahead=2 ticket=t who=w cmd=c"
+    echo "$wnow enter id=4 class=lint budget=512MiB waited=9000s head=x who=w cmd=c"
+    echo "$wold enter id=5 class=suite budget=1536MiB waited=7000s head=x who=w cmd=c"
+} > "$WJ/journal.log"
+assert "0 WAITS class=suite hours=24 n=4 median=250s p90=500s max=500s timeout75=1 busy74=1" "$(slot HEAVY_SLOT_DIR="$WJ" bash "$SLOT" --waits suite) $(cat "$W/out")" "suite за 24 ч: медиана чётного числа, p90, наибольшее; 74 — счётом, чужой класс и строка вне окна не входят"
+assert "0 n=5 max=7000s" "$(slot HEAVY_SLOT_DIR="$WJ" bash "$SLOT" --waits suite 48) $(grep -o ' n=[0-9]*' "$W/out" | tr -d ' ') $(grep -o 'max=[0-9]*s' "$W/out")" "близнец: окно 48 ч — старая строка входит"
+assert "2 да" "$(slot HEAVY_SLOT_DIR="$WJ" bash "$SLOT" --waits go-race) $(has "$W/out" 'медиана не установлена')" "записей класса нет — код 2, «не установлена», а не ноль ожидания"
+assert "64 64" "$(slot HEAVY_SLOT_DIR="$WJ" bash "$SLOT" --waits no-such) $(slot HEAVY_SLOT_DIR="$WJ" bash "$SLOT" --waits suite 0)" "неизвестный класс и окно 0 ч — 64"
 echo "── внешний кластер: тяжёлый класс уходит в run.sh, локально — только с причиной (ws#984)"
 # Двойник run.sh пишет свой argv и отвечает на --available кодом FAKE_AVAIL; клон —
 # настоящий git с origin вида PRO-Robotech/kaname и веткой 984-x.
 cat > "$W/fake-run.sh" <<'FAKE'
 #!/usr/bin/env bash
+# --request — запрос pod билета внешнего входа (ws#1302): argv прогона он не пишет.
+[ "${1:-}" = --request ] && { echo "1000 1000"; exit 0; }
 if [ "${1:-}" = --available ]; then
     printf '%s\n' "$@" > "$FAKE_ARGV.avail"
     [ "${FAKE_AVAIL:-0}" = 0 ] && exit 0
@@ -601,10 +667,18 @@ fi
 printf '%s\n' "$@" > "$FAKE_ARGV"
 # FAKE_EXEC=1 — исполнить команду в --src/--workdir, как Job (FAKE_IN_JOB=1 видит она).
 if [ "${FAKE_EXEC:-0}" = 1 ]; then
-    src=""; wd=.
-    while [ "$#" -gt 0 ] && [ "$1" != -- ]; do case "$1" in --src) src="$2"; shift 2 ;; --workdir) wd="$2"; shift 2 ;; *) shift ;; esac; done
+    src=""; wd=.; ref=""
+    while [ "$#" -gt 0 ] && [ "$1" != -- ]; do case "$1" in --src) src="$2"; shift 2 ;; --workdir) wd="$2"; shift 2 ;; --ref) ref="$2"; shift 2 ;; *) shift ;; esac; done
     shift
     [ -n "${FAKE_EXEC_RC:-}" ] && exit "$FAKE_EXEC_RC"
+    # FAKE_EXEC_CLONE=1 — как pod: свой клон со СВОЕЙ .git на --ref; снимается после команды (ws#1288).
+    if [ "${FAKE_EXEC_CLONE:-0}" = 1 ]; then
+        c="$(mktemp -d "$FAKE_ARGV.pod.XXXXXX")"
+        env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_CONFIG_PARAMETERS git clone -q --no-local "$src" "$c/t" 2> /dev/null &&
+            env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_CONFIG_PARAMETERS git -C "$c/t" checkout -q --detach "$ref" || { rm -rf "$c"; exit 69; }
+        (cd "$c/t/$wd" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_CONFIG_PARAMETERS FAKE_IN_JOB=1 "$@" < /dev/null); rc=$?
+        rm -rf "$c"; exit "$rc"
+    fi
     (cd "$src/$wd" && FAKE_IN_JOB=1 "$@" < /dev/null); exit $?
 fi
 exit 17
@@ -624,6 +698,8 @@ assert "17 да" "$(RDIR="$R/sub" rslot bash "$SLOT" lint -- go version) $(has "
 assert "--available --profile lint --repo kaname" "$(tr '\n' ' ' < "$W/argv.avail" | sed 's/ $//')" "проверка кластера несёт профиль класса и репозиторий — размещение судится под запрос по замеру его прогонов (ws#991, ws#1195)"
 assert "984 kaname sub $(git -C "$R" rev-parse HEAD)" "$(sed -n '/^--task$/{n;p}' "$W/argv") $(sed -n '/^--repo$/{n;p}' "$W/argv") $(sed -n '/^--workdir$/{n;p}' "$W/argv") $(sed -n '/^--ref$/{n;p}' "$W/argv")" "задача из ветки, repo из origin, каталог и коммит — в argv"
 assert "go version" "$(sed -n '/^--$/,$p' "$W/argv" | sed 1d | tr '\n' ' ' | sed 's/ $//')" "команда передана после «--» без искажения"
+rm -f "$W/argv" "$W/argv.avail"
+assert "17 go-race --available --profile go-race --repo kaname" "$(RDIR="$R/sub" rslot bash "$SLOT" go-unit -- go test ./...) $(sed -n '/^--profile$/{n;p}' "$W/argv") $(tr '\n' ' ' < "$W/argv.avail" | sed 's/ $//')" "go-unit (go test без -race) → Job профилем go-race: проверка и run.sh — тем же профилем (ws#1301)"
 rm -f "$W/argv"
 assert "0 да нет" "$(FAKE_AVAIL=1 rslot bash "$SLOT" lint -- go version) $(has "$W/err" 'локально — кластер недоступен') $([ -e "$W/argv" ] && echo да || echo нет)" "кластер не отвечает → локально, причина названа"
 rm -f "$W/argv"
@@ -633,7 +709,7 @@ rm -f "$W/argv"
 assert "69 да нет нет" "$(FAKE_AVAIL=8 rslot bash "$SLOT" go-race -- go version) $(has "$W/err" 'отказала не сетевым признаком (код 70)') $([ -e "$W/argv" ] && echo да || echo нет) $(has "$W/out" 'go version go')" "дефект обёртки run.sh (70) → 69, команда не запускалась ни там, ни локально (ws#1210)"
 assert "69 да нет нет" "$(FAKE_AVAIL=9 rslot bash "$SLOT" lint -- go version) $(has "$W/err" 'не сетевым признаком (код 126)') $([ -e "$W/argv" ] && echo да || echo нет) $(has "$W/out" 'go version go')" "обёртка не исполнилась («Argument list too long», 126) → 69, не локально (ws#1210)"
 rm -f "$W/argv"
-assert "0 да нет" "$(rslot bash "$SLOT" ci-local -- git status) $(has "$W/err" 'внешнего пути не имеет') $([ -e "$W/argv" ] && echo да || echo нет)" "git первым словом (pre-push) → локально, причина названа"
+assert "77 да нет" "$(rslot bash "$SLOT" ci-local -- git status) $(has "$W/err" 'внешнего маршрута нет') $([ -e "$W/argv" ] && echo да || echo нет)" "git без push при доступном кластере → 77: внешнего маршрута нет, машина — лишь при недоступном (ws#1301)"
 echo c >> "$R/f"
 printf 'all:\n\t@touch "%s"\n' "$W/dirty-ran" > "$W/dirty.mk"
 assert "77 да нет нет" "$(rslot bash "$SLOT" go-race -- make -s -f "$W/dirty.mk") $(has "$W/err" 'во внешний кластер: закоммить правки') $([ -e "$W/argv" ] && echo да || echo нет) $([ -e "$W/dirty-ran" ] && echo да || echo нет)" "правка в отслеживаемом файле при доступном кластере → 77 «во внешний кластер: …», команда не запускалась (ws#1105)"
@@ -642,7 +718,12 @@ assert "0 да" "$(FAKE_AVAIL=1 rslot bash "$SLOT" go-race -- make -v) $(has "$W
 git -C "$R" checkout -q -- f
 assert "17 да" "$(rslot bash "$SLOT" go-race -- timeout 60 make -v) $(has "$W/argv" 'go-race')" "близнец: тот же клон без правки, timeout перед make → run.sh"
 rm -f "$W/argv"
-assert "0 нет нет" "$(rslot bash "$SLOT" docker -- true) $(has "$W/err" 'локально') $([ -e "$W/argv" ] && echo да || echo нет)" "класс docker маршрут не судит: ни run.sh, ни строки"
+rm -f "$W/argv.avail"
+assert "77 да нет да" "$(rslot bash "$SLOT" docker -- true) $(has "$W/err" "внешнего маршрута нет (класс «docker» внешнего пути не имеет) — до него команда не выполняется нигде: маршрут — задача ws#1303") $([ -e "$W/argv" ] && echo да || echo нет) $([ -e "$W/argv.avail" ] && echo да || echo нет)" "класс docker при доступном кластере → 77 с задачей маршрута, run.sh не звался, кластер спрошен (ws#1301)"
+b="$(grep -cF -- ' local class=docker proof=rc=69' "$HEAVY_SLOT_DIR/journal.log" 2>/dev/null || true)"
+assert "0 $((b + 1))" "$(FAKE_AVAIL=1 rslot bash "$SLOT" docker -- true) $(grep -cF -- ' local class=docker proof=rc=69' "$HEAVY_SLOT_DIR/journal.log" 2>/dev/null || true)" "близнец: тот же docker при недоступном кластере → локально, proof в журнале"
+sed 's#^    \[ -n "\$PROOF\$NR_MOOT" \] || no_route_judge$#    :#' "$SLOT" > "$W/slot-mut-nr.sh"
+assert "1 0" "$(diff "$SLOT" "$W/slot-mut-nr.sh" | grep -c '^<') $(rslot bash "$W/slot-mut-nr.sh" docker -- true)" "мутант «класс без маршрута не судится»: docker при доступном кластере локально (0) — проба «77» выше его ловит"
 assert "64 да" "$(cd "$R" && env "${REAL[@]}" HEAVY_SLOT_REMOTE_RUN="$W/fake-run.sh" bash "$SLOT" lint -- go version 2>"$W/err" >/dev/null; echo $?) $(has "$W/err" 'HEAVY_SLOT_REMOTE_RUN')" "над настоящей памятью двойник run.sh — ручка, 64"
 
 echo "── переносимый скрипт клона: контейнерные пробы kaname уходят Job-ом сами (ws#1192 б)"
@@ -667,7 +748,7 @@ assert "77 да" "$(RDIR="$R3" rslot bash "$SLOT" integration -- .github/scripts
 R4="$W/rclone-un"; git init -q -b 984-z "$R4"; git -C "$R4" remote add origin https://github.com/PRO-Robotech/kaname.git
 echo a > "$R4/f"; git -C "$R4" add f; sandbox_git -C "$R4" commit -q -m p; mkdir -p "$R4/.github/scripts"; cp "$R/.github/scripts/run-integration.sh" "$R4/.github/scripts/"
 assert "77 да" "$(RDIR="$R4" rslot bash "$SLOT" integration -- .github/scripts/run-integration.sh) $(has "$W/err" 'не опознана как переносимая')" "близнец: скрипт не отслеживается (Job его не увидит) → 77"
-sed 's|^        \[ "\$real" = "\$RS_TOP/\$p" \] \|\| continue$|        :|' "$SLOT" > "$W/slot-mut-port.sh"
+sed 's|^        \[\[ "\$real" == "\$RS_TOP/"\$p \]\] \|\| continue$|        :|' "$SLOT" > "$W/slot-mut-port.sh"
 assert "1 17" "$(diff "$SLOT" "$W/slot-mut-port.sh" | grep -c '^<') $(rslot bash "$W/slot-mut-port.sh" integration -- .github/scripts/other.sh)" "мутант «путь скрипта не сверяется»: другой скрипт уходит Job-ом — близнец выше его ловит"
 
 echo "── маршрут без исполнения: --route — чистое суждение того же механизма (ws#1192 в)"
@@ -681,21 +762,23 @@ printf 'all:\n\t@touch "%s"\n' "$W/route-ran" > "$W/route.mk"
 assert "0 external нет" "$(route "$R" go-race -- make -s -f "$W/route.mk") $([ -e "$W/route-ran" ] && echo да || echo нет)" "--route команду не исполняет: make с рецептом-меткой → external, метки нет"
 assert "0 external" "$(route "$R" integration -- env INTEGRATION_SHARD=0/3 .github/scripts/run-integration.sh)" "скрипт контейнерных проб kaname → external"
 assert "0 none да" "$(route "$R" integration -- bash .github/scripts/other.sh) $(has "$W/out" 'не опознана как переносимая')" "неопознанная нагрузка → none (при доступном кластере было бы 77)"
-assert "0 local да" "$(route "$R" docker -- true) $(has "$W/out" 'внешнего пути не имеет')" "класс без внешнего пути → local"
-assert "0 local да" "$(route "$W" lint -- go version) $(has "$W/out" 'не клон git')" "каталог не клон → local"
+assert "0 none да" "$(route "$R" docker -- true) $(has "$W/out" 'внешнего пути не имеет')" "класс без внешнего пути → none: при доступном кластере 77 (ws#1301)"
+assert "0 none да" "$(route "$W" lint -- go version) $(has "$W/out" 'не клон git')" "каталог не клон → none (ws#1301)"
 RO="$W/rclone-other"; git init -q -b 984-o "$RO"; git -C "$RO" remote add origin https://github.com/PRO-Robotech/elsewhere.git
-assert "0 local да" "$(route "$RO" lint -- go version) $(has "$W/out" 'клон не kacho, kaname или corelib')" "близнец: клон чужого репозитория → local"
+assert "0 none да" "$(route "$RO" lint -- go version) $(has "$W/out" 'клон не kacho, kaname, corelib или kacho-workspace')" "близнец: клон чужого репозитория → none (ws#1301)"
 RK="$W/rclone-sn"; git init -q -b 984-s "$RK"; git -C "$RK" remote add origin https://github.com/PRO-Robotech/kacho.git
 mkdir -p "$RK/deploy/scripts"; printf 'stand-ns-run:\n\t@true\n' > "$RK/deploy/Makefile"; printf '#!/usr/bin/env bash\ntrue\n' > "$RK/deploy/scripts/stand-ns.sh"
 git -C "$RK" add deploy; sandbox_git -C "$RK" commit -q -m sn
-assert "0 external да" "$(route "$RK" stand -- make -C deploy stand-ns-run 'NS=t<задача>-w1' 'CMD=<шаги>') $(has "$W/out" 'stand-ns')" "stand-ns-run в клоне kacho с механизмом stand-ns → external (стенд — ns внешнего кластера)"
+assert "0 none да" "$(route "$RK" stand -- make -C deploy stand-ns-run 'NS=t<задача>-w1' 'CMD=<шаги>') $(has "$W/out" 'CMD stand-ns-run идёт на машине')" "stand-ns-run: CMD идёт на машине → none (ws#1301)"
+assert "0 external да" "$(route "$RK" stand -- make -C deploy stand-ns-up 'NS=t<задача>-w1') $(has "$W/out" 'stand-ns')" "близнец: stand-ns-up в клоне kacho с механизмом stand-ns → external (стенд — ns внешнего кластера)"
 assert "0 none да" "$(route "$RK" stand -- make -C deploy dev-up) $(has "$W/out" 'подъём локального стенда')" "подъём локального стенда → none (при доступном кластере было бы 77)"
-assert "0 local да" "$(route "$RK" stand -- python3 -c pass) $(has "$W/out" 'не поднимает локальный стенд')" "команда стенда без признака → local: где её стенд, слот не судит"
+assert "0 none да" "$(route "$RK" stand -- python3 -c pass) $(has "$W/out" 'у команды стенда внешнего маршрута нет')" "команда стенда без признака → none: внешнего маршрута нет (ws#1301)"
+assert "0 local да" "$(route "$RK" stand -- make -C deploy dev-down) $(has "$W/out" 'снятие локального стенда')" "близнец: снятие локального стенда → local, машину освобождает"
 # shellcheck disable=SC2016  # строка дочерней оболочки — предмет суждения, раскрывать её нечему
 assert "0 none да" "$(route "$RK" stand -- bash -c 'make "$G"') $(has "$W/out" 'строку оболочки')" "строка оболочки без формы stand-ns-* → none (цель может прийти переменной)"
 RK2="$W/rclone-sn2"; git init -q -b 984-t "$RK2"; git -C "$RK2" remote add origin https://github.com/PRO-Robotech/kacho.git
 mkdir -p "$RK2/deploy"; cp "$RK/deploy/Makefile" "$RK2/deploy/"; git -C "$RK2" add deploy; sandbox_git -C "$RK2" commit -q -m sn
-assert "0 local да" "$(route "$RK2" stand -- make -C deploy stand-ns-run 'NS=t<задача>-w1' 'CMD=<шаги>') $(has "$W/out" 'stand-ns')" "близнец: та же команда, в клоне нет deploy/scripts/stand-ns.sh → local"
+assert "0 local да" "$(route "$RK2" stand -- make -C deploy stand-ns-up 'NS=t<задача>-w1') $(has "$W/out" 'stand-ns')" "близнец: stand-ns-up, в клоне нет deploy/scripts/stand-ns.sh → local"
 assert "64" "$(cd "$R" && bash "$SLOT" --route --enqueue "$W" go-race -- go version 2>/dev/null >/dev/null; echo $?)" "--route с --enqueue → 64"
 assert "64" "$(cd "$R" && bash "$SLOT" --route 2>/dev/null >/dev/null; echo $?)" "--route без класса → 64"
 sed 's|^        if \[ -n "\$RS_KNOWN" \]; then kind=external|        if true; then kind=external|' "$SLOT" > "$W/slot-mut-rt.sh"
@@ -767,9 +850,9 @@ echo "── первая строка вывода слота — ревизи�
 # журналу не установить. Первая строка stderr слота — «HEAD <sha> class=… at=… dir=…»; в журнале
 # слотов строка enter — с head=.
 hr="$(git -C "$R" rev-parse HEAD)"; b="$(jn "head=${hr:0:12}")"
-rc="$(rslot bash "$SLOT" docker -- true)"; l1="$(head -n 1 "$W/err")"
+rc="$(FAKE_AVAIL=1 rslot bash "$SLOT" docker -- true)"; l1="$(head -n 1 "$W/err")"
 assert "0 HEAD $hr class=docker да $((b + 1))" "$rc $(cut -d' ' -f1-3 <<< "$l1") $(grep -qE ' at=20[0-9-]+T[0-9:]+' <<< "$l1" && echo да || echo нет) $(jn "head=${hr:0:12}")" "git-каталог: первая строка — HEAD с полной ревизией, класс, время; enter в журнале несёт head="
-rc="$(RDIR="$W/nogit" rslot bash "$SLOT" docker -- true)"
+rc="$(RDIR="$W/nogit" FAKE_AVAIL=1 rslot bash "$SLOT" docker -- true)"
 assert "0 HEAD — class=docker" "$rc $(head -n 1 "$W/err" | cut -d' ' -f1-3)" "близнец: каталог не git — первая строка та же, ревизии нет («—»), без отказа"
 b="$(jn ' local class=lint proof=rc=69 remote-heavy: кластер не отвечает')"
 assert "0 $((b + 1))" "$(FAKE_AVAIL=1 rslot bash "$SLOT" lint -- go version) $(jn ' local class=lint proof=rc=69 remote-heavy: кластер не отвечает')" "недоступен → локально, вывод проверки (код и причина) записан в журнал строкой local … proof="
@@ -808,7 +891,82 @@ rm -f "$W/argv"
 r="$(FAKE_AVAIL=6 rslot bash "$W/slot-mut-check.sh" lint -- go version)"
 assert "1 0 да нет" "$n_at $r $(has "$W/err" 'не ответила за 10 с') $([ -e "$W/argv" ] && echo да || echo нет)" "мутант «срок 10 с»: место срока одно, тот же ответ за 12 с — «недоступен», локально (проба выше его ловит)"
 b="$(jn ' local class=ci-local proof=')"; bw="$(jn ' local class=ci-local why=команда «git» без push')"
-assert "0 $b $((bw + 1))" "$(rslot bash "$SLOT" ci-local -- git status) $(jn ' local class=ci-local proof=') $(jn ' local class=ci-local why=команда «git» без push')" "близнец: git без push (не хук отправки) внешнего пути не имеет — локально без опроса кластера, без proof, причина в журнале"
+assert "77 $b $bw" "$(rslot bash "$SLOT" ci-local -- git status) $(jn ' local class=ci-local proof=') $(jn ' local class=ci-local why=команда «git» без push')" "близнец: git без push при доступном кластере → 77, локального запуска в журнале нет (ws#1301)"
+
+echo "── клон воркспейса: хук отправки, наборы и пробы — Job профиля ws, причина в журнале (ws#1304)"
+# Клон с origin PRO-Robotech/kacho-workspace: скрипт ведомости PORTABLE (отслеживаемый, относительным
+# путём) классов suite и ci-local и хук отправки уходят Job-ом профиля ws, строка remote журнала
+# несёт profile= и why=; прочая нагрузка клона и прочие классы — без внешнего пути. Законный
+# близнец — клон kacho тем же механизмом уходит профилем своего класса.
+RW="$W/rclone-ws"; git init -q -b 1304-w "$RW"; git -C "$RW" remote add origin https://github.com/PRO-Robotech/kacho-workspace.git
+mkdir -p "$RW/scripts/tg" "$RW/scripts/hooks" "$RW/.claude/hooks/hg"
+for f in scripts/tg/run-all.sh scripts/tg/inject.sh scripts/tg-inject.sh scripts/other.sh .claude/hooks/hg/prove.sh; do printf '#!/usr/bin/env bash\necho %s\n' "$f" > "$RW/$f"; done
+printf 'print(1)\n' > "$RW/scripts/tg/mutants.py"
+# shellcheck disable=SC2016  # текст хука раскрывает он сам
+printf '#!/usr/bin/env bash\n{ printf "job=%%s args=%%s\\n" "${FAKE_IN_JOB:-нет}" "$*"; cat; } >> "$HOOK_LOG"\nexit 0\n' > "$RW/scripts/hooks/pre-push"
+chmod +x "$RW/scripts/hooks/pre-push"; git -C "$RW" add -A; sandbox_git -C "$RW" commit -q -m ws
+# shellcheck disable=SC2016
+printf '#!/usr/bin/env bash\nexec "$(git rev-parse --show-toplevel)/scripts/hooks/pre-push" "$@"\n' > "$RW/.git/hooks/pre-push"; chmod +x "$RW/.git/hooks/pre-push"
+printf '#!/usr/bin/env bash\necho untracked\n' > "$RW/scripts/tg/check-99-untracked.sh"
+argv_of() { sed -n "/^--$1\$/{n;p}" "$W/argv"; }
+rm -f "$W/argv" "$W/argv.avail"; bw="$(jn ' remote class=suite route=job profile=ws ')"
+assert "17 ws kacho-workspace 1304 . $((bw + 1)) 1" "$(RDIR="$RW" rslot bash "$SLOT" suite -- bash scripts/tg/run-all.sh) $(argv_of profile) $(argv_of repo) $(argv_of task) $(argv_of workdir) $(jn ' remote class=suite route=job profile=ws ') $(grep -F ' remote class=suite route=job profile=ws ' "$JL" | tail -n 1 | grep -c 'why=клон воркспейса, скрипт ведомости PORTABLE scripts/tg/run-all.sh — Job профиля ws who=')" "suite: run-all.sh набора в клоне воркспейса → Job профиля ws, задача из ветки; строка remote журнала — профиль и причина маршрута"
+assert "--available --profile ws --repo kacho-workspace" "$(tr '\n' ' ' < "$W/argv.avail" | sed 's/ $//')" "проверка кластера — под профиль ws и репозиторий воркспейса"
+rm -f "$W/argv"; bl="$(jn ' local class=suite proof=rc=69')"
+assert "0 да нет $((bl + 1))" "$(FAKE_AVAIL=1 RDIR="$RW" rslot bash "$SLOT" suite -- bash scripts/tg/run-all.sh) $(has "$W/err" 'локально — кластер недоступен') $([ -e "$W/argv" ] && echo да || echo нет) $(jn ' local class=suite proof=rc=69')" "близнец: кластер недоступен → набор воркспейса локально слотом, доказательство (proof=) в журнале"
+for pl in "python3 scripts/tg/mutants.py -j 2" "bash scripts/tg-inject.sh" "env X=1 bash scripts/tg/inject.sh" "bash .claude/hooks/hg/prove.sh"; do
+    rm -f "$W/argv"
+    # shellcheck disable=SC2086  # нагрузка — слова
+    assert "17 ws" "$(RDIR="$RW" rslot bash "$SLOT" ci-local -- $pl) $(argv_of profile)" "ci-local: $pl в клоне воркспейса → Job профиля ws"
+done
+for pl in "bash scripts/other.sh" "bash scripts/tg/check-99-untracked.sh" "bash $RW/scripts/tg/run-all.sh" "python3 -c pass"; do
+    rm -f "$W/argv"
+    # shellcheck disable=SC2086  # нагрузка — слова
+    assert "77 да нет" "$(RDIR="$RW" rslot bash "$SLOT" suite -- $pl) $(has "$W/err" 'клон воркспейса: нагрузка') $([ -e "$W/argv" ] && echo да || echo нет)" "близнец: $pl (вне ведомости, не отслеживается, путь машины, строка) → внешнего пути нет, при доступном кластере 77 с причиной (ws#1301)"
+done
+rm -f "$W/argv"
+assert "77 да нет" "$(RDIR="$RW" rslot bash "$SLOT" go-race -- true) $(has "$W/err" 'Job профиля ws несёт лишь ci-local и suite') $([ -e "$W/argv" ] && echo да || echo нет)" "близнец: класс go-race в клоне воркспейса — внешнего пути нет (образ ws без go), при доступном кластере 77"
+rm -f "$W/argv"; bk="$(jn 'why=клон kacho — Job профиля go-race who=')"
+assert "17 go-race kacho $((bk + 1))" "$(RDIR="$R3" rslot bash "$SLOT" go-race -- go version) $(argv_of profile) $(argv_of repo) $(jn 'why=клон kacho — Job профиля go-race who=')" "законный близнец: клон kacho уходит своим маршрутом — профиль класса, причина в журнале"
+assert "77 да" "$(RDIR="$R3" rslot bash "$SLOT" suite -- bash .github/scripts/run-integration.sh) $(has "$W/err" 'у клона kacho внешнего пути нет')" "близнец: класс suite в клоне kacho — внешнего пути нет, при доступном кластере 77"
+# Перепись в обе стороны с деревом: каждый отслеживаемый файл дерева воркспейса, которого страж
+# heavy-guard зовёт набором или пробой (suite_member: SUITE_NAME под scripts/ и .claude/hooks/ —
+# импортом guard.py, а не копией образца), классом suite уходит Job-ом профиля ws; ноль файлов — отказ.
+WS_TOP="$(cd "$HERE/.." && pwd -P)"
+mapfile -t SUF < <(cd "$WS_TOP" && git ls-files -- scripts .claude/hooks | python3 -c 'import importlib.util, os, sys
+s = importlib.util.spec_from_file_location("guard", sys.argv[1]); g = importlib.util.module_from_spec(s); s.loader.exec_module(g)
+for l in sys.stdin:
+    p = l.strip()
+    if p.startswith(("scripts/", ".claude/hooks/")) and g.SUITE_NAME.match(os.path.basename(p)):
+        print(p)' "$WS_TOP/.claude/hooks/heavy-guard/guard.py" 2>/dev/null)
+RSC="$W/rclone-wsc"; git init -q -b 1304-c "$RSC"; git -C "$RSC" remote add origin https://github.com/PRO-Robotech/kacho-workspace.git
+for f in "${SUF[@]}"; do mkdir -p "$RSC/$(dirname "$f")"; : > "$RSC/$f"; done
+git -C "$RSC" add -A 2>/dev/null; sandbox_git -C "$RSC" commit -q --allow-empty -m census
+# Пробы, судящие машину (MACHINE heavy-slot.sh), — без внешнего пути: каждая запись — живой файл
+# дерева (иначе запись устарела) и маршрут none (при доступном кластере 77) с причиной; прочие — external.
+mapfile -t MACH < <(sed -n "/^MACHINE='/,/'\$/p" "$SLOT" | sed -e "s/^MACHINE='//" -e "s/'\$//" | sed '/^$/d')
+in_mach() { local m; for m in "${MACH[@]}"; do [ "$m" = "$1" ] && return 0; done; return 1; }
+n_ext=0; n_mach=0; miss=""
+for f in "${SUF[@]}"; do
+    r="$(route "$RSC" suite -- bash "$f")"
+    if in_mach "$f"; then
+        if [ "$r" = "0 none" ] && grep -q 'судит машину' "$W/out"; then n_mach=$((n_mach + 1)); else miss="$miss $f(MACHINE→$r)"; fi
+    elif [ "$r" = "0 external" ]; then n_ext=$((n_ext + 1)); else miss="$miss $f"; fi
+done
+assert "да ${#SUF[@]}" "$([ "${#SUF[@]}" -gt 0 ] && echo да || echo нет) $((n_ext + n_mach))" "перепись: наборов и проб дерева воркспейса (SUITE_NAME стража) ${#SUF[@]}: Job-ом профиля ws $n_ext, судящих машину (none) $n_mach${miss:+ — мимо ведомости:$miss}"
+m_live=0; for f in "${MACH[@]}"; do (cd "$WS_TOP" && git ls-files --error-unmatch -- "$f" >/dev/null 2>&1) && m_live=$((m_live + 1)); done
+assert "да ${#MACH[@]}" "$([ "${#MACH[@]}" -gt 0 ] && echo да || echo нет) $m_live" "записи MACHINE — живые файлы дерева: ${#MACH[@]} записей, отслеживается $m_live (устаревшая запись — находка)"
+git init -q --bare "$W/bare-ws.git"; HLW="$W/hook-ws.log"; rm -f "$HLW" "$W/argv"; bp="$(jn ' remote class=ci-local route=push profile=ws ')"
+assert "0 1 ws kacho-workspace $((bp + 1)) 1" "$(RDIR="$RW" rslot env FAKE_EXEC=1 HOOK_LOG="$HLW" bash "$SLOT" ci-local -- git push -q "$W/bare-ws.git" HEAD:refs/heads/1304-w) $(grep -c '^job=1 ' "$HLW" 2>/dev/null) $(argv_of profile) $(argv_of repo) $(jn ' remote class=ci-local route=push profile=ws ') $(grep -F ' remote class=ci-local route=push profile=ws ' "$JL" | tail -n 1 | grep -c 'why=клон воркспейса, хук отправки — Job профиля ws who=')" "хук отправки воркспейса: Job профиля ws, хук исполнен там, строка remote с причиной"
+assert "0 external да" "$(route "$RW" ci-local -- git push origin HEAD) $(has "$W/out" 'профиль ws, репозиторий kacho-workspace')" "--route: отправка из клона воркспейса → external, профиль ws"
+assert "0 external да" "$(route "$RW" suite -- bash scripts/tg/run-all.sh) $(has "$W/out" 'профиль ws')" "--route: набор воркспейса классом suite → external, профиль ws"
+sed 's#^        \*PRO-Robotech/kacho-workspace|\*PRO-Robotech/kacho-workspace\.git)$#        *PRO-Robotech/kacho-workspace-OFF)#' "$SLOT" > "$W/slot-mut-ws.sh"
+assert "1 0 none" "$(diff "$SLOT" "$W/slot-mut-ws.sh" | grep -c '^<') $(RSLOT="$W/slot-mut-ws.sh" route "$RW" suite -- bash scripts/tg/run-all.sh)" "мутант «маршрут воркспейса снят»: набор → none — утверждения выше (external, Job профиля ws) его ловят"
+# shellcheck disable=SC2016  # образец sed, раскрывать нечего
+sed 's#^            RS_PROFILE=ws$#            RS_PROFILE="$CLASS"#' "$SLOT" > "$W/slot-mut-wsp.sh"; rm -f "$W/argv"
+assert "1 17 suite" "$(diff "$SLOT" "$W/slot-mut-wsp.sh" | grep -c '^<') $(RDIR="$RW" rslot bash "$W/slot-mut-wsp.sh" suite -- bash scripts/tg/run-all.sh) $(argv_of profile)" "мутант «профиль — класс»: Job воркспейса идёт профилем suite — утверждение «ws» выше его ловит"
+sed 's#^        \[\[ "\$real" == "\$RS_TOP/"\$p \]\] || continue$#        [ "$real" = "$RS_TOP/$p" ] || continue#' "$SLOT" > "$W/slot-mut-glob.sh"
+assert "1 0 none" "$(diff "$SLOT" "$W/slot-mut-glob.sh" | grep -c '^<') $(RSLOT="$W/slot-mut-glob.sh" route "$RW" suite -- bash scripts/tg/run-all.sh)" "мутант «путь записи — не образец»: строки воркспейса ничего не узнают — утверждения выше его ловят"
 
 echo "── хук отправки при доступном кластере → run.sh: хук — Job-ом на той же голове, локально лишь отправка, замок слотов не берётся (ws#1106, ws#1115)"
 # Настоящий git push в голый репозиторий; хук продукта — отслеживаемый
@@ -837,7 +995,73 @@ assert "69 нет да" "$(rslot env FAKE_EXEC=1 FAKE_EXEC_RC=69 HOOK_LOG="$HL" 
 be="$(jn ' enter id=')"; rm -f "$HL"
 assert "0 1 да $((be + 1))" "$(rslot env FAKE_AVAIL=1 FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- git push -q "$W/bare.git" HEAD:refs/heads/1115-w) $(grep -c '^job=нет ' "$HL" 2>/dev/null) $(has_ref 1115-w) $(jn ' enter id=')" "близнец: кластер недоступен → хук локально слотом (enter в журнале)"
 be="$(jn ' enter id=')"; b78="$(jn 'route=push rc=1 hook_rc=78 ')"; rm -f "$HL"
-assert "0 0 1 да $((be + 1)) $((b78 + 1))" "$(rslot env FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- git push -q "$W/bare.git" HEAD~1:refs/heads/1115-v) $(grep -c '^job=1 ' "$HL" 2>/dev/null) $(grep -c '^job=нет ' "$HL" 2>/dev/null) $(has_ref 1115-v) $(jn ' enter id=') $(jn 'route=push rc=1 hook_rc=78 ')" "отправка не головы копии: переходник — 78, Job не звался, та же отправка локально слотом с хуком"
+assert "77   нет $be $((b78 + 1))" "$(rslot env FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- git push -q "$W/bare.git" HEAD~1:refs/heads/1115-v) $(grep -c '^job=1 ' "$HL" 2>/dev/null) $(grep -c '^job=нет ' "$HL" 2>/dev/null) $(has_ref 1115-v) $(jn ' enter id=') $(jn 'route=push rc=1 hook_rc=78 ')" "отправка не головы копии: переходник — 78, Job не звался, та же отправка локально слотом с хуком"
+
+echo "── маршрут Job: запись проверенного — на машине, повтор проверенной вершины Job не ставит (ws#1288, kacho#3336)"
+# Приёмка ws#1288: Job судит в своём клоне со своей .git, запись хука оставалась в поде, и
+# ускорение в маршруте Job не срабатывало ни разу. Здесь «pod» — клон со СВОЕЙ .git
+# (FAKE_EXEC_CLONE двойника); предикат — настоящий prepush-new-commits.sh воркспейса (побайтово
+# равен копии kacho — check-28); хук клона повторяет форму хука kacho: предикат 0 — «наборы не
+# нужны», KACHO_PREPUSH_SKIP_ONLY=1 — 79 вместо наборов, наборы — строкой в журнал, зелёный —
+# запись вершины (HOOK_NOREC — диапазон не покрыл, не пишет; FAKE_DIVERGE — предикату не верит).
+RJ="$W/rjob"; git init -q -b 1288-x "$RJ"; git -C "$RJ" remote add origin https://github.com/PRO-Robotech/kacho.git
+mkdir -p "$RJ/scripts/hooks"; cp "$HERE/hooks/prepush-new-commits.sh" "$RJ/scripts/hooks/"
+cat > "$RJ/scripts/hooks/pre-push" << 'JHOOK'
+#!/usr/bin/env bash
+in="$(cat)"; tip="$(printf '%s\n' "$in" | awk 'NF >= 4 { print $2; exit }')"
+pred="$(git rev-parse --show-toplevel)/scripts/hooks/prepush-new-commits.sh"
+if [ -z "${FAKE_DIVERGE:-}" ] && printf '%s\n' "$in" | bash "$pred" > /dev/null 2>&1; then
+    echo "skip job=${FAKE_IN_JOB:-нет}" >> "$HOOK_LOG"; echo "pre-push: наборы не нужны" >&2; exit 0
+fi
+[ "${KACHO_PREPUSH_SKIP_ONLY:-0}" != 1 ] || exit 79
+echo "suites job=${FAKE_IN_JOB:-нет} $tip" >> "$HOOK_LOG"
+[ "${HOOK_RC:-0}" = 0 ] || exit "$HOOK_RC"
+[ -n "${HOOK_NOREC:-}" ] || bash "$pred" --record "$tip" >&2
+exit 0
+JHOOK
+chmod +x "$RJ/scripts/hooks/pre-push"; echo a > "$RJ/f"; git -C "$RJ" add -A; sandbox_git -C "$RJ" commit -q -m base
+# shellcheck disable=SC2016
+printf '#!/usr/bin/env bash\nexec "$(git rev-parse --show-toplevel)/scripts/hooks/pre-push" "$@"\n' > "$RJ/.git/hooks/pre-push"; chmod +x "$RJ/.git/hooks/pre-push"
+git init -q --bare "$W/bare-j.git"
+jref() { git -C "$W/bare-j.git" rev-parse --verify --quiet "refs/heads/$1" > /dev/null && echo да || echo нет; }
+jrec() { (cd "$RJ" && bash scripts/hooks/prepush-new-commits.sh --recorded "$1") && echo да || echo нет; }
+jlog() { grep -c "^$1" "$HL" 2> /dev/null || true; }
+jnew() { echo "$1" > "$RJ/n-$1"; git -C "$RJ" add -A; sandbox_git -C "$RJ" commit -q -m "$1"; git -C "$RJ" rev-parse HEAD; }
+jpush() { local s="$1" ref="$2"; shift 2; rm -f "$W/argv"; RDIR="$RJ" rslot env FAKE_EXEC=1 FAKE_EXEC_CLONE=1 HOOK_LOG="$HL" "$@" bash "$s" ci-local -- git push -q "$W/bare-j.git" HEAD:refs/heads/"$ref"; }
+jargv() { [ -e "$W/argv" ] && echo Job || echo без-Job; }
+rm -f "$HL"; JH="$(jnew j1)"
+br="$(jn 'route=push rc=0 hook_rc=0 verified=record ')"
+assert "0 Job 1 да да 1 $((br + 1))" "$(jpush "$SLOT" 1288-a) $(jargv) $(jlog 'suites job=1 ') $(jref 1288-a) $(jrec "$JH") $(wc -l < "$RJ/.git/kacho-prepush-verified") $(jn 'route=push rc=0 hook_rc=0 verified=record ')" "J1: новая вершина — хук Job-ом в клоне со своей .git, зелёный; вершина внесена в запись МАШИНЫ (строка heavy-slot-push-verified), verified=record в журнале"
+bs="$(jn 'route=push rc=0 hook_rc=0 verified=skip ')"; rm -f "$HL"
+assert "0 без-Job 0 1 да да $((bs + 1))" "$(jpush "$SLOT" 1288-b) $(jargv) $(jlog 'suites ') $(jlog 'skip job=нет') $(jref 1288-b) $(has "$W/err" 'Job не ставится') $(jn 'route=push rc=0 hook_rc=0 verified=skip ')" "J2: та же вершина новым именем — Job не ставится, хук идёт на машине до «наборы не нужны», ссылка ушла, verified=skip"
+rm -f "$HL"
+assert "0 Job 1 да" "$(jpush "$SLOT" 1288-c FAKE_DIVERGE=1) $(jargv) $(jlog 'suites job=1 ') $(jref 1288-c)" "близнец J2: предикат сказал 0, хук на машине погнал бы наборы (79) — хук уходит Job-ом, а не теряется и не гонит наборы на машине"
+rm -f "$HL"; JN="$(jnew j2)"
+assert "0 Job 1 нет" "$(jpush "$SLOT" 1288-d HOOK_NOREC=1) $(jargv) $(jlog 'suites job=1 ') $(jrec "$JN")" "близнец J1: хук в Job зелёный, но вершину не записал (диапазон не покрыл) — на машине записи нет"
+rm -f "$HL"
+assert "0 Job 1" "$(jpush "$SLOT" 1288-e) $(jargv) $(jlog 'suites job=1 ')" "близнец J2: незаписанная вершина новым именем — Job снова ставится"
+rm -f "$HL"; JR="$(jnew j3)"
+assert "1 Job нет нет" "$(jpush "$SLOT" 1288-f HOOK_RC=1) $(jargv) $(jref 1288-f) $(jrec "$JR")" "близнец J1: хук в Job красный — отправки нет, вершина не записана"
+# Мутанты на месте правки: каждый ложится одной строкой и роняет свою пробу выше.
+# shellcheck disable=SC2016  # выражения в кавычках — текст переходника, раскрывать нельзя
+sed 's/^if \[ -f "\$pred" \] && (cd "\$HS_TOP" && printf/if false \&\& (cd "$HS_TOP" \&\& printf/' "$SLOT" > "$W/slot-mut-1288pre.sh"
+# shellcheck disable=SC2016
+sed 's/^if \[ "\$rc" = 0 \] && \[ -f "\$pred" \] && grep -qxF/if false \&\& grep -qxF/' "$SLOT" > "$W/slot-mut-1288rec.sh"
+# shellcheck disable=SC2016
+sed 's/^    if \[ "\$rc" -ne 79 \]; then echo skip/    if true; then echo skip/' "$SLOT" > "$W/slot-mut-1288div.sh"
+for m in pre rec div; do assert 1 "$(diff "$SLOT" "$W/slot-mut-1288$m.sh" | grep -c '^<')" "мутант ws#1288 «$m» лёг ровно одной строкой"; done
+rm -f "$HL"; JM="$(jnew j4)"
+assert "0 Job" "$(jpush "$SLOT" 1288-g) $(jargv)" "посев мутанта «pre»: вершина j4 записана на машине"
+rm -f "$HL"
+assert "0 Job 1" "$(jpush "$W/slot-mut-1288pre.sh" 1288-h) $(jargv) $(jlog 'suites job=1 ')" "мутант «запись машины до Job не спрошена»: записанная вершина снова гонит Job — проба J2 его ловит"
+rm -f "$HL"; JM="$(jnew j5)"
+assert "0 Job нет" "$(jpush "$W/slot-mut-1288rec.sh" 1288-i) $(jargv) $(jrec "$JM")" "мутант «запись пода не возвращается»: зелёный Job — на машине записи нет (прежний дефект приёмки) — проба J1 его ловит"
+# Посев мутанта «div»: голова j5 (мутант «rec» её не записал) вносится в запись машины, иначе
+# предикат скажет «не проверена», отправка уйдёт в Job мимо строки мутанта и проба промолчит.
+(cd "$RJ" && bash scripts/hooks/prepush-new-commits.sh --record "$JM") > /dev/null 2>&1
+assert "да" "$(jrec "$JM")" "посев мутанта «div»: вершина j5 записана на машине — переходник дойдёт до ветви 79"
+rm -f "$HL"
+assert "1 без-Job 0" "$(jpush "$W/slot-mut-1288div.sh" 1288-j FAKE_DIVERGE=1) $(jargv) $(jlog 'suites ')" "мутант «79 — итог»: расхождение хука с предикатом роняет отправку без Job — близнец J2 (79 → Job) его ловит"
 rm -f "$W/argv" "$W/argv.avail"
 assert "77 да нет нет" "$(rslot bash "$SLOT" stand -- bash -c 'touch "$1"' x "$W/st1" dev-up) $(has "$W/err" 'во внешний кластер: в deploy/ продукта make stand-ns-up NS=t984-') $([ -e "$W/st1" ] && echo да || echo нет) $([ -e "$W/argv" ] && echo да || echo нет)" "стенд: dev-up при доступном кластере → 77 с формой своего ns, команда не запускалась"
 assert "--available" "$(tr '\n' ' ' < "$W/argv.avail" | sed 's/ $//')" "стенд судит кластер без профиля: стенд ставит stand-ns.sh, не Job профиля"
@@ -847,18 +1071,32 @@ assert "77 да нет" "$(rslot bash "$SLOT" stand -- "$W/bin/kind" -q create c
 b="$(jn ' local class=stand proof=rc=69')"
 assert "0 да $((b + 1))" "$(FAKE_AVAIL=1 rslot bash "$SLOT" stand -- bash -c 'touch "$1"' x "$W/st2" own-up) $([ -e "$W/st2" ] && echo да || echo нет) $(jn ' local class=stand proof=rc=69')" "стенд: own-up при недоступном кластере → локально, вывод проверки в журнале"
 rm -f "$W/argv.avail"
-assert "0 да нет" "$(rslot bash "$SLOT" stand -- bash -c 'touch "$1"' x "$W/st3" stand-ns-up) $([ -e "$W/st3" ] && echo да || echo нет) $([ -e "$W/argv.avail" ] && echo да || echo нет)" "близнец: stand-ns-up (внешний путь) маршрут не судит — идёт, кластер не спрашивается"
-echo "── --local на ПЕРЕНОСИМОЙ команде в чистом клоне при доступном кластере (мутант G — ws#1105)"
+assert "77 нет да" "$(rslot bash "$SLOT" stand -- bash -c 'touch "$1"' x "$W/st3" stand-ns-up) $([ -e "$W/st3" ] && echo да || echo нет) $([ -e "$W/argv.avail" ] && echo да || echo нет)" "строка оболочки со словом stand-ns-up — слов строки слот не судит: при доступном кластере 77 (ws#1301)"
+echo "── --local судится: при принимающем кластере — 77, локально лишь при отказавшем механизме (ws#1291; прежде мутант G — ws#1105)"
 rm -f "$W/argv" "$W/argv.avail"
 assert "17" "$(rslot bash "$SLOT" lint -- go version)" "контроль: go version без флага в чистом клоне → run.sh (17)"
-b="$(jn ' bypass-local class=lint why=проба G: переносимая команда локально')"
+b="$(jn ' bypass-local class=lint why=проба G: переносимая команда локально')"; be="$(jn ' external class=lint how=--local «проба G')"
 rm -f "$W/argv" "$W/argv.avail"
-assert "0 нет нет $((b + 1))" "$(rslot bash "$SLOT" --local 'проба G: переносимая команда локально' lint -- go version) $([ -e "$W/argv" ] && echo да || echo нет) $([ -e "$W/argv.avail" ] && echo да || echo нет) $(jn ' bypass-local class=lint why=проба G: переносимая команда локально')" "та же команда с --local → локально (0), кластер не спрашивался, bypass-local в журнале"
+assert "77 нет да нет $b $((be + 1)) да" "$(rslot bash "$SLOT" --local 'проба G: переносимая команда локально' lint -- go version) $([ -e "$W/argv" ] && echo да || echo нет) $([ -e "$W/argv.avail" ] && echo да || echo нет) $(has "$W/out" 'go version go') $(jn ' bypass-local class=lint why=проба G: переносимая команда локально') $(jn ' external class=lint how=--local «проба G') $(has "$W/err" 'отклонён: кластер принимает')" "та же команда с --local при принимающем кластере → 77: кластер спрошен, Job не звался, локально не шла, bypass-local нет, external в журнале, причина названа"
+rm -f "$W/argv.avail"
+assert "77 да" "$(FAKE_AVAIL=3 rslot bash "$SLOT" --local 'проба G: кластер занят местом' lint -- go version) $(has "$W/err" 'занят: место ждётся --wait N')" "--local при занятом кластере (75) → 77: занятость — не недоступность"
+b="$(jn ' bypass-local class=lint why=проба G: кластер не отвечает proof=rc=69')"
+assert "0 да $((b + 1))" "$(FAKE_AVAIL=1 rslot bash "$SLOT" --local 'проба G: кластер не отвечает' lint -- go version) $(has "$W/out" 'go version go') $(jn ' bypass-local class=lint why=проба G: кластер не отвечает proof=rc=69')" "близнец: --local при недоступном кластере → локально, вывод проверки — proof= строки bypass-local"
+b="$(jn ' bypass-local class=lint why=проба G: дефект обёртки proof=rc=70')"
+assert "69 $b" "$(FAKE_AVAIL=8 rslot bash "$SLOT" --local 'проба G: дефект обёртки' lint -- go version) $(jn ' bypass-local class=lint why=проба G: дефект обёртки proof=rc=70')" "--local при дефекте обёртки (70) → 69: дефект — не недоступность, локально не идёт (ws#1301)"
+b="$(jn 'why=проба G: внешнего пути нет moot=')"; rm -f "$W/argv.avail"
+assert "77 да $b да" "$(rslot bash "$SLOT" --local 'проба G: внешнего пути нет' --wait 0 newman -- true) $([ -e "$W/argv.avail" ] && echo да || echo нет) $(jn 'why=проба G: внешнего пути нет moot=') $(has "$W/err" 'задача ws#1303, до неё не выполнилось')" "--local у класса без внешнего пути при доступном кластере → 77, кластер спрошен, задача маршрута названа (ws#1301)"
+b="$(jn 'bypass-local class=lint why=проба G: нет yq в образе Job')"
+assert "77 нет $b да" "$(rslot bash "$SLOT" --local 'проба G: нет yq в образе Job' lint -- go version) $(has "$W/out" 'go version go') $(jn 'bypass-local class=lint why=проба G: нет yq в образе Job') $(has "$W/err" 'причина флага не основание')" "--local «нет yq в образе Job» при доступном кластере → 77: недостающий инструмент чинится в образе (ws#1301)"
+# shellcheck disable=SC2016  # образец sed и тело `sh -c` раскрывает не эта оболочка
+sed 's|^    \[ "\$REMOTE_ON" = 1 \] \&\& local_judge$|    :|' "$SLOT" > "$W/slot-mut-lj.sh"
+rm -f "$W/argv.avail"
+assert "1 0" "$(diff "$SLOT" "$W/slot-mut-lj.sh" | grep -c '^<') $(rslot bash "$W/slot-mut-lj.sh" --local 'проба G: мутант без суждения' lint -- go version)" "мутант «--local не судится»: при принимающем кластере локально (0) — проба «77» выше его ловит"
 (cd "$R" && bash "$SLOT" --status > "$W/status" 2>/dev/null)
-assert "да" "$(has "$W/status" 'why=проба G: переносимая команда локально')" "обход G виден в --status"
+assert "да" "$(has "$W/status" 'why=проба G: кластер не отвечает')" "обход G при недоступном кластере виден в --status"
 assert 64 "$(rslot bash "$SLOT" lint --local 'проба: флаг после класса' -- go version)" "--local после класса — 64 (форма вызова), не тихий локальный запуск"
 b="$(jn 'why=проба переноса строки вторая строка')"
-assert "0 $((b + 1)) 0" "$(rslot bash "$SLOT" --local $'проба переноса строки\nвторая строка' --wait 0 newman -- true) $(jn 'why=проба переноса строки вторая строка') $(grep -c '^вторая строка' "$JL")" "причина с переводом строки — одна строка журнала, вторая строкой журнала не стала"
+assert "0 $((b + 1)) 0" "$(FAKE_AVAIL=1 rslot bash "$SLOT" --local $'проба переноса строки\nвторая строка' --wait 0 newman -- true) $(jn 'why=проба переноса строки вторая строка') $(grep -c '^вторая строка' "$JL")" "причина с переводом строки — одна строка журнала, вторая строкой журнала не стала"
 
 echo "── обёртки: нагрузка судится за ними, неопознанная при доступном кластере — 77 (ws#1105)"
 for wr in "env GOFLAGS=-count=1" "nice -n 5" "ionice -c 3" "timeout -s KILL 60" "nohup" "stdbuf -oL" "setsid" "env -u GOFLAGS nice"; do
@@ -907,8 +1145,10 @@ assert "77 да" "$(RDIR="$W/kd" rslot bash "$SLOT" stand -- ./wrap-outer.sh) $(
 b="$(jn 'локально по признаку содержимого')"
 assert "0 да $((b + 1))" "$(RDIR="$W/kd" FAKE_AVAIL=1 rslot bash "$SLOT" stand -- ./wrap-kind.sh) $([ -e "$W/wk-ran" ] && echo да || echo нет) $(jn 'локально по признаку содержимого')" "та же обёртка при недоступном кластере → локально, в журнале «локально по признаку содержимого»"
 rm -f "$W/wk-ran"
-assert "0 да да" "$(RDIR="$W/kd" rslot bash "$SLOT" stand -- ./wrap-kubectl.sh) $([ -e "$W/wk-ran" ] && echo да || echo нет) $(has "$W/err" 'не поднимает локальный стенд')" "близнец: обёртка лишь с kubectl (kind create — в комментарии) → локально «не поднимает», кластер не мешает"
-boundary "0" "$(RDIR="$W/kd" rslot bash "$SLOT" stand -- ./wrap-deep.sh)" "обёртка → посредник → помощник с ctlptl (глубина два)"
+assert "77 нет да" "$(RDIR="$W/kd" rslot bash "$SLOT" stand -- ./wrap-kubectl.sh) $([ -e "$W/wk-ran" ] && echo да || echo нет) $(has "$W/err" 'у команды стенда внешнего маршрута нет')" "близнец: обёртка лишь с kubectl — подъёма нет, но и внешнего маршрута нет: при доступном кластере 77 (ws#1301)"
+rm -f "$W/wk-ran"
+assert "0 да" "$(RDIR="$W/kd" FAKE_AVAIL=1 rslot bash "$SLOT" stand -- ./wrap-kubectl.sh) $([ -e "$W/wk-ran" ] && echo да || echo нет)" "близнец: та же обёртка при недоступном кластере → локально"
+assert "77" "$(RDIR="$W/kd" rslot bash "$SLOT" stand -- ./wrap-deep.sh)" "обёртка → посредник → помощник с ctlptl (глубина два): прежняя граница закрыта — при доступном кластере 77 (ws#1301)"
 
 echo "── стенд: флаг СО ЗНАЧЕНИЕМ между kind и create — подъём (ws#1250 K2, C1)"
 # K2: признак допускал между kind и create лишь слова на «-», и значение флага («3») рвало совпадение;
@@ -954,7 +1194,7 @@ done
 # Законный близнец: строка-комментарий целиком — не вызов.
 mkw wrap-cmt-line '# kind create cluster'
 rm -f "$W/wk-ran"
-assert "0 да да" "$(RDIR="$W/kd" rslot bash "$SLOT" stand -- ./wrap-cmt-line.sh) $([ -e "$W/wk-ran" ] && echo да || echo нет) $(has "$W/err" 'не поднимает локальный стенд')" "законный близнец: строка «# kind create cluster» — комментарий: идёт, «не поднимает»"
+assert "77 нет да нет" "$(RDIR="$W/kd" rslot bash "$SLOT" stand -- ./wrap-cmt-line.sh) $([ -e "$W/wk-ran" ] && echo да || echo нет) $(has "$W/err" 'у команды стенда внешнего маршрута нет') $(has "$W/err" 'по признаку содержимого')" "законный близнец: «# kind create cluster» — комментарий, признака нет; внешнего маршрута нет — 77 (ws#1301)"
 # [BOUND] fail-closed (шапка stand_sign): echo/printf и хвостовой комментарий с признаком — признак,
 # 77; лишний красный безопасен — команда уходит на кластер, а не тайно поднимает стенд локально.
 bound_fc() {
@@ -978,7 +1218,7 @@ done
 for ps in wrap-dsub wrap-ml; do
     rm -f "$W/kind-ran"
     # shellcheck disable=SC2016  # тексты мутанта — строки исходника слота
-    assert "0 0 да" "$(tmut "grep -vE '^[[:space:]]*#' \"\$f\"" "grep -vE '^[[:space:]]*(#|echo[[:space:]])' \"\$f\"") $(RDIR="$W/kd" rslot bash "$W/tmut/heavy-slot.sh" stand -- "./$ps.sh") $([ -e "$W/kind-ran" ] && echo да || echo нет)" "мутант «сегмент echo отбрасывается»: $ps уходит локально (0), kind запущен — проба $ps выше его ловит"
+    assert "0 77 нет нет" "$(tmut "grep -vE '^[[:space:]]*#' \"\$f\"" "grep -vE '^[[:space:]]*(#|echo[[:space:]])' \"\$f\"") $(RDIR="$W/kd" rslot bash "$W/tmut/heavy-slot.sh" stand -- "./$ps.sh") $([ -e "$W/kind-ran" ] && echo да || echo нет) $(has "$W/err" 'по признаку содержимого')" "мутант «сегмент echo отбрасывается»: $ps — признак не назван (77 без маршрута) — проба $ps выше, ждущая «по признаку содержимого», его ловит"
 done
 
 echo "── стенд во внешнем ns — без слота машины: на машине лишь kubectl и helm (ws#1143)"
@@ -1039,8 +1279,8 @@ assert "$be" "$(ens)" "ни одна из форм выше слота не за
 assert "74 нет" "$(sn "$EV" make -s stand-ns-up NS=t1143-x) $(snx ev-ran)" "обход: подменённый рецепт (Makefile чужого каталога с целью stand-ns-up) → под слотом, 74"
 assert "74 нет" "$(sn "$KC" make -s -C "$EV" stand-ns-up) $(snx ev-ran)" "обход: make -C <чужой каталог> stand-ns-up → под слотом, 74"
 assert "74 нет" "$(sn "$KC" make -s -C deploy -C .. stand-ns-up) $(snx ev-ran)" "обход: -C уводит из deploy/ (deploy, затем ..) → под слотом, 74"
-assert "74 нет" "$(sn "$KC" bash "$EV/stand-ns.sh" up t1143-x) $(snx ev-ran)" "обход: bash <чужой путь>/stand-ns.sh up → под слотом, 74"
-assert "74 нет" "$(sn "$KC" "$EV/stand-ns.sh" up t1143-x) $(snx ev-ran)" "обход: <чужой путь>/stand-ns.sh up без bash → под слотом, 74"
+assert "77 нет" "$(sn "$KC" bash "$EV/stand-ns.sh" up t1143-x) $(snx ev-ran)" "обход: bash <чужой путь>/stand-ns.sh up → 77: внешнего маршрута нет, на машине не исполнялся (ws#1301)"
+assert "77 нет" "$(sn "$KC" "$EV/stand-ns.sh" up t1143-x) $(snx ev-ran)" "обход: <чужой путь>/stand-ns.sh up без bash → 77: внешнего маршрута нет, на машине не исполнялся (ws#1301)"
 # shellcheck disable=SC2016  # присваивание make — буквально
 assert "74 нет нет" "$(sn "$SN" make -s stand-ns-up 'NS=$(shell touch '"$W"'/ev-ran)') $(snx ev-ran) $(snx sn-up)" "обход: присваивание NS='\$(shell …)' → под слотом, 74"
 # shellcheck disable=SC2016
@@ -1051,9 +1291,9 @@ assert "74 нет" "$(sn "$SN" make -s stand-ns-up FOO=1) $(snx sn-up)" "обх�
 assert "74 нет нет" "$(sn "$SN" env MAKEFILES="$EV/inj.mk" make -s stand-ns-up) $(snx ev-ran) $(snx sn-up)" "обход: обёртка env с MAKEFILES → под слотом, 74"
 assert "74 нет нет" "$(snenv "$SN" MAKEFILES="$EV/inj.mk" make -s stand-ns-up) $(snx ev-ran) $(snx sn-up)" "обход: MAKEFILES в окружении вызова → под слотом, 74"
 r="$(snenv "$KC" BASH_ENV="$EV/stand-ns.sh" bash deploy/scripts/stand-ns.sh census)"
-assert "74 нет" "$r $(snx sn-census)" "обход: BASH_ENV в окружении вызова → под слотом, 74, stand-ns.sh без слота не исполнялся"
+assert "77 нет" "$r $(snx sn-census)" "обход: BASH_ENV в окружении вызова → 77: внешнего маршрута нет, на машине не исполнялся (ws#1301), stand-ns.sh без слота не исполнялся"
 boundary "да" "$(snx ev-ran)" "BASH_ENV вызова исполняет сама оболочка heavy-slot.sh при старте — до суждения слота"
-assert "74 нет" "$(sn "$KC" bash -x deploy/scripts/stand-ns.sh up t1143-x) $(snx sn-up)" "обход: ключ bash перед скриптом → под слотом, 74"
+assert "77 нет" "$(sn "$KC" bash -x deploy/scripts/stand-ns.sh up t1143-x) $(snx sn-up)" "обход: ключ bash перед скриптом → 77: внешнего маршрута нет, на машине не исполнялся (ws#1301)"
 assert "74 нет" "$(sn "$SN" make -s -f Makefile stand-ns-up NS=t1143-x) $(snx sn-up)" "обход: make -f → под слотом, 74"
 printf '\n# правка\n' >> "$SN/Makefile"
 assert "74 нет" "$(sn "$SN" make -s stand-ns-up NS=t1143-x) $(snx sn-up)" "обход: deploy/Makefile с неотправленной правкой → под слотом, 74"
@@ -1062,10 +1302,10 @@ printf 'stand-ns-up:\n\t@touch "%s/ev-ran"\n' "$W" > "$SN/GNUmakefile"
 assert "74 нет нет" "$(sn "$SN" make -s stand-ns-up NS=t1143-x) $(snx ev-ran) $(snx sn-up)" "обход: GNUmakefile рядом (make взял бы его) → под слотом, 74"
 rm -f "$SN/GNUmakefile"
 # Близнецы прежних форм: на машине исполняется не только kubectl и helm — слот (74).
-assert "74 нет" "$(sn "$SN" make -s stand-ns-run NS=t1143-x) $(snx sn-run)" "близнец: stand-ns-run (CMD идёт на машине) → под слотом, 74"
-assert "74 нет" "$(sn "$KC" bash deploy/scripts/stand-ns.sh run t1143-x -- true) $(snx sn-run)" "близнец: stand-ns.sh run → под слотом, 74"
-assert "74 нет" "$(sn "$SN" bash -c 'make -s stand-ns-up NS=t1143-x') $(snx sn-up)" "близнец: строка оболочки со stand-ns-up → под слотом, 74"
-assert "74 нет" "$(sn "$SN" make -s stand-ns-up stand-ns-run NS=t1143-x) $(snx sn-up)" "близнец: stand-ns-up вместе с иной целью → под слотом, 74"
+assert "77 нет" "$(sn "$SN" make -s stand-ns-run NS=t1143-x) $(snx sn-run)" "близнец: stand-ns-run (CMD идёт на машине) → 77: внешнего маршрута нет, на машине не исполнялся (ws#1301)"
+assert "77 нет" "$(sn "$KC" bash deploy/scripts/stand-ns.sh run t1143-x -- true) $(snx sn-run)" "близнец: stand-ns.sh run → 77: внешнего маршрута нет, на машине не исполнялся (ws#1301)"
+assert "77 нет" "$(sn "$SN" bash -c 'make -s stand-ns-up NS=t1143-x') $(snx sn-up)" "близнец: строка оболочки со stand-ns-up → 77: внешнего маршрута нет, на машине не исполнялся (ws#1301)"
+assert "77 нет" "$(sn "$SN" make -s stand-ns-up stand-ns-run NS=t1143-x) $(snx sn-up)" "близнец: stand-ns-up вместе с иной целью → 77: внешнего маршрута нет, на машине не исполнялся (ws#1301)"
 assert "74 нет" "$(FAKE_AVAIL=1 sn "$SN" make -s dev-up) $(snx sn-devup)" "близнец: локальный kind-стенд (dev-up, кластер недоступен) → под слотом, 74"
 # ГРАНИЦА (шапка heavy-slot.sh): закоммиченный в клон рецепт и подмена PATH — без слота.
 printf 'stand-ns-census:\n\t@touch "%s/ev-ran"\n' "$W" > "$SN/Makefile"; sandbox_git -C "$KC" commit -q -am heavy
@@ -1089,11 +1329,13 @@ echo c >> "$R/f"
 assert 64 "$(rslot bash "$SLOT" --local коротко go-race -- true)" "--local без причины (< 12 символов) — 64"
 b="$(jn ' bypass-local class=go-race why=проба обхода: стенд снят владельцем')"
 rm -f "$W/argv" "$W/argv.avail"
-assert "0 нет нет $((b + 1))" "$(rslot bash "$SLOT" --local 'проба обхода: стенд снят владельцем' go-race -- true) $([ -e "$W/argv" ] && echo да || echo нет) $([ -e "$W/argv.avail" ] && echo да || echo нет) $(jn ' bypass-local class=go-race why=проба обхода: стенд снят владельцем')" "--local с причиной при доступном кластере и правке → локально, кластер не спрашивается, причина в журнале"
+assert "77 нет да $b да" "$(rslot bash "$SLOT" --local 'проба обхода: стенд снят владельцем' go-race -- true) $([ -e "$W/argv" ] && echo да || echo нет) $([ -e "$W/argv.avail" ] && echo да || echo нет) $(jn ' bypass-local class=go-race why=проба обхода: стенд снят владельцем') $(has "$W/err" 'Повтори без --local')" "--local с причиной при доступном кластере и правке → 77 (ws#1291): кластер спрошен, локально не шла, bypass-local нет, подсказка названа"
+b="$(jn ' bypass-local class=go-race why=проба обхода: кластер снят владельцем')"
+assert "0 $((b + 1))" "$(FAKE_AVAIL=2 rslot bash "$SLOT" --local 'проба обхода: кластер снят владельцем' go-race -- true) $(jn ' bypass-local class=go-race why=проба обхода: кластер снят владельцем')" "близнец: та же правка, узла нет (69) → --local локально, причина в журнале"
 # Чтение и поиск разведены: `grep -q` в конце трубы под pipefail рвёт писателя (ws#395).
 (cd "$R" && bash "$SLOT" --status > "$W/status" 2>/dev/null)
 assert "да" "$(has "$W/status" 'локально по флагу --local')" "обход флагом виден в --status"
-rslot bash "$SLOT" --local 'проба обхода: запись слота' --wait 0 newman -- bash -c 'sleep 3' >/dev/null &
+FAKE_AVAIL=1 rslot bash "$SLOT" --local 'проба обхода: запись слота' --wait 0 newman -- bash -c 'sleep 3' >/dev/null &
 LP=$!
 for _ in $(seq 1 25); do ls "$HEAVY_SLOT_DIR"/active/*.slot >/dev/null 2>&1 && break; sleep 0.2; done
 (cd "$R" && bash "$SLOT" --status > "$W/status" 2>/dev/null)
@@ -1184,29 +1426,54 @@ sed 's|^\( *\)dsta="${dsta#refs/heads/}"$|\1:|' "$SLOT" > "$W/slot-mut-1182r.sh"
 assert "1 0 да" "$(dl r) $(cd "$W/wsr" && slot bash "$W/slot-mut-1182r.sh" docker -- git push -q origin HEAD:refs/heads/3251-m) $(bref 3251-m)" "мутант «refs/heads/ не срезается»: «refs/heads/…» читается как не-ветка и отказ теряется (0 вместо 64) — отказ выше его ловит; близнец «HEAD:refs/heads/<текущая> → 0» держит обратную ошибку"
 
 # >>> prelude-1176
-# Двойник run.sh для проб внешнего входа (ws#1176, ws#1156). Стадия запуска настоящего run.sh —
-# перепись, размещение, создание ns — соседа не терпит: запуск внутри чужой стадии выходит 75, как
-# вторая перепись run.sh («прогон 2-й по времени создания»). Строка «ns … создано:» — её конец.
-# Ожидания — по событию (файл-держатель), а не по сну: под нагрузкой машины сон не успевал.
+# Двойник run.sh для проб внешнего входа (ws#1176, ws#1302) — модель ЁМКОСТИ: кластер держит
+# GATE_CAP_MIB (по умолчанию — без предела на пробу), запрос прогона — GATE_REQ МиБ (1000).
+# --available судит место: созданные ns ($GATE_DIR/ns) + вошедшие (--pending) + свой запрос;
+# GATE_BARRIER=N — первые N опросов решают ДО того, как дождутся друг друга (гонка: оба прошли
+# проверку, не видя друг друга). Прогон — как run.sh ws#1293: стадия запуска ($GATE_DIR/st/<метка>,
+# держится GATE_START_HOLD), создание ns, строка «ns … создано:», вторая перепись по времени
+# создания — не ложится со старшими: своё ns снято, 75. Ожидания — по событию, а не по сну.
 cat > "$W/fake-run-gate.sh" <<'GATE'
 #!/usr/bin/env bash
+cap="${GATE_CAP_MIB:-100000000}"; req="${GATE_REQ:-1000}"
+sum() { awk '{ s += $NF } END { print s + 0 }' "$@" 2>/dev/null || echo 0; }
+[ "${1:-}" = --request ] && { echo "1000 $req"; exit 0; }
 if [ "${1:-}" = --available ]; then
+    pf=""; while [ "$#" -gt 0 ]; do [ "$1" = --pending ] && pf="$2"; shift; done
     [ -n "${GATE_BUSY:-}" ] && [ -e "$GATE_BUSY" ] && { echo "remote-heavy: кластер занят: идущих тяжёлых прогонов 4 при пределе 4" >&2; exit 75; }
     [ -n "${GATE_DOWN:-}" ] && [ -e "$GATE_DOWN" ] && { echo "remote-heavy: кластер не отвечает" >&2; exit 69; }
-    exit 0
+    used=$(( $(sum "$GATE_DIR/ns") + $( [ -n "$pf" ] && sum "$pf" || echo 0 ) ))
+    rc=0; [ $(( used + req )) -le "$cap" ] || rc=75
+    echo "$rc $( [ -n "$pf" ] && grep -c . "$pf" || echo 0 )" >> "$GATE_DIR/avail"
+    if [ -n "${GATE_BARRIER:-}" ] && [ ! -e "$GATE_DIR/barrier.done" ]; then
+        echo x >> "$GATE_DIR/barrier"
+        for _ in $(seq 1 150); do [ "$(grep -c . "$GATE_DIR/barrier")" -ge "$GATE_BARRIER" ] && break; sleep 0.1; done
+        touch "$GATE_DIR/barrier.done"
+    fi
+    [ "$rc" = 0 ] || echo "remote-heavy: места под запрос (память $req МиБ) нет: занято $used из $cap" >&2
+    exit "$rc"
 fi
 label="${*: -1}"
-mkdir "$GATE_DIR/starting" 2>/dev/null || { echo "remote-heavy: кластер занят: прогон 2-й по времени создания при пределе 1 — снимаю своё ns (не выполнилось)" >&2; exit 75; }
+mkdir -p "$GATE_DIR/st"; mkdir "$GATE_DIR/st/$label"
+n="$(ls "$GATE_DIR/st" | wc -l)"; [ "$n" -le "$(cat "$GATE_DIR/maxst" 2>/dev/null || echo 0)" ] || echo "$n" > "$GATE_DIR/maxst"
 if [ -n "${GATE_START_HOLD:-}" ]; then
     for _ in $(seq 1 600); do [ -e "$GATE_START_HOLD" ] && break; sleep 0.1; done
-else sleep "${GATE_START_S:-0.7}"; fi
-rmdir "$GATE_DIR/starting"
+else sleep "${GATE_START_S:-0.3}"; fi
+( flock 9; echo "$label $req" >> "$GATE_DIR/ns"; c="$(grep -c . "$GATE_DIR/ns")"
+  [ "$c" -le "$(cat "$GATE_DIR/maxns" 2>/dev/null || echo 0)" ] || echo "$c" > "$GATE_DIR/maxns" ) 9>>"$GATE_DIR/lk"
+unns() { ( flock 9; grep -v "^$label " "$GATE_DIR/ns" > "$GATE_DIR/ns.t"; mv -f "$GATE_DIR/ns.t" "$GATE_DIR/ns" ) 9>>"$GATE_DIR/lk"; }
 [ -n "${GATE_NOMARK:-}" ] || echo "remote-heavy: ns t1176-$label создано: задача 1176" >&2
+if [ "$(awk -v l="$label" '{ s += $2 } $1 == l { print s; exit }' "$GATE_DIR/ns")" -gt "$cap" ]; then
+    rmdir "$GATE_DIR/st/$label"; unns
+    echo "remote-heavy: кластер занят: прогон по времени создания со старшими идущими не ложится — снимаю своё ns (не выполнилось)" >&2; exit 75
+fi
+rmdir "$GATE_DIR/st/$label"
 echo "$label" >> "$GATE_DIR/order"
-[ -z "${GATE_TRAP:-}" ] || trap 'touch "$GATE_DIR/term"; exit 143' TERM
+[ -z "${GATE_TRAP:-}" ] || trap 'unns; touch "$GATE_DIR/term"; exit 143' TERM
 if [ -n "${GATE_HOLD:-}" ]; then
     for _ in $(seq 1 600); do [ -e "$GATE_HOLD" ] && break; sleep 0.1; done
 else sleep "${GATE_RUN_S:-0.3}" & wait $!; fi
+unns
 echo "$label" >> "$GATE_DIR/end"
 exit 0
 GATE
@@ -1220,27 +1487,77 @@ gorder() { cat "$W/gate/order" 2>/dev/null | tr '\n' ' ' | sed 's/ $//'; }
 gnew() { rm -rf "$W/gate"; mkdir -p "$W/gate"; rm -f "$HEAVY_SLOT_DIR"/ext/* 2>/dev/null; JMARK="$(wc -l < "$JL")"; }
 # wait_order <ожидаемый порядок> <предел, с> — дождаться порядка стартов; 0, если дождались.
 wait_order() { local _; for _ in $(seq 1 $(( $2 * 5 ))); do [ "$(gorder)" = "$1" ] && return 0; sleep 0.2; done; return 1; }
-# tord — метки в порядке номеров билетов внешнего входа (из журнала, после отметки JMARK).
+# wait_st <число> <предел, с> — дождаться стольких прогонов в стадии запуска разом; печатает достигнутое.
+wait_st() { local _ n=0; for _ in $(seq 1 $(( $2 * 5 ))); do n="$(ls "$W/gate/st" 2>/dev/null | wc -l)"; [ "$n" -ge "$1" ] && break; sleep 0.2; done; echo "$n"; }
 JMARK=0
-tord() { tail -n +$((JMARK + 1)) "$JL" | sed -n 's/.* ext-enter ticket=\([0-9]*\) .* \([A-Z][A-Z0-9]*\) *$/\1 \2/p' | sort -n | awk '{ printf "%s ", $2 }' | sed 's/ $//'; }
+# jsince <событие> — строки журнала слотов с событием после отметки JMARK.
+jsince() { tail -n +$((JMARK + 1)) "$JL" | grep " $1 "; }
 # <<< prelude-1176
-echo "── внешний путь: свои билеты --enqueue идут по одному, а не вытесняют друг друга (ws#1176)"
-# Замер полосы волны 10: несколько своих билетов подряд срабатывают в одну секунду и уходят в
-# run.sh разом — стадия запуска соседа не терпит, и младший выходит 75: три из трёх.
-gnew
-r1="$(genq "$R" A)"; RA="$(rcof)"; r2="$(genq "$R" B)"; RBB="$(rcof)"; r3="$(genq "$R" C)"; RCC="$(rcof)"
-ca="$(await_rc "$RA")"; cb="$(await_rc "$RBB")"; cc="$(await_rc "$RCC")"
-assert "0/0/0 0/0/0 да" "$r1/$r2/$r3 $ca/$cb/$cc $([ -n "$(tord)" ] && [ "$(gorder)" = "$(tord)" ] && echo да || echo "нет(старт «$(gorder)», билеты «$(tord)»)")" "три своих --enqueue подряд в одну секунду: коды 0 у трёх из трёх, без 75, порядок запуска = порядок номеров билетов"
-gnew
-r1="$(genq "$R" A)"; RA="$(rcof)"; sleep 0.4; r2="$(genq "$R/sub" X)"; RX="$(rcof)"; sleep 0.4; r3="$(genq "$R" B)"; RBB="$(rcof)"
-ca="$(await_rc "$RA")"; cx="$(await_rc "$RX")"; cb="$(await_rc "$RBB")"
-assert "0/0/0 0/0/0 A X B да" "$r1/$r2/$r3 $ca/$cx/$cb $(gorder) $([ "$(gorder)" = "$(tord)" ] && echo да || echo "нет(билеты «$(tord)»)")" "близнец: свой, чужой (другой каталог — иной владелец) и свой — строго по билетам, чужой не обгоняется и никого не обгоняет"
+echo "── внешний путь: свои билеты входят РАЗОМ в пределах места, гонка своих — порядком билетов (ws#1302; было по одному — ws#1176)"
+# Свободный кластер: три своих --enqueue подряд — все трое в стадии запуска ОДНОВРЕМЕННО, а не по
+# одному (замер 2026-10-22: ожидание входа p90 148 с при занятости кластера 14 % времени).
+# entry_n <слот> — сцена N одновременных заявок; печатает «в стадии запуска разом · коды · ожидание ≤ 10 с».
+entry_n() {
+    gnew; rm -f "$W/sh"; GSLOT="${1:-}"
+    genq "$R" A GATE_START_HOLD="$W/sh" >/dev/null; RA="$(rcof)"; genq "$R" B GATE_START_HOLD="$W/sh" >/dev/null; RBB="$(rcof)"; genq "$R" C GATE_START_HOLD="$W/sh" >/dev/null; RCC="$(rcof)"
+    local st; st="$(wait_st 3 "${2:-20}")"
+    touch "$W/sh"
+    local ca cb cc; ca="$(await_rc "$RA")"; cb="$(await_rc "$RBB")"; cc="$(await_rc "$RCC")"
+    local wmax; wmax="$(jsince ext-go | sed -n 's/.* waited=\([0-9]*\)s.*/\1/p' | sort -n | tail -n 1)"
+    echo "$st $ca/$cb/$cc $( [ -n "$wmax" ] && [ "$wmax" -le 10 ] && echo "≤10" || echo "нет(${wmax:-—})")"; GSLOT=""
+}
+assert "3 0/0/0 ≤10" "$(entry_n)" "три --enqueue на свободный кластер: все трое в стадии запуска разом, коды 0, ожидание входа (ext-go waited) ≤ 10 с у каждого"
+# Нехватка места — ожидание: кластер на один прогон, первый исполняется — второй не стартует, пока
+# тот не кончит; затем входит сам (код 0). Срок заявки короче — 75 с причиной.
+gnew; rm -f "$W/hold6"
+genq "$R" A GATE_CAP_MIB=1000 GATE_HOLD="$W/hold6" >/dev/null; RA="$(rcof)"; wait_order "A" 40
+genq "$R" B GATE_CAP_MIB=1000 >/dev/null; RBB="$(rcof)"; sleep 3; got="$(gorder)"
+touch "$W/hold6"; ca="$(await_rc "$RA")"; cb="$(await_rc "$RBB")"
+assert "A 0/0 A B" "$got $ca/$cb $(gorder)" "близнец: места на один — второй ждёт, пока первый исполняется (старт лишь A), затем входит сам: коды 0, порядок A B"
+gnew; rm -f "$W/hold7"
+genq "$R" A GATE_CAP_MIB=1000 GATE_HOLD="$W/hold7" >/dev/null; RA="$(rcof)"; wait_order "A" 40
+genq "$R" B GATE_CAP_MIB=1000 HEAVY_SLOT_ENQ_S=3 >/dev/null; RBB="$(rcof)"; cb="$(await_rc "$RBB")"
+assert "75 A да" "$cb $(gorder) $(has "${RBB%.rc}.log" 'места под запрос')" "...срок заявки истёк при нехватке места — 75, причина кластера названа, команда не запускалась"
+touch "$W/hold7"; await_rc "$RA" >/dev/null
+# Гонка: два билета опрашивают кластер РАЗОМ (GATE_BARRIER — решают, не дождавшись друг друга),
+# места — на один. Младший учёл старшего (его запрос — во --pending) и ждёт, старший входит:
+# коды 0/0, ns разом не больше одного — второй переписи run.sh уступать некому.
+race2() {
+    gnew; GSLOT="${1:-}"
+    genq "$R" A GATE_CAP_MIB=1000 GATE_BARRIER=2 >/dev/null; RA="$(rcof)"; genq "$R" B GATE_CAP_MIB=1000 GATE_BARRIER=2 >/dev/null; RBB="$(rcof)"
+    local ca cb; ca="$(await_rc "$RA")"; cb="$(await_rc "$RBB")"
+    echo "$ca/$cb $(cat "$W/gate/maxns" 2>/dev/null || echo 0) $(gorder)"; GSLOT=""
+}
+assert "0/0 1 A B" "$(race2)" "гонка двух на место одного: опрос разом — младший учёл старшего и ждёт; коды 0/0, ns разом не больше одного, порядок A B"
+# Старший ждущий не обгоняется: места 2000, A исполняется (1000), B ждёт весь кластер (2000), C (1000)
+# пришёл позже — вместе с B ему места нет, и он ждёт B, хотя с одним A лёг бы.
+fair3() {
+    gnew; rm -f "$W/hold8"; GSLOT="${1:-}"
+    genq "$R" A GATE_CAP_MIB=2000 GATE_HOLD="$W/hold8" >/dev/null; RA="$(rcof)"; wait_order "A" 40
+    genq "$R" B GATE_CAP_MIB=2000 GATE_REQ=2000 >/dev/null; RBB="$(rcof)"
+    for _ in $(seq 1 50); do [ "$(ls "$HEAVY_SLOT_DIR"/ext/ 2>/dev/null | wc -l)" -ge 1 ] && break; sleep 0.2; done
+    sleep 1; genq "$R" C GATE_CAP_MIB=2000 >/dev/null; RCC="$(rcof)"; sleep 3
+    local got; got="$(gorder)"; touch "$W/hold8"
+    echo "$got / $(await_rc "$RA")/$(await_rc "$RBB")/$(await_rc "$RCC") $(gorder)"; GSLOT=""
+}
+assert "A / 0/0/0 A B C" "$(fair3)" "старший ждущий (B, весь кластер) не обгоняется младшим (C), которому с ним места нет: пока A исполняется, стартов лишь A; порядок A B C"
+# Мутанты: «вход по одному» (вошедший занимает весь кластер), «старший не учтён» (младший судит
+# лишь вошедших), «учёта вошедших нет» (EXT_GATE=0).
+sed 's/^\( *\)printf '"'"'hs-%s %s\\n'"'"' "\$n" "\$req"$/\1printf '"'"'hs-%s 1000 99999999\\n'"'"' "$n"/' "$SLOT" > "$W/slot-mut-1302a.sh"
+sed 's/^\( *\)\[ -n "\$(field "\$f" go)" \] || { \[ -n "\$me" \] \&\& \[ "\$n" -lt "\$me" \]; } || continue$/\1[ -n "$(field "$f" go)" ] || continue/' "$SLOT" > "$W/slot-mut-1302f.sh"
+sed 's/^EXT_GATE=1$/EXT_GATE=0/' "$SLOT" > "$W/slot-mut-1176a.sh"
+assert "1 1" "$(diff "$SLOT" "$W/slot-mut-1302a.sh" | grep -c '^<') $(entry_n "$W/slot-mut-1302a.sh" 6 | cut -d' ' -f1)" "мутант «вход по одному»: сцена трёх одновременных — в стадии запуска лишь один (проба выше его ловит)"
+assert "1 да" "$(diff "$SLOT" "$W/slot-mut-1302f.sh" | grep -c '^<') $(r="$(race2 "$W/slot-mut-1302f.sh")"; case "$r" in "0/0 1 A B") echo "нет($r)" ;; *) echo да ;; esac)" "мутант «старший не учтён»: сцена гонки — оба вошли, младший по ns снят второй переписью run.sh (75) либо ns разом два (проба выше его ловит)"
+assert "1 да" "$(diff "$SLOT" "$W/slot-mut-1302f.sh" | grep -c '^<') $(r="$(fair3 "$W/slot-mut-1302f.sh")"; case "$r" in "A / 0/0/0 A B C") echo "нет($r)" ;; *) echo да ;; esac)" "...тот же мутант: C стартует при A, пока B ждёт (проба старшинства выше его ловит)"
+assert "1 да" "$(diff "$SLOT" "$W/slot-mut-1176a.sh" | grep -c '^<') $(r="$(race2 "$W/slot-mut-1176a.sh")"; case "$r" in "0/0 1 A B") echo "нет($r)" ;; *) echo да ;; esac)" "мутант «учёта вошедших нет» (EXT_GATE=0): сцена гонки — 75 второй переписи run.sh либо ns разом два (проба выше его ловит)"
+# Связка с настоящим run.sh: --request отвечает запросом «mCPU МиБ» без кластера (тем же sizing).
+assert "да" "$(o="$(bash "$HERE/remote-heavy/run.sh" --request --profile lint --repo kaname 2>/dev/null)"; grep -qE '^[1-9][0-9]* [1-9][0-9]*$' <<<"$o" && echo да || echo нет)" "связка с run.sh: --request --profile lint --repo kaname — «mCPU МиБ» (heavy-slot берёт запрос билета у него)"
 # Внешний вход очередь памяти не держит: локальная команда входит, пока внешний билет в стадии запуска.
 gnew; rm -f "$W/shold" "$W/gl1"
 r1="$(genq "$R" A GATE_START_HOLD="$W/shold")"; RA="$(rcof)"
-for _ in $(seq 1 150); do [ -d "$W/gate/starting" ] && break; sleep 0.2; done
+for _ in $(seq 1 150); do [ -d "$W/gate/st/A" ] && break; sleep 0.2; done
 # shellcheck disable=SC2016  # строка дочерней оболочки
-rl="$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=64 bash "$SLOT" docker -- sh -c 'test -d "$0" && touch "$1"' "$W/gate/starting" "$W/gl1")"
+rl="$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=64 bash "$SLOT" docker -- sh -c 'test -d "$0" && touch "$1"' "$W/gate/st/A" "$W/gl1")"
 assert "0 да" "$rl $([ -e "$W/gl1" ] && echo да || echo нет)" "близнец: локальный слот памяти исполнился, пока внешний билет в стадии запуска, — внешний вход очередь памяти не держит"
 touch "$W/shold"; await_rc "$RA" >/dev/null
 # Повтор --enqueue при ещё ждущем своём билете не плодит второго и называет первый.
@@ -1258,40 +1575,30 @@ r1="$(genq "$R" A GATE_HOLD="$W/hold5")"; RA="$(rcof)"; wait_order "A" 40
 r2="$(genq "$R" A GATE_HOLD="$W/hold5")"; RA2="$(rcof)"
 assert "0 0 да" "$r1 $r2 $([ -n "$RA2" ] && [ "$RA" != "$RA2" ] && echo да || echo нет)" "близнец: первый уже ИСПОЛНЯЕТСЯ (не ждёт) — та же команда ставится вновь, это не повтор"
 touch "$W/hold5"; await_rc "$RA" >/dev/null; await_rc "$RA2" >/dev/null
-# Вход отпускается строкой «ns … создано», а не выходом run.sh: B стартует, пока A ещё исполняется.
-assert "1" "$(grep -c 'say "ns $NSNAME создано:' "$HERE/remote-heavy/run.sh")" "связка с run.sh: строка «ns … создано:», по которой отпускается вход, в run.sh на месте и одна"
-gnew; rm -f "$W/hold1"
-r1="$(genq "$R" A GATE_HOLD="$W/hold1")"; RA="$(rcof)"; r2="$(genq "$R" B GATE_HOLD="$W/hold1")"; RBB="$(rcof)"
-wait_order "A B" 40; got="$(gorder)"; ended="$(cat "$W/gate/end" 2>/dev/null | wc -l)"
-assert "A B 0" "$got $ended" "вход отпущен строкой «ns … создано»: второй стартовал (A B), пока первый ещё исполняется (завершений 0)"
-touch "$W/hold1"; await_rc "$RA" >/dev/null; await_rc "$RBB" >/dev/null
-# Мутанты: «входа по одному нет», «повтор не распознаётся», «фильтр не отпускает».
-sed 's/^EXT_GATE=1$/EXT_GATE=0/' "$SLOT" > "$W/slot-mut-1176a.sh"; sed 's/^ENQ_DEDUP=1$/ENQ_DEDUP=0/' "$SLOT" > "$W/slot-mut-1176b.sh"
+# Учёт вошедшего снимает строка «ns … создано» (ns уже в переписи), а не выход run.sh: места на два,
+# A исполняется — B входит при нём (иначе A считался бы дважды: вошедшим и своим ns).
+assert "1" "$(grep -c 'say "ns $NSNAME создано:' "$HERE/remote-heavy/run.sh")" "связка с run.sh: строка «ns … создано:», по которой снимается учёт вошедшего, в run.sh на месте и одна"
 sed 's/\*"ns "\*" создано:"\*) \[ -z "$EXT_T" \]/*"ns "*" НЕТ-ТАКОЙ:"*) [ -z "$EXT_T" ]/' "$SLOT" > "$W/slot-mut-1176c.sh"
-gnew; GSLOT="$W/slot-mut-1176a.sh"
-r1="$(genq "$R" A)"; RA="$(rcof)"; r2="$(genq "$R" B)"; RBB="$(rcof)"; r3="$(genq "$R" C)"; RCC="$(rcof)"
-ca="$(await_rc "$RA")"; cb="$(await_rc "$RBB")"; cc="$(await_rc "$RCC")"
-assert "1 да" "$(diff "$SLOT" "$W/slot-mut-1176a.sh" | grep -c '^<') $(case "$ca/$cb/$cc" in *75*) echo да ;; *) echo "нет($ca/$cb/$cc)" ;; esac)" "мутант «входа по одному нет»: те же три билета — хотя бы один 75 (проба выше его ловит)"
-gnew; touch "$W/gate-busy"; GSLOT="$W/slot-mut-1176b.sh"
-r1="$(genq "$R" A GATE_BUSY="$W/gate-busy")"; RA="$(rcof)"
-for _ in $(seq 1 150); do ls "$HEAVY_SLOT_DIR"/ext/* >/dev/null 2>&1 && break; sleep 0.2; done
-r2="$(genq "$R" A GATE_BUSY="$W/gate-busy")"; RA2="$(rcof)"
-assert "1 да" "$(diff "$SLOT" "$W/slot-mut-1176b.sh" | grep -c '^<') $([ "$RA" != "$RA2" ] && echo да || echo нет)" "мутант «повтор не распознаётся»: второй билет заведён — проба выше его ловит"
-rm -f "$W/gate-busy"; await_rc "$RA" >/dev/null; await_rc "$RA2" >/dev/null
-gnew; rm -f "$W/hold2"; GSLOT="$W/slot-mut-1176c.sh"
-r1="$(genq "$R" A GATE_HOLD="$W/hold2")"; RA="$(rcof)"; r2="$(genq "$R" B GATE_HOLD="$W/hold2")"; RBB="$(rcof)"
-wait_order "A" 40; sleep 3
-assert "1 A" "$(diff "$SLOT" "$W/slot-mut-1176c.sh" | grep -c '^<') $(gorder)" "мутант «фильтр не отпускает»: второй ждёт выхода первого (в порядке лишь A) — проба выше его ловит"
-touch "$W/hold2"; await_rc "$RA" >/dev/null; await_rc "$RBB" >/dev/null; GSLOT=""
-# Страховка: run.sh без строки «ns … создано» вход держит не дольше EXT_HOLD_S (ручка проб).
+mark2() {
+    gnew; rm -f "$W/hold1"; GSLOT="${1:-}"
+    genq "$R" A GATE_CAP_MIB=2000 GATE_HOLD="$W/hold1" >/dev/null; RA="$(rcof)"; wait_order "A" 40
+    genq "$R" B GATE_CAP_MIB=2000 GATE_HOLD="$W/hold1" >/dev/null; RBB="$(rcof)"
+    wait_order "A B" 8; echo "$(gorder) $(cat "$W/gate/end" 2>/dev/null | wc -l)"
+    touch "$W/hold1"; await_rc "$RA" >/dev/null; await_rc "$RBB" >/dev/null; GSLOT=""
+}
+assert "A B 0" "$(mark2)" "учёт снят строкой «ns … создано»: места на два — второй стартовал (A B), пока первый ещё исполняется (завершений 0)"
+assert "1 A 0" "$(diff "$SLOT" "$W/slot-mut-1176c.sh" | grep -c '^<') $(mark2 "$W/slot-mut-1176c.sh")" "мутант «фильтр не снимает учёт»: A считается дважды — второй ждёт (стартов лишь A; проба выше его ловит)"
+# Страховка: run.sh без строки «ns … создано» учёт держит не дольше EXT_HOLD_S (ручка проб).
 gnew; rm -f "$W/hold3"
-r1="$(genq "$R" A GATE_HOLD="$W/hold3" GATE_NOMARK=1 HEAVY_SLOT_EXT_HOLD_S=2)"; RA="$(rcof)"; r2="$(genq "$R" B GATE_HOLD="$W/hold3" GATE_NOMARK=1 HEAVY_SLOT_EXT_HOLD_S=2)"; RBB="$(rcof)"
+r1="$(genq "$R" A GATE_CAP_MIB=2000 GATE_HOLD="$W/hold3" GATE_NOMARK=1 HEAVY_SLOT_EXT_HOLD_S=2)"; RA="$(rcof)"; wait_order "A" 40
+r2="$(genq "$R" B GATE_CAP_MIB=2000 GATE_HOLD="$W/hold3" GATE_NOMARK=1 HEAVY_SLOT_EXT_HOLD_S=2)"; RBB="$(rcof)"
 wait_order "A B" 40; got="$(gorder)"; ended="$(cat "$W/gate/end" 2>/dev/null | wc -l)"
-assert "A B 0 да" "$got $ended $(grep -c 'ext-reap .*стадия запуска дольше 2s' "$JL" | sed 's/^[1-9][0-9]*$/да/;s/^0$/нет/')" "без строки «ns … создано» вход отпущен по сроку EXT_HOLD_S: второй стартовал (A B), пока первый исполняется, причина в журнале"
+assert "A B 0 да" "$got $ended $(grep -c 'ext-reap .*стадия запуска дольше 2s' "$JL" | sed 's/^[1-9][0-9]*$/да/;s/^0$/нет/')" "без строки «ns … создано» учёт снят по сроку EXT_HOLD_S: второй стартовал (A B), пока первый исполняется, причина в журнале"
 touch "$W/hold3"; await_rc "$RA" >/dev/null; await_rc "$RBB" >/dev/null
 gnew; rm -f "$W/hold4"
-r1="$(genq "$R" A GATE_HOLD="$W/hold4" GATE_NOMARK=1)"; RA="$(rcof)"; r2="$(genq "$R" B GATE_HOLD="$W/hold4" GATE_NOMARK=1)"; RBB="$(rcof)"
-wait_order "A" 40; sleep 3
+r1="$(genq "$R" A GATE_CAP_MIB=2000 GATE_HOLD="$W/hold4" GATE_NOMARK=1)"; RA="$(rcof)"; wait_order "A" 40
+r2="$(genq "$R" B GATE_CAP_MIB=2000 GATE_HOLD="$W/hold4" GATE_NOMARK=1)"; RBB="$(rcof)"
+sleep 3
 assert "A" "$(gorder)" "близнец: срок по умолчанию (120 с) — второй ждёт выхода первого, раньше не стартует"
 touch "$W/hold4"; await_rc "$RA" >/dev/null; await_rc "$RBB" >/dev/null
 # Сигнал слоту доходит до run.sh: ребёнок, а не exec — TERM пересылается, ns снимает сам run.sh.
@@ -1332,7 +1639,8 @@ r3="$(genq "$R" A GATE_BUSY="$W/gate-busy")"; RA3="$(rcof)"
 git -C "$R" switch -q 984-x
 assert "1 да" "$(diff "$SLOT" "$W/slot-mut-1176k2.sh" | grep -c '^<') $([ "$RA" = "$RA3" ] && echo да || echo нет)" "мутант «ключ без ветки»: из другой ветки возвращён чужой .rc — проба выше его ловит"
 rm -f "$W/gate-busy"; await_rc "$RA" >/dev/null; GSLOT=""
-# Билет умершего владельца снимается: голова внешнего входа убита SIGKILL — следующий проходит быстро, а не 75 по сроку.
+# Билет умершего владельца снимается: старший ждущий убит SIGKILL — младший, которому места с ним нет
+# (GATE_CAP_MIB на один), проходит быстро, а не 75 по сроку.
 reapcase() {
     gnew; touch "$W/gate-busy"; GSLOT=""
     genq "$R" A GATE_BUSY="$W/gate-busy" >/dev/null; RA="$(rcof)"
@@ -1340,11 +1648,11 @@ reapcase() {
     ap="$(sed -n 's/^pid=//p' "$HEAVY_SLOT_DIR"/ext/* | head -n 1)"
     kill -KILL "$ap" 2>/dev/null
     rm -f "$W/gate-busy"; GSLOT="${1:-}"
-    genq "$R" B HEAVY_SLOT_ENQ_S=12 >/dev/null; RBB="$(rcof)"
+    genq "$R" B GATE_CAP_MIB=1000 HEAVY_SLOT_ENQ_S=12 >/dev/null; RBB="$(rcof)"
     echo "$(await_rc "$RBB") $(gorder)"; GSLOT=""
 }
 sed 's|why=владелец умер"; rm -f "\$f"; continue|why=владелец умер"; continue|' "$SLOT" > "$W/slot-mut-1176r.sh"
-assert "0 B" "$(reapcase)" "голова внешнего входа убита SIGKILL: следующий билет проходит (код 0, запуск B), а не ждёт срока"
+assert "0 B" "$(reapcase)" "старший ждущий убит SIGKILL: младший билет проходит (код 0, запуск B), а не ждёт срока"
 assert "1 75" "$(diff "$SLOT" "$W/slot-mut-1176r.sh" | grep -c '^<') $(reapcase "$W/slot-mut-1176r.sh" | cut -d' ' -f1)" "мутант «билеты умерших не снимаются»: следующий получает 75 по истечении ожидания — проба выше его ловит"
 
 echo "── --cancel <билет>: снимает СВОЮ заявку и её отсоединённое ожидание; чужую не снимает (ws#1156)"
