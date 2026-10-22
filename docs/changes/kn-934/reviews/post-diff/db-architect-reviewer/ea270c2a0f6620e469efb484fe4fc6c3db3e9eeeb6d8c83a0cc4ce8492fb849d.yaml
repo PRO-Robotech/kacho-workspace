@@ -1,0 +1,81 @@
+# Пост-дифф ревью схемы — роль db-architect-reviewer, сборка волны 17 kaname
+# (PR #936, ветка 934 → 746), режим «агрегат». Запись не правится: вердикт
+# привязан к отпечатку (change-graph §2).
+schema_version: 1
+change_id: kn-934
+holder: post-diff/db-architect-reviewer
+owner: db-architect-reviewer
+mode: review
+subject: >-
+  Сборка волны 17: задачи 917, 928, 930, 929, 933. Предмет роли: миграция #933
+  (координата члена в реестре выпущенного access_binding_emitted_tuples, новый
+  первичный ключ, CHECK координаты, заполнение по классам) и repo-SQL реестра
+  (#933), снятый читатель FindActiveByExternalID (#929).
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: "934"
+  base: 0fcbff48fef508e905e1155b83492c6769dadc2e   # origin/746
+  head: 6f4ed6eabcd062dfbb05dd1527ba2c1a80459f03
+  files_touched: 161
+content_digest: sha256:ea270c2a0f6620e469efb484fe4fc6c3db3e9eeeb6d8c83a0cc4ce8492fb849d
+digest_command: git diff --full-index origin/746...6f4ed6eab | sha256sum
+verdict: accepted
+migrations_touched: 1   # internal/migrations/20261021081500_emitted_tuple_carries_its_member.sql (только добавлен; применённые не тронуты)
+repo_sql_touched: 4     # access_binding_repo.go, backfill_adapter.go, reconcile_adapter.go (#933); user_repo.go (#929)
+per_task:
+  "917": {verdict: not_applicable, why: "гейт internal/check, ни SQL, ни миграции"}
+  "928": {verdict: not_applicable, why: "темп анонимной выдачи в процессе, ни SQL, ни миграции"}
+  "930": {verdict: not_applicable, why: "доверенная пересылка адреса в обработчике, ни SQL, ни миграции"}
+  "929": {verdict: accepted, why: "снят читатель FindActiveByExternalID без замены; инвариантов базы не трогает"}
+  "933": {verdict: accepted, why: "механизмы базы на месте, запись реестра в транзакции прохода, пробы есть"}
+evidence:
+  - "миграция: номер 20261021081500 старше всех на base; Up/Down в StatementBegin/End; goose в транзакции — отказ наката откатывает всё (проба b88fb3d7b)"
+  - "ADD COLUMN NOT NULL DEFAULT '' — правка каталога без переписи; замена PK под ACCESS EXCLUSIVE; ctid стабилен (замок AE, мёртвые версии не освобождаются внутри транзакции)"
+  - "dotted уникален: catalog_resource_pkey (module, resource) + catalog_resource_dotted_form — посылка заполнения верна"
+  - "CHECK access_binding_emitted_tuples_member_coordinate: binding ⇒ ('',''); member ⇒ dotted-форма, id ≠ '', id = часть объекта после первого ':'; производители кортежей члена (tuples.go ruleObjectTuplesWithTypeVerbs: object = fgaType:objectID) его выполняют"
+  - "23514 этого CHECK → фиксированный INTERNAL (check_value_lanes.go запись nil; TestWrapPgErr_EmittedTupleCoordinateCheckIsOurDefect)"
+  - "сирота: своя строка реестра снимается ДО строки снятия в fga_outbox — свёртка kaname#919 видит реестр без неё; факт, держимый другой строкой, остаётся"
+  - "неоднозначные и без двоеточия — накат отказывает с переписью (fail-closed), проба TestEmittedTupleCoordinate_AmbiguousRowRefusesTheMigration с близнецом"
+  - "все писатели реестра на новом ключе: InsertEmittedTuples и RecordEmittedTuplesBatch ON CONFLICT по полному ключу DO NOTHING; module_seed_writer.go:370 ON CONFLICT DO NOTHING без цели — пустая координата по умолчанию, совместим"
+  - "читатели множеств кортежей — SELECT DISTINCT (две координаты одного кортежа не удваивают ответ); backfill ledger_count сравнивается только с нулём (verify_gate.go:381)"
+  - "снятие члена — по префиксу PK (binding_id, member_object_type, member_object_id), без разбора объекта; ForgetEmittedTuples — один DELETE … USING unnest по полному ключу"
+  - "ExpireBinding: advisory → FOR UPDATE выдачи → CAS ACTIVE→REVOKED → весь реестр забыт → члены сняты → строки снятия в конце прохода; всё в одной r.tx.WithTx"
+concurrent_probe: >-
+  TestLedgerCoordinate_ConcurrentForwardAndFullPassKeepTheOtherCoordinate —
+  форвард и полный проход горутинами, coordRounds раундов, с последовательным
+  близнецом; TestLedgerWrite_RollsBackWithThePass — запись реестра откатывается с
+  проходом (близнец TestLedgerWrite_TwinForwardCommitsTheLedger). Прочитаны,
+  мной не прогонялись (задание: только чтение).
+findings:
+  - id: DB-934-N1
+    severity: important
+    blocking: false
+    where: internal/migrations/20261021081500_emitted_tuple_carries_its_member.sql:150
+    claim: >-
+      Накат отказывает при неоднозначных строках членов; данных долгоживущей
+      установки (ns выкатки) никто не мерил — сам заголовок называет посылку
+      о пересечении пространств «данными не мерена». Отказ безопасен (транзакция
+      откатывается), но выкатка встанет.
+    order: >-
+      deploy-engineer — до выкатки волны прогнать на базе ns выкатки только-чтение
+      переписи классов (SELECT из ledger_member_class Up-блока без записи);
+      ambiguous+nocolon = 0 — выкатывать, иначе — разбор строк до наката.
+  - id: DB-934-N2
+    severity: minor
+    blocking: false
+    where: internal/migrations/20261021081500_emitted_tuple_carries_its_member.sql:91-92
+    claim: >-
+      Миграция берёт реестр ACCESS EXCLUSIVE, затем членов SHARE; applyDiff пишет
+      членов раньше реестра (reconcile.go: UpsertMember → RecordEmittedTuples).
+      При накате на работающие поды прежнего выпуска возможен 40P01; база снимет
+      одну транзакцию, данных это не портит. Улучшение — запись ревью, не задача.
+  - id: DB-934-N3
+    severity: minor
+    blocking: false
+    where: internal/repo/kaname/pg/user_repo.go (снят FindActiveByExternalID)
+    claim: >-
+      У частичного индекса users_active_external_id_idx снят единственный
+      читатель с буквальным предикатом invite_status='ACTIVE'; используется ли он
+      ещё (FindByExternalIDInStatuses с ANY($2)) — EXPLAIN не прогонялся.
+      docs/engineering/components/03-user.md:305 его перечисляет. Запись ревью.
+distributed_overlap: false

@@ -1,0 +1,165 @@
+# Пост-дифф ревью распределённых свойств — роль system-design-reviewer, сборка волны 17
+# kaname (ветка 934 → 746, PR kaname#936). Один круг, режим «агрегат»: задачи 917,
+# 928, 930, 929, 933. Прошлых ✅ этой роли у задач нет, поэтому они судятся целиком.
+# Запись не правится (change-graph §2). Репозиторий публичный: в тексте только класс,
+# координата и предикат.
+schema_version: 1
+change_id: kn-934
+holder: post-diff/system-design-reviewer
+owner: system-design-reviewer
+mode: review
+subject: >-
+  Сборка волны 17: реестр выпущенного несёт координату члена, а снятие по сроку и
+  выпадение члена идут по реестру (933); темп анонимной выдачи токена реестра на
+  источник (928); доверенный пересыльщик для адреса источника анонимной выдачи (930);
+  снят внутренний глагол заведения личности по удостоверению (929); гейт пары
+  субъекта выдачи и правки домена (917).
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: "934"
+  base: 0fcbff48fef508e905e1155b83492c6769dadc2e
+  head: 6f4ed6eabcd062dfbb05dd1527ba2c1a80459f03
+  merge_base: 0fcbff48fef508e905e1155b83492c6769dadc2e
+  files_touched: 161
+  remote: "git ls-remote origin refs/heads/934 = 6f4ed6eab, refs/heads/746 = 0fcbff48f (совпадают)"
+content_digest: sha256:ea270c2a0f6620e469efb484fe4fc6c3db3e9eeeb6d8c83a0cc4ce8492fb849d
+digest_command: git diff --full-index origin/746...6f4ed6eab | sha256sum
+verdict: accepted
+blocks: false
+distributed_surface: true
+schema_overlap: true   # смена первичного ключа реестра, замки миграции, строка снятия в журнале
+runs: "мной не прогонялось ничего, только чтение диффа и дерева на голове"
+
+per_task:
+  "917": {verdict: accepted, note: "гейт и домен, распределённой поверхности нет; Validate судит каждого субъекта набора"}
+  "928": {verdict: accepted, note: "темп на процесс объявлен ручкой и описан как «темп × число реплик»; таблица ключей чистится по росту и по сроку"}
+  "930": {verdict: accepted, note: "доверие — точный SAN с проверенного листа, слушатель optional-mutual под стражем корня; см. SD-934-3"}
+  "929": {verdict: accepted, note: "Internal-глагол снят вместе с послаблением whitelist; вызывающих в рабочем коде kacho нет"}
+  "933": {verdict: accepted, note: "реестр и снятие в одной транзакции; порядок замков advisory → FOR UPDATE → реестр у истечения тот же, что у отзыва; см. SD-934-1, SD-934-2, SD-934-4"}
+
+closed_axes:
+  atomicity: >-
+    933: дописывание (completeMemberTuples), запись члена (applyDiff) и форвард пишут
+    журнал прав и реестр в одной транзакции прохода. Строка реестра забывается раньше
+    отложенной строки снятия (ForgetEmittedTuples раньше flushDeletes), как требует
+    свёртка kaname#919. Миграция удаляет строку-сироту и пишет строку снятия в журнал в
+    одной транзакции наката.
+  idempotency: >-
+    Запись в реестр идёт через ON CONFLICT по полному ключу DO NOTHING, повтор форварда
+    и наложение полного прохода ничего не пишут дважды. ForgetEmittedTuples удаляет по
+    полному ключу, поэтому строку другой координаты не трогает.
+  locking: >-
+    ExpireBinding: AcquireBindingLock → LockBindingForDeactivation (FOR UPDATE) → CAS
+    ACTIVE→REVOKED → revokeWholeLedger. Порядок тот же, что у отзыва
+    (revoke.go:153-154, 181, 207). Форвард пишет под FOR KEY SHARE, конфликт с FOR UPDATE
+    сохранён, поэтому записи форварда снятие видит.
+  replica_isolation: >-
+    933 убирает зависимость решения о снятии от снимка каталога процесса: строки реестра
+    выбираются по координате, а не по имени типа модели из снимка. 928: темп анонимной
+    выдачи живёт в памяти процесса. Это не источник истины, а мягкий предел, и его
+    умножение на число реплик названо в настройке и в values.
+  edge: >-
+    Новых межсервисных рёбер нет. Снятое InternalUserService/UpsertFromIdentity — только
+    внутренний слушатель; его запись в whitelistFullMethod снята тем же изменением.
+
+findings:
+  - id: SD-934-1
+    severity: important
+    task: "933"
+    class: снимок каталога в памяти реплики решает разрушающее действие
+    where: >-
+      internal/repo/kaname/pg/reconcile_expiry_from_ledger_integration_test.go:181-187
+      (TestFellOutMemberFromLedger_ReplicaWithoutTheType, retired=false) и
+      internal/apps/kaname/api/access_binding/reconcile/reconcile.go:1120 (desiredMembers
+      по r.cat.Facts()).
+    claim: >-
+      Реплика, чей снимок каталога ещё не знает тип (его нет ни в живой, ни в снятой
+      половине), считает члена этого типа выпавшим. Теперь она снимает его кортежи по
+      реестру. На базе кортежи оставались, поэтому доступ не терялся. Окно — период
+      обновления снимка (умолчание 60 с, KANAME_CATALOG_SNAPSHOT_REFRESH_INTERVAL_MS)
+      плюс проход по сроку (30 с) на реплике, которая тип уже знает. Реалистичный путь:
+      форвард на реплике A материализует первый объект нового типа, а событие
+      resource_reconcile_outbox разбирает реплика B. Отказ закрытый и сам сходится,
+      поэтому круг не блокирует.
+    requirement: >-
+      Отличать «тип неизвестен моему снимку» (ни живой, ни снятой строки) от «тип снят»
+      (строка в снятой половине). На неизвестном типе проход не снимает и не удаляет
+      члена: откладывает его или освежает снимок. На снятом снимает, как сейчас.
+    predicate: >-
+      проба-близнец: newLedgerProbe(retired=false) → p.b.ReconcileBinding → член и факт
+      ОСТАЛИСЬ; newLedgerProbe(retired=true) → член и факт сняты (как сейчас).
+    disposition: кандидат в задачу следующей волны (корректность), адресат — исполнитель 933
+  - id: SD-934-2
+    severity: important
+    task: "933"
+    class: окно смешанных версий при выкатке (миграция в initContainer, RollingUpdate)
+    where: >-
+      internal/migrations/20261021081500_emitted_tuple_carries_its_member.sql (замена
+      access_binding_emitted_tuples_pk и CHECK координаты) против кода базы
+      0fcbff48f:internal/repo/kaname/pg/access_binding_repo.go:1362 и
+      reconcile_adapter.go (ON CONFLICT (binding_id, fga_user, relation, object)).
+    claim: >-
+      Новый под накатывает миграцию initContainer'ом (deploy/templates/deployment.yaml:156-161),
+      а старый под ещё обслуживает запросы. Его вставки в реестр называют цель ON CONFLICT,
+      которой больше нет (42P10). Строки члена без координаты нарушили бы новый CHECK.
+      Итог: операции AccessBinding.Create на старом поде завершаются INTERNAL, проходы
+      реконсайла откатываются до конца выкатки. Данные не портятся, отказ закрытый.
+    requirement: >-
+      Назвать окно в записке выкатки (deploy-engineer) либо сделать миграцию в два шага
+      expand→contract (verdict-and-landing §4). Решение по схеме — у db-architect-reviewer.
+    disposition: в записи ревью, пересечение со схемой
+  - id: SD-934-3
+    severity: important
+    task: "930"
+    class: производитель ребра доверия не существует, и счётчик к этому случаю слеп
+    where: >-
+      kaname internal/issuingsource/source.go (RegistryTokenPoint: пересыльщик без
+      годного адреса и вход без заголовка не считаются) против kacho
+      origin/main:services/registry/deploy/templates/registry-dataplane-nginx-cm.yaml
+      (location = /iam/token: нет proxy_ssl_certificate, нет X-Forwarded-For).
+    claim: >-
+      Нынешний прокси реестра идёт на /iam/token без клиентского сертификата и без
+      заголовка пересылки. Если включить анонимный поток, пересыльщик не будет узнан
+      никогда. Ключом темпа станет адрес пода прокси, то есть один темп на реплику на
+      всех анонимных клиентов, и один клиент сможет исчерпать его за всех. Клетка
+      forwarded-from-unrecognized-peer при этом остаётся 0, потому что заголовка нет:
+      ошибочная настройка выглядит как штатная тишина. Поток по умолчанию выключен
+      (anonymousClientId пуст в kaname values и в зонтике kacho), поэтому сегодня
+      дефекта нет. Он появится в момент включения.
+    requirement: >-
+      Условие включения: в kacho прокси реестра на /iam/token предъявляет сертификат
+      рабочей нагрузки с SAN, равным anonymousForwarderSan, и ставит ОДНО значение
+      X-Forwarded-For ($remote_addr, а не $proxy_add_x_forwarded_for). В kaname узнанный
+      пересыльщик без годного адреса считается в словаре точки отдельной причиной.
+    disposition: условие включения потока; кандидат в задачи kacho (registry) и kaname (930)
+  - id: SD-934-4
+    severity: minor
+    task: "933"
+    class: второй писатель строк снятия мимо emitTx
+    where: >-
+      internal/migrations/20261021081500_emitted_tuple_carries_its_member.sql, INSERT INTO
+      kaname.fga_outbox ... now()
+    claim: >-
+      Закрытие DB-919-C1 (kn-919) опиралось на то, что строки снятия пишет только emitTx
+      с clock_timestamp(). Накат пишет строку снятия сироты с now(), то есть с моментом до
+      ожидания ACCESS EXCLUSIVE. Разобранные порядки исход не меняют: сирота — строка без
+      члена на момент замка, а факт новее метки держит законный держатель. Но инвариант
+      «один дом строки снятия» больше не верен дословно.
+    requirement: clock_timestamp() в накате либо оговорка в шапке миграции
+    disposition: в записи ревью
+  - id: SD-934-5
+    severity: minor
+    task: "933"
+    class: комментарий пережил ключ
+    where: internal/repo/kaname/access_binding/iface.go:282
+    claim: комментарий называет прежнюю цель ON CONFLICT (binding_id, fga_user, relation, object)
+    disposition: в записи ревью
+
+orders:
+  - db-architect-reviewer на тот же дайджест: смена первичного ключа реестра, замки наката, SD-934-2, SD-934-4
+  - deploy-engineer перед выкаткой: класс «неоднозначные» = 0 (уже заказан) и окно SD-934-2
+concurrency_probe: >-
+  Отдельной пробы не заказываю: гонки форварда с истечением, отзывом и удалением держат
+  пробы базы (reconcile_forward_expiry_race, reconcile_forward_deactivation_race,
+  reconcile_deactivation_order_race), а запись по новому ключу идемпотентна через
+  ON CONFLICT DO NOTHING.

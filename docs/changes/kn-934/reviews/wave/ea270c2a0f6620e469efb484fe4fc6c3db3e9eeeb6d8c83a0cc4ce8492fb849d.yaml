@@ -1,0 +1,89 @@
+# Приёмка волны 17 эпика kaname#746 — роль wave-reviewer, сборка kaname#934 (PR kaname#936).
+# Предмет — только то, что видно, когда полосы лежат рядом. Запись не правится:
+# вердикт привязан к отпечатку диффа сборки.
+schema_version: 1
+change_id: kn-934
+holder: wave/wave-reviewer
+owner: wave-reviewer
+mode: review
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: "934"
+  base: 0fcbff48fef508e905e1155b83492c6769dadc2e   # origin/746
+  head: 6f4ed6eabcd062dfbb05dd1527ba2c1a80459f03
+  files_touched: 161
+content_digest: sha256:ea270c2a0f6620e469efb484fe4fc6c3db3e9eeeb6d8c83a0cc4ce8492fb849d
+digest_command: git diff --full-index 0fcbff48f...6f4ed6eab | sha256sum
+premise:
+  status: подтверждена
+  commands:
+    - "git rev-parse HEAD origin/934 → 6f4ed6eab (оба); origin/746 → 0fcbff48f; копия сборки чистая (git status --porcelain → 0)"
+    - "головы полос на origin: 917 2bf79f094 · 928 632990675 · 930 d991838bd · 929 e53a6188b · 933 b4ba62911; git merge-base --is-ancestor <полоса> HEAD → да ×5"
+    - "git log --first-parent origin/746..HEAD → 5 слияний (917, 928, 930, 929, 933); git show --remerge-diff по каждому → 0 строк: ручных разрешений нет"
+    - "git rev-list --count origin/746..HEAD → 33, совпадает с телом PR; gh pr view 936 → headRefOid 6f4ed6eab, база 746, черновой"
+    - "состав: объединение путей пяти полос = путям диффа сборки (161 = 161, comm -3 → пусто); файл одной полосы на сборке = файлу головы полосы, кроме 2 трёхсторонне сведённых с #925 базы (.github/scripts/newman-suite-debt.py, tests/newman/docs/RESULTS.md) и 5 снятых 929"
+lanes:
+  - lane: "917"
+    agent: go-implementer
+    verdict: accepted
+    coordinate: internal/check/binding_subject_pair_ledger.go:26 (BindingSubjectPairLedger, точные числа мест)
+    evidence: "DoD-proof @2bf79f094 (раунд 4): контроль 7/7, мутанты с исходами, хук 6/6, проб 11687, отказов 0; гейт и ведомость на сборке судят и правки 929/933 (user_repo.go, reconcile_adapter.go, access_binding_repo.go): пробы гейта не пропускаются под -short (grep testing.Short → 0), хук сборки 6/6, проб 11756, отказов 0"
+  - lane: "928"
+    agent: go-implementer
+    verdict: accepted
+    coordinate: internal/apps/kaname/config/registry_token.go (AnonymousPerSourcePerSec)
+    evidence: "DoD-proof @632990675: красные до правки по 4 пакетам, 7 мутантов красные, integration 7 пакетов ok, хук 6/6 (проб 11686); ветка 930 стоит на 928 — её правки 928 есть уточнение, не отмена (ниже)"
+  - lane: "930"
+    agent: go-implementer
+    verdict: accepted
+    coordinate: internal/issuingsource/source.go (RegistryTokenPoint(forwarderSAN), forwards); internal/apps/kaname/config/registry_token.go (AnonymousLaneDeclared)
+    evidence: "DoD-proof @0c3f8288a, @4e2284586, @d991838bd: красный @c377e98a7 по тексту отказа, зелёный @b9c81cab1 (41 проба), хук @d991838bd 6/6, проб 11738, отказов 0"
+  - lane: "929"
+    agent: go-implementer
+    verdict: accepted
+    coordinate: .github/scripts/newman-suite-debt.py:1329 (AWI-09 оставлена переформулированной)
+    evidence: "DoD-proof @e53a6188b: хук 6/6 (проб 11650), integration 4 пакета ok; TestAWI09_RetiredVerbLeavesNoTraceInTheTree в хуке сборки зелёный. Предикат 3 задачи (запись AWI-09 снята) не выполнен — запись оставлена с доводом и держателем #925; заявление не шире: в теле PR задача стоит Refs, не Closes"
+  - lane: "933"
+    agent: go-implementer
+    verdict: accepted
+    coordinate: internal/migrations/20261021081500_emitted_tuple_carries_its_member.sql:178 (ключ реестра с координатой члена)
+    evidence: "DoD-proof @b4ba62911: красные 9 → 1 → 0, три мутанта красные, go test ./... во внешнем кластере ok 149 · FAIL 0, отчёт R7-2 PASS, хук 6/6"
+collisions: []
+asked_checks:
+  - question: "два решения одной задачи"
+    outcome: "не найдено"
+    evidence:
+      - "917 (гейт чтения одиночной пары) и 933 (снятие по сроку и выпадению члена — по реестру): разные классы. Новых чтений .SubjectType/.SubjectID вне проб 933 и 929 не вносят: grep по дифам → 0 строк кода; в 933 два места — проба internal/repo/kaname/pg/reconcile_ledger_revoke_edges_integration_test.go:49,56 (фикстура выдачи)"
+      - "928 и 930: 930 — исполнение проверки 928 (стоит на 928): ключ темпа уточнён доверенным пересыльщиком, страж 928 сужен до AnonymousLaneDeclared(); второго механизма темпа нет"
+      - "общий файл 917 × 933 — reconcile/emitted_completion.go: 917 дописала шапку-контракт (комментарий), 933 — код под координату члена; слияние без ручных разрешений, контракт 917 с кодом 933 согласен («дописывание только добавляет», теперь по паре (координата, кортеж))"
+  - question: "столкновение миграций"
+    outcome: "нет"
+    evidence:
+      - "миграцию добавляет одна полоса — 933: 20261021081500 > старшей в 746 (20261019194800) > старшей в main (20261018030000); git ls-tree по HEAD, origin/746, origin/main"
+      - "дубль метки времени в internal/migrations сборки — 0 (cut -c1-14 | uniq -d); открытых PR kaname с новыми миграциями, кроме 934 и 746, нет (перепись gh pr list --state open)"
+      - "смена ключа реестра 933 (PRIMARY KEY с member_object_type/member_object_id): писатели строк реестра в дереве сборки — access_binding_repo.go:1364 и reconcile_adapter.go:1220 с ON CONFLICT по новому ключу, module_seed_writer.go:370 — ON CONFLICT DO NOTHING; другие полосы писателей реестра не вносят (grep emitted_tuples|ON CONFLICT по дифам 917/928/930/929 → только комментарии)"
+  - question: "правка одной полосы, которую отменяет другая"
+    outcome: "не найдено"
+    evidence:
+      - "перепись «добавлено полосой A ∩ снято полосой B» (LC_ALL=C comm по значимым строкам, 20 пар): совпадения только служебных строк (импорты, if err != nil), кроме пары 928 → 930 — 13 строк, все — уточнение 928 полосой 930 по её задаче (сигнатуры RegistryTokenPoint и Validate, пробы правила источника)"
+      - "снятое 929 (UpsertFromIdentity, FindActiveByExternalID, kaname_invite_activations_total) другими полосами не возвращено: git grep по HEAD — следы только в пробе снятого маршрута, ведомости разрывов proto, CHANGELOG и истории приёмок"
+  - question: "кейс newman против изменённого поведения"
+    outcome: "не найдено"
+    evidence:
+      - "917: описание операции создания — кейсов на текст нет (git grep 'Create access binding (' tests/ → 0); отказ подстановочного субъекта — один текст: Validate обрывает цикл на первом совпадении, SC07 (iam-system-class-subjects.py:258) ждёт прежнее сообщение"
+      - "928/930: стенд держит анонимный поток выключенным (values.yaml anonymousClientId: \"\"), страж чарта requireAnonymousRegistryLane срабатывает только при непустом; кейс IAM-DOCKER-LANE-ANON-KNOB-UNSET-NEG (docker-lane-credential-kind.py) ждёт 401 именно на пустой ручке"
+      - "933: кейсов на срок выдачи нет (MinExpiresIn 5 мин; grep expiresAt по кейсам с accessBinding — только ключи доступа)"
+      - "929 правит только тексты кейсов и ведомость долга; поведение, которое судят кейсы других полос, не меняет"
+  - question: "снят предмет, а ведомость не знает; добавление в удалённое"
+    outcome: "не найдено"
+    evidence:
+      - "929 сняла 5 файлов, каталогов не снимала; ведомости: closed_label_sets_test.go (запись _invite_activations_total снята той же полосой), permission_catalog.json, declared-breaks.yaml, newman-suite-debt.py — правлены 929; address_admission_gates_test.go:80 называет internal_upsert.go в синтетическом корпусе инъекции — не ведомость дерева"
+      - "ведомость 917 называет места в user_repo.go (ListAccountsForUser, userWriter.Delete) — 929 их не снимала (снят только FindActiveByExternalID)"
+notes_non_blocking:
+  - "совместного integration-прогона 917 × 933 (create.go пишет строки реестра уровня выдачи, 933 меняет ключ реестра) нет ни у одной полосы: 917 — на a490918c4, 933 — на 0fcbff48f без 917; хук сборки собрал все *_integration_test.go (тегов сборки нет: grep '^//go:build' → 0 из 655), исполняет их конвейер PR #936"
+  - "emitted_completion.go (шапка 917): перечень путей снятия по реестру называет отзыв и удаление; после 933 по реестру снимает и истечение — перечень неполон, не ложен"
+  - "internal/repo/kaname/access_binding/iface.go:282 — комментарий называет прежний ключ ON CONFLICT (binding_id, fga_user, relation, object); после 933 ключ шире (одна полоса)"
+  - "комментарии после 929 ссылаются на снятый internal_upsert.go как на место записи кортежа «сам человек» (internal/service/*_integration_test.go, internal/authzmodel/fga_model.fga:465, manifest.yaml:267) — одна полоса, текст не наружу"
+volume:
+  diffs_inspected: 6   # 917 (2751 строк), 928 (1438), 930 к 928 (1821), 929 (4811), 933 (2852), сборка (13461)
+  lines: 13461         # около 1600 прочитаны глазами; остальное — переписями: пересечение путей, «добавлено ∩ снято» по 20 парам, поиск снятых и переименованных символов по HEAD

@@ -1,0 +1,89 @@
+# Пост-дифф ревью Go-кода — роль go-style-reviewer.
+#
+# Имя файла — content_digest. Прежние записи не правятся; сменился дайджест —
+# новый запуск и новый файл (change-graph §2).
+schema_version: 1
+change_id: kn-934
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+round: 1
+mode: агрегат — сборка волны 17 kaname (PR 936, ветка 934 → 746), один круг на сведении
+previous_record: null
+subject: >-
+  Сборка волны 17 kaname: #917 гейт пары субъекта выдачи и набор субъектов в
+  построителе кортежей; #928 темп анонимной выдачи токена реестра и исходы в
+  переписи полосы; #930 доверенный пересыльщик точки анонимной выдачи; #929
+  снятие внутреннего глагола UpsertFromIdentity; #933 координата члена в
+  реестре выпущенного, снятие по сроку и выпадению члена по реестру.
+
+fingerprint:
+  repo: PRO-Robotech/kaname
+  copy: project/kaname (свой клон, только чтение; git fetch origin 746 934)
+  base: 0fcbff48fef508e905e1155b83492c6769dadc2e   # origin/746
+  head: 6f4ed6eabcd062dfbb05dd1527ba2c1a80459f03   # origin/934
+  merge_base_equals_base: true
+  full_diff_shortstat: '161 files changed, 7206 insertions(+), 2879 deletions(-)'
+content_digest: sha256:ea270c2a0f6620e469efb484fe4fc6c3db3e9eeeb6d8c83a0cc4ce8492fb849d
+digest_definition: '`git diff --full-index origin/746...6f4ed6eab | sha256sum`'
+
+subject_preflight:
+  head_measured_by_me: '`git rev-parse origin/934` → 6f4ed6eab… — совпадает с заданием.'
+  digest_measured_by_me: 'ДВАЖДЫ — до разбора и перед вердиктом, оба раза ea270c2a…849d.'
+  full_diff_present: 'да: дифф закоммичен и отправлен, судится по объектам git.'
+  gofmt: '`gofmt -l` по 117 добавленным и изменённым .go (без pkg/api) из объектов головы — пусто.'
+  per_task_diff: 'каждая задача судилась диффом своего merge-коммита сборки (first-parent): 917 = 746..400499d47, 928 = 400499d47..d4e1778cb, 930 = d4e1778cb..39de98287, 929 = 39de98287..aedffea79, 933 = aedffea79..6f4ed6eab.'
+
+verdict: accepted   # ✅ принято
+blocks: false
+return_to: —
+deferral_markers_added: 0     # TODO|FIXME|XXX|HACK в добавленных строках всего диффа (без pkg/api)
+tests_in_same_pr: true
+security_comments_contradicting_code: []
+
+per_task:
+  '917':
+    verdict: accepted
+    checked:
+      - 'buildBindingTuples/tuplesForBinding получают субъекта аргументом; мутация копии выдачи (perSubject) снята — построитель больше не читает пару.'
+      - 'subjectsLabel (create.go) зовётся после NormalizeSubjects — набор не пуст; журнал структурный (ключ "subjects").'
+      - 'domain.Validate судит каждого члена набора; ошибка — та же фиксированная форма.'
+      - 'internal/check: regexp.MustCompile только на литералах уровня пакета; panic/context.Background/fmt.Print нет.'
+      - 'пробы в том же PR: create_description_names_every_subject, create_wildcard_every_subject, access_binding_wildcard_every_subject, инъекции гейта.'
+    notes:
+      - 'стиль: tuples.go:17 — добавленная строка шапки с английской прозой («per subject of the set»); ban22 — перевести при следующей правке файла.'
+  '928':
+    verdict: accepted
+    checked:
+      - 'темп решает вариант использования (ExecuteAnonymous), транспорт поставляет только источник — тонкий handler сохранён; построитель отказывает потоку без темпа (ErrAnonymousPaceRequired).'
+      - 'AnonymousPaceExceededError: errors.As в handler, Is к сентинелю; тело 429 фиксированное, Retry-After округлён вверх.'
+      - 'исходы — закрытые константы, клетки засеваются через CredentialKindOutcomes; observeKind nil-safe.'
+      - 'страж старта: anonymous-per-source-per-sec > 0 при объявленном потоке; ENV-ручка объявлена в defaults.'
+    notes:
+      - 'вторая прописка: registrytokenhttp/handler.go:312 writeRetryLater побайтно повторяет clienttokenhttp/handler.go:498 — один продукт, адрес выноса pkg/ платформы (arch-second-home-address), не corelib. Не блокирует.'
+  '930':
+    verdict: accepted
+    checked:
+      - 'VerifiedPeerIdentity — одно место разбора состояния рукопожатия; PeerIsGateway переведён на него без смены поведения.'
+      - 'пересыльщик сравнивается точно; форма значения судится стражем старта (AnonymousForwarder) с доменом доверия; ошибки называют ручку и ENV.'
+      - 'перепись точки — отдельный закрытый словарь, засеян нулём; panic в NewRegistryTokenSourceFallbackCollector — на сборке в корне, та же конвенция, что у соседних сборщиков пакета metrics.'
+      - 'пробы: source_test, registry_token_anonymous_forwarder_test, serve_registry_token_forwarder_test, сборщик.'
+  '929':
+    verdict: accepted
+    checked:
+      - 'глагол снят целиком: use-case, handler, обвязка, послабление whitelistFullMethod, строка таблицы края, счётчик активации и его Once; в прод-Go ссылок на снятые символы нет, кроме описи в internal/check (git grep).'
+      - 'registration.OwnerBindingReconciler — порт объявлен у потребителя, а не алиас снятого пакета.'
+    notes:
+      - 'ban22: user/mirror_tx.go:559–654 — bootstrapTuples/projectBindingTuples перенесены из снятого internal_upsert.go дословно, с английской прозой (замер по файлу 57 → 74 строк не-русской прозы; по дереву не растёт — исходный файл снят). Тот же рост на 1 строку в pg/bootstrap_concurrent_toctou_integration_test.go и pg/upsert_invite_grant_fga_integration_test.go. Перевести при следующей правке файла; вердикт не меняет: о корректности и безопасности не говорит.'
+  '933':
+    verdict: accepted
+    checked:
+      - 'ошибка чтения реестра больше не гасится Warn-ом: revokeTuplesFor и revokeWholeLedger возвращают обёрнутую %w ошибку, проход откатывается — прежнее «молча снять ничего» снято.'
+      - 'ExpireBinding: порядок advisory → FOR UPDATE → CAS → реестр → строки снятия отложены в коллектор; ctx проброшен везде.'
+      - 'repo: ForgetEmittedTuples одним DELETE … USING unnest вместо цикла на строку; дубли схлопываются по полному ключу; defer rows.Close() на месте.'
+      - 'пробы: reconcile_expiry_from_ledger, reconcile_ledger_coordinate, reconcile_ledger_revoke_edges, миграция emitted_tuple_carries_its_member, правки пакетных проб reconcile.'
+    notes:
+      - 'стиль: pg/reconcile_adapter.go:1245 — ledgerColumns.add общий для Record и Forget, но текст ошибки говорит «record emitted tuple» и на пути снятия. Не блокирует.'
+      - 'стиль: reconcile.go:1594, 1608 — revokeTuplesFor и revokeWholeLedger не читают получатель; могут быть функциями пакета. Не блокирует.'
+
+foundation_candidates: []   # pkg/-кандидат writeRetryLater — внутрипродуктовый, не corelib
+critical: []
