@@ -238,6 +238,7 @@ set -uo pipefail
 # снять полученный при входе SIG_IGN не может; timeout сбрасывает лишь SIGHUP (замер 2026-10-21,
 # uutils 0.8.0): `yes | head -n 1` давал 1 вместо 141, и пробы сигналов судили обёртку, а не код.
 # Перезапуск — лишь при заглушённом PIPE или HUP и один раз: метка KACHO_SIGDISP снимается сразу.
+# Держит scripts/heavy-slot-signal-inject.sh: вызывающие с каждым сигналом врозь и мутанты маски.
 _sigign="$(sed -n 's/^SigIgn:[[:space:]]*//p' /proc/$$/status 2>/dev/null)"
 if [ "${KACHO_SIGDISP:-}" != 1 ] && [[ "${_sigign:-0}" =~ ^[0-9a-fA-F]+$ ]] && (( 16#${_sigign:-0} & 0x1001 )); then
     exec env --default-signal=PIPE,HUP KACHO_SIGDISP=1 bash "$0" "$@"
