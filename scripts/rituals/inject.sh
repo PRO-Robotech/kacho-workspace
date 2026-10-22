@@ -153,7 +153,19 @@
 #
 # Хранилище для check-04 берётся из HEAD настоящего воркспейса (`RITUALS_WS`):
 # копия несёт только код ритуалов и их общие зависимости.
-# Коды: 0 — все доказательства прошли; 1 — хоть одно нет; 2 — копию не завести.
+# Коды: 0 — все доказательства прошли и покрытие плана полное; 1 — хоть одно нет либо
+# покрытие неполно; 2 — копию не завести.
+#
+# ИСПОЛНЕНИЕ (ws#1337): случаи (контроль, мутант, близнец) сначала ЗАПИСЫВАЮТСЯ планом —
+# каталог на случай под номером, — затем гонятся параллельно, RITUALS_INJECT_JOBS
+# исполнителей (по умолчанию nproc, не больше 8: память — каждая самопроба check-01 строит
+# свои песочницы git). Каждый случай — своя копия каталога и свой mktemp пробы, общего
+# состояния у случаев нет. Прежде случаи шли подряд: 125 случаев, 56 из 97 исполненных —
+# check-01 по 18,2 с в среднем; задание `rituals` снято пределом 20 мин на 97-м (прогон
+# 39777966207, задание 119821638471, ws#1337).
+# ПОКРЫТИЕ — СУДОМ, А НЕ ДОВЕРИЕМ ИСПОЛНИТЕЛЮ: каждому номеру плана — ровно один исход, исхода
+# вне плана нет, исход разборчив (`cover` ниже); неполное покрытие — код 1, даже если каждый
+# прочитанный исход зелен. Судья покрытия доказан до прогона синтетикой в обе стороны.
 # shellcheck source-path=SCRIPTDIR
 set -uo pipefail
 
@@ -168,8 +180,10 @@ trap 'rm -rf "$tmp"' EXIT
 . "$ws/scripts/lib/proofs.sh"
 proof_own_environment
 
-ok=0
-bad=0
+n_cpu="$(nproc 2>/dev/null || echo 4)"
+[ "$n_cpu" -le 8 ] 2>/dev/null || n_cpu=8
+jobs="${RITUALS_INJECT_JOBS:-$n_cpu}"
+[[ "$jobs" =~ ^[1-9][0-9]*$ ]] || { echo "[VOID] rituals/inject — RITUALS_INJECT_JOBS «$jobs» не число" >&2; exit 2; }
 
 copy() {
     local d="$tmp/$1"
@@ -184,11 +198,14 @@ copy() {
     printf '%s' "$d/scripts/rituals"
 }
 
-# mutate <файл> <якорь> <замена> — ровно одно вхождение якоря, иначе отказ.
+# mutate <файл> <файл якоря> <файл замены> — ровно одно вхождение якоря, иначе отказ.
+# Якорь и замена читаются файлами плана байт в байт: подстановка `$(…)` сняла бы хвост.
 mutate() {
     python3 - "$1" "$2" "$3" <<'PY'
 import sys
-path, old, new = sys.argv[1:4]
+path, oldf, newf = sys.argv[1:4]
+old = open(oldf, encoding="utf-8").read()
+new = open(newf, encoding="utf-8").read()
 text = open(path, encoding="utf-8").read()
 n = text.count(old)
 if n != 1:
@@ -202,50 +219,106 @@ run_check() {
     (cd "$tmp" && RITUALS_WS="$ws" python3 "$1/$2" 2>&1)
 }
 
-expect() {
-    local label="$1" want="$2" got="$3" out="$4"
-    if [ "$got" = "$want" ]; then
-        echo "[inject OK]   $label (ожидали код $want, получили $got)"
-        ok=$((ok + 1))
-    else
-        echo "[inject FAIL] $label (ожидали код $want, получили $got)" >&2
-        printf '%s\n' "$out" | tail -n 15 | sed 's/^/    /' >&2
-        bad=$((bad + 1))
-    fi
+# План: plan_case <вид control|inject|twin> <метка> <самопроба> [<якорь> <замена> [<файл>]].
+mkdir -p "$tmp/plan" "$tmp/res" || { echo "[VOID] rituals/inject — не завёлся каталог плана" >&2; exit 2; }
+planned=0
+plan_case() {
+    local p="$tmp/plan/$planned"
+    mkdir -p "$p" || { echo "[VOID] rituals/inject — не завёлся случай плана $planned" >&2; exit 2; }
+    printf '%s' "$1" > "$p/kind"; printf '%s' "$2" > "$p/label"; printf '%s' "$3" > "$p/check"
+    printf '%s' "${4-}" > "$p/old"; printf '%s' "${5-}" > "$p/new"; printf '%s' "${6:-rituals.py}" > "$p/file"
+    planned=$((planned + 1))
 }
 
+# cell <номер> — исполнитель одного случая плана; исход — файл res/<номер>:
+# первая строка «код TAB ожидаемый TAB мс TAB метка», дальше хвост вывода самопробы.
+cell() {
+    local i="$1" p="$tmp/plan/$1" kind label check file want d out rc t0 t1
+    kind="$(cat "$p/kind")"; label="$(cat "$p/label")"; check="$(cat "$p/check")"; file="$(cat "$p/file")"
+    case "$kind" in inject) want=1 ;; *) want=0 ;; esac
+    t0="$(date +%s%N)"
+    if ! d="$(copy "c$i")"; then
+        rc=2; out=""; label="$label: копия"
+    elif [ "$kind" != control ] && ! out="$(mutate "$d/$file" "$p/old" "$p/new" 2>&1)"; then
+        rc=2
+        if [ "$kind" = twin ]; then label="$label: близнец не применён"; else label="$label: мутант не применён"; fi
+    else
+        out="$(run_check "$d" "$check")"; rc=$?
+    fi
+    t1="$(date +%s%N)"
+    rm -rf "$tmp/c$i"
+    { printf '%s\t%s\t%s\t%s\n' "$rc" "$want" "$(( (t1 - t0) / 1000000 ))" "$label"
+      printf '%s\n' "$out" | tail -n 15; } > "$tmp/res/$i.part" && mv "$tmp/res/$i.part" "$tmp/res/$i"
+}
+
+# cover <каталог плана> <каталог исходов> — каждому номеру плана ровно один разборчивый
+# исход, исходов вне плана нет. Печатает строку покрытия; код 0 — полное, 1 — нет.
+cover() {
+    local pl="$1" rs="$2" n=0 got=0 miss=() extra=() junk=() f k
+    for f in "$pl"/*; do [ -d "$f" ] && n=$((n + 1)); done
+    for ((k = 0; k < n; k++)); do
+        [ -d "$pl/$k" ] || { miss+=("план:$k"); continue; }
+        if [ -f "$rs/$k" ]; then
+            got=$((got + 1))
+            head -n 1 "$rs/$k" | grep -qE '^[0-9]+'$'\t''[01]'$'\t''[0-9]+'$'\t' || junk+=("$k")
+        else
+            miss+=("$k")
+        fi
+    done
+    for f in "$rs"/*; do
+        [ -e "$f" ] || continue
+        k="${f##*/}"
+        { [[ "$k" =~ ^[0-9]+$ ]] && [ "$k" -lt "$n" ] && [ -d "$pl/$k" ]; } || extra+=("$k")
+    done
+    echo "покрытие: исходов $got из $n случаев плана · без исхода ${#miss[@]} · вне плана ${#extra[@]} · неразборчивых ${#junk[@]}"
+    [ "${#miss[@]}" -eq 0 ] || echo "    без исхода: ${miss[*]}"
+    [ "${#extra[@]}" -eq 0 ] || echo "    вне плана: ${extra[*]}"
+    [ "${#junk[@]}" -eq 0 ] || echo "    неразборчивы: ${junk[*]}"
+    [ "$n" -gt 0 ] && [ "$got" -eq "$n" ] && [ "${#miss[@]}" -eq 0 ] && [ "${#extra[@]}" -eq 0 ] && [ "${#junk[@]}" -eq 0 ]
+}
+
+# Доказательство судьи покрытия — синтетикой, до прогона (обе стороны): полное покрытие
+# молчит, пропуск, исход вне плана, неразборчивый исход и пустой план краснеют.
+cover_case() {
+    local label="$1" want="$2" n="$3" s="$tmp/cover-$4" k out rc
+    mkdir -p "$s/plan" "$s/res"
+    for ((k = 0; k < n; k++)); do mkdir -p "$s/plan/$k"; printf '0\t0\t1\tx\n' > "$s/res/$k"; done
+    case "$4" in
+        miss) rm -f "$s/res/1" ;;
+        extra) printf '0\t0\t1\tx\n' > "$s/res/$n" ;;
+        junk) printf 'не исход\n' > "$s/res/0" ;;
+    esac
+    out="$(cover "$s/plan" "$s/res")"; rc=$?
+    if [ "$rc" = "$want" ]; then
+        echo "[cover OK]    $label (ожидали код $want, получили $rc)"
+    else
+        echo "[cover FAIL]  $label (ожидали код $want, получили $rc): $out" >&2
+        cover_bad=$((cover_bad + 1))
+    fi
+}
+cover_bad=0
+cover_case "покрытие полное — молчит" 0 3 full
+cover_case "случай без исхода — красное" 1 3 miss
+cover_case "исход вне плана — красное" 1 3 extra
+cover_case "неразборчивый исход — красное" 1 3 junk
+cover_case "пустой план — красное" 1 0 empty
+
+# Предпосылка: копия заводится — иначе каждый случай краснел бы чужой причиной.
+copy probe >/dev/null || { echo "[VOID] rituals/inject — копия не заведена" >&2; exit 2; }
+rm -rf "$tmp/probe"
+
 # контроль: копия без мутации зелена по всем самопробам
-d="$(copy control)" || { echo "[VOID] rituals/inject — копия не заведена" >&2; exit 2; }
 for c in check-01-pr-body.py check-02-close-wave.py check-03-approval-event.py check-04-vault-trails.py \
          check-05-dod-judges-agree.py check-06-dod-unmet-forms.py; do
-    out="$(run_check "$d" "$c")"; rc=$?
-    expect "контроль $c" 0 "$rc" "$out"
+    plan_case control "контроль $c" "$c"
 done
 
 # inject <метка> <самопроба> <якорь> <замена> [<файл относительно копии scripts/rituals>]
-inject() {
-    local label="$1" check="$2" d out rc
-    d="$(copy "m$((ok + bad))")" || { expect "$label: копия" 1 2 ""; return; }
-    if ! mutate "$d/${5:-rituals.py}" "$3" "$4"; then
-        expect "$label: мутант не применён" 1 2 ""
-        return
-    fi
-    out="$(run_check "$d" "$check")"; rc=$?
-    expect "$label" 1 "$rc" "$out"
-}
+inject() { plan_case inject "$@"; }
 
 # twin <метка> <самопроба> <якорь> <замена> [<файл>] — то же решение другой записью:
 # самопроба обязана остаться зелёной (код 0), иначе она судит запись, а не решение.
-twin() {
-    local label="$1" check="$2" d out rc
-    d="$(copy "t$((ok + bad))")" || { expect "$label: копия" 0 2 ""; return; }
-    if ! mutate "$d/${5:-rituals.py}" "$3" "$4"; then
-        expect "$label: близнец не применён" 0 2 ""
-        return
-    fi
-    out="$(run_check "$d" "$check")"; rc=$?
-    expect "$label" 0 "$rc" "$out"
-}
+twin() { plan_case twin "$@"; }
 
 inject "M1 pr-body: Closes без доказательства" check-01-pr-body.py \
     '        inside = [(u, r) for u, r, bound in proofs if bound]' \
@@ -541,6 +614,27 @@ for c in check-01-pr-body.py check-02-close-wave.py; do
         'DoD-proof @(?<rev>' 'DoD-proof ?@?(?<rev>' ../lib/dod_proof.jq
 done
 
+export -f copy mutate run_check cell
+export here ws tmp
+t_run0="$(date +%s)"
+seq 0 $((planned - 1)) | xargs -P "$jobs" -I{} bash -c 'cell "$1"' _ {}
+t_run1="$(date +%s)"
+
+ok=0; bad=0; slow=()
+for ((i = 0; i < planned; i++)); do
+    [ -f "$tmp/res/$i" ] || continue
+    IFS=$'\t' read -r got want ms label < "$tmp/res/$i"
+    if [ "$got" = "$want" ]; then
+        echo "[inject OK]   $label (ожидали код $want, получили $got; $((ms / 1000)) с)"
+        ok=$((ok + 1))
+    else
+        echo "[inject FAIL] $label (ожидали код $want, получили $got; $((ms / 1000)) с)" >&2
+        tail -n +2 "$tmp/res/$i" | sed 's/^/    /' >&2
+        bad=$((bad + 1))
+    fi
+done
+covered=0; cover_out="$(cover "$tmp/plan" "$tmp/res")" && covered=1
 echo
-echo "rituals/inject: доказательств $((ok + bad)), прошло $ok, провалено $bad"
-[ "$bad" -eq 0 ]
+echo "$cover_out"
+echo "rituals/inject: доказательств $planned, прошло $ok, провалено $bad; исполнителей $jobs, $((t_run1 - t_run0)) с; судья покрытия: провалено $cover_bad из 5"
+[ "$bad" -eq 0 ] && [ "$covered" -eq 1 ] && [ "$cover_bad" -eq 0 ]
