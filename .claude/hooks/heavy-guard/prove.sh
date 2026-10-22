@@ -536,7 +536,7 @@ open(sys.argv[2], "w", encoding="utf-8").write(s.replace(sys.argv[3], sys.argv[4
     assert "убит" "$([ "$rc" != 2 ] && echo убит || echo выжил)" "мутант признака $id ($form): с порчей код $rc, без неё 2"
 }
 ph_mut hookspath "$WORK/push-hpath" 'git push origin HEAD' 'if [ -n "$hp" ]; then' 'if false; then'
-ph_mut hookspath-cli "$PN" "git -c core.hooksPath=$WORK/hookdir push origin HEAD" 'core.hookspath=*) opts+=(-c "$2") ;;' 'core.hookspath=*) ;;'
+ph_mut hookspath-cli "$PN" "git -c core.hooksPath=$WORK/hookdir push origin HEAD" 'then opts+=(-c "$2"); return 0; fi' 'then return 0; fi'
 ph_mut installed "$WORK/push-inst" 'git push origin HEAD' 'if [ -x "$gd/hooks/pre-push" ]' 'if false'
 ph_mut tree "$WORK/push-tree" 'git push origin HEAD' 'if [ -n "$top" ] && [ -e "$top/scripts/hooks/pre-push" ]; then' 'if false; then'
 ph_mut git-dir "$PN" "git --git-dir=$WORK/push-inst/.git push origin HEAD" '            opts+=("$1"); shift ;;' '            shift ;;'
