@@ -59,8 +59,8 @@ malformed-id-not-weakened · НЕ ослабляй: они доходят до b
 product-bug-go-fix-not-tolerance · Go-фикс с RED-lock, а не толерантность утверждения · ЗАВЕСТИ · red: в кейс добавлен лишний допустимый код вместо фикса
 per-service-fixture-isolation · свой account и home/cross проекты (setup.sh), scope через existingProjectId; shared-account — только у authz-deny matrix · TestNewmanConsumersReachTheSpineThroughTheSuiteBinding · red: два suite делят account
 run-idempotency-runid-suffix · {{runId}} в имени, и в max-len BVA · TestFixtureNamesObeyTheCanonWhereTheServiceMigrated · red: 409 AlreadyExists на повторном прогоне
-final-verification-before-merge · go test -race, golangci-lint, govulncheck, newman гонит конвейер PR сборки; локально — быстрое своих пакетов, тяжёлое — слотом · `.github/workflows/ci.yaml` · red: вливание без одного из четырёх
-code-first-no-wait · исполнитель пишет TDD, локально — быстрое своих пакетов (unit без `-race`, vet, gofmt), сдаёт коммитом и берёт следующую, не ждёт ревью и прогонов (владелец 2026-09-24) · вниманием · red: ждёт вердикта; `-race` или стенд в цикле TDD
+final-verification-before-merge · go test -race, golangci-lint, govulncheck, newman гонит конвейер PR сборки; до него — внешний кластер слотом · `.github/workflows/ci.yaml` · red: вливание без одного из четырёх
+code-first-no-wait · исполнитель пишет TDD, unit своих пакетов — `heavy-slot.sh go-unit`, gofmt — здесь, сдаёт коммитом и берёт следующую, не ждёт ревью и прогонов (владелец 2026-09-24) · вниманием · red: ждёт вердикта; тест на машине при доступном кластере
 
 ## Прогон не оставляет следов
 

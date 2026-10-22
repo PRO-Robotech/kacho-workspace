@@ -47,6 +47,13 @@ cluster.sh`). make страж НЕ зовёт: `make -n` исполняет ст
 (в тексте скрипта) страж не судит — их держит слот: синтетический meminfo там —
 режим проб с бюджетом ≤ 512 МиБ в своём каталоге.
 
+Машина владельца — не для прогонов (владелец 2026-10-22, ws#1301: «запиши в рул что бы не
+использовал мою локальную тачку. использовать только в одном случае если доступа к кластеру
+нету»): тяжёлым считается ЛЮБАЯ сборка и любой тест, а не только -race — `go test` и
+`go build` без -race (класс go-unit, Job — профилем go-race; `go vet` — граница, BOUNDARY),
+`make` с «test» в имени цели, pytest (suite), npm test/ci и сценарии test/e2e/build/typecheck/lint,
+vitest, tsc, eslint (ci-local), playwright (stand), наборы и пробы оснастки (suite). Слот уводит их во внешний кластер либо отвечает 77; локально — лишь при недоступном.
+
 Исходы: 0 без вывода — пропуск; 2 и текст в stderr — отказ (текст видит тот, кто
 звал Bash: исполнитель, у диспетчера Bash нет); 0 и additionalContext «СЛОМАН» —
 страж не смог судить. Последнее — пропуск, а не отказ, намеренно: сломанный страж,
@@ -90,13 +97,61 @@ import sys
 
 # Имена классов — те же, что у слота (`heavy-slot.sh --classes`), в обе стороны, и
 # в порядке убывания бюджета: из нескольких найденных берётся первый (сверяет prove.sh).
-RANK = ("go-race", "ci-local", "integration", "lint", "stand", "docker", "newman")
+RANK = ("go-race", "ci-local", "integration", "lint", "stand", "docker", "go-unit", "newman", "suite")
 
 # Скрипт, чей класс не выводится из текста: ci-local — класс слота со своим TMPDIR
 # (замок golangci-lint), а по тексту вышел бы go-race; newman-parallel зовёт
 # run.sh наборов из вычисляемого каталога (`cd "$d" && ./scripts/run.sh`). Запись
 # без файла в дереве продукта находит prove.sh.
 SCRIPTS = {"ci-local.sh": "ci-local", "newman-parallel.sh": "newman"}
+
+# Наборы и пробы воркспейса — класс suite (ws#1291): 2026-10-21 02:02 load average 16,2 при
+# простое CPU 82–88 % — наборы с мутантами шли из копий полос голыми, мимо слота. Тяжесть их —
+# не в словах (python3, bash, grep), а в числе порождений, и по тексту она не выводится; признак —
+# место и имя по соглашению корпуса: дерево воркспейса (в корне — scripts/heavy-slot.sh, как у
+# брони отправки слота), файл под scripts/ или .claude/hooks/, имя прогонщика набора (run-all.sh,
+# `scripts/lib/suites.py` RUNNER), его доказательства (inject.sh — PROOF, части inject-<N>*.sh),
+# отдельной пробы (*-inject.sh, prove.sh, prove-all.sh), мутантов (mutants.py, *-mutants.py) и
+# сводных прогонщиков (run-suites.sh, hook-proofs.sh). Перечень сверяет prove.sh в обе стороны с
+# деревом: каждый набор suites.py и каждый шаг конвейера ci.yaml с таким именем — suite. Проверка
+# набора по одной (check-*) — не набор: она быстра и слота не требует.
+SUITE_NAME = re.compile(r"^(run-all\.sh|inject\.sh|inject-[^/]+\.sh|[^/]+-inject\.sh|prove\.sh|"
+                        r"prove-all\.sh|mutants\.py|[^/]+-mutants\.py|run-suites\.sh|hook-proofs\.sh)$")
+PYTHONS = re.compile(r"^python(3(\.\d+)?)?$")
+PY_VALUE = {"-W", "-X", "-Q"}  # опции python, берущие значение отдельным словом
+
+
+def ws_top(path):
+    """Корень дерева воркспейса, которому принадлежит файл, либо None."""
+    top = repo_top(os.path.dirname(path))
+    if top and os.path.isfile(os.path.join(top, "scripts", "heavy-slot.sh")):
+        return top
+    return None
+
+
+def suite_member(path):
+    """Файл — набор или проба воркспейса (SUITE_NAME под scripts/ или .claude/hooks/)."""
+    top = ws_top(path) if path else None
+    if not top:
+        return False
+    rel = os.path.relpath(path, top)
+    return rel.startswith(("scripts/", ".claude/hooks/")) and bool(SUITE_NAME.match(os.path.basename(rel)))
+
+
+def python_script(args):
+    """Скрипт вызова python: первое слово после опций; -m и -c — не скрипт (None)."""
+    k = 0
+    while k < len(args):
+        a = args[k]
+        if a == "--":
+            return args[k + 1] if k + 1 < len(args) else None
+        if a in ("-m", "-c") or (a.startswith("-") and not a.startswith("--") and a[-1:] in "mc" and len(a) > 1):
+            return None
+        if a.startswith("-") and a != "-":
+            k += 2 if a in PY_VALUE else 1
+            continue
+        return a
+    return None
 
 KEYWORDS = {"!", "{", "do", "then", "else", "elif", "if", "while", "until"}
 # обёртка → её опции, берущие значение отдельным словом; прочие «-…» — флаги
@@ -134,7 +189,13 @@ NON_EXEC = {"echo", "printf", "grep", "egrep", "fgrep", "rg", "ag", "ack", "gh",
             "scp", "true", "false", ":", "sleep", "wc", "sort", "tee", "diff", "read"}
 SHELLS = {"bash", "sh", "zsh", "dash", "ksh"}
 HEADS = {"go", "golangci-lint", "govulncheck", "gosec", "docker", "docker-compose", "kind",
-         "helm", "newman", "make", "gmake"} | SHELLS
+         "helm", "newman", "make", "gmake", "pytest", "npm", "npx", "playwright"} | SHELLS
+# npm: подкоманды и имена сценариев, которые собирают или тестируют (ws#1301; пик npm ci консоли —
+# 4,7 ГиБ, npm test модуля — до 2,1 ГиБ: журнал слотов, строки leave класса ci-local).
+NPM_SUBS = {"test", "t", "tst", "ci", "install", "i", "install-test", "it", "cit"}
+NPM_SCRIPT = re.compile(r"(test|e2e|build|typecheck|lint|vitest|playwright)")
+NPX_TOOLS = {"vitest": "ci-local", "tsc": "ci-local", "eslint": "ci-local", "jest": "ci-local",
+             "playwright": "stand"}
 DECLARE = {"export", "declare", "typeset", "readonly", "local"}
 TOOL_ENV = {"GOFLAGS", "MAKEFLAGS"}  # решают класс; могут прийти экспортом из профиля
 ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
@@ -148,7 +209,7 @@ TRUE = {"1", "t", "T", "true", "TRUE", "True"}  # strconv.ParseBool — разб
 # Граница стража: (класс формы, пример). Формы B1 опыта ws#832, круг 3 — за ней
 # намеренно: их держит cgroup, а не разбор. prove.sh исполняет каждый пример.
 BOUNDARY = (
-    ("переменная, присвоенная вне строки", "go test $RACE_FLAGS ./..."),
+    ("переменная, присвоенная вне строки", "make $TARGET"),
     ("программа из подстановки", "G=$(command -v go); $G test -race ./..."),
     ("текст, поданный оболочке трубой", "echo 'go test -race ./...' | bash"),
     ("текст оболочке из подстановки", 'bash -c "$(cat run.txt)"'),
@@ -157,9 +218,9 @@ BOUNDARY = (
     ("строка оболочке одним словом у незнакомой обёртки", "tmux new -d 'go test -race ./...'"),
     ("аргументы скрипта в его $@", "bash run.sh go test -race ./..."),
     ("запуск из другого языка", "python3 -c \"import os; os.system('go test -race ./...')\""),
-    ("настройка, сохранённая инструментом", "go env -w GOFLAGS=-race && go test ./..."),
+    ("настройка, сохранённая инструментом", "go env -w GOFLAGS=-race && go run ./cmd/x"),
     ("alias", "alias gt='go test -race'; gt ./..."),
-    ("консоль: ни в одном классе, бюджет не замерен", "npm test"),
+    ("go vet — анализ без исполнения; его зовёт lane-precheck.sh cherry-vet (ws#1301)", "go vet ./..."),
 )
 
 
@@ -585,6 +646,22 @@ def go_test_class(args, env):
     return None
 
 
+def npm_class(base, args):
+    """npm/npx, что собирают или тестируют (ws#1301): playwright — stand, прочее — ci-local."""
+    pos = [a for a in args if not a.startswith("-")]
+    if base == "npx" or pos[:1] in (["exec"], ["x"]):
+        tools = pos[1:] if base == "npm" else pos
+        tool = os.path.basename(tools[0]).split("@")[0] if tools else ""
+        return NPX_TOOLS.get(tool)
+    if not pos:
+        return None
+    if pos[0] in NPM_SUBS:
+        return "ci-local"
+    if pos[0] in ("run", "run-script", "rum", "urn") and len(pos) > 1 and NPM_SCRIPT.search(pos[1]):
+        return "stand" if re.search(r"(e2e|playwright)", pos[1]) else "ci-local"
+    return None
+
+
 def repo_top(path):
     p = os.path.abspath(path)
     while True:
@@ -597,15 +674,20 @@ def repo_top(path):
 
 
 def push_runs_ci_local(path):
-    """git push тяжёл там, где pre-push клона зовёт ci-local.sh (признак — дерево)."""
+    """git push тяжёл там, где pre-push клона зовёт ci-local.sh, и в воркспейсе, чей pre-push
+    гонит его наборы run-all.sh (ws#1291; признак — дерево). Класс — ci-local: отправку слот
+    ведёт им (бронь по предмету, keepalive ssh)."""
     top = repo_top(path)
-    if not top or not os.path.isfile(os.path.join(top, "scripts", "ci-local.sh")):
+    if not top:
         return False
     try:
         with open(os.path.join(top, "scripts", "hooks", "pre-push"), encoding="utf-8") as fh:
-            return "ci-local.sh" in fh.read()
+            text = fh.read()
     except OSError:
         return False
+    if "ci-local.sh" in text and os.path.isfile(os.path.join(top, "scripts", "ci-local.sh")):
+        return True
+    return "run-all.sh" in text and os.path.isfile(os.path.join(top, "scripts", "heavy-slot.sh"))
 
 
 HELM_SUBS = {"completion", "create", "dependency", "env", "get", "help", "history", "install",
@@ -873,7 +955,8 @@ def make_class(env, args, cwd, ctx, level):
     derived, goals, dry = make_derived(env, args, cwd, ctx, level)
     if derived or dry:
         return derived
-    return best({MK_BY_NAME[g] for g in goals if g in MK_BY_NAME})
+    named = {MK_BY_NAME[g] for g in goals if g in MK_BY_NAME}
+    return best(named | ({"go-unit"} if any("test" in g for g in goals) else set()))  # make *test* (ws#1301)
 
 
 def make_derived(env, args, cwd, ctx, level):
@@ -1007,7 +1090,13 @@ def classify_argv(env, argv, cwd, ctx, level, alt):
             return None
         if os.path.basename(script) in SCRIPTS:
             return SCRIPTS[os.path.basename(script)]
-        return best(file_classes(script, cwd, ctx, level, alt, True, env))
+        got = file_classes(script, cwd, ctx, level, alt, True, env)
+        return best(got | ({"suite"} if suite_member(resolve(script, cwd, alt)) else set()))
+    if PYTHONS.match(base):
+        if any(a == "-m" and args[k + 1:k + 2] == ["pytest"] for k, a in enumerate(args)) or "-mpytest" in args:
+            return "suite"
+        script = python_script(args)
+        return "suite" if script and suite_member(resolve(script, cwd, alt)) else None
     if base in (".", "source"):
         return best(file_classes(args[0], cwd, ctx, level, alt, True, env)) if args else None
     if base == "eval":
@@ -1050,9 +1139,9 @@ def classify_argv(env, argv, cwd, ctx, level, alt):
         while k < len(args) and args[k].startswith("-"):
             k += 2 if args[k] == "-C" else 1
         sub, rest = (args[k], args[k + 1:]) if k < len(args) else ("", [])
-        if sub == "test":
-            return go_test_class(rest, env)
-        if sub in ("run", "build", "install") and go_test_class(rest, env) == "go-race":
+        if sub in ("test", "build"):  # любая сборка и тест — во внешний кластер (ws#1301)
+            return go_test_class(rest, env) or "go-unit"
+        if sub in ("run", "install") and go_test_class(rest, env) == "go-race":
             return "go-race"  # бинарь с -race запускают — ради этого его и собирают
         return None
     if base == "golangci-lint" and "run" in args:
@@ -1072,6 +1161,14 @@ def classify_argv(env, argv, cwd, ctx, level, alt):
         return "stand" if subcommand(args, HELM_SUBS)[0] in ("install", "upgrade") else None
     if base == "newman" and subcommand(args, {"run"})[0]:
         return "newman"
+    if base in ("pytest", "py.test"):
+        return "suite"
+    if base == "playwright":
+        return "stand" if subcommand(args, {"test"})[0] else None
+    if base in NPX_TOOLS and base != "playwright":  # за обёрткой npx (WRAPPERS) — сам инструмент
+        return None if [a for a in args if a not in ("--version", "-v", "--help", "-h")] == [] and args else NPX_TOOLS[base]
+    if base in ("npm", "npx"):
+        return npm_class(base, args)
     if base == "git":
         k, where = 0, None
         while k < len(args) and args[k].startswith("-"):
@@ -1083,13 +1180,16 @@ def classify_argv(env, argv, cwd, ctx, level, alt):
             else:
                 k += 1
         if args[k:k + 1] == ["push"] and "--no-verify" not in args:
+            if where and ("$" in where or "__SUBST__" in where):
+                return None  # клон в переменной не представим: его хук не прочесть
             base_dir = cwd or os.getcwd()
             path = os.path.join(base_dir, os.path.expanduser(where)) if where else base_dir
             if push_runs_ci_local(path):
                 return "ci-local"
         return None
     if "/" in argv[0]:
-        c = best(file_classes(argv[0], cwd, ctx, level, alt, False, env))
+        got = file_classes(argv[0], cwd, ctx, level, alt, False, env)
+        c = best(got | ({"suite"} if suite_member(resolve(argv[0], cwd, alt)) else set()))
         if c:
             return c
     if base in NON_EXEC or "$" in argv[0] or "__SUBST__" in argv[0]:
@@ -1241,7 +1341,8 @@ def deny(cls, env, argv, slot):
         "  · классы и бюджеты: %s --classes · кто занял: %s --status;\n"
         "  · коды: 74 — слот занят, 75 — не выдан за --wait, 76 — оборвано пределом памяти:\n"
         "    все «не выполнилось», не красное; иначе — код самой команды.\n"
-        "Быстрое по своим пакетам (go test без -race, go vet, gofmt) слота не требует.\n"
+        "Машина владельца — лишь git, gh, чтение и правка файлов, одиночные короткие команды; любая\n"
+        "сборка и тест — во внешнем кластере через слот, локально — лишь при недоступном (ws#1301).\n"
         % (cls, clip(shown, 300), fixed, slot, slot))
     sys.exit(2)
 
@@ -1262,8 +1363,8 @@ def deny_knob(knob, env, argv):
 
 def broken(why):
     msg = ("HEAVY-GUARD СЛОМАН: %s. Тяжёлые команды этим вызовом НЕ проверялись — это не "
-           "«чисто». Тяжёлое (go test -race, integration, ci-local, golangci-lint, docker run, "
-           "стенд, newman) всё равно запускай через scripts/heavy-slot.sh <класс> -- <команда>; "
+           "«чисто». Сборки и тесты любые (go test, go build, наборы, линтеры, docker, стенд, newman, "
+           "playwright) всё равно запускай через scripts/heavy-slot.sh <класс> -- <команда>; "
            "починка — tooling-maintainer." % why)
     print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse",
                                              "additionalContext": msg}}, ensure_ascii=False))
