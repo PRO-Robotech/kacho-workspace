@@ -12,12 +12,12 @@
 # testcontainers уходят туда, а локально остаётся то, что без машины не делается.
 #
 # ФОРМА
-#   run.sh --task <N> --repo <kacho|kaname|corelib> --ref <ревизия>
-#          [--profile go-race|integration|lint|ci-local] [--src <клон>]
+#   run.sh --task <N> --repo <kacho|kaname|corelib|kacho-workspace> --ref <ревизия>
+#          [--profile go-race|integration|lint|ci-local|ws] [--src <клон>]
 #          [--workdir <путь в дереве>] [--short <слово>] [--ns <имя>]
 #          [--timeout <с>] [--keep <часы ≤ 12>] [--push-input <вход pre-push>]
 #          -- <команда> [аргументы…]
-#   run.sh --available [--profile <профиль> [--repo <kacho|kaname|corelib>]] [--pending <файл>]
+#   run.sh --available [--profile <профиль> [--repo <kacho|kaname|corelib|kacho-workspace>]] [--pending <файл>]
 #                           0 — кластер отвечает, ns создавать вправе и pod есть где
 #                           встать; 69 — нет (в том числе открытого узла нет, см.
 #                           РАЗМЕЩЕНИЕ); 75 — идущих тяжёлых прогонов уже предел (см.
@@ -26,7 +26,7 @@
 #                           отказал; не недоступность — heavy-slot локально не уходит
 #                           (ws#1210). Ответ кластера идёт в jq файлом, не словом argv.
 #                           --pending — ВОШЕДШИЕ (ниже): запросы прогонов, ns ещё не создавших
-#   run.sh --request --profile <профиль> [--repo <kacho|kaname|corelib>]
+#   run.sh --request --profile <профиль> [--repo <kacho|kaname|corelib|kacho-workspace>]
 #                           «mCPU МиБ» запроса pod по замеру (ЗАПРОС ПО ЗАМЕРУ); к кластеру
 #                           не обращается; 69 — строки профиля в PEAKS нет, 64 — вызов вне формы
 #   run.sh --profiles       профили, их запросы по репозиториям (ЗАПРОС ПО ЗАМЕРУ) и основание
@@ -417,6 +417,44 @@
 # не кодом теста; шаг не исполнился — «remote-heavy-prep:», 69. Исполнением судит
 # inject.sh (двойник демона docker), предел держит мутант pull-no-limit.
 #
+# СРЕДА ВОРКСПЕЙСА (ws#1304). Профиль ws — клон воркспейса (--repo kacho-workspace, и только он;
+# иная пара профиля и репозитория — 64): хук отправки воркспейса и его наборы и пробы (run-all.sh,
+# inject.sh, mutants.py, prove.sh), которые слот уводит сюда (heavy-slot.sh, ведомость PORTABLE).
+# Замер 2026-10-22 по журналу слотов: после расширения кластера до 5 узлов 117 запусков клона
+# воркспейса шли на машине «внешнего пути нет», 150 ожиданий слота — при занятых трёх из трёх и
+# свободных 46–73 ГиБ, а кластер занят на 43 % CPU. Образ — WS_IMAGE: golang той же версии, что
+# у Job продуктов (узлы держат его тёплым: холодный pull — 5–10 мин), с bash, git, curl, python3 и
+# go — его зовут пробы оснастки, собирающие Go-программы (inject.sh remote-heavy: RG1, D1, PW), как
+# ранер конвейера несёт go в образе; модулей у дерева воркспейса нет — шага модулей нет; ни dind,
+# ни pgclient. Перепись `command -v` по scripts/ и .claude/hooks/ дерева (2026-10-22): python3 21,
+# jq 14, go 7, gh 5, node 4, shellcheck 3, yq 1, bats 1; gh, systemd-run, docker, kubectl — нет и
+# у ранера конвейера либо с подменой в пробе. Среда — как у конвейера воркспейса (ci.yaml,
+# .github/actions/suite-prerequisites):
+#   • jq и PyYAML — шаг пакетов (как у прочих профилей);
+#   • node мажора WS_NODE — шагом СРЕДЫ (INSTALL_SH, сумма SHASUMS256): wave.js исполняют
+#     пробы шаблона волны (wave-template-inject.sh без node — VOID); ранер несёт node в образе;
+#   • yq v4 (mikefarah, его зовут пробы, `yq -i`), shellcheck пина `env.SHELLCHECK_VERSION`
+#     конвейера ревизии и bats-core (ранер ставит его apt'ом, 1.10.0 у ubuntu-24.04) — шаг
+#     WSTOOLS_SH: версия и sha256 зашиты в тексте, архив — python3 tarfile (xz в образе может
+#     не быть); пин shellcheck дерева не равен зашитому — 69 до кластера: суммы под него нет;
+#   • клоны kacho, kaname и corelib — `git clone` с GitHub (публичны, токена нет) в project/
+#     дерева pod, полной историей, как checkout предпосылок конвейера (fetch-depth: 0); хук
+#     выводит их из project/ канонической копии, наборы стволов без них — VOID-отказ. Клоны
+#     идут ФОНОМ под прочую подготовку, ждутся перед видимостью; не склонировался — 69;
+#   • принадлежность номера ветки (хук отправки спрашивает трекер о задаче при создании ветки):
+#     токена в pod нет, поэтому PREPUSH_GH хука — читатель публичного API (gh-issue-public в
+#     /work/bin): ровно форма вызова хука «api repos/<o>/<r>/issues/<n> --jq <выражение>»,
+#     прочее — отказ 4; предел анонимного API (60 запросов в час на адрес) исчерпан — ответ
+#     трекера не получен, и хук отказывает своим «принадлежность не проверена»;
+#   • учётка git и провязка хуков — как у ci-local (УЧЁТКА GIT, ХУКИ КЛОНА);
+#   • команда — от пользователя runner (uid 1001), как у ранера конвейера: root pod обходит права
+#     файлов, и пробы «не записываема» (chmod 0400) краснели чужим красным; подготовка — под root,
+#     шаг «# wsuser-begin» передаёт дерево и кэш и судит запись в 0400 положительным контролем.
+# Сверка среды — ПОСЛЕ видимости, подпроцессом с пустым окружением и PATH образа (шаг
+# «# wscheck-begin»): bash, python3 с yaml, git, curl, go, node, jq, yq v4, shellcheck пина, bats; нет либо не
+# та версия — «remote-heavy-prep: среда: <имя> …», то есть 69 «не выполнилось», а не красное
+# набора через минуты. ЗАПРОС — строки ws PEAKS: КОНСЕРВАТИВНЫЙ до замера в кластере (ниже).
+#
 # КОДЫ: код команды, если она исполнилась; 64 — вызов неверен; 69 — механизм
 # недоступен (кластер, узлы не того кластера — СТРАЖ, образ, доставка, пин, СРЕДА, МОДУЛИ, ЗАВИСИМОСТИ КОНСОЛИ, УЧЁТКА GIT, сеть
 # pod, открытого узла нет — РАЗМЕЩЕНИЕ); 75 — кластер занят (ПРЕДЕЛ либо места под профиль нет), pod не начал
@@ -444,6 +482,15 @@ WS="$(dirname "${_common:-$SELF_DIR/../../.git}")"
 REGISTRY="mirror.gcr.io/library"
 DIND_IMAGE="$REGISTRY/docker:29-dind"
 CLI_IMAGE="$REGISTRY/docker:29-cli"
+# Образ профиля ws (СРЕДА ВОРКСПЕЙСА): golang toolchain продуктов на 2026-10-22 (go1.26.9 в go.mod
+# kacho, kaname, corelib) — тот же образ, что у их Job, тёплый на узлах; bash, git, curl, python3.
+# Продукты сменили toolchain — образ ws остаётся прежним и тянется холодным, пока его не поднимут здесь.
+WS_IMAGE="$REGISTRY/golang:1.26.9"
+# node профиля ws — мажор, как машина владельца и пин setup-node конвейера kacho (26).
+WS_NODE=26
+# Версия shellcheck профиля ws — та, что несёт шаг WSTOOLS_SH (суммы — там же); пин дерева
+# (env.SHELLCHECK_VERSION конвейера ревизии) обязан совпасть, иначе 69 до кластера.
+WS_SHELLCHECK=0.11.0
 # Клиент postgres (psql, pg_dump…) берётся из образа, а не из apt в pod (ws#1178):
 # kubelet тянет образ через зеркало, как golang и docker, сети pod это не требует.
 # Выпуск Debian образа ОБЯЗАН совпадать с выпуском образа golang (оба — trixie): общие
@@ -504,6 +551,15 @@ SWEEP_AGE_S=7200     # УБОРКА ПРОСРОЧЕННЫХ: тяжёлое ns 
 # 88 строк, p90 12 389 МиБ, наибольший 13 118; ci-local kaname — 67 строк, p90 6 444,
 # наибольший 7 010; выселений ноль. Предел run обоих — 16 ГиБ профиля (13 118 × 1,2 =
 # 15 742 МиБ — до ГиБ 16).
+# Строки ws (ws#1304) — КОНСЕРВАТИВНО до замера: прогонов профиля ws в кластере 0 (поле n —
+# прогоны кластера), p90 и наибольший — не замер Job. Основание числа — журнал слотов машины
+# 2026-09-24…10-22, строки leave классов ci-local и suite клонов воркспейса от 60 с (скрипт
+# tmp/ws-remote-meas/peaks.py полосы ws#1304): 259 прогонов, p90 556 МиБ, наибольший 7 428 МиБ
+# (отправки — 206, p90 519; скрипты — 53, p90 до 5 711). В pod к ним добавляются клоны трёх
+# продуктов (git clone полной историей) — поэтому p90 строки поднят до 2 048 МиБ (запрос pod
+# 2 560 МиБ), наибольший — локальный (предел run 9 ГиБ). Правка — когда строк «remote-peak
+# class=ws repo=kacho-workspace … ws_peak=» станет не меньше PEAK_MIN_N (предикат — grep -c по
+# журналу слотов): p90 и n — по ws_peak, наибольший — по run_peak.
 PEAK_MIN_N=5
 PEAK_MARGIN_PCT=120
 PEAKS='ci-local|kacho|645|6316|13118
@@ -521,14 +577,17 @@ integration|*|84|5434|6982
 lint|kacho|5|4815|4815
 lint|kaname|6|4298|4298
 lint|corelib|1|55|55
-lint|*|12|4491|4815'
+lint|*|12|4491|4815
+ws|kacho-workspace|0|2048|7428
+ws|*|0|2048|7428'
 
 # профиль|cpu pod, m (run и dind)|cpu предел run|память предел run (не ниже пика ×
 # PEAK_MARGIN_PCT)|ephemeral|dind|основание. Запрос памяти — по PEAKS (выше).
 PROFILES='go-race|4000|12|16Gi|40Gi|1|go test -race по монорепо; предел 16 ГиБ — пик kacho 13 992 МиБ × 1,2 поднимает его до 17 ГиБ
 integration|2000|6|10Gi|40Gi|1|make test-integration; контейнеры testcontainers — в dind, у него свой предел
 lint|2000|8|12Gi|20Gi|0|golangci-lint run ./... по монорепо, холодный кэш
-ci-local|4000|12|16Gi|40Gi|1|scripts/ci-local.sh; группы вне go требуют инструментов, которых в образе нет'
+ci-local|4000|12|16Gi|40Gi|1|scripts/ci-local.sh; группы вне go требуют инструментов, которых в образе нет
+ws|2000|8|8Gi|20Gi|0|наборы, пробы и хук отправки воркспейса (СРЕДА ВОРКСПЕЙСА): bash и python3 по одному процессу, мутанты — -j; запрос памяти консервативный до замера'
 # dind: cpu запрос|cpu предел|память запрос|память предел. Запрос — его собственный
 # расход (замер 2026-10-18: 1m и 23 МиБ в идущем ci-local); память контейнеров
 # testcontainers, которые он держит, входит в запрос pod по PEAKS.
@@ -549,6 +608,15 @@ profile_row() {
 # to_m <cpu> — милли-CPU; to_mib <память> — МиБ (единицы Mi и Gi, как пишет таблица).
 to_m() { case "$1" in *m) printf '%s\n' "${1%m}" ;; *) printf '%s\n' "$(( $1 * 1000 ))" ;; esac; }
 to_mib() { case "$1" in *Gi) printf '%s\n' "$(( ${1%Gi} * 1024 ))" ;; *Mi) printf '%s\n' "${1%Mi}" ;; *) return 1 ;; esac; }
+# profile_repos <профиль> — репозитории профиля: ws — лишь kacho-workspace, прочие — три продукта.
+profile_repos() { if [ "$1" = ws ]; then echo kacho-workspace; else echo kacho kaname corelib; fi; }
+# pair_ok <профиль> <репозиторий> — профиль ws и клон воркспейса — только друг с другом
+# (СРЕДА ВОРКСПЕЙСА): образ ws без go, а в образе golang нет среды наборов воркспейса.
+pair_ok() {
+    if [ "$1" = ws ] && [ "$2" != kacho-workspace ]; then say "профиль ws — лишь для --repo kacho-workspace (образ без go), получено «$2»"; return 1; fi
+    if [ "$1" != ws ] && [ "$2" = kacho-workspace ]; then say "--repo kacho-workspace — лишь профиль ws (среда наборов воркспейса), получено «$1»"; return 1; fi
+    return 0
+}
 
 # peak_row <профиль> <репозиторий> — строка PEAKS, которой судится запрос: своя, если
 # прогонов в ней не меньше PEAK_MIN_N, иначе «*» профиля. Код 1 — строки нет.
@@ -583,12 +651,14 @@ sizing() {
     if [ "$dind" = 1 ]; then dcr="$(to_m "$dcr")"; dmr="$(to_mib "$dmr")"; else dcr=0; dmr=0; fi
     RUN_CPU_REQ=$(( NEED_CPU - dcr ))
     RUN_MEM_REQ=$(( NEED_MIB - dmr ))
-    [ "$1" = lint ] || { RUN_CPU_REQ=$(( RUN_CPU_REQ - PG_REQ_M )); RUN_MEM_REQ=$(( RUN_MEM_REQ - PG_REQ_MIB )); }
+    case "$1" in lint|ws) ;; *) RUN_CPU_REQ=$(( RUN_CPU_REQ - PG_REQ_M )); RUN_MEM_REQ=$(( RUN_MEM_REQ - PG_REQ_MIB )) ;; esac
     RUN_MEM_LIM="$(to_mib "$liml")"
     mx=$(( (mx * PEAK_MARGIN_PCT + 102399) / 102400 )); mx=$(( mx * 1024 ))
     [ "$mx" -gt "$RUN_MEM_LIM" ] && RUN_MEM_LIM="$mx"
     [ "$RUN_MEM_LIM" -ge "$RUN_MEM_REQ" ] || RUN_MEM_LIM="$RUN_MEM_REQ"
-    if [ "$r" = "$2" ]; then
+    if [ "$n" = 0 ]; then
+        SIZE_WHY="КОНСЕРВАТИВНО до замера: прогонов профиля $1 в кластере 0, p90 $p90 МиБ строки PEAKS × $PEAK_MARGIN_PCT % — не по пику Job"
+    elif [ "$r" = "$2" ]; then
         SIZE_WHY="по замеру: репозиторий $2, прогонов $n, p90 пика $p90 МиБ × $PEAK_MARGIN_PCT %"
     else
         SIZE_WHY="по замеру профиля: репозиторий $2 — прогонов меньше $PEAK_MIN_N, строка «*» ($n прогонов, p90 $p90 МиБ × $PEAK_MARGIN_PCT %)"
@@ -986,11 +1056,11 @@ placement() {
       | ([$alive[] | select(.spec.nodeName | not) | select(.metadata.namespace | IN($busy[])) | {c: eff("cpu"), m: eff("memory")}]
          + [$bq[] | select(.n as $x | $alive | any(.metadata.namespace == $x) | not) | {c: .c, m: .m}]
          | sort_by(-.c, -.m)) as $dem
-      | reduce $dem[] as $d ({bins: $open, un: 0};
+      | (reduce $dem[] as $d ({bins: $open, un: 0};
           ([.bins | to_entries[] | select(.value.fcpu >= $d.c and .value.fmem >= $d.m)
             | {k: .key, s: ((.value.fcpu - $d.c) / ([.value.acpu, 1] | max) + (.value.fmem - $d.m) / ([.value.amem, 1] | max))}]
            | sort_by(-.s, .k) | map(.k) | first) as $i
-          | if $i == null then .un += 1 else (.bins[$i].fcpu -= $d.c | .bins[$i].fmem -= $d.m) end) as $pk
+          | if $i == null then .un += 1 else (.bins[$i].fcpu -= $d.c | .bins[$i].fmem -= $d.m) end)) as $pk
       | ($pk.bins | map(slots) | add // 0) as $extra
       | [($ns | length), ($ns | map(select(.open | not)) | length),
          ($ns | map(select(.open)) | length),
@@ -1028,7 +1098,8 @@ avail_args() {
         esac
     done
     [ -z "$AV_REPO" ] || [ -n "$AV_PROFILE" ] || return 1
-    case "$AV_REPO" in ''|kacho|kaname|corelib) ;; *) say "--repo kacho|kaname|corelib, получено «$AV_REPO»"; exit 64 ;; esac
+    case "$AV_REPO" in ''|kacho|kaname|corelib|kacho-workspace) ;; *) say "--repo kacho|kaname|corelib|kacho-workspace, получено «$AV_REPO»"; exit 64 ;; esac
+    [ -z "$AV_REPO" ] || pair_ok "$AV_PROFILE" "$AV_REPO" || exit 64
     if [ -n "$AV_PROFILE" ]; then
         profile_row "$AV_PROFILE" >/dev/null || { say "профиля «$AV_PROFILE» нет: $(cut -d'|' -f1 <<< "$PROFILES" | tr '\n' ' ')"; exit 64; }
     fi
@@ -1044,12 +1115,12 @@ avail_args() {
 case "${1:-}" in
     --request)
         avail_args "${@:2}" && [ -n "$AV_PROFILE" ] && [ -z "$AV_PF" ] \
-            || { say "--request --profile <профиль> [--repo kacho|kaname|corelib], получено «${*:2}»"; exit 64; }
+            || { say "--request --profile <профиль> [--repo kacho|kaname|corelib|kacho-workspace], получено «${*:2}»"; exit 64; }
         sizing "$AV_PROFILE" "$AV_REPO" || { say "запрос профиля $AV_PROFILE не выведен из PEAKS: строки профиля в таблице нет (не выполнилось)"; exit 69; }
         printf '%s %s\n' "$NEED_CPU" "$NEED_MIB"; exit 0 ;;
     --available)
         need="0 0"; avw=""
-        avail_args "${@:2}" || { say "--available [--profile <профиль> [--repo kacho|kaname|corelib]] [--pending <файл>], получено «${*:2}»"; exit 64; }
+        avail_args "${@:2}" || { say "--available [--profile <профиль> [--repo kacho|kaname|corelib|kacho-workspace]] [--pending <файл>], получено «${*:2}»"; exit 64; }
         if [ -n "$AV_PROFILE" ]; then
             sizing "$AV_PROFILE" "$AV_REPO" || { say "запрос профиля $AV_PROFILE не выведен из PEAKS: строки профиля в таблице нет (не выполнилось)"; exit 69; }
             need="$NEED_CPU $NEED_MIB"; avw="; запрос pod: cpu ${NEED_CPU}m, память $NEED_MIB МиБ — $SIZE_WHY"
@@ -1072,7 +1143,7 @@ case "${1:-}" in
         echo "remote-heavy: кластер отвечает, создавать ns вправе; ёмкость: $PLACE_CAP${AV_PENDING:+ (в том числе вошедших без ns $np)}, потолок $MAX_PAR (KACHO_REMOTE_HEAVY_MAX); $PLACE_CENSUS$avw"; exit 0 ;;
     --profiles)
         while IFS='|' read -r n _ _ _ eph d basis; do
-            for r in kacho kaname corelib; do
+            for r in $(profile_repos "$n"); do
                 sizing "$n" "$r" || { say "запрос профиля $n для $r не выведен из PEAKS: строки профиля в таблице нет (не выполнилось)"; exit 69; }
                 printf '%-12s %-8s pod cpu %sm память %s МиБ · run cpu %sm/%s память %s/%s МиБ · диск %s · dind %s\n%-21s %s\n' "$n" "$r" "$NEED_CPU" "$NEED_MIB" \
                     "$RUN_CPU_REQ" "$(cut -d'|' -f3 <<< "$(profile_row "$n")")" "$RUN_MEM_REQ" "$RUN_MEM_LIM" "$eph" "$([ "$d" = 1 ] && echo да || echo нет)" "" "$SIZE_WHY"
@@ -1106,9 +1177,10 @@ done
 [ "$#" -ge 1 ] || { say "нет команды: run.sh … -- <команда>"; exit 64; }
 CMD=("$@")
 [[ "$TASK" =~ ^[1-9][0-9]{0,6}$ ]] || { say "--task <N> — номер задачи, получено «$TASK»"; exit 64; }
-case "$REPO" in kacho|kaname|corelib) ;; *) say "--repo kacho|kaname|corelib, получено «$REPO»"; exit 64 ;; esac
+case "$REPO" in kacho|kaname|corelib|kacho-workspace) ;; *) say "--repo kacho|kaname|corelib|kacho-workspace, получено «$REPO»"; exit 64 ;; esac
 [ -n "$REF" ] || { say "--ref <ревизия> обязателен"; exit 64; }
 ROW="$(profile_row "$PROFILE")" || { say "профиля «$PROFILE» нет: $(cut -d'|' -f1 <<< "$PROFILES" | tr '\n' ' ')"; exit 64; }
+pair_ok "$PROFILE" "$REPO" || exit 64
 IFS='|' read -r _ _ CPU_LIM _ EPH DIND _ <<< "$ROW"
 [[ "$TIMEOUT_S" =~ ^[0-9]+$ ]] && [ "$TIMEOUT_S" -ge 60 ] && [ "$TIMEOUT_S" -le "$MAX_TIMEOUT_S" ] \
     || { say "--timeout — от 60 до $MAX_TIMEOUT_S с, получено «$TIMEOUT_S»"; exit 64; }
@@ -1144,7 +1216,7 @@ SHA="$(git -C "$SRC" rev-parse --verify --quiet "$REF^{commit}")" || { say "ре
 MAIN_SHA="$(git -C "$SRC" rev-parse --verify --quiet 'refs/remotes/origin/main^{commit}')" || MAIN_SHA=""
 # Корневая учётка вызывающей копии (УЧЁТКА GIT в шапке) — до первого обращения к кластеру.
 GIT_NAME=""; GIT_EMAIL=""
-if [ "$PROFILE" = ci-local ]; then
+if [ "$PROFILE" = ci-local ] || [ "$PROFILE" = ws ]; then
     GIT_NAME="$(git -C "$SRC" config --global --includes --get user.name 2>/dev/null)" || GIT_NAME=""
     GIT_EMAIL="$(git -C "$SRC" config --global --includes --get user.email 2>/dev/null)" || GIT_EMAIL=""
     if [ -z "$GIT_NAME" ] || [ -z "$GIT_EMAIL" ] || [[ "$GIT_NAME$GIT_EMAIL" == *$'\n'* ]]; then
@@ -1155,10 +1227,13 @@ if [ "$PROFILE" = ci-local ]; then
         say "учётка git: корневой у вызывающей копии нет — Job идёт без неё (не отправка)"
     fi
 fi
+GOVER=""
+if [ "$PROFILE" != ws ]; then
 GOMOD="$(git -C "$SRC" show "$SHA:go.mod" 2>/dev/null)" || { say "go.mod на $SHA не прочитан"; exit 69; }
 GOVER="$(sed -n 's/^toolchain go\([0-9][0-9.]*\)$/\1/p' <<< "$GOMOD" | head -n 1)"
 [ -n "$GOVER" ] || GOVER="$(sed -n 's/^go \([0-9]*\.[0-9]*\.[0-9]*\)$/\1/p' <<< "$GOMOD" | head -n 1)"
 [ -n "$GOVER" ] || { say "версия go на $SHA не выводится: нет строки toolchain и полной строки go в go.mod"; exit 69; }
+fi
 WF=""
 for f in .github/workflows/ci.yaml .github/workflows/ci.yml; do
     WF="$(git -C "$SRC" show "$SHA:$f" 2>/dev/null)" && break
@@ -1177,7 +1252,19 @@ GOSEC_PIN="$(pin_of 'securego/gosec/v2/cmd/gosec')"; [ "$?" -eq 2 ] && exit 69
 if [ "$PROFILE" = lint ] && [ -z "$LINT_PIN" ]; then
     say "профиль lint: пина golangci-lint в конвейере $REPO на $SHA нет — версию не выбрать"; exit 69
 fi
-GO_IMAGE="$REGISTRY/golang:$GOVER"
+GO_IMAGE="$REGISTRY/golang:$GOVER"; IMG_NAME="golang:$GOVER"
+[ "$PROFILE" != ws ] || { GO_IMAGE="$WS_IMAGE"; IMG_NAME="${WS_IMAGE##*/}"; LINT_PIN=""; GOSEC_PIN=""; }
+# Пин shellcheck профиля ws — пин конвейера ревизии (env.SHELLCHECK_VERSION, как его ставит ci.yaml
+# воркспейса) обязан совпасть с WS_SHELLCHECK: суммы под иную версию в шаге WSTOOLS_SH нет.
+WS_SC=""
+if [ "$PROFILE" = ws ]; then
+    WS_SC="$(python3 -c 'import sys, yaml
+d = yaml.safe_load(sys.stdin)
+v = ((d or {}).get("env") or {}).get("SHELLCHECK_VERSION") if isinstance(d, dict) else None
+print(v if isinstance(v, str) else "")' <<< "$WF" 2>&1)" || { say "пин shellcheck на $SHA: конвейер не разобран (python3 с yaml): $(head -n 1 <<< "$WS_SC") — версию не выбрать"; exit 69; }
+    [ -n "$WS_SC" ] || { say "пин shellcheck на $SHA: env.SHELLCHECK_VERSION конвейера нет — версию не выбрать"; exit 69; }
+    [ "$WS_SC" = "$WS_SHELLCHECK" ] || { say "пин shellcheck на $SHA — $WS_SC, а шаг WSTOOLS_SH несёт сумму лишь $WS_SHELLCHECK — обнови WS_SHELLCHECK и сумму в run.sh (не выполнилось, Job не создавался)"; exit 69; }
+fi
 # step_pin <шаг uses> <ключ> <имя> — единственное значение `with.<ключ>` у шагов
 # `uses: <шаг>@…` конвейера ревизии (СРЕДА в шапке). Конвейер разбирается как YAML
 # (python3 с yaml), а не строками: порядок ключей шага и поточная форма
@@ -1270,7 +1357,7 @@ image_helm() {
     printf '%s\n' "$vals"
 }
 HELM_PIN=""; NODE_PIN=""; BUF_PIN=""; HELM_SRC=""
-if [ "$PROFILE" != lint ]; then
+if [ "$PROFILE" != lint ] && [ "$PROFILE" != ws ]; then
     HELM_PIN="$(step_pin azure/setup-helm version helm)"; [ "$?" -eq 2 ] && exit 69
     NODE_PIN="$(step_pin actions/setup-node node-version node)"; [ "$?" -eq 2 ] && exit 69
     BUF_PIN="$(step_pin bufbuild/buf-setup-action version buf)"; [ "$?" -eq 2 ] && exit 69
@@ -1284,6 +1371,7 @@ if [ "$PROFILE" != lint ]; then
     fi
     [ -n "$HELM_PIN$NODE_PIN$BUF_PIN" ] || say "helm, node и buf: пинов в конвейере ревизии и helm в образе ранера нет — не ставлю и не сверяю (в конвейере их тоже нет)"
 fi
+[ "$PROFILE" != ws ] || NODE_PIN="$WS_NODE"   # СРЕДА ВОРКСПЕЙСА: ранер несёт node в образе, пина в ci.yaml нет
 
 # ── владелец и уборка прежних запусков (ЛОКАЛЬНАЯ УБОРКА в шапке) ──────────────
 # proc_start <pid> — время старта процесса (поле 22 /proc/<pid>/stat, в тиках).
@@ -2828,11 +2916,138 @@ echo "remote-heavy: инструментов подготовки в станд�
 # expose-end
 EXPOSE
 )"
-PREP="$PREP
+# СРЕДА ВОРКСПЕЙСА (шапка; ws#1304) — шаги профиля ws. Клоны продуктов — ФОНОМ сразу после
+# пакетов (сеть до GitHub — та же предпосылка, что у buf и jq), ждутся перед видимостью.
+# Маркеры — граница, по которой inject.sh берёт текст из Job и исполняет его.
+# shellcheck disable=SC2016  # раскрывается в pod, не здесь
+WSCLONE_SH="$(cat <<'WSCLONE'
+# wsclone-begin
+wc0=$(date +%s); wcp=""
+mkdir -p /work/src/project || pf "клоны продуктов: каталог project/ не создан"
+for r in kacho kaname corelib; do
+  if [ -e "/work/src/project/$r" ]; then echo "remote-heavy: клон $r уже в дереве — не клонирую" >&2; continue; fi
+  ( GIT_TERMINAL_PROMPT=0 git clone -q "https://github.com/PRO-Robotech/$r.git" "/work/src/project/$r" > "/work/clone-$r.log" 2>&1 \
+      || echo "код $?" > "/work/clone-$r.fail" ) &
+  wcp="$wcp $!"
+done
+echo "remote-heavy: клоны kacho, kaname, corelib — с GitHub фоном, полной историей (как предпосылки конвейера воркспейса)" >&2
+# wsclone-end
+WSCLONE
+)"
+# shellcheck disable=SC2016  # раскрывается в pod, не здесь
+WSTOOLS_SH="$(cat <<'WSTOOLS'
+# wstools-begin
+wdl() { curl -fsSL --retry 4 --retry-all-errors --retry-delay 3 --connect-timeout 10 --max-time 180 -o "$2" "$1" && printf '%s  %s\n' "$3" "$2" | sha256sum -c --quiet -; }
+mkdir -p /work/dl/ws /work/bin || pf "каталог загрузки не создан"
+case "$(uname -m)" in
+  x86_64) ya=amd64; ysum=b96de04645707e14a12f52c37e6266832e03c29e95b9b139cddcae7314466e69
+          sca=x86_64; scsum=8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198 ;;
+  aarch64|arm64) ya=arm64; ysum=a02cc637409db44a9f9cb55ea92c40019582ba88083c4d930a727ec4b59ed439
+          sca=aarch64; scsum=12b331c1d2db6b9eb13cfca64306b1b157a86eb69db83023e261eaa7e7c14588 ;;
+  *) pf "среда воркспейса: архитектура $(uname -m) не поддержана" ;;
+esac
+if ! command -v yq >/dev/null 2>&1; then
+  echo "remote-heavy: ставлю yq v4.45.4" >&2
+  wdl "https://github.com/mikefarah/yq/releases/download/v4.45.4/yq_linux_$ya" /work/dl/ws/yq "$ysum" \
+    && install -m 0755 /work/dl/ws/yq /work/bin/yq || pf "yq v4.45.4 не поставлен"
+fi
+if [ "$(shellcheck --version 2>/dev/null | sed -n 's/^version: //p')" != "$HEAVY_SHELLCHECK" ]; then
+  [ "$HEAVY_SHELLCHECK" = 0.11.0 ] || pf "shellcheck: пин $HEAVY_SHELLCHECK, а сумма в шаге — лишь 0.11.0"
+  echo "remote-heavy: ставлю shellcheck $HEAVY_SHELLCHECK" >&2
+  f="shellcheck-v$HEAVY_SHELLCHECK.linux.$sca.tar.xz"
+  wdl "https://github.com/koalaman/shellcheck/releases/download/v$HEAVY_SHELLCHECK/$f" "/work/dl/ws/$f" "$scsum" \
+    && python3 -c 'import sys, tarfile
+t = tarfile.open(sys.argv[1], "r:xz"); m = t.getmember(sys.argv[2])
+open(sys.argv[3], "wb").write(t.extractfile(m).read())' "/work/dl/ws/$f" "shellcheck-v$HEAVY_SHELLCHECK/shellcheck" /work/bin/shellcheck \
+    && chmod 0755 /work/bin/shellcheck || pf "shellcheck $HEAVY_SHELLCHECK не поставлен"
+fi
+if ! command -v bats >/dev/null 2>&1; then
+  echo "remote-heavy: ставлю bats-core 1.10.0" >&2
+  wdl https://github.com/bats-core/bats-core/archive/refs/tags/v1.10.0.tar.gz /work/dl/ws/bats.tgz a1a9f7875aa4b6a9480ca384d5865f1ccf1b0b1faead6b47aa47d79709a5c5fd \
+    && tar -xzf /work/dl/ws/bats.tgz -C /work/dl/ws && bash /work/dl/ws/bats-core-1.10.0/install.sh /work/bats >/dev/null \
+    && ln -sf /work/bats/bin/bats /work/bin/bats || pf "bats-core 1.10.0 не поставлен"
+fi
+# Читатель трекера для хука отправки (PREPUSH_GH): публичный API, токена нет; форма — ровно
+# вызов хука, прочее — отказ 4. Ответ не 200 — «HTTP <код>» в stderr, код 1 (хук ищет «HTTP 404»).
+cat > /work/bin/gh-issue-public <<'GHP'
+#!/usr/bin/env bash
+set -uo pipefail
+if [ "$#" -ne 4 ] || [ "$1" != api ] || [ "$3" != --jq ] || ! [[ "$2" =~ ^repos/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/issues/[0-9]+$ ]]; then
+  echo "gh-issue-public: поддержан лишь вызов «api repos/<o>/<r>/issues/<n> --jq <выражение>» — токена в pod нет" >&2; exit 4
+fi
+b="$(mktemp)" || exit 1
+code="$(curl -sSL --retry 2 --retry-delay 3 --connect-timeout 10 --max-time 30 -H 'Accept: application/vnd.github+json' -o "$b" -w '%{http_code}' "https://api.github.com/$2")" \
+  || { echo "gh-issue-public: api.github.com не ответил" >&2; rm -f "$b"; exit 1; }
+if [ "$code" = 200 ]; then jq -r "$4" < "$b"; rc=$?
+else echo "gh: HTTP $code: $(jq -r '.message // empty' < "$b" 2>/dev/null | head -c 200) (https://api.github.com/$2)" >&2; rc=1; fi
+rm -f "$b"; exit "$rc"
+GHP
+chmod 0755 /work/bin/gh-issue-public || pf "читатель трекера не поставлен"
+rm -rf /work/dl/ws
+# wstools-end
+WSTOOLS
+)"
+# shellcheck disable=SC2016  # раскрывается в pod, не здесь
+WSCLONEWAIT_SH="$(cat <<'WSCW'
+# wsclonewait-begin
+for x in $wcp; do wait "$x"; done
+wcs=""
+for r in kacho kaname corelib; do
+  [ ! -f "/work/clone-$r.fail" ] || pf "клон $r: git clone https://github.com/PRO-Robotech/$r не исполнился ($(cat "/work/clone-$r.fail")) — $(tail -n 1 "/work/clone-$r.log" 2>/dev/null)"
+  h="$(git -C "/work/src/project/$r" rev-parse -q --verify 'refs/remotes/origin/main^{commit}' 2>/dev/null)" || pf "клон $r: ствола origin/main нет"
+  wcs="$wcs $r@${h:0:12}"
+done
+echo "remote-heavy: клоны продуктов —$wcs, $(( $(date +%s) - wc0 )) с от начала клонирования" >&2
+# wsclonewait-end
+WSCW
+)"
+# Сверка среды воркспейса — ПОСЛЕ видимости: подпроцессом с пустым окружением и PATH образа
+# golang (HEAVY_STD_PATH — его подмена в пробах), как наборы и хук зовут инструменты.
+# shellcheck disable=SC2016  # раскрывается в pod, не здесь
+WSCHECK_SH="$(cat <<'WSCHECK'
+# wscheck-begin
+tf() { echo "remote-heavy-prep: среда: $1" | tee /dev/termination-log >&2; exit 125; }
+# PATH образа golang (ENV образа: /go/bin и /usr/local/go/bin перед путями Debian) — go там, а не в
+# /usr/local/bin; живой прогон 2026-10-22 без них отказал «go нет» при go в образе.
+sp="${HEAVY_STD_PATH:-/go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin}"
+wx() { env -i PATH="$sp" HOME="${HOME:-/root}" bash -c "$1" 2>&1; }
+for t in bash python3 git curl go node jq yq shellcheck bats; do
+  [ -n "$(env -i PATH="$sp" bash -c "command -v $t" 2>/dev/null)" ] || tf "$t нет в PATH образа — наборы и хук воркспейса зовут его, прогон не равен конвейеру"
+done
+wx 'python3 -c "import yaml"' > /dev/null || tf "python3-yaml: модуль yaml не виден python3 подпроцесса с пустым окружением"
+v="$(wx 'yq --version')"; case "$v" in *" v4."*) ;; *) tf "yq в PATH — «$(head -n 1 <<< "$v")», нужен v4 (mikefarah)" ;; esac
+v="$(wx 'shellcheck --version' | sed -n 's/^version: //p')"; [ "$v" = "$HEAVY_SHELLCHECK" ] || tf "shellcheck в PATH — «$v», пин конвейера $HEAVY_SHELLCHECK"
+v="$(wx 'bats --version')"; case "$v" in "Bats "*) ;; *) tf "bats не исполняется — «$(head -n 1 <<< "$v")»" ;; esac
+echo "remote-heavy: среда воркспейса — $(wx 'bash --version' | head -n 1 | cut -d' ' -f1-4), $(wx 'python3 --version'), $(wx 'git --version'), $(wx 'go version' | cut -d' ' -f3), node $(wx 'node --version'), $(wx 'jq --version'), $(wx 'yq --version' | sed 's/.* //'), shellcheck $HEAVY_SHELLCHECK, $(wx 'bats --version')" >&2
+# wscheck-end
+WSCHECK
+)"
+# Команда воркспейса — от непривилегированного пользователя, как у ранера конвейера (runner): root
+# pod обходит права файлов, и проба «запись не записываема» (chmod 0400, rituals check-03) дала в
+# pod чужое красное (живая отправка 2026-10-22). Подготовка остаётся под root; положительный
+# контроль — команда runner не пишет в файл 0400. Позиционные доводы шага — команда (bash -c).
+# shellcheck disable=SC2016  # раскрывается в pod, не здесь
+WSUSER_SH="$(cat <<'WSUSER'
+# wsuser-begin
+id -u runner > /dev/null 2>&1 || useradd -m -u 1001 -U -s /bin/bash runner > /dev/null 2>&1 || pf "пользователь runner (uid 1001) не заведён"
+[ ! -f /root/.gitconfig ] || install -o runner -g runner -m 0644 /root/.gitconfig /home/runner/.gitconfig || pf "учётка git не передана runner"
+chown -R runner:runner /work/src /cache || pf "дерево и кэш не переданы runner"
+command -v setpriv > /dev/null 2>&1 || pf "setpriv нет в образе — сменить пользователя команды нечем"
+wu="$(setpriv --reuid=1001 --regid=1001 --init-groups sh -c 'f=$(mktemp) && chmod 0400 "$f" && { echo x >> "$f"; } 2>/dev/null; r=$?; rm -f "$f"; echo "$(id -u) $r"')"
+[ "${wu% *}" = 1001 ] && [ "${wu#* }" != 0 ] || pf "пользователь команды не сменён либо права файлов ему не указ (uid и код записи в 0400: «$wu»)"
+set -- setpriv --reuid=1001 --regid=1001 --init-groups env HOME=/home/runner USER=runner LOGNAME=runner "$@"
+echo "remote-heavy: команда — от пользователя runner (uid 1001), как у ранера конвейера: запись в файл 0400 ему отказана" >&2
+# wsuser-end
+WSUSER
+)"
+[ "$PROFILE" = ws ] && PREP="$PREP
+$WSCLONE_SH
+$WSTOOLS_SH"
+[ "$PROFILE" = ws ] || PREP="$PREP
 $MODDL_SH"
 [ "$DIND" = 1 ] && PREP="$PREP
 $PULL_SH"
-[ "$PROFILE" = ci-local ] && PREP="$PREP
+{ [ "$PROFILE" = ci-local ] || [ "$PROFILE" = ws ]; } && PREP="$PREP
 $GITID_SH
 $HOOKS_SH"
 [ "$PROFILE" = lint ] || PREP="$PREP
@@ -2840,19 +3055,24 @@ $INSTALL_SH
 $TOOLS_SH"
 [ "$PROFILE" = ci-local ] && [ "$REPO" = kacho ] && PREP="$PREP
 $NPMCI_SH"
-[ "$PROFILE" = lint ] || PREP="$PREP
+[ "$PROFILE" = lint ] || [ "$PROFILE" = ws ] || PREP="$PREP
 $PGWAIT_SH"
 [ "$PROFILE" = ci-local ] && PREP="$PREP
 $FILEWAIT_SH"
 [ "$DIND" = 1 ] && PREP="$PREP
 $PULLWAIT_SH"
+[ "$PROFILE" = ws ] && PREP="$PREP
+$WSCLONEWAIT_SH"
 PREP="$PREP
 $EXPOSE_SH"
+[ "$PROFILE" = ws ] && PREP="$PREP
+$WSCHECK_SH
+$WSUSER_SH"
 # КРАСНЫЕ ГРУППЫ (шапка) — команда с копией вывода, затем дайджест и доставка
 # журналов красных групп потоком лога. Маркеры — граница, по которой inject.sh
 # исполняет шаг над синтетическим прогоном.
 # shellcheck disable=SC2016  # раскрывается в pod, не здесь
-PG=1; [ "$PROFILE" != lint ] || PG=0
+PG=1; case "$PROFILE" in lint|ws) PG=0 ;; esac
 REDLOG_SH="$(cat <<'REDLOG'
 # redlog-begin
 heavy_red() {
@@ -3015,7 +3235,7 @@ jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg goimg "$GO_IMAGE" --arg dimg "
     --arg cr "${RUN_CPU_REQ}m" --arg cl "$CPU_LIM" --arg mr "${RUN_MEM_REQ}Mi" --arg ml "${RUN_MEM_LIM}Mi" --arg eph "$EPH" \
     --arg dcr "$DCR" --arg dcl "$DCL" --arg dmr "$DMR" --arg dml "$DML" \
     --arg pgimg "$PG_IMAGE" --arg pgsh "$PG_SH" --argjson pg "$PG" --arg pgcr "${PG_REQ_M}m" --arg pgmr "${PG_REQ_MIB}Mi" --arg dindsh "$DIND_SH" --arg deny "$DENY_PROBE" --arg helm "$HELM_PIN" --arg node "$NODE_PIN" --arg buf "$BUF_PIN" \
-    --arg pull "$PULL_IMG" --arg pushin "$PUSH_INPUT" --arg gname "$GIT_NAME" --arg gemail "$GIT_EMAIL" --slurpfile cmdv <(printf '%s' "$CMD_JSON") '
+    --arg pull "$PULL_IMG" --arg pushin "$PUSH_INPUT" --arg gname "$GIT_NAME" --arg gemail "$GIT_EMAIL" --arg wssc "$WS_SC" --slurpfile cmdv <(printf '%s' "$CMD_JSON") '
 # kubelet раскрывает в command, args и value env контейнера $(ИМЯ) значением env и
 # сворачивает $$ в $ (ws#1142: составной Job потерял переменные и коды осей). Каждый
 # $ удваивается: kubelet свернёт его обратно, и байты дойдут до контейнера как есть.
@@ -3049,6 +3269,8 @@ def kesc_c: (if .command then .command |= map(kesc) else (.) end)
        env: ([{name: "HEAVY_WORKDIR", value: $wd}, {name: "HEAVY_PULL", value: $pull}, {name: "HEAVY_DENY_PROBE", value: $deny}, {name: "HEAVY_HELM", value: $helm}, {name: "HEAVY_NODE", value: $node}, {name: "HEAVY_BUF", value: $buf}, {name: "HEAVY_PUSH_INPUT", value: $pushin}, {name: "HEAVY_GIT_NAME", value: $gname}, {name: "HEAVY_GIT_EMAIL", value: $gemail}, {name: "GOTOOLCHAIN", value: "local"},
               {name: "GOMODCACHE", value: "/cache/mod"}, {name: "GOCACHE", value: "/cache/build"},
               {name: "GOLANGCI_LINT_CACHE", value: "/cache/lint"}, {name: "CI", value: "true"}]
+             + (if $wssc != "" then [{name: "HEAVY_SHELLCHECK", value: $wssc},
+                                    {name: "PREPUSH_GH", value: "/work/bin/gh-issue-public"}] else [] end)
              + (if $dind == 1 then [{name: "DOCKER_HOST", value: "unix:///run/dind/docker.sock"},
                                     {name: "TESTCONTAINERS_RYUK_DISABLED", value: "true"}] else [] end)),
        resources: {requests: {cpu: $cr, memory: $mr, "ephemeral-storage": "1Gi"}, limits: {cpu: $cl, memory: $ml, "ephemeral-storage": $eph}},
@@ -3070,7 +3292,7 @@ kc create -f "$BOX/job.json" >/dev/null || { say "Job не создан (не в
 T0="$(now)"
 REQ_SPEC="$(jq -c '.spec.template.spec' "$BOX/job.json")"
 verify_spec Job "$(kc -n "$NSNAME" get job run -o json 2>/dev/null | jq -c '.spec.template.spec // empty' 2>/dev/null)"
-say "Job создан: образ golang:$GOVER$([ -n "$LINT_PIN" ] && [ "$PROFILE" != go-race ] && [ "$PROFILE" != integration ] && echo ", golangci-lint $LINT_PIN"), cpu ${RUN_CPU_REQ}m/$CPU_LIM, память $RUN_MEM_REQ/$RUN_MEM_LIM МиБ$([ "$DIND" = 1 ] && echo ', dind')$([ -n "$HELM_PIN$NODE_PIN$BUF_PIN" ] && echo ", helm ${HELM_PIN:-нет пина}${HELM_SRC:+ ($HELM_SRC)}, node ${NODE_PIN:-нет пина}, buf ${BUF_PIN:-нет пина}")"
+say "Job создан: образ $IMG_NAME$([ -n "$LINT_PIN" ] && [ "$PROFILE" != go-race ] && [ "$PROFILE" != integration ] && echo ", golangci-lint $LINT_PIN"), cpu ${RUN_CPU_REQ}m/$CPU_LIM, память $RUN_MEM_REQ/$RUN_MEM_LIM МиБ$([ "$DIND" = 1 ] && echo ', dind')$([ -n "$HELM_PIN$NODE_PIN$BUF_PIN" ] && echo ", helm ${HELM_PIN:-нет пина}${HELM_SRC:+ ($HELM_SRC)}, node ${NODE_PIN:-нет пина}, buf ${BUF_PIN:-нет пина}")"
 
 # pod_state — «имя|фаза|fetch|run|код run|причина run|сообщение run|ожидание|
 # планирование|отказ userns». Отказ userns — строка «remote-heavy-userns: …» в

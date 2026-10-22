@@ -182,6 +182,22 @@ def match(pat, path):
     return seg(path.split('/'), pat.split('/'))
 
 
+# kind_of — вид бинаря для текста отказа: утилитой file, а без неё (образ Job профиля ws —
+# golang:1.26.9 — её не несёт, ws#1304) либо при пустом ответе — по сигнатуре первых байт.
+# Вид — лишь слово отказа: отказ решает is_bin, и падение здесь не должно его подменять
+# трассировкой без имени файла (живой прогон 2026-10-22: FileNotFoundError, 21 проба check-25).
+MAGIC = ((b'\x7fELF', 'ELF'), (b'\x1f\x8b', 'gzip compressed data'), (b'PK\x03\x04', 'Zip archive data'),
+         (b'\x89PNG', 'PNG image data'), (b'%PDF', 'PDF document'))
+
+
+def kind_of(head):
+    try:
+        k = subprocess.run(['file', '-b', '-'], input=head, capture_output=True).stdout.decode('utf-8', 'replace').split(',')[0].strip()
+    except OSError:
+        k = ''
+    return k or next((n for m, n in MAGIC if head.startswith(m)), 'вид не определён: file нет, сигнатура не узнана')
+
+
 def allowed(kind, path):
     return any(a[0] == kind and match(a[1], path) for a in allow)
 
@@ -191,7 +207,7 @@ for (blob, path), (mode, commit) in sorted(cands.items(), key=lambda x: x[0][1])
     size, is_bin, head = info[blob]
     what = []
     if is_bin and not allowed('binary', path):
-        kind = subprocess.run(['file', '-b', '-'], input=head, capture_output=True).stdout.decode('utf-8', 'replace').split(',')[0].strip()
+        kind = kind_of(head)
         what.append(('исполняемый бинарь' if mode == '100755' else 'бинарный') + ' (' + kind + ')')
     if size > LIMIT and not allowed('size', path):
         what.append(str(size) + ' Б > порога 1 МБ (' + str(LIMIT) + ' Б)')
