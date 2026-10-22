@@ -49,10 +49,12 @@ echo "── диспозиция сигналов: команда слота �
 # Вывод команды: «<код yes | head> <биты SIG_IGN на PIPE|HUP>»; конвейер — «141 0».
 # shellcheck disable=SC2016  # строка дочерней оболочки, раскрывает она
 SIGP='set -o pipefail; yes | head -n 1 > /dev/null; p=$?; i=$(sed -n "s/^SigIgn:[[:space:]]*//p" /proc/$$/status); printf "%s %s" "$p" $(( 16#$i & 0x1001 ))'
-# Вызывающие: оба сигнала, только PIPE, только HUP — python, диспозиция задана им самим.
+# Вызывающие: оба сигнала, только PIPE, только HUP — python, и каждый задаёт ОБА сигнала явно:
+# python при старте сам заглушает SIGPIPE, и exec это наследует (замер Job ws#1326 @0c59eb69b:
+# «только HUP» без SIG_DFL на PIPE дал без слота «1 4097»), а HUP вызывающий пробы мог заглушить.
 IGN=(python3 -c 'import os, signal, sys; signal.signal(signal.SIGPIPE, signal.SIG_IGN); signal.signal(signal.SIGHUP, signal.SIG_IGN); os.execvp(sys.argv[1], sys.argv[1:])')
-IGNP=(python3 -c 'import os, signal, sys; signal.signal(signal.SIGPIPE, signal.SIG_IGN); os.execvp(sys.argv[1], sys.argv[1:])')
-IGNH=(python3 -c 'import os, signal, sys; signal.signal(signal.SIGHUP, signal.SIG_IGN); os.execvp(sys.argv[1], sys.argv[1:])')
+IGNP=(python3 -c 'import os, signal, sys; signal.signal(signal.SIGPIPE, signal.SIG_IGN); signal.signal(signal.SIGHUP, signal.SIG_DFL); os.execvp(sys.argv[1], sys.argv[1:])')
+IGNH=(python3 -c 'import os, signal, sys; signal.signal(signal.SIGPIPE, signal.SIG_DFL); signal.signal(signal.SIGHUP, signal.SIG_IGN); os.execvp(sys.argv[1], sys.argv[1:])')
 # sigrun <слот> [ENV=…] [вызывающий…] — вывод SIGP, исполненной командой слота.
 sigrun() { local s="$1"; shift; slot "$@" bash "$s" docker -- bash -c "$SIGP" > /dev/null; cat "$W/out"; }
 
