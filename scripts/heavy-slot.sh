@@ -848,7 +848,7 @@ push_where() {
     # превращает refspec в имена удаляемых веток. Заменяющее суждение — только о refspec, кладущем
     # ГОЛОВУ копии (HEAD, @ либо имя её текущей ветки в роли источника) в иную ветку: прочее — отправка
     # названной ветки по имени (`origin 1182-lane`) либо удаление — голову корня никуда не кладёт.
-    local del="" pos=() kind src dsta
+    local del="" pos=() kind src dsta dests=() rn lf d
     i=$(( PUSH_AT + 1 ))
     while [ "$i" -lt "$n" ]; do
         w="${CMD_R[$i]}"
@@ -877,6 +877,7 @@ push_where() {
         esac
         shown+=("$kind")
         case "$dsta" in ''|refs/*) continue ;; esac
+        dests+=("$dsta")
         { [ "$src" = HEAD ] || [ "$src" = @ ] || { [ -n "$br" ] && [ "$src" = "$br" ] && [[ "${w#+}" == *:* ]]; }; } || continue
         [ "$dsta" = "$br" ] || bad="${bad:+$bad }$dsta"
     done
@@ -886,6 +887,28 @@ push_where() {
     if [ -n "$bad" ] && push_to_foreign_branch "$top"; then
         say "git push из первичной копии воркспейса ($top) кладёт её голову в ветку «$bad» при текущей «${br:-отсоединённая}»: ветки, которой здесь нет, — а ветка задачи живёт в КОПИИ задачи (ws#1182: так ветка чужого репозитория легла в этот). Из копии: cd <копия> && heavy-slot.sh … либо git -C <копия> push …. Команда не запускалась"
         exit 64
+    fi
+    # Замок отправки (класс уроков «параллельные-отправки-ветки», 5 случаев 2026-10-19…22: вторая
+    # отправка той же ветки теряла ref ПОСЛЕ полного хука — «cannot lock ref», «reference already
+    # exists»): на (репозиторий, ветка) — один процесс; вторая отказывает 64 ДО хука. Замок держит
+    # открытый дескриптор, его наследует команда отправки (и заявка --enqueue) — снимается с её
+    # выходом; повторный вход той же цепочки (--queued) берёт уже свой (HS_PUSH_LOCKS).
+    if [ "$CLASS" = ci-local ] && [ "${#dests[@]}" -gt 0 ]; then
+        rn="${rem:-origin}"
+        case "$rn" in */* | *:*) ;; *) rn="$(git -C "$top" remote get-url "$rn" 2>/dev/null || printf '%s' "$rn")" ;; esac
+        rn="${rn%/}"; rn="${rn%.git}"; rn="${rn##*[/:]}"
+        mkdir -p "$DIR/push-locks" 2>/dev/null
+        for d in "${dests[@]}"; do
+            lf="$DIR/push-locks/$rn--${d//\//%}.lock"
+            case " ${HS_PUSH_LOCKS:-} " in *" $lf "*) continue ;; esac
+            exec {PLFD}>> "$lf" || continue
+            if ! flock -n "$PLFD"; then
+                say "отправка ветки «$d» репозитория $rn уже идёт ($(cat "$lf.who" 2>/dev/null || echo 'держатель не назван')) — вторая теряла бы ref после полного хука; новую голову — после .rc первой (ws#1314). Команда не запускалась"
+                exit 64
+            fi
+            printf 'pid %s · %s\n' "$$" "$PWD" > "$lf.who"
+            export HS_PUSH_LOCKS="${HS_PUSH_LOCKS:-} $lf"
+        done
     fi
     [ "$CLASS" != ci-local ] || push_homes "$top"
     GIT_IDX=""; GDIR="$PWD"

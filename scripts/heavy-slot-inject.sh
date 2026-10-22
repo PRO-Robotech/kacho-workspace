@@ -1010,6 +1010,15 @@ be="$(jn ' enter id=')"; rm -f "$HL"
 assert "0 1 да $((be + 1))" "$(rslot env FAKE_AVAIL=1 FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- git push -q "$W/bare.git" HEAD:refs/heads/1115-w) $(grep -c '^job=нет ' "$HL" 2>/dev/null) $(has_ref 1115-w) $(jn ' enter id=')" "близнец: кластер недоступен → хук локально слотом (enter в журнале)"
 be="$(jn ' enter id=')"; b78="$(jn 'route=push rc=1 hook_rc=78 ')"; rm -f "$HL"
 assert "77   нет $be $((b78 + 1))" "$(rslot env FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- git push -q "$W/bare.git" HEAD~1:refs/heads/1115-v) $(grep -c '^job=1 ' "$HL" 2>/dev/null) $(grep -c '^job=нет ' "$HL" 2>/dev/null) $(has_ref 1115-v) $(jn ' enter id=') $(jn 'route=push rc=1 hook_rc=78 ')" "отправка не головы копии: переходник — 78, Job не звался, та же отправка локально слотом с хуком"
+# Замок отправки (класс «параллельные-отправки-ветки», 5 случаев: вторая отправка той же ветки
+# теряла ref ПОСЛЕ полного хука): идёт отправка (репозиторий, ветка) — вторая отказывает 64 ДО хука.
+PLF="$HEAVY_SLOT_DIR/push-locks/bare--1314-l.lock"; mkdir -p "${PLF%/*}"; rm -f "$W/held"
+( exec 9>> "$PLF"; flock -n 9 && : > "$W/held"; sleep 30 ) & PLH=$!
+for _ in $(seq 1 50); do [ -e "$W/held" ] && break; sleep 0.1; done
+assert "64 да нет" "$(rslot env FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- git push -q "$W/bare.git" HEAD:refs/heads/1314-l) $(has "$W/err" 'уже идёт') $(has_ref 1314-l)" "замок отправки: та же ветка того же репозитория при идущей отправке — 64 до хука, ref не тронут"
+assert "0 да" "$(rslot env FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- git push -q "$W/bare.git" HEAD:refs/heads/1314-m) $(has_ref 1314-m)" "близнец: другая ветка того же репозитория при идущей отправке — идёт"
+kill "$PLH" 2>/dev/null; wait "$PLH" 2>/dev/null
+assert "0 да" "$(rslot env FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- git push -q "$W/bare.git" HEAD:refs/heads/1314-l) $(has_ref 1314-l)" "близнец: первая отправка вышла — та же ветка идёт (замок держит лишь живая)"
 
 echo "── маршрут Job: запись проверенного — на машине, повтор проверенной вершины Job не ставит (ws#1288, kacho#3336)"
 # Приёмка ws#1288: Job судит в своём клоне со своей .git, запись хука оставалась в поде, и
