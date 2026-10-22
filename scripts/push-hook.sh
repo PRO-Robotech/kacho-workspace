@@ -17,9 +17,14 @@
 # scripts/hooks/pre-push (ci-local.sh, run-all.sh) и пропускал без слота отправку kaname, чей хук
 # гонит go test, и копию с core.hooksPath на каталог с pre-push.
 #
-# Аргументы — слова команды между `git` и `push`. Судятся -C, --git-dir, --work-tree и
-# `-c core.hooksPath=…`: прочие `-c` не подаются git — значение чужой настройки страж,
-# судящий команду ДО её разрешения, исполнять не вправе.
+# Аргументы — присваивания окружения команды (`ИМЯ=значение`, что стоят перед git либо в `env`)
+# и слова между `git` и `push`. Судятся -C, --git-dir, --work-tree и `-c core.hooksPath=…`:
+# прочие `-c` не подаются git — значение чужой настройки страж, судящий команду ДО её
+# разрешения, исполнять не вправе. Присваивание судится по ИМЕНИ и git не подаётся: GIT_*
+# (GIT_DIR, GIT_WORK_TREE, GIT_COMMON_DIR, GIT_CONFIG_*, …), HOME и XDG_CONFIG_HOME меняют
+# то, что git исполнит, — отправка с ними считается отправкой с хуком; закрытый перечень
+# безвредных — транспорт и запрос учётных данных: GIT_TERMINAL_PROMPT, GIT_SSH_COMMAND, GIT_SSH,
+# GIT_ASKPASS. Окружение самого вызова признак наследует — его git и судит.
 #
 # Вывод — одна строка `PUSH-HOOK<TAB>present|absent|none<TAB>основание`. Коды: 0 — хук есть;
 # 1 — хука нет (лёгкая отправка); 2 — не репозиторий git либо git не ответил (отправка
@@ -28,6 +33,15 @@ set -u
 
 opts=() gdir="" wtree="" cdir="$PWD"
 while [ "$#" -gt 0 ]; do
+    if [[ "$1" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; then
+        name="${1%%=*}"
+        case "$name" in
+            GIT_TERMINAL_PROMPT|GIT_SSH_COMMAND|GIT_SSH|GIT_ASKPASS) ;;
+            GIT_*) printf 'PUSH-HOOK\tpresent\tпеременная %s меняет то, что исполнит git (каталог, дерево, настройки) — отправка судится как с хуком\n' "$name"; exit 0 ;;
+            HOME|XDG_CONFIG_HOME) printf 'PUSH-HOOK\tpresent\tпеременная %s меняет глобальный слой настроек git — отправка судится как с хуком\n' "$name"; exit 0 ;;
+        esac
+        shift; continue
+    fi
     case "$1" in
         -C|--git-dir|--work-tree)
             [ "$#" -ge 2 ] || { printf 'PUSH-HOOK\tnone\tу опции %s нет значения\n' "$1"; exit 64; }

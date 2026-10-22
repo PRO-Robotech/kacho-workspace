@@ -558,6 +558,8 @@ denies ci-local "XDG_CONFIG_HOME=$WORK/ghome git push origin HEAD" "$PN"
 denies ci-local "env -C $WORK/push-inst git push origin HEAD" "$PN"
 denies ci-local "env --chdir=$WORK/push-inst git push origin HEAD" "$PN"
 denies ci-local "env -C $WORK git -C push-inst push origin HEAD" "$PN"
+run "env -C $WORK/push-inst git push origin HEAD" "$PN" > /dev/null
+assert "да" "$(grep -qF -- "cd $WORK/push-inst && /ws/scripts/heavy-slot.sh ci-local -- git push origin HEAD" "$WORK/out" && echo да || echo нет)" "отказ env -C: «как запустить» — из каталога env -C (cd <каталог> && слот), а не из каталога вызова"
 passes "GIT_TERMINAL_PROMPT=0 git push origin HEAD" "$PN"
 passes "env GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND=ssh git push origin HEAD" "$PN"
 passes "env -C $PN git push origin HEAD" "$WORK/push-inst"

@@ -176,6 +176,8 @@
 # ОТПРАВКА БЕЗ ХУКА (ws#1335): `git push` классом ci-local в клоне, где git хука отправки не
 # исполнит (признак — scripts/push-hook.sh, один со стражем heavy-guard), исполняется сразу:
 # без слота машины, без кластера, после суждения «откуда отправка»; журнал — строка light (push_light).
+# Присваивания и -C обёртки env идут признаку: GIT_DIR, GIT_CONFIG_*, HOME — и любая не из закрытого
+# перечня GIT_* — делают отправку тяжёлой; сломанный признак — тоже (лёгкая — лишь по строке «absent»).
 #
 # ХУК ОТПРАВКИ (ws#1106, ws#1115): `git push` классом ci-local в клоне продукта при
 # принимающем кластере идёт без слота машины: git звано с core.hooksPath на переходник,
@@ -1951,20 +1953,34 @@ remote_route() {
 # push_light — 0, если CMD_R — `git … push` в клоне, где git хука отправки НЕ исполнит (ws#1335,
 # решение диспетчера 2026-10-22, вариант б): нет исполняемого <общий каталог>/hooks/pre-push, пуст
 # core.hooksPath (любой слой и -c), нет scripts/hooks/pre-push в дереве. Признак — scripts/push-hook.sh,
-# один со стражем heavy-guard; PL_WHY — его основание. Перед git — лишь присваивания, env, setsid,
-# nohup и timeout <срок>: иное слово (`make git push`) — не отправка. Признака нет — 1 (отправка тяжела).
+# один со стражем heavy-guard; PL_WHY — его основание; лёгкая — лишь по его СТРОКЕ «absent» с кодом 1
+# (сломанный, снятый признак — тяжела). Перед git — setsid, nohup, timeout <срок> и env: его
+# присваивания и -C/--chdir идут признаку (GIT_*, HOME меняют то, что исполнит git, — признак судит
+# имя), -u/-i окружение лишь убавляют; иное слово (`make git push`, `env -S`) — не лёгкая отправка.
 push_light() {
-    local i=0 n=${#CMD_R[@]} o=() w out rc ph
+    local i=0 n=${#CMD_R[@]} o=() w out rc ph ev=""
     PL_WHY=""
     ph="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/push-hook.sh"
     [ -f "$ph" ] || return 1
     while [ "$i" -lt "$n" ]; do
         w="${CMD_R[$i]}"
+        if [ -n "$ev" ]; then   # слова env до команды
+            case "$w" in
+                -C|--chdir) o+=(-C "${CMD_R[$(( i + 1 ))]:-}"); i=$(( i + 2 )); continue ;;
+                --chdir=*) o+=(-C "${w#*=}"); i=$(( i + 1 )); continue ;;
+                -u|--unset) i=$(( i + 2 )); continue ;;
+                -i|--ignore-environment|-) i=$(( i + 1 )); continue ;;
+                --) ev=""; i=$(( i + 1 )); continue ;;
+                -*) return 1 ;;
+                *=*) [ -n "$ev" ] || return 1; o=("$w" "${o[@]}"); i=$(( i + 1 )); continue ;;
+            esac
+            ev=""
+        fi
         case "$w" in
             git|*/git) break ;;
-            env|setsid|nohup) i=$(( i + 1 )) ;;
+            env|*/env) ev=1; i=$(( i + 1 )) ;;
+            setsid|nohup) i=$(( i + 1 )) ;;
             timeout) i=$(( i + 2 )) ;;
-            *=*) [[ "$w" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]] || return 1; i=$(( i + 1 )) ;;
             *) return 1 ;;
         esac
     done
@@ -1980,8 +1996,8 @@ push_light() {
     done
     [ "$i" -lt "$n" ] || return 1
     out="$(bash "$ph" "${o[@]}" 2>/dev/null)"; rc=$?
-    PL_WHY="$(cut -f3 <<< "$out")"
-    [ "$rc" = 1 ]
+    PL_WHY="$(head -n 1 <<< "$out" | cut -f3)"
+    [ "$rc" = 1 ] && [[ "$(head -n 1 <<< "$out")" == "PUSH-HOOK"$'\t'"absent"$'\t'* ]]
 }
 # route_print — `--route` (ws#1192): маршрут, который прогон выбрал бы этой команде, теми же
 # route_static и stand_static, без кластера, run.sh, журнала и исполнения. external — Job

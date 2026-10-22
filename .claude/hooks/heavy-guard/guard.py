@@ -408,8 +408,9 @@ def skip_opts(args, opts):
     return args[k:]
 
 
-def unwrap(argv):
-    """Снимает присваивания и обёртки. Возвращает (присваивания, argv команды)."""
+def unwrap(argv, chdir=None):
+    """Снимает присваивания и обёртки. Возвращает (присваивания, argv команды). chdir — список,
+    куда пишутся каталоги `env -C`/`--chdir` по порядку: команда идёт там (ws#1335)."""
     env, i = [], 0
     while i < len(argv):
         w = argv[i]
@@ -432,6 +433,20 @@ def unwrap(argv):
                 if a == "--":
                     i += 1
                     break
+                if chdir is not None:
+                    if a in ("-C", "--chdir") and i + 1 < len(argv):
+                        chdir.append(argv[i + 1])
+                    elif a.startswith("--chdir="):
+                        chdir.append(a.split("=", 1)[1])
+                    elif a.startswith("-") and not a.startswith("--"):
+                        for k in range(1, len(a)):  # связка: -u/-a/-S берут остаток сами
+                            if a[k] in "uaS":
+                                break
+                            if a[k] == "C":
+                                val = a[k + 1:] or (argv[i + 1] if i + 1 < len(argv) else None)
+                                if val is not None:
+                                    chdir.append(val)
+                                break
                 split = env_split(a, argv[i + 1] if i + 1 < len(argv) else None)
                 if split is not None:  # -S строка: её слова и есть команда
                     words_, took = split
@@ -677,21 +692,24 @@ def repo_top(path):
 PUSH_HOOK = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "scripts", "push-hook.sh")
 
 
-def push_has_hook(gopts, path):
+def push_has_hook(gopts, path, assigns=()):
     """git push тяжёл там, где git исполнит хук отправки (ws#1335, решение диспетчера 2026-10-22,
     вариант б): признак — scripts/push-hook.sh, один со слотом. gopts — слова между git и push
-    (-C, --git-dir, --work-tree, -c core.hooksPath= судит признак); path — каталог команды.
-    Не репозиторий (код 2) — отправка откажет сама, не тяжела; признак не ответил либо снят —
-    тяжела: молча лёгкой отправка не становится. Класс — ci-local: отправку слот ведёт им
-    (бронь по предмету, keepalive ssh)."""
+    (-C, --git-dir, --work-tree, -c core.hooksPath= судит признак); path — каталог команды;
+    assigns — её окружение `ИМЯ=значение` (признак судит его по имени и git не подаёт).
+    Лёгкая — только по СТРОКЕ признака: «absent» с кодом 1 либо «none» (не репозиторий: отправка
+    откажет сама) с кодом 2; иной вывод, код, снятый или упавший признак — тяжела: молча лёгкой
+    отправка не становится. Класс — ci-local: отправку слот ведёт им (бронь по предмету, keepalive ssh)."""
     if not os.path.isfile(PUSH_HOOK):
         return True
     try:
-        rc = subprocess.run(["bash", PUSH_HOOK] + gopts, cwd=path, stdin=subprocess.DEVNULL,
-                            capture_output=True, timeout=5).returncode
-    except (OSError, subprocess.SubprocessError):
+        p = subprocess.run(["bash", PUSH_HOOK] + list(assigns) + gopts, cwd=path, stdin=subprocess.DEVNULL,
+                           capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.SubprocessError, ValueError):
         return True
-    return rc not in (1, 2)
+    line = p.stdout.split("\n", 1)[0]
+    return not ((p.returncode == 1 and line.startswith("PUSH-HOOK\tabsent\t"))
+                or (p.returncode == 2 and line.startswith("PUSH-HOOK\tnone\t")))
 
 
 HELM_SUBS = {"completion", "create", "dependency", "env", "get", "help", "history", "install",
@@ -1184,7 +1202,7 @@ def classify_argv(env, argv, cwd, ctx, level, alt):
             base_dir = cwd or os.getcwd()
             if not os.path.isdir(base_dir):
                 return None  # каталога команды нет: git откажет сам
-            if push_has_hook(gopts, base_dir):
+            if push_has_hook(gopts, base_dir, [e for e in env if ASSIGN.match(e)]):
                 return "ci-local"
         return None
     if "/" in argv[0]:
@@ -1226,7 +1244,11 @@ def scan(text, cwd, ctx, level=0, alt=None, env0=None):
     stripped, bodies = strip_heredocs(text)
     loops = {}
     for ws in (v for seg in split_commands(stripped) for v in loop_variants(words(seg), loops, cur)):
-        env, argv = unwrap(expand_words(ws, vis))
+        dirs = []
+        env, argv = unwrap(expand_words(ws, vis), dirs)
+        here = cur
+        for d in dirs:  # `env -C <каталог>` — команда идёт там; каталог из переменной не представим
+            here = None if here is None or "$" in d or "__SUBST__" in d else os.path.join(here or os.getcwd(), os.path.expanduser(d))
         if not argv:
             exp.extend([e for e in env if exported(e)])  # `R=-race` отдельной командой
             vis.extend(env)
@@ -1260,9 +1282,10 @@ def scan(text, cwd, ctx, level=0, alt=None, env0=None):
         inline = shell_args(argv[1:])[0] if base in SHELLS else " ".join(argv[1:]) if base == "eval" else None
         if level == 0 and inline:
             yield from (h for h in scan(inline, cur, ctx, 0, alt, cenv) if h[0] == "knob")
-        c = classify_argv(cenv, argv, cur, ctx, level, alt)
+        c = classify_argv(cenv, argv, cur if here is None else here, ctx, level, alt)
         if c:
-            yield "heavy", c, cenv, argv
+            # каталог `env -C` — в строке отказа: «как запустить» идёт оттуда (deny)
+            yield "heavy", c, cenv, (["env", "-C", here] + argv if dirs and here is not None else argv)
     for intro, body in bodies:
         # heredoc, поданный оболочке (`bash <<EOF`, `sh -s <<EOF`), — её команды;
         # переменные — всей строки (тело без кавычек раскрывает внешняя оболочка)
@@ -1327,7 +1350,10 @@ def clip(s, n):
 
 def deny(cls, env, argv, slot):
     shown = show(argv)
-    fixed = clip(" ".join([show(env), slot, cls, "--", shown]).strip(), 400)
+    cd = ""
+    if argv[:2] == ["env", "-C"] and len(argv) > 3:  # из scan: команда идёт в каталоге env -C
+        cd, argv = argv[2], argv[3:]
+    fixed = clip(("cd %s && " % shlex.quote(cd) if cd else "") + " ".join([show(env), slot, cls, "--", show(argv)]).strip(), 400)
     sys.stderr.write(
         "HEAVY-GUARD: отказ — тяжёлая команда без слота памяти (класс «%s»).\n"
         "  найдено: %s\n"

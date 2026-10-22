@@ -148,9 +148,7 @@ if s.count(sys.argv[3]) != 1:
     sys.exit(1)
 open(sys.argv[2], "w", encoding="utf-8").write(s.replace(sys.argv[3], sys.argv[4]))' "$SLOT" "$W/m-$1/heavy-slot.sh" "$2" "$3"
 }
-if smut always-light '    [ "$rc" = 1 ]
-}' '    true
-}'; then
+if smut always-light '    [ "$rc" = 1 ] && [[' '    true || [['; then
     (cd "$W/tree" && bash "$W/m-always-light/heavy-slot.sh" ci-local -- git push -q origin HEAD:refs/heads/mut-a > /dev/null 2>&1)
     assert "есть" "$(ref mut-a)" "мутант «всякая отправка лёгкая»: клон с хуком отправил без слота — утверждение «хук tree: ветки нет» его ловит"
 else assert "построен" "не построен" "мутант always-light: фрагмент не единствен"; fi
@@ -174,7 +172,7 @@ if smut no-dash-C '            -C|-c|--git-dir|--work-tree|--namespace) o+=("$w"
     (cd "$W/none" && bash "$W/m-no-dash-C/heavy-slot.sh" ci-local -- git -C "$W/inst" push -q origin HEAD:refs/heads/mut-c > /dev/null 2>&1)
     assert "есть" "$(ref mut-c)" "мутант «-C признаку не передан»: клон с хуком отправил лёгким — утверждение «dash-C» его ловит"
 else assert "построен" "не построен" "мутант no-dash-C: фрагмент не единствен"; fi
-if smut env-transparent '                *=*) [ -n "$ev" ] || return 1; o=("$w" "${o[@]}"); i=$(( i + 1 )) ;;' '                *=*) i=$(( i + 1 )) ;;'; then
+if smut env-transparent '                *=*) [ -n "$ev" ] || return 1; o=("$w" "${o[@]}"); i=$(( i + 1 )); continue ;;' '                *=*) i=$(( i + 1 )); continue ;;'; then
     rm -f "$W"/ran.*; (cd "$W/none" && bash "$W/m-env-transparent/heavy-slot.sh" ci-local -- env "GIT_DIR=$W/inst/.git" git push -q origin HEAD:refs/heads/mut-d > /dev/null 2>&1)
     assert "есть" "$(ref mut-d)" "мутант «присваивания признаку не переданы»: env GIT_DIR=<клон с хуком> отправил лёгким — утверждение «git-dir-env» его ловит"
 else assert "построен" "не построен" "мутант env-transparent: фрагмент не единствен"; fi
