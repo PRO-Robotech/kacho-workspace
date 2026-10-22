@@ -1311,7 +1311,7 @@ assert "1 да" "$(diff "$SLOT" "$W/slot-mut-1302f.sh" | grep -c '^<') $(r="$(ra
 assert "1 да" "$(diff "$SLOT" "$W/slot-mut-1302f.sh" | grep -c '^<') $(r="$(fair3 "$W/slot-mut-1302f.sh")"; case "$r" in "A / 0/0/0 A B C") echo "нет($r)" ;; *) echo да ;; esac)" "...тот же мутант: C стартует при A, пока B ждёт (проба старшинства выше его ловит)"
 assert "1 да" "$(diff "$SLOT" "$W/slot-mut-1176a.sh" | grep -c '^<') $(r="$(race2 "$W/slot-mut-1176a.sh")"; case "$r" in "0/0 1 A B") echo "нет($r)" ;; *) echo да ;; esac)" "мутант «учёта вошедших нет» (EXT_GATE=0): сцена гонки — 75 второй переписи run.sh либо ns разом два (проба выше его ловит)"
 # Связка с настоящим run.sh: --request отвечает запросом «mCPU МиБ» без кластера (тем же sizing).
-assert "да" "$(bash "$HERE/remote-heavy/run.sh" --request --profile lint --repo kaname 2>/dev/null | grep -qE '^[1-9][0-9]* [1-9][0-9]*$' && echo да || echo нет)" "связка с run.sh: --request --profile lint --repo kaname — «mCPU МиБ» (heavy-slot берёт запрос билета у него)"
+assert "да" "$(o="$(bash "$HERE/remote-heavy/run.sh" --request --profile lint --repo kaname 2>/dev/null)"; grep -qE '^[1-9][0-9]* [1-9][0-9]*$' <<<"$o" && echo да || echo нет)" "связка с run.sh: --request --profile lint --repo kaname — «mCPU МиБ» (heavy-slot берёт запрос билета у него)"
 # Внешний вход очередь памяти не держит: локальная команда входит, пока внешний билет в стадии запуска.
 gnew; rm -f "$W/shold" "$W/gl1"
 r1="$(genq "$R" A GATE_START_HOLD="$W/shold")"; RA="$(rcof)"
