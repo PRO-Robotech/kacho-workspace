@@ -156,6 +156,21 @@ knmech() {
 # routes <копия> — строки ROUTE вывода expect случая: «задание<TAB>метка» по строке.
 routes() { grep -P '^ROUTE\t' "$1/err" | cut -f2,3 | LC_ALL=C sort | tr '\n' ';'; }
 KNJOBS='["ci.yml:unit","ci.yml:integration","e2e-newman.yml:stand"]'
+# Маршрут заданий стенда kacho в ЭТОМ дереве — факт судьи слота, а не выбор случая: у
+# stand-ns-run без RUNNER внешнего пути нет (ws#1301), с RUNNER=<вид> механизма клона — pod
+# раннера (ws#1303), ведомость называет форму с RUNNER. При «нет» ожидаемое kacho с выбранным
+# заданием стенда — VOID до запуска, и строка VOID называет РОВНО выбранные задания стенда.
+KC_STAND='внешний кластер'
+kc_want() {  # kc_want <задания JSON> — ожидание случая kacho под маршрутом стенда этого дерева
+    local j re='маршрута во внешний кластер нет' sel=''
+    for j in console-e2e.yml:probes e2e-newman.yml:shard production-posture.yml:stand; do
+        if jq -e --arg j "$j" 'index($j) != null' <<< "$1" > /dev/null; then sel=1; re="$re(?=[^\t]*${j//./\\.} — нет: [^\t]*stand-ns-run)"
+        else re="$re(?![^\t]*${j//./\\.} — )"; fi
+    done
+    if [ "$KC_STAND" = 'внешний кластер' ] || [ -z "$sel" ]; then want 0 "$1"; else want 2 -; printf '%s' "$re" > "$C/voidre"; fi
+    printf 'ci.yaml:integration\tвнешний кластер;ci.yaml:unit-shard\tвнешний кластер;console-e2e.yml:probes\t%s;e2e-newman.yml:shard\t%s;production-posture.yml:stand\t%s;' \
+        "$KC_STAND" "$KC_STAND" "$KC_STAND" > "$C/routes"
+}
 # kecase <имя> <draft> <база-ветка> <путь правки> <ожидаемое JSON> — копия kacho: база —
 # origin/main и origin/1266, голова правит путь; ожидаемое сверено с детектором CI.
 kecase() {
@@ -166,12 +181,12 @@ kecase() {
     local det; det="$(detected "$C/co" "$2" "$3" "$(jq -c '[.[]]' <<< "$LEDGER")")"
     if [ "$det" = "$5" ]; then pass=$((pass + 1)); echo "  [OK]   паритет с --github-output: $1 — CI исполнит $det"
     else fail=$((fail + 1)); echo "  [FAIL] паритет с --github-output: $1 — детектор CI даёт «$det», а случай ждёт «$5»" >&2; fi
-    want 0 "$det"
-    printf 'ci.yaml:integration\tвнешний кластер;ci.yaml:unit-shard\tвнешний кластер;console-e2e.yml:probes\tвнешний кластер;e2e-newman.yml:shard\tвнешний кластер;production-posture.yml:stand\tвнешний кластер;' > "$C/routes"
+    kc_want "$det"
 }
 ecommit() { sandbox_run git -C "$C/co" add -A && sandbox_run git -C "$C/co" commit -qm c && git -C "$C/co" rev-parse HEAD > "$C/head"; }
-# want <код> <код причины | -> — ожидание случая; «-» — ни одной строки REASON
-want() { printf '%s' "$1" > "$C/code"; printf '%s' "$2" > "$C/want"; rm -f "$C/routes"; }
+# want <код> <код причины | -> — ожидание случая; «-» — ни одной строки REASON; маршруты и образец
+# VOID прежнего ожидания (kc_want) снимаются — их пишут после want
+want() { printf '%s' "$1" > "$C/code"; printf '%s' "$2" > "$C/want"; rm -f "$C/routes" "$C/voidre"; }
 judge() {  # judge <скрипт> <каталог случая> → 0 сошлось
     local c="$2" out code
     if [ -f "$c/expect" ]; then  # случай подкоманды expect: код и задания либо строка VOID
@@ -290,9 +305,8 @@ printf '%s' "${KN3/unit	внешний кластер/unit	нет}" > "$C/routes
 ecase "expect kaname: судья маршрута не ответил — VOID" PRO-Robotech/kaname; ecommit; want 2 -
 sed 's|^SLOT="\$HERE/heavy-slot\.sh"|SLOT="$HERE/heavy-slot-нет.sh"|' "$TOOL" > "$WM/noslot.sh"; echo "$WM/noslot.sh" > "$C/tool"
 printf '%s' 'heavy-slot\.sh --route [^\t]*не ответил' > "$C/voidre"
-ecase "expect kacho: ready, механизм stand-ns в голове — пять заданий, все внешние" PRO-Robotech/kacho; ecommit; printf -- '--base\norigin/main\n--draft\nfalse\n' > "$C/args"; want 0 "$LEDGER"
+ecase "expect kacho: ready, механизм stand-ns в голове — пять заданий стенда, маршрут — KC_STAND" PRO-Robotech/kacho; ecommit; printf -- '--base\norigin/main\n--draft\nfalse\n' > "$C/args"; kc_want "$LEDGER"
 KC5='ci.yaml:integration	внешний кластер;ci.yaml:unit-shard	внешний кластер;console-e2e.yml:probes	внешний кластер;e2e-newman.yml:shard	внешний кластер;production-posture.yml:stand	внешний кластер;'
-printf '%s' "$KC5" > "$C/routes"
 ecase "expect kacho: stand-ns в голове нет — VOID, три задания стенда без маршрута" PRO-Robotech/kacho; rm "$C/co/deploy/scripts/stand-ns.sh"; ecommit; printf -- '--base\norigin/main\n--draft\nfalse\n' > "$C/args"; want 2 -
 printf '%s' "$(sed 's/console-e2e.yml:probes	внешний кластер/console-e2e.yml:probes	нет/; s/e2e-newman.yml:shard	внешний кластер/e2e-newman.yml:shard	нет/; s/production-posture.yml:stand	внешний кластер/production-posture.yml:stand	нет/' <<< "$KC5")" > "$C/routes"
 printf '%s' 'маршрута во внешний кластер нет[^\t]*e2e-newman\.yml:shard — нет: [^\t]*stand-ns' > "$C/voidre"
