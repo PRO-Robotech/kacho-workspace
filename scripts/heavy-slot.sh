@@ -1130,11 +1130,19 @@ fi
 # Отправка слотом ci-local (урок 2026-10-16, ws#1110): git push открывает ssh ДО хука
 # отправки, хук идёт минутами, и простаивающее соединение площадка снимает — push
 # умирал PIPE кодом 141 уже после зелёного хука (журнал слотов: 26 из 26 таких выходов
-# — после ≥ 368 с). Слот держит соединение живым, не трогая заданного вызывающим:
-# GIT_SSH_COMMAND, GIT_SSH и core.sshCommand (любого слоя), если есть, сильнее: git
-# предпочёл бы поставленный слотом GIT_SSH_COMMAND заданному вызывающим GIT_SSH.
-if [ "$CLASS" = ci-local ] && [ -z "${GIT_SSH_COMMAND:-}" ] && [ -z "${GIT_SSH:-}" ] && [ -z "$(git -C "$PWD" config core.sshCommand 2>/dev/null)" ]; then
-    export GIT_SSH_COMMAND="ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=40"
+# — после ≥ 368 с). Слот держит соединение живым: GIT_SSH и core.sshCommand (любого слоя)
+# вызывающего не трогаются — git предпочёл бы им поставленный слотом GIT_SSH_COMMAND.
+# Заданный вызывающим GIT_SSH_COMMAND вида `ssh …` без ServerAliveInterval получает keepalive
+# ЗА своими опциями (уроки 6fb9cbf3, 789e4f3d 2026-10-20: цепочки tmp/autoland экспортировали
+# свой `ssh -o BatchMode=yes` — keepalive слота пропадал, 141 после зелёного хука): у ssh
+# побеждает первое значение опции, так что своё вызывающего сильнее; не-ssh команда — как есть.
+KEEPALIVE="-o ServerAliveInterval=30 -o ServerAliveCountMax=40"
+if [ "$CLASS" = ci-local ] && [ -n "${GIT_SSH_COMMAND:-}" ]; then
+    if [[ "$GIT_SSH_COMMAND" =~ ^[[:space:]]*([^[:space:]]*/)?ssh([[:space:]]|$) ]] && [[ "${GIT_SSH_COMMAND,,}" != *serveraliveinterval* ]]; then
+        export GIT_SSH_COMMAND="$GIT_SSH_COMMAND $KEEPALIVE"
+    fi
+elif [ "$CLASS" = ci-local ] && [ -z "${GIT_SSH:-}" ] && [ -z "$(git -C "$PWD" config core.sshCommand 2>/dev/null)" ]; then
+    export GIT_SSH_COMMAND="ssh $KEEPALIVE"
 fi
 
 # Ручки — до первой записи: отказ не оставляет следа в общем каталоге.

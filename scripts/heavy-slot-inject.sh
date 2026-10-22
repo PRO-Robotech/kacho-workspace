@@ -93,7 +93,13 @@ echo "── ci-local держит ssh отправки живым: GIT_SSH_COMM
 # shellcheck disable=SC2016  # строка дочерней оболочки, переменную раскрывает она
 assert "0 да" "$(slot -u GIT_SSH_COMMAND bash "$SLOT" ci-local -- sh -c 'printf %s "$GIT_SSH_COMMAND" > "$0"' "$W/ssh1") $(grep -q 'ServerAliveInterval=30' "$W/ssh1" && echo да || echo нет)" "ci-local без заданного ssh — GIT_SSH_COMMAND с ServerAliveInterval"
 # shellcheck disable=SC2016
-assert "0 да" "$(slot GIT_SSH_COMMAND='ssh -o Своё=1' bash "$SLOT" ci-local -- sh -c 'printf %s "$GIT_SSH_COMMAND" > "$0"' "$W/ssh2") $([ "$(cat "$W/ssh2")" = 'ssh -o Своё=1' ] && echo да || echo нет)" "близнец: заданный вызывающим GIT_SSH_COMMAND не переписан"
+# Заданный вызывающим ssh без keepalive (цепочки tmp/autoland, уроки 6fb9cbf3 и 789e4f3d: 141
+# после зелёного хука) — keepalive ДОПИСЫВАЕТСЯ за его опциями: у ssh побеждает первое значение
+# опции, поэтому своё вызывающего сильнее; свой keepalive и не-ssh команда — не трогаются.
+assert "0 да" "$(slot GIT_SSH_COMMAND='ssh -o Своё=1' bash "$SLOT" ci-local -- sh -c 'printf %s "$GIT_SSH_COMMAND" > "$0"' "$W/ssh2") $([ "$(cat "$W/ssh2")" = 'ssh -o Своё=1 -o ServerAliveInterval=30 -o ServerAliveCountMax=40' ] && echo да || echo нет)" "заданный вызывающим ssh без keepalive — его опции первыми, keepalive дописан"
+assert "0 да" "$(slot GIT_SSH_COMMAND='/usr/bin/ssh -i k' bash "$SLOT" ci-local -- sh -c 'printf %s "$GIT_SSH_COMMAND" > "$0"' "$W/ssh2b") $(grep -q '^/usr/bin/ssh -i k -o ServerAliveInterval=30' "$W/ssh2b" && echo да || echo нет)" "ssh полным путём без keepalive — дописан"
+assert "0 да" "$(slot GIT_SSH_COMMAND='ssh -o serveraliveinterval=5' bash "$SLOT" ci-local -- sh -c 'printf %s "$GIT_SSH_COMMAND" > "$0"' "$W/ssh2c") $([ "$(cat "$W/ssh2c")" = 'ssh -o serveraliveinterval=5' ] && echo да || echo нет)" "близнец: свой keepalive вызывающего (регистр любой) — не переписан"
+assert "0 да" "$(slot GIT_SSH_COMMAND='my-ssh-wrapper -x' bash "$SLOT" ci-local -- sh -c 'printf %s "$GIT_SSH_COMMAND" > "$0"' "$W/ssh2d") $([ "$(cat "$W/ssh2d")" = 'my-ssh-wrapper -x' ] && echo да || echo нет)" "близнец: не-ssh команда вызывающего — не переписана (опций ssh может не понять)"
 # shellcheck disable=SC2016
 assert "0 да" "$(slot -u GIT_SSH_COMMAND bash "$SLOT" docker -- sh -c 'printf %s "${GIT_SSH_COMMAND:-}" > "$0"' "$W/ssh3") $([ -s "$W/ssh3" ] && echo нет || echo да)" "близнец: класс не ci-local — GIT_SSH_COMMAND не ставится"
 # Заданное вызывающим иначе, чем GIT_SSH_COMMAND, тоже сильнее: core.sshCommand копии
