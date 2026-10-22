@@ -27,8 +27,8 @@ kc() {
     '-n testns get pod testpod -o json') stage=pod;;
     'get ns testns -o json') stage=namespace;;
     '-n testns logs testpod -c run') stage=logs;;
-    'delete ns testns --wait=true --timeout=300s') printf 'DELETE\n' >> "$TRACE"; [ "$MODE" != cleanupfail ]; return;;
-    'get ns testns --ignore-not-found -o name') printf 'ABSENCE\n' >> "$TRACE"; [ "$MODE" != absencefail ]; return;;
+    'delete ns testns --wait=true --timeout=300s') printf 'DELETE\n' >> "$TRACE"; [ "$MODE" != cleanupfail ]; return $?;;
+    'get ns testns --ignore-not-found -o name') printf 'ABSENCE\n' >> "$TRACE"; [ "$MODE" != absencefail ]; return $?;;
     *) printf 'unexpected kc: %s\n' "$*" >&2; return 99;;
   esac
   printf '%s\n' "$stage" >> "$TRACE"

@@ -7,6 +7,7 @@ Run through heavy-slot in the external cluster. This file does not authorize a
 product run; API fixtures intentionally avoid network and exercise the reader.
 """
 import base64
+from collections import Counter
 import copy
 import importlib.util
 import json
