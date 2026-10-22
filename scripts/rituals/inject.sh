@@ -113,6 +113,16 @@
 #   M73 dod_proof.jq: привязка — по началу sha ГОЛОВЫ, а не диапазона     → check-05
 #   близнец T2: привязка записана иначе (срез вместо startswith) — check-05 и check-01 зелены
 #
+# ws#1320: работа доказательства откачена в диапазоне (`Reverts`) — Refs, не Closes; раздел
+# неисполненного в комментарии-доказательстве — частичное.
+#   M74 pr-body: откат не судится                                        → check-01
+#   M75 Reverts: откат без строки git не виден (patch-id снят)           → check-01
+#   M76 Reverts: строка git `This reverts commit` не читается            → check-01
+#   M77 Reverts: откат отката не снимает отката                          → check-01
+#   M78 Reverts: внесение заново тем же диффом не снимает отката         → check-01
+#   M79 Reverts: единица — лишь коммит доказательства, без слияния полосы → check-01
+#   M80 dod_proof.jq: раздел неисполненного не судится                   → check-01, check-05
+#
 # Хранилище для check-04 берётся из HEAD настоящего воркспейса (`RITUALS_WS`):
 # копия несёт только код ритуалов и их общие зависимости.
 # Коды: 0 — все доказательства прошли; 1 — хоть одно нет; 2 — копию не завести.
@@ -431,6 +441,22 @@ inject "M72 pr-body: флаг привязки не читается" check-05-d
 inject "M73 dod_proof.jq: привязка по голове" check-05-dod-judges-agree.py \
     'def dod_proof_bound($range): . as $rev | any($range[]; startswith($rev));' \
     'def dod_proof_bound($range): . as $rev | ($range | last // "") | startswith($rev);' ../lib/dod_proof.jq
+inject "M74 pr-body: откат не судится" check-01-pr-body.py \
+    '            undone = reverts.undone(full)' '            undone = None'
+inject "M75 Reverts: patch-id снят" check-01-pr-body.py \
+    '            cands = set(by_fwd.get(rev.get(c, ""), []))' '            cands = set()'
+inject "M76 Reverts: строка git не читается" check-01-pr-body.py \
+    '            for m in REVERTS_RE.finditer(self.msgs[c]):' '            for m in []:'
+inject "M77 Reverts: откат отката не снимает отката" check-01-pr-body.py \
+    '            if self._stands(c) and not again:' '            if not again:'
+inject "M78 Reverts: внесение заново не снимает отката" check-01-pr-body.py \
+    '            if self._stands(c) and not again:' '            if self._stands(c):'
+inject "M79 Reverts: единица — лишь коммит доказательства" check-01-pr-body.py \
+    '            if x == rev or (len(parents) > 1' '            if x == rev or (False'
+for c in check-01-pr-body.py check-05-dod-judges-agree.py; do
+    inject "M80 dod_proof.jq: раздел неисполненного не судится ($c)" "$c" \
+        '  | any($l[]; _dod_unmet_line) as $unmet' '  | false as $unmet' ../lib/dod_proof.jq
+done
 for c in check-05-dod-judges-agree.py check-01-pr-body.py; do
     twin "T2 dod_proof.jq: привязка срезом ($c)" "$c" \
         'any($range[]; startswith($rev))' 'any($range[]; .[0:($rev | length)] == $rev)' ../lib/dod_proof.jq
