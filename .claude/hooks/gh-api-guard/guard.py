@@ -503,7 +503,8 @@ def deny(found):
         "    либо git merge-base <base> <head> в своей копии;",
         "  · влита ли голова: git merge-base --is-ancestor <head> origin/<base>;",
         "  · поиск с параметрами: gh api --method GET search/issues -f q='…';",
-        "  · комментарий, метка, задача — gh issue/pr comment|edit (их ведёт git-operator).",
+        "  · комментарий, метка, задача — gh issue/pr comment|edit (их ведёт git-operator);",
+        "    правка своего комментария (DoD-proof) — gh issue comment <N> --edit-last.",
         "Вливание — только git-operator: gh pr merge <N> --merge --match-head-commit <sha>;",
         "repos/*/merges, pulls/*/merge, --auto, --admin запрещены всем.",
     ]
