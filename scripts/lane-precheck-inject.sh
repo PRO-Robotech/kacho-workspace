@@ -171,6 +171,11 @@ comment1 14 "журнал:
 DoD-proof @${HEAD_SHA:0:12}
 \`\`\`"
 assert "1 да" "$(run "$L" 1-lane main --issue o/r#14 --hook-log "$W/push.log") $(has 'REASON DOD-PROOF-MISSING o/r#14: комментария')" "DoD-proof внутри блока кода — не доказательство"
+# ws#1324: решает последнее доказательство полосы — частичное после полного снимает.
+comments 15 "DoD-proof @${MID:0:9}" "DoD-proof @${HEAD_SHA:0:12} — частично: пункт 0"
+assert "1 да" "$(run "$L" 1-lane main --issue o/r#15 --hook-log "$W/push.log") $(has "REASON DOD-PROOF-MISSING o/r#15: последнее доказательство полосы DoD-proof @${HEAD_SHA:0:12} частичное")" "полное, затем частичное → DOD-PROOF-MISSING, частичное названо"
+comments 16 "DoD-proof @${MID:0:9} — частично: пункт 0" "DoD-proof @${HEAD_SHA:0:12}"
+assert "0" "$(run "$L" 1-lane main --issue o/r#16 --hook-log "$W/push.log")" "близнец: частичное, затем полное → 0"
 assert "2 да" "$(run "$L" 1-lane main --issue o/r#99 --hook-log "$W/push.log") $(has 'VOID GH-UNREADABLE')" "трекер не ответил → код 2, не зелёное и не красное"
 assert "2" "$(run "$L" 1-lane main --issue o-r-7 --hook-log "$W/push.log")" "задача не в форме владелец/репо#N → код 2"
 
@@ -326,6 +331,10 @@ prem 'proof o/r#12'
 assert "0" "$(runp)" "близнец: DoD-proof под заголовком markdown — предусловие верно"
 prem 'proof o/r#13'
 assert "1 да" "$(runp) $(has 'PREMISE-FALSE proof o/r#13: комментария')" "DoD-proof в цитате → PREMISE-FALSE"
+prem 'proof o/r#15'
+assert "1 да" "$(runp) $(has 'PREMISE-FALSE proof o/r#15: последнее доказательство DoD частичное')" "предусловие: полное, затем частичное → PREMISE-FALSE (ws#1324)"
+prem 'proof o/r#16'
+assert "0" "$(runp)" "близнец: частичное, затем полное — предусловие верно"
 prem "verdict $W/rev-ret.yaml accept"
 assert "1 да" "$(runp) $(has 'вердикт return')" "роль вернула, задание считает принятым → PREMISE-FALSE"
 prem "verdict $W/rev-ret.yaml return"

@@ -40,7 +40,9 @@
 # (`git-issues.md#gi-cascade-no-auto-close`), и `merge-readiness.sh` такого
 # закрытия не видит. Поэтому доказательство DoD (`gi-closes-last-line`) судится
 # здесь: у каждого ОТКРЫТОГО дочернего — комментарий со строкой
-# `DoD-proof @<ревизия>` в начале строки. Нет хоть у одного — находка с номерами:
+# `DoD-proof @<ревизия>` в начале строки, и ПОСЛЕДНЕЕ такое — полное (ws#1324:
+# частичное после полного доказанность снимает, в перечне — `<ref>(последнее-частичное)`).
+# Нет хоть у одного — находка с номерами:
 # такая задача каскадом не закрывается, а переводится остатком
 # (`gi-cascade-remainder`). Комментарии не прочитаны — вердикта нет (код 2).
 # Закрытые дочерние не судятся: их закрыло не это действие. Без ключа
@@ -199,17 +201,20 @@ if [ "$WANT_PROOF" = 1 ]; then
         [ -n "$ref" ] || continue
         r="${ref%#*}"
         n="${ref##*#}"
-        # По странице — true/false; доказано, если true хоть на одной. Распознаватель —
-        # общий `lib/dod_proof.jq` (своей копии выражения здесь нет); отказ трекера
-        # роняет трубу (`pipefail`), и задача уходит в «не прочитано».
-        if pages="$(gh api --paginate "repos/$r/issues/$n/comments" 2> /dev/null \
-                | jq -L "$dod_lib" 'include "dod_proof"; [.[] | (.body // "") | dod_proof] | any' 2> /dev/null)" \
-            && [ -n "$pages" ] && ! grep -qvxE 'true|false' <<<"$pages"; then
-            if grep -qx true <<<"$pages"; then
-                proof_ok=$((proof_ok + 1))
-            else
-                proof_missing="$proof_missing $ref"
-            fi
+        # Страницы сводятся в один массив (`-s`, `add`): решает ПОСЛЕДНЕЕ доказательство
+        # задачи, полное или частичное (`dod_proof_last`, ws#1324) — частичное после полного
+        # (ws#1284 @c22fd37ef «Не выполнилось: …») доказанность снимает, и порядок нужен через
+        # границу страниц. Распознаватель — общий `lib/dod_proof.jq` (своей копии выражения
+        # здесь нет); отказ трекера роняет трубу (`pipefail`), и задача уходит в «не прочитано».
+        if last="$(gh api --paginate "repos/$r/issues/$n/comments" 2> /dev/null \
+                | jq -L "$dod_lib" -c -s 'include "dod_proof"; add // [] | dod_proof_last
+                    | if . == null then "none" elif .partial then "partial" else "full" end' 2> /dev/null)" \
+            && [[ "$last" =~ ^\"(none|partial|full)\"$ ]]; then
+            case "$last" in
+                '"full"') proof_ok=$((proof_ok + 1)) ;;
+                '"partial"') proof_missing="$proof_missing $ref(последнее-частичное)" ;;
+                *) proof_missing="$proof_missing $ref" ;;
+            esac
         else
             proof_unread="$proof_unread $ref"
         fi

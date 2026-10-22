@@ -22,8 +22,11 @@
 # тоже), а двое других сверяли с диапазоном каждый своим кодом: демон вливания получал на
 # одном PR два исхода. Согласие троих держит `scripts/rituals/check-05-dod-judges-agree.py`.
 #
-# ПОСЛЕДНЕЕ ДОКАЗАТЕЛЬСТВО ДИАПАЗОНА решает Closes (ws#1320 (в)) — `dod_proof_closes_in`, одно на
-# троих судей Closes (генератор, merge-readiness, landing-precheck (ж)); согласие держит тот же check-05.
+# ПОСЛЕДНЕЕ ДОКАЗАТЕЛЬСТВО решает у всех пятерых (ws#1320 (в), ws#1324): частичное после полного
+# снимает доказанность. С диапазоном — `dod_proof_closes_in` (генератор, merge-readiness,
+# landing-precheck (ж); согласие — check-05); полосе диапазон — база..голова (`lane-precheck.sh`,
+# разметкой `dod_proof_marks`); без диапазона — `dod_proof_closes` (каскад: `cascade-census.sh
+# --proof`, `close-wave` и trail в `rituals.py`; пробы — tooling-gate check-14, rituals check-02).
 #
 # Подключение: `jq -L <каталог scripts/lib> 'include "dod_proof"; …'`.
 
@@ -109,3 +112,13 @@ def dod_proof_last_in($range): [.[] | (.body // "") | dod_proof_marks[] | select
 # Закрывает ли задачу доказательство на диапазоне `$range`: последнее доказательство диапазона
 # есть и полное. Этим судят Closes генератор тела, merge-readiness и landing-precheck (ж).
 def dod_proof_closes_in($range): dod_proof_last_in($range) | . != null and (.partial | not);
+
+# ПОСЛЕДНЕЕ ДОКАЗАТЕЛЬСТВО ЗАДАЧИ без диапазона (ws#1324) — вход: МАССИВ комментариев задачи по
+# порядку (объекты с `body`, `html_url`). Последняя строка-доказательство, полная ИЛИ частичная:
+# {rev, partial, url}; null — доказательства нет. Каскад закрывает задачу влитой волны, диапазона
+# запроса у него нет: судится то, что автор заявил последним (ws#1284 @c22fd37ef — «Не выполнилось:
+# …» после полных — каскад засчитывал по полному).
+def dod_proof_last: [.[] | (.html_url // "") as $u | (.body // "") | dod_proof_marks[] | . + {url: $u}] | last;
+
+# Доказана ли задача без диапазона: последнее доказательство есть и полное (каскад, close-wave, trail).
+def dod_proof_closes: dod_proof_last | . != null and (.partial | not);

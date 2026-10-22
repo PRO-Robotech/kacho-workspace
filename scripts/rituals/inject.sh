@@ -130,6 +130,9 @@
 #   M83 dod_proof.jq: последнее — лишь из полных (прежнее «любое полное»)  → check-01, check-05
 #   M84 merge-readiness: любое привязанное полное (прежнее)              → check-05
 #   M85 landing-precheck (ж): любое привязанное полное (прежнее)         → check-05
+# ws#1324: без диапазона решает последнее доказательство задачи (`dod_proof_last`) — close-wave, trail.
+#   M86 close-wave: последнее — лишь из полных (прежнее)                 → check-02
+#   M87 dod_proof.jq: `dod_proof_last` — лишь из полных                   → check-02
 #
 # Хранилище для check-04 берётся из HEAD настоящего воркспейса (`RITUALS_WS`):
 # копия несёт только код ритуалов и их общие зависимости.
@@ -476,6 +479,11 @@ inject "M84 merge-readiness: любое привязанное полное" che
 inject "M85 landing-precheck (ж): любое привязанное полное" check-05-dod-judges-agree.py \
     '    if bound and bound[-1][2] == "false":' \
     '    if any(m[1] == "true" for m in full):' ../landing-precheck.sh
+inject "M86 close-wave: последнее — лишь из полных (прежнее «любое полное»)" check-02-close-wave.py \
+    "head='include \"dod_proof\"; dod_proof_last'" \
+    "head='include \"dod_proof\"; [.[] | (.html_url // \"\") as \$u | (.body // \"\") | dod_proof_marks[] | select(.partial | not) | . + {url: \$u}] | last'"
+inject "M87 dod_proof.jq: последнее без диапазона — лишь из полных" check-02-close-wave.py \
+    'dod_proof_marks[] | . + {url: $u}] | last;' 'dod_proof_marks[] | select(.partial | not) | . + {url: $u}] | last;' ../lib/dod_proof.jq
 for c in check-01-pr-body.py check-05-dod-judges-agree.py; do
     inject "M80 dod_proof.jq: раздел неисполненного не судится ($c)" "$c" \
         '  | any($l[]; _dod_unmet_line) as $unmet' '  | false as $unmet' ../lib/dod_proof.jq

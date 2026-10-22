@@ -138,6 +138,8 @@
 #                       же у merge-readiness и `cascade-census.sh --proof`),
 #                       чей sha — голова полосы или коммит из база..голова:
 #                       доказательство чужой или прежней ревизии — не доказательство;
+#                       решает последнее такое — частичное после полного снимает
+#                       (ws#1324; предусловие `proof` — последнее у задачи);
 #   HOOK-LOG-MISSING    журнала отправки нет;
 #   HOOK-HEAD-MISMATCH  журнал отправки — не о текущей голове;
 #   HOOK-RC             отправка вышла не нулём;
@@ -210,6 +212,18 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 dod_revs() {
     [ -r "$HERE/lib/dod_proof.jq" ] || return 2
     jq -L "$HERE/lib" -r -s 'include "dod_proof"; add // [] | .[] | (.body // "") | dod_proof_revisions[]' 2> /dev/null || return 2
+}
+# dod_marks — строки-доказательства (полные и частичные) по порядку: `<ревизия>\t<true|false>`
+# (частичное ли). Решает ПОСЛЕДНЕЕ доказательство полосы (ws#1324): частичное после полного
+# доказанность снимает, как у merge-readiness (`dod_proof_closes_in`) и каскада (`dod_proof_closes`).
+dod_marks() {
+    [ -r "$HERE/lib/dod_proof.jq" ] || return 2
+    jq -L "$HERE/lib" -r -s 'include "dod_proof"; add // [] | .[] | (.body // "") | dod_proof_marks[] | [.rev, (.partial | tostring)] | @tsv' 2> /dev/null || return 2
+}
+# dod_closes — у задачи без диапазона (предусловие `proof`) последнее доказательство полное: `true|false`.
+dod_closes() {
+    [ -r "$HERE/lib/dod_proof.jq" ] || return 2
+    jq -L "$HERE/lib" -r -s 'include "dod_proof"; add // [] | dod_proof_closes' 2> /dev/null || return 2
 }
 
 # ── режим предусловий ───────────────────────────────────────────────────
@@ -388,8 +402,10 @@ if [ -n "$premise" ]; then
                 if ! [[ "$num" =~ ^[0-9]+$ ]] || [ "$r" = "$a" ]; then voids+=("PREMISE-FORM $line"); continue; fi
                 got="$(ghget "repos/$r/issues/$num/comments" '.')"; rc=$?
                 if [ "$rc" != 0 ]; then voids+=("GH-UNREADABLE $line"); continue; fi
-                if ! got="$(printf '%s' "$got" | dod_revs)"; then voids+=("DOD-LIB $line: распознаватель $HERE/lib/dod_proof.jq не судил"); continue; fi
-                if [ -z "$got" ]; then reasons+=("PREMISE-FALSE $line: комментария «DoD-proof @<sha>» нет"); fi ;;
+                if ! revs="$(printf '%s' "$got" | dod_revs)" || ! closes="$(printf '%s' "$got" | dod_closes)" \
+                    || ! [[ "$closes" =~ ^(true|false)$ ]]; then voids+=("DOD-LIB $line: распознаватель $HERE/lib/dod_proof.jq не судил"); continue; fi
+                if [ -z "$revs" ]; then reasons+=("PREMISE-FALSE $line: комментария «DoD-proof @<sha>» нет")
+                elif [ "$closes" != true ]; then reasons+=("PREMISE-FALSE $line: последнее доказательство DoD частичное (ws#1324)"); fi ;;
             cherry-vet)
                 if ! top="$(git -C "$a" rev-parse --show-toplevel 2>/dev/null)" || [ -z "$b" ]; then voids+=("PREMISE-FORM $line: клона «$a» либо ветки нет"); continue; fi
                 command -v go > /dev/null 2>&1 || { voids+=("GO-ABSENT $line: go нет — vet не судим"); continue; }
@@ -616,19 +632,24 @@ for it in "${issues[@]+"${issues[@]}"}"; do
         void GH-UNREADABLE "комментарии $r#$n не прочитаны"
         continue
     fi
-    if ! shas="$(printf '%s' "$raw" | dod_revs)"; then
+    if ! shas="$(printf '%s' "$raw" | dod_revs)" || ! marks="$(printf '%s' "$raw" | dod_marks)"; then
         void DOD-LIB "$r#$n: распознаватель $HERE/lib/dod_proof.jq не судил"
         continue
     fi
-    ok=0
+    # Решает ПОСЛЕДНЕЕ доказательство полосы — полное или частичное, чья ревизия — голова либо
+    # коммит база..голова (ws#1324): частичное после полного доказанность снимает.
+    ok=0 last_part=""
     if [ -n "$head" ]; then
-        while IFS= read -r s; do
+        while IFS=$'\t' read -r s p; do
             [ -n "$s" ] || continue
-            if in_lane "$s"; then ok=1; break; fi
-        done <<< "$shas"
+            in_lane "$s" || continue
+            if [ "$p" = true ]; then ok=0 last_part="$s"; else ok=1 last_part=""; fi
+        done <<< "$marks"
     fi
     if [ "$ok" = 1 ]; then
         n_proven=$((n_proven + 1))
+    elif [ -n "$last_part" ]; then
+        reason DOD-PROOF-MISSING "$r#$n: последнее доказательство полосы DoD-proof @$last_part частичное (ws#1324)"
     elif [ -z "$shas" ]; then
         reason DOD-PROOF-MISSING "$r#$n: комментария «DoD-proof @<sha>» нет"
     else

@@ -145,10 +145,11 @@ def _dod_query(repo: str, n: int, tail: str, rng: list | None = None, head: str 
 def dod_proof(repo: str, n: int):
     """(адрес комментария, ревизия) последнего доказательства DoD либо None.
 
-    Распознаёт общий `scripts/lib/dod_proof.jq` — тот же, что у merge-readiness и
-    cascade-census; ревизия — первая строка-доказательство последнего такого комментария.
+    Решает ПОСЛЕДНЕЕ доказательство задачи, полное или частичное (`dod_proof_last`, ws#1324): частичное
+    после полного — None, как у `cascade-census.sh --proof`. Распознаватель — общий `scripts/lib/dod_proof.jq`.
     """
-    got = _dod_query(repo, n, ' | last | if . == null then null else [.url, .revs[0]] end')
+    got = _dod_query(repo, n, "", head='include "dod_proof"; dod_proof_last'
+                     ' | if . == null or .partial then null else [.url, .rev] end')
     return tuple(got) if got else None
 
 
@@ -775,10 +776,13 @@ def close_wave(argv: list[str]) -> int:
         gh("PATCH", "repos/%s/issues/%d" % (repo, n), {"state": "closed", "state_reason": "completed"})
     for c, _ in remainder:
         n = int(c["number"])
+        part = dod_partial(repo, n)
+        why = ("последнее доказательство DoD (`DoD-proof @%s`) частичное" % part if part
+               else "Комментария-доказательства DoD (`DoD-proof @<ревизия>`) нет")
         gh("POST", "repos/%s/issues/%d/comments" % (repo, n), {"body": (
-            "Остаток → волна #%d. Комментария-доказательства DoD (`DoD-proof @<ревизия>`) нет, поэтому "
+            "Остаток → волна #%d. %s, поэтому "
             "задача не закрывается вместе с волной #%d (вливание `%s`) и переведена подзадачей в #%d."
-            % (nxt, wave, sha, nxt))})
+            % (nxt, why, wave, sha, nxt))})
         gh("POST", "repos/%s/issues/%d/sub_issues" % (repo, nxt), {"sub_issue_id": c["id"], "replace_parent": True})
 
     if w.get("state") == "open":
