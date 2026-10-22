@@ -83,7 +83,8 @@ assert "0 есть нет 0" "$(hs "$W/none" ci-local -- git push -q origin HEAD
 assert "да" "$(grep -q 'light class=ci-local route=push-no-hook' "$HEAVY_SLOT_DIR/journal.log" 2> /dev/null && echo да || echo нет)" "журнал — строка light route=push-no-hook"
 assert "да" "$(grep -qF 'хука отправки нет' "$W/err" && echo да || echo нет)" "слот называет основание: «хука отправки нет»"
 assert "0 есть" "$(hs "$W/none" ci-local -- env GIT_TERMINAL_PROMPT=0 git -C "$W/none" push -q origin HEAD:refs/heads/lane-b) $(ref lane-b)" "обёртка env и -C — та же лёгкая отправка"
-assert "0 local да" "$(hs "$W/none" --route ci-local -- git push origin HEAD:refs/heads/lane-c; cut -f2 "$W/out" | head -n 1 | tr -d '\n'; echo -n ' '; grep -qF 'хука отправки нет' "$W/out" && echo да || echo нет)" "--route: local, основание названо; ветки не кладёт"
+rc="$(hs "$W/none" --route ci-local -- git push origin HEAD:refs/heads/lane-c)"
+assert "0 local да" "$rc $(cut -f2 "$W/out" | head -n 1) $(grep -qF 'хука отправки нет' "$W/out" && echo да || echo нет)" "--route: local, основание названо"
 assert "нет" "$(ref lane-c)" "--route отправку не исполнил"
 
 echo "── слот: клон с хуком — лёгкого пути нет (хук не исполнен, ветки нет, кластер спрошен)"
