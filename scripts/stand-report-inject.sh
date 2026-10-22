@@ -400,7 +400,7 @@ kcase() {
     NC=$((NC + 1)); C="$W/c$NC"; mkdir -p "$C"; printf '%s' "$1" > "$C/name"
     local rb="${2:--}"; shift 2; [ "$rb" != - ] || rb=.
     local ch inp; ch="$(printf '%s\n' "$@" | jq -R . | jq -sc 'map(select(length > 0))')"; inp="$(kinputs "$@")"
-    ksuites "$H" | jq --arg r "$KR" --arg inp "$inp" --argjson ch "$ch" '.images_rev = null | .suites |= map(. + {carried_from: $r})
+    ksuites "$H" | jq --arg r "$KR" --arg inp "$inp" --argjson ch "$ch" '.images_rev = null | .suites |= map(.carried_from = $r)
         | .carry_basis = {($r): {changed: $ch, inputs: $inp, inputs_rc: 0, report: "src.json"}}' | jq --arg r "$KR" "$rb" > "$C/r.json"
     ksuites "$KR" > "$C/src.json"
     jq -n --argjson ch "$ch" '{status: "ahead", ahead_by: 1, behind_by: 0, files: ($ch | map({filename: .}))}' > "$C/compare.json"
@@ -417,16 +417,16 @@ kcase "перенос kaname: разность пуста — все пять н
 kcase "перенос kaname: правка коллекции newman — unit и stand её читают, отказ" - "$TN"; want 1 'STAND-CARRY-AREA(?=\tunit:all: набор читает изменённое)'
 kcase "  …тот же отказ называет и stand" - "$TN"; want 1 'STAND-CARRY-AREA(?=\tstand: набор читает изменённое)'
 kcase "близнец: правка коллекции newman, unit и stand прогнаны на голове — integration перенесён, check 0" \
-    '.suites |= map(if (.name == "unit:all" or .name == "stand") then del(.carried_from) else . end)' "$TN"; want 0 -
+    '.suites |= map(if (.name == "unit:all" or .name == "stand") then del(.carried_from) else (.) end)' "$TN"; want 0 -
 kcase "перенос kaname: правка прогонщика integration — integration её читает, отказ" \
-    '.suites |= map(if (.name == "unit:all") then del(.carried_from) else . end)' "$RI"; want 1 'STAND-CARRY-AREA(?=\tintegration:0/3: набор читает изменённое)'
+    '.suites |= map(if (.name == "unit:all") then del(.carried_from) else (.) end)' "$RI"; want 1 'STAND-CARRY-AREA(?=\tintegration:0/3: набор читает изменённое)'
 kcase "близнец: правка прогонщика integration, unit и integration прогнаны — stand перенесён, check 0" \
-    '.suites |= map(if (.job == "ci.yml:unit" or .job == "ci.yml:integration") then del(.carried_from) else . end)' "$RI"; want 0 -
+    '.suites |= map(if (.job == "ci.yml:unit" or .job == "ci.yml:integration") then del(.carried_from) else (.) end)' "$RI"; want 0 -
 kcase "перенос kaname: строка группы карты снята — путь не опознан, выбор полный, отказ" \
-    '.suites |= map(if (.name == "unit:all" or (.job == "ci.yml:integration")) then del(.carried_from) else . end)' "$RI"
+    '.suites |= map(if (.name == "unit:all" or (.job == "ci.yml:integration")) then del(.carried_from) else (.) end)' "$RI"
 kmap '.groups |= map(select(.id != "integration"))'; want 1 'STAND-CARRY-AREA(?=\tstand: выбор CI по разности [0-9a-f]{12}\.\.head полный \(путь не выбирает ни одна группа)'
 kcase "перенос kaname: тронута сама карта выбора — полный, отказ" \
-    '.suites |= map(if (.name == "unit:all") then del(.carried_from) else . end)' .github/ci-paths.json; want 1 'STAND-CARRY-AREA(?=\tstand: выбор CI по разности [^\t]*тронут источник карты)'
+    '.suites |= map(if (.name == "unit:all") then del(.carried_from) else (.) end)' .github/ci-paths.json; want 1 'STAND-CARRY-AREA(?=\tstand: выбор CI по разности [^\t]*тронут источник карты)'
 kcase "перенос kaname: набор под чужим именем — не «<ключ>[:<часть>]», отказ" '.suites[3].name = "own-stand"'; ksuites "$KR" | jq '.suites[3].name = "own-stand"' > "$C/src.json"; want 1 'STAND-CARRY-AREA(?=\town-stand \(e2e-newman\.yml:stand\): имя набора)'
 kcase "перенос kaname: задания нет в карте — отказ" '.suites[3].job = "e2e-newman.yml:stand-own"'; ksuites "$KR" | jq '.suites[3].job = "e2e-newman.yml:stand-own"' > "$C/src.json"; want 1 'STAND-CARRY-AREA(?=\tstand \(e2e-newman\.yml:stand-own\): задания нет в карте)'
 kcase "перенос kaname: строка ведомости областей снята — закрыто" -
