@@ -40,6 +40,10 @@ reap_steps() {
 }
 # shellcheck disable=SC2154
 trap '_rc=$?; rm -rf "$W" 2>/dev/null || rm -rf "$W" || echo "ПРЕДУПРЕЖДЕНИЕ: временный каталог $W не снят; код проверки $_rc сохранён" >&2; exit $_rc' EXIT
+# shellcheck source=lib/sandbox-git-home.sh
+. "$HERE/lib/sandbox-git-home.sh"
+sandbox_git_home "$W/home" || exit 2
+git() { sandbox_git "$@"; }
 
 pass=0; fail=0
 assert() {
@@ -134,7 +138,7 @@ echo x'; assert "64" "$SRC" "echo после перевода строки — 6
     # Копия git с отслеживаемым скриптом; шаг ждёт файл-сигнал (до 10 с), проба правит между
     # стартом и сигналом — правка гарантированно ВНУТРИ прогона, без гонки.
     local G="$R/g" go
-    git init -q "$G"; git -C "$G" config user.email p@x; git -C "$G" config user.name p
+    git init -q "$G"   # подпись коммитов пробы — HOME песочницы (sandbox-git-home.sh, check-16)
     printf 'steps/\ngo\n' > "$G/.gitignore"
     printf 'for i in $(seq 1 40); do [ -e go ] && break; sleep 0.25; done\nexit 0\n' > "$G/s.sh"
     git -C "$G" add . && git -C "$G" commit -qm base

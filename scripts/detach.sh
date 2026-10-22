@@ -117,8 +117,8 @@ start)
     # (detach_fp — тот же, что при старте) и код команды — атомарно, ПОСЛЕ отпечатка.
     # shellcheck disable=SC2016
     detach_launch "$unit" "$base.log" -- env --default-signal=PIPE DETACH_TAG="$tag" KACHO_DETACHED_UNTIL="$until_ts" \
-        DETACH_FP_LIB="$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/detach-launch.sh" \
-        bash -c 'echo $$ > "$0.pid"; "$@"; rc=$?; { . "$DETACH_FP_LIB" && detach_fp "$@" > "$0.fp-end"; } 2> /dev/null; printf "%s\n" "$rc" > "$0.rc.tmp" && mv -f "$0.rc.tmp" "$0.rc"' "$base" "$@" \
+        DETACH_SELF="$(readlink -f -- "${BASH_SOURCE[0]}")" \
+        bash -c 'echo $$ > "$0.pid"; "$@"; rc=$?; bash "$DETACH_SELF" fp "$@" > "$0.fp-end" 2> /dev/null; printf "%s\n" "$rc" > "$0.rc.tmp" && mv -f "$0.rc.tmp" "$0.rc"' "$base" "$@" \
         || { say "${DETACH_WARN:-не запущено}"; exit 69; }
     if [ "$DETACH_MODE" = unit ]; then printf '%s\n' "$unit" > "$base.unit"; kind="служба $unit"
     else kind="setsid (не переживёт перезапуск сессии)"; fi
@@ -179,5 +179,8 @@ status)
         echo "не выполнилось: файлов шага $rcf, $logf, $base.pid нет"
     fi
     exit 2 ;;
+fp)
+    # Внутренняя форма обёртки шага: отпечаток предмета при выходе команды (detach_fp).
+    shift; detach_fp "$@"; exit 0 ;;
 *) usage ;;
 esac
