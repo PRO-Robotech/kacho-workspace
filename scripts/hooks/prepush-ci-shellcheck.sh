@@ -60,7 +60,7 @@ for jk, j in (d.get("jobs") or {}).items():
         ok = all(SAFE.match(x) or SETL.match(x) for x in lines)
         print("STEP\t%s\t%s\t%s\t%s\t%s\t%s" % (
             "ok" if ok else "bad", jk, str(st.get("name") or "—").replace("\t", " "),
-            st.get("working-directory") or wd0, "" if pin is None else pin, " ; ".join(lines).replace("\t", " ")))
+            st.get("working-directory") or wd0, "-" if pin in (None, "") else pin, " ; ".join(lines).replace("\t", " ")))
 YAMLSTEPS
 )" || { echo "ci-shellcheck: [VOID] разбор ci.yaml не исполнился" >&2; exit 2; }
 if grep -q '^VOID' <<< "$steps"; then
@@ -74,6 +74,8 @@ fi
 n=0 bad=0 nv=0 pins=""
 while IFS=$'\t' read -r kind form job name wd pin run; do
     [ "$kind" = STEP ] || continue
+    # Пустое поле табуляция-разделитель схлопнула бы (IFS пробельный): пина нет — «-».
+    [ "$pin" != - ] || pin=""
     n=$((n + 1)); pins="${pins:+$pins,}${pin:-—}"
     if [ "$form" != ok ]; then
         echo "ci-shellcheck: [FAIL] $job / $name — текст шага вне формы «строки shellcheck и set без метасимволов»: $run" >&2
