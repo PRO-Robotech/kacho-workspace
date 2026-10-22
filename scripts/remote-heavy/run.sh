@@ -3556,16 +3556,20 @@ fi
 red_collect "$RUN_RC"
 peak_note "$PROFILE" "$RUN_RC"
 if [ -n "$OPERATOR_DEF" ]; then
-    kc -n "$NSNAME" get job run -o json > "$BOX/operator-job.json" &&
+    if kc -n "$NSNAME" get job run -o json > "$BOX/operator-job.json" &&
     kc -n "$NSNAME" get pod "$POD" -o json > "$BOX/operator-pod.json" &&
     kc get ns "$NSNAME" -o json > "$BOX/operator-namespace.json" &&
     kc -n "$NSNAME" logs "$POD" -c run > "$BOX/operator.log" &&
     OPERATOR_UID="$(python3 "$OPERATOR_HELPER" capture --definition "$OPERATOR_DEF" \
         --job "$BOX/operator-job.json" --pod "$BOX/operator-pod.json" \
         --namespace "$BOX/operator-namespace.json" --log "$BOX/operator.log")" &&
-    OPERATOR_NS_UID="$(jq -r .metadata.uid "$BOX/operator-namespace.json")" \
-        || { say "operator receipt не захвачен — не выполнилось"; OPERATOR_UID=""; exit 69; }
-    say "operator receipt: Job UID $OPERATOR_UID, definition $OPERATOR_DEF (cleanup ещё не подтверждён)"
+    OPERATOR_NS_UID="$(jq -r .metadata.uid "$BOX/operator-namespace.json")"; then
+        say "operator receipt: Job UID $OPERATOR_UID, definition $OPERATOR_DEF (cleanup ещё не подтверждён)"
+    else
+        say "operator receipt не захвачен — не выполнилось"
+        OPERATOR_UID=""
+        exit 69
+    fi
 fi
 say "команда завершилась кодом $RUN_RC за $(( T2 - T1 )) с (всего $(( T2 - T0 )) с от создания Job)"
 exit "$RUN_RC"
