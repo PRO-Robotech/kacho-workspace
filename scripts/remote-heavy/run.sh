@@ -12,7 +12,7 @@
 # testcontainers уходят туда, а локально остаётся то, что без машины не делается.
 #
 # ФОРМА
-#   run.sh --task <N> --repo <kacho|kaname|corelib|kacho-workspace> --ref <ревизия>
+#   run.sh --task <N> --repo <kacho|kaname|corelib|kacho-workspace|<оператор>> --ref <ревизия>
 #          [--profile go-race|integration|lint|ci-local|ws] [--src <клон>]
 #          [--workdir <путь в дереве>] [--short <слово>] [--ns <имя>]
 #          [--timeout <с>] [--keep <часы ≤ 12>] [--push-input <вход pre-push>]
@@ -619,6 +619,11 @@ profile_row() {
 # to_m <cpu> — милли-CPU; to_mib <память> — МиБ (единицы Mi и Gi, как пишет таблица).
 to_m() { case "$1" in *m) printf '%s\n' "${1%m}" ;; *) printf '%s\n' "$(( $1 * 1000 ))" ;; esac; }
 to_mib() { case "$1" in *Gi) printf '%s\n' "$(( ${1%Gi} * 1024 ))" ;; *Mi) printf '%s\n' "${1%Mi}" ;; *) return 1 ;; esac; }
+# ВНЕШНИЕ ОПЕРАТОРЫ (ws#1303): vault-operator, kaname-iam-operator, registry-operator — --repo
+# профилей go-race, integration, ci-local (go-unit слота идёт go-race): образ golang версии go.mod
+# ревизии, исходники — bundle клона (--src), модули — сетью, как у продуктов. Своих строк PEAKS
+# нет — запрос по строке «*» профиля; в profile_repos и table_max они не входят: их запрос — «*»,
+# не выше наибольшего по продуктам. Профиль lint им не дан: пин линтера — лишь из ci.yaml, ci.yml.
 # profile_repos <профиль> — репозитории профиля: ws — лишь kacho-workspace, прочие — три продукта.
 profile_repos() { if [ "$1" = ws ]; then echo kacho-workspace; else echo kacho kaname corelib; fi; }
 # pair_ok <профиль> <репозиторий> — профиль ws и клон воркспейса — только друг с другом
@@ -1109,7 +1114,7 @@ avail_args() {
         esac
     done
     [ -z "$AV_REPO" ] || [ -n "$AV_PROFILE" ] || return 1
-    case "$AV_REPO" in ''|kacho|kaname|corelib|kacho-workspace) ;; *) say "--repo kacho|kaname|corelib|kacho-workspace, получено «$AV_REPO»"; exit 64 ;; esac
+    case "$AV_REPO" in ''|kacho|kaname|corelib|kacho-workspace|vault-operator|kaname-iam-operator|registry-operator) ;; *) say "--repo kacho|kaname|corelib|kacho-workspace|vault-operator|kaname-iam-operator|registry-operator, получено «$AV_REPO»"; exit 64 ;; esac
     [ -z "$AV_REPO" ] || pair_ok "$AV_PROFILE" "$AV_REPO" || exit 64
     if [ -n "$AV_PROFILE" ]; then
         profile_row "$AV_PROFILE" >/dev/null || { say "профиля «$AV_PROFILE» нет: $(cut -d'|' -f1 <<< "$PROFILES" | tr '\n' ' ')"; exit 64; }
@@ -1137,12 +1142,12 @@ case "${1:-}" in
         echo "remote-heavy: кластер профиля доказан — контекст -client, узлы с префиксом <профиль>-client-"; exit 0 ;;
     --request)
         avail_args "${@:2}" && [ -n "$AV_PROFILE" ] && [ -z "$AV_PF" ] \
-            || { say "--request --profile <профиль> [--repo kacho|kaname|corelib|kacho-workspace], получено «${*:2}»"; exit 64; }
+            || { say "--request --profile <профиль> [--repo kacho|kaname|corelib|kacho-workspace|vault-operator|kaname-iam-operator|registry-operator], получено «${*:2}»"; exit 64; }
         sizing "$AV_PROFILE" "$AV_REPO" || { say "запрос профиля $AV_PROFILE не выведен из PEAKS: строки профиля в таблице нет (не выполнилось)"; exit 69; }
         printf '%s %s\n' "$NEED_CPU" "$NEED_MIB"; exit 0 ;;
     --available)
         need="0 0"; avw=""
-        avail_args "${@:2}" || { say "--available [--profile <профиль> [--repo kacho|kaname|corelib|kacho-workspace]] [--pending <файл>], получено «${*:2}»"; exit 64; }
+        avail_args "${@:2}" || { say "--available [--profile <профиль> [--repo kacho|kaname|corelib|kacho-workspace|vault-operator|kaname-iam-operator|registry-operator]] [--pending <файл>], получено «${*:2}»"; exit 64; }
         if [ -n "$AV_PROFILE" ]; then
             sizing "$AV_PROFILE" "$AV_REPO" || { say "запрос профиля $AV_PROFILE не выведен из PEAKS: строки профиля в таблице нет (не выполнилось)"; exit 69; }
             need="$NEED_CPU $NEED_MIB"; avw="; запрос pod: cpu ${NEED_CPU}m, память $NEED_MIB МиБ — $SIZE_WHY"
@@ -1199,7 +1204,7 @@ done
 [ "$#" -ge 1 ] || { say "нет команды: run.sh … -- <команда>"; exit 64; }
 CMD=("$@")
 [[ "$TASK" =~ ^[1-9][0-9]{0,6}$ ]] || { say "--task <N> — номер задачи, получено «$TASK»"; exit 64; }
-case "$REPO" in kacho|kaname|corelib|kacho-workspace) ;; *) say "--repo kacho|kaname|corelib|kacho-workspace, получено «$REPO»"; exit 64 ;; esac
+case "$REPO" in kacho|kaname|corelib|kacho-workspace|vault-operator|kaname-iam-operator|registry-operator) ;; *) say "--repo kacho|kaname|corelib|kacho-workspace|vault-operator|kaname-iam-operator|registry-operator, получено «$REPO»"; exit 64 ;; esac
 [ -n "$REF" ] || { say "--ref <ревизия> обязателен"; exit 64; }
 ROW="$(profile_row "$PROFILE")" || { say "профиля «$PROFILE» нет: $(cut -d'|' -f1 <<< "$PROFILES" | tr '\n' ' ')"; exit 64; }
 pair_ok "$PROFILE" "$REPO" || exit 64

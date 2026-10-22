@@ -1433,7 +1433,7 @@ fi
 # nohup, setsid, stdbuf, command, time — функция payload): обёртка тяжёлое локально не
 # уводит. Удалённый прогон судит КОММИТ, поэтому условий пять: нагрузка переносима
 # (go, make, линтеры, ci-local.sh, скрипт клона из ведомости PORTABLE — ws#1192), каталог —
-# клон kacho, kaname или corelib, либо клон воркспейса (kacho-workspace, ws#1304: хук отправки и
+# клон kacho, kaname, corelib или внешнего оператора (ws#1303), либо клон воркспейса (kacho-workspace, ws#1304: хук отправки и
 # наборы с пробами воркспейса классов ci-local и suite — Job профиля ws; иное его — без внешнего пути, no_route_judge),
 # отслеживаемые файлы без правок, номер задачи — из KACHO_TASK либо ведущих цифр
 # имени ветки, кластер принимает (`run.sh --available --profile <профиль>`, ws#991; профиль —
@@ -1896,7 +1896,8 @@ portable_script() {
     return 1
 }
 # route_static — статическая часть маршрута Job-ом, ОДНА у прогона и у --route: класс с внешним
-# путём, клон kacho, kaname, corelib либо воркспейса (RS_TOP, RS_REPO), нагрузка опознана (RS_KNOWN),
+# путём, клон kacho, kaname, corelib, внешнего оператора (vault-operator, kaname-iam-operator,
+# registry-operator — go-race, go-unit, integration, ci-local; ws#1303) либо воркспейса (RS_TOP, RS_REPO), нагрузка опознана (RS_KNOWN),
 # профиль Job (RS_PROFILE: класс, у клона воркспейса — ws) и причина маршрута (RS_WHY). 1 — внешнего
 # пути у команды нет (WHY_LOCAL); неопознанная нагрузка клона продукта пути не закрывает: при
 # доступном кластере — 77, при недоступном — локально с доказательством. У клона воркспейса путь
@@ -1941,7 +1942,10 @@ route_static() {
                 WHY_LOCAL="клон воркспейса: нагрузка «${PAY_SH:-$PAY}» — не хук отправки и не отслеживаемый набор либо проба относительным путём (ведомость PORTABLE: run-all.sh, inject*.sh, *-inject.sh, prove*.sh, *mutants.py, run-suites.sh, hook-proofs.sh, check-*): внешнего пути нет"; return 1
             fi
             return 0 ;;
-        *) WHY_LOCAL="клон не kacho, kaname, corelib или kacho-workspace: внешнего пути нет"; return 1 ;;
+        *PRO-Robotech/vault-operator|*PRO-Robotech/vault-operator.git|*PRO-Robotech/kaname-iam-operator|*PRO-Robotech/kaname-iam-operator.git|*PRO-Robotech/registry-operator|*PRO-Robotech/registry-operator.git)
+            case "$CLASS" in go-race|go-unit|integration|ci-local) ;; *) WHY_LOCAL="клон внешнего оператора $RS_REPO: класс «$CLASS» внешнего пути не имеет — Job несёт go-race, go-unit, integration и ci-local (lint — пин линтера run.sh берёт лишь из ci.yaml, ci.yml)"; return 1 ;; esac
+            RS_PROFILE="$PCLASS"; RS_WHY="клон внешнего оператора $RS_REPO — Job профиля $PCLASS, образ golang версии его go.mod" ;;
+        *) WHY_LOCAL="клон не kacho, kaname, corelib, kacho-workspace, vault-operator, kaname-iam-operator или registry-operator: внешнего пути нет"; return 1 ;;
     esac
     [ -n "$RS_KNOWN" ] || ! portable_script || RS_KNOWN=1
     return 0

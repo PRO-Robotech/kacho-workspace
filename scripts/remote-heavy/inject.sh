@@ -266,6 +266,9 @@
 #   RG13 обрыв внутри копии (нет end и total) → копии из полного лога контейнера
 #   RG6 красный код, красных групп ноль → строка с числом групп, каталога нет;
 #      RG6b итога нет нигде → «НЕ получены»
+#   OP1 клон внешнего оператора (ws#1303): --repo vault-operator, kaname-iam-operator,
+#      registry-operator профилем go-race → 0, ns названо репозиторием, образ — golang версии
+#      go.mod ревизии; QR-op — их запрос по строке «*» профиля; --repo иной → 64 (QR-badrepo)
 #   WS1–WS6 профиль ws клона воркспейса (ws#1304): Job — образ продуктов, клоны продуктов, среда
 #      наборов, её сверка и команда от runner; пара профиля и репозитория; пин shellcheck; сверка
 #      среды, читатель трекера и установка с пином суммы исполнением (подробно — у случаев)
@@ -2505,6 +2508,20 @@ qr ci-any ci-local "" "$w_max" 'репозиторий не назван'
 fresh
 go_run qr-badrepo bash "$RUN" --available --profile ci-local --repo other
 expect_rc QR-badrepo 64
+# OP1, QR-op — клоны внешних операторов (ws#1303): run.sh их принимает, запрос — строка «*».
+OPS="vault-operator kaname-iam-operator registry-operator"
+for r in $OPS; do
+    read -r w_op s_op <<< "$(qr_want go-race "$r")"
+    if [ "$s_op" = '*' ]; then ok; else bad QR-op-premise "у go-race $r своя строка PEAKS — случай «строка *» пуст"; fi
+    qr "op-$r" go-race "$r" "$w_op" 'прогонов меньше'
+    [ "$RC" -eq 0 ] || bad QR-op "--available --repo $r: код $RC, ждали 0"
+    fresh
+    go_run "op1-$r" env FAKE_EXIT=0 bash "$RUN" --task 1 --repo "$r" --ref HEAD --src "$SRC" --profile go-race --short "op1-${r%%-*}" -- go vet ./...
+    expect_rc "OP1" 0
+    if grep -q "создано: задача 1, $r@" "$OUT"; then ok; else bad OP1 "ns прогона не названо репозиторием $r"; fi
+    if jq -e '[.spec.template.spec.containers[] | select(.name == "run") | .image] == ["mirror.gcr.io/library/golang:1.26.8"]' "$BOX/state/job.json" >/dev/null 2>&1; then ok
+    else OUT="$BOX/state/job.json"; bad OP1 "Job клона $r: образ run не golang:1.26.8 (toolchain go.mod ревизии)"; fi
+done
 # QR-job — Job несёт запрос: run = pod − dind − pgclient, dind 100m/256Mi, предел run не
 # ниже запроса, квота — run + dind + 1 ГиБ (ci-local kaname, как GI2b)
 fresh
