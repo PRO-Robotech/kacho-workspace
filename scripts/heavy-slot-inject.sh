@@ -96,7 +96,13 @@ echo "── ci-local держит ssh отправки живым: GIT_SSH_COMM
 # shellcheck disable=SC2016  # строка дочерней оболочки, переменную раскрывает она
 assert "0 да" "$(slot -u GIT_SSH_COMMAND bash "$SLOT" ci-local -- sh -c 'printf %s "$GIT_SSH_COMMAND" > "$0"' "$W/ssh1") $(grep -q 'ServerAliveInterval=30' "$W/ssh1" && echo да || echo нет)" "ci-local без заданного ssh — GIT_SSH_COMMAND с ServerAliveInterval"
 # shellcheck disable=SC2016
-assert "0 да" "$(slot GIT_SSH_COMMAND='ssh -o Своё=1' bash "$SLOT" ci-local -- sh -c 'printf %s "$GIT_SSH_COMMAND" > "$0"' "$W/ssh2") $([ "$(cat "$W/ssh2")" = 'ssh -o Своё=1' ] && echo да || echo нет)" "близнец: заданный вызывающим GIT_SSH_COMMAND не переписан"
+# Заданный вызывающим ssh без keepalive (цепочки tmp/autoland, уроки 6fb9cbf3 и 789e4f3d: 141
+# после зелёного хука) — keepalive ДОПИСЫВАЕТСЯ за его опциями: у ssh побеждает первое значение
+# опции, поэтому своё вызывающего сильнее; свой keepalive и не-ssh команда — не трогаются.
+assert "0 да" "$(slot GIT_SSH_COMMAND='ssh -o Своё=1' bash "$SLOT" ci-local -- sh -c 'printf %s "$GIT_SSH_COMMAND" > "$0"' "$W/ssh2") $([ "$(cat "$W/ssh2")" = 'ssh -o Своё=1 -o ServerAliveInterval=30 -o ServerAliveCountMax=40' ] && echo да || echo нет)" "заданный вызывающим ssh без keepalive — его опции первыми, keepalive дописан"
+assert "0 да" "$(slot GIT_SSH_COMMAND='/usr/bin/ssh -i k' bash "$SLOT" ci-local -- sh -c 'printf %s "$GIT_SSH_COMMAND" > "$0"' "$W/ssh2b") $(grep -q '^/usr/bin/ssh -i k -o ServerAliveInterval=30' "$W/ssh2b" && echo да || echo нет)" "ssh полным путём без keepalive — дописан"
+assert "0 да" "$(slot GIT_SSH_COMMAND='ssh -o serveraliveinterval=5' bash "$SLOT" ci-local -- sh -c 'printf %s "$GIT_SSH_COMMAND" > "$0"' "$W/ssh2c") $([ "$(cat "$W/ssh2c")" = 'ssh -o serveraliveinterval=5' ] && echo да || echo нет)" "близнец: свой keepalive вызывающего (регистр любой) — не переписан"
+assert "0 да" "$(slot GIT_SSH_COMMAND='my-ssh-wrapper -x' bash "$SLOT" ci-local -- sh -c 'printf %s "$GIT_SSH_COMMAND" > "$0"' "$W/ssh2d") $([ "$(cat "$W/ssh2d")" = 'my-ssh-wrapper -x' ] && echo да || echo нет)" "близнец: не-ssh команда вызывающего — не переписана (опций ssh может не понять)"
 # shellcheck disable=SC2016
 assert "0 да" "$(slot -u GIT_SSH_COMMAND bash "$SLOT" docker -- sh -c 'printf %s "${GIT_SSH_COMMAND:-}" > "$0"' "$W/ssh3") $([ -s "$W/ssh3" ] && echo нет || echo да)" "близнец: класс не ci-local — GIT_SSH_COMMAND не ставится"
 # Заданное вызывающим иначе, чем GIT_SSH_COMMAND, тоже сильнее: core.sshCommand копии
@@ -1012,10 +1018,18 @@ n_ext=0; n_mach=0; miss=""
 for f in "${SUF[@]}"; do
     r="$(route "$RSC" suite -- bash "$f")"
     if in_mach "$f"; then
-        if [ "$r" = "0 none" ] && grep -q 'судит машину' "$W/out"; then n_mach=$((n_mach + 1)); else miss="$miss $f(MACHINE→$r)"; fi
+        if [ "$r" = "0 local" ] && grep -q 'предмет — машина' "$W/out"; then n_mach=$((n_mach + 1)); else miss="$miss $f(MACHINE→$r)"; fi
     elif [ "$r" = "0 external" ]; then n_ext=$((n_ext + 1)); else miss="$miss $f"; fi
 done
 assert "да ${#SUF[@]}" "$([ "${#SUF[@]}" -gt 0 ] && echo да || echo нет) $((n_ext + n_mach))" "перепись: наборов и проб дерева воркспейса (SUITE_NAME стража) ${#SUF[@]}: Job-ом профиля ws $n_ext, судящих машину (none) $n_mach${miss:+ — мимо ведомости:$miss}"
+# MACHINE — законный локальный маршрут (решение диспетчера 2026-10-22 по правилу владельца «только
+# если доступа к кластеру нету»: у предмета-машины доступа из кластера нет по построению): запись
+# перечня при ДОСТУПНОМ кластере идёт в слоте машины с доказательством, а не 77; посторонняя
+# проба воркспейса без внешнего пути — по-прежнему 77.
+jl0="$(jn ' local class=suite proof=машина: ')"
+assert "0 да $((jl0 + 1))" "$(RDIR="$RSC" rslot bash "$SLOT" suite -- bash "${MACH[0]}") $(has "$W/err" 'предмет — машина') $(jn ' local class=suite proof=машина: ')" "MACHINE: ${MACH[0]} при доступном кластере — локально в слоте (код команды 0), доказательство «предмет — машина» в журнале слотов"
+mkdir -p "$RSC/scripts/zz"; : > "$RSC/scripts/zz/not-a-suite.sh"
+assert "77 да нет" "$(RDIR="$RSC" rslot bash "$SLOT" suite -- bash scripts/zz/not-a-suite.sh) $(has "$W/err" 'внешнего маршрута нет') $(has "$W/err" 'предмет — машина')" "близнец: посторонняя команда воркспейса без внешнего пути — 77, локального маршрута MACHINE не получает"
 m_live=0; for f in "${MACH[@]}"; do (cd "$WS_TOP" && git ls-files --error-unmatch -- "$f" >/dev/null 2>&1) && m_live=$((m_live + 1)); done
 assert "да ${#MACH[@]}" "$([ "${#MACH[@]}" -gt 0 ] && echo да || echo нет) $m_live" "записи MACHINE — живые файлы дерева: ${#MACH[@]} записей, отслеживается $m_live (устаревшая запись — находка)"
 git init -q --bare "$W/bare-ws.git"; HLW="$W/hook-ws.log"; rm -f "$HLW" "$W/argv"; bp="$(jn ' remote class=ci-local route=push profile=ws ')"
@@ -1098,6 +1112,15 @@ M1280C_T="$(cat "$SLOT")"; printf '%s\n' "${M1280C_T/"$M1280C_A"/list=\"\"}" > "
 assert "1 0 да да" "$(diff "$SLOT" "$W/slot-mut-1280c.sh" | grep -c '^<') $(LSLOT="$W/slot-mut-1280c.sh" lpush 1280-j FAKE_AVAIL=1)" "мутант «правка отслеживаемого не судится»: отправка ушла с хуком по правленому дереву — проба выше его ловит"
 git -C "$R" checkout -q -- f; rm -f "$HL"
 assert "0 да да" "$(lpush 1280-k FAKE_AVAIL=1)" "близнец: правка снята — та же локальная отправка идёт"
+# Замок отправки (класс «параллельные-отправки-ветки», 5 случаев: вторая отправка той же ветки
+# теряла ref ПОСЛЕ полного хука): идёт отправка (репозиторий, ветка) — вторая отказывает 64 ДО хука.
+PLF="$HEAVY_SLOT_DIR/push-locks/bare--1314-l.lock"; mkdir -p "${PLF%/*}"; rm -f "$W/held"
+( exec 9>> "$PLF"; flock -n 9 && : > "$W/held"; sleep 30 ) & PLH=$!
+for _ in $(seq 1 50); do [ -e "$W/held" ] && break; sleep 0.1; done
+assert "64 да нет" "$(rslot env FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- git push -q "$W/bare.git" HEAD:refs/heads/1314-l) $(has "$W/err" 'уже идёт') $(has_ref 1314-l)" "замок отправки: та же ветка того же репозитория при идущей отправке — 64 до хука, ref не тронут"
+assert "0 да" "$(rslot env FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- git push -q "$W/bare.git" HEAD:refs/heads/1314-m) $(has_ref 1314-m)" "близнец: другая ветка того же репозитория при идущей отправке — идёт"
+kill "$PLH" 2>/dev/null; wait "$PLH" 2>/dev/null
+assert "0 да" "$(rslot env FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- git push -q "$W/bare.git" HEAD:refs/heads/1314-l) $(has_ref 1314-l)" "близнец: первая отправка вышла — та же ветка идёт (замок держит лишь живая)"
 
 echo "── маршрут Job: запись проверенного — на машине, повтор проверенной вершины Job не ставит (ws#1288, kacho#3336)"
 # Приёмка ws#1288: Job судит в своём клоне со своей .git, запись хука оставалась в поде, и
@@ -1127,7 +1150,8 @@ printf '#!/usr/bin/env bash\nexec "$(git rev-parse --show-toplevel)/scripts/hook
 git init -q --bare "$W/bare-j.git"
 jref() { git -C "$W/bare-j.git" rev-parse --verify --quiet "refs/heads/$1" > /dev/null && echo да || echo нет; }
 jrec() { (cd "$RJ" && bash scripts/hooks/prepush-new-commits.sh --recorded "$1") && echo да || echo нет; }
-jlog() { grep -c "^$1" "$HL" 2> /dev/null || true; }
+# Счёт строк журнала хука; журнала нет — 0, а не пусто (ws#1334: мутант «79 — итог» краснел на main).
+jlog() { [ -e "$HL" ] || { echo 0; return; }; grep -c "^$1" "$HL" || true; }
 jnew() { echo "$1" > "$RJ/n-$1"; git -C "$RJ" add -A; sandbox_git -C "$RJ" commit -q -m "$1"; git -C "$RJ" rev-parse HEAD; }
 jpush() { local s="$1" ref="$2"; shift 2; rm -f "$W/argv"; RDIR="$RJ" rslot env FAKE_EXEC=1 FAKE_EXEC_CLONE=1 HOOK_LOG="$HL" "$@" bash "$s" ci-local -- git push -q "$W/bare-j.git" HEAD:refs/heads/"$ref"; }
 jargv() { [ -e "$W/argv" ] && echo Job || echo без-Job; }
