@@ -313,9 +313,16 @@ def b_shell(src: Source) -> list[Finding]:
         # (`find -mmin -60`; живой в дереве снят 2026-10-16); прежняя
         # редакция ставила отметку ПОСЛЕ различителя, поэтому близнец в переписи не
         # значился и предикат читался как «3 из 3, оправданных нет».
+        # Второй различитель — КОРЕНЬ обхода: каталог, у которого индекса git нет по
+        # устройству системы (/tmp, /var/tmp, /proc, /sys, /dev, /run, $TMPDIR), о составе
+        # дерева не спрашивает — спрашивать там `git ls-files` нечего (урок 1c88ed65:
+        # `find /proc/[0-9]*/fd` в detach.sh, `find` по /tmp). ГРАНИЦА: корень переменной
+        # (`find "$D"`, mktemp) не разобран — судится, как прежде.
         if re.search(r"(\$\(\s*find\s|`\s*find\s|^\s*find\s+\S+.*\|\s*(while|xargs))", line):
             src.note("B7")
-            if not re.search(r"-(mmin|mtime|newer|size|atime|ctime|delete|exec)\b", line):
+            root = re.search(r"\bfind\s+(?:-[HLP]\s+)*[\"']?([^\s\"']+)", line)
+            outside = root and re.match(r"(/(tmp|var/tmp|proc|sys|dev|run)(/|$)|\$\{?(TMPDIR|TMP)\b)", root.group(1))
+            if not outside and not re.search(r"-(mmin|mtime|newer|size|atime|ctime|delete|exec)\b", line):
                 f.append(Finding(
                     "B7", "состав дерева взят с диска, а не из индекса", src.path, ln, line.strip()[:110],
                     "перечисление с диска несёт неотслеживаемое (артефакты сборки, чужие черновики, "
