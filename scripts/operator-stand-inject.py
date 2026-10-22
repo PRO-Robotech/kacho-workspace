@@ -28,7 +28,7 @@ class ProducerExperiments(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.temp = tempfile.TemporaryDirectory()
-        cls.co = Path(cls.temp.name)
+        cls.co = Path(cls.temp.name) / 'checkout'
         subprocess.run(['git', 'init', '-q', str(cls.co)], check=True)
         (cls.co / 'source.txt').write_text('actual producer fixture\n')
         subprocess.run(['git', '-C', str(cls.co), 'add', 'source.txt'], check=True)
@@ -36,7 +36,7 @@ class ProducerExperiments(unittest.TestCase):
                         'source "$1"; sandbox_git_home "$2" && '
                         'sandbox_git -C "$3" commit -qm fixture', 'fixture',
                         str(HERE / 'lib/sandbox-git-home.sh'),
-                        str(cls.co / 'git-home'), str(cls.co)], check=True)
+                        str(Path(cls.temp.name) / 'git-home'), str(cls.co)], check=True)
         cls.head = M.git(str(cls.co), 'rev-parse', 'HEAD')
         cls.tree = M.git(str(cls.co), 'rev-parse', 'HEAD^{tree}')
         cls.job = json.loads((FIX / 'iam-job.json').read_text())
