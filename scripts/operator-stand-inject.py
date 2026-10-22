@@ -37,17 +37,17 @@ class ProducerExperiments(unittest.TestCase):
         cls.head = M.git(str(cls.co), 'rev-parse', 'HEAD')
         cls.tree = M.git(str(cls.co), 'rev-parse', 'HEAD^{tree}')
         cls.job = json.loads((FIX / 'iam-job.json').read_text())
-        cls.run = json.loads((FIX / 'iam-run.json').read_text())
+        cls.api_run = json.loads((FIX / 'iam-run.json').read_text())
         cls.check_run = json.loads((FIX / 'iam-check.json').read_text())
-        cls.env = dict(os.environ, GITHUB_SHA=cls.head, GITHUB_RUN_ID=str(cls.run['id']),
-                       GITHUB_RUN_ATTEMPT=str(cls.run['run_attempt']), GITHUB_JOB='integration')
+        cls.env = dict(os.environ, GITHUB_SHA=cls.head, GITHUB_RUN_ID=str(cls.api_run['id']),
+                       GITHUB_RUN_ATTEMPT=str(cls.api_run['run_attempt']), GITHUB_JOB='integration')
         cls.before = cls.produce('before')
         cls.after = cls.produce('after')
         cls.native = (FIX / 'iam-go.log').read_text()
         cls.workflow = (FIX / 'iam-integration.yml').read_bytes()
         definition = M.definition(M.load_workflow(cls.workflow), 'integration')
         cls.exp = {'repo': 'PRO-Robotech/kaname-iam-operator', 'head': cls.head, 'tree': cls.tree,
-                   'ref': 'refs/heads/' + cls.run['head_branch'], 'definitions': {
+                   'ref': 'refs/heads/' + cls.api_run['head_branch'], 'definitions': {
                        'integration.yml:integration': {'definition': definition,
                            'definition_digest': M.digest(definition),
                            'workflow_digest': M.digest(cls.workflow), 'name': cls.job['name'],
@@ -63,7 +63,7 @@ class ProducerExperiments(unittest.TestCase):
                                        cwd=cls.co, env=env or cls.env, text=True)
 
     def state(self):
-        run, job, check = map(copy.deepcopy, (self.run, self.job, self.check_run))
+        run, job, check = map(copy.deepcopy, (self.api_run, self.job, self.check_run))
         for item in (run, job, check):
             item['head_sha'] = self.head
         return {'runs': [run], 'jobs': [job], 'check': check,
@@ -185,6 +185,83 @@ class ProducerExperiments(unittest.TestCase):
         with patch.object(M, 'api', side_effect=M.Unread('HTTP403')):
             with self.assertRaises(M.Unread):
                 M.hosted(self.exp, 'integration.yml:integration')
+
+
+class ImageBuildExperiments(unittest.TestCase):
+    def test_closed_build_steps(self):
+        fixtures = [
+            ('kaname-iam-operator', 'docker-build.yml:docker-build-amd64', ['./Dockerfile']),
+            ('vault-operator', 'docker-build.yml:docker-build-amd64', ['./Dockerfile', './Dockerfile.vaultsecret', './Dockerfile.bucket']),
+            ('registry-operator', 'ci.yml:docker', ['Dockerfile', 'Dockerfile.iam-proxy']),
+        ]
+        for short, name, files in fixtures:
+            repo = 'PRO-Robotech/' + short
+            builds = [{'uses': 'docker/build-push-action@v6', 'with': {'file': file}} for file in files]
+            target = {'definition': {'job': {'steps': builds}}}
+            job = {'steps': [{'name': 'Run docker/build-push-action@v6', 'number': n+2,
+                             'status': 'completed', 'conclusion': 'success'} for n in range(len(files))]}
+            if short == 'registry-operator':
+                captured = json.loads((FIX / 'registry-build-steps.json').read_text())
+                M.verify_image_builds(repo, name, target, captured)
+                job = {'steps': [step for step in captured['steps'] if step['name'] == 'Run docker/build-push-action@v6']}
+            M.verify_image_builds(repo, name, target, job)
+            changes = {'missing': lambda j: j['steps'].pop(),
+                       'skipped': lambda j: j['steps'][0].update(conclusion='skipped'),
+                       'pending': lambda j: j['steps'][0].update(status='in_progress'),
+                       'failed': lambda j: j['steps'][0].update(conclusion='failure'),
+                       'duplicate': lambda j: j['steps'].append(copy.deepcopy(j['steps'][0]))}
+            for change, mutate in changes.items():
+                with self.subTest(repo=repo, change=change):
+                    M.verify_image_builds(repo, name, target, job)
+                    broken = copy.deepcopy(job); mutate(broken)
+                    with self.assertRaises(M.Unread): M.verify_image_builds(repo, name, target, broken)
+                    print('BUILD_PROBE_V1 ' + json.dumps({'repo':repo,'name':change,'outcome':'rejected','twin':'accepted'}))
+
+
+class TransportExperiments(unittest.TestCase):
+    def test_exact_transport(self):
+        script = b'#!/bin/bash\nprintf "exact newline\\n"\n'
+        self.assertEqual(M.command_script(M.canonical_argv(script)), script)
+
+    def test_transport_one_fact_negatives(self):
+        script = b'printf test\n'
+        argv = M.canonical_argv(script)
+        changes = {
+            'extra_argument': argv + ['extra'],
+            'other_target': argv[:-1] + ['other'],
+            'wrapper': argv[:2] + [argv[2].replace('base64 -d', 'base64 --decode')] + argv[3:],
+            'encoding_whitespace': argv[:2] + [argv[2].replace(' | base64', '  | base64')] + argv[3:],
+            'truncated_payload': argv[:2] + [argv[2].replace(base64.b64encode(script).decode(), 'cA=')] + argv[3:],
+            'noncanonical_encoding': M.canonical_argv(b'p'),
+        }
+        changes['noncanonical_encoding'][2] = changes['noncanonical_encoding'][2].replace('cA==', 'cB==')
+        for name, broken in changes.items():
+            with self.subTest(name=name):
+                self.assertEqual(M.command_script(argv), script)
+                with self.assertRaises((M.Unread, ValueError)): M.command_script(broken)
+                print('TRANSPORT_PROBE_V1 ' + json.dumps({'name': name, 'outcome': 'rejected', 'twin': 'accepted'}))
+
+    def test_registered_payload_drift(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            script = root / 'runner.sh'; script.write_bytes(b'printf original\n')
+            argv = root / 'argv.json'; argv.write_text(json.dumps(M.canonical_argv(script.read_bytes())))
+            pins = root / 'pins.json'; pins.write_text('{"helm":"v3.18.4"}')
+            exp = {'head': 'a'*40, 'tree': 'b'*40, 'repo': 'PRO-Robotech/kaname-iam-operator',
+                   'definitions': {'test.yml:test': {'executor':'cluster-job', 'definition_digest':'c'*64}}}
+            definition = M.candidate_definition(exp, script, argv, pins)
+            review = root / 'review.json'; review.write_text(json.dumps({'role':'check-verifier',
+                'verdict':'accept', 'blocking':[], 'definition_digest': M.digest(definition)}))
+            with patch.object(M, 'registry', return_value=root / 'registry'):
+                identity = M.register(exp, script, argv, pins, review)
+                self.assertEqual(M.get_definition(identity), definition)
+                script.write_bytes(b'printf changed\n')
+                with self.assertRaises(M.Unread): M.candidate_definition(exp, script, argv, pins)
+                definition['script_digest'] = '0'*64
+                identity = M.digest(definition)
+                M.save_new(root/'registry'/'definitions'/(identity+'.json'), {'definition':definition,
+                    'review': {'role':'check-verifier','verdict':'accept','blocking':[], 'definition_digest':identity}})
+                with self.assertRaises(M.Unread): M.get_definition(identity)
 
 
 def negative(name, mutate):

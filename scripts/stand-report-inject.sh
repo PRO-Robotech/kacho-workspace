@@ -444,4 +444,8 @@ route-slot-verdict-ignored	s/        route, rwhy = m.group(1), m.group(2)/      
 expect-route-unjudged	s/        if not (isinstance(r, dict) and r.get('route') == 'external'):/        if False:/
 MUT
 echo "stand-report-inject: мутантов $((killed + survived + void)), убито $killed, выжило $survived, не легло $void; нестабильных повторов случаев $unstable"
-[ "$fail" -eq 0 ] && [ "$pass" -gt 0 ] && [ "$survived" -eq 0 ] && [ "$void" -eq 0 ] && [ "$killed" -gt 0 ] && [ "$unstable" -eq 0 ] && python3 "$HERE/operator-stand-inject.py" && python3 "$HERE/operator-cluster-inject.py" "$HERE/operator-stand.py" "$HERE/operator-stand-fixtures/cluster-api-shape.json"
+legacy_rc=0
+[ "$fail" -eq 0 ] && [ "$pass" -gt 0 ] && [ "$survived" -eq 0 ] && [ "$void" -eq 0 ] && [ "$killed" -gt 0 ] && [ "$unstable" -eq 0 ] || legacy_rc=1
+bash "$HERE/operator-stand-focused-inject.sh"; operator_rc=$?
+printf 'STAND_TEST_GROUPS legacy=%s operators=%s\n' "$legacy_rc" "$operator_rc"
+[ "$legacy_rc" -eq 0 ] && [ "$operator_rc" -eq 0 ]

@@ -31,7 +31,9 @@ class ClusterProbes(unittest.TestCase):
         self.name = 'ci.yml:test'
         self.definition = {'repo': 'PRO-Robotech/registry-operator', 'head': self.head,
             'tree': self.tree, 'jobs': {self.name: 'c' * 64},
-            'argv': ['bash', '/work/check.sh'], 'command_digest': M.digest(['bash', '/work/check.sh']),
+            'argv': M.canonical_argv(b'fixture runner bytes\n'),
+            'command_digest': M.digest(M.canonical_argv(b'fixture runner bytes\n')),
+            'script_digest': M.digest(b'fixture runner bytes\n'),
             'runner_digest': M.digest((Path(M.__file__).parent / 'remote-heavy/run.sh').read_bytes())}
         self.identity = M.digest(self.definition)
         M.save_new(self.root / 'definitions' / (self.identity + '.json'),

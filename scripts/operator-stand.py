@@ -26,7 +26,7 @@ INVENTORY = {
         'test.yml:test': ('cluster-job', 'go-json-v1'),
         'lint.yml:lint': ('cluster-job', 'completion'),
         'inject.yml:inject': ('cluster-job', 'iam-injection-v1'),
-        'docker-build.yml:docker-build-amd64': ('cluster-job', 'completion'),
+        'docker-build.yml:docker-build-amd64': ('github-hosted', 'completion'),
         'integration.yml:integration': ('github-hosted', 'go-v1'),
         'test-e2e.yml:test-e2e': ('github-hosted', 'go-v1'),
     },
@@ -38,7 +38,7 @@ INVENTORY = {
         'ci.yml:chart': ('cluster-job', 'operator-chart-v1'),
         'ci.yml:zot': ('cluster-job', 'go-v1'),
         'ci.yml:kind-e2e': ('github-hosted', 'go-v1'),
-        'ci.yml:docker': ('cluster-job', 'completion'),
+        'ci.yml:docker': ('github-hosted', 'completion'),
         'charts.yml:render': ('cluster-job', 'charts-v1'),
         'charts.yml:ct': ('cluster-job', 'completion'),
         'charts.yml:admission': ('github-hosted', 'admission-v1'),
@@ -336,6 +336,27 @@ def census(text, parser):
     raise Unread('unsupported native census parser ' + parser)
 
 
+def verify_image_builds(repo, name, target, job):
+    image_files = {
+        ('PRO-Robotech/vault-operator', 'docker-build.yml:docker-build-amd64'):
+            {'./Dockerfile', './Dockerfile.vaultsecret', './Dockerfile.bucket'},
+        ('PRO-Robotech/kaname-iam-operator', 'docker-build.yml:docker-build-amd64'): {'./Dockerfile'},
+        ('PRO-Robotech/registry-operator', 'ci.yml:docker'): {'Dockerfile', 'Dockerfile.iam-proxy'},
+    }.get((repo, name))
+    if image_files:
+        builds = [step for step in target['definition']['job']['steps']
+                  if step.get('uses', '').startswith('docker/build-push-action@')]
+        require(len(builds) == len(image_files) and
+                {step.get('with', {}).get('file') for step in builds} == image_files,
+                'image build inventory differs')
+        names = Counter(step.get('name') or 'Run ' + step['uses'] for step in builds)
+        observed = [step for step in job.get('steps', []) if step.get('name') in names]
+        require(Counter(step['name'] for step in observed) == names and
+                len({step['number'] for step in observed}) == len(observed) and
+                all(step.get('status') == 'completed' and step.get('conclusion') == 'success'
+                    for step in observed), 'required image build skipped/missing/failed')
+
+
 def hosted(expected, name):
     repo, head = expected['repo'], expected['head']
     wf, key = name.split(':')
@@ -364,15 +385,7 @@ def hosted(expected, name):
     require(job.get('head_sha') == head and job.get('run_attempt') == attempt and
             job.get('run_id') == run['id'], 'job source/run/attempt mismatch')
     require(job.get('status') == 'completed' and job.get('conclusion') == 'success', 'hosted job is not green')
-    if repo == 'PRO-Robotech/vault-operator' and name == 'docker-build.yml:docker-build-amd64':
-        builds = [s for s in target['definition']['job']['steps']
-                  if s.get('uses', '').startswith('docker/build-push-action@')]
-        require(len(builds) == 3 and {s.get('with', {}).get('file') for s in builds} ==
-                {'./Dockerfile', './Dockerfile.vaultsecret', './Dockerfile.bucket'}, 'Vault build inventory differs')
-        for build in builds:
-            observed = [s for s in job.get('steps', []) if s.get('name') == build.get('name')]
-            require(len(observed) == 1 and observed[0].get('status') == 'completed' and
-                    observed[0].get('conclusion') == 'success', 'required image build skipped/missing/failed')
+    verify_image_builds(repo, name, target, job)
     require(job.get('runner_group_name') == 'GitHub Actions' and
             'self-hosted' not in job.get('labels', []), 'runner is not GitHub hosted')
     check_url = job.get('check_run_url', '')
@@ -404,6 +417,25 @@ def save_new(path, data):
         stream.write('\n')
 
 
+def canonical_argv(script):
+    """The only admitted transport: exact bytes in the existing make route."""
+    require(isinstance(script, bytes) and script and b'\x00' not in script, 'invalid script bytes')
+    payload = base64.b64encode(script).decode('ascii')
+    return ['make', '--eval', 'operator-evidence:; @printf %s ' + payload +
+            ' | base64 -d | bash', 'operator-evidence']
+
+
+def command_script(argv):
+    require(isinstance(argv, list) and len(argv) == 4 and
+            argv[:2] == ['make', '--eval'] and argv[3] == 'operator-evidence',
+            'command is outside the closed operator transport')
+    match = re.fullmatch(r'operator-evidence:; @printf %s ([A-Za-z0-9+/]+={0,2}) \| base64 -d \| bash', argv[2])
+    require(match is not None, 'command wrapper or encoding differs')
+    script = base64.b64decode(match[1], validate=True)
+    require(canonical_argv(script) == argv, 'noncanonical command encoding')
+    return script
+
+
 def candidate_definition(exp, script, argv_file, pins_file):
     """Capture an independently reviewed command definition before execution.
 
@@ -416,6 +448,7 @@ def candidate_definition(exp, script, argv_file, pins_file):
     argv, pins = read_json(argv_file), read_json(pins_file)
     require(isinstance(argv, list) and argv and all(isinstance(a, str) for a in argv), 'invalid command argv')
     require(isinstance(pins, dict) and pins, 'missing tool pins')
+    require(command_script(argv) == Path(script).read_bytes(), 'executed payload differs from reviewed script')
     definition = {'head': exp['head'], 'tree': exp['tree'], 'repo': exp['repo'], 'jobs': jobs,
                   'script_digest': digest(Path(script).read_bytes()), 'argv': argv,
                   'command_digest': digest(argv), 'tools': pins,
@@ -441,7 +474,12 @@ def get_definition(identity):
     require(record['review'].get('definition_digest') == identity and
             record['review'].get('verdict') == 'accept' and record['review'].get('blocking') == [],
             'registered command review is missing')
-    return record['definition']
+    definition = record['definition']
+    require(record['review'].get('role') == 'check-verifier', 'registered reviewer role differs')
+    require(definition['command_digest'] == digest(definition['argv']) and
+            definition['script_digest'] == digest(command_script(definition['argv'])),
+            'registered executed payload differs')
+    return definition
 
 
 def cluster(exp, name, identity, uid):
@@ -602,6 +640,8 @@ def main(args):
     cluster_verify.add_argument('report')
     cluster_verify.add_argument('--head', required=True)
     cluster_verify.add_argument('--expect', required=True)
+    argv = sub.add_parser('argv')
+    argv.add_argument('--script', required=True)
     candidate = sub.add_parser('definition')
     for flag in ('expect', 'script', 'argv', 'pins'):
         candidate.add_argument('--' + flag, required=True)
@@ -621,6 +661,8 @@ def main(args):
     if opts.action == 'expect':
         ref = opts.source_ref or git(opts.checkout, 'symbolic-ref', 'HEAD')
         print(json.dumps(expected(opts.checkout, opts.head, opts.base, ref, opts.push_before), indent=2))
+    elif opts.action == 'argv':
+        print(json.dumps(canonical_argv(Path(opts.script).read_bytes())))
     elif opts.action == 'definition':
         definition = candidate_definition(read_json(opts.expect), opts.script, opts.argv, opts.pins)
         print(json.dumps({'definition': definition, 'definition_digest': digest(definition)}, indent=2))
