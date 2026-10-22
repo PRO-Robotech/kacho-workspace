@@ -669,6 +669,26 @@ for f in $(find "$ROOT/tmp" -name '*.go'); do probe "$f"; done
 SH
 ); expect_fires B7 Write "$P" "find по \$ROOT/tmp — корень переменной"
 
+# Корней обхода несколько (CV-X1, приёмка 53b754628): судятся ВСЕ до первого выражения;
+# вне дерева строка лишь тогда, когда системны все корни.
+P=$(w check-b7m.sh <<'SH'
+#!/usr/bin/env bash
+for f in $(find /tmp "$ROOT" -name '*.go'); do probe "$f"; done
+SH
+); expect_fires B7 Write "$P" "find /tmp \"\$ROOT\" — второй корень дерево (CV-X1)"
+
+P=$(w check-b7n.sh <<'SH'
+#!/usr/bin/env bash
+for f in $(find -L "$ROOT" /proc/self/fd -name '*.go'); do probe "$f"; done
+SH
+); expect_fires B7 Write "$P" "find -L \"\$ROOT\" /proc — первый корень дерево"
+
+P=$(w check-b7s.sh <<'SH'
+#!/usr/bin/env bash
+for f in $(find -L /tmp/a "${TMPDIR:-/tmp}" /var/tmp -name '*.log'); do probe "$f"; done
+SH
+); expect_silent B7 Write "$P" "find по трём системным корням — индекса нет ни в одном"
+
 P=$(w check-b8.sh <<'SH'
 #!/usr/bin/env bash
 grep -q 'authzIntr.Unary()' --include='*.go' -r . || fail
