@@ -442,7 +442,7 @@ images-rev-unjudged	s/    if img not in (None, head):/    if False:/
 route-void-ignored	s/^if bad:$/if False:/
 route-local-ok	s/    if j in want and route != 'external':/    if j in want and route == 'none':/
 route-slot-verdict-ignored	s/        route, rwhy = m.group(1), m.group(2)/        route, rwhy = 'external', m.group(2)/
-route-mech-not-asked	s/        if len(r) > 2 and route == 'local':/        if False:/
+route-mech-not-asked	s/        if len(r) > 2 and route != 'external':/        if False:/
 route-mech-code-trusted	s/    if rc == 0:/    if True:/
 route-mech-dirty-ok	s/    if not clean():/    if False:/
 route-mech-env-inherited	s/        e = {'PATH': '\/usr\/local\/bin:\/usr\/bin:\/bin', 'HOME': tmp, 'XDG_CONFIG_HOME': tmp, 'LANG': 'C.UTF-8'}/        e = dict(os.environ)/
