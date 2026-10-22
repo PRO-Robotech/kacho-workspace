@@ -5,7 +5,7 @@
 # месте (`mutate` требует, чтобы якорь встретился один раз: иначе мутант молча не
 # применился бы, и зелёное контроля читалось бы как доказательство). От самопробы
 # своего ритуала требуется код 1. Контроль — та же копия без мутации — обязан дать 0
-# по всем пяти: иначе красное мутанта пришло бы от соседа, а не от предмета.
+# по всем шести: иначе красное мутанта пришло бы от соседа, а не от предмета.
 #
 #   M1 pr-body: Closes без доказательства        → check-01 красная
 #   M2 pr-body: предикат атрибуции ослеп          → check-01 красная
@@ -133,6 +133,23 @@
 # ws#1324: без диапазона решает последнее доказательство задачи (`dod_proof_last`) — close-wave, trail.
 #   M86 close-wave: последнее — лишь из полных (прежнее)                 → check-02
 #   M87 dod_proof.jq: `dod_proof_last` — лишь из полных                   → check-02
+# ws#1320, возврат check-verifier: раздел неисполненного — по КЛАССУ начала строки и перечню
+# слов-исходов, выведенному переписью (`_dod_unmet_line`); каждая часть краснит свой случай check-06,
+# нумерованный пункт ws#1225 — и генератор тела конец в конец (check-01).
+#   M88 нумерованный «N.» не допущен                                    → check-06, check-01
+#   M89 нумерованный «N)» не допущен                                    → check-06
+#   M90 флажок задачи «[ ]» не допущен                                  → check-06
+#   M91 отступ перед маркером не допущен                                → check-06
+#   M92 знак, заголовок и выделение перед словом — лишь `**` (прежнее)   → check-06
+#   M93 выделение сразу после «Не» не допущено                          → check-06
+#   M94 регистр не сводится (флаг снят)                                 → check-06
+#   M95 слово-исход снято из перечня — мутант на каждое слово           → check-06
+#   M96 цитата `>` — раздел                                             → check-06
+#   M97 ячейка таблицы `|` — раздел                                     → check-06
+#   M98 фрагмент кода в начале строки — раздел                          → check-06
+#   M99 любое слово — исход (граница зелёного стала разделом)           → check-06
+#   M100 «не требуется» не снимает раздела                              → check-06
+#   близнец T4: перечень слов записан одной строкой — check-06 зелена
 #
 # Хранилище для check-04 берётся из HEAD настоящего воркспейса (`RITUALS_WS`):
 # копия несёт только код ритуалов и их общие зависимости.
@@ -200,7 +217,7 @@ expect() {
 # контроль: копия без мутации зелена по всем самопробам
 d="$(copy control)" || { echo "[VOID] rituals/inject — копия не заведена" >&2; exit 2; }
 for c in check-01-pr-body.py check-02-close-wave.py check-03-approval-event.py check-04-vault-trails.py \
-         check-05-dod-judges-agree.py; do
+         check-05-dod-judges-agree.py check-06-dod-unmet-forms.py; do
     out="$(run_check "$d" "$c")"; rc=$?
     expect "контроль $c" 0 "$rc" "$out"
 done
@@ -487,6 +504,32 @@ for c in check-01-pr-body.py check-05-dod-judges-agree.py; do
     inject "M80 dod_proof.jq: раздел неисполненного не судится ($c)" "$c" \
         '  | any($l[]; _dod_unmet_line) as $unmet' '  | false as $unmet' ../lib/dod_proof.jq
 done
+U='../lib/dod_proof.jq'
+for c in check-06-dod-unmet-forms.py check-01-pr-body.py; do
+    inject "M88 dod_proof.jq: нумерованный «N.» не допущен ($c)" "$c" '[.)]' '[)]' "$U"
+done
+inject "M89 dod_proof.jq: нумерованный «N)» не допущен" check-06-dod-unmet-forms.py '[.)]' '[.]' "$U"
+inject "M90 dod_proof.jq: флажок задачи не допущен" check-06-dod-unmet-forms.py '(?:\\[[ x]\\][ \t]+)?' '' "$U"
+inject "M91 dod_proof.jq: отступ перед маркером не допущен" check-06-dod-unmet-forms.py \
+    '"^[ \t]*(?:(?:' '"^(?:(?:' "$U"
+inject "M92 dod_proof.jq: перед словом лишь **" check-06-dod-unmet-forms.py \
+    '[^\\p{L}\\p{N}\\s`|>\\\\]{1,6}' '[*]{2}' "$U"
+inject "M93 dod_proof.jq: выделение после «Не» не допущено" check-06-dod-unmet-forms.py \
+    'не(?:[*_]{1,2})?[ \t]+' 'не[ \t]+' "$U"
+inject "M94 dod_proof.jq: регистр не сводится" check-06-dod-unmet-forms.py \
+    '(_dod_unmet_stems | join("|")) + ")"; "i")' '(_dod_unmet_stems | join("|")) + ")")' "$U"
+for s in сошл исполн выполн сдела доказа пройд покры закры почин; do
+    inject "M95 dod_proof.jq: слово-исход «$s» снято" check-06-dod-unmet-forms.py "\"$s\"" '"(?!)"' "$U"
+done
+inject "M96 dod_proof.jq: цитата — раздел" check-06-dod-unmet-forms.py '`|>' '`|' "$U"
+inject "M97 dod_proof.jq: ячейка таблицы — раздел" check-06-dod-unmet-forms.py '`|>' '`>' "$U"
+inject "M98 dod_proof.jq: фрагмент кода в начале — раздел" check-06-dod-unmet-forms.py '`|>' '|>' "$U"
+inject "M99 dod_proof.jq: любое слово — исход" check-06-dod-unmet-forms.py \
+    '(_dod_unmet_stems | join("|"))' '"\\p{L}"' "$U"
+inject "M100 dod_proof.jq: «не требуется» не снимает раздела" check-06-dod-unmet-forms.py \
+    '  and (test("не требуется"; "i") | not);' '  ;' "$U"
+twin "T4 dod_proof.jq: перечень слов одной строкой" check-06-dod-unmet-forms.py \
+    '(_dod_unmet_stems | join("|"))' '"сошл|исполн|выполн|сдела|доказа|пройд|покры|закры|почин"' "$U"
 for c in check-05-dod-judges-agree.py check-01-pr-body.py; do
     twin "T2 dod_proof.jq: привязка срезом ($c)" "$c" \
         'any($range[]; startswith($rev))' 'any($range[]; .[0:($rev | length)] == $rev)' ../lib/dod_proof.jq
