@@ -768,7 +768,19 @@ assert "0 none да" "$(route "$R" integration -- bash .github/scripts/other.sh)
 assert "0 none да" "$(route "$R" docker -- true) $(has "$W/out" 'внешнего пути не имеет')" "класс без внешнего пути → none: при доступном кластере 77 (ws#1301)"
 assert "0 none да" "$(route "$W" lint -- go version) $(has "$W/out" 'не клон git')" "каталог не клон → none (ws#1301)"
 RO="$W/rclone-other"; git init -q -b 984-o "$RO"; git -C "$RO" remote add origin https://github.com/PRO-Robotech/elsewhere.git
-assert "0 none да" "$(route "$RO" lint -- go version) $(has "$W/out" 'клон не kacho, kaname, corelib или kacho-workspace')" "близнец: клон чужого репозитория → none (ws#1301)"
+assert "0 none да" "$(route "$RO" lint -- go version) $(has "$W/out" 'клон не kacho, kaname, corelib, kacho-workspace, vault-operator')" "близнец: клон чужого репозитория → none (ws#1301)"
+# Клоны внешних операторов (ws#1303): go-race, go-unit, integration, ci-local — Job; иное — none.
+for op in vault-operator kaname-iam-operator registry-operator; do
+    RV="$W/rclone-$op"; git init -q -b 1303-o "$RV"; git -C "$RV" remote add origin "https://github.com/PRO-Robotech/$op.git"
+    assert "0 external да" "$(route "$RV" go-unit -- go vet ./...) $(has "$W/out" "профиль go-race, репозиторий $op")" "--route: go vet классом go-unit в клоне $op → external, профиль go-race"
+    assert "0 external" "$(route "$RV" ci-local -- go test ./...)" "--route: go test классом ci-local в клоне $op → external"
+    assert "0 none да" "$(route "$RV" suite -- bash scripts/x/run-all.sh) $(has "$W/out" "клон внешнего оператора $op: класс «suite»")" "близнец: класс suite в клоне $op → none"
+    assert "0 none да" "$(route "$RV" lint -- go version) $(has "$W/out" 'пин линтера')" "близнец: класс lint в клоне $op → none (пин линтера — лишь из ci.yaml, ci.yml)"
+done
+git -C "$W/rclone-vault-operator" remote set-url origin https://github.com/PRO-Robotech/vault-operator-x.git
+assert "0 none" "$(route "$W/rclone-vault-operator" go-unit -- go vet ./...)" "близнец: имя оператора с хвостом (vault-operator-x) → none"
+sed '/^        \*PRO-Robotech\/vault-operator|/,/^            RS_PROFILE=.*внешнего оператора/d' "$SLOT" > "$W/slot-mut-op.sh"
+assert "3 0 none" "$(diff "$SLOT" "$W/slot-mut-op.sh" | grep -c '^<') $(RSLOT="$W/slot-mut-op.sh" route "$W/rclone-registry-operator" go-unit -- go vet ./...)" "мутант «клоны операторов не приняты»: go-unit → none — пробы выше его ловят"
 RK="$W/rclone-sn"; git init -q -b 984-s "$RK"; git -C "$RK" remote add origin https://github.com/PRO-Robotech/kacho.git
 mkdir -p "$RK/deploy/scripts"; printf 'stand-ns-run:\n\t@true\n' > "$RK/deploy/Makefile"; printf '#!/usr/bin/env bash\ntrue\n' > "$RK/deploy/scripts/stand-ns.sh"
 git -C "$RK" add deploy; sandbox_git -C "$RK" commit -q -m sn
