@@ -173,6 +173,10 @@
 # перепись run.sh (младший по времени создания ns снимает его и выходит 75; run.sh inject CPR).
 # --status показывает билеты и внешний вход.
 #
+# ОТПРАВКА БЕЗ ХУКА (ws#1335): `git push` классом ci-local в клоне, где git хука отправки не
+# исполнит (признак — scripts/push-hook.sh, один со стражем heavy-guard), исполняется сразу:
+# без слота машины, без кластера, после суждения «откуда отправка»; журнал — строка light (push_light).
+#
 # ХУК ОТПРАВКИ (ws#1106, ws#1115): `git push` классом ci-local в клоне продукта при
 # принимающем кластере идёт без слота машины: git звано с core.hooksPath на переходник,
 # чей pre-push отдаёт вход git (строки отправки) настоящему хуку клона
@@ -326,7 +330,7 @@ CGROOT=/sys/fs/cgroup
 # раз в 2 с, и последние ≤ 2 с до выхода не видны.
 CLASSES='go-race|16384|go test -race; make test, test-unit, test-service, test-service-short|go test -race -short ./... по монорепо (288 пакетов) в golang:1.26.8, -p 32, холодный кэш — 13,6 ГиБ; свои пакеты services/vpc (49) — 3,5 ГиБ
 integration|8192|go test -tags=integration (testcontainers); make test-integration, test-pg-outside-selection|форма make test-integration SVC=vpc (-race, -p 1, холодный кэш) — 1,2 ГиБ тестов + 0,2 ГиБ Postgres; запас — на -p по умолчанию своего сервиса
-ci-local|10240|scripts/ci-local.sh; git push в клон, чей pre-push зовёт ci-local (бронь отправки воркспейса и kaname — по предмету, ниже)|scripts/ci-local.sh go (23 проверки: build, vet, go test -short ./..., golangci-lint, gosec; кэш сборки тёплый, линтера холодный) — 5,2 ГиБ; прочие группы идут после неё по одной, не замерены
+ci-local|10240|scripts/ci-local.sh; git push в клон с хуком отправки — scripts/push-hook.sh, без хука отправка лёгкая (бронь отправки воркспейса и kaname — по предмету, ниже)|scripts/ci-local.sh go (23 проверки: build, vet, go test -short ./..., golangci-lint, gosec; кэш сборки тёплый, линтера холодный) — 5,2 ГиБ; прочие группы идут после неё по одной, не замерены
 lint|8192|golangci-lint run, govulncheck, gosec, make lint|golangci-lint run ./... по монорепо, холодный кэш линтера — 4,5 ГиБ
 docker|4096|docker run/create/start/build, docker compose up/run/build|общий класс — предел, а не прогноз: docker run получает --memory=бюджет
 go-unit|4096|go test и go build без -race и integration; make с «test» в имени цели (ws#1301: любая сборка и тест — во внешний кластер)|предел, а не прогноз: ниже замера go test -race свои пакеты services/vpc (49) — 3,5 ГиБ (строка go-race); Job — профиль go-race run.sh
@@ -1894,6 +1898,41 @@ remote_route() {
     ROUTE=(bash "$REMOTE_RUN" --task "$TASK" --repo "$repo" --ref "$(git -C "$top" rev-parse HEAD)" --src "$top" --workdir "$rel" --profile "$RS_PROFILE" --)
     return 0
 }
+# push_light — 0, если CMD_R — `git … push` в клоне, где git хука отправки НЕ исполнит (ws#1335,
+# решение диспетчера 2026-10-22, вариант б): нет исполняемого <общий каталог>/hooks/pre-push, пуст
+# core.hooksPath (любой слой и -c), нет scripts/hooks/pre-push в дереве. Признак — scripts/push-hook.sh,
+# один со стражем heavy-guard; PL_WHY — его основание. Перед git — лишь присваивания, env, setsid,
+# nohup и timeout <срок>: иное слово (`make git push`) — не отправка. Признака нет — 1 (отправка тяжела).
+push_light() {
+    local i=0 n=${#CMD_R[@]} o=() w out rc ph
+    PL_WHY=""
+    ph="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/push-hook.sh"
+    [ -f "$ph" ] || return 1
+    while [ "$i" -lt "$n" ]; do
+        w="${CMD_R[$i]}"
+        case "$w" in
+            git|*/git) break ;;
+            env|setsid|nohup) i=$(( i + 1 )) ;;
+            timeout) i=$(( i + 2 )) ;;
+            *=*) [[ "$w" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]] || return 1; i=$(( i + 1 )) ;;
+            *) return 1 ;;
+        esac
+    done
+    i=$(( i + 1 ))
+    while [ "$i" -lt "$n" ]; do
+        w="${CMD_R[$i]}"
+        case "$w" in
+            -C|-c|--git-dir|--work-tree|--namespace) o+=("$w" "${CMD_R[$(( i + 1 ))]:-}"); i=$(( i + 2 )) ;;
+            push) break ;;
+            -*) o+=("$w"); i=$(( i + 1 )) ;;
+            *) return 1 ;;
+        esac
+    done
+    [ "$i" -lt "$n" ] || return 1
+    out="$(bash "$ph" "${o[@]}" 2>/dev/null)"; rc=$?
+    PL_WHY="$(cut -f3 <<< "$out")"
+    [ "$rc" = 1 ]
+}
 # route_print — `--route` (ws#1192): маршрут, который прогон выбрал бы этой команде, теми же
 # route_static и stand_static, без кластера, run.sh, журнала и исполнения. external — Job
 # внешнего кластера либо стенд в ns внешнего кластера (stand-ns-* в клоне kacho с механизмом
@@ -1902,7 +1941,9 @@ remote_route() {
 # кластере слот откажет 77 (нагрузка не опознана, подъём локального стенда, строка оболочки).
 route_print() {
     local kind why top url
-    if { [ "$CLASS" = stand ] || [ "$CLASS" = newman ]; } && stand_ns_light && [ -n "$SN_RUNNER" ]; then
+    if [ "$CLASS" = ci-local ] && push_light; then
+        kind=local; why="$PL_WHY — лёгкая команда: исполняется сразу, без слота машины и кластера (ws#1335)"
+    elif { [ "$CLASS" = stand ] || [ "$CLASS" = newman ]; } && stand_ns_light && [ -n "$SN_RUNNER" ]; then
         kind=external; why="стенд и команда — pod раннера $SN_RUNNER в ns внешнего кластера ($SN_HOW), на машине — $SN_TOOLS (ws#1303)"
     elif [ "$CLASS" = stand ]; then
         if stand_static; then
@@ -2200,6 +2241,14 @@ CMD_R=("$@"); WHY_LOCAL=""; ROUTE=(); GIT_IDX=""; GDIR="$PWD"; LOCAL_PROOF=""; L
 WAIT_T0="$(now)"   # начало срока заявки: внешний вход, кластер и очередь памяти считают от него (ws#1244)
 suite_payload
 if [ -n "$ROUTE_ONLY" ]; then route_print; exit 0; fi
+# Отправка без хука (ws#1335; push_light): проверок не гонит и памяти не берёт — исполняется сразу,
+# без слота машины и без кластера. Суждение «откуда отправка» (push_where) уже прошло выше, и всё,
+# что оно ставит отправке (замок, переменные), команда наследует через exec.
+if [ "$CLASS" = ci-local ] && push_light; then
+    journal_early "light class=ci-local route=push-no-hook slot=нет why=$PL_WHY who=$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD cmd=$(printf '%q ' "${CMD_R[@]}")"
+    say "git push: $PL_WHY — лёгкая команда: исполняется сразу, слот машины и кластер не берутся (ws#1335)"
+    exec "$@"
+fi
 # Раннер стенда (ws#1303): `stand-ns-run RUNNER=<вид>` классом stand либо newman — подъём, CMD в
 # pod пространства стенда, снятие; на машине kubectl, git и tar — внешний маршрут, слота нет.
 if { [ "$CLASS" = stand ] || [ "$CLASS" = newman ]; } && stand_ns_light && { [ "$CLASS" = stand ] || [ -n "$SN_RUNNER" ]; }; then

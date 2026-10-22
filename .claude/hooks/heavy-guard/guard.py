@@ -93,6 +93,7 @@ import json
 import os
 import re
 import shlex
+import subprocess
 import sys
 
 # Имена классов — те же, что у слота (`heavy-slot.sh --classes`), в обе стороны, и
@@ -673,21 +674,24 @@ def repo_top(path):
         p = up
 
 
-def push_runs_ci_local(path):
-    """git push тяжёл там, где pre-push клона зовёт ci-local.sh, и в воркспейсе, чей pre-push
-    гонит его наборы run-all.sh (ws#1291; признак — дерево). Класс — ci-local: отправку слот
-    ведёт им (бронь по предмету, keepalive ssh)."""
-    top = repo_top(path)
-    if not top:
-        return False
-    try:
-        with open(os.path.join(top, "scripts", "hooks", "pre-push"), encoding="utf-8") as fh:
-            text = fh.read()
-    except OSError:
-        return False
-    if "ci-local.sh" in text and os.path.isfile(os.path.join(top, "scripts", "ci-local.sh")):
+PUSH_HOOK = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "scripts", "push-hook.sh")
+
+
+def push_has_hook(gopts, path):
+    """git push тяжёл там, где git исполнит хук отправки (ws#1335, решение диспетчера 2026-10-22,
+    вариант б): признак — scripts/push-hook.sh, один со слотом. gopts — слова между git и push
+    (-C, --git-dir, --work-tree, -c core.hooksPath= судит признак); path — каталог команды.
+    Не репозиторий (код 2) — отправка откажет сама, не тяжела; признак не ответил либо снят —
+    тяжела: молча лёгкой отправка не становится. Класс — ci-local: отправку слот ведёт им
+    (бронь по предмету, keepalive ssh)."""
+    if not os.path.isfile(PUSH_HOOK):
         return True
-    return "run-all.sh" in text and os.path.isfile(os.path.join(top, "scripts", "heavy-slot.sh"))
+    try:
+        rc = subprocess.run(["bash", PUSH_HOOK] + gopts, cwd=path, stdin=subprocess.DEVNULL,
+                            capture_output=True, timeout=5).returncode
+    except (OSError, subprocess.SubprocessError):
+        return True
+    return rc not in (1, 2)
 
 
 HELM_SUBS = {"completion", "create", "dependency", "env", "get", "help", "history", "install",
@@ -1170,21 +1174,17 @@ def classify_argv(env, argv, cwd, ctx, level, alt):
     if base in ("npm", "npx"):
         return npm_class(base, args)
     if base == "git":
-        k, where = 0, None
+        k = 0
         while k < len(args) and args[k].startswith("-"):
-            if args[k] == "-C" and k + 1 < len(args):
-                where = args[k + 1]
-                k += 2
-            elif args[k] in ("-c", "--git-dir", "--work-tree", "--namespace"):
-                k += 2
-            else:
-                k += 1
+            k += 2 if args[k] in ("-C", "-c", "--git-dir", "--work-tree", "--namespace") else 1
         if args[k:k + 1] == ["push"] and "--no-verify" not in args:
-            if where and ("$" in where or "__SUBST__" in where):
+            gopts = [os.path.expanduser(a) for a in args[:k]]
+            if any("$" in a or "__SUBST__" in a for a in gopts):
                 return None  # клон в переменной не представим: его хук не прочесть
             base_dir = cwd or os.getcwd()
-            path = os.path.join(base_dir, os.path.expanduser(where)) if where else base_dir
-            if push_runs_ci_local(path):
+            if not os.path.isdir(base_dir):
+                return None  # каталога команды нет: git откажет сам
+            if push_has_hook(gopts, base_dir):
                 return "ci-local"
         return None
     if "/" in argv[0]:

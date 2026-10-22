@@ -1890,6 +1890,8 @@ echo "── ci-local: бронь по предмету отправки, а н�
 # неопознанное — прежние 10240. Число ставит предмет отправки (git push; -C), не имя класса.
 git init -q -b main "$W/kn" && echo k > "$W/kn/f" && git -C "$W/kn" add f && sandbox_git -C "$W/kn" commit -q -m k
 git -C "$W/kn" remote add origin "https://github.com/PRO-Robotech/kaname.git" && git -C "$W/kn" remote add bare "$W/wsr.git"
+# Клон kaname несёт хук отправки, как настоящий: без хука отправка лёгкая и брони не берёт (ws#1335).
+printf '#!/bin/sh\ncat >/dev/null\nexit 0\n' > "$W/kn/.git/hooks/pre-push"; chmod +x "$W/kn/.git/hooks/pre-push"
 git init -q -b main "$W/kc" && echo k > "$W/kc/f" && git -C "$W/kc" add f && sandbox_git -C "$W/kc" commit -q -m k
 git -C "$W/kc" remote add origin "https://github.com/PRO-Robotech/kacho.git"
 # book <каталог> <класс> <команда…> — бронь слота, число на stdout, основание на stderr.

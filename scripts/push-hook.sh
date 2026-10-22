@@ -26,13 +26,20 @@
 # откажет сама); 64 — вызов неверен.
 set -u
 
-opts=() hp_cli=""
+opts=() hp_cli="" gdir="" wtree="" cdir="$PWD"
 while [ "$#" -gt 0 ]; do
     case "$1" in
         -C|--git-dir|--work-tree)
             [ "$#" -ge 2 ] || { printf 'PUSH-HOOK\tnone\tу опции %s нет значения\n' "$1"; exit 64; }
+            case "$1" in
+                --git-dir) gdir="$2" ;;
+                --work-tree) wtree="$2" ;;
+                -C) cdir="$(cd "$cdir" 2>/dev/null && cd "$2" 2>/dev/null && pwd)" || cdir="" ;;
+            esac
             opts+=("$1" "$2"); shift 2 ;;
-        --git-dir=*|--work-tree=*) opts+=("$1"); shift ;;
+        --git-dir=*|--work-tree=*)
+            case "$1" in --git-dir=*) gdir="${1#*=}" ;; *) wtree="${1#*=}" ;; esac
+            opts+=("$1"); shift ;;
         -c)
             [ "$#" -ge 2 ] || { printf 'PUSH-HOOK\tnone\tу опции -c нет значения\n'; exit 64; }
             case "${2,,}" in core.hookspath=*) hp_cli="${2#*=}"; opts+=(-c "$2") ;; esac
@@ -56,7 +63,14 @@ if [ -x "$gd/hooks/pre-push" ] && [ -f "$gd/hooks/pre-push" ]; then
     printf 'PUSH-HOOK\tpresent\tисполняемый %s/hooks/pre-push\n' "$gd"
     exit 0
 fi
-top="$(git "${opts[@]}" rev-parse --show-toplevel 2>/dev/null)" || top=""
+# Дерево копии — то, откуда `make install-hooks` ставит хук. С --git-dir без --work-tree git
+# считает деревом каталог КОМАНДЫ, а не клон: дерево клона — родитель его «.git» либо core.worktree.
+if [ -n "$gdir" ] && [ -z "$wtree" ]; then
+    top="$(git "${opts[@]}" config core.worktree 2>/dev/null)" || top=""
+    if [ -z "$top" ] && [ "$(basename -- "$gdir")" = .git ]; then top="$(cd "$cdir" 2>/dev/null && cd "$(dirname -- "$gdir")" 2>/dev/null && pwd)" || top=""; fi
+else
+    top="$(git "${opts[@]}" rev-parse --show-toplevel 2>/dev/null)" || top=""
+fi
 if [ -n "$top" ] && [ -e "$top/scripts/hooks/pre-push" ]; then
     printf 'PUSH-HOOK\tpresent\tв дереве %s/scripts/hooks/pre-push\n' "$top"
     exit 0
