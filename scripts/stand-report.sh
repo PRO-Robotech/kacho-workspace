@@ -144,24 +144,25 @@ export STAND_AREA_JSON='{
     [["deploy/scripts/assert-ban6-external-isolation.py"], ["newman:ban6-external-isolation", "unit:*", "ci.yaml:unit-shard"],
      "проба ban6 — шаг «гейт — ban» e2e-newman.yml:shard; её --self-test гонит ci.yaml:helm, набором стенда не являющийся"]]}
 }'
-# Ведомость МАРШРУТОВ (ws#1192): задание → [класс слота, argv формы, опрос механизма стенда
-# головы: [путь, [подкоманда…], {окружение}]]. Форма — шаг CI задания (kaname: integrationshard
-# зовёт run-integration.sh; unit — go test -race -short); стенд kacho — ns внешнего кластера
-# (stand-ns-run), стенд own kaname — его задание шагами ghjob, стенд в ns задачи ставит сам механизм.
+# Ведомость МАРШРУТОВ (ws#1192): задание → [класс слота, argv формы]; маршрут — суждение
+# heavy-slot.sh --route о форме в копии головы. Форма — шаг CI задания (kaname: integrationshard
+# зовёт run-integration.sh; unit — go test -race -short); стенд kacho — pod раннера ns стенда
+# (stand-ns-run RUNNER=<вид>, ws#1303), стенд own kaname — задание шагами ghjob в pod раннера
+# stand-own.sh (ws#1321, kaname#940; ns — t<задача ветки>-kaname-own). Опрос `stand-own.sh census`
+# снят: он судил выбор пути механизмом, а задание шло машиной (сборка и newman процессом машины).
 export STAND_ROUTE_JSON='{
   "PRO-Robotech/kacho": {
     "ci.yaml:unit-shard": ["go-race", ["make", "test-unit", "SHARD=<шард>"]],
     "ci.yaml:integration": ["integration", ["make", "test-integration"]],
-    "e2e-newman.yml:shard": ["stand", ["make", "-C", "deploy", "stand-ns-run", "NS=t<задача>-w<k>", "CMD=<шаги шарда>"]],
-    "console-e2e.yml:probes": ["stand", ["make", "-C", "deploy", "stand-ns-run", "NS=t<задача>-w<k>", "CMD=<пробы консоли>"]],
-    "production-posture.yml:stand": ["stand", ["make", "-C", "deploy", "stand-ns-run", "NS=t<задача>-w<k>", "STACK=<стек матрицы>", "CMD=<перепись посадки>"]]
+    "e2e-newman.yml:shard": ["stand", ["make", "-C", "deploy", "stand-ns-run", "NS=t<задача>-w<k>", "RUNNER=newman", "DIR=deploy", "CMD=<шаги шарда>"]],
+    "console-e2e.yml:probes": ["stand", ["make", "-C", "deploy", "stand-ns-run", "NS=t<задача>-w<k>", "RUNNER=browser", "DIR=ui-future/e2e", "CMD=<пробы консоли>"]],
+    "production-posture.yml:stand": ["stand", ["make", "-C", "deploy", "stand-ns-run", "NS=t<задача>-w<k>", "STACK=<стек матрицы>", "RUNNER=newman", "DIR=deploy", "CMD=<перепись посадки>"]]
   },
   "PRO-Robotech/kaname": {
     "ci.yml:unit": ["go-race", ["go", "test", "./...", "-race", "-short", "-count=1", "-timeout", "25m"]],
     "ci.yml:integration": ["integration", ["env", "INTEGRATION_SHARD=<k>/3", ".github/scripts/run-integration.sh"]],
-    "e2e-newman.yml:stand": ["stand", ["python3", "<ws>/scripts/ghjob/ghjob.py", ".github/workflows/e2e-newman.yml", "stand", "<копия>", "<вывод>", "--env", "KANAME_STAND_TASK=<задача>"],
-                             [".github/scripts/stand-own.sh", ["census"], {"KANAME_STAND_KUBECONFIG": "<tmp>/нет", "KANAME_STAND_RUNDIR": "<tmp>/run",
-                              "KANAME_STAND_PKI": "<tmp>/pki", "KANAME_STAND_BIN": "<tmp>/bin"}]]
+    "e2e-newman.yml:stand": ["stand", ["bash", ".github/scripts/stand-own.sh", "runner", "--ship", "<ws>/scripts/ghjob/ghjob.py", "--",
+                             "python3", "/work/ship/ghjob.py", ".github/workflows/e2e-newman.yml", "stand", "/src", "/work/out"]]
   }
 }'
 if [ "${1:-}" = expect ]; then
@@ -183,7 +184,7 @@ if [ "${1:-}" = expect ]; then
     [ -z "$dirty" ] || void "в копии «$CO» правки вне коммита ($(printf '%s\n' "$dirty" | grep -c .) путей) — выбор был бы не о голове"
     url="$(git -C "$CO" remote get-url origin 2>/dev/null)" || void "у копии «$CO» нет origin — репозиторий не установить"
     CO="$CO" HEAD="$HEAD" BASE="$BASE" DRAFT="$DRAFT" URL="$url" SLOT="$SLOT" WS="$(dirname "$HERE")" exec python3 - <<'PY'
-import importlib.util, json, os, re, shutil, subprocess, sys, tempfile
+import importlib.util, json, os, re, subprocess, sys
 STAND = json.loads(os.environ['STAND_JSON'])  # ведомость — в шапке скрипта, общая с check
 co, head, base, url, draft = os.environ['CO'], os.environ['HEAD'], os.environ['BASE'], os.environ['URL'], os.environ['DRAFT']
 
@@ -242,34 +243,6 @@ ROUTES = json.loads(os.environ['STAND_ROUTE_JSON']).get(repo, {})
 LABEL = {'external': 'внешний кластер', 'local': 'локальный', 'none': 'нет'}
 
 
-def clean():
-    p = subprocess.run(['git', '-C', co, 'status', '--porcelain', '--untracked-files=all'], capture_output=True, text=True)
-    return p.returncode == 0 and not p.stdout.strip()
-
-
-def ask_mech(mech):  # (маршрут, основание) по опросу механизма стенда головы
-    path, sub, env = mech[0], mech[1], mech[2]
-    if not os.path.isfile(os.path.join(co, path)):
-        return 'local', 'механизма стенда %s в голове нет — стенд поднять негде, кроме машины' % path
-    tmp = tempfile.mkdtemp(prefix='stand-route.')
-    try:
-        e = {'PATH': '/usr/local/bin:/usr/bin:/bin', 'HOME': tmp, 'XDG_CONFIG_HOME': tmp, 'LANG': 'C.UTF-8'}
-        e.update({k: v.replace('<tmp>', tmp) for k, v in env.items()})
-        try:
-            p = subprocess.run(['bash', path] + sub, cwd=co, env=e, capture_output=True, text=True, timeout=60)
-            rc, said = p.returncode, (p.stdout + p.stderr).strip().splitlines()
-        except subprocess.TimeoutExpired:
-            rc, said = 124, ['не ответил за 60 с']
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
-    if not clean():
-        void('проба механизма стенда %s %s правила копию «%s» — маршрут не судим, копия не о голове' % (path, ' '.join(sub), co))
-    first = (said[0] if said else '')[:160]
-    if rc == 0:
-        return 'external', 'стенд ставит механизм головы %s сам: «%s» отвечает выбором пути (код 0) — при доступном кластере ns задачи' % (path, ' '.join(sub))
-    return 'local', 'механизм стенда головы %s внешнего пути не знает: «%s» — код %d, «%s»' % (path, ' '.join(sub), rc, first)
-
-
 routes, bad = {}, []
 for j in jobs:
     r = ROUTES.get(j)
@@ -286,8 +259,6 @@ for j in jobs:
             void('heavy-slot.sh --route %s (%s) о задании %s не ответил строкой ROUTE: код %s, «%s» — маршрут не судим'
                  % (cls, os.environ['SLOT'], j, getattr(p, 'returncode', '—'), ((p.stdout + p.stderr) if p else '').strip()[-200:]))
         route, rwhy = m.group(1), m.group(2)
-        if len(r) > 2 and route != 'external':
-            route, rwhy = ask_mech(r[2])
     routes[j] = {'route': route, 'why': rwhy, 'class': cls, 'form': form}
     print('ROUTE\t%s\t%s\t%s\t%s\tформа: heavy-slot.sh %s -- %s' % (j, LABEL[route], 'выбрано' if j in want else 'не выбрано', rwhy, cls or '—',
           ' '.join(form) or '—'), file=sys.stderr)
