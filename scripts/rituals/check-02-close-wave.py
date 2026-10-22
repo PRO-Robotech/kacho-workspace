@@ -126,7 +126,7 @@ def body(pr):
     c12 = st["comments"]["%s#12" % R][-1]["body"]
     pr.ok("полное, затем частичное: #12 не закрыта, остаток назван частичным",
           rc == 0 and st["issues"]["%s#12" % R]["state"] == "open" and st["parent"]["%s#12" % R] == 20
-          and "`DoD-proof @def5679` частичное" in c12, err + " | " + c12)
+          and "(`DoD-proof @def5679`) частичное" in c12, err + " | " + c12)
     rc, out, err, st = pr.run("close-wave", [R, "10", SHA[:12], "--next", "20"], pr.state(two(
         "DoD-proof @def5678 — частично: пункт 0", "DoD-proof @def5679\nкод 0")))
     pr.ok("близнец: частичное, затем полное — #12 закрыта по последнему",
