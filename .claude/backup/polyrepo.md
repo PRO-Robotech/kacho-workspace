@@ -168,3 +168,5 @@ poly-dockerfile-no-replace · собирается versioned-модулями, g
 poly-two-dictionaries · называет словарь (proto-пакет или каталог чарта) и сверяется с тем, который читает код · ЗАВЕСТИ · red: имя из чужого словаря → отказ старта края
 poly-foreign-not-a-pair · ввезённое поддерево — не во ВТОРОМ нашем стволе (там оно пара под запретом копии); ребро — пином на фундамент · scripts/crossrepo-gate · red: одно ввезённое поддерево в kacho и corelib
 poly-copy-gate · гейт копии обходит три ствола, требует пары в ведомости `docs/crossrepo-pairs.yaml` · scripts/crossrepo-gate · red: путь с парой без записи в ведомости
+poly-cycles-forbidden · A зовёт B ⇒ B не зовёт A (runtime-ребро; build-граф — poly-no-cycles); новое ребро — перечнем · TestTargetModuleLayoutIsAcyclic · red: обратный вызов владельца к потребителю
+poly-services-no-code-dep · не импортирует services/<b>/; общение только по API · TestCrossModuleJudgeCatchesTheServiceTakingThePlatform · red: импорт соседнего сервиса

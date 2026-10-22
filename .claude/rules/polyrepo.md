@@ -49,7 +49,7 @@ poly-replace-ban · ни одного replace github.com/PRO-Robotech/... · ! g
 poly-gowork · через git-ignored go.work (шаблон go.work.example), бамп — GOWORK=off go get …@<sha> · TestCrossModuleWorkspaceGateCanFailAndCanStaySilent · red: правка go.mod ради локальной разработки
 poly-replace-gate · CI-гейт грепом ловит replace на внутренний модуль; зелёный без предмета — не свидетельство · .github/workflows · red: зелёный на пустом предмете
 poly-dockerfile-no-replace · собирается versioned-модулями, без replace в любом контексте · TestBuildContextGuard · red: COPY siblings с replace
-poly-services-no-code-dep · не импортирует services/<b>/; общение только по API · TestCrossModuleJudgeCatchesTheServiceTakingThePlatform · red: импорт соседнего сервиса
+poly-services-no-code-dep · не импортирует services/<b>/, только API · TestCrossModuleJudgeCatchesTheServiceTakingThePlatform · red: импорт соседнего сервиса
 poly-no-cycles · циклы build-графа запрещены · TestTargetModuleLayoutIsAcyclic · red: кольцо в графе модулей
 
 ## Runtime cross-domain edges (gRPC service→service; НЕ build-зависимость)
@@ -63,8 +63,8 @@ poly-consumer-opens · соединение открывает ПОТРЕБИТ�
 poly-acyclicity-statement · объявляется вместе с доводом ацикличности · ЗАВЕСТИ · red: ребро без утверждения о направлении
 poly-owners-list-closed · пустое значение = «не объявлен» → 501, а не «все»; новая ручка называет, сужает она или разрешает · ЗАВЕСТИ · red: пустой перечень открывает поток всем доменам
 poly-two-dictionaries · называет словарь (proto-пакет или каталог чарта), сверенный с читаемым кодом · ЗАВЕСТИ · red: имя из чужого словаря → отказ старта края
-poly-cycles-forbidden · A зовёт B ⇒ B не зовёт A (runtime-ребро; build-граф — poly-no-cycles); новое ребро — перечнем · TestTargetModuleLayoutIsAcyclic · red: обратный вызов владельца к потребителю
-poly-external-operators · внешние операторы (registry-operator, kaname-iam-operator, vault-operator) — наши стволы их не зовут; kaname — по REST `/iam/v1` (gRPC требует клиентский лист): iam-proxy registry-operator — `POST /iam/v1/authorize:check` токеном клиента о нём же, kaname-iam-operator — `/iam/v1/token` · вниманием; `git grep -lE '(registry|kaname-iam|vault)-operator' origin/main` в kacho, kaname, corelib = 0 · red: ствол зовёт оператора; прокси спрашивает о чужом субъекте
+poly-cycles-forbidden · A зовёт B ⇒ B не зовёт A; новое ребро — перечнем · TestTargetModuleLayoutIsAcyclic · red: обратный вызов владельца к потребителю
+poly-external-operators · внешние операторы — потребители, наши стволы их не зовут: registry-operator → kaname `InternalIAMService` (gRPC, лист `kacho-registry`), его iam-proxy → REST kaname `POST /iam/v1/authorize:check` токеном клиента о нём же (публичный gRPC требует лист); kaname-iam-operator → REST `/iam/v1`; у vault-operator рёбер к kacho и kaname нет · вниманием; `git grep -lE '(registry|kaname-iam|vault)-operator' origin/main` в kacho, kaname, corelib = 0 · red: ствол зовёт оператора; прокси спрашивает о чужом субъекте
 
 ## Порядок работы для кросс-доменной фичи (топосортировка графа)
 
