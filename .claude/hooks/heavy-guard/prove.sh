@@ -478,7 +478,13 @@ echo "── git push: тяжёл там, где git исполнит хук о�
 # Настоящие репозитории git: признак спрашивает git (общий каталог, core.hooksPath, корень дерева).
 # Клон без хука — лёгкая отправка (решение диспетчера 2026-10-22, вариант б); у каждого вида хука
 # — отказ и законный близнец, отличный одним фактом.
-gx() { git -c init.defaultBranch=main -c commit.gpgsign=false -c user.name=p -c user.email=p@p.invalid "$@" >/dev/null 2>&1; }
+# Подпись песочницы — из корневого gitconfig (scripts/lib/sandbox-git-home.sh, tooling-gate check-16).
+# shellcheck source=../../../scripts/lib/sandbox-git-home.sh
+. "$ROOT/scripts/lib/sandbox-git-home.sh"
+if ! sandbox_git_home "$WORK/ghome"; then
+    echo "  [VOID] git push: корневой подписи нет — синтетические клоны не построены" >&2; void=$((void + 1))
+else
+gx() { sandbox_git -c init.defaultBranch=main "$@" >/dev/null 2>&1; }
 for r in none tree inst noexec hpath; do gx init -q "$WORK/push-$r"; git -C "$WORK/push-$r" config --unset core.hooksPath 2>/dev/null; done
 PN="$WORK/push-none"
 mkdir -p "$WORK/push-tree/scripts/hooks"; echo 'echo хук без наборов' > "$WORK/push-tree/scripts/hooks/pre-push"
@@ -494,7 +500,7 @@ passes 'git push origin HEAD:refs/heads/x' "$PN"
 passes "cd $PN && git push origin HEAD"
 passes "git -C $PN push origin HEAD"
 passes "git -C $WORK/push-none-wt push origin HEAD"
-passes "git -c user.name=x push origin HEAD" "$PN"
+passes "git -c color.ui=never push origin HEAD" "$PN"
 passes 'git push origin HEAD' "$WORK/push-noexec"
 passes "git --git-dir=$PN/.git push origin HEAD" "$WORK/push-inst"
 passes "git --git-dir $PN/.git --work-tree $PN push origin HEAD" "$WORK/push-inst"
@@ -534,6 +540,7 @@ ph_mut hookspath-cli "$PN" "git -c core.hooksPath=$WORK/hookdir push origin HEAD
 ph_mut installed "$WORK/push-inst" 'git push origin HEAD' 'if [ -x "$gd/hooks/pre-push" ]' 'if false'
 ph_mut tree "$WORK/push-tree" 'git push origin HEAD' 'if [ -n "$top" ] && [ -e "$top/scripts/hooks/pre-push" ]; then' 'if false; then'
 ph_mut git-dir "$PN" "git --git-dir=$WORK/push-inst/.git push origin HEAD" '            opts+=("$1"); shift ;;' '            shift ;;'
+fi
 
 echo "── наборы и пробы воркспейса — класс suite: голый запуск отказан, слот и чтение — пропуск (ws#1291)"
 # Синтетический воркспейс: корень с scripts/heavy-slot.sh, набор с прогонщиком, доказательством

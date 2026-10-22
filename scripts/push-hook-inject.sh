@@ -24,15 +24,20 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SLOT="$HERE/heavy-slot.sh"
 PH="$HERE/push-hook.sh"
 W="$(mktemp -d)"
-trap 'rm -rf "$W"' EXIT
+# shellcheck disable=SC2154
+trap '_rc=$?; rm -rf "$W" 2>/dev/null || rm -rf "$W" || echo "ПРЕДУПРЕЖДЕНИЕ: временный каталог $W не снят; код проверки $_rc сохранён" >&2; exit $_rc' EXIT
 pass=0; fail=0
 assert() {
     if [ "$1" = "$2" ]; then echo "  [OK]   $3"; pass=$((pass + 1))
     else echo "  [FAIL] $3 — ожидалось «$1», получено «$2»" >&2; fail=$((fail + 1)); fi
 }
 command -v git > /dev/null || { echo "[VOID] git нет — ничего не построено" >&2; exit 2; }
+# Подпись песочницы — из корневого gitconfig (scripts/lib/sandbox-git-home.sh, tooling-gate check-16).
+# shellcheck source=lib/sandbox-git-home.sh
+. "$HERE/lib/sandbox-git-home.sh"
+sandbox_git_home "$W/ghome" || { echo "[VOID] корневой подписи нет — клоны не построены" >&2; exit 2; }
 
-gx() { git -c init.defaultBranch=main -c commit.gpgsign=false -c user.name=p -c user.email=p@p.invalid "$@" > /dev/null 2>&1; }
+gx() { sandbox_git -c init.defaultBranch=main "$@" > /dev/null 2>&1; }
 gx init -q --bare "$W/recv.git"
 for r in none tree inst hpath; do
     gx init -q "$W/$r"; gx -C "$W/$r" commit -q --allow-empty -m "$r"
@@ -70,7 +75,7 @@ done
 assert "1 0 0 0" "$(cat "$W/ph.none.rc") $(cat "$W/ph.tree.rc") $(cat "$W/ph.inst.rc") $(cat "$W/ph.hpath.rc")" "коды: без хука 1; дерево, установленный, core.hooksPath — 0"
 assert "absent present present present" "$(for r in none tree inst hpath; do cut -f2 "$W/ph.$r"; done | tr '\n' ' ' | sed 's/ $//')" "строка PUSH-HOOK называет вид"
 assert "0" "$(cd "$W/none" && bash "$PH" -c "core.hooksPath=$W/hookdir" > /dev/null; echo $?)" "-c core.hooksPath= перед push — хук есть"
-assert "1" "$(cd "$W/none" && bash "$PH" -c core.fsmonitor=true -c user.name=x > /dev/null; echo $?)" "близнец: прочие -c признака не меняют (и git не подаются)"
+assert "1" "$(cd "$W/none" && bash "$PH" -c core.fsmonitor=true -c color.ui=never > /dev/null; echo $?)" "близнец: прочие -c признака не меняют (и git не подаются)"
 assert "0" "$(cd "$W/none" && bash "$PH" --git-dir="$W/inst/.git" > /dev/null; echo $?)" "--git-dir — судится отправляемый клон, а не каталог"
 assert "2" "$(cd "$W" && bash "$PH" > /dev/null; echo $?)" "не репозиторий — 2"
 chmod -x "$W/inst/.git/hooks/pre-push"
