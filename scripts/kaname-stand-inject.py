@@ -257,7 +257,8 @@ class TrustBoundaries(unittest.TestCase):
     def test_register_import_binds_review_to_current_artifacts(self):
         from unittest.mock import patch
         import tempfile
-        candidate = {'artifact': 'actual-capture-digest', 'expected_digest': gate.common.digest(self.exp)}
+        candidate = {'kind': 'imported-native-remote-heavy', 'artifact': 'actual-capture-digest',
+                     'expected_digest': gate.common.digest(self.exp)}
         review = {'role': 'check-verifier', 'verdict': 'accept', 'blocking': [],
                   'candidate_digest': gate.common.digest(candidate), 'claims': [
                   'source-and-command-binding', 'native-verdict-and-cleanup',
@@ -277,6 +278,23 @@ class TrustBoundaries(unittest.TestCase):
             with patch.object(gate, 'import_candidate', return_value=changed), \
                  patch.object(gate.common, 'read_json', return_value=review):
                 with self.assertRaises(gate.common.Unread): gate.register_import(self.exp, 'packet', 'review')
+            preci = dict(candidate, kind='imported-native-preci-v1')
+            preci_review = dict(review, candidate_digest=gate.common.digest(preci))
+            with patch.object(gate, 'import_candidate', return_value=preci), \
+                 patch.object(gate.common, 'read_json', return_value=preci_review):
+                with self.assertRaisesRegex(gate.common.Unread, 'omits required factual bindings'):
+                    gate.register_import(self.exp, 'packet', 'review')
+            preci_review['claims'] = review['claims'] + ['source-workflow-and-preci-producer-binding']
+            with patch.object(gate, 'import_candidate', return_value=preci), \
+                 patch.object(gate.common, 'registry', return_value=Path(directory)), \
+                 patch.object(gate.common, 'read_json', return_value=preci_review):
+                self.assertEqual(gate.register_import(self.exp, 'packet', 'review'), gate.common.digest(preci))
+            # Exercise the public path without mocking its actual importer.
+            # Unknown/missing kinds must fail before review or artifact access.
+            for packet in ({}, {'kind': 'unknown-producer'}):
+                with patch.object(gate.common, 'read_json', return_value=packet):
+                    with self.assertRaisesRegex(gate.common.Unread, 'wrong imported provenance kind'):
+                        gate.register_import(self.exp, 'packet', 'review')
 
     def test_external_stage_cannot_become_full_or_change_import(self):
         from unittest.mock import patch
@@ -512,7 +530,7 @@ class PreciCensus(unittest.TestCase):
         self.assertEqual(self.preci.definitions_for(workflows, 'unit,integrationshard', gate.common.digest, 3), definitions)
 
 
-    def make_transport(self, directory, jobs, producer=None):
+    def make_transport(self, directory, jobs, producer=None, shard=None):
         import base64, gzip, io, tarfile
         if producer is None:
             producer = b'# Explicit synthetic producer fixture; not execution evidence.\n'
@@ -526,7 +544,8 @@ class PreciCensus(unittest.TestCase):
         bundle = gzip.compress(stream.getvalue(), mtime=0)
         encoded = base64.urlsafe_b64encode(bundle).decode()
         chunks = [encoded[i:i + 48000] for i in range(0, len(encoded), 48000)]
-        bootstrap = ('# Synthetic bootstrap fixture.\n[ "$(git rev-parse HEAD)" = ' + self.source['head'] + ' ]\npython3 "$assets/runner.py" --assets "$assets" --jobs ' + jobs + '\n').encode()
+        suffix = '' if shard is None else ' --integration-shard ' + str(shard)
+        bootstrap = ('# Synthetic bootstrap fixture.\n[ "$(git rev-parse HEAD)" = ' + self.source['head'] + ' ]\npython3 "$assets/runner.py" --assets "$assets" --jobs ' + jobs + suffix + '\n').encode()
         targets = [f'part-{i}' for i in range(len(chunks))]
         rule = '.NOTPARALLEL:\n.PHONY: operand-begin operand-final ' + ' '.join(targets) + '\n'
         rule += 'operand-begin:; @test "$(CURDIR)" = /work/src && test "$${HEAVY_WORKDIR+x}" = x && : > /tmp/kaname-preci.parts\n'
@@ -540,11 +559,40 @@ class PreciCensus(unittest.TestCase):
                     'bundleSHA': gate.common.digest(bundle), 'bundleBytes': len(bundle),
                     'argvBytes': sum(len(v.encode()) + 1 for v in argv),
                     'files': {name: gate.common.digest(data) for name, data in files.items()}}
+        if shard is not None:
+            manifest['integrationShard'] = shard
         for name, data in [('runner.py', producer), ('bootstrap.sh', bootstrap),
                            ('argv.json', self.json.dumps(argv).encode()),
                            ('manifest.json', self.json.dumps(manifest).encode())]:
             (directory / name).write_bytes(data)
         return argv, bootstrap, manifest, producer
+
+    def test_preci_parallel_shard_selection_is_transport_bound(self):
+        import tempfile
+        workflows = {name: gate.common.load_workflow((HERE / ('kaname-stand-fixtures/' +
+            ('ci-workflow-native.yml' if name == 'ci.yml' else 'e2e-workflow-native.yml'))).read_bytes())
+            for name in self.preci.WORKFLOW_JOBS}
+        complete = self.preci.definitions_for(workflows, 'integrationshard', gate.common.digest, 3)
+        selected = {}
+        with tempfile.TemporaryDirectory() as temporary:
+            for shard in range(3):
+                argv, bootstrap, manifest, producer = self.make_transport(Path(temporary), 'integrationshard', shard=shard)
+                self.preci.bind_transport(argv, bootstrap, manifest, producer, gate.common.digest)
+                subset = self.preci.definitions_for(workflows, 'integrationshard', gate.common.digest, 3,
+                                                   self.preci.selected_shard(manifest))
+                self.assertEqual(set(subset), {f'ci.yml:integrationshard:{shard}'})
+                selected.update(subset)
+                for invalid in (None, False, True, '0', -1, 3, (shard + 1) % 3):
+                    changed = dict(manifest, integrationShard=invalid)
+                    with self.assertRaises(self.preci.EvidenceError):
+                        self.preci.bind_transport(argv, bootstrap, changed, producer, gate.common.digest)
+                    self.preci.bind_transport(argv, bootstrap, manifest, producer, gate.common.digest)
+                changed = dict(manifest); del changed['integrationShard']
+                with self.assertRaises(self.preci.EvidenceError):
+                    self.preci.bind_transport(argv, bootstrap, changed, producer, gate.common.digest)
+                with self.assertRaises(self.preci.EvidenceError):
+                    self.preci.selected_shard(dict(manifest, jobs='unit'))
+            self.assertEqual(selected, complete)
 
     def test_preci_canonical_transport_negative_twins(self):
         import tempfile, copy
@@ -645,6 +693,42 @@ class PreciCensus(unittest.TestCase):
             wrong = copy.deepcopy(packet); wrong['runs']['duplicate'] = copy.deepcopy(wrong['runs']['synthetic'])
             with self.assertRaises(self.preci.EvidenceError): imported(wrong)
             self.assertEqual(imported(packet), positive)
+            # Three independent integration transports plus a separate unit
+            # transport must retain the same closed native package census.
+            parallel = copy.deepcopy(packet); parallel['runs'] = {}
+            for key, steps in definitions.items():
+                shard = None if key == 'ci.yml:unit' else int(key.rsplit(':', 1)[1])
+                name = 'unit' if shard is None else f'integration-{shard}'
+                part = directory / name; part.mkdir()
+                part_argv, _, _, _ = self.make_transport(part, 'unit' if shard is None else 'integrationshard', shard=shard)
+                quote = subprocess.check_output(['bash', '--noprofile', '--norc', '-c', 'printf "%q " "$@"',
+                    'argv-data', *part_argv], env={'PATH': '/usr/bin:/bin', 'LC_ALL': 'C'}, text=True)
+                part_ns = 'fixture-' + name
+                command = f'remote-heavy: [{part_ns}] команда начата через 1 с после создания Job: ' + quote
+                begin = raw.index('PRECI_GROUP_BEGIN ' + key + '\n')
+                end_marker = line('PRECI_GROUP_END', {'group': key, 'rc': 0})
+                end = raw.index(end_marker, begin) + len(end_marker)
+                part_raw = (f'HEAD {self.source["head"]} class=fixture at=fixture dir=/work/src\n'
+                    f'SOURCE {self.source["head"]} TREE {self.source["tree"]}\n'
+                    f'remote-heavy: [{part_ns}] ns {part_ns} создано:\n' + command + '\n' + raw[begin:end]
+                    + line('PRECI_CENSUS', {'failed': [], 'steps': len(steps), 'offlineTrackerIsNotLiveAPIProof': True})
+                    + f'remote-heavy: [{part_ns}] команда завершилась кодом 0 за 1 с\n'
+                    + f'remote-heavy: [{part_ns}] ns {part_ns} снято\n')
+                (part / 'raw.log').write_text(part_raw)
+                parallel['runs'][name] = {field: str(part / filename) for field, filename in
+                    [('log', 'raw.log'), ('runner', 'runner.py'), ('manifest', 'manifest.json'),
+                     ('argv', 'argv.json'), ('bootstrap', 'bootstrap.sh')]}
+                parallel['runs'][name].update(command_line=command, auxiliary={})
+            parallel_positive = imported(parallel)
+            self.assertEqual(parallel_positive['integration'], positive['integration'])
+            self.assertEqual(parallel_positive['unit'], positive['unit'])
+            for missing in ('integration-0', 'integration-1', 'integration-2'):
+                broken = copy.deepcopy(parallel); del broken['runs'][missing]
+                with self.assertRaises(self.preci.EvidenceError): imported(broken)
+                self.assertEqual(imported(parallel), parallel_positive)
+            broken = copy.deepcopy(parallel); broken['runs']['duplicate'] = copy.deepcopy(broken['runs']['integration-1'])
+            with self.assertRaises(self.preci.EvidenceError): imported(broken)
+            self.assertEqual(imported(parallel), parallel_positive)
 
 
 if __name__ == '__main__':

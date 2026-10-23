@@ -173,7 +173,9 @@ def bind_transport(argv, bootstrap, manifest, producer, digest):
     commands = bootstrap.decode().splitlines()
     require(commands.count('[ "$(git rev-parse HEAD)" = ' + manifest['source'] + ' ]') == 1,
             'bootstrap source binding differs')
-    require(commands.count('python3 "$assets/runner.py" --assets "$assets" --jobs ' + manifest['jobs']) == 1,
+    shard = selected_shard(manifest)
+    suffix = '' if shard is None else ' --integration-shard ' + str(shard)
+    require(commands.count('python3 "$assets/runner.py" --assets "$assets" --jobs ' + manifest['jobs'] + suffix) == 1,
             'bootstrap job selection differs')
     return manifest['bundleSHA']
 
@@ -194,12 +196,24 @@ def bind_command_line(command_line, argv):
             'captured executed argv differs from transported operand')
 
 
-def definitions_for(workflows, jobs, digest, shards):
+def selected_shard(manifest):
+    if 'integrationShard' not in manifest:
+        return None
+    shard = manifest['integrationShard']
+    require(type(shard) is int and 0 <= shard < 3
+            and manifest.get('jobs') == 'integrationshard', 'invalid selected integration shard')
+    return shard
+
+
+def definitions_for(workflows, jobs, digest, shards, integration_shard=None):
     """Reconstruct the reviewed PRECI transformations of exact workflow run steps."""
     require(isinstance(jobs, str), 'missing manifest jobs')
     wanted = jobs.split(',')
     allowed = {job for names in WORKFLOW_JOBS.values() for job in names}
     require(len(wanted) == len(set(wanted)) and set(wanted) <= allowed, 'unknown/duplicate job selection')
+    if integration_shard is not None:
+        require(type(integration_shard) is int and 0 <= integration_shard < shards
+                and wanted == ['integrationshard'], 'invalid selected integration shard')
     result = {}
     for filename, names in WORKFLOW_JOBS.items():
         for job in names:
@@ -207,7 +221,8 @@ def definitions_for(workflows, jobs, digest, shards):
                 continue
             source = workflows[filename]['jobs'][job]
             require('uses' not in source and isinstance(source.get('steps'), list), 'unexpanded source job')
-            for shard in range(shards) if job == 'integrationshard' else [None]:
+            indices = ([integration_shard] if integration_shard is not None else range(shards))
+            for shard in indices if job == 'integrationshard' else [None]:
                 key = filename + ':' + job + (f':{shard}' if shard is not None else '')
                 steps = []
                 for index, step in enumerate(source['steps']):
@@ -329,7 +344,7 @@ def import_candidate(exp, packet, common, remote_log, go_json, integration_union
         raw = Path(run['log']).read_text()
         transport = remote_log(raw, exp, run['command_line'], parse_groups=False)
         artifacts[name]['command_line'] = run['command_line']
-        definitions = definitions_for(workflows, manifest.get('jobs'), common.digest, n)
+        definitions = definitions_for(workflows, manifest.get('jobs'), common.digest, n, selected_shard(manifest))
         parsed = parse_partition(raw, {'head': exp['head'], 'tree': exp['tree'], 'status': ''}, definitions)
         require(not set(parsed['groups']) & set(groups), 'group repeated across imported runs')
         for key, group in parsed['groups'].items():
