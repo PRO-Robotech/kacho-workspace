@@ -1,0 +1,136 @@
+{
+  "id": 120178574853,
+  "run_id": 39881144643,
+  "run_attempt": 1,
+  "head_sha": "ad86098bda804acce99037b1f7a99acb9a03bec5",
+  "name": "образ службы (сборка · публикация по пину)",
+  "labels": [
+    "ubuntu-latest"
+  ],
+  "runner_name": "GitHub Actions 1000174335",
+  "runner_group_name": "GitHub Actions",
+  "status": "completed",
+  "conclusion": "success",
+  "steps": [
+    {
+      "name": "Set up job",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 1,
+      "started_at": "2026-10-23T00:57:09Z",
+      "completed_at": "2026-10-23T00:57:11Z"
+    },
+    {
+      "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 2,
+      "started_at": "2026-10-23T00:57:11Z",
+      "completed_at": "2026-10-23T00:57:18Z"
+    },
+    {
+      "name": "что собираем — имя и ревизия",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 3,
+      "started_at": "2026-10-23T00:57:18Z",
+      "completed_at": "2026-10-23T00:57:18Z"
+    },
+    {
+      "name": "гейт учётных данных реестра и посаженности",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 4,
+      "started_at": "2026-10-23T00:57:18Z",
+      "completed_at": "2026-10-23T00:57:18Z"
+    },
+    {
+      "name": "сверка опубликованного — доказательство инъекцией в обе стороны",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 5,
+      "started_at": "2026-10-23T00:57:18Z",
+      "completed_at": "2026-10-23T00:57:19Z"
+    },
+    {
+      "name": "вход в реестр",
+      "status": "completed",
+      "conclusion": "skipped",
+      "number": 6,
+      "started_at": "2026-10-23T00:57:19Z",
+      "completed_at": "2026-10-23T00:57:19Z"
+    },
+    {
+      "name": "QEMU",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 7,
+      "started_at": "2026-10-23T00:57:19Z",
+      "completed_at": "2026-10-23T00:57:27Z"
+    },
+    {
+      "name": "Buildx",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 8,
+      "started_at": "2026-10-23T00:57:27Z",
+      "completed_at": "2026-10-23T00:57:34Z"
+    },
+    {
+      "name": "сборка образа",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 9,
+      "started_at": "2026-10-23T00:57:34Z",
+      "completed_at": "2026-10-23T00:58:45Z"
+    },
+    {
+      "name": "опубликованный образ несёт ревизию головы",
+      "status": "completed",
+      "conclusion": "skipped",
+      "number": 10,
+      "started_at": "2026-10-23T00:58:45Z",
+      "completed_at": "2026-10-23T00:58:45Z"
+    },
+    {
+      "name": "диск после сборки",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 11,
+      "started_at": "2026-10-23T00:58:45Z",
+      "completed_at": "2026-10-23T00:58:45Z"
+    },
+    {
+      "name": "Post Buildx",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 20,
+      "started_at": "2026-10-23T00:58:45Z",
+      "completed_at": "2026-10-23T00:58:51Z"
+    },
+    {
+      "name": "Post QEMU",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 21,
+      "started_at": "2026-10-23T00:58:51Z",
+      "completed_at": "2026-10-23T00:58:53Z"
+    },
+    {
+      "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 22,
+      "started_at": "2026-10-23T00:58:53Z",
+      "completed_at": "2026-10-23T00:58:53Z"
+    },
+    {
+      "name": "Complete job",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 23,
+      "started_at": "2026-10-23T00:58:53Z",
+      "completed_at": "2026-10-23T00:58:53Z"
+    }
+  ]
+}

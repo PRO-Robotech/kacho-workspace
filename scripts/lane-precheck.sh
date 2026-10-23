@@ -70,6 +70,23 @@
 #                                                 `cd … &&`, `; echo $?`; отсоединённая голова — с
 #                                                 KACHO_TASK=<N>; kaname с KACHO_HOME_KACHO — с --local
 #                                                 (уроки b9c180f6, 36369ea7: иначе слот отдаст 77);
+#   cluster <кубконфиг>                           кластер задания доказан ТЕМ ЖЕ предикатом, что ставит
+#                                                 прогоны: `remote-heavy/run.sh --guard` — контекст -client
+#                                                 и узлы «<профиль>-client-» без «-infra-» (решения владельца
+#                                                 2026-10-09, 2026-10-10; ws#1307, урок 631571e6: полоса стенда
+#                                                 ушла на кластер без контекста -client); `~` и $HOME раскрыты;
+#   vault-mount <кубконфиг> <VaultConfig> <mount> [<контекст>]
+#                                                 пара «Vault + mount» (ws#1307: одно имя mount законно живёт в
+#                                                 двух Vault, разведчик отвечал о первом найденном): mount — из
+#                                                 VaultConfig (кластерный ресурс vault.in-cloud.io), значение
+#                                                 любого ключа `*mountPath` его spec — класс, не одна схема;
+#                                                 печатается `VAULT-MOUNT <VaultConfig> <mount>; тот же mount у:
+#                                                 …`, ложно — с живыми mount и владельцами; адреса не печатаются;
+#   repo-merge <владелец/репо>                    настройки вливания — норма `git-issues.md#gi-merge-method`:
+#                                                 сквоша и rebase нет, коммит слияния есть, ветка снимается
+#                                                 (`delete_branch_on_merge`); ws#1314, уроки 6c51014f,
+#                                                 1e621e48: новый репозиторий создан с настройками по
+#                                                 умолчанию — шаг после `gh repo create`; не видны — VOID;
 #   proof <владелец/репо>#<N>                     у задачи есть `DoD-proof @<sha>`;
 #   verdict <файл записи роли> <accept|return>    `verdict.value` записи: ✅ / ⛔.
 # Ложное — `REASON PREMISE-FALSE …`, код 1. Не судимо (трекер не ответил, строка вне
@@ -115,6 +132,19 @@
 #                         `r#N`, `ws#N` — kacho-workspace) либо путь приёмки (`…acceptance….md`):
 #                         названа по памяти;
 #   TASK-COORD-FALSE      сверка переписи ложна (причины `--premise` дословно); не судима — код 2.
+# Задание ЛЮБОМУ агенту (ws#1307) — строки `cluster` и `vault-mount` переписи сверяются всегда:
+#   TASK-VAULT-MOUNT      текст о Vault (слово vault где угодно) называет mount — слово mount/маунт
+#                         без буквы перед ним либо `*mountPath` — а строки `vault-mount` нет: «в каком
+#                         Vault» не сказано. Граница объявлена: `volumeMounts`, `FailedMount` — не
+#                         mount Vault; путь `auth/<mount>/…` без слова mount не узнаётся;
+#   TASK-CLUSTER-UNCENSUSED путь кубконфига (`…/.kube/<файл>`; каталог со «/» на конце — не кластер)
+#                         вне строк `cluster`/`vault-mount` переписи: кластер назван без проверки.
+# Задание `--agent git-operator` (ws#1314, уроки 09b14c00, f0f94389 — задание побочного workflow
+# склеило возврат check-verifier текстом, поле вердикта ушло пустым):
+#   TASK-VERDICT          предложение ставит условие на ЗНАЧЕНИЕ вердикта («вердикт», ✅ ⛔ accept
+#                         return и если · иначе · стоп · if · unless), а предложения-поля «вердикт…:
+#                         … <значение>» нет. Граница: условие без слова условия («только с ✅») и
+#                         значение словами («принято») не узнаются.
 # Код 0 — причин нет; 1 — есть; 2 — прочитано ноль строк либо перепись не судима.
 #
 # ЧТО СУДИТ (каждый пункт — своя причина, строкой `REASON <КОД> <текст>`):
@@ -182,6 +212,10 @@
 # `lib/dod_proof.jq` нет либо ответ трекера им не разобран). Перепись печатается всегда.
 # Держит `scripts/lane-precheck-inject.sh`.
 set -uo pipefail
+# Текст заданий — по-русски: регистр (`${,,}`) и классы знаков (`[Мм]`, [:alpha:]) судятся лишь в
+# UTF-8. В pod Job внешнего кластера локаль C (ws#1314: 5 ложных исходов пробы — заголовок без учёта
+# регистра, «маунт», «вердикт»), поэтому не-UTF-8 локаль заменяется C.UTF-8 до первого суда.
+case "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" in *[Uu][Tt][Ff]-8* | *[Uu][Tt][Ff]8*) ;; *) export LC_ALL=C.UTF-8 ;; esac
 
 usage() {
     echo "usage: lane-precheck.sh <каталог копии> <ветка> <база> [--issue <владелец/репо>#<N>]… [--hook-log <файл>] | --premise <файл> | --task-text <файл> [--agent <агент>]" >&2
@@ -221,11 +255,18 @@ ghget() {
     if grep -q 'HTTP 404' "$err"; then rm -f "$err"; return 3; fi
     rm -f "$err"; return 1
 }
+# knorm <путь> — путь кубконфига с раскрытыми `~`, `$HOME`, `${HOME}` и без знака конца фразы.
+knorm() {
+    local p="$1"
+    case "$p" in '~'/*) p="$HOME/${p#'~'/}" ;; '$HOME'/*) p="$HOME/${p#'$HOME'/}" ;; '${HOME}'/*) p="$HOME/${p#'${HOME}'/}" ;; esac
+    printf '%s' "${p%[.,:;]}"
+}
 # ── режим текста задания (ws#1225) ──────────────────────────────────────
 if [ -n "$task_text" ]; then
     [ "${#pos[@]}" -eq 0 ] && [ -z "$premise" ] || usage
     [ -r "$task_text" ] || { echo "lane-precheck: текста задания $task_text нет; вердикта нет" >&2; exit 2; }
-    reasons=() n=0 limits=() longstep="" ret="" cen=() cenk="" coords=() void=""
+    reasons=() n=0 limits=() longstep="" ret="" cen=() cenk="" coords=() void="" kpaths=() vaultseen="" mountline="" vmention="" vfield=""
+    kre='(~|\$\{HOME\}|\$HOME)?[A-Za-z0-9_./-]*/\.kube/[A-Za-z0-9_.@/-]*'
     num='[0-9]+([.,][0-9]+)?'; sec='(с|сек[[:alpha:]]*|s|мин(ут[[:alpha:]]*)?|m)([^[:alnum:]]|$)'
     cmp='(дольше|больше|более|свыше)'
     mrg='(^|[^0-9A-Za-z_#/])(#[0-9]+[[:space:]]+[Mm][Ee][Rr][Gg][Ee]([[:space:]]+[^[:space:]]*|[^0-9A-Za-z_[:space:]][^[:space:]]*([[:space:]]+[^[:space:]]*)?|$))'
@@ -236,9 +277,28 @@ if [ -n "$task_text" ]; then
         # Перепись координат (ws#1271): строка словаря предусловий — данные, а не заказ: не
         # упоминание и не судится на ожидание (путь клона под heavy-slots — не «долгий шаг»).
         s="${line#"${line%%[![:space:]*-]*}"}"; s="${s//\`/}"
-        if [[ "$s" =~ ^(task|pr|branch|head|path|alive)[[:space:]] ]]; then
+        if [[ "$s" =~ ^(task|pr|branch|head|path|alive|cluster|vault-mount)[[:space:]] ]]; then
             cen+=("$s"); cenk+=" ${BASH_REMATCH[1]}"; continue
         else
+            # Vault mount и кластер (ws#1307): упоминание — данные для суда после всего текста.
+            [[ "$l" == *vault* ]] && vaultseen=1
+            # Вердикт (ws#1314) — по ПРЕДЛОЖЕНИЮ (делят «.» и «;»): поле — «вердикт…: … <значение>»
+            # (значение словаря ✅ ⛔ accept return после двоеточия); условие — «вердикт», значение
+            # и слово условия (если · иначе · стоп · if · unless) в одном предложении.
+            if [[ "$line" =~ [Вв][Ее][Рр][Дд][Ии][Кк][Тт] ]]; then
+                while IFS= read -r sg; do
+                    [[ "$sg" =~ [Вв][Ее][Рр][Дд][Ии][Кк][Тт] ]] || continue
+                    if [[ "$sg" =~ [Вв][Ее][Рр][Дд][Ии][Кк][Тт][^:]*:.*(✅|⛔|accept|return) ]]; then vfield=1
+                    elif [[ "$sg" =~ ✅|⛔|(^|[^[:alpha:]])(accept|return)([^[:alpha:]]|$) ]] \
+                        && [[ "$sg" =~ (^|[^[:alpha:]])([Ее]сли|[Ии]наче|[Сс]топ|[Ii]f|[Uu]nless)([^[:alpha:]]|$) ]]; then vmention="${vmention:-$n}"; fi
+                done < <(sed 's/[.;]/\n/g' <<< "$line")
+            fi
+            if [ -z "$mountline" ] && { [[ "$l" =~ (^|[^[:alpha:]])mount|mountpath ]] || [[ "$line" =~ (^|[^[:alpha:]])[Мм][Аа][Уу][Нн][Тт] ]]; }; then mountline="$n"; fi
+            r="$line"
+            while [[ "$r" =~ $kre ]]; do
+                kp="${BASH_REMATCH[0]}"; r="${r/"$kp"/ }"
+                [[ "$kp" == */ || "$kp" == */.kube/cache* ]] || kpaths+=("$n ${kp%[.,:;]}")
+            done
             r="$line"
             while [[ "$r" =~ (^|[^A-Za-z0-9_./-])(([A-Za-z0-9_.-]+/)?[A-Za-z][A-Za-z0-9_.-]*#[0-9]+) ]]; do
                 coords+=("$n task ${BASH_REMATCH[2]}"); r="${r/"${BASH_REMATCH[2]}"/ }"
@@ -309,12 +369,32 @@ if [ -n "$task_text" ]; then
             done
             [ -n "$hit" ] || reasons+=("TASK-COORD-UNCENSUSED строка $cn: «$cv» вне переписи — координата по памяти; внеси её строкой $ck в перепись")
         done
-        if [ "${#cen[@]}" -gt 0 ]; then
-            pf="$(mktemp)"; printf '%s\n' "${cen[@]}" > "$pf"
-            po="$(bash "${BASH_SOURCE[0]}" --premise "$pf" 2>&1)"; prc=$?; rm -f "$pf"
-            if [ "$prc" = 1 ]; then reasons+=("TASK-COORD-FALSE перепись не сошлась: $(sed -n 's/^REASON //p' <<< "$po" | paste -sd ';' -)")
-            elif [ "$prc" != 0 ]; then void="перепись не судима (код $prc): $(sed -n 's/^VOID //p' <<< "$po" | paste -sd ';' -)"; fi
-        fi
+    fi
+    # Vault mount и кластер (ws#1307) — любому агенту: пара и кластер — строками переписи.
+    vcen="" kcen=" "
+    for x in "${cen[@]+"${cen[@]}"}"; do
+        read -r xk xa _ <<< "$x"
+        case "$xk" in vault-mount) vcen=1; kcen+="$(knorm "$xa") " ;; cluster) kcen+="$(knorm "$xa") " ;; esac
+    done
+    [ -z "$vaultseen" ] || [ -z "$mountline" ] || [ -n "$vcen" ] \
+        || reasons+=("TASK-VAULT-MOUNT строка $mountline: mount в задании о Vault без пары «Vault + mount» — одно имя mount живёт в двух Vault; назови строкой переписи vault-mount <кубконфиг> <VaultConfig> <mount>, mount — из VaultConfig (kubectl get vaultconfigs.vault.in-cloud.io -o json, ключи *mountPath в spec)")
+    for x in "${kpaths[@]+"${kpaths[@]}"}"; do
+        read -r kn kv <<< "$x"
+        [[ "$kcen" == *" $(knorm "$kv") "* ]] \
+            || reasons+=("TASK-CLUSTER-UNCENSUSED строка $kn: «$kv» вне переписи — кластер назван без проверки контекста -client и префикса узлов; внеси строкой cluster $kv")
+    done
+    [ "$agent" != git-operator ] || [ -z "$vmention" ] || [ -n "$vfield" ] \
+        || reasons+=("TASK-VERDICT строка $vmention: условие на вердикт без строки-поля «вердикт <роль>: ✅|⛔» — вердикт роли подставляется полем из её ВОЗВРАТа, не склейкой текста; иначе git-operator остановится по отсутствию")
+    # Сверка переписи: автору приёмки — вся; прочим — строки cluster и vault-mount.
+    ver=()
+    for x in "${cen[@]+"${cen[@]}"}"; do
+        [ "$agent" = acceptance-author ] || [[ "$x" =~ ^(cluster|vault-mount)[[:space:]] ]] && ver+=("$x")
+    done
+    if [ "${#ver[@]}" -gt 0 ]; then
+        pf="$(mktemp)"; printf '%s\n' "${ver[@]}" > "$pf"
+        po="$(bash "${BASH_SOURCE[0]}" --premise "$pf" 2>&1)"; prc=$?; rm -f "$pf"
+        if [ "$prc" = 1 ]; then reasons+=("TASK-COORD-FALSE перепись не сошлась: $(sed -n 's/^REASON //p' <<< "$po" | paste -sd ';' -)")
+        elif [ "$prc" != 0 ]; then void="перепись не судима (код $prc): $(sed -n 's/^VOID //p' <<< "$po" | paste -sd ';' -)"; fi
     fi
     echo "lane-precheck --task-text: файл $task_text; строк $n; причин ${#reasons[@]}; агент ${agent:-не назван}; строк переписи ${#cen[@]}"
     for x in "${reasons[@]+"${reasons[@]}"}"; do echo "REASON $x"; done
@@ -383,6 +463,39 @@ if [ -n "$premise" ]; then
                 if [ "$rc" = 3 ]; then reasons+=("PREMISE-FALSE $line: ветки $b на origin нет — ожидалась голова $want")
                 elif [ "$rc" != 0 ]; then voids+=("GH-UNREADABLE $line")
                 elif [ "$got" != "$want" ]; then reasons+=("PREMISE-FALSE $line: голова $b на origin ${got:-пуста}, ожидалась $want"); fi ;;
+            repo-merge)
+                if ! [[ "$a" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || [ -n "$b" ]; then voids+=("PREMISE-FORM $line: форма — repo-merge <владелец/репо>"); continue; fi
+                got="$(ghget "repos/$a" '"squash=\(.allow_squash_merge) merge=\(.allow_merge_commit) rebase=\(.allow_rebase_merge) delete=\(.delete_branch_on_merge)"')"; rc=$?
+                if [ "$rc" = 3 ]; then reasons+=("PREMISE-FALSE $line: репозитория нет")
+                elif [ "$rc" != 0 ]; then voids+=("GH-UNREADABLE $line")
+                elif [[ "$got" == *null* ]]; then voids+=("REPO-SETTINGS-UNSEEN $line: настройки вливания не видны ($got) — нет прав на репозиторий")
+                elif [ "$got" != "squash=false merge=true rebase=false delete=true" ]; then
+                    reasons+=("PREMISE-FALSE $line: $(sed 's/squash=/allow_squash_merge=/; s/merge=/allow_merge_commit=/2; s/rebase=/allow_rebase_merge=/; s/delete=/delete_branch_on_merge=/' <<< "$got") — норма false/true/false/true (gi-merge-method): gh api -X PATCH repos/$a -F allow_squash_merge=false -F allow_rebase_merge=false -F allow_merge_commit=true -F delete_branch_on_merge=true")
+                fi ;;
+            cluster)
+                if [ -z "$a" ] || [ -n "$b" ]; then voids+=("PREMISE-FORM $line: форма — cluster <кубконфиг>"); continue; fi
+                # Предикат один — у run.sh (СТРАЖ ПО УЗЛАМ); его WHY — без адресов и имён контекстов.
+                out="$(KACHO_REMOTE_KUBECONFIG="$(knorm "$a")" bash "$HERE/remote-heavy/run.sh" --guard 2>&1)"; rc=$?
+                why="$(sed 's/^remote-heavy: //' <<< "$out" | paste -sd ' ' -)"
+                case "$rc" in
+                    0) heads+=("CLUSTER $a: $why") ;;
+                    64 | 69) reasons+=("PREMISE-FALSE $line: $why") ;;
+                    *) voids+=("CLUSTER-UNJUDGED $line: run.sh --guard код $rc — $why") ;;
+                esac ;;
+            vault-mount)
+                read -r _ _ _ vm vctx _ <<< "$line"
+                if [ -z "$a" ] || [ -z "$b" ] || [ -z "${vm:-}" ]; then voids+=("PREMISE-FORM $line: форма — vault-mount <кубконфиг> <VaultConfig> <mount> [<контекст>]"); continue; fi
+                vj="$(kubectl --kubeconfig "$(knorm "$a")" ${vctx:+--context "$vctx"} --request-timeout=20s get vaultconfigs.vault.in-cloud.io -o json 2> /dev/null)" \
+                    || { voids+=("KUBE-UNREADABLE $line: get vaultconfigs не ответил"); continue; }
+                # mount — значение любого ключа *mountPath в spec (managerAuth, auth, storage.kvMountPath…).
+                tab="$(jq -r '.items[]? | [.metadata.name, ([.spec | .. | objects | to_entries[] | select(.key | test("mountpath$"; "i")) | .value | strings] | join(" "))] | @tsv' <<< "$vj" 2> /dev/null)" \
+                    || { voids+=("KUBE-UNREADABLE $line: ответ get vaultconfigs не разобран"); continue; }
+                if ! own="$(awk -F'\t' -v n="$b" '$1 == n { print $2; f = 1 } END { exit !f }' <<< "$tab")"; then
+                    reasons+=("PREMISE-FALSE $line: VaultConfig $b в кластере нет (есть: $(cut -f1 <<< "$tab" | paste -sd ' ' - | sed 's/^$/нет/'))"); continue
+                fi
+                others="$(awk -F'\t' -v n="$b" -v m="$vm" '$1 != n { k = split($2, x, " "); for (i = 1; i <= k; i++) if (x[i] == m) { print $1; break } }' <<< "$tab" | paste -sd ' ' -)"
+                if [[ " $own " == *" $vm "* ]]; then heads+=("VAULT-MOUNT $b $vm; тот же mount у: ${others:-нет}")
+                else reasons+=("PREMISE-FALSE $line: mount VaultConfig $b: ${own:-нет}${others:+; $vm — mount VaultConfig $others} — имя mount берётся из VaultConfig, а не из имени кластера"); fi ;;
             proof)
                 r="${a%%#*}" num="${a##*#}"
                 if ! [[ "$num" =~ ^[0-9]+$ ]] || [ "$r" = "$a" ]; then voids+=("PREMISE-FORM $line"); continue; fi

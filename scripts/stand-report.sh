@@ -118,6 +118,33 @@ command -v python3 > /dev/null 2>&1 || void "нет python3"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Судья маршрута — слот ЭТОГО каталога (правленая копия инструмента в пробах лежит рядом с ним).
 SLOT="$HERE/heavy-slot.sh"
+# Operators use a closed two-executor inventory. Dispatch only those repositories;
+# the original parser, exit classes and local-proof boundary below stay unchanged.
+python3 - "$HERE/operator-stand.py" "$@" <<'OPERATOR_DISPATCH'
+import json, os, re, subprocess, sys
+helper, args = sys.argv[1], sys.argv[2:]
+def value(flag):
+    return args[args.index(flag) + 1] if flag in args and args.index(flag) + 1 < len(args) else ''
+repo = ''
+try:
+    if args and args[0] == 'expect':
+        result = subprocess.run(['git', '-C', value('--checkout'), 'remote', 'get-url', 'origin'],
+                                capture_output=True, text=True)
+        match = re.search(r'github\.com[:/]([^/]+/[^/]+?)(?:\.git)?\s*$', result.stdout)
+        repo = match.group(1) if match else ''
+    elif value('--expect'):
+        repo = json.load(open(value('--expect')))['repo']
+except (OSError, ValueError, KeyError):
+    pass
+if repo in ('PRO-Robotech/kaname-iam-operator', 'PRO-Robotech/registry-operator', 'PRO-Robotech/vault-operator'):
+    os.execv(sys.executable, [sys.executable, helper] + (args if args[0] in ('expect', 'check') else ['check'] + args))
+if repo == 'PRO-Robotech/kaname':
+    kaname = os.path.join(os.path.dirname(helper), 'kaname-stand.py')
+    os.execv(sys.executable, [sys.executable, kaname] + (args if args[0] in ('expect', 'check') else ['check'] + args))
+sys.exit(77)
+OPERATOR_DISPATCH
+operator_rc=$?
+[ "$operator_rc" = 77 ] || exit "$operator_rc"
 # Ведомость заданий CI, которые прогон на кластере воспроизводит, по репозиторию — ОДНА
 # для expect и check: source affected — выбор затронутого репозитория ∩ jobs; full — CI
 # без выбора, все jobs; none — у CI заданий на кластере нет (выведенный ноль). Задание —

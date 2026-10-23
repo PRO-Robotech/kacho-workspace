@@ -137,7 +137,6 @@ ecase() {
 }
 # routes <копия> — строки ROUTE вывода expect случая: «задание<TAB>метка» по строке.
 routes() { grep -P '^ROUTE\t' "$1/err" | cut -f2,3 | LC_ALL=C sort | tr '\n' ';'; }
-KNJOBS='["ci.yml:unit","ci.yml:integration","e2e-newman.yml:stand"]'
 # Маршрут заданий стенда kacho в ЭТОМ дереве — факт судьи слота, а не выбор случая: у
 # stand-ns-run без RUNNER внешнего пути нет (ws#1301), с RUNNER=<вид> механизма клона — pod
 # раннера (ws#1303), ведомость называет форму с RUNNER. При «нет» ожидаемое kacho с выбранным
@@ -240,6 +239,14 @@ kase "ожидаемое: задание вне ведомости" -; expected 
 kase "ожидаемое: репозиторий вне ведомости" -; expected '.repo = "PRO-Robotech/elsewhere"' > "$C/exp.json"; want 1 STAND-EXPECT-LEDGER
 kase "ожидаемое: источник не ведомости (none у kacho)" -; expected '.source = "none"' > "$C/exp.json"; want 1 STAND-EXPECT-LEDGER
 kase "близнец only-red: целевой черновик, часть заданий — полнотой не судится" '.mode = "only-red" | .planned = 2 | .suites = [.suites[0], .suites[2]]' '.suites[2] |= (.outcome = "red" | .quote = "q")'; expected '.draft = "true" | .full = false | .jobs = ["ci.yaml:unit-shard","e2e-newman.yml:shard"]' > "$C/exp.json"; printf -- '--of\n%s\n--expect\n%s\n' "$C/prev.json" "$C/exp.json" > "$C/args"; want 0 -
+# Only one guard differs: draft partial selection avoids the full-ledger check.
+for selected in ci.yaml:outside e2e-newman.yml:shard; do
+    kase "partial ledger: $selected" '.mode = "only-red" | .planned = 1 | .suites = [.suites[2]]' '.suites[2] |= (.outcome = "red" | .quote = "q")'
+    expected '.draft = "true" | .full = false' | jq --arg j "$selected" '.jobs = [$j] | .routes[$j] = {route:"external", why:"fixture"}' > "$C/exp.json"
+    for report in r prev; do jq --arg j "$selected" '(.suites[] | select(.name == "newman shard-1") | .job) = $j' "$C/$report.json" > "$C/j" && mv "$C/j" "$C/$report.json"; done
+    printf -- '--of\n%s\n--expect\n%s\n' "$C/prev.json" "$C/exp.json" > "$C/args"
+    if [ "$selected" = ci.yaml:outside ]; then want 1 STAND-EXPECT-LEDGER; else want 0 -; fi
+done
 kase "ожидаемое о другом репозитории, чем запрос" -; printf -- '--expect\n%s\n--pr-repo\nPRO-Robotech/kaname\n' "$C/exp.json" > "$C/args"; want 1 STAND-EXPECT-REPO
 kase "близнец: репозиторий ожидаемого — репозиторий запроса" -; printf -- '--expect\n%s\n--pr-repo\nPRO-Robotech/kacho\n' "$C/exp.json" > "$C/args"; want 0 -
 kase "ожидаемое выбора черновика — основанием ready не служит" -; expected '.draft = "true"' > "$C/exp.json"; want 1 STAND-EXPECT-DRAFT
@@ -266,24 +273,11 @@ git -C "$C/co" update-ref refs/remotes/origin/1266 HEAD; want 2 -
 kecase "expect kacho: правка вне коммита в копии — VOID" false 1266 tests/newman/x.json "$LEDGER"; echo y > "$C/co/untracked.txt"; want 2 -
 ecase "expect kacho: задания ведомости нет в workflow головы — VOID" PRO-Robotech/kacho
 printf 'jobs:\n  shard-renamed: {}\n' > "$C/co/.github/workflows/e2e-newman.yml"; ecommit; printf -- '--base\norigin/main\n--draft\nfalse\n' > "$C/args"; want 2 -
-# МАРШРУТ (ws#1192). Ожидаемое называет маршрут КАЖДОГО задания ведомости строкой ROUTE и не
-# выводится (VOID до запуска), если у задания, которое голова обязана пройти, внешнего маршрута
-# нет. Судья маршрута — НАСТОЯЩИЙ heavy-slot.sh --route этого дерева (стенд own — по раннеру
-# stand-own.sh головы). Каждый случай меняет один факт контроля «kaname: всё внешнее».
-KN3='ci.yml:integration	внешний кластер;ci.yml:unit	внешний кластер;e2e-newman.yml:stand	внешний кластер;'
-ecase "expect kaname: все задания с внешним маршрутом — код 0, ROUTE на каждое" PRO-Robotech/kaname; ecommit; want 0 "$KNJOBS"; printf '%s' "$KN3" > "$C/routes"
-ecase "expect kaname: стенд own головы без раннера (STAND_RUNNER_KINDS нет, ws#1321) — VOID, стенд «нет»" PRO-Robotech/kaname; sed -i '/^STAND_RUNNER_KINDS=/d' "$C/co/.github/scripts/stand-own.sh"; ecommit; want 2 -
-printf '%s' "${KN3/stand	внешний кластер/stand	нет}" > "$C/routes"; printf '%s' 'маршрута во внешний кластер нет[^\t]*e2e-newman\.yml:stand — нет: [^\t]*внешнего маршрута нет' > "$C/voidre"
-ecase "expect kaname: стенда own в голове нет — VOID, стенд «нет»" PRO-Robotech/kaname; rm "$C/co/.github/scripts/stand-own.sh"; ecommit; want 2 -
-printf '%s' "${KN3/stand	внешний кластер/stand	нет}" > "$C/routes"; printf '%s' '[^\t]*e2e-newman\.yml:stand — нет: [^\t]*внешнего маршрута нет' > "$C/voidre"
-ecase "expect kaname: скрипта контейнерных проб в голове нет — VOID, интеграция «нет»" PRO-Robotech/kaname; rm "$C/co/.github/scripts/run-integration.sh"; ecommit; want 2 -
-printf '%s' "${KN3/integration	внешний кластер/integration	нет}" > "$C/routes"; printf '%s' '[^\t]*ci\.yml:integration — нет: [^\t]*не опознана как переносимая' > "$C/voidre"
-ecase "expect kaname: строки маршрута у задания нет — VOID «нет»" PRO-Robotech/kaname; ecommit; want 2 -
-sed '/^    "ci\.yml:unit": \[/d' "$TOOL" > "$WM/norow.sh"; echo "$WM/norow.sh" > "$C/tool"
-printf '%s' "${KN3/unit	внешний кластер/unit	нет}" > "$C/routes"; printf '%s' '[^\t]*ci\.yml:unit — нет: [^\t]*STAND_ROUTE' > "$C/voidre"
-ecase "expect kaname: судья маршрута не ответил — VOID" PRO-Robotech/kaname; ecommit; want 2 -
-sed 's|^SLOT="\$HERE/heavy-slot\.sh"|SLOT="$HERE/heavy-slot-нет.sh"|' "$TOOL" > "$WM/noslot.sh"; echo "$WM/noslot.sh" > "$C/tool"
-printf '%s' 'heavy-slot\.sh --route [^\t]*не ответил' > "$C/voidre"
+# Kaname staged inventory is exercised through the canonical CLI in
+# kaname-stand-inject.py with source-derived workflows (6 logical / 8 executions).
+# Legacy own/ghjob route cases are retired because Kaname no longer dispatches here.
+kecase "expect kacho: checkout head differs — VOID" false 1266 tests/newman/x.json "$LEDGER"; echo "$H2" > "$C/head"; want 2 -
+kecase "expect kacho: checkout head lawful twin" false 1266 tests/newman/x.json "$LEDGER"
 ecase "expect kacho: ready, механизм stand-ns в голове — пять заданий стенда, маршрут — KC_STAND" PRO-Robotech/kacho; ecommit; printf -- '--base\norigin/main\n--draft\nfalse\n' > "$C/args"; kc_want "$LEDGER"
 KC5='ci.yaml:integration	внешний кластер;ci.yaml:unit-shard	внешний кластер;console-e2e.yml:probes	внешний кластер;e2e-newman.yml:shard	внешний кластер;production-posture.yml:stand	внешний кластер;'
 # ws#1284: пробы консоли — перепись без предела падений, из каталога набора, форма копируется как есть;
@@ -340,11 +334,22 @@ ckase "перенос: набор unit-shard под именем go-race — ч�
 ckase "перенос: ban6 под другим именем — имени нет в реестре jobs" '.suites[3] |= (.name = "newman:edge-isolation" | .carried_from = $a)' '.suites[3].name = "newman:edge-isolation"'; want 1 'STAND-CARRY-AREA(?=\tnewman:edge-isolation [^\t]*нет в реестре jobs)'
 ckase "перенос: путь вне ведомости областей — закрыто" ".carry_basis[\$a] |= (.changed += [\"$D\"] | .inputs = \"  не вход $D — нет\n  не вход $BAN6 — нет\nstand-ns inputs: Dockerfile 23, контекстов 9, образов go 7; изменённых путей 2, из них входов сборки 0\")"
 jq --arg x "$D" '.files += [{filename: $x}]' "$C/compare.json" > "$C/c" && mv "$C/c" "$C/compare.json"; want 1 STAND-CARRY-AREA
-ckase "перенос: перечень путей отчёта короче площадки" -; jq --arg x "$D" '.files += [{filename: $x}]' "$C/compare.json" > "$C/c" && mv "$C/c" "$C/compare.json"; want 1 STAND-CARRY-BASIS
+for record in missing complete; do
+    ckase "перенос: image-only recorded paths $record" "del(.suites[].carried_from) | .carry_basis[\$a].inputs = \"  не вход $D — нет\\n  не вход $BAN6 — нет\\nstand-ns inputs: Dockerfile 23, контекстов 9, образов go 7; изменённых путей 2, из них входов сборки 0\""; jq --arg x "$D" '.files += [{filename: $x}]' "$C/compare.json" > "$C/c" && mv "$C/c" "$C/compare.json"
+    if [ "$record" = complete ]; then
+        jq --arg a "$HA" --arg d "$D" '.carry_basis[$a].changed += [$d]' "$C/r.json" > "$C/j" && mv "$C/j" "$C/r.json"
+        want 0 -
+    else want 1 STAND-CARRY-BASIS; fi
+done
 ckase "перенос: вывод inputs не называет путь разности" ".carry_basis[\$a].inputs = \"stand-ns inputs: Dockerfile 23, контекстов 9, образов go 7; изменённых путей 1, из них входов сборки 0\""; want 1 STAND-CARRY-BASIS
 ckase "перенос: обоснования для ревизии нет" '.carry_basis = {}'; want 1 STAND-CARRY-BASIS
 ckase "перенос: A не предок головы" -; jq '.status = "diverged" | .behind_by = 2' "$C/compare.json" > "$C/c" && mv "$C/c" "$C/compare.json"; want 1 STAND-CARRY-BASIS
-ckase "перенос: перечень площадки обрезан на 300" -; jq '.files = [range(300) | {filename: "f\(.)"}]' "$C/compare.json" > "$C/c" && mv "$C/c" "$C/compare.json"; want 1 STAND-CARRY-BASIS
+for count in 299 300; do
+    ckase "перенос: complete image-only diff $count" 'del(.suites[].carried_from)'
+    jq --argjson n "$count" '.files = [range($n) | {filename: "docs/f\(.)"}]' "$C/compare.json" > "$C/j" && mv "$C/j" "$C/compare.json"
+    jq --slurpfile c "$C/compare.json" --arg a "$HA" '.carry_basis[$a].changed = [$c[0].files[].filename] | .carry_basis[$a].inputs = (([$c[0].files[].filename | "  не вход \(.) — нет"] | join("\n")) + "\nstand-ns inputs: Dockerfile 23, контекстов 9, образов go 7; изменённых путей \($c[0].files|length), из них входов сборки 0")' "$C/r.json" > "$C/j" && mv "$C/j" "$C/r.json"
+    if [ "$count" = 300 ]; then want 1 STAND-CARRY-BASIS; else want 0 -; fi
+done
 ckase "перенос: в источнике набор красный" - '.suites[2] |= (.outcome = "red" | .quote = "q")'; want 1 STAND-CARRY-SOURCE
 ckase "перенос: число исполненного разошлось с источником" - '.suites[2].executed = 3850 | .suites[2].total = 3850'; want 1 STAND-CARRY-SOURCE
 ckase "перенос: источник о другой ревизии" - ".head = \"$H2\""; want 1 STAND-CARRY-SOURCE
@@ -444,4 +449,9 @@ route-slot-verdict-ignored	s/        route, rwhy = m.group(1), m.group(2)/      
 expect-route-unjudged	s/        if not (isinstance(r, dict) and r.get('route') == 'external'):/        if False:/
 MUT
 echo "stand-report-inject: мутантов $((killed + survived + void)), убито $killed, выжило $survived, не легло $void; нестабильных повторов случаев $unstable"
-[ "$fail" -eq 0 ] && [ "$pass" -gt 0 ] && [ "$survived" -eq 0 ] && [ "$void" -eq 0 ] && [ "$killed" -gt 0 ] && [ "$unstable" -eq 0 ]
+legacy_rc=0
+[ "$fail" -eq 0 ] && [ "$pass" -gt 0 ] && [ "$survived" -eq 0 ] && [ "$void" -eq 0 ] && [ "$killed" -gt 0 ] && [ "$unstable" -eq 0 ] || legacy_rc=1
+bash "$HERE/operator-stand-focused-inject.sh"; operator_rc=$?
+bash "$HERE/kaname-stand-inject.sh"; kaname_rc=$?
+printf 'STAND_TEST_GROUPS legacy=%s operators=%s kaname=%s\n' "$legacy_rc" "$operator_rc" "$kaname_rc"
+[ "$legacy_rc" -eq 0 ] && [ "$operator_rc" -eq 0 ] && [ "$kaname_rc" -eq 0 ]

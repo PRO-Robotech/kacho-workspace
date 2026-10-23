@@ -1,0 +1,89 @@
+{
+  "job": {
+    "metadata": {
+      "name": "run",
+      "namespace": "t8-heavy-go-race-ca56",
+      "uid": "0864642b-ff47-44dd-a562-b662c8b15509"
+    },
+    "spec": {
+      "template": {
+        "spec": {
+          "hostUsers": false,
+          "containers": [
+            {
+              "name": "run",
+              "image": "mirror.gcr.io/library/golang:1.26.8",
+              "command": [
+                "bash",
+                "-c",
+                "REDACTED_CAPTURED_PREP",
+                "run"
+              ]
+            },
+            {
+              "name": "pgclient",
+              "image": "mirror.gcr.io/library/postgres:17-trixie",
+              "command": [
+                "bash",
+                "-c",
+                "REDACTED_CAPTURED_PREP",
+                "run"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  },
+  "pod": {
+    "metadata": {
+      "name": "run-jn6f2",
+      "namespace": "t8-heavy-go-race-ca56",
+      "uid": "2d247b72-4f48-4383-824c-52b57fe8df12",
+      "ownerReferences": [
+        {
+          "apiVersion": "batch/v1",
+          "blockOwnerDeletion": true,
+          "controller": true,
+          "kind": "Job",
+          "name": "run",
+          "uid": "0864642b-ff47-44dd-a562-b662c8b15509"
+        }
+      ]
+    },
+    "spec": {
+      "hostUsers": false,
+      "containers": [
+        {
+          "name": "run",
+          "image": "mirror.gcr.io/library/golang:1.26.8",
+          "command": [
+            "bash",
+            "-c",
+            "REDACTED_CAPTURED_PREP",
+            "run"
+          ]
+        },
+        {
+          "name": "pgclient",
+          "image": "mirror.gcr.io/library/postgres:17-trixie",
+          "command": [
+            "bash",
+            "-c",
+            "REDACTED_CAPTURED_PREP",
+            "run"
+          ]
+        }
+      ]
+    },
+    "status": {
+      "containerStatuses": []
+    }
+  },
+  "namespace": {
+    "metadata": {
+      "name": "t8-heavy-go-race-ca56",
+      "uid": "46ca733b-5288-4667-b450-4cce80aa7993"
+    }
+  }
+}
