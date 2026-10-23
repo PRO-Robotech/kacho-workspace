@@ -311,6 +311,53 @@ def checkout_source(log, head):
     return '\n'.join(lines)
 
 
+# Observed REST names at the exact source below; this is not a general GitHub
+# truncation contract. A different source or spelling requires fresh evidence.
+OBSERVED_HOSTED_NAMES = {
+    ('1fc23d6c126ec296eebb2b3aecceb5e8d84b12f487c4972813bcfa9ab2117261', 'stand-ceremony'): (
+        'автономный стенд — волна церемонии и распорядители аккаунта (второй шард)',
+        'автономный стенд — волна церемонии и распорядители ...'),
+    ('1fc23d6c126ec296eebb2b3aecceb5e8d84b12f487c4972813bcfa9ab2117261', 'chart-own'): (
+        'стенд посадки own (kind) — полоса входа паролем и своя церемония',
+        'стенд посадки own (kind) — полоса входа паролем и своя це...'),
+}
+
+
+def hosted_job_selection(workflow, workflow_digest, key, jobs):
+    definitions = workflow['jobs']
+    source = definitions[key]
+    full_name = source.get('name', key)
+    require(isinstance(full_name, str) and full_name, 'invalid source job name')
+    accepted = {full_name}
+    observed = OBSERVED_HOSTED_NAMES.get((workflow_digest, key))
+    if observed is not None:
+        require(full_name == observed[0], 'observed source job name differs')
+        accepted.add(observed[1])
+    # Projection is used only to reject possible collisions, never to admit an
+    # unreviewed alias. Inspect every source job, including non-required jobs.
+    for other_key, other in definitions.items():
+        if other_key == key:
+            continue
+        other_name = other.get('name', other_key)
+        require(isinstance(other_name, str) and other_name, 'invalid sibling job name')
+        possible = {other_name}
+        if len(other_name.encode()) > 100:
+            possible.add(other_name.encode()[:97].decode('utf-8', errors='ignore') + '...')
+        require(not accepted.intersection(possible), 'ambiguous source job display name')
+    selected = [job for job in jobs if job.get('name') in accepted]
+    require(len(selected) == 1, 'expected hosted job missing/duplicated')
+    job = selected[0]
+    if job['name'] != full_name:
+        # Exact source-authored inventory also binds the observed alias to this
+        # job. Automatic setup/post steps may be additional; named steps may not
+        # disappear or acquire duplicate occurrences.
+        authored = Counter(step['name'] for step in source['steps'] if 'name' in step)
+        actual = Counter(step.get('name') for step in job.get('steps', []))
+        require(authored and all(actual[name] == count for name, count in authored.items()),
+                'observed hosted job authored steps differ')
+    return job
+
+
 def hosted_capture(exp, name, event):
     require(name in HOSTED and event in ('push', 'workflow_dispatch'), 'unsupported hosted subject/event')
     repo, head = exp['repo'], exp['head']
@@ -319,7 +366,8 @@ def hosted_capture(exp, name, event):
     content = common.api(repo, 'contents/.github/workflows/' + quote(filename) + '?' + urlencode({'ref': head}))
     raw = base64.b64decode(''.join(content['content'].split()), validate=True)
     require(common.digest(raw) == target['workflow_digest'], 'hosted workflow differs')
-    require(common.digest(job_definition(common.load_workflow(raw), key)) == target['definition_digest'],
+    workflow = common.load_workflow(raw)
+    require(common.digest(job_definition(workflow, key)) == target['definition_digest'],
             'hosted job definition differs')
     require(common.api(repo, 'git/commits/' + head)['tree']['sha'] == exp['tree'], 'hosted source tree differs')
     runs = common.pages(repo, 'actions/workflows/' + quote(filename) + '/runs?' +
@@ -333,9 +381,7 @@ def hosted_capture(exp, name, event):
     require(run.get('status') == 'completed' and run.get('conclusion') == 'success', 'latest hosted run not green')
     attempt = run['run_attempt']
     jobs = common.pages(repo, f"actions/runs/{run['id']}/attempts/{attempt}/jobs", 'jobs')
-    selected = [j for j in jobs if j.get('name') == target['definition']['job'].get('name', key)]
-    require(len(selected) == 1, 'expected hosted job missing/duplicated')
-    job = selected[0]
+    job = hosted_job_selection(workflow, target['workflow_digest'], key, jobs)
     require(job.get('run_id') == run['id'] and job.get('run_attempt') == attempt and job.get('head_sha') == head,
             'job source/run/attempt differs')
     require(job.get('status') == 'completed' and job.get('conclusion') == 'success', 'hosted job incomplete/red')
