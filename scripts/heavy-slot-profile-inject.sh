@@ -5,7 +5,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SLOT="$HERE/heavy-slot.sh"
 . "$HERE/lib/sandbox-git-home.sh"
 W="$(mktemp -d)"
-trap 'rm -rf "$W"' EXIT
+trap '_rc=$?; rm -rf "$W" 2>/dev/null || rm -rf "$W" || echo "ПРЕДУПРЕЖДЕНИЕ: временный каталог $W не снят; код проверки $_rc сохранён" >&2; exit $_rc' EXIT
 sandbox_git_home "$W/ghome" || exit 2
 pass=0; fail=0
 assert() {
