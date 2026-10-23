@@ -519,6 +519,45 @@ class TrustBoundaries(unittest.TestCase):
                 self.assertIn('wrong requested evidence stage', result.stdout)
                 self.assertNotIn('invalid choice', result.stderr)
 
+    def test_shell_entrypoint_passes_stage_subcommands_verbatim(self):
+        # ws#1301: шаблон волны зовёт ступени судей входом stand-report.sh, не python3 на машине.
+        # Каждая ступень доходит до СВОЕЙ функции судьи (её первый отказ), а не до check:
+        # подстановка check дала бы «requested source/base/repository differs» (kaname)
+        # либо отказ разбора доводов (операторы).
+        import json, subprocess, tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            d = Path(directory)
+            (d / 'kaname.json').write_text(json.dumps(
+                {'schema': 'kaname-stand-v1', 'repo': gate.REPO, 'head': 'a' * 40, 'base': '955'}))
+            (d / 'operator.json').write_text(json.dumps(
+                {'schema': 'operator-stand-v1', 'repo': 'PRO-Robotech/registry-operator',
+                 'head': 'a' * 40, 'definitions': {}}))
+            (d / 'packet.json').write_text(json.dumps({'kind': 'other'}))
+            (d / 'empty.json').write_text('{}')
+            (d / 'argv.json').write_text('[]')
+            kaname, operator = str(d / 'kaname.json'), str(d / 'operator.json')
+            stages = [
+                (['import-candidate', '--expect', kaname, '--packet', str(d / 'packet.json')],
+                 'wrong imported provenance kind'),
+                (['register-import', '--expect', kaname, '--packet', str(d / 'packet.json'),
+                  '--review', str(d / 'empty.json')], 'wrong imported provenance kind'),
+                (['report', '--expect', kaname, '--import-id', 'not-a-digest'], 'invalid import identity'),
+                (['cluster-check', str(d / 'empty.json'), '--head', 'a' * 40, '--expect', operator],
+                 'expected inventory differs'),
+                (['register', '--expect', operator, '--script', str(d / 'empty.json'),
+                  '--argv', str(d / 'argv.json'), '--pins', str(d / 'empty.json'),
+                  '--review', str(d / 'empty.json')], 'invalid command argv'),
+            ]
+            for argv, reached in stages:
+                with self.subTest(stage=argv[0]):
+                    result = subprocess.run(['bash', str(HERE / 'stand-report.sh'), *argv],
+                                            capture_output=True, text=True, timeout=30)
+                    self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                    self.assertIn(reached, result.stdout, result.stdout + result.stderr)
+                    self.assertNotIn('requested source/base/repository differs', result.stdout)
+                    self.assertNotIn('unrecognized arguments', result.stderr)
+                    self.assertNotIn('invalid choice', result.stderr)
+
 
 class PreciCensus(unittest.TestCase):
     def setUp(self):

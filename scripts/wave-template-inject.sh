@@ -1069,6 +1069,8 @@ for (const repo of ['PRO-Robotech/kaname-iam-operator', 'PRO-Robotech/registry-o
   ok(by(q.calls, c => c.label.startsWith('mech:assemble:')) === 0 && !/affected\.py --base/.test(prm(q.calls, 'mech:assemble-local:1')), 'operator never enters legacy early publication or affected.py')
   const finalPrompt = prm(q.calls, 'mech:stand:0')
   ok(finalPrompt.includes('stand-cluster.json') && finalPrompt.includes('cluster-check') && finalPrompt.includes('заново cluster не запускай и push не делай') && finalPrompt.includes('все github-hosted jobs из definitions') && !finalPrompt.includes('github-hosted Kind jobs'), 'operator final reader reuses exact cluster receipts and entire hosted inventory')
+  const clusterPrompt = prm(q.calls, 'mech:operator-cluster:1')
+  ok(/`bash \/ws\/scripts\/stand-report\.sh register --expect /.test(clusterPrompt) && /bash \/ws\/scripts\/stand-report\.sh cluster-check /.test(clusterPrompt) && /`bash \/ws\/scripts\/stand-report\.sh cluster-check`/.test(finalPrompt) && !/python3 \/|operator-stand\.py/.test(clusterPrompt + finalPrompt), 'ступени оператора — входом stand-report.sh, не python3 на машине (ws#1301) ' + repo)
   for (const code of [1, 2, 3]) {
     q = await run({ args: opArgs, plan: [P('r0.json')], operatorCluster: [{ code }] })
     ok(q.res.ok === false && idx(q.calls, 'mech:operator-publish:1') < 0 && idx(q.calls, 'mech:stand:0') < 0 && (code !== 3 || q.res.state === 'running'), 'operator cluster code ' + code + ' forbids publication; pending remains running')
@@ -1089,6 +1091,8 @@ console.log('== Kaname staged proof: external → publication → real hosted')
   let q = await run({ args: kArgs, plan: [P('r0.json')] })
   ok(q.res.ok === true && idx(q.calls, 'mech:kaname-local:1') < idx(q.calls, 'mech:kaname-external:1') && idx(q.calls, 'mech:kaname-external:1') < idx(q.calls, 'mech:kaname-publish:1') && idx(q.calls, 'mech:kaname-publish:1') < idx(q.calls, 'mech:stand:0'), 'Kaname lawful twin ordered stages')
   ok(prm(q.calls, 'mech:stand:0').includes('kaname-staged-report-v1') && prm(q.calls, 'mech:stand:0').includes('без external-only'), 'Kaname full reader requires real hosted proof')
+  const extPrompt = prm(q.calls, 'mech:kaname-external:1'), fullPrompt = prm(q.calls, 'mech:stand:0')
+  ok(/`bash \/ws\/scripts\/stand-report\.sh <ступень> … --expect <ожидаемое>`/.test(extPrompt) && /`bash \/ws\/scripts\/stand-report\.sh check <report> --head [0-9a-f]{40} --expect <ожидаемое> --external-only`/.test(extPrompt) && /`bash \/ws\/scripts\/stand-report\.sh report --expect /.test(fullPrompt) && !/python3 \/|kaname-stand\.py/.test(extPrompt + fullPrompt), 'ступени Kaname — входом stand-report.sh, не python3 на машине (ws#1301)')
   for (const code of [1, 2, 3]) {
     q = await run({ args: kArgs, plan: [P('r0.json')], kanameExternal: [{ code }] })
     ok(q.res.ok === false && idx(q.calls, 'mech:kaname-publish:1') < 0 && (code !== 3 || q.res.state === 'running'), 'Kaname external code ' + code + ' forbids premature publication')
@@ -1533,6 +1537,13 @@ mutant "operator cluster source ignored" "clusterStage.head !== local.head" "fal
 mutant "operator reassembly pending treated failed" "if ((operatorStand || kanameStand) && asm && asm.status === 'running') return { ok: false, state: 'running', stage: 'operator reassembly" "if (false) return { ok: false, state: 'running', stage: 'operator reassembly"
 mutant "operator final prompt repeats cluster and push" "заново cluster не запускай и push не делай" "запусти cluster заново и выполни push"
 # Kaname-specific one-fact mutants retain the legal staged twin above.
+# ws#1301: ступени судей kaname и операторов — входом stand-report.sh; python3 на машине страж отказывает.
+mutant "Kaname import/register — python3 на машине (ws#1301)" "Ступени судьи — входом \`bash ' + WS + '/scripts/stand-report.sh <ступень>" "Ступени судьи — \`python3 ' + WS + '/scripts/kaname-stand.py <ступень>"
+mutant "Kaname external-only — kaname-stand.py (ws#1301)" "проверь \`bash ' + WS + '/scripts/stand-report.sh check <report>" "проверь \`python3 ' + WS + '/scripts/kaname-stand.py check <report>"
+mutant "Kaname report — kaname-stand.py (ws#1301)" "Собери отчёт \`bash ' + WS + '/scripts/stand-report.sh report" "Собери отчёт \`python3 ' + WS + '/scripts/kaname-stand.py report"
+mutant "оператор register — operator-stand.py (ws#1301)" "зарегистрировать \`bash ' + WS + '/scripts/stand-report.sh register" "зарегистрировать \`operator-stand.py register"
+mutant "оператор cluster-check — python3 на машине (ws#1301)" "вызови bash ' + WS + '/scripts/stand-report.sh cluster-check" "вызови python3 ' + WS + '/scripts/operator-stand.py cluster-check"
+mutant "оператор итог cluster-check — без входа (ws#1301)" "повторно проверь \`bash ' + WS + '/scripts/stand-report.sh cluster-check\`" "повторно проверь cluster-check"
 mutant "Kaname external red publishes" "external.code !== 0" "false"
 mutant "Kaname external source ignored" "external.head !== local.head" "false"
 mutant "Kaname publication source ignored" "published && published.head === local.head ? published" "published ? published"

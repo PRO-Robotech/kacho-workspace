@@ -17,6 +17,8 @@
 #   stand-report.sh expect --checkout <копия> --head <sha40> [--base <ref> --draft true|false] > <ожидаемое.json>
 #   stand-report.sh check <отчёт.json> --head <sha40> --expect <ожидаемое.json> [--pr-base <ветка>] [--pr-repo <владелец/имя>]
 #   stand-report.sh check <отчёт.json> --head <sha40> --of <прежний отчёт.json>
+#   stand-report.sh import-candidate|register-import|report|register|cluster-check … --expect <ожидаемое.json>
+#       — ступень судьи kaname (kaname-stand.py) либо оператора (operator-stand.py), доводы дословно
 # ОЖИДАЕМОЕ выводится НЕ из отчёта (судимый не объявляет свою полноту): `expect` берёт
 # задания CI, которые голова обязана пройти на кластере, из закрытой ведомости STAND
 # ниже и источника репозитория — kacho: выбор детекторов CI (`affected.py
@@ -120,6 +122,9 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SLOT="$HERE/heavy-slot.sh"
 # Operators use a closed two-executor inventory. Dispatch only those repositories;
 # the original parser, exit classes and local-proof boundary below stay unchanged.
+# Ступени судей (ws#1301): kaname — import-candidate, register-import, report; операторы —
+# register, cluster-check — уходят судье дословно, репозиторий — из --expect. Шаблон волны
+# предписывает их этим входом: python3 строкой команды на машине страж heavy-guard отказывает.
 python3 - "$HERE/operator-stand.py" "$@" <<'OPERATOR_DISPATCH'
 import json, os, re, subprocess, sys
 helper, args = sys.argv[1], sys.argv[2:]
@@ -137,10 +142,10 @@ try:
 except (OSError, ValueError, KeyError):
     pass
 if repo in ('PRO-Robotech/kaname-iam-operator', 'PRO-Robotech/registry-operator', 'PRO-Robotech/vault-operator'):
-    os.execv(sys.executable, [sys.executable, helper] + (args if args[0] in ('expect', 'check') else ['check'] + args))
+    os.execv(sys.executable, [sys.executable, helper] + (args if args[0] in ('expect', 'check', 'register', 'cluster-check') else ['check'] + args))
 if repo == 'PRO-Robotech/kaname':
     kaname = os.path.join(os.path.dirname(helper), 'kaname-stand.py')
-    os.execv(sys.executable, [sys.executable, kaname] + (args if args[0] in ('expect', 'check') else ['check'] + args))
+    os.execv(sys.executable, [sys.executable, kaname] + (args if args[0] in ('expect', 'check', 'import-candidate', 'register-import', 'report') else ['check'] + args))
 sys.exit(77)
 OPERATOR_DISPATCH
 operator_rc=$?
