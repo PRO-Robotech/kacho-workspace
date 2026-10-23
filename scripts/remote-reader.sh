@@ -96,7 +96,7 @@ ship() {  # ship <файл> — то же, и в JSON-входе абсолют�
             [ -f "$p" ] || continue
             q="$(ship_plain "$p")" || return 1
             tmp="$RR/$dst.tmp"
-            jq --arg a "$p" --arg b "$q" 'walk(if type == "string" and . == $a then $b else . end)' "$RR/$dst" > "$tmp" &&
+            jq --arg a "$p" --arg b "$q" '(.. | select(type == "string" and . == $a)) |= $b' "$RR/$dst" > "$tmp" &&
                 mv -- "$tmp" "$RR/$dst" || return 1
         done < <(jq -r '[.. | strings | select(startswith("/"))] | unique[]' "$RR/$dst")
     fi
