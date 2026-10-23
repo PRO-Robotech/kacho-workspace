@@ -67,6 +67,16 @@ WSROOT="$(dirname "$COMMON")"
 # Реестр — тот, что открыл бы судья на машине (operator-stand.py registry()).
 RSRC="${LANDING_PRECHECK_WS:-$HERE}"
 RROOT="$(git -C "$RSRC" rev-parse --show-toplevel 2>/dev/null)" || die 64 "привязка реестра «$RSRC» — не копия git"
+[ -z "${LANDING_PRECHECK_WS+x}" ] || [ "$(realpath -- "$RSRC")" = "$(realpath -- "$RROOT")" ] || die 64 "workspace binding is not the repository root"
+canonical_origin() {
+    case "$1" in
+        git@github.com:PRO-Robotech/kacho-workspace.git|https://github.com/PRO-Robotech/kacho-workspace.git|https://github.com/PRO-Robotech/kacho-workspace) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+SOURCE_ORIGIN="$(git -C "$TOP" remote get-url origin 2>/dev/null)" || die 64 "workspace origin missing"
+REGISTRY_ORIGIN="$(git -C "$RROOT" remote get-url origin 2>/dev/null)" || die 64 "registry workspace origin missing"
+canonical_origin "$SOURCE_ORIGIN" && canonical_origin "$REGISTRY_ORIGIN" || die 64 "workspace repository differs"
 REG="$(dirname "$(git -C "$RROOT" rev-parse --path-format=absolute --git-common-dir)")/tmp/operator-stand-registry"
 
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)-$$"
@@ -80,6 +90,7 @@ cleanup() {
 trap cleanup EXIT
 git -C "$TOP" worktree add -q --detach "$WT" HEAD 2>/dev/null || die 69 "копия $WT не создана"
 mkdir -p "$RR/in" "$RR/gh" && : > "$RR/gh/index.jsonl"
+printf '%s\n' "$SOURCE_ORIGIN" > "$RR/workspace-origin" || die 69 "workspace origin binding not written"
 
 N=0
 ship_plain() {  # ship_plain <файл> — копия в rr/in, печатает путь от rr
