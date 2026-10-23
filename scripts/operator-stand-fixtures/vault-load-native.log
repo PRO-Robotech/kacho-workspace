@@ -1,0 +1,4 @@
+=== RUN   TestLoadThousandClaimsE2E
+    load_test.go:183: 1000 claims Ready in 1m1s
+    load_test.go:196: window 10m0s: 333 passes (0.33 per claim, limit 1.20), 1005 Vault calls (1.00 per claim), 0 new tokens, RSS 73 MiB
+--- PASS: TestLoadThousandClaimsE2E (671.13s)
