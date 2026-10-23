@@ -569,7 +569,12 @@ twin; sreport "$HEAD_SHA" . '.draft = "true"'; run 0 --stand-report "$W/case/sta
 expect 1 $'REASON\tSTAND-REPORT\tSTAND-EXPECT-DRAFT' "ожидаемое выбора черновика при ready — посадки нет (паритет с --github-output)"
 twin; sreport "$HEAD_SHA" . '.base = "origin/main"'; run 0 --stand-report "$W/case/stand.json" "${SE[@]}"
 expect 1 $'REASON\tSTAND-REPORT\tSTAND-EXPECT-BASE' "ожидаемое от другой базы, чем у запроса (1266) — посадки нет"
-twin; sreport "$HEAD_SHA" . '.repo = "PRO-Robotech/kaname" | .source = "full" | .ledger = ["ci.yml:unit","ci.yml:integration","e2e-newman.yml:stand"] | .jobs = .ledger'; run 0 --stand-report "$W/case/stand.json" "${SE[@]}"
+# A supported zero-inventory workspace report isolates repository binding;
+# Kaname uses its staged schema and must not be given this legacy report shape.
+twin; sreport "$HEAD_SHA" '.planned = 0 | .suites = []' '.repo = "PRO-Robotech/kacho-workspace" | .source = "none" | .ledger = [] | .jobs = [] | .routes = {}'
+bash "$HERE/stand-report.sh" check "$W/case/stand.json" --head "$HEAD_SHA" --expect "$W/case/stand-expect.json" --pr-repo PRO-Robotech/kacho-workspace --pr-base 1266 > "$W/out" 2>&1; echo $? > "$W/code"
+expect 0 - "близнец: допустимый нулевой отчёт workspace связан с тем же репозиторием"
+run 0 --stand-report "$W/case/stand.json" "${SE[@]}"
 expect 1 $'REASON\tSTAND-REPORT\tSTAND-EXPECT-REPO' "ожидаемое выведено для другого репозитория, чем у запроса — посадки нет"
 twin; sreport "$HEAD_SHA" . '.jobs = []'; run 0 --stand-report "$W/case/stand.json" "${SE[@]}"
 expect 1 $'REASON\tSTAND-REPORT\tSTAND-EXPECT-LEDGER' "ожидаемое ready «full: true, jobs: []» — посадки нет"
