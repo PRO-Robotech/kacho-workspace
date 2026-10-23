@@ -530,7 +530,7 @@ class PreciCensus(unittest.TestCase):
         self.assertEqual(self.preci.definitions_for(workflows, 'unit,integrationshard', gate.common.digest, 3), definitions)
 
 
-    def make_transport(self, directory, jobs, producer=None, shard=None):
+    def make_transport(self, directory, jobs, producer=None, shard=None, unit_transform=None):
         import base64, gzip, io, tarfile
         if producer is None:
             producer = b'# Explicit synthetic producer fixture; not execution evidence.\n'
@@ -545,6 +545,8 @@ class PreciCensus(unittest.TestCase):
         encoded = base64.urlsafe_b64encode(bundle).decode()
         chunks = [encoded[i:i + 48000] for i in range(0, len(encoded), 48000)]
         suffix = '' if shard is None else ' --integration-shard ' + str(shard)
+        if unit_transform is not None:
+            suffix += ' --unit-report-transform ' + unit_transform['transform']
         bootstrap = ('# Synthetic bootstrap fixture.\n[ "$(git rev-parse HEAD)" = ' + self.source['head'] + ' ]\npython3 "$assets/runner.py" --assets "$assets" --jobs ' + jobs + suffix + '\n').encode()
         targets = [f'part-{i}' for i in range(len(chunks))]
         rule = '.NOTPARALLEL:\n.PHONY: operand-begin operand-final ' + ' '.join(targets) + '\n'
@@ -561,6 +563,8 @@ class PreciCensus(unittest.TestCase):
                     'files': {name: gate.common.digest(data) for name, data in files.items()}}
         if shard is not None:
             manifest['integrationShard'] = shard
+        if unit_transform is not None:
+            manifest['unitReportTransform'] = unit_transform
         for name, data in [('runner.py', producer), ('bootstrap.sh', bootstrap),
                            ('argv.json', self.json.dumps(argv).encode()),
                            ('manifest.json', self.json.dumps(manifest).encode())]:
@@ -593,6 +597,58 @@ class PreciCensus(unittest.TestCase):
                 with self.assertRaises(self.preci.EvidenceError):
                     self.preci.selected_shard(dict(manifest, jobs='unit'))
             self.assertEqual(selected, complete)
+
+    def test_preci_sanitized_report_exact_metadata_and_bytes(self):
+        import copy
+        profile = {'transform': self.preci.UNIT_REPORT_TRANSFORM,
+                   'transform_sha256': self.preci.UNIT_REPORT_POLICY_SHA}
+        legacy = self.parse()['groups'][self.key]
+        positive = copy.deepcopy(legacy)
+        positive['reports'][0].update(profile, source_sha256='a' * 64)
+        verify = lambda value, selected=profile: self.preci.verify_native(value, gate.common.digest, selected)
+        self.assertEqual(verify(positive), self.native)
+        self.assertEqual(verify(legacy, None), self.native)
+        cases = []
+        for field in ('transform', 'transform_sha256', 'source_sha256'):
+            changed = copy.deepcopy(positive); del changed['reports'][0][field]; cases.append(changed)
+        cases.append(legacy)  # Removing every new field must not downgrade the bound profile.
+        for field, value in [('transform', 'unknown-v2'), ('transform_sha256', '0' * 64),
+                             ('source_sha256', None), ('source_sha256', True),
+                             ('source_sha256', 'not-a-digest'), ('sha256', '0' * 64),
+                             ('extra', 'unexpected')]:
+            changed = copy.deepcopy(positive); changed['reports'][0][field] = value; cases.append(changed)
+        changed = copy.deepcopy(positive)
+        changed['steps'][0]['native'] += 'changed byte\n'; cases.append(changed)
+        for index, changed in enumerate(cases):
+            with self.subTest(index=index):
+                with self.assertRaises(self.preci.EvidenceError): verify(changed)
+                self.assertEqual(verify(positive), self.native)
+        with self.assertRaises(self.preci.EvidenceError): verify(positive, None)
+
+    def test_preci_sanitized_profile_bound_to_executed_transport(self):
+        import tempfile, os, subprocess
+        profile = {'transform': self.preci.UNIT_REPORT_TRANSFORM,
+                   'transform_sha256': self.preci.UNIT_REPORT_POLICY_SHA}
+        with tempfile.TemporaryDirectory() as temporary:
+            argv, bootstrap, manifest, producer = self.make_transport(Path(temporary), 'unit', unit_transform=profile)
+            bind = lambda value: self.preci.bind_transport(argv, bootstrap, value, producer, gate.common.digest)
+            positive = bind(manifest)
+            invalids = [None, False, {}, dict(profile, transform='unknown'),
+                        dict(profile, transform_sha256='0' * 64), dict(profile, extra=True)]
+            cases = [dict(manifest, unitReportTransform=value) for value in invalids]
+            removed = dict(manifest); del removed['unitReportTransform']; cases.append(removed)
+            cases.append(dict(manifest, jobs='unit,build'))
+            for changed in cases:
+                with self.assertRaises(self.preci.EvidenceError): bind(changed)
+                self.assertEqual(bind(manifest), positive)
+            # Self-consistent replacement still cannot match the captured original argv.
+            command_line = 'remote-heavy: [fixture] команда начата через 1 с после создания Job: ' + subprocess.run(
+                ['bash', '-c', 'printf "%q " "$@"', 'argv', *argv],
+                capture_output=True, text=True, check=True, env={**os.environ, 'LC_ALL': 'C'}).stdout
+            replacement, _, _, _ = self.make_transport(Path(temporary), 'unit')
+            with self.assertRaises(self.preci.EvidenceError):
+                self.preci.bind_command_line(command_line, replacement)
+            self.preci.bind_command_line(command_line, argv)
 
     def test_preci_canonical_transport_negative_twins(self):
         import tempfile, copy
