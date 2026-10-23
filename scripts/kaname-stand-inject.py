@@ -207,6 +207,53 @@ class TrustBoundaries(unittest.TestCase):
                     gate.remote_log(raw.replace(old, new), exp, command)
                 self.assertEqual(gate.remote_log(raw, exp, command), positive)
 
+    def test_import_rejects_extra_shard_against_source_inventory(self):
+        # Настоящие native captures внутри явно synthetic transport fixture.
+        import json, re, tempfile
+        exp = {'repo': gate.REPO, 'head': 'a' * 40, 'tree': 'b' * 40,
+               'definitions': {str(i): {'matrix_index': i} for i in range(3)}}
+        captures = [(HERE / f'kaname-stand-fixtures/integration-{i}-native.log').read_text()
+                    for i in range(3)]
+        selected = [p for raw in captures
+                    for p in re.findall(r'^ok\s+(\S+)\s+\d+(?:\.\d+)?s\s*$', raw, re.M)]
+        core = {name: 'fixture output\n' for name in
+                ('build', 'vet', 'vet-integration', 'unit-verdict-self', 'unit-verdict',
+                 'listfilter', 'manifest')}
+        core['unit'] = (HERE / 'kaname-stand-fixtures/go-json-native.log').read_text()
+        platform = {name: 'fixture output\n' for name in
+                    ('platform-tests', 'platform-verdict', 'canon', 'catalog')}
+        platform.update({f'integration-{i}': raw for i, raw in enumerate(captures)})
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            artifact = root / 'fixture.txt'; artifact.write_text('synthetic fixture, not a receipt')
+            packet = {'kind': 'imported-native-remote-heavy', 'head': exp['head'],
+                      'tree': exp['tree'], 'runs': {}, 'selected_packages': selected,
+                      'applicability_audit': str(artifact)}
+            for name, census in [('core', core), ('platform', platform)]:
+                ns = 'fixture-' + name
+                command = f'remote-heavy: [{ns}] команда начата через fixture-only'
+                raw = (f"HEAD {exp['head']} class=suite at=fixture dir=/src\n"
+                       f'remote-heavy: [{ns}] ns {ns} создано: fixture\n'
+                       + command + f"\nSOURCE {exp['head']} TREE {exp['tree']}\n")
+                raw += ''.join(f'GROUP_BEGIN {group}\n{body.rstrip()}\nGROUP_END {group} rc=0\n'
+                               for group, body in census.items())
+                raw += (f'remote-heavy: [{ns}] команда завершилась кодом 0 за 1 с\n'
+                        f'remote-heavy: [{ns}] ns {ns} снято\n')
+                log = root / (name + '.log'); log.write_text(raw)
+                packet['runs'][name] = dict(log=str(log), script=str(artifact),
+                    command_line=command, runner=str(artifact), auxiliary={})
+            packet_path = root / 'packet.json'; packet_path.write_text(json.dumps(packet))
+            positive = gate.import_candidate(exp, packet_path)
+            self.assertEqual(positive['integration']['passed'], 37)
+            log = root / 'platform.log'; original = log.read_text()
+            extra = 'GROUP_BEGIN integration-3\nextra complete shard\nGROUP_END integration-3 rc=0\n'
+            log.write_text(original.replace('remote-heavy: [fixture-platform] команда завершилась',
+                                            extra + 'remote-heavy: [fixture-platform] команда завершилась'))
+            with self.assertRaisesRegex(gate.common.Unread, 'platform group inventory differs'):
+                gate.import_candidate(exp, packet_path)
+            log.write_text(original)
+            self.assertEqual(gate.import_candidate(exp, packet_path), positive)
+
     def test_register_import_binds_review_to_current_artifacts(self):
         from unittest.mock import patch
         import tempfile
@@ -347,7 +394,8 @@ class TrustBoundaries(unittest.TestCase):
                     (wf / 'e2e-newman.yml').write_text(json.dumps(e2e))
                 else:
                     if mutation == 'duplicate-shard':
-                        ci['jobs']['integrationshard']['strategy']['matrix']['shard'].append(0)
+                        values = ci['jobs']['integrationshard']['strategy']['matrix']['shard']
+                        values.append(values[0])
                     elif mutation == 'checkout-ref':
                         ci['jobs']['unit']['steps'][0].setdefault('with', {})['ref'] = 'other'
                     else: ci['jobs']['unit']['runs-on'] = 'self-hosted'
