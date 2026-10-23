@@ -1840,7 +1840,8 @@ ext_run() {
 # scripts/ и .claude/hooks/), и проверки наборов по одной (check-*); исполняет их Job профиля ws
 # (scripts/remote-heavy/run.sh, СРЕДА ВОРКСПЕЙСА). Что каждый файл дерева, которого страж зовёт
 # набором, здесь переносим, — перепись heavy-slot-inject (SUITE_NAME импортом guard.py, файлы — git
-# ls-files). Скрипт с python3 первым словом — слово после ключей интерпретатора.
+# ls-files). Скрипт с python3 первым словом — слово после ключей интерпретатора. Сторона pod
+# читателей (scripts/remote-reader/pod.sh, ws#1365) — классом suite: её зовёт scripts/remote-reader.sh.
 PORTABLE='kaname|.github/scripts/run-integration.sh|integration
 kacho-workspace|scripts/*/run-all.sh|ci-local,suite
 kacho-workspace|scripts/*/run-suites.sh|ci-local,suite
@@ -1855,7 +1856,8 @@ kacho-workspace|scripts/*-mutants.py|ci-local,suite
 kacho-workspace|scripts/*/check-*|ci-local,suite
 kacho-workspace|.claude/hooks/*/prove.sh|ci-local,suite
 kacho-workspace|.claude/hooks/*-inject.sh|ci-local,suite
-kacho-workspace|.claude/hooks/*/mutants.py|ci-local,suite'
+kacho-workspace|.claude/hooks/*/mutants.py|ci-local,suite
+kacho-workspace|scripts/remote-reader/pod.sh|suite'
 # MACHINE — пробы воркспейса, чей предмет — САМА машина (systemd --user и scope, cgroup памяти
 # машины, docker, память машины), а не дерево: Job их не воспроизводит, и в pod они дают не
 # вердикт, а чужое красное (живой прогон heavy-slot-inject.sh Job-ом ws 2026-10-22: «все слоты
