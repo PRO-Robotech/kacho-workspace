@@ -243,7 +243,7 @@ kase "близнец only-red: целевой черновик, часть за�
 for selected in ci.yaml:outside e2e-newman.yml:shard; do
     kase "partial ledger: $selected" '.mode = "only-red" | .planned = 1 | .suites = [.suites[2]]' '.suites[2] |= (.outcome = "red" | .quote = "q")'
     expected '.draft = "true" | .full = false' | jq --arg j "$selected" '.jobs = [$j] | .routes[$j] = {route:"external", why:"fixture"}' > "$C/exp.json"
-    for report in r prev; do jq --arg j "$selected" '.suites |= map(if .name == "newman shard-1" then .job = $j else . end)' "$C/$report.json" > "$C/j" && mv "$C/j" "$C/$report.json"; done
+    for report in r prev; do jq --arg j "$selected" '(.suites[] | select(.name == "newman shard-1") | .job) = $j' "$C/$report.json" > "$C/j" && mv "$C/j" "$C/$report.json"; done
     printf -- '--of\n%s\n--expect\n%s\n' "$C/prev.json" "$C/exp.json" > "$C/args"
     if [ "$selected" = ci.yaml:outside ]; then want 1 STAND-EXPECT-LEDGER; else want 0 -; fi
 done
