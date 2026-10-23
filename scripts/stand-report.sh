@@ -17,6 +17,8 @@
 #   stand-report.sh expect --checkout <копия> --head <sha40> [--base <ref> --draft true|false] > <ожидаемое.json>
 #   stand-report.sh check <отчёт.json> --head <sha40> --expect <ожидаемое.json> [--pr-base <ветка>] [--pr-repo <владелец/имя>]
 #   stand-report.sh check <отчёт.json> --head <sha40> --of <прежний отчёт.json>
+#   stand-report.sh import-candidate|register-import|report|register|cluster-check … --expect <ожидаемое.json>
+#       — ступень судьи kaname (kaname-stand.py) либо оператора (operator-stand.py), доводы дословно
 # ОЖИДАЕМОЕ выводится НЕ из отчёта (судимый не объявляет свою полноту): `expect` берёт
 # задания CI, которые голова обязана пройти на кластере, из закрытой ведомости STAND
 # ниже и источника репозитория — kacho: выбор детекторов CI (`affected.py
@@ -24,7 +26,8 @@
 # `.github/scripts/affected.py` КОПИИ ГОЛОВЫ (второй реализации выбора нет): запрос
 # не черновик (`--draft false`) либо база из `full_bases` — полный прогон, все задания;
 # черновик в ветку эпика — целевой по путям `<base>...HEAD` (условие задания CI —
-# `full == 'true' || contains(jobs, <ключ>)`). kaname: CI без выбора — все задания стенда; kacho-workspace:
+# `full == 'true' || contains(jobs, <ключ>)`). kaname и операторы — своим судьёй выше по тексту
+# (kaname-stand.py, operator-stand.py: закрытые ведомости заданий их CI); kacho-workspace:
 # заданий на кластере у CI нет — ВЫВЕДЕННЫЙ ноль. Копия не на голове, репозиторий вне
 # ведомости, задание ведомости не найдено в файле workflow головы (ведомость отстала
 # от CI), выбор не выполнился, нет --base либо --draft — VOID, не ноль. Полный прогон
@@ -38,12 +41,7 @@
 # задание воспроизводится на кластере (`<…>` — место значения прогона). Судья — НАСТОЯЩИЙ
 # `heavy-slot.sh --route` этого каталога (второй реализации маршрута нет): external — Job либо ns
 # внешнего кластера; local — команда на машине при любом кластере; none — при доступном кластере
-# слот откажет 77. Задание стенда, чей стенд поднимает механизм ГОЛОВЫ (стенд own kaname,
-# kaname#841), несёт третий элемент — его опрос, когда слот маршрута не назвал внешним (local либо none —
-# ws#1301 сделал «нет внешнего пути» отказом 77, ws#1303): подкоманда механизма исполняется в копии
-# герметично (env -i, <tmp> — свой временный каталог, кубконфиг не читается) и код 0 значит «механизм
-# головы выбирает путь сам и знает внешний»; иной код, файла нет — локальный; копия после опроса
-# не чиста — VOID. У задания, которое голова обязана пройти (jobs), маршрут не внешний либо строки
+# слот откажет 77. У задания, которое голова обязана пройти (jobs), маршрут не внешний либо строки
 # STAND_ROUTE нет — VOID ДО запуска: прогон был бы неполон либо LOCAL (посадка kaname#871 узнала это
 # лишь в прогоне: задание стенда пошло локальным слотом с меткой LOCAL). Маршрут невыбранного задания печатается, не судится.
 # Без --of судится ПОЛНЫЙ прогон (mode full) — единственное основание для ready и
@@ -118,8 +116,32 @@ command -v python3 > /dev/null 2>&1 || void "нет python3"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Судья маршрута — слот ЭТОГО каталога (правленая копия инструмента в пробах лежит рядом с ним).
 SLOT="$HERE/heavy-slot.sh"
+# Судья kaname на машине владельца — Job-ом внешнего кластера (ws#1365, scripts/remote-reader.sh,
+# там же — где маршрута нет): expect по копии kaname (--checkout), check (и форма без подкоманды),
+# import-candidate, register-import, report — по ожидаемому kaname (--expect). ГРАНИЦА: kacho и
+# операторы идут здесь — их чтений GitHub драйвер не снимает, kacho заморожен до kaname
+# (владелец 2026-10-23).
+if [ -z "${KUBERNETES_SERVICE_HOST:-}" ] && [ "${GITHUB_ACTIONS:-}" != true ] && [ "${KACHO_REMOTE_READER_POD:-}" != 1 ] &&
+   [ -z "${HEAVY_SLOT_P:-}" ]; then
+    _sr_exp=""; _sr_co=""; _sr_prev=""; _sr_repo=""
+    for _sr_a in "$@"; do
+        case "$_sr_prev" in --expect|--expected) _sr_exp="$_sr_a" ;; --checkout) _sr_co="$_sr_a" ;; esac; _sr_prev="$_sr_a"
+    done
+    if [ "${1:-}" = expect ]; then
+        case "$(git -C "$_sr_co" remote get-url origin 2> /dev/null)" in
+            *github.com[:/]PRO-Robotech/kaname|*github.com[:/]PRO-Robotech/kaname.git) _sr_repo=PRO-Robotech/kaname ;;
+        esac
+    elif [ -f "$_sr_exp" ]; then
+        _sr_repo="$(jq -r '.repo? // empty' "$_sr_exp" 2> /dev/null)"
+    fi
+    [ "$_sr_repo" != PRO-Robotech/kaname ] || exec bash "$HERE/remote-reader.sh" scripts/stand-report.sh "$@"
+fi
+
 # Operators use a closed two-executor inventory. Dispatch only those repositories;
 # the original parser, exit classes and local-proof boundary below stay unchanged.
+# Ступени судей (ws#1301): kaname — import-candidate, register-import, report; операторы —
+# register, cluster-check — уходят судье дословно, репозиторий — из --expect. Шаблон волны
+# предписывает их этим входом: python3 строкой команды на машине страж heavy-guard отказывает.
 python3 - "$HERE/operator-stand.py" "$@" <<'OPERATOR_DISPATCH'
 import json, os, re, subprocess, sys
 helper, args = sys.argv[1], sys.argv[2:]
@@ -137,10 +159,10 @@ try:
 except (OSError, ValueError, KeyError):
     pass
 if repo in ('PRO-Robotech/kaname-iam-operator', 'PRO-Robotech/registry-operator', 'PRO-Robotech/vault-operator'):
-    os.execv(sys.executable, [sys.executable, helper] + (args if args[0] in ('expect', 'check') else ['check'] + args))
+    os.execv(sys.executable, [sys.executable, helper] + (args if args[0] in ('expect', 'check', 'register', 'cluster-check') else ['check'] + args))
 if repo == 'PRO-Robotech/kaname':
     kaname = os.path.join(os.path.dirname(helper), 'kaname-stand.py')
-    os.execv(sys.executable, [sys.executable, kaname] + (args if args[0] in ('expect', 'check') else ['check'] + args))
+    os.execv(sys.executable, [sys.executable, kaname] + (args if args[0] in ('expect', 'check', 'import-candidate', 'register-import', 'report') else ['check'] + args))
 sys.exit(77)
 OPERATOR_DISPATCH
 operator_rc=$?
@@ -152,7 +174,6 @@ operator_rc=$?
 export STAND_JSON='{
   "PRO-Robotech/kacho": ["affected", ["ci.yaml:unit-shard", "ci.yaml:integration", "e2e-newman.yml:shard",
                                        "console-e2e.yml:probes", "production-posture.yml:stand"]],
-  "PRO-Robotech/kaname": ["full", ["ci.yml:unit", "ci.yml:integration", "e2e-newman.yml:stand"]],
   "PRO-Robotech/kacho-workspace": ["none", []]
 }'
 # Ведомость ОБЛАСТЕЙ переноса (ws#1148): запись paths — [пути (** — любые каталоги, * —
@@ -172,12 +193,9 @@ export STAND_AREA_JSON='{
      "проба ban6 — шаг «гейт — ban» e2e-newman.yml:shard; её --self-test гонит ci.yaml:helm, набором стенда не являющийся"]]}
 }'
 # Ведомость МАРШРУТОВ (ws#1192): задание → [класс слота, argv формы]; маршрут — суждение
-# heavy-slot.sh --route о форме в копии головы. Форма — шаг CI задания (kaname: integrationshard
-# зовёт run-integration.sh; unit — go test -race -short); стенд kacho — pod раннера ns стенда
-# (stand-ns-run RUNNER=<вид>, ws#1303), стенд own kaname — задание шагами ghjob в pod раннера
-# stand-own.sh (ws#1321, kaname#940; ns — t<задача ветки>-kaname-own). Опрос `stand-own.sh census`
-# снят: он судил выбор пути механизмом, а задание шло машиной (сборка и newman процессом машины).
-# Пробы консоли — ПЕРЕПИСЬ всего набора: `--max-failures=0` снимает `maxFailures: 5` конфига, предел
+# heavy-slot.sh --route о форме в копии головы. Форма — шаг CI задания; стенд kacho — pod раннера
+# ns стенда (stand-ns-run RUNNER=<вид>, ws#1303). Строк kaname нет (ws#1365): его задания судит
+# kaname-stand.py до этой ведомости. Пробы консоли — ПЕРЕПИСЬ всего набора: `--max-failures=0` снимает `maxFailures: 5` конфига, предел
 # времени шага CI, а не вердикта (ws#1284: прогон kacho#3305 исполнил 179 из 320 и встал на пяти
 # падениях); перепись — без остановки на красном (CLAUDE.md «Перепись — потом массово»). Форма
 # печатается словами оболочки (shlex.join) — копируется как есть.
@@ -188,12 +206,6 @@ export STAND_ROUTE_JSON='{
     "e2e-newman.yml:shard": ["stand", ["make", "-C", "deploy", "stand-ns-run", "NS=t<задача>-w<k>", "RUNNER=newman", "DIR=deploy", "CMD=<шаги шарда>"]],
     "console-e2e.yml:probes": ["stand", ["make", "-C", "deploy", "stand-ns-run", "NS=t<задача>-w<k>", "RUNNER=browser", "DIR=ui-future/e2e", "CMD=npx playwright test --max-failures=0"]],
     "production-posture.yml:stand": ["stand", ["make", "-C", "deploy", "stand-ns-run", "NS=t<задача>-w<k>", "STACK=<стек матрицы>", "RUNNER=newman", "DIR=deploy", "CMD=<перепись посадки>"]]
-  },
-  "PRO-Robotech/kaname": {
-    "ci.yml:unit": ["go-race", ["go", "test", "./...", "-race", "-short", "-count=1", "-timeout", "25m"]],
-    "ci.yml:integration": ["integration", ["env", "INTEGRATION_SHARD=<k>/3", ".github/scripts/run-integration.sh"]],
-    "e2e-newman.yml:stand": ["stand", ["bash", ".github/scripts/stand-own.sh", "runner", "--ship", "<ws>/scripts/ghjob/ghjob.py", "--",
-                             "python3", "/work/ship/ghjob.py", ".github/workflows/e2e-newman.yml", "stand", "/src", "/work/out"]]
   }
 }'
 if [ "${1:-}" = expect ]; then
