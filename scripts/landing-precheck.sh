@@ -113,7 +113,9 @@
 #                             2) прогон workflow этого check-run найден
 #                             (`actions/runs?head_sha=`, ключ — check_suite.id), его
 #                             событие — pull_request в базу запроса либо push ветки
-#                             головы; иное событие не моделируется — причина;
+#                             головы; workflow_dispatch — только event_name после
+#                             проверки точной головы и целочисленного check suite;
+#                             его ref-поля неизвестны. Иное событие — причина;
 #                             3) файл workflow прочитан на ГОЛОВЕ запроса
 #                             (`contents/<path>?ref=<head sha>`), задание найдено по
 #                             имени, и его `if` разобран выражением трёхзначно и ЛОЖЕН
@@ -724,6 +726,14 @@ def skip_lawful(r):
         ctx = {"event_name": "pull_request", "ref": f"refs/pull/{os.environ['PR']}/merge",
                "ref_name": f"{os.environ['PR']}/merge", "base_ref": base_ref, "head_ref": head_ref,
                "ref_type": "branch"}
+    elif ev == "workflow_dispatch":
+        # API head_branch does not distinguish a branch from a tag. Only the
+        # verified event is known; Expr keeps all absent ref fields UNKNOWN.
+        if (run.get("head_sha") != head or type(suite) is not int
+                or type(run.get("check_suite_id")) is not int
+                or run.get("check_suite_id") != suite):
+            return False, "ручной прогон не связан с точной головой и check suite"
+        ctx = {"event_name": "workflow_dispatch"}
     elif ev == "push" and branch and branch == head_ref:
         ctx = {"event_name": "push", "ref": f"refs/heads/{branch}", "ref_name": branch,
                "base_ref": "", "head_ref": "", "ref_type": "branch"}
