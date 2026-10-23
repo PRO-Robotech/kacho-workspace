@@ -103,6 +103,86 @@ class NativeCensus(unittest.TestCase):
                 gate.groups(broken)
 
 
+class HostedDisplayNames(unittest.TestCase):
+    def setUp(self):
+        import json, copy
+        self.copy = copy.deepcopy
+        self.raw = (HERE / 'kaname-stand-fixtures/e2e-workflow-native.yml').read_bytes()
+        self.workflow = gate.common.load_workflow(self.raw)
+        self.digest = gate.common.digest(self.raw)
+        self.jobs = json.loads((HERE / 'kaname-stand-fixtures/hosted-display-names-native.json').read_text())
+
+    def test_observed_names_source_inventory_and_negative_twins(self):
+        for key, job in self.jobs.items():
+            def select(jobs=None, workflow=None, digest=None):
+                return gate.hosted_job_selection(self.workflow if workflow is None else workflow,
+                    self.digest if digest is None else digest, key, [job] if jobs is None else jobs)
+            self.assertEqual(select()['id'], job['id'])
+            full = self.copy(job); full['name'] = self.workflow['jobs'][key]['name']
+            self.assertEqual(select([full])['id'], job['id'])
+            for label, broken in [('unknown-truncation', dict(job, name=job['name'][:-4] + '...')),
+                                  ('missing-ellipsis', dict(job, name=job['name'][:-3])),
+                                  ('wrong-name', dict(job, name='unrelated'))]:
+                with self.subTest(key=key, mutation=label):
+                    with self.assertRaises(gate.common.Unread): select([broken])
+                    self.assertEqual(select()['id'], job['id'])
+            for jobs in ([], [job, job], [job, full]):
+                with self.assertRaises(gate.common.Unread): select(jobs)
+                self.assertEqual(select()['id'], job['id'])
+            with self.assertRaises(gate.common.Unread): select(digest='0' * 64)
+            workflow = self.copy(self.workflow); workflow['jobs'][key]['name'] += ' changed'
+            with self.assertRaises(gate.common.Unread): select(workflow=workflow)
+            for sibling_name in (job['name'], self.workflow['jobs'][key]['name'] + ' other'):
+                workflow = self.copy(self.workflow); workflow['jobs']['collision'] = {'name': sibling_name}
+                with self.assertRaises(gate.common.Unread): select(workflow=workflow)
+                self.assertEqual(select()['id'], job['id'])
+            authored = [s['name'] for s in self.workflow['jobs'][key]['steps'] if 'name' in s]
+            for name in authored:
+                for mode in ('missing', 'duplicate'):
+                    broken = self.copy(job)
+                    if mode == 'missing': broken['steps'] = [s for s in broken['steps'] if s['name'] != name]
+                    else: broken['steps'].append(next(s for s in broken['steps'] if s['name'] == name))
+                    with self.subTest(key=key, step=name, mode=mode):
+                        with self.assertRaises(gate.common.Unread): select([broken])
+                        self.assertEqual(select()['id'], job['id'])
+
+    def test_capture_observed_api_names_keeps_source_and_runtime_guards(self):
+        import base64
+        from unittest.mock import patch
+        for key, original in self.jobs.items():
+            name = 'e2e-newman.yml:' + key
+            definition = gate.job_definition(self.workflow, key)
+            exp = {'repo': gate.REPO, 'head': original['head_sha'], 'tree': 'a' * 40,
+                'ref': 'refs/heads/954', 'definitions': {name: {'definition': definition,
+                'definition_digest': gate.common.digest(definition), 'workflow_digest': self.digest}}}
+            run = {'id': original['run_id'], 'run_number': 1, 'run_attempt': 1,
+                'head_sha': exp['head'], 'event': 'workflow_dispatch', 'head_branch': '954',
+                'repository': {'full_name': gate.REPO}, 'path': '.github/workflows/e2e-newman.yml',
+                'status': 'completed', 'conclusion': 'success'}
+            # Synthetic native envelope around actual API job data, not a product receipt.
+            native = ('##[group]Runner Image Provisioner\n##[group]Operating System\n'
+                '[command]/usr/bin/git log -1 --format=%H\n' + exp['head'] + '\n')
+            job = original
+            def api(repo, path, raw=False):
+                if path.startswith('contents/'): return {'content': base64.b64encode(self.raw).decode()}
+                if path.startswith('git/commits/'): return {'tree': {'sha': exp['tree']}}
+                self.assertEqual(path, f"actions/jobs/{job['id']}/logs"); self.assertTrue(raw)
+                return native
+            def pages(repo, path, field):
+                if field == 'workflow_runs': return [run]
+                self.assertEqual(path, f"actions/runs/{run['id']}/attempts/1/jobs")
+                return [job]
+            with patch.object(gate.common, 'api', side_effect=api), patch.object(gate.common, 'pages', side_effect=pages):
+                def capture(): return gate.hosted_capture(exp, name, 'workflow_dispatch')
+                self.assertEqual(capture()['job']['id'], original['id'])
+                for field, value in [('head_sha', '0' * 40), ('run_id', 1), ('run_attempt', 2),
+                    ('conclusion', 'failure'), ('conclusion', 'skipped'), ('status', 'in_progress'),
+                    ('runner_group_name', 'self-hosted')]:
+                    job = dict(original, **{field: value})
+                    with self.assertRaises(gate.common.Unread): capture()
+                    job = original; self.assertEqual(capture()['job']['id'], original['id'])
+
+
 class TrustBoundaries(unittest.TestCase):
     def setUp(self):
         import json, base64, copy
