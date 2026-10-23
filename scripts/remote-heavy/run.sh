@@ -12,7 +12,7 @@
 # testcontainers уходят туда, а локально остаётся то, что без машины не делается.
 #
 # ФОРМА
-#   run.sh --task <N> --repo <kacho|kaname|corelib|kacho-workspace> --ref <ревизия>
+#   run.sh --task <N> --repo <kacho|kaname|corelib|kacho-workspace|<оператор>> --ref <ревизия>
 #          [--profile go-race|integration|lint|ci-local|ws] [--src <клон>]
 #          [--workdir <путь в дереве>] [--short <слово>] [--ns <имя>]
 #          [--timeout <с>] [--keep <часы ≤ 12>] [--push-input <вход pre-push>]
@@ -29,6 +29,9 @@
 #   run.sh --request --profile <профиль> [--repo <kacho|kaname|corelib|kacho-workspace>]
 #                           «mCPU МиБ» запроса pod по замеру (ЗАПРОС ПО ЗАМЕРУ); к кластеру
 #                           не обращается; 69 — строки профиля в PEAKS нет, 64 — вызов вне формы
+#   run.sh --guard          только КОНТЕКСТ и СТРАЖ ПО УЗЛАМ, без прав и размещения: 0 — кластер
+#                           профиля доказан; 69 — нет; 64 — переменная вне формы; 70 — дефект
+#                           обёртки (предусловие `cluster` в lane-precheck.sh --premise, ws#1307)
 #   run.sh --profiles       профили, их запросы по репозиториям (ЗАПРОС ПО ЗАМЕРУ) и основание
 #
 # КЛАСТЕР. Кубконфиг берётся из KACHO_REMOTE_KUBECONFIG, иначе из первой строки
@@ -616,6 +619,11 @@ profile_row() {
 # to_m <cpu> — милли-CPU; to_mib <память> — МиБ (единицы Mi и Gi, как пишет таблица).
 to_m() { case "$1" in *m) printf '%s\n' "${1%m}" ;; *) printf '%s\n' "$(( $1 * 1000 ))" ;; esac; }
 to_mib() { case "$1" in *Gi) printf '%s\n' "$(( ${1%Gi} * 1024 ))" ;; *Mi) printf '%s\n' "${1%Mi}" ;; *) return 1 ;; esac; }
+# ВНЕШНИЕ ОПЕРАТОРЫ (ws#1303): vault-operator, kaname-iam-operator, registry-operator — --repo
+# профилей go-race, integration, ci-local (go-unit слота идёт go-race): образ golang версии go.mod
+# ревизии, исходники — bundle клона (--src), модули — сетью, как у продуктов. Своих строк PEAKS
+# нет — запрос по строке «*» профиля; в profile_repos и table_max они не входят: их запрос — «*»,
+# не выше наибольшего по продуктам. Профиль lint им не дан: пин линтера — лишь из ci.yaml, ci.yml.
 # profile_repos <профиль> — репозитории профиля: ws — лишь kacho-workspace, прочие — три продукта.
 profile_repos() { if [ "$1" = ws ]; then echo kacho-workspace; else echo kacho kaname corelib; fi; }
 # pair_ok <профиль> <репозиторий> — профиль ws и клон воркспейса — только друг с другом
@@ -1106,7 +1114,7 @@ avail_args() {
         esac
     done
     [ -z "$AV_REPO" ] || [ -n "$AV_PROFILE" ] || return 1
-    case "$AV_REPO" in ''|kacho|kaname|corelib|kacho-workspace) ;; *) say "--repo kacho|kaname|corelib|kacho-workspace, получено «$AV_REPO»"; exit 64 ;; esac
+    case "$AV_REPO" in ''|kacho|kaname|corelib|kacho-workspace|vault-operator|kaname-iam-operator|registry-operator) ;; *) say "--repo kacho|kaname|corelib|kacho-workspace|vault-operator|kaname-iam-operator|registry-operator, получено «$AV_REPO»"; exit 64 ;; esac
     [ -z "$AV_REPO" ] || pair_ok "$AV_PROFILE" "$AV_REPO" || exit 64
     if [ -n "$AV_PROFILE" ]; then
         profile_row "$AV_PROFILE" >/dev/null || { say "профиля «$AV_PROFILE» нет: $(cut -d'|' -f1 <<< "$PROFILES" | tr '\n' ' ')"; exit 64; }
@@ -1121,14 +1129,25 @@ avail_args() {
 }
 
 case "${1:-}" in
+    --guard)
+        # Только суд кластера — КОНТЕКСТ и СТРАЖ ПО УЗЛАМ (шапка), без прав и размещения:
+        # предусловие `cluster` задания (lane-precheck.sh --premise, ws#1307) спрашивает
+        # этот же предикат, а не свою копию.
+        [ "$#" -eq 1 ] || { say "--guard без аргументов, получено «${*:2}»"; exit 64; }
+        resolve_kubeconfig; grc=$?
+        [ "$grc" = 0 ] || { say "$WHY"; [ "$grc" = 64 ] && exit 64; exit 69; }
+        node_guard; grc=$?
+        [ "$grc" = 2 ] && defect "$WHY"
+        [ "$grc" = 0 ] || { say "$WHY"; exit 69; }
+        echo "remote-heavy: кластер профиля доказан — контекст -client, узлы с префиксом <профиль>-client-"; exit 0 ;;
     --request)
         avail_args "${@:2}" && [ -n "$AV_PROFILE" ] && [ -z "$AV_PF" ] \
-            || { say "--request --profile <профиль> [--repo kacho|kaname|corelib|kacho-workspace], получено «${*:2}»"; exit 64; }
+            || { say "--request --profile <профиль> [--repo kacho|kaname|corelib|kacho-workspace|vault-operator|kaname-iam-operator|registry-operator], получено «${*:2}»"; exit 64; }
         sizing "$AV_PROFILE" "$AV_REPO" || { say "запрос профиля $AV_PROFILE не выведен из PEAKS: строки профиля в таблице нет (не выполнилось)"; exit 69; }
         printf '%s %s\n' "$NEED_CPU" "$NEED_MIB"; exit 0 ;;
     --available)
         need="0 0"; avw=""
-        avail_args "${@:2}" || { say "--available [--profile <профиль> [--repo kacho|kaname|corelib|kacho-workspace]] [--pending <файл>], получено «${*:2}»"; exit 64; }
+        avail_args "${@:2}" || { say "--available [--profile <профиль> [--repo kacho|kaname|corelib|kacho-workspace|vault-operator|kaname-iam-operator|registry-operator]] [--pending <файл>], получено «${*:2}»"; exit 64; }
         if [ -n "$AV_PROFILE" ]; then
             sizing "$AV_PROFILE" "$AV_REPO" || { say "запрос профиля $AV_PROFILE не выведен из PEAKS: строки профиля в таблице нет (не выполнилось)"; exit 69; }
             need="$NEED_CPU $NEED_MIB"; avw="; запрос pod: cpu ${NEED_CPU}m, память $NEED_MIB МиБ — $SIZE_WHY"
@@ -1185,7 +1204,7 @@ done
 [ "$#" -ge 1 ] || { say "нет команды: run.sh … -- <команда>"; exit 64; }
 CMD=("$@")
 [[ "$TASK" =~ ^[1-9][0-9]{0,6}$ ]] || { say "--task <N> — номер задачи, получено «$TASK»"; exit 64; }
-case "$REPO" in kacho|kaname|corelib|kacho-workspace) ;; *) say "--repo kacho|kaname|corelib|kacho-workspace, получено «$REPO»"; exit 64 ;; esac
+case "$REPO" in kacho|kaname|corelib|kacho-workspace|vault-operator|kaname-iam-operator|registry-operator) ;; *) say "--repo kacho|kaname|corelib|kacho-workspace|vault-operator|kaname-iam-operator|registry-operator, получено «$REPO»"; exit 64 ;; esac
 [ -n "$REF" ] || { say "--ref <ревизия> обязателен"; exit 64; }
 ROW="$(profile_row "$PROFILE")" || { say "профиля «$PROFILE» нет: $(cut -d'|' -f1 <<< "$PROFILES" | tr '\n' ' ')"; exit 64; }
 pair_ok "$PROFILE" "$REPO" || exit 64
@@ -1548,6 +1567,14 @@ esac
 say "ёмкость: $PLACE_CAP, потолок $MAX_PAR (KACHO_REMOTE_HEAVY_MAX)"
 
 BOX="$(mktemp -d "${TMPDIR:-/tmp}/remote-heavy.XXXXXX")" || { say "рабочий каталог не создан"; exit 69; }
+OPERATOR_DEF="${KACHO_OPERATOR_DEFINITION:-}"
+OPERATOR_UID=""; OPERATOR_NS_UID=""
+OPERATOR_HELPER="$SELF_DIR/../operator-stand.py"
+if [ -n "$OPERATOR_DEF" ]; then
+    printf '%s\0' "${CMD[@]}" | python3 -c 'import json,sys; json.dump(sys.stdin.buffer.read().decode().split("\0")[:-1], sys.stdout)' > "$BOX/operator-argv.json" || exit 69
+    python3 "$OPERATOR_HELPER" authorize --definition "$OPERATOR_DEF" --head "$SHA" --argv "$BOX/operator-argv.json" \
+        || { say "operator definition не соответствует команде/голове/runner — не выполнилось"; exit 69; }
+fi
 CREATED=0; BG=""; DONE=0; TMPREF=""
 RP="$BOX/red"; mkdir -p "$RP" || { say "каталог разбора красных групп не создан"; exit 69; }
 record_owner() { printf '%s\n%s\n%s\n%s\n' "$OWNER" "$NSNAME" "$CREATED" "$KEEP_H" > "$BOX/owner"; }
@@ -1575,6 +1602,15 @@ cleanup() {
     fi
     if kc delete ns "$NSNAME" --wait=true --timeout=300s >/dev/null; then
         say "ns $NSNAME снято"
+        if [ -n "$OPERATOR_UID" ]; then
+            local left
+            if left="$(kc get ns "$NSNAME" --ignore-not-found -o name)" && [ -z "$left" ]; then
+                python3 "$OPERATOR_HELPER" complete --uid "$OPERATOR_UID" --namespace-uid "$OPERATOR_NS_UID" \
+                    || say "operator receipt: cleanup не записан — проверка остаётся непринятой"
+            else
+                say "operator receipt: отсутствие ns не подтверждено — проверка остаётся непринятой"
+            fi
+        fi
     else
         say "ns $NSNAME НЕ снято за 300 с — его поймает перепись по kacho.io/expires ($EXPIRES)"
     fi
@@ -3138,6 +3174,8 @@ $WSUSER_SH"
 # исполняет шаг над синтетическим прогоном.
 # shellcheck disable=SC2016  # раскрывается в pod, не здесь
 PG=1; case "$PROFILE" in lint|ws) PG=0 ;; esac
+[ -z "$OPERATOR_DEF" ] || PREP="$PREP
+export HEAVY_OPERATOR_RECEIPT=1"
 REDLOG_SH="$(cat <<'REDLOG'
 # redlog-begin
 heavy_red() {
@@ -3208,11 +3246,28 @@ heavy_cmd() {
   rm -f /work/heavy-ws.max; heavy_ws_take "$mc" "$ms" /work/heavy-ws.max
   ( while :; do sleep 2; heavy_ws_take "$mc" "$ms" /work/heavy-ws.max; done ) > /dev/null 2>&1 & wsp=$!
   exec {fd}> >(tee /work/heavy-cmd.out); tp=$!
+  if [ "${HEAVY_OPERATOR_RECEIPT:-}" = 1 ]; then
+    local source_clean=clean source_status source_head source_tree
+    source_status="$(git status --porcelain --untracked-files=all)" || source_clean=dirty
+    source_head="$(git rev-parse HEAD)" || source_clean=dirty
+    source_tree="$(git rev-parse 'HEAD^{tree}')" || source_clean=dirty
+    [ -z "$source_status" ] || source_clean=dirty
+    printf 'REMOTE_SOURCE_V1 before %s %s %s\n' "$source_head" "$source_tree" "$source_clean"
+  fi
   "$@" >&"$fd" 2>&1; rc=$?
   exec {fd}>&-
   kill "$wsp" 2>/dev/null; wait "$wsp" 2>/dev/null
   heavy_ws_take "$mc" "$ms" /work/heavy-ws.max
   for _ in 1 2 3 4 5 6 7 8 9 10; do kill -0 "$tp" 2>/dev/null || break; sleep 0.5; done
+  if [ "${HEAVY_OPERATOR_RECEIPT:-}" = 1 ]; then
+    source_clean=clean
+    kill -0 "$tp" 2>/dev/null && source_clean=dirty
+    source_status="$(git status --porcelain --untracked-files=no)" || source_clean=dirty
+    source_head="$(git rev-parse HEAD)" || source_clean=dirty
+    source_tree="$(git rev-parse 'HEAD^{tree}')" || source_clean=dirty
+    [ -z "$source_status" ] || source_clean=dirty
+    printf 'REMOTE_SOURCE_V1 after %s %s %s\n' "$source_head" "$source_tree" "$source_clean"
+  fi
   # ПИК (ws#1195): память run — memory.peak cgroup контейнера (вся его жизнь, байты),
   # CPU — usage_usec за время команды, рабочая память — наибольшая выборка (ws#1293).
   # Нечитаемое — «—», строка есть всегда.
@@ -3500,6 +3555,22 @@ fi
 [[ "$RUN_RC" =~ ^[0-9]+$ ]] || { say "код команды не прочитан («$RUN_RC») — не выполнилось"; exit 69; }
 red_collect "$RUN_RC"
 peak_note "$PROFILE" "$RUN_RC"
+if [ -n "$OPERATOR_DEF" ]; then
+    if kc -n "$NSNAME" get job run -o json > "$BOX/operator-job.json" &&
+    kc -n "$NSNAME" get pod "$POD" -o json > "$BOX/operator-pod.json" &&
+    kc get ns "$NSNAME" -o json > "$BOX/operator-namespace.json" &&
+    kc -n "$NSNAME" logs "$POD" -c run > "$BOX/operator.log" &&
+    OPERATOR_UID="$(python3 "$OPERATOR_HELPER" capture --definition "$OPERATOR_DEF" \
+        --job "$BOX/operator-job.json" --pod "$BOX/operator-pod.json" \
+        --namespace "$BOX/operator-namespace.json" --log "$BOX/operator.log")" &&
+    OPERATOR_NS_UID="$(jq -r .metadata.uid "$BOX/operator-namespace.json")"; then
+        say "operator receipt: Job UID $OPERATOR_UID, definition $OPERATOR_DEF (cleanup ещё не подтверждён)"
+    else
+        say "operator receipt не захвачен — не выполнилось"
+        OPERATOR_UID=""
+        exit 69
+    fi
+fi
 say "команда завершилась кодом $RUN_RC за $(( T2 - T1 )) с (всего $(( T2 - T0 )) с от создания Job)"
 exit "$RUN_RC"
 }

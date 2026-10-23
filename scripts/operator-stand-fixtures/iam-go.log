@@ -1,0 +1,11 @@
+=== RUN   TestAllInScopeAccountGrantReachesEveryRegistryOfTheAccount
+--- PASS: TestAllInScopeAccountGrantReachesEveryRegistryOfTheAccount (11.40s)
+=== RUN   TestPolicyNarrowingRevokesInRealKaname
+--- PASS: TestPolicyNarrowingRevokesInRealKaname (38.73s)
+=== RUN   TestKanameContractOnTheStand
+--- PASS: TestKanameContractOnTheStand (1.85s)
+=== RUN   TestOperatorEndToEnd
+--- PASS: TestOperatorEndToEnd (19.67s)
+=== RUN   TestVaultContractOnTheContainer
+--- PASS: TestVaultContractOnTheContainer (0.01s)
+PASS

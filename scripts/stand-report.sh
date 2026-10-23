@@ -118,6 +118,33 @@ command -v python3 > /dev/null 2>&1 || void "нет python3"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Судья маршрута — слот ЭТОГО каталога (правленая копия инструмента в пробах лежит рядом с ним).
 SLOT="$HERE/heavy-slot.sh"
+# Operators use a closed two-executor inventory. Dispatch only those repositories;
+# the original parser, exit classes and local-proof boundary below stay unchanged.
+python3 - "$HERE/operator-stand.py" "$@" <<'OPERATOR_DISPATCH'
+import json, os, re, subprocess, sys
+helper, args = sys.argv[1], sys.argv[2:]
+def value(flag):
+    return args[args.index(flag) + 1] if flag in args and args.index(flag) + 1 < len(args) else ''
+repo = ''
+try:
+    if args and args[0] == 'expect':
+        result = subprocess.run(['git', '-C', value('--checkout'), 'remote', 'get-url', 'origin'],
+                                capture_output=True, text=True)
+        match = re.search(r'github\.com[:/]([^/]+/[^/]+?)(?:\.git)?\s*$', result.stdout)
+        repo = match.group(1) if match else ''
+    elif value('--expect'):
+        repo = json.load(open(value('--expect')))['repo']
+except (OSError, ValueError, KeyError):
+    pass
+if repo in ('PRO-Robotech/kaname-iam-operator', 'PRO-Robotech/registry-operator', 'PRO-Robotech/vault-operator'):
+    os.execv(sys.executable, [sys.executable, helper] + (args if args[0] in ('expect', 'check') else ['check'] + args))
+if repo == 'PRO-Robotech/kaname':
+    kaname = os.path.join(os.path.dirname(helper), 'kaname-stand.py')
+    os.execv(sys.executable, [sys.executable, kaname] + (args if args[0] in ('expect', 'check') else ['check'] + args))
+sys.exit(77)
+OPERATOR_DISPATCH
+operator_rc=$?
+[ "$operator_rc" = 77 ] || exit "$operator_rc"
 # Ведомость заданий CI, которые прогон на кластере воспроизводит, по репозиторию — ОДНА
 # для expect и check: source affected — выбор затронутого репозитория ∩ jobs; full — CI
 # без выбора, все jobs; none — у CI заданий на кластере нет (выведенный ноль). Задание —
@@ -146,10 +173,7 @@ export STAND_AREA_JSON='{
 }'
 # Ведомость МАРШРУТОВ (ws#1192): задание → [класс слота, argv формы]; маршрут — суждение
 # heavy-slot.sh --route о форме в копии головы. Форма — шаг CI задания (kaname: integrationshard
-# зовёт run-integration.sh); форма «<go test шага>» ВЫВОДИТСЯ из шага задания в workflow головы —
-# единственная строка `go test` до первого слова оболочки, без `-json` (формат вывода, не поведение:
-# журнал слота читается строками ok/FAIL); строк не одна либо в слове `$` — VOID. Предел `-timeout`
-# и флаги — одна правда с CI (kaname#949, ws#1340: 25m литералом отстал бы от шага); стенд kacho — pod раннера ns стенда
+# зовёт run-integration.sh; unit — go test -race -short); стенд kacho — pod раннера ns стенда
 # (stand-ns-run RUNNER=<вид>, ws#1303), стенд own kaname — задание шагами ghjob в pod раннера
 # stand-own.sh (ws#1321, kaname#940; ns — t<задача ветки>-kaname-own). Опрос `stand-own.sh census`
 # снят: он судил выбор пути механизмом, а задание шло машиной (сборка и newman процессом машины).
@@ -166,7 +190,7 @@ export STAND_ROUTE_JSON='{
     "production-posture.yml:stand": ["stand", ["make", "-C", "deploy", "stand-ns-run", "NS=t<задача>-w<k>", "STACK=<стек матрицы>", "RUNNER=newman", "DIR=deploy", "CMD=<перепись посадки>"]]
   },
   "PRO-Robotech/kaname": {
-    "ci.yml:unit": ["go-race", ["<go test шага>"]],
+    "ci.yml:unit": ["go-race", ["go", "test", "./...", "-race", "-short", "-count=1", "-timeout", "25m"]],
     "ci.yml:integration": ["integration", ["env", "INTEGRATION_SHARD=<k>/3", ".github/scripts/run-integration.sh"]],
     "e2e-newman.yml:stand": ["stand", ["bash", ".github/scripts/stand-own.sh", "runner", "--ship", "<ws>/scripts/ghjob/ghjob.py", "--",
                              "python3", "/work/ship/ghjob.py", ".github/workflows/e2e-newman.yml", "stand", "/src", "/work/out"]]
@@ -211,7 +235,6 @@ try:
     import yaml
 except ImportError:
     void('нет python3-yaml — задания ведомости в workflow головы не сверить')
-WF = {}  # задание → его тело в workflow головы (форма «<go test шага>» выводится отсюда)
 for j in jobs:
     wf, key = j.split(':', 1)
     try:
@@ -220,30 +243,6 @@ for j in jobs:
         void('workflow %s головы не читается (%s) — ведомость STAND не сверить' % (wf, e))
     if not (isinstance(doc, dict) and isinstance(doc.get('jobs'), dict) and key in doc['jobs']):
         void('задания %s ведомости STAND нет в .github/workflows/%s головы — ведомость отстала от CI' % (j, wf))
-    WF[j] = doc['jobs'][key]
-
-
-def go_test_of(j):
-    """argv `go test` шага задания j в workflow головы — одна правда с CI (kaname#949)."""
-    body = WF.get(j) if isinstance(WF.get(j), dict) else {}
-    runs = [st.get('run') for st in (body.get('steps') or []) if isinstance(st, dict) and isinstance(st.get('run'), str)]
-    lines = [ln for r in runs for ln in r.splitlines() if re.match(r'\s*go\s+test\s', ln)]
-    if len(lines) != 1:
-        void('форма «<go test шага>» задания %s не выводится: строк `go test` в шагах задания головы %d, а не одна' % (j, len(lines)))
-    try:
-        split = shlex.split(lines[0])
-    except ValueError as e:
-        void('форма «<go test шага>» задания %s не выводится: строка шага не разбирается словами оболочки (%s)' % (j, e))
-    words = []
-    for w in split:
-        if re.match(r'^(\d*[<>]|[|&;])', w):
-            break
-        words.append(w)
-    if any('$' in w for w in words):
-        void('форма «<go test шага>» задания %s не выводится: в команде шага подстановка оболочки «%s»' % (j, shlex.join(words)))
-    return [w for w in words if w != '-json']
-
-
 want, full, why = list(jobs), True, 'выбора у CI нет'
 if source == 'affected':
     if not base or not draft:
@@ -282,8 +281,6 @@ for j in jobs:
         route, rwhy, cls, form = 'none', 'строки ведомости STAND_ROUTE нет — как воспроизвести задание на кластере, не объявлено', '', []
     else:
         cls, form = r[0], [a.replace('<ws>', os.environ['WS']) for a in r[1]]
-        if form == ['<go test шага>']:
-            form = go_test_of(j)
         try:
             p = subprocess.run(['bash', os.environ['SLOT'], '--route', cls, '--'] + form, cwd=co, capture_output=True, text=True, timeout=60)
             m = re.search(r'^ROUTE\t(external|local|none)\t(.*)$', p.stdout, re.M) if p.returncode == 0 else None
