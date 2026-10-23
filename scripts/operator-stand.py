@@ -398,13 +398,74 @@ VAULT_PIPELINE_TESTS = {
 )}
 
 
-def verify_vault_native(repo, name, log):
+def vault_pipeline_inventory(files):
+    """Закрытая форма текущего Go suite; неизвестный build tag/вложение — отказ."""
+    require(isinstance(files, dict) and files, 'Vault pipeline sources missing')
+    required = set()
+    for path, raw in sorted(files.items()):
+        require(re.fullmatch(r'test/e2e_pipeline/[a-z0-9_]+_test\.go', path),
+                'unsupported pipeline source path')
+        text = raw.decode('utf-8')
+        tags = re.findall(r'^//go:build (.+)$', text, re.M)
+        require(tags in (['e2e'], ['e2e && load']), 'unsupported pipeline build tags')
+        if tags == ['e2e && load']:
+            require(path.endswith('/load_test.go'), 'unexpected load-only source')
+            continue
+        names = re.findall(r'^func (Test[A-Za-z0-9_]+)\(t \*testing\.T\) \{', text, re.M)
+        require(len(names) == len(re.findall(r'^func Test', text, re.M)),
+                'unsupported pipeline test declaration')
+        require(len(names) == len(set(names)) and not (set(names) & required),
+                'duplicate pipeline test declaration')
+        required.update(names)
+        runs = re.findall(r'\b\w+\.Run\s*\((?!\s*\))', text)
+        if runs:
+            require(path.endswith('/ownership_test.go') and
+                    names == ['TestGuestOnOperatorMountE2E', 'TestOwnershipE2E'],
+                    'unsupported pipeline subtest owner')
+            body = text.split('func TestOwnershipE2E(t *testing.T) {', 1)[1]
+            literals = re.findall(r'^\tt\.Run\("([^"\\\n]+)", func\(t \*testing\.T\) \{', body, re.M)
+            require(len(runs) == len(literals) and literals, 'unsupported dynamic/nested pipeline subtest')
+            children = ['TestOwnershipE2E/' + re.sub(r'\s', '_', name) for name in literals]
+            require(len(children) == len(set(children)), 'duplicate pipeline subtest')
+            required.update(children)
+    require(VAULT_PIPELINE_TESTS <= required, 'baseline pipeline tests were removed')
+    return required
+
+
+def vault_pipeline_source(repo, head):
+    """Источник — GitHub exact commit, никогда не наблюдаемый native лог."""
+    prefix = 'test/e2e_pipeline/'
+    entries = api(repo, 'contents/' + prefix.rstrip('/') + '?' + urlencode({'ref': head}))
+    require(isinstance(entries, list) and entries, 'pipeline source directory missing')
+    require(all(x.get('type') == 'file' for x in entries), 'nested pipeline source tree unsupported')
+    files = {}
+    for entry in entries:
+        path = entry.get('path', '')
+        if not path.endswith('_test.go'):
+            continue
+        require(path.startswith(prefix) and path not in files, 'pipeline source path differs/duplicated')
+        item = api(repo, 'contents/' + quote(path, safe='/') + '?' + urlencode({'ref': head}))
+        require(item.get('type') == 'file' and item.get('path') == path and
+                item.get('encoding') == 'base64', 'pipeline source blob unavailable')
+        raw = base64.b64decode(item['content'])
+        blob = hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()
+        require(blob == item.get('sha') == entry.get('sha'), 'pipeline source blob identity differs')
+        files[path] = raw
+    return vault_pipeline_inventory(files), digest({path: digest(raw) for path, raw in files.items()})
+
+
+def verify_vault_native(repo, name, log, pipeline_tests=None):
     if repo != 'PRO-Robotech/vault-operator' or name not in (
             'test-e2e.yml:load', 'test-e2e.yml:test-e2e-pipeline'):
         return
     log = re.sub(r'\x1b\[[0-9;]*m', '', log)
     log = '\n'.join(re.sub(r'^\d{4}-\d\d-\d\dT\S+ ', '', line) for line in log.splitlines())
-    required = VAULT_PIPELINE_TESTS if name.endswith(':test-e2e-pipeline') else {'TestLoadThousandClaimsE2E'}
+    if name.endswith(':test-e2e-pipeline'):
+        require(isinstance(pipeline_tests, set) and VAULT_PIPELINE_TESTS <= pipeline_tests,
+                'source-bound pipeline inventory required')
+        required = pipeline_tests
+    else:
+        required = {'TestLoadThousandClaimsE2E'}
     selected = Counter(re.findall(r'^=== RUN\s+(\S+)$', log, re.M))
     require(selected == Counter({test: 1 for test in required}), 'Vault native test inventory differs')
     census(log, 'go-v1')
@@ -467,9 +528,13 @@ def hosted(expected, name):
     log = api(repo, f"actions/jobs/{job['id']}/logs", raw=True)
     native = source_markers(log, expected, key, run['id'], attempt)
     count = census(native, target['parser'])
-    verify_vault_native(repo, name, native)
+    pipeline_tests, source_digest = None, None
+    if repo == 'PRO-Robotech/vault-operator' and name == 'test-e2e.yml:test-e2e-pipeline':
+        pipeline_tests, source_digest = vault_pipeline_source(repo, head)
+    verify_vault_native(repo, name, native, pipeline_tests)
     return {'executor': 'github-hosted', 'run_id': run['id'], 'run_attempt': attempt,
-            'job_id': job['id'], 'cases': count, 'log_digest': digest(log.encode())}
+            'job_id': job['id'], 'cases': count, 'log_digest': digest(log.encode()),
+            **({'native_source_digest': source_digest} if source_digest else {})}
 
 
 def registry():

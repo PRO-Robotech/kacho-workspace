@@ -1,0 +1,29 @@
+=== RUN   TestUpgradeFromLegacyKeepsVaultByteForByte
+--- PASS: TestUpgradeFromLegacyKeepsVaultByteForByte (50.18s)
+=== RUN   TestGuestOnOperatorMountE2E
+--- PASS: TestGuestOnOperatorMountE2E (10.59s)
+=== RUN   TestOwnershipE2E
+=== RUN   TestOwnershipE2E/a_policy_that_exists_before_the_claim_keeps_its_body
+=== RUN   TestOwnershipE2E/a_second_claim_with_the_same_transit_key_never_configures_it
+=== RUN   TestOwnershipE2E/a_hand-made_mount_is_not_adopted_by_a_claim_that_waited_for_its_kubeconfig
+=== RUN   TestOwnershipE2E/names_are_compared_the_way_Vault_resolves_them
+=== RUN   TestOwnershipE2E/the_ledger_removes_what_left_spec
+=== RUN   TestOwnershipE2E/enforce_keeps_an_escalation_out_of_Vault;_the_twin_is_written
+--- PASS: TestOwnershipE2E (12.09s)
+    --- PASS: TestOwnershipE2E/a_policy_that_exists_before_the_claim_keeps_its_body (0.33s)
+    --- PASS: TestOwnershipE2E/a_second_claim_with_the_same_transit_key_never_configures_it (1.55s)
+    --- PASS: TestOwnershipE2E/a_hand-made_mount_is_not_adopted_by_a_claim_that_waited_for_its_kubeconfig (0.50s)
+    --- PASS: TestOwnershipE2E/names_are_compared_the_way_Vault_resolves_them (0.50s)
+    --- PASS: TestOwnershipE2E/the_ledger_removes_what_left_spec (0.60s)
+    --- PASS: TestOwnershipE2E/enforce_keeps_an_escalation_out_of_Vault;_the_twin_is_written (0.61s)
+=== RUN   TestPipelineE2E
+--- PASS: TestPipelineE2E (7.25s)
+=== RUN   TestS3BucketPipelineE2E
+--- PASS: TestS3BucketPipelineE2E (7.18s)
+=== RUN   TestSecretPipelineE2E
+--- PASS: TestSecretPipelineE2E (7.52s)
+=== RUN   TestTemplateRoleE2E
+--- PASS: TestTemplateRoleE2E (8.08s)
+=== RUN   TestOneVaultTokenPerProcessE2E
+--- PASS: TestOneVaultTokenPerProcessE2E (7.58s)
+PASS

@@ -276,14 +276,14 @@ class VaultRuntimeExperiments(unittest.TestCase):
         rows = ['=== RUN   ' + test + '\n--- PASS: ' + test + ' (1.00s)\n'
                 for test in sorted(M.VAULT_PIPELINE_TESTS)]
         native = ''.join(rows)
-        M.verify_vault_native(repo, name, (FIX / 'vault-pipeline-native.log').read_text())
+        M.verify_vault_native(repo, name, (FIX / 'vault-pipeline-native.log').read_text(), M.VAULT_PIPELINE_TESTS)
         for index, row in enumerate(rows):
             for change, broken in [('omission', native.replace(row, '')),
                                    ('wrong-name', native.replace(row, row.replace(sorted(M.VAULT_PIPELINE_TESTS)[index], 'TestWrong'))),
                                    ('skip', native.replace(row, row.replace('--- PASS:', '--- SKIP:')))]:
                 with self.subTest(case=index, change=change):
-                    M.verify_vault_native(repo, name, native)
-                    with self.assertRaises(M.Unread): M.verify_vault_native(repo, name, broken)
+                    M.verify_vault_native(repo, name, native, M.VAULT_PIPELINE_TESTS)
+                    with self.assertRaises(M.Unread): M.verify_vault_native(repo, name, broken, M.VAULT_PIPELINE_TESTS)
                     print('VAULT_PIPELINE_PROBE_V1 ' + json.dumps({'case':index,'name':change,'outcome':'rejected','twin':'accepted'}))
 
     def test_load_measurement(self):
