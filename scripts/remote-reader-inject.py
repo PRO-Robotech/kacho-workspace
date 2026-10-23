@@ -119,7 +119,7 @@ class Sandbox:
 
     def env(self, machine=True, **extra):
         env = {k: v for k, v in os.environ.items()
-               if k not in ('KUBERNETES_SERVICE_HOST', 'GITHUB_ACTIONS', 'KACHO_REMOTE_READER_POD',
+               if k not in ('KUBERNETES_SERVICE_HOST', 'GITHUB_ACTIONS', 'KACHO_REMOTE_READER_POD', 'HEAVY_SLOT_P',
                             'KACHO_TASK', 'LANDING_PRECHECK_WS', 'RITUAL_REPO_DIR', 'RITUAL_GH',
                             'STAND_REPORT_GH', 'RITUAL_LEDGER_CLONES')}
         env.update(SANDBOX_TRAP=str(self.trap), SANDBOX_SLOT_LOG=str(self.slot_log),
@@ -350,7 +350,8 @@ class RemoteReader(unittest.TestCase):
     def test_where_the_entry_stays_here(self):
         k = Kaname(self.box)
         args = ['report', '--expect', str(k.expect), '--import-id', k.identity, '--external-only']
-        for marker in ({'KUBERNETES_SERVICE_HOST': 'x'}, {'GITHUB_ACTIONS': 'true'}, {'KACHO_REMOTE_READER_POD': '1'}):
+        for marker in ({'KUBERNETES_SERVICE_HOST': 'x'}, {'GITHUB_ACTIONS': 'true'}, {'KACHO_REMOTE_READER_POD': '1'},
+                       {'HEAVY_SLOT_P': '/slot'}):
             with self.subTest(marker=marker):
                 real = {'PATH': os.environ['PATH'], 'HOME': os.environ.get('HOME', '/'), **marker}
                 here = self.box.run('stand-report.sh', *args, **real)

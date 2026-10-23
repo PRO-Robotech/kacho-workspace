@@ -121,7 +121,8 @@ SLOT="$HERE/heavy-slot.sh"
 # import-candidate, register-import, report — по ожидаемому kaname (--expect). ГРАНИЦА: kacho и
 # операторы идут здесь — их чтений GitHub драйвер не снимает, kacho заморожен до kaname
 # (владелец 2026-10-23).
-if [ -z "${KUBERNETES_SERVICE_HOST:-}" ] && [ "${GITHUB_ACTIONS:-}" != true ] && [ "${KACHO_REMOTE_READER_POD:-}" != 1 ]; then
+if [ -z "${KUBERNETES_SERVICE_HOST:-}" ] && [ "${GITHUB_ACTIONS:-}" != true ] && [ "${KACHO_REMOTE_READER_POD:-}" != 1 ] &&
+   [ -z "${HEAVY_SLOT_P:-}" ]; then
     _sr_exp=""; _sr_co=""; _sr_prev=""; _sr_repo=""
     for _sr_a in "$@"; do
         case "$_sr_prev" in --expect|--expected) _sr_exp="$_sr_a" ;; --checkout) _sr_co="$_sr_a" ;; esac; _sr_prev="$_sr_a"

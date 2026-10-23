@@ -16,7 +16,8 @@
 # На машине владельца — Job-ом внешнего кластера (ws#1365, scripts/remote-reader.sh: там же — где
 # маршрута нет); здесь — в pod, на ранере конвейера и на стороне pod драйвера.
 set -uo pipefail
-if [ -z "${KUBERNETES_SERVICE_HOST:-}" ] && [ "${GITHUB_ACTIONS:-}" != true ] && [ "${KACHO_REMOTE_READER_POD:-}" != 1 ]; then
+if [ -z "${KUBERNETES_SERVICE_HOST:-}" ] && [ "${GITHUB_ACTIONS:-}" != true ] && [ "${KACHO_REMOTE_READER_POD:-}" != 1 ] &&
+   [ -z "${HEAVY_SLOT_P:-}" ]; then
     exec bash "$(dirname "${BASH_SOURCE[0]}")/remote-reader.sh" scripts/pr-body.sh "$@"
 fi
 exec python3 "$(dirname "${BASH_SOURCE[0]}")/rituals/rituals.py" pr-body "$@"
