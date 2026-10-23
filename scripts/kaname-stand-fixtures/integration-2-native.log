@@ -1,0 +1,25 @@
+=== ОТБОР ===
+осмотрено пакетов     : 189
+с пробами на базе     : 37  (признак: импорт (corelib/pgtest|testcontainers) в сборке проб)
+отобрано              : 37
+
+вес не замерен, взят по умолчанию 10 с: github.com/PRO-Robotech/kaname/internal/repo/kaname/pg/relverdict/nesteddepth
+=== РАСКЛАДКА ПО ШАРДАМ (3) ===
+шард 0: пакетов 13 · замеренный вес 525 с
+шард 1: пакетов 13 · замеренный вес 526 с
+шард 2: пакетов 11 · замеренный вес 527 с  ← этот
+в плане пакетов       : 37 из 37, каждый ровно в одном шарде
+исполняется в шарде 2: 11
+
+ok  	github.com/PRO-Robotech/kaname/internal/repo/kaname/pg	490.627s
+ok  	github.com/PRO-Robotech/kaname/internal/apps/kaname/api/humansession	427.547s
+ok  	github.com/PRO-Robotech/kaname/internal/apps/kaname/api/registration	28.585s
+ok  	github.com/PRO-Robotech/kaname/internal/apps/kaname/api/session_revocations	21.651s
+ok  	github.com/PRO-Robotech/kaname/internal/apps/kaname/api/sa_keys	17.643s
+ok  	github.com/PRO-Robotech/kaname/internal/apps/kaname/api/audit	19.267s
+ok  	github.com/PRO-Robotech/kaname/internal/repo/kaname/pg/resource_mirror	14.224s
+ok  	github.com/PRO-Robotech/kaname/internal/observability/metrics	10.858s
+ok  	github.com/PRO-Robotech/kaname/internal/repo/kaname/pg/fga_outbox	10.375s
+ok  	github.com/PRO-Robotech/kaname/internal/moduleroleparity	6.803s
+ok  	github.com/PRO-Robotech/kaname/internal/repo/cursorplan	6.465s
+интеграция: зелёный (код go test 0)
