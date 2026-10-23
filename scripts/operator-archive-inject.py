@@ -75,6 +75,13 @@ class ArchiveRegistry(unittest.TestCase):
     def test_archive(self):
         self.accepted(self.archive, self.co)
 
+    def test_https_origins(self):
+        for suffix in ('.git', ''):
+            with self.subTest(suffix=suffix):
+                self.git('-C', str(self.co), 'remote', 'set-url', 'origin',
+                         'https://github.com/PRO-Robotech/kacho-workspace' + suffix)
+                self.accepted(self.archive, self.co)
+
     def test_linked_worktree(self):
         linked = self.root / 'linked'
         self.git('-C', str(self.co), 'worktree', 'add', '--detach', str(linked), 'HEAD')
@@ -92,6 +99,12 @@ class ArchiveRegistry(unittest.TestCase):
 
     def test_nonexistent(self):
         self.refused(self.root / 'missing')
+
+    def test_explicit_wrong_binding_has_no_direct_fallback(self):
+        got = self.probe(self.co, self.root / 'missing')
+        self.assertEqual(got.returncode, 2, got.stderr)
+        self.assertEqual(got.stderr.strip(), 'unread')
+        self.assertEqual(got.stdout, '')
 
     def test_nested_directory(self):
         self.refused(self.co / 'scripts')
