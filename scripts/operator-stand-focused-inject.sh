@@ -15,5 +15,6 @@ python3 -I "$HERE/operator-capture-chain-inject.py" "$HERE/remote-heavy/run.sh";
 python3 "$HERE/operator-stand-inject.py"; operator_rc=$?
 python3 "$HERE/operator-cluster-inject.py" "$HERE/operator-stand.py" "$HERE/operator-stand-fixtures/cluster-api-shape.json"; cluster_rc=$?
 bash "$HERE/operator-archive-inject.sh"; archive_rc=$?
-printf 'OPERATOR_TEST_GROUPS hosted=%s cluster=%s shellcheck=%s capture=%s archive=%s\n' "$operator_rc" "$cluster_rc" "$lint_rc" "$capture_rc" "$archive_rc"
-[ "$operator_rc" -eq 0 ] && [ "$cluster_rc" -eq 0 ] && [ "$lint_rc" -eq 0 ] && [ "$capture_rc" -eq 0 ] && [ "$archive_rc" -eq 0 ]
+bash "$HERE/operator-pipeline-inject.sh"; pipeline_rc=$?
+printf 'OPERATOR_TEST_GROUPS hosted=%s cluster=%s shellcheck=%s capture=%s archive=%s pipeline=%s\n' "$operator_rc" "$cluster_rc" "$lint_rc" "$capture_rc" "$archive_rc" "$pipeline_rc"
+[ "$operator_rc" -eq 0 ] && [ "$cluster_rc" -eq 0 ] && [ "$lint_rc" -eq 0 ] && [ "$capture_rc" -eq 0 ] && [ "$archive_rc" -eq 0 ] && [ "$pipeline_rc" -eq 0 ]
