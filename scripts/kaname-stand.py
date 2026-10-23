@@ -22,16 +22,84 @@ require = common.require
 REPO = 'PRO-Robotech/kaname'
 HOSTED = ('e2e-newman.yml:stand', 'e2e-newman.yml:stand-ceremony',
           'e2e-newman.yml:chart-own', 'docker-build.yml:image')
+EXTERNAL = ('ci.yml:unit', 'ci.yml:integrationshard')
+# Закрытая ведомость заданий CI Kaname (ws#1365, ws#1259): каждое задание каждого workflow
+# головы — ровно одной строкой, сверка в обе стороны. Строки CI_READ судит CI-читатель
+# (обязательные проверки PR), staged-стенд их не воспроизводит. Задание CI без строки и
+# строка без задания — отказ с координатой: новое задание входит сюда решением, а не молча.
+CI_READ = frozenset((
+    'ci.yml:changes', 'ci.yml:build', 'ci.yml:lint', 'ci.yml:proto', 'ci.yml:standalone',
+    'ci.yml:gosec', 'ci.yml:integration', 'ci.yml:listfilter', 'ci.yml:authzartifacts',
+    'ci.yml:govulncheck', 'ci.yml:catalogparity', 'ci.yml:trunkverdict', 'ci.yml:prverdict',
+    'e2e-newman.yml:changes', 'e2e-newman.yml:suite', 'e2e-newman.yml:edgeselftests',
+    'e2e-newman.yml:trunkverdict', 'e2e-newman.yml:prverdict',
+    'docker-build.yml:changes', 'docker-build.yml:trunkverdict', 'pr-rule.yml:pr-rule'))
+LEDGER = frozenset(EXTERNAL + HOSTED) | CI_READ
+MATRIX_REF = re.compile(r'\$\{\{\s*matrix\.([A-Za-z0-9_-]+)\s*\}\}')
 
 
-def job_definition(doc, key):
+def matrix_legs(job):
+    """Ноги задания-матрицы по канону производителя — `strategy.matrix.include` workflow головы.
+
+    Оси (декартово произведение), `exclude` и выражение вместо списка не разобраны — отказ.
+    """
+    strategy = job.get('strategy')
+    if strategy is None:
+        return None
+    require(isinstance(strategy, dict) and set(strategy) <= {'fail-fast', 'matrix', 'max-parallel'},
+            'unreviewed matrix strategy')
+    matrix = strategy.get('matrix')
+    require(isinstance(matrix, dict) and set(matrix) == {'include'}, 'unreviewed matrix axes')
+    include = matrix['include']
+    require(isinstance(include, list) and include and all(
+        isinstance(leg, dict) and leg and all(isinstance(k, str) and type(v) in (str, int) for k, v in leg.items())
+        for leg in include), 'invalid matrix include')
+    require(len({json.dumps(leg, sort_keys=True) for leg in include}) == len(include), 'duplicate matrix leg')
+    return include
+
+
+def expand(text, values):
+    """Подстановка `${{ matrix.X }}` значением ноги; иное выражение в имени не разобрано — отказ."""
+    require(isinstance(text, str) and text, 'invalid job or step name')
+    def sub(m):
+        require(m[1] in values, 'matrix reference outside the leg: ' + m[1])
+        return str(values[m[1]])
+    out = MATRIX_REF.sub(sub, text)
+    require('${{' not in out, 'unsupported expression in job or step name')
+    return out
+
+
+def ledger_census(co):
+    """Обход ВСЕХ отслеживаемых workflow головы против закрытой ведомости, в обе стороны."""
+    files = [p for p in common.git(co, 'ls-files', '--', '.github/workflows').splitlines()
+             if re.fullmatch(r'\.github/workflows/[^/]+\.ya?ml', p)]
+    require(files, 'no tracked workflow in the checkout')
+    workflows, found = {}, set()
+    for path in files:
+        raw = (Path(co) / path).read_bytes()
+        doc = common.load_workflow(raw)
+        require(isinstance(doc, dict) and isinstance(doc.get('jobs'), dict) and doc['jobs'],
+                'workflow without jobs: ' + path)
+        name = path.rsplit('/', 1)[1]
+        workflows[name] = (doc, common.digest(raw))
+        found |= {name + ':' + key for key in doc['jobs']}
+    outside = sorted(found - LEDGER)
+    require(not outside, 'CI job outside the Kaname ledger: ' + ', '.join(outside))
+    stale = sorted(LEDGER - found)
+    require(not stale, 'Kaname ledger row without CI job: ' + ', '.join(stale))
+    return workflows, {'workflows': sorted(workflows), 'jobs': len(found),
+                       'staged': len(EXTERNAL) + len(HOSTED), 'ci_read': len(CI_READ)}
+
+
+def job_definition(doc, key, matrix=False):
     # Kaname сохраняет собственные changed-job conditions и shard matrix.
     # Условие не объявляется истинным по source: actual job всё равно обязана исполниться.
     job = doc['jobs'][key]
     require(isinstance(job, dict) and 'uses' not in job, 'unexpanded reusable job')
     require(job.get('runs-on') in ('ubuntu-latest', 'ubuntu-24.04', 'ubuntu-22.04'),
             'unsupported job runner')
-    require('strategy' not in job or key == 'integrationshard', 'unexpected matrix job')
+    require('strategy' not in job or key == 'integrationshard' or (matrix and matrix_legs(job) is not None),
+            'unexpected matrix job')
     steps = job.get('steps')
     require(isinstance(steps, list) and steps, 'missing job steps')
     require(steps[0].get('uses', '').startswith('actions/checkout@'), 'primary checkout must be first')
@@ -48,10 +116,7 @@ def expected(checkout, head, base, ref):
     require(re.fullmatch(r'(?:https://github.com/|git@github.com:)PRO-Robotech/kaname(?:\.git)?',
                          common.git(co, 'remote', 'get-url', 'origin')), 'wrong repository')
     require(ref.startswith('refs/heads/') and len(ref) > 11, 'explicit source branch required')
-    workflows = {}
-    for filename in ('ci.yml', 'e2e-newman.yml', 'docker-build.yml'):
-        raw = (co / '.github/workflows' / filename).read_bytes()
-        workflows[filename] = (common.load_workflow(raw), common.digest(raw))
+    workflows, census = ledger_census(co)
     ci = workflows['ci.yml'][0]
     shards = ci['jobs']['integrationshard']
     matrix = shards.get('strategy', {}).get('matrix', {})
@@ -62,25 +127,36 @@ def expected(checkout, head, base, ref):
     require('integrationshard' in ci['jobs']['integration'].get('needs', []),
             'integration aggregate lost its producer')
     definitions = {}
-    names = [('ci.yml:unit', 'ci.yml:unit', None)]
-    names += [(f'ci.yml:integrationshard[shard={v}]', 'ci.yml:integrationshard', i)
+    names = [('ci.yml:unit', 'ci.yml:unit', None, None)]
+    names += [(f'ci.yml:integrationshard[shard={v}]', 'ci.yml:integrationshard', i, None)
               for i, v in enumerate(values)]
-    names += [(name, name, None) for name in HOSTED]
-    for name, source, index in names:
+    for source in HOSTED:
+        filename, key = source.split(':')
+        legs = matrix_legs(workflows[filename][0]['jobs'][key])
+        names += ([(source, source, None, None)] if legs is None else
+                  [(f'{source}[include={i}]', source, None, {'index': i, 'total': len(legs), 'values': leg})
+                   for i, leg in enumerate(legs)])
+    for name, source, index, leg in names:
         filename, key = source.split(':')
         doc, wf_digest = workflows[filename]
-        definition = job_definition(doc, key)
+        hosted = source in HOSTED
+        definition = job_definition(doc, key, matrix=hosted)
         require('uses' not in definition['job'], 'reusable job needs an explicit reviewed expansion')
-        definitions[name] = {'workflow_job': source, 'executor': 'github-hosted' if name in HOSTED else 'external',
+        definitions[name] = {'workflow_job': source, 'executor': 'github-hosted' if hosted else 'external',
                              'definition': definition, 'definition_digest': common.digest(definition),
                              'workflow_digest': wf_digest, 'matrix_index': index,
-                             'matrix_total': len(values) if index is not None else None}
+                             'matrix_total': len(values) if index is not None else None, 'matrix_leg': leg}
     return {'schema': 'kaname-stand-v1', 'repo': REPO, 'head': head,
             'tree': common.git(co, 'rev-parse', 'HEAD^{tree}'), 'base': base,
             'base_sha': common.git(co, 'rev-parse', base), 'ref': ref,
             'logical_jobs': ['ci.yml:unit', 'ci.yml:integration', *HOSTED],
-            'jobs': list(definitions), 'definitions': definitions,
+            'jobs': list(definitions), 'definitions': definitions, 'ledger': census,
             'unsupported_external': list(HOSTED), 'full': True}
+
+
+def hosted_names(exp):
+    """Исполнения hosted в порядке ожидаемого: задание либо каждая нога его матрицы."""
+    return [name for name in exp['jobs'] if exp['definitions'][name]['executor'] == 'github-hosted']
 
 
 def groups(text):
@@ -320,30 +396,46 @@ OBSERVED_HOSTED_NAMES = {
     ('1fc23d6c126ec296eebb2b3aecceb5e8d84b12f487c4972813bcfa9ab2117261', 'chart-own'): (
         'стенд посадки own (kind) — полоса входа паролем и своя церемония',
         'стенд посадки own (kind) — полоса входа паролем и своя це...'),
+    # 8225e939f (kaname#941): run 40013779496, job 120620571002 — тот же укороченный вид.
+    # Ноги матрицы chart-own там же (jobs 120620570854, 120620570916) пришли ПОЛНЫМ именем.
+    ('be2e64e5864a22ceefe5cade1bf5baf6f5c8346f5e15e433ef1711fe811b1809', 'stand-ceremony'): (
+        'автономный стенд — волна церемонии и распорядители аккаунта (второй шард)',
+        'автономный стенд — волна церемонии и распорядители ...'),
 }
 
 
-def hosted_job_selection(workflow, workflow_digest, key, jobs):
+def display_names(key, job):
+    """Имена, под которыми API может показать задание: каждая нога матрицы — своё имя."""
+    legs = matrix_legs(job) if isinstance(job, dict) and 'strategy' in job else None
+    raw = job.get('name', key) if isinstance(job, dict) else key
+    return [expand(raw, leg) for leg in legs] if legs else [expand(raw, {})]
+
+
+def hosted_job_selection(workflow, workflow_digest, key, jobs, values=None):
     definitions = workflow['jobs']
     source = definitions[key]
-    full_name = source.get('name', key)
-    require(isinstance(full_name, str) and full_name, 'invalid source job name')
+    full_name = expand(source.get('name', key), values or {})
     accepted = {full_name}
-    observed = OBSERVED_HOSTED_NAMES.get((workflow_digest, key))
+    observed = OBSERVED_HOSTED_NAMES.get((workflow_digest, key)) if values is None else None
     if observed is not None:
         require(full_name == observed[0], 'observed source job name differs')
         accepted.add(observed[1])
     # Projection is used only to reject possible collisions, never to admit an
-    # unreviewed alias. Inspect every source job, including non-required jobs.
+    # unreviewed alias. Inspect every source job, including non-required jobs
+    # and the sibling legs of this job's own matrix.
     for other_key, other in definitions.items():
         if other_key == key:
-            continue
-        other_name = other.get('name', other_key)
-        require(isinstance(other_name, str) and other_name, 'invalid sibling job name')
-        possible = {other_name}
-        if len(other_name.encode()) > 100:
-            possible.add(other_name.encode()[:97].decode('utf-8', errors='ignore') + '...')
-        require(not accepted.intersection(possible), 'ambiguous source job display name')
+            names = display_names(key, other) if values is not None else [full_name]
+            require(full_name in names, 'hosted matrix leg differs')
+            require(names.count(full_name) == 1, 'ambiguous source job display name')
+            names = [n for n in names if n != full_name]
+        else:
+            names = display_names(other_key, other)
+        for other_name in names:
+            possible = {other_name}
+            if len(other_name.encode()) > 100:
+                possible.add(other_name.encode()[:97].decode('utf-8', errors='ignore') + '...')
+            require(not accepted.intersection(possible), 'ambiguous source job display name')
     selected = [job for job in jobs if job.get('name') in accepted]
     require(len(selected) == 1, 'expected hosted job missing/duplicated')
     job = selected[0]
@@ -359,16 +451,21 @@ def hosted_job_selection(workflow, workflow_digest, key, jobs):
 
 
 def hosted_capture(exp, name, event):
-    require(name in HOSTED and event in ('push', 'workflow_dispatch'), 'unsupported hosted subject/event')
+    require(name in hosted_names(exp) and event in ('push', 'workflow_dispatch'), 'unsupported hosted subject/event')
     repo, head = exp['repo'], exp['head']
-    filename, key = name.split(':')
     target = exp['definitions'][name]
+    filename, key = target['workflow_job'].split(':')
+    leg = target.get('matrix_leg')
     content = common.api(repo, 'contents/.github/workflows/' + quote(filename) + '?' + urlencode({'ref': head}))
     raw = base64.b64decode(''.join(content['content'].split()), validate=True)
     require(common.digest(raw) == target['workflow_digest'], 'hosted workflow differs')
     workflow = common.load_workflow(raw)
-    require(common.digest(job_definition(workflow, key)) == target['definition_digest'],
+    require(common.digest(job_definition(workflow, key, matrix=True)) == target['definition_digest'],
             'hosted job definition differs')
+    if leg is not None:
+        legs = matrix_legs(workflow['jobs'][key])
+        require(legs is not None and len(legs) == leg['total'] and legs[leg['index']] == leg['values'],
+                'hosted matrix leg differs')
     require(common.api(repo, 'git/commits/' + head)['tree']['sha'] == exp['tree'], 'hosted source tree differs')
     runs = common.pages(repo, 'actions/workflows/' + quote(filename) + '/runs?' +
                         urlencode({'event': event, 'head_sha': head, 'branch': exp['ref'][11:]}), 'workflow_runs')
@@ -381,7 +478,8 @@ def hosted_capture(exp, name, event):
     require(run.get('status') == 'completed' and run.get('conclusion') == 'success', 'latest hosted run not green')
     attempt = run['run_attempt']
     jobs = common.pages(repo, f"actions/runs/{run['id']}/attempts/{attempt}/jobs", 'jobs')
-    job = hosted_job_selection(workflow, target['workflow_digest'], key, jobs)
+    job = hosted_job_selection(workflow, target['workflow_digest'], key, jobs,
+                               None if leg is None else leg['values'])
     require(job.get('run_id') == run['id'] and job.get('run_attempt') == attempt and job.get('head_sha') == head,
             'job source/run/attempt differs')
     require(job.get('status') == 'completed' and job.get('conclusion') == 'success', 'hosted job incomplete/red')
@@ -400,6 +498,62 @@ def hosted_capture(exp, name, event):
             'source': head, 'event': event}
 
 
+def suite_calls(step, values):
+    """Вызовы прогонщика наборов `./scripts/run.sh` шага, которые исполнит эта нога.
+
+    Каждый вызов — одна волна (одна таблица TOTAL в журнале), с любыми ключами перед
+    `--service`. Вызов внутри `if`/`elif [ "$VAR" = значение ]` берётся, когда VAR — env
+    шага `${{ matrix.K }}` и значение ноги равно; `else` — когда ни одна ветвь цепочки не
+    взята. Вызов в иной конструкции (`case`, иное условие, переменная не из матрицы) — отказ.
+    """
+    bound = {var: m[1] for var, val in (step.get('env') or {}).items()
+             for m in [re.fullmatch(r'\$\{\{\s*matrix\.([A-Za-z0-9_-]+)\s*\}\}', str(val))] if m}
+    lines = step.get('run', '').splitlines()
+    frames, calls, i = [], [], 0
+    def branch(cond):
+        m = re.fullmatch(r'(?:if|elif) \[ "\$([A-Za-z_][A-Za-z0-9_]*)" = "?([A-Za-z0-9_.-]+)"? \]; then', cond)
+        if m is None or m[1] not in bound:
+            return None
+        require(bound[m[1]] in values, 'matrix reference outside the leg: ' + bound[m[1]])
+        return str(values[bound[m[1]]]) == m[2]
+    while i < len(lines):
+        text = lines[i].strip()
+        while text.endswith('\\') and i + 1 < len(lines):
+            i += 1
+            text = text[:-1] + ' ' + lines[i].strip()
+        i += 1
+        head = text.split(' ', 1)[0]
+        if head == 'if':
+            taken = branch(text)
+            frames.append({'kind': 'if', 'taken': taken, 'any': bool(taken)})
+        elif head == 'elif':
+            require(frames and frames[-1]['kind'] == 'if', 'unbalanced shell conditional')
+            taken = branch(text)
+            frames[-1]['taken'] = None if taken is None else (taken and not frames[-1]['any'])
+            frames[-1]['any'] = frames[-1]['any'] or bool(taken)
+        elif head == 'else':
+            require(frames and frames[-1]['kind'] == 'if', 'unbalanced shell conditional')
+            frames[-1]['taken'] = None if frames[-1]['taken'] is None else not frames[-1]['any']
+        elif head == 'fi':
+            require(frames and frames.pop()['kind'] == 'if', 'unbalanced shell conditional')
+        elif head == 'case':
+            frames.append({'kind': 'case', 'taken': None})
+        elif head == 'esac':
+            require(frames and frames.pop()['kind'] == 'case', 'unbalanced shell conditional')
+        if './scripts/run.sh ' not in text:
+            continue
+        require(head == './scripts/run.sh' and text.count('./scripts/run.sh ') == 1,
+                'unsupported suite runner form')
+        require(all(f['taken'] is not None for f in frames), 'unsupported service selection')
+        services = re.findall(r'--service ([a-z0-9-]+)(?=\s|$)', text)
+        require(services and len(services) == text.count('--service '), 'unsupported service selection')
+        if all(f['taken'] for f in frames):
+            calls.append(services)
+    require(not frames, 'unbalanced shell conditional')
+    require(calls, 'suite step selects no runner call for this leg')
+    return calls
+
+
 def hosted_verdict(exp, name, captured, cleanup_review):
     """Закрытый reviewed VM-disposal contract дополняет реальные API/native факты."""
     target = exp['definitions'][name]
@@ -411,14 +565,16 @@ def hosted_verdict(exp, name, captured, cleanup_review):
             and cleanup_review.get('transitive_source_review') is True,
             'reviewed transitive hosted cleanup boundary missing')
     job, native = captured['job'], captured['native']
+    values = (target.get('matrix_leg') or {}).get('values', {})
     by_name = {}
     for step in job['steps']:
         by_name.setdefault(step['name'], []).append(step)
     def passed_step(label):
+        label = expand(label, values)
         selected = by_name.get(label, [])
         require(len(selected) == 1 and selected[0].get('status') == 'completed'
                 and selected[0].get('conclusion') == 'success', 'required hosted step missing/skipped/red: ' + label)
-    if name == 'docker-build.yml:image':
+    if target['workflow_job'] == 'docker-build.yml:image':
         # Публикация в исходной ветке может быть неприменима. Это только build predicate.
         passed_step('сборка образа')
         passed_step('сверка опубликованного — доказательство инъекцией в обе стороны')
@@ -427,12 +583,11 @@ def hosted_verdict(exp, name, captured, cleanup_review):
         waves = []
         for step in target['definition']['job']['steps']:
             run = step.get('run', '')
-            if './scripts/run.sh --service ' in run:
-                services = re.findall(r'--service ([a-z0-9-]+)(?=\s|$)', run)
-                require(services and len(services) == run.count('--service '), 'unsupported service selection')
+            if './scripts/run.sh ' in run:
                 require(isinstance(step.get('name'), str), 'test step has no stable name')
+                calls = suite_calls(step, values)
                 passed_step(step['name'])
-                waves.append(services)
+                waves.extend(calls)
             if 'python3 .github/scripts/stand-assert.py ||' in run:
                 passed_step(step['name'])
                 count = re.findall(r'^перепись: утверждений (\d+) · находок (\d+) · условие не создано у (\d+) проверок$',
@@ -461,13 +616,17 @@ def staged_report(exp, import_id, reviews=None, events=None, external_only=False
             index = definition['matrix_index']
             jobs[name] = {'executor': 'external', 'census': candidate['integration']['shards'][index],
                           'import_id': import_id}
+    hosted = hosted_names(exp)
     if not external_only:
-        require(isinstance(reviews, dict) and set(reviews) == set(HOSTED)
-                and isinstance(events, dict) and set(events) == set(HOSTED), 'incomplete hosted contract inventory')
-        for name in HOSTED:
+        # Отзыв об утилизации ВМ хранится в отчёте СОДЕРЖИМЫМ (ws#1365): check судит сохранённое
+        # без путей машины, на которой отчёт собран; привязка — cleanup_review_digest.
+        require(isinstance(reviews, dict) and set(reviews) == set(hosted)
+                and all(isinstance(r, dict) for r in reviews.values())
+                and isinstance(events, dict) and set(events) == set(hosted), 'incomplete hosted contract inventory')
+        for name in hosted:
             captured = hosted_capture(exp, name, events[name])
-            jobs[name] = hosted_verdict(exp, name, captured, common.read_json(reviews[name]))
-    require(set(jobs) == (set(exp['jobs']) - set(HOSTED) if external_only else set(exp['jobs'])),
+            jobs[name] = hosted_verdict(exp, name, captured, reviews[name])
+    require(set(jobs) == (set(exp['jobs']) - set(hosted) if external_only else set(exp['jobs'])),
             'staged report denominator differs')
     return {'schema': 'kaname-staged-report-v1', 'repo': exp['repo'], 'head': exp['head'],
             'tree': exp['tree'], 'base': exp['base'], 'expected_digest': common.digest(exp),
@@ -510,8 +669,10 @@ def main():
         elif args.action == 'register-import':
             result = {'import_id': register_import(exp, args.packet, args.review)}
         elif args.action == 'report':
-            result = staged_report(exp, args.import_id,
-                                   common.read_json(args.hosted_reviews) if args.hosted_reviews else None,
+            paths = common.read_json(args.hosted_reviews) if args.hosted_reviews else None
+            reviews = ({name: common.read_json(path) for name, path in paths.items()}
+                       if isinstance(paths, dict) else paths)
+            result = staged_report(exp, args.import_id, reviews,
                                    common.read_json(args.events) if args.events else None, args.external_only)
         else:
             require(args.head == exp['head'] and (not args.pr_base or args.pr_base == exp['base'])

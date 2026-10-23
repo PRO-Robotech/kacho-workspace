@@ -122,16 +122,11 @@ ecase() {
     printf 'jobs:\n  stand: {}\n' > "$C/co/.github/workflows/production-posture.yml"
     printf 'jobs:\n  unit: {}\n  integration: {}\n' > "$C/co/.github/workflows/ci.yml"
     [ "$2" != PRO-Robotech/kacho ] || cp "$K/.github/scripts/affected.py" "$C/co/.github/scripts/" && { [ "$2" != PRO-Robotech/kacho ] || cp "$K/.github/ci-paths.json" "$C/co/.github/"; }
-    # Механизмы маршрута головы (ws#1192): kacho — стенд stand-ns (deploy/), kaname — скрипт
-    # контейнерных проб и стенд own с раннером вида own (ws#1321, kaname#940).
+    # Механизм маршрута головы (ws#1192): kacho — стенд stand-ns (deploy/). Kaname сюда не
+    # доходит: его судит kaname-stand.py (ws#1365), случаи — kaname-stand-inject.py.
     if [ "$2" = PRO-Robotech/kacho ]; then
         mkdir -p "$C/co/deploy/scripts"; printf 'stand-ns-run:\n\t@bash scripts/stand-ns.sh run "$(NS)"\n' > "$C/co/deploy/Makefile"
         printf '#!/usr/bin/env bash\nSTAND_RUNNER_KINDS="newman browser"\necho stand-ns "$@"\n' > "$C/co/deploy/scripts/stand-ns.sh"
-    fi
-    if [ "$2" = PRO-Robotech/kaname ]; then
-        printf 'jobs:\n  stand: {}\n' > "$C/co/.github/workflows/e2e-newman.yml"
-        printf '#!/usr/bin/env bash\necho integration\n' > "$C/co/.github/scripts/run-integration.sh"; chmod +x "$C/co/.github/scripts/run-integration.sh"
-        printf '#!/usr/bin/env bash\nSTAND_RUNNER_KINDS="own"\ntrue\n' > "$C/co/.github/scripts/stand-own.sh"; chmod +x "$C/co/.github/scripts/stand-own.sh"
     fi
     sandbox_run git -C "$C/co" init -q && git -C "$C/co" remote add origin "git@github.com:$2.git"
 }
@@ -274,7 +269,7 @@ kecase "expect kacho: правка вне коммита в копии — VOID"
 ecase "expect kacho: задания ведомости нет в workflow головы — VOID" PRO-Robotech/kacho
 printf 'jobs:\n  shard-renamed: {}\n' > "$C/co/.github/workflows/e2e-newman.yml"; ecommit; printf -- '--base\norigin/main\n--draft\nfalse\n' > "$C/args"; want 2 -
 # Kaname staged inventory is exercised through the canonical CLI in
-# kaname-stand-inject.py with source-derived workflows (6 logical / 8 executions).
+# kaname-stand-inject.py with source-derived workflows (6 logical; 8 executions, 9 with the chart-own matrix).
 # Legacy own/ghjob route cases are retired because Kaname no longer dispatches here.
 kecase "expect kacho: checkout head differs — VOID" false 1266 tests/newman/x.json "$LEDGER"; echo "$H2" > "$C/head"; want 2 -
 kecase "expect kacho: checkout head lawful twin" false 1266 tests/newman/x.json "$LEDGER"
