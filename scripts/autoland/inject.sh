@@ -491,6 +491,9 @@ s_args() {
     KACHO_TASK=abc AUTOLAND_DIR="$FX/run" AUTOLAND_WS="$T/ws0" bash "$AL" start --repo "$REPO" --pr "$PR" --head "$HEAD_A" \
         --subject "$SUBJ" > "$FX/a5" 2>&1; rc=$?
     ok args "KACHO_TASK не номер — отказ start кодом 2" eval '[ "$rc" -eq 2 ] && grep -q "номер задачи слота «abc»" "$FX/a5"'
+    KACHO_TASK=12abc AUTOLAND_DIR="$FX/run" AUTOLAND_WS="$T/ws0" bash "$AL" start --repo "$REPO" --pr "$PR" --head "$HEAD_A" \
+        --subject "$SUBJ" > "$FX/a6" 2>&1; rc=$?
+    ok args "KACHO_TASK «12abc» — номер лишь началом, отказ start кодом 2 (образец закреплён концом)" eval '[ "$rc" -eq 2 ] && grep -q "номер задачи слота «12abc»" "$FX/a6"'
     ok args ".state не заведён" eval '! ls "$FX"/run/*.state >/dev/null 2>&1'
     ok args "ни один демон не отсоединён" eval '! ls "$FX"/run/*.pid >/dev/null 2>&1'
     reap
@@ -1499,6 +1502,7 @@ mutant task-from-subject-dropped s_q_task '[ -n "${KACHO_TASK:-}" ] || KACHO_TAS
 mutant task-subject-overrides-env s_q_task '[ -n "${KACHO_TASK:-}" ] || KACHO_TASK="${SUBJECT%% *}"' 'KACHO_TASK="${SUBJECT%% *}"'
 mutant task-not-exported s_q_task,s_detach $'    export KACHO_TASK\n' $'\n'
 mutant task-unchecked s_args '[[ "$KACHO_TASK" =~ ^[1-9][0-9]*$ ]]' 'true'
+mutant task-unanchored s_args '[[ "$KACHO_TASK" =~ ^[1-9][0-9]*$ ]]' '[[ "$KACHO_TASK" =~ ^[1-9][0-9]* ]]'
 mutant catchup-fetch-unchecked s_q_fetch 'if ! GIT_TERMINAL_PROMPT=0 git -C "$c" fetch' 'if false && git -C "$c" fetch'
 
 reap
