@@ -5,7 +5,7 @@
 # pod.sh <вход> <доводы…> — сторона Job внешнего маршрута читателей (ws#1365); зовёт её
 # scripts/remote-reader.sh через heavy-slot.sh (ведомость PORTABLE), каталог — rr с входами.
 #
-# Исполняет вход здесь (KACHO_REMOTE_READER_POD=1 — route.sh не уводит его второй раз),
+# Исполняет вход здесь (KACHO_REMOTE_READER_POD=1 — вход не уводит себя второй раз),
 # GitHub — снятым машиной (replay-gh.sh рядом), реестр — tmp/ этого клона. Печатает:
 #   remote-reader-<вид> <номер> <base64 до 76 знаков>   вид: out, err, miss, tar
 #   remote-reader-size <вид> <байт>                     для каждого вида, и пустого
