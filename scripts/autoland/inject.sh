@@ -1498,7 +1498,7 @@ mutant pinned-stale-in-queue-waits s_q_pinned '[ "$PINNED" = 0 ] || finish stale
 mutant task-from-subject-dropped s_q_task '[ -n "${KACHO_TASK:-}" ] || KACHO_TASK="${SUBJECT%% *}"' ':'
 mutant task-subject-overrides-env s_q_task '[ -n "${KACHO_TASK:-}" ] || KACHO_TASK="${SUBJECT%% *}"' 'KACHO_TASK="${SUBJECT%% *}"'
 mutant task-not-exported s_q_task,s_detach $'    export KACHO_TASK\n' $'\n'
-mutant task-unchecked s_args '[[ "$KACHO_TASK" =~ ^[1-9][0-9]*$ ]] \' 'true \'
+mutant task-unchecked s_args '[[ "$KACHO_TASK" =~ ^[1-9][0-9]*$ ]]' 'true'
 mutant catchup-fetch-unchecked s_q_fetch 'if ! GIT_TERMINAL_PROMPT=0 git -C "$c" fetch' 'if false && git -C "$c" fetch'
 
 reap
