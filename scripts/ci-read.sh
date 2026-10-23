@@ -166,6 +166,41 @@
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Форма --job-names <файл workflow> <имена на голове> (ws#1365) — имена заданий workflow, не
+# появившиеся на голове (пояснение RUN-DISPLACED, (ж)); разбор YAML — python3, и на машине
+# владельца форма идёт Job-ом внешнего кластера (scripts/remote-reader.sh), здесь — в pod, на
+# ранере конвейера, на стороне pod драйвера и в локальном слоте. Коды: 0 — строка напечатана;
+# 64 — вызов неверен; прочие — разбора нет (вызывающий говорит «не выведены»).
+if [ "${1:-}" = --job-names ]; then
+    [ $# -eq 3 ] && [ -f "$2" ] && [ -f "$3" ] || { echo "ci-read: --job-names <файл workflow> <имена на голове>" >&2; exit 64; }
+    if [ -z "${KUBERNETES_SERVICE_HOST:-}" ] && [ "${GITHUB_ACTIONS:-}" != true ] && [ "${KACHO_REMOTE_READER_POD:-}" != 1 ] &&
+       [ -z "${HEAVY_SLOT_P:-}" ]; then
+        exec bash "$HERE/remote-reader.sh" scripts/ci-read.sh "$@"
+    fi
+    exec python3 - "$2" "$3" <<'PY'
+import re, sys, yaml
+jobs = (yaml.safe_load(open(sys.argv[1], encoding="utf-8")) or {}).get("jobs")
+if not isinstance(jobs, dict) or not jobs:
+    print("не выведены: в файле нет jobs", end=""); sys.exit(0)
+present = set(open(sys.argv[2], encoding="utf-8").read().splitlines())
+names = []
+for key, job in jobs.items():
+    job = job if isinstance(job, dict) else {}
+    name = str(job.get("name") or key)
+    mx = (job.get("strategy") or {}).get("matrix")
+    keys = re.findall(r"\$\{\{\s*matrix\.([A-Za-z0-9_-]+)\s*\}\}", name)
+    if keys and isinstance(mx, dict) and not ({"include", "exclude"} & set(mx)) \
+            and all(isinstance(mx.get(k), list) for k in keys):
+        out = [name]
+        for k in dict.fromkeys(keys):
+            out = [re.sub(r"\$\{\{\s*matrix\." + re.escape(k) + r"\s*\}\}", str(v), o) for o in out for v in mx[k]]
+        names += out
+    else:
+        names.append(name)
+missing = [n for n in names if n not in present]
+print(f"не появились {len(missing)} из {len(names)}: " + "; ".join(missing) if missing else f"все {len(names)} имён заданий есть на голове от других процессов", end="")
+PY
+fi
 GH="${CI_READ_GH:-gh}"
 LEDGER="${CI_READ_EXPECTED:-$HERE/ci-read-expected.tsv}"
 # красные заключения проверки: судятся CI-FAILED и побеждают при выборе судимой по (е2)
@@ -433,29 +468,12 @@ displaced_names() {  # <path> — имена заданий, не появивш
     jq -r '.content // empty' "$W/wf.json" | base64 -d > "$W/wf.yml" 2>/dev/null \
         || { printf 'не выведены: файл %s не декодирован' "$path"; return; }
     jq -r '.[].name' "$W/all.json" > "$W/present.txt"
-    python3 - "$W/wf.yml" "$W/present.txt" <<'PY' 2>/dev/null || printf 'не выведены: файл %s не разобран (python3-yaml)' "$path"
-import re, sys, yaml
-jobs = (yaml.safe_load(open(sys.argv[1], encoding="utf-8")) or {}).get("jobs")
-if not isinstance(jobs, dict) or not jobs:
-    print("не выведены: в файле нет jobs", end=""); sys.exit(0)
-present = set(open(sys.argv[2], encoding="utf-8").read().splitlines())
-names = []
-for key, job in jobs.items():
-    job = job if isinstance(job, dict) else {}
-    name = str(job.get("name") or key)
-    mx = (job.get("strategy") or {}).get("matrix")
-    keys = re.findall(r"\$\{\{\s*matrix\.([A-Za-z0-9_-]+)\s*\}\}", name)
-    if keys and isinstance(mx, dict) and not ({"include", "exclude"} & set(mx)) \
-            and all(isinstance(mx.get(k), list) for k in keys):
-        out = [name]
-        for k in dict.fromkeys(keys):
-            out = [re.sub(r"\$\{\{\s*matrix\." + re.escape(k) + r"\s*\}\}", str(v), o) for o in out for v in mx[k]]
-        names += out
-    else:
-        names.append(name)
-missing = [n for n in names if n not in present]
-print(f"не появились {len(missing)} из {len(names)}: " + "; ".join(missing) if missing else f"все {len(names)} имён заданий есть на голове от других процессов", end="")
-PY
+    # Разбор YAML — python3: на машине владельца — Job-ом внешнего кластера (ws#1365, форма
+    # --job-names ниже); имена — лишь пояснение причины, вердикт от них не зависит.
+    local jn jrc
+    jn="$(bash "$HERE/ci-read.sh" --job-names "$W/wf.yml" "$W/present.txt" 2>/dev/null)"; jrc=$?
+    if [ "$jrc" -eq 0 ]; then printf '%s' "$jn"
+    else printf 'не выведены: файл %s не разобран (разбор вышел кодом %s: python3-yaml либо внешний маршрут)' "$path" "$jrc"; fi
 }
 jq -c --slurpfile cr "$W/cr.json" '([$cr[0][].check_runs[] | .check_suite.id // empty]) as $have
     | [.latest[] | select(.status == "completed" and .conclusion == "cancelled"

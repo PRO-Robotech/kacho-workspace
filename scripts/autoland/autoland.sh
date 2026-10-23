@@ -135,6 +135,11 @@
 # Гейты — рецептом «ЗАПУСК» шапки landing-precheck.sh, вырезанным по меткам из
 # origin/main воркспейса (тем же способом, что у шаблона волны): каталог scripts/ —
 # целиком из origin/main, не из рабочей копии; сбой подготовки — код 2.
+# СТРАЖ PYTHON3 (ws#1365). Машина владельца не для прогонов (2026-10-22): python-части
+# читателей идут Job-ом внешнего кластера (scripts/remote-reader.sh). Гейт исполняется с
+# двойником-отказом python3/python первым в PATH: вызов — исход void «страж python3: <гейт>
+# исполнил …» сразу, вердикт гейта не читается; у переписи снятия (branch-audit после
+# вливания) — строкой «страж python3: …» в исходе merged. Доказательство — inject.sh, py-guard.
 #
 # ИСХОД — первая строка .state, первое слово — исход:
 #   running <фаза> — идёт;
@@ -426,8 +431,29 @@ log "старт: $REPO#$PR голова $HEAD; предел ${TIMEOUT} с, па�
 join() { awk 'NR > 1 { printf " | " } { printf "%s", $0 } END { print "" }'; }
 
 GATE_RC=0
+# Страж python3 (ws#1365; владелец 2026-10-22: «использовать только в одном случае если доступа к
+# кластеру нету»): гейт идёт с PATH, где python3 и python — двойник-отказ; читатели уводят python
+# во внешний кластер (scripts/remote-reader.sh), и вызов python3 на машине из гейта — дефект
+# оснастки, а не вердикт: двойник пишет метку, и исход гейта не судится — void сразу, с вызовом.
+# Пропуск — лишь локальный слот (HEAVY_SLOT_P: heavy-slot.sh идёт на машине при недоступном
+# кластере, это доказывает он сам). ГРАНИЦА: абсолютный путь (/usr/bin/python3, строка запуска
+# без env) мимо PATH; отправка догона (heavy-slot.sh ci-local) идёт вне гейта — драйвер слота
+# профилей go читает конвейер python3 на машине (scripts/remote-heavy/run.sh step_pin).
+PYG="$W/no-python"; PY_TRIP="$W/python-trip"; mkdir -p "$PYG" || exit 2
+for _p in python3 python; do
+    # shellcheck disable=SC2016  # тело двойника — текст скрипта, подстановка — в нём
+    printf '%s\n' '#!/usr/bin/env bash' \
+        '[ -z "${HEAVY_SLOT_P:-}" ] || PATH="$AUTOLAND_PATH" exec "${0##*/}" "$@"' \
+        'printf "%s %s\n" "${0##*/}" "$*" | head -c 300 >> "$AUTOLAND_PY_TRIP"; echo >> "$AUTOLAND_PY_TRIP"' \
+        'echo "AUTOLAND-GUARD: отказ — ${0##*/} на машине владельца из гейта демона вливания (ws#1365): читатель обязан идти внешним маршрутом scripts/remote-reader.sh" >&2' \
+        'exit 126' > "$PYG/$_p" && chmod +x "$PYG/$_p" || exit 2
+done
 gate() {  # <скрипт> <доводы…> → $W/<скрипт>.out, код в GATE_RC
     local s="$1" out="$W/$1.out" recipe; shift
+    : > "$PY_TRIP"
+    local AUTOLAND_PATH="$PATH" AUTOLAND_PY_TRIP="$PY_TRIP"
+    local PATH="$PYG:$AUTOLAND_PATH"
+    export PATH AUTOLAND_PATH AUTOLAND_PY_TRIP
     if [ -n "${AUTOLAND_GATES:-}" ]; then
         timeout "$GATE_TIMEOUT" bash "$AUTOLAND_GATES/$s" "$@" > "$out" 2>&1; GATE_RC=$?
     else
@@ -443,7 +469,15 @@ gate() {  # <скрипт> <доводы…> → $W/<скрипт>.out, код �
     fi
     [ "$GATE_RC" -ne 124 ] || { printf 'VOID\t%s: предел %s с исчерпан\n' "$s" "$GATE_TIMEOUT" >> "$out"; GATE_RC=2; }
     log "гейт $s $*: код $GATE_RC; $(grep -m1 '^VERDICT' "$out" || tail -n1 "$out")"
+    if [ -s "$PY_TRIP" ]; then  # страж python3: исход гейта не судится (шапка gate)
+        local trip; trip="$(grep -v '^$' "$PY_TRIP" | head -n 3 | join)"
+        log "СТРАЖ: python3 на машине владельца из гейта $s: $trip"
+        # Перепись снятия идёт после вливания: исход merged остаётся, отказ — в его строке.
+        [ "$s" != branch-audit.sh ] || { PY_NOTE="страж python3: $s — $trip"; return; }
+        finish void "страж python3: $s исполнил на машине владельца «$trip» — читатель обязан идти внешним маршрутом (scripts/remote-reader.sh, ws#1365); исход гейта не судится"
+    fi
 }
+PY_NOTE=""
 reasons() {  # строки REASON вывода гейта дословно; строки о снимке демона — не о голове
     grep -P '^REASON\t' "$W/$1.out" | grep -vP '^REASON\t(STATE-STALE|STATE-KEY-MISMATCH)\t' | join
 }
@@ -634,7 +668,7 @@ landed() {  # запрос влит — проверка родителя, сн�
         log "коммит слияния $PR_MSHA: родитель $HEAD не подтверждён площадкой"
     fi
     prune "$PR_REF" "$PR_BASE"; sync_main_clone
-    finish merged "$PR_MSHA${note:+ $note}${CU_NOTE:+; догон базы: $CU_NOTE}; $PRUNE${SYNC:+; $SYNC}"
+    finish merged "$PR_MSHA${note:+ $note}${CU_NOTE:+; догон базы: $CU_NOTE}; $PRUNE${SYNC:+; $SYNC}${PY_NOTE:+; $PY_NOTE}"
 }
 
 # ── очередь: билет, черёд, ожидание (ws#1263) ──────────────────────────────────

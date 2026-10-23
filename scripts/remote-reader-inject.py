@@ -32,6 +32,9 @@ COPY = ['remote-reader.sh', 'remote-reader/pod.sh', 'remote-reader/replay-gh.sh'
         'kaname-stand.py', 'operator-stand.py', 'pr-body.sh', 'ci-read-expected.tsv', 'lib/ws-home.sh',
         'lib/sandbox-git-home.sh', 'lib/gate_root.py', 'lib/dod_proof.jq', 'lib/gh-rate.sh',
         'hooks/attribution-rule.sh']
+# Читатели демона вливания (ws#1365) и их соседи по рецепту «ЗАПУСК».
+DAEMON_COPY = ['landing-precheck.sh', 'merge-readiness.sh', 'ci-read.sh', 'branch-audit.sh']
+LPFIX = HERE / 'landing-precheck-fixtures'
 SLOT = r'''#!/usr/bin/env bash
 # Двойник heavy-slot.sh: Job — bundle закоммиченного дерева (HEAD и origin/*), тот же workdir.
 printf '%s\n' "$*" >> "$SANDBOX_SLOT_LOG"
@@ -397,6 +400,159 @@ class RemoteReader(unittest.TestCase):
         self.box.mutate('remote-reader.sh', '|| EXTRA=(--ref "$ref")', '|| EXTRA=()')
         blind = self.box.run('stand-report.sh', *args)
         self.assertEqual(blind.returncode, 2, blind.stdout + blind.stderr)
+        self.assertEqual(self.box.trap.read_text(), '')
+
+
+class DaemonReaders(unittest.TestCase):
+    """Читатели демона вливания (ws#1365): предпроверка целиком, формы ci-read и branch-audit — Job-ом."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.box = Sandbox(Path(self.tmp.name))
+        for rel in DAEMON_COPY:
+            dst = self.box.ws / 'scripts' / rel
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(HERE / rel, dst)
+        self.box.commit('#1365 читатели демона')
+        self.box.git('update-ref', 'refs/remotes/origin/main', 'HEAD')
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def assertJob(self, result, slots=1):
+        RemoteReader.assertJob(self, result, slots)
+
+    def lp_case(self):
+        """Случай kacho#3036 (landing-precheck-fixtures) и двойник площадки landing-precheck-inject.sh."""
+        case = self.box.files / 'case'; case.mkdir()
+        pull = json.loads((LPFIX / 'pull.json').read_text())
+        commits = json.loads((LPFIX / 'commits.json').read_text())
+        runs = json.loads((LPFIX / 'check-runs.json').read_text())
+        pull['state'] = 'open'; pull['body'] = pull['body'].replace(' вместе с #3028', '')
+        head = pull['head']['sha']
+        (case / 'head').write_text(head + '\n')
+        (case / 'pull.json').write_text(json.dumps(pull))
+        shutil.copyfile(LPFIX / 'commits.json', case / 'commits.json')
+        shutil.copyfile(LPFIX / 'check-runs.json', case / 'check-runs.json')
+        for n in (2878, 2885, 2690, 2707):
+            sha = next(c['sha'] for c in commits if f'#{n}' in c['commit']['message'].split('\n')[0])
+            (case / f'comments-{n}.json').write_text(json.dumps([{'body': f'сдача\nDoD-proof @{sha[:12]}'}]))
+        (case / 'comments-3020.json').write_text(json.dumps([{'body': f'DoD-proof @{head}'}]))
+        (case / 'prview.json').write_text(json.dumps({
+            'state': 'OPEN', 'baseRefName': pull['base']['ref'],
+            'baseRefOid': pull['base'].get('sha') or commits[0]['parents'][0]['sha'], 'headRefName': pull['head']['ref'],
+            'headRefOid': head, 'mergeStateStatus': 'CLEAN', 'body': pull['body'], 'closingIssuesReferences': [],
+            'statusCheckRollup': [{'name': r['name'], 'conclusion': (r.get('conclusion') or '').upper()}
+                                  for r in runs['check_runs']]}))
+        (case / 'protection.json').write_text(json.dumps(
+            {'required_status_checks': {'contexts': sorted({r['name'] for r in runs['check_runs']})}}))
+        text = (HERE / 'landing-precheck-inject.sh').read_text().split("cat > \"$W/gh\" <<'GH'\n", 1)[1]
+        double = text.split('\nGH\n', 1)[0] + '\n'
+        self.box.write(self.box.machine_bin / 'gh', double)
+        pod_bin = self.box.root / 'pod-bin'; pod_bin.mkdir()
+        self.box.write(pod_bin / 'gh', double)
+        return case, pod_bin
+
+    def test_landing_precheck_runs_in_the_job(self):
+        case, pod_bin = self.lp_case()
+        args = ['PRO-Robotech/kacho', '3036']
+        direct = self.box.run('landing-precheck.sh', *args, machine=False, FAKE=str(case),
+                              PATH=str(pod_bin) + ':' + os.environ['PATH'])
+        self.assertIn(direct.returncode, (0, 1), direct.stdout + direct.stderr)
+        self.assertIn('CENSUS\tmerge-readiness: код 0', direct.stdout, direct.stdout)
+        machine = self.box.run('landing-precheck.sh', *args, FAKE=str(case))
+        self.assertEqual((machine.returncode, machine.stdout), (direct.returncode, direct.stdout), machine.stderr)
+        self.assertNotIn('промахов GitHub', machine.stderr)
+        self.assertJob(machine)
+        # План без check-runs предпроверки: промах снимается вторым кругом, вывод тот же.
+        self.box.mutate('remote-reader.sh',
+                        '    pages_q check_runs "repos/$repo/commits/$head/check-runs?per_page=100&filter=latest&page=" ""\n', '')
+        self.box.slot_log.write_text('')
+        second = self.box.run('landing-precheck.sh', *args, FAKE=str(case))
+        self.assertEqual((second.returncode, second.stdout), (direct.returncode, direct.stdout), second.stderr)
+        self.assertIn('промахов GitHub 1 — сняты, прогон 2 из 4', second.stderr)
+        self.assertJob(second, slots=2)
+
+    def test_landing_precheck_from_the_recipe_archive(self):
+        case, pod_bin = self.lp_case()
+        args = ['PRO-Robotech/kacho', '3036']
+        direct = self.box.run('landing-precheck.sh', *args, machine=False, FAKE=str(case),
+                              PATH=str(pod_bin) + ':' + os.environ['PATH'])
+        # Рецепт «ЗАПУСК»: scripts/ из origin/main — каталог вне копии; LANDING_PRECHECK_WS — воркспейс.
+        arch = self.box.root / 'wsg'; arch.mkdir()
+        subprocess.run(f'git -C "{self.box.ws}" archive origin/main scripts | tar -x -C "{arch}"',
+                       shell=True, check=True)
+        got = subprocess.run(['bash', str(arch / 'scripts' / 'landing-precheck.sh'), *args], cwd='/',
+                             env=self.box.env(FAKE=str(case), LANDING_PRECHECK_WS=str(self.box.ws), KACHO_TASK='1365'),
+                             capture_output=True, text=True, timeout=600)
+        self.assertEqual((got.returncode, got.stdout), (direct.returncode, direct.stdout), got.stderr)
+        self.assertJob(got)
+        # Архив разошёлся с origin/main — Job исполнил бы не вызванное: 64 до Job.
+        (arch / 'scripts' / 'merge-readiness.sh').write_text('#!/usr/bin/env bash\nexit 0\n')
+        drift = subprocess.run(['bash', str(arch / 'scripts' / 'landing-precheck.sh'), *args], cwd='/',
+                               env=self.box.env(FAKE=str(case), LANDING_PRECHECK_WS=str(self.box.ws), KACHO_TASK='1365'),
+                               capture_output=True, text=True, timeout=600)
+        self.assertEqual(drift.returncode, 64, drift.stderr)
+        self.assertIn('не совпадает с origin/main', drift.stderr)
+        self.assertEqual(len(self.box.slots()), 1)
+
+    def test_ci_read_job_names_run_in_the_job(self):
+        wf = self.box.files / 'wf.yml'
+        wf.write_text('jobs:\n  a:\n    name: сборка\n  b:\n    name: "шард ${{ matrix.n }}"\n'
+                      '    strategy:\n      matrix:\n        n: [1, 2]\n')
+        present = self.box.files / 'present.txt'; present.write_text('сборка\nшард 1\n')
+        direct = self.box.run('ci-read.sh', '--job-names', str(wf), str(present), machine=False)
+        self.assertEqual((direct.returncode, direct.stdout), (0, 'не появились 1 из 3: шард 2'), direct.stderr)
+        machine = self.box.run('ci-read.sh', '--job-names', str(wf), str(present))
+        self.assertEqual((machine.returncode, machine.stdout), (0, direct.stdout), machine.stderr)
+        self.assertJob(machine)
+        # Иная форма ci-read внешним маршрутом не идёт: его чтения — gh и jq машины.
+        refused = subprocess.run(['bash', str(self.box.ws / 'scripts/remote-reader.sh'), 'scripts/ci-read.sh',
+                                  'PRO-Robotech/kacho', '1'], cwd=str(self.box.ws), env=self.box.env(),
+                                 capture_output=True, text=True, timeout=60)
+        self.assertEqual(refused.returncode, 64, refused.stderr)
+        self.assertEqual(len(self.box.slots()), 1)
+
+    def audited(self):
+        """Репозиторий переписи: голый origin, ствол, генератор с постоянным ответом (как vault-index)."""
+        origin = self.box.root / 'origin.git'
+        self.box.git('init', '-q', '--bare', '-b', 'main', str(origin), cwd=self.box.root)
+        repo = self.box.root / 'audited'
+        self.box.git('clone', '-q', str(origin), str(repo), cwd=self.box.root)
+        self.box.git('symbolic-ref', 'HEAD', 'refs/heads/main', cwd=repo)
+        (repo / 'scripts/vault-index').mkdir(parents=True)
+        (repo / 'scripts/vault-index/generate.py').write_text(
+            'import sys\nif "--outputs" in sys.argv:\n    print("machine/INDEX.md")\n')
+        (repo / 'machine').mkdir(); (repo / 'machine/INDEX.md').write_text('собрано\n')
+        self.box.git('add', '-A', cwd=repo); self.box.git('commit', '-qm', 'ствол', cwd=repo)
+        self.box.git('push', '-q', 'origin', 'main', cwd=repo)
+        return repo
+
+    def test_branch_audit_generator_answer_by_job_then_memory(self):
+        repo = self.audited()
+        cache = self.box.root / 'cache'
+        knobs = dict(XDG_CACHE_HOME=str(cache), BRANCH_AUDIT_NO_FETCH='1', BRANCH_AUDIT_NO_ACCUM='1',
+                     BRANCH_AUDIT_FRESH_MIN='0')
+        first = self.box.run('branch-audit.sh', str(repo), **knobs)
+        self.assertIn('генераторов спрошено 1, без ключа --outputs 0; машинно собираемых путей 1', first.stdout,
+                      first.stdout + first.stderr)
+        self.assertIn('ответ генераторов на машине — Job внешнего кластера', first.stdout)
+        self.assertJob(first)
+        second = self.box.run('branch-audit.sh', str(repo), **knobs)
+        self.assertIn('машинно собираемых путей 1', second.stdout, second.stdout + second.stderr)
+        self.assertIn('ответ генераторов на машине — память по отпечатку текста', second.stdout)
+        self.assertEqual(len(self.box.slots()), 1, 'второй прогон ходил в Job: память по отпечатку не читалась')
+        # Текст генератора сменился — отпечаток иной, ответ снова Job-ом.
+        (repo / 'scripts/vault-index/generate.py').write_text(
+            'import sys\nif "--outputs" in sys.argv:\n    print("machine/OTHER.md")\n')
+        third = self.box.run('branch-audit.sh', str(repo), **knobs)
+        self.assertIn('ответ генераторов на машине — Job внешнего кластера', third.stdout, third.stdout + third.stderr)
+        self.assertEqual(len(self.box.slots()), 2)
+        # Маршрут не исполнился (слот занят) — «не спрошено», а не «без ключа».
+        (repo / 'scripts/vault-index/generate.py').write_text('import sys\nprint("x")\n')
+        busy = self.box.run('branch-audit.sh', str(repo), SANDBOX_SLOT_RC='74', **knobs)
+        self.assertIn('без ключа --outputs 0', busy.stdout, busy.stdout + busy.stderr)
+        self.assertIn('НЕ СПРОШЕНО 1 генераторов', busy.stdout)
         self.assertEqual(self.box.trap.read_text(), '')
 
 
