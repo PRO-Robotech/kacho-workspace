@@ -35,6 +35,15 @@ COPY = ['remote-reader.sh', 'remote-reader/pod.sh', 'remote-reader/replay-gh.sh'
 # Читатели демона вливания (ws#1365) и их соседи по рецепту «ЗАПУСК».
 DAEMON_COPY = ['landing-precheck.sh', 'merge-readiness.sh', 'ci-read.sh', 'branch-audit.sh']
 LPFIX = HERE / 'landing-precheck-fixtures'
+
+
+def lp_out(result):
+    """Код и вывод предпроверки; путь ведомости — каталог, где судья её читал (в pod — клон Job)."""
+    import re
+    return result.returncode, re.sub(r'\(/\S*/scripts/ci-read-expected\.tsv\)', '(<scripts>/ci-read-expected.tsv)',
+                                     result.stdout)
+
+
 SLOT = r'''#!/usr/bin/env bash
 # Двойник heavy-slot.sh: Job — bundle закоммиченного дерева (HEAD и origin/*), тот же workdir.
 printf '%s\n' "$*" >> "$SANDBOX_SLOT_LOG"
@@ -461,7 +470,7 @@ class DaemonReaders(unittest.TestCase):
         self.assertIn(direct.returncode, (0, 1), direct.stdout + direct.stderr)
         self.assertIn('CENSUS\tmerge-readiness: код 0', direct.stdout, direct.stdout)
         machine = self.box.run('landing-precheck.sh', *args, FAKE=str(case))
-        self.assertEqual((machine.returncode, machine.stdout), (direct.returncode, direct.stdout), machine.stderr)
+        self.assertEqual(lp_out(machine), lp_out(direct), machine.stderr)
         self.assertNotIn('промахов GitHub', machine.stderr)
         self.assertJob(machine)
         # План без check-runs предпроверки: промах снимается вторым кругом, вывод тот же.
@@ -469,7 +478,7 @@ class DaemonReaders(unittest.TestCase):
                         '    pages_q check_runs "repos/$repo/commits/$head/check-runs?per_page=100&filter=latest&page=" ""\n', '')
         self.box.slot_log.write_text('')
         second = self.box.run('landing-precheck.sh', *args, FAKE=str(case))
-        self.assertEqual((second.returncode, second.stdout), (direct.returncode, direct.stdout), second.stderr)
+        self.assertEqual(lp_out(second), lp_out(direct), second.stderr)
         self.assertIn('промахов GitHub 1 — сняты, прогон 2 из 4', second.stderr)
         self.assertJob(second, slots=2)
 
@@ -485,7 +494,7 @@ class DaemonReaders(unittest.TestCase):
         got = subprocess.run(['bash', str(arch / 'scripts' / 'landing-precheck.sh'), *args], cwd='/',
                              env=self.box.env(FAKE=str(case), LANDING_PRECHECK_WS=str(self.box.ws), KACHO_TASK='1365'),
                              capture_output=True, text=True, timeout=600)
-        self.assertEqual((got.returncode, got.stdout), (direct.returncode, direct.stdout), got.stderr)
+        self.assertEqual(lp_out(got), lp_out(direct), got.stderr)
         self.assertJob(got)
         # Архив разошёлся с origin/main — Job исполнил бы не вызванное: 64 до Job.
         (arch / 'scripts' / 'merge-readiness.sh').write_text('#!/usr/bin/env bash\nexit 0\n')
