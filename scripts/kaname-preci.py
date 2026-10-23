@@ -16,6 +16,12 @@ import subprocess
 import re
 
 
+UNIT_REPORT_TRANSFORM = 'remote-heavy-address-mask-v1'
+MASK_V4 = r'([0-9]{1,3}\.){3}[0-9]{1,3}'
+MASK_V6 = r'([0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|([0-9A-Fa-f]{1,4}:){1,6}(:[0-9A-Fa-f]{1,4}){1,6}'
+UNIT_REPORT_POLICY_SHA = hashlib.sha256((MASK_V6 + '\n' + MASK_V4 + '\n').encode()).hexdigest()
+
+
 class EvidenceError(ValueError):
     pass
 
@@ -175,6 +181,9 @@ def bind_transport(argv, bootstrap, manifest, producer, digest):
             'bootstrap source binding differs')
     shard = selected_shard(manifest)
     suffix = '' if shard is None else ' --integration-shard ' + str(shard)
+    transform = selected_unit_transform(manifest)
+    if transform is not None:
+        suffix += ' --unit-report-transform ' + transform['transform']
     require(commands.count('python3 "$assets/runner.py" --assets "$assets" --jobs ' + manifest['jobs'] + suffix) == 1,
             'bootstrap job selection differs')
     return manifest['bundleSHA']
@@ -203,6 +212,17 @@ def selected_shard(manifest):
     require(type(shard) is int and 0 <= shard < 3
             and manifest.get('jobs') == 'integrationshard', 'invalid selected integration shard')
     return shard
+
+
+def selected_unit_transform(manifest):
+    if 'unitReportTransform' not in manifest:
+        return None
+    profile = manifest['unitReportTransform']
+    require(manifest.get('jobs') == 'unit' and isinstance(profile, dict)
+            and profile == {'transform': UNIT_REPORT_TRANSFORM,
+                            'transform_sha256': UNIT_REPORT_POLICY_SHA},
+            'invalid selected unit report transform')
+    return profile
 
 
 def definitions_for(workflows, jobs, digest, shards, integration_shard=None):
@@ -257,7 +277,7 @@ def definitions_for(workflows, jobs, digest, shards, integration_shard=None):
     return result
 
 
-def verify_native(group, digest):
+def verify_native(group, digest, expected_transform=None):
     """Check stdout hashes; unit JSON is appended separately by the producer."""
     unit_json = None
     for step in group['steps']:
@@ -291,6 +311,19 @@ def verify_native(group, digest):
         require(record['group'] == 'ci.yml:unit' and unit_json is None and len(matches) == 1,
                 'native output digest differs')
         unit_json = matches[0]
+    for report in group['reports']:
+        fields = {'group', 'name', 'rc', 'sha256'}
+        if expected_transform is not None:
+            require(report['group'] == 'ci.yml:unit' and report['name'] == 'test.json',
+                    'transformed report outside unit scope')
+            fields |= {'transform', 'transform_sha256', 'source_sha256'}
+            require({key: report.get(key) for key in expected_transform} == expected_transform,
+                    'native report transform differs')
+            # This is producer provenance, not independently recovered raw bytes.
+            require(isinstance(report.get('source_sha256'), str)
+                    and re.fullmatch(r'[0-9a-f]{64}', report['source_sha256']) is not None,
+                    'invalid original report digest')
+        require(set(report) == fields, 'native report metadata differs')
     reports = {record['name']: record['sha256'] for record in group['reports']}
     key = group['steps'][0]['record']['group']
     required = {'ci.yml:unit': {'test.json'},
@@ -348,7 +381,7 @@ def import_candidate(exp, packet, common, remote_log, go_json, integration_union
         parsed = parse_partition(raw, {'head': exp['head'], 'tree': exp['tree'], 'status': ''}, definitions)
         require(not set(parsed['groups']) & set(groups), 'group repeated across imported runs')
         for key, group in parsed['groups'].items():
-            group['unit_json'] = verify_native(group, common.digest)
+            group['unit_json'] = verify_native(group, common.digest, selected_unit_transform(manifest))
             groups[key] = group
         cleanup[name] = {'namespace': transport['namespace'], 'kind': transport['cleanup_kind']}
     # Every producer version is independently bound and reviewed. An unchanged
