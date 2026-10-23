@@ -299,10 +299,44 @@ twin; addskip; echo "0000000000000000000000000000000000000000" > "$W/case/head";
 expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (файл .github/workflows/' "файл есть только на другой ревизии — читается голова, причина"
 twin; addskip; yq -i '.jobs.trunkverdict.name = "другое имя"' "$W/case/wf/.github/workflows/e2e-newman.yml"; run 0
 expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (в .github/workflows/e2e-newman.yml нет задания' "задания с этим именем в файле нет — причина"
-twin; addskip; jq '(.workflow_runs[] | select(.event == "push") | .event) |= "workflow_dispatch"' "$W/case/runs.json" > "$W/case/runs.new" && mv "$W/case/runs.new" "$W/case/runs.json"; run 0
-expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (событие прогона '"'workflow_dispatch'" "событие прогона вне моделируемых — причина"
+twin; addskip; jq '(.workflow_runs[] | select(.event == "push") | .event) |= "repository_dispatch"' "$W/case/runs.json" > "$W/case/runs.new" && mv "$W/case/runs.new" "$W/case/runs.json"; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (событие прогона '"'repository_dispatch'" "событие прогона вне моделируемых — причина"
 twin; addskip; jq '(.workflow_runs[] | select(.event == "push") | .head_branch) |= "main"' "$W/case/runs.json" > "$W/case/runs.new" && mv "$W/case/runs.new" "$W/case/runs.json"; run 0
 expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (событие прогона '"'push'"' (ветка '"'main'" "push-прогон не ветки головы — не моделируется, причина"
+# Manual event knows no ref fields: prove false from source, never infer a branch.
+adddispatch() {
+    addskip
+    jq '.workflow_runs |= map(.event = "workflow_dispatch")' "$W/case/runs.json" > "$W/case/runs.new" && mv "$W/case/runs.new" "$W/case/runs.json"
+}
+twin; adddispatch; run 0
+expect 0 - "dispatch: source push/main condition is definitely false"
+twin; adddispatch; setif "\${{ !cancelled() && github.event_name == 'pull_request' }}"; run 0
+expect 0 - "dispatch: source pull_request condition is definitely false"
+for condition in "github.event_name == 'workflow_dispatch'" "github.ref == 'refs/heads/main'" "github.ref_type == 'branch'" "github.event_name == 'push' || github.ref == 'refs/heads/main'"; do
+    twin; adddispatch; setif "\${{ $condition }}"; run 0
+    expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (' "dispatch: executable or UNKNOWN condition refuses: $condition"
+done
+for mutation in 'del(.workflow_runs[].head_sha)' '.workflow_runs[].head_sha = "0000000000000000000000000000000000000000"' '.workflow_runs[].check_suite_id = -1'; do
+    twin; adddispatch
+    jq "$mutation" "$W/case/runs.json" > "$W/case/runs.new" && mv "$W/case/runs.new" "$W/case/runs.json"
+    run 0
+    expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (' "dispatch: wrong or absent run binding refuses"
+done
+for suite_value in true '"1"'; do
+    twin; adddispatch
+    jq --arg name "$TRUNKJOB" '(.check_runs[] | select(.name == $name) | .check_suite.id) = 1' "$W/case/check-runs.json" > "$W/case/check-runs.new" && mv "$W/case/check-runs.new" "$W/case/check-runs.json"
+    jq --argjson value "$suite_value" '.workflow_runs[].check_suite_id = $value' "$W/case/runs.json" > "$W/case/runs.new" && mv "$W/case/runs.new" "$W/case/runs.json"
+    run 0
+    expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (' "dispatch: suite identity must be an integer"
+done
+twin; adddispatch; setif del; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (' "dispatch: missing source condition refuses"
+twin; adddispatch; rm "$W/case/wf/.github/workflows/ci.yml"; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (' "dispatch: unread source refuses"
+twin; adddispatch; yq -i '.jobs.trunkverdict.name = "unknown job"' "$W/case/wf/.github/workflows/e2e-newman.yml"; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (' "dispatch: unknown authored job refuses"
+twin; adddispatch; echo "$TRUNKJOB" >> "$W/case/required"; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (контекст обязательный)' "dispatch: required context cannot skip"
 # Мутанты самой предпроверки: обязаны провалить пробу (2) «skipped без такого if».
 mkdir -p "$W/mut"; ln -sfn "$HERE/hooks" "$W/mut/hooks"; ln -sfn "$HERE/lib" "$W/mut/lib"
 mutant() {  # mutant <имя> <строка, вставляемая первой в тело skip_lawful>
