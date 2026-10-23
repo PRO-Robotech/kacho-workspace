@@ -6,6 +6,7 @@ SLOT="$HERE/heavy-slot.sh"
 . "$HERE/lib/sandbox-git-home.sh"
 W="$(mktemp -d)"
 trap 'rm -rf "$W"' EXIT
+sandbox_git_home "$W/ghome" || exit 2
 pass=0; fail=0
 assert() {
     if [ "$1" = "$2" ]; then printf 'PASS %s\n' "$3"; pass=$((pass+1));
