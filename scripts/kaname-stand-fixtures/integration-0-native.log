@@ -1,0 +1,27 @@
+=== ОТБОР ===
+осмотрено пакетов     : 189
+с пробами на базе     : 37  (признак: импорт (corelib/pgtest|testcontainers) в сборке проб)
+отобрано              : 37
+
+вес не замерен, взят по умолчанию 10 с: github.com/PRO-Robotech/kaname/internal/repo/kaname/pg/relverdict/nesteddepth
+=== РАСКЛАДКА ПО ШАРДАМ (3) ===
+шард 0: пакетов 13 · замеренный вес 525 с  ← этот
+шард 1: пакетов 13 · замеренный вес 526 с
+шард 2: пакетов 11 · замеренный вес 527 с
+в плане пакетов       : 37 из 37, каждый ровно в одном шарде
+исполняется в шарде 0: 13
+
+ok  	github.com/PRO-Robotech/kaname/internal/handler/loginlanehttp	659.259s
+ok  	github.com/PRO-Robotech/kaname/cmd/kaname	157.089s
+ok  	github.com/PRO-Robotech/kaname/internal/apps/kaname/api/access_binding	140.693s
+ok  	github.com/PRO-Robotech/kaname/internal/scopesourcecensus	21.994s
+ok  	github.com/PRO-Robotech/kaname/internal/apps/kaname/api/listvisibility	33.414s
+ok  	github.com/PRO-Robotech/kaname/internal/apps/kaname/api/user_tokens	19.005s
+ok  	github.com/PRO-Robotech/kaname/internal/apps/kaname/api/cluster	21.117s
+ok  	github.com/PRO-Robotech/kaname/internal/repo/kaname/pg/relverdict/nesteddepth	8.208s
+ok  	github.com/PRO-Robotech/kaname/internal/apps/kaname/api/user	12.797s
+ok  	github.com/PRO-Robotech/kaname/internal/subscriptionjournal	14.365s
+ok  	github.com/PRO-Robotech/kaname/internal/apps/kaname/api/readauthz	9.566s
+ok  	github.com/PRO-Robotech/kaname/internal/clients	7.559s
+ok  	github.com/PRO-Robotech/kaname/internal/repo/kaname/pg/parentedge	8.786s
+интеграция: зелёный (код go test 0)

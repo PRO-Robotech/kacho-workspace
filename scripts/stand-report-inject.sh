@@ -447,5 +447,6 @@ echo "stand-report-inject: мутантов $((killed + survived + void)), уб�
 legacy_rc=0
 [ "$fail" -eq 0 ] && [ "$pass" -gt 0 ] && [ "$survived" -eq 0 ] && [ "$void" -eq 0 ] && [ "$killed" -gt 0 ] && [ "$unstable" -eq 0 ] || legacy_rc=1
 bash "$HERE/operator-stand-focused-inject.sh"; operator_rc=$?
-printf 'STAND_TEST_GROUPS legacy=%s operators=%s\n' "$legacy_rc" "$operator_rc"
-[ "$legacy_rc" -eq 0 ] && [ "$operator_rc" -eq 0 ]
+bash "$HERE/kaname-stand-inject.sh"; kaname_rc=$?
+printf 'STAND_TEST_GROUPS legacy=%s operators=%s kaname=%s\n' "$legacy_rc" "$operator_rc" "$kaname_rc"
+[ "$legacy_rc" -eq 0 ] && [ "$operator_rc" -eq 0 ] && [ "$kaname_rc" -eq 0 ]

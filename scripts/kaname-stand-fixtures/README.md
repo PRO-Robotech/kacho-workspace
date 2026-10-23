@@ -1,0 +1,1 @@
+Native excerpts from Kaname ad86098 external runs: core-ad86098 and platform-ad86098-v2. These exercise parser grammar only and are not proof of a current run. Integration counts packages, not individual test cases. No credentials or response bodies are included.

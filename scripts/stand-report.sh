@@ -138,6 +138,9 @@ except (OSError, ValueError, KeyError):
     pass
 if repo in ('PRO-Robotech/kaname-iam-operator', 'PRO-Robotech/registry-operator', 'PRO-Robotech/vault-operator'):
     os.execv(sys.executable, [sys.executable, helper] + (args if args[0] in ('expect', 'check') else ['check'] + args))
+if repo == 'PRO-Robotech/kaname':
+    kaname = os.path.join(os.path.dirname(helper), 'kaname-stand.py')
+    os.execv(sys.executable, [sys.executable, kaname] + (args if args[0] in ('expect', 'check') else ['check'] + args))
 sys.exit(77)
 OPERATOR_DISPATCH
 operator_rc=$?
