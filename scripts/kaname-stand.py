@@ -155,7 +155,7 @@ def integration(text, index, total):
             'test_cases': None, 'matrix_index': index, 'matrix_total': total}
 
 
-def remote_log(text, exp, argv):
+def remote_log(text, exp, argv, parse_groups=True):
     """Imported evidence: исходный журнал, не задним числом произведённый receipt."""
     sources = re.findall(r'^SOURCE ([0-9a-f]{40}) TREE ([0-9a-f]{40})$', text, re.M)
     require(sources == [(exp['head'], exp['tree'])], 'executed source differs')
@@ -176,7 +176,8 @@ def remote_log(text, exp, argv):
     return {'kind': 'imported-native-remote-heavy', 'namespace': ns,
             'source': sources[0], 'log_digest': common.digest(text.encode()),
             'command_line_digest': common.digest(argv.encode()),
-            'cleanup_kind': 'runner-observed-namespace-delete-wait', 'groups': groups(text)}
+            'cleanup_kind': 'runner-observed-namespace-delete-wait',
+            'groups': groups(text) if parse_groups else {}}
 
 
 def integration_union(texts, selected_packages):
@@ -202,6 +203,11 @@ def integration_union(texts, selected_packages):
 def import_candidate(exp, packet_file):
     """Исторические факты принимаются отдельным review, не как runtime attestation."""
     packet = common.read_json(packet_file)
+    if packet.get('kind') == 'imported-native-preci-v1':
+        preci_spec = importlib.util.spec_from_file_location('kaname_preci', Path(__file__).with_name('kaname-preci.py'))
+        preci = importlib.util.module_from_spec(preci_spec)
+        preci_spec.loader.exec_module(preci)
+        return preci.import_candidate(exp, packet, common, remote_log, go_json, integration_union)
     require(packet.get('kind') == 'imported-native-remote-heavy', 'wrong imported provenance kind')
     require(packet.get('head') == exp['head'] and packet.get('tree') == exp['tree'], 'import source differs')
     require(set(packet.get('runs', {})) == {'core', 'platform'}, 'incomplete external run census')
@@ -248,8 +254,11 @@ def register_import(exp, packet_file, review_file):
     require(review.get('role') == 'check-verifier' and review.get('verdict') == 'accept'
             and review.get('candidate_digest') == identity and review.get('blocking') == [],
             'independent exact imported evidence review missing')
-    require(review.get('claims') == ['source-and-command-binding', 'native-verdict-and-cleanup',
-                                    'selected-package-partition', 'short-skip-applicability'],
+    claims = ['source-and-command-binding', 'native-verdict-and-cleanup',
+              'selected-package-partition', 'short-skip-applicability']
+    if candidate['kind'] == 'imported-native-preci-v1':
+        claims.append('source-workflow-and-preci-producer-binding')
+    require(review.get('claims') == claims,
             'import review omits required factual bindings')
     common.save_new(common.registry() / 'kaname-imports' / (identity + '.json'),
                     {'candidate': candidate, 'review': review})
