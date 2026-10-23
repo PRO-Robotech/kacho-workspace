@@ -250,6 +250,12 @@ async function run(sc) {
     if (label.startsWith('review-landing')) return { verdict: 'accept', sha: HW, blocking: [], report: 'r' }
     if (sc.ret && label === 'review-' + sc.ret + ':' + lane) return { verdict: 'return', sha: heads[lane], blocking: ['x'], report: 'r' }
     if (label.startsWith('review-') || label.startsWith('acceptance-review-')) return { verdict: 'accept', sha: sc.staleRole ? H('old', 0) : heads[lane] || '', blocking: [], report: 'r' }
+    if (label.startsWith('mech:kaname-local:')) return { status: 'done', head: HW, copy: '/ws/tmp/w', pr: 0, conflicts: [], report: 'r', ...take('kanameLocal', () => ({})) }
+    if (label.startsWith('mech:kaname-external:')) return { code: 0, out: '', reasons: [], head: HW, ...take('kanameExternal', () => ({})) }
+    if (label.startsWith('mech:kaname-publish:')) return { status: 'done', head: HW, copy: '/ws/tmp/w', pr: 7, conflicts: [], report: 'r', ...take('kanamePublish', () => ({})) }
+    if (label.startsWith('mech:assemble-local:')) return { status: 'done', head: HW, copy: '/ws/tmp/w', pr: 0, conflicts: [], report: 'r', ...take('operatorLocal', () => ({})) }
+    if (label.startsWith('mech:operator-cluster:')) return { code: 0, out: '', reasons: [], head: HW, ...take('operatorCluster', () => ({})) }
+    if (label.startsWith('mech:operator-publish:')) return { status: 'done', head: HW, copy: '/ws/tmp/w', pr: 7, conflicts: [], report: 'r', ...take('operatorPublish', () => ({})) }
     if (label.startsWith('mech:assemble:')) return { status: 'done', head: HW, copy: '/ws/tmp/w', pr: 7, conflicts: [], report: 'r', ...take('asm', () => ({})) }
     // Честный агент: slept — секунды sleep ЕГО команды (нет паузы — 0); сценарий перекрывает.
     // Стенд (ws#1110): та же честность паузы, что у CI; сценарий перекрывает код.
@@ -1054,6 +1060,51 @@ console.log('== предусловия раздачи — до исполнит�
   ok(prm(q.calls, 'mech:dispatch-premise').includes('--task-text /ws/tmp/1078/M.md --agent acceptance-author') && !prm(q.calls, 'mech:dispatch-premise').includes('reports/M/task.txt'), 'задание файлом — судится сам файл, текст не переписывается')
 }
 
+console.log('== операторы: точная голова и порядок cluster → publish → hosted')
+for (const repo of ['PRO-Robotech/kaname-iam-operator', 'PRO-Robotech/registry-operator', 'PRO-Robotech/vault-operator']) {
+  const opArgs = { ...args, repo }
+  let q = await run({ args: opArgs, plan: [P('r0.json')] })
+  const local = idx(q.calls, 'mech:assemble-local:1'), cluster = idx(q.calls, 'mech:operator-cluster:1'), publish = idx(q.calls, 'mech:operator-publish:1'), hosted = idx(q.calls, 'mech:stand:0')
+  ok(q.res.ok === true && local >= 0 && local < cluster && cluster < publish && publish < hosted, 'operator legal twin: local/cluster/publish/hosted ordered ' + repo, JSON.stringify(q.res))
+  ok(by(q.calls, c => c.label.startsWith('mech:assemble:')) === 0 && !/affected\.py --base/.test(prm(q.calls, 'mech:assemble-local:1')), 'operator never enters legacy early publication or affected.py')
+  const finalPrompt = prm(q.calls, 'mech:stand:0')
+  ok(finalPrompt.includes('stand-cluster.json') && finalPrompt.includes('cluster-check') && finalPrompt.includes('заново cluster не запускай и push не делай') && finalPrompt.includes('все github-hosted jobs из definitions') && !finalPrompt.includes('github-hosted Kind jobs'), 'operator final reader reuses exact cluster receipts and entire hosted inventory')
+  for (const code of [1, 2, 3]) {
+    q = await run({ args: opArgs, plan: [P('r0.json')], operatorCluster: [{ code }] })
+    ok(q.res.ok === false && idx(q.calls, 'mech:operator-publish:1') < 0 && idx(q.calls, 'mech:stand:0') < 0 && (code !== 3 || q.res.state === 'running'), 'operator cluster code ' + code + ' forbids publication; pending remains running')
+  }
+  q = await run({ args: opArgs, plan: [P('r0.json')], operatorCluster: [{ head: 'd'.repeat(40) }] })
+  ok(q.res.ok === false && idx(q.calls, 'mech:operator-publish:1') < 0, 'operator rejects cluster proof for another head')
+  q = await run({ args: opArgs, plan: [P('r0.json')], operatorPublish: [{ head: 'd'.repeat(40) }] })
+  ok(q.res.ok === false && idx(q.calls, 'mech:stand:0') < 0, 'operator rejects publisher changing accepted head')
+  q = await run({ args: opArgs, plan: [P('r0.json')], stand: [{ code: 0, head: 'd'.repeat(40) }] })
+  ok(q.res.ok === false && idx(q.calls, 'mech:autoland') < 0 && (q.res.reasons || []).includes('OPERATOR-STAND-HEAD-MISMATCH'), 'operator rejects final green proof of another head')
+  q = await run({ args: { ...argsABC, repo }, plan: [P('r1c.json')], wave: [W3('accept', 'accept', 'return')], operatorCluster: [{ code: 0 }, { code: 3 }] })
+  ok(q.res.state === 'running' && idx(q.calls, 'mech:operator-cluster:2') >= 0 && idx(q.calls, 'mech:operator-publish:2') < 0, 'operator reassembly pending remains running without second publication', JSON.stringify(q.res))
+}
+
+console.log('== Kaname staged proof: external → publication → real hosted')
+{
+  const kArgs = { ...args, repo: 'PRO-Robotech/kaname' }
+  let q = await run({ args: kArgs, plan: [P('r0.json')] })
+  ok(q.res.ok === true && idx(q.calls, 'mech:kaname-local:1') < idx(q.calls, 'mech:kaname-external:1') && idx(q.calls, 'mech:kaname-external:1') < idx(q.calls, 'mech:kaname-publish:1') && idx(q.calls, 'mech:kaname-publish:1') < idx(q.calls, 'mech:stand:0'), 'Kaname lawful twin ordered stages')
+  ok(prm(q.calls, 'mech:stand:0').includes('kaname-staged-report-v1') && prm(q.calls, 'mech:stand:0').includes('без external-only'), 'Kaname full reader requires real hosted proof')
+  for (const code of [1, 2, 3]) {
+    q = await run({ args: kArgs, plan: [P('r0.json')], kanameExternal: [{ code }] })
+    ok(q.res.ok === false && idx(q.calls, 'mech:kaname-publish:1') < 0 && (code !== 3 || q.res.state === 'running'), 'Kaname external code ' + code + ' forbids premature publication')
+  }
+  q = await run({ args: kArgs, plan: [P('r0.json')], kanameExternal: [{ head: 'd'.repeat(40) }] })
+  ok(q.res.ok === false && idx(q.calls, 'mech:kaname-publish:1') < 0, 'Kaname external head mismatch denied')
+  q = await run({ args: kArgs, plan: [P('r0.json')], kanamePublish: [{ head: 'd'.repeat(40) }] })
+  ok(q.res.ok === false && idx(q.calls, 'mech:stand:0') < 0, 'Kaname publication head drift denied')
+  q = await run({ args: kArgs, plan: [P('r0.json')], stand: [{ code: 0, head: 'd'.repeat(40) }] })
+  ok(q.res.ok === false && idx(q.calls, 'mech:autoland') < 0, 'Kaname final proof wrong head denied')
+  q = await run({ args: kArgs, plan: [P('r0.json')], stand: [{ code: 3 }, { code: 0 }] })
+  ok(q.res.ok === true && by(q.calls, c => c.label.startsWith('mech:kaname-publish:')) === 1 && by(q.calls, c => c.label.startsWith('mech:kaname-external:')) === 1 && by(q.calls, c => c.label.startsWith('mech:stand:')) === 2, 'Kaname pending hosted resume does not republish or rerun external')
+  q = await run({ args: { ...argsABC, repo: 'PRO-Robotech/kaname' }, plan: [P('r1c.json')], wave: [W3('accept', 'accept', 'return')], kanameExternal: [{ code: 0 }, { code: 3 }] })
+  ok(q.res.state === 'running' && idx(q.calls, 'mech:kaname-external:2') >= 0 && idx(q.calls, 'mech:kaname-publish:2') < 0, 'Kaname reassembly pending not failed/published')
+}
+
 console.log('== объединение вызовов всех сценариев: модель, усилие, место отчётов (ws#1016)')
 {
   // Классы шагов — из тела шаблона: литералы `label: '<класс>'` и литералы 'mech:…'
@@ -1474,6 +1525,17 @@ mutant "зависимая от нераздаваемой в предполёт
 mutant "текст автору приёмки не судится (ws#1271)" "  if (tierOf[l.key].steps.includes('acceptance(<=2)')) gateItems.push(" "  if (false) gateItems.push("
 mutant "meta не литерал: вызов" "name: 'wave'," "name: ['wa', 've'].join(''),"
 mutant "meta не литерал: шаблонная строка" "name: 'wave'," "name: \`wave\`,"
+mutant "operator publication source drift accepted" "!published || published.head !== local.head" "!published"
+mutant "operator final proof source ignored" "(operatorStand || kanameStand) && got && got.head !== asm.head" "false"
+mutant "operator cluster red permits publication" "clusterStage.code !== 0" "false"
+mutant "operator cluster source ignored" "clusterStage.head !== local.head" "false"
+mutant "operator reassembly pending treated failed" "if ((operatorStand || kanameStand) && asm && asm.status === 'running') return { ok: false, state: 'running', stage: 'operator reassembly" "if (false) return { ok: false, state: 'running', stage: 'operator reassembly"
+mutant "operator final prompt repeats cluster and push" "заново cluster не запускай и push не делай" "запусти cluster заново и выполни push"
+# Kaname-specific one-fact mutants retain the legal staged twin above.
+mutant "Kaname external red publishes" "external.code !== 0" "false"
+mutant "Kaname external source ignored" "external.head !== local.head" "false"
+mutant "Kaname publication source ignored" "published && published.head === local.head ? published" "published ? published"
+
 echo
 echo "wave-template-inject: контроль код $rc; мутантов и близнецов $((pass + fail)), сошлось $pass (мутант красный, близнец молчит), разошлось $fail"
 [ "$rc" -eq 0 ] && [ "$fail" -eq 0 ]

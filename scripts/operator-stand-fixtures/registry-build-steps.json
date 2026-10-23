@@ -1,0 +1,108 @@
+{
+  "steps": [
+    {
+      "name": "Set up job",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 1,
+      "started_at": "2026-10-22T13:42:22Z",
+      "completed_at": "2026-10-22T13:42:23Z"
+    },
+    {
+      "name": "Run actions/checkout@v4",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 2,
+      "started_at": "2026-10-22T13:42:23Z",
+      "completed_at": "2026-10-22T13:42:24Z"
+    },
+    {
+      "name": "Run echo \"tag=$(echo \"${GITHUB_REF_NAME}\" | sed 's#/#-#g')-${GITHUB_SHA::8}\" >> \"$GITHUB_OUTPUT\"",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 3,
+      "started_at": "2026-10-22T13:42:24Z",
+      "completed_at": "2026-10-22T13:42:24Z"
+    },
+    {
+      "name": "Run docker/setup-buildx-action@v3",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 4,
+      "started_at": "2026-10-22T13:42:24Z",
+      "completed_at": "2026-10-22T13:42:28Z"
+    },
+    {
+      "name": "login to Docker Hub",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 5,
+      "started_at": "2026-10-22T13:42:28Z",
+      "completed_at": "2026-10-22T13:42:28Z"
+    },
+    {
+      "name": "Run docker/build-push-action@v6",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 6,
+      "started_at": "2026-10-22T13:42:28Z",
+      "completed_at": "2026-10-22T13:44:09Z"
+    },
+    {
+      "name": "Run docker/build-push-action@v6",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 7,
+      "started_at": "2026-10-22T13:44:09Z",
+      "completed_at": "2026-10-22T13:44:35Z"
+    },
+    {
+      "name": "Run echo \"pushed=true tag=3-api-pipe-ba30eb0e\"",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 8,
+      "started_at": "2026-10-22T13:44:35Z",
+      "completed_at": "2026-10-22T13:44:35Z"
+    },
+    {
+      "name": "Post Run docker/build-push-action@v6",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 13,
+      "started_at": "2026-10-22T13:44:35Z",
+      "completed_at": "2026-10-22T13:44:48Z"
+    },
+    {
+      "name": "Post Run docker/build-push-action@v6",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 14,
+      "started_at": "2026-10-22T13:44:48Z",
+      "completed_at": "2026-10-22T13:44:49Z"
+    },
+    {
+      "name": "Post Run docker/setup-buildx-action@v3",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 15,
+      "started_at": "2026-10-22T13:44:49Z",
+      "completed_at": "2026-10-22T13:44:55Z"
+    },
+    {
+      "name": "Post Run actions/checkout@v4",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 16,
+      "started_at": "2026-10-22T13:44:55Z",
+      "completed_at": "2026-10-22T13:44:55Z"
+    },
+    {
+      "name": "Complete job",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 17,
+      "started_at": "2026-10-22T13:44:55Z",
+      "completed_at": "2026-10-22T13:44:55Z"
+    }
+  ]
+}

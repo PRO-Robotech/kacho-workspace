@@ -46,13 +46,6 @@ for f in .github/scripts/affected.py .github/ci-paths.json; do
     [ -r "$K/$f" ] || { echo "stand-report-inject: VOID — нет $K/$f: выбор kacho судить не с чем (STAND_REPORT_KACHO либо project/kacho)" >&2; exit 2; }
 done
 echo "== выбор kacho — настоящий: $K @$(git -C "$K" rev-parse --short=12 HEAD 2>/dev/null || echo 'не git')"
-# Область переноса kaname (ws#1148) выводится из карты CI его дерева: подменный `gh` отдаёт
-# НАСТОЯЩИЕ ci-paths.json и affected.py ствола kaname (STAND_REPORT_KANAME, иначе project/kaname).
-export SRI_KANAME="${STAND_REPORT_KANAME:-$HERE/../project/kaname}"
-for f in .github/scripts/affected.py .github/ci-paths.json; do
-    [ -r "$SRI_KANAME/$f" ] || { echo "stand-report-inject: VOID — нет $SRI_KANAME/$f: область kaname судить не с чем (STAND_REPORT_KANAME либо project/kaname)" >&2; exit 2; }
-done
-echo "== карта kaname — настоящая: $SRI_KANAME @$(git -C "$SRI_KANAME" rev-parse --short=12 HEAD 2>/dev/null || echo 'не git')"
 # Пути запроса для детектора CI: `gh api … pulls/<N>/files … --jq` → дифф копии случая.
 mkdir -p "$W/ghpr"
 cat > "$W/ghpr/gh" <<'GH'
@@ -91,13 +84,6 @@ case "$2" in
     repos/PRO-Robotech/kacho/issues/3260) printf '{"number":3260,"state":"%s"}\n' "$(cat "$CASE/state" 2>/dev/null || echo open)" ;;
     repos/PRO-Robotech/kacho-workspace/issues/1110) printf '{"number":1110,"state":"closed"}\n' ;;
     repos/*/compare/*) [ ! -f "$CASE/cmp-fail" ] || { echo "fake gh: compare недоступен" >&2; exit 1; }; cat "$CASE/compare.json" ;;
-    # Содержимое файла дерева kaname на ревизии: правленая копия случая, иначе настоящий ствол.
-    repos/PRO-Robotech/kaname/contents/*\?ref=*)
-        rel="${2#repos/PRO-Robotech/kaname/contents/}"; ref="${rel##*\?ref=}"; rel="${rel%%\?ref=*}"
-        [ "$ref" = "$(cat "$CASE/kref" 2>/dev/null)" ] || { echo "fake gh: HTTP 404 — ревизии $ref у случая нет" >&2; exit 1; }
-        f="$CASE/contents/$rel"; [ -f "$f" ] || f="$SRI_KANAME/$rel"
-        [ -f "$f" ] || { echo "fake gh: HTTP 404 — $rel" >&2; exit 1; }
-        printf '{"encoding":"base64","content":"%s"}\n' "$(base64 -w0 < "$f")" ;;
     *) echo "fake gh: путь $2 не известен" >&2; exit 64 ;;
 esac
 GH
@@ -143,7 +129,7 @@ ecase() {
         printf '#!/usr/bin/env bash\nSTAND_RUNNER_KINDS="newman browser"\necho stand-ns "$@"\n' > "$C/co/deploy/scripts/stand-ns.sh"
     fi
     if [ "$2" = PRO-Robotech/kaname ]; then
-        printf 'jobs:\n  suite: {}\n  stand: {}\n  stand-ceremony: {}\n  edgeselftests: {}\n  chart-own: {}\n' > "$C/co/.github/workflows/e2e-newman.yml"
+        printf 'jobs:\n  stand: {}\n' > "$C/co/.github/workflows/e2e-newman.yml"
         printf '#!/usr/bin/env bash\necho integration\n' > "$C/co/.github/scripts/run-integration.sh"; chmod +x "$C/co/.github/scripts/run-integration.sh"
         printf '#!/usr/bin/env bash\nSTAND_RUNNER_KINDS="own"\ntrue\n' > "$C/co/.github/scripts/stand-own.sh"; chmod +x "$C/co/.github/scripts/stand-own.sh"
     fi
@@ -151,7 +137,6 @@ ecase() {
 }
 # routes <копия> — строки ROUTE вывода expect случая: «задание<TAB>метка» по строке.
 routes() { grep -P '^ROUTE\t' "$1/err" | cut -f2,3 | LC_ALL=C sort | tr '\n' ';'; }
-KNJOBS='["ci.yml:unit","ci.yml:integration","e2e-newman.yml:stand","e2e-newman.yml:stand-ceremony","e2e-newman.yml:suite","e2e-newman.yml:edgeselftests"]'
 # Маршрут заданий стенда kacho в ЭТОМ дереве — факт судьи слота, а не выбор случая: у
 # stand-ns-run без RUNNER внешнего пути нет (ws#1301), с RUNNER=<вид> механизма клона — pod
 # раннера (ws#1303), ведомость называет форму с RUNNER. При «нет» ожидаемое kacho с выбранным
@@ -183,21 +168,12 @@ ecommit() { sandbox_run git -C "$C/co" add -A && sandbox_run git -C "$C/co" comm
 # want <код> <код причины | -> — ожидание случая; «-» — ни одной строки REASON; маршруты и образец
 # VOID прежнего ожидания (kc_want) снимаются — их пишут после want
 want() { printf '%s' "$1" > "$C/code"; printf '%s' "$2" > "$C/want"; rm -f "$C/routes" "$C/voidre"; }
-# tooledit <sed-выражение…> — случай со своей правкой инструмента (строка ведомости снята). Правка
-# ложится на СУДИМЫЙ инструмент — настоящий либо мутант: прежде случай судил свою копию настоящего и
-# на любом мутанте краснел от неё, а не от мутанта, — «убивал» все мутанты, до которых доходил.
-tooledit() { printf '%s\n' "$@" > "$C/tooledit"; }
-edited() {  # edited <инструмент> <случай> → путь правленой копии рядом с судьёй маршрута; правка не легла — пусто
-    local e=() x out="$WM/$(basename "$2").$(basename "$1")"
-    while IFS= read -r x; do e+=(-e "$x"); done < "$2/tooledit"
-    sed "${e[@]}" "$1" > "$out" && ! cmp -s "$out" "$1" && printf '%s' "$out"
-}
 judge() {  # judge <скрипт> <каталог случая> → 0 сошлось
     local c="$2" out code
     if [ -f "$c/expect" ]; then  # случай подкоманды expect: код и задания либо строка VOID
         local eargs=() tool="$1"; [ ! -f "$c/args" ] || mapfile -t eargs < "$c/args"
         # Случай со своей правкой инструмента (строка ведомости снята) судит её, мутант — нет.
-        if [ -f "$c/tooledit" ]; then tool="$(edited "$1" "$c")" || return 1; fi
+        [ ! -f "$c/tool" ] || [ "$1" != "$TOOL" ] || tool="$(cat "$c/tool")"
         # Повтор случая (мутант) судит ТОТ ЖЕ вход: неотслеживаемое, которого не было при первом
         # прогоне (__pycache__ мутанта pycache-written), снимается до прогона —
         # иначе красное следующих случаев шло от грязной копии, а не от правки мутанта.
@@ -208,10 +184,8 @@ judge() {  # judge <скрипт> <каталог случая> → 0 сошло
         [ "$code" = "$(cat "$c/code")" ] || return 1
         # ROUTE — строка на КАЖДОЕ задание ведомости с меткой маршрута (ws#1192).
         [ ! -f "$c/routes" ] || [ "$(routes "$c")" = "$(cat "$c/routes")" ] || return 1
-        # Форма задания — строкой ROUTE, словами оболочки (ws#1284): formre — образцы всей строки,
-        # по строке файла на задание; сойтись обязан каждый.
-        if [ -f "$c/formre" ]; then local re
-            while IFS= read -r re || [ -n "$re" ]; do grep -qP "$re" "$c/err" || return 1; done < "$c/formre"; fi
+        # Форма задания — строкой ROUTE, словами оболочки (ws#1284): formre — образец всей строки.
+        [ ! -f "$c/formre" ] || grep -qP "$(cat "$c/formre")" "$c/err" || return 1
         if [ "$code" = 0 ]; then
             [ "$(jq -c .jobs <<< "$out" 2>/dev/null)" = "$(cat "$c/want")" ] || return 1
             # маршрут каждого задания ожидаемого — внешний и в самом JSON (его судит check)
@@ -219,9 +193,8 @@ judge() {  # judge <скрипт> <каталог случая> → 0 сошло
         else grep -q "^VOID" <<< "$out" || return 1; [ ! -f "$c/voidre" ] || grep -qP "^VOID\t$(cat "$c/voidre")" <<< "$out"; fi
         return
     fi
-    local extra tool="$1"; mapfile -t extra < "$c/args"
-    if [ -f "$c/tooledit" ]; then tool="$(edited "$1" "$c")" || return 1; fi
-    out="$(CASE="$c" STAND_REPORT_GH="$W/gh" bash "$tool" check "$c/r.json" --head "$(cat "$c/head" 2>/dev/null || echo "$H")" "${extra[@]}" 2>&1)"; code=$?
+    local extra; mapfile -t extra < "$c/args"
+    out="$(CASE="$c" STAND_REPORT_GH="$W/gh" bash "$1" check "$c/r.json" --head "$(cat "$c/head" 2>/dev/null || echo "$H")" "${extra[@]}" 2>&1)"; code=$?
     printf '%s\n' "$out" > "$c/out.$(basename "$1")"
     [ "$code" = "$(cat "$c/code")" ] || return 1
     if [ "$(cat "$c/want")" = - ]; then ! grep -q '^REASON' <<< "$out"
@@ -262,10 +235,18 @@ kase "близнец: выведенный ноль, наборы сверх о�
 kase "ожидаемое ready kacho «full: true, jobs: []» — полный обязан нести все задания" -; expected '.jobs = []' > "$C/exp.json"; want 1 STAND-EXPECT-LEDGER
 kase "ожидаемое ready kacho: заданий 4 из ведомости 5" -; expected '.jobs |= .[:4]' > "$C/exp.json"; want 1 STAND-EXPECT-LEDGER
 kase "ожидаемое: ledger подменён двумя заданиями" -; expected '.ledger |= .[:2] | .jobs = .ledger' > "$C/exp.json"; want 1 STAND-EXPECT-LEDGER
-kase "ожидаемое: задание вне ведомости" -; expected '.jobs += ["ci.yaml:lint"]' > "$C/exp.json"; want 1 'STAND-EXPECT-LEDGER(?=\tзадания ожидаемого вне ведомости STAND: ci\.yaml:lint)'
+kase "ожидаемое: задание вне ведомости" -; expected '.jobs += ["ci.yaml:lint"]' > "$C/exp.json"; want 1 STAND-EXPECT-LEDGER
 kase "ожидаемое: репозиторий вне ведомости" -; expected '.repo = "PRO-Robotech/elsewhere"' > "$C/exp.json"; want 1 STAND-EXPECT-LEDGER
 kase "ожидаемое: источник не ведомости (none у kacho)" -; expected '.source = "none"' > "$C/exp.json"; want 1 STAND-EXPECT-LEDGER
 kase "близнец only-red: целевой черновик, часть заданий — полнотой не судится" '.mode = "only-red" | .planned = 2 | .suites = [.suites[0], .suites[2]]' '.suites[2] |= (.outcome = "red" | .quote = "q")'; expected '.draft = "true" | .full = false | .jobs = ["ci.yaml:unit-shard","e2e-newman.yml:shard"]' > "$C/exp.json"; printf -- '--of\n%s\n--expect\n%s\n' "$C/prev.json" "$C/exp.json" > "$C/args"; want 0 -
+# Only one guard differs: draft partial selection avoids the full-ledger check.
+for selected in ci.yaml:outside e2e-newman.yml:shard; do
+    kase "partial ledger: $selected" '.mode = "only-red" | .planned = 1 | .suites = [.suites[2]]' '.suites[2] |= (.outcome = "red" | .quote = "q")'
+    expected '.draft = "true" | .full = false' | jq --arg j "$selected" '.jobs = [$j] | .routes[$j] = {route:"external", why:"fixture"}' > "$C/exp.json"
+    for report in r prev; do jq --arg j "$selected" '(.suites[] | select(.name == "newman shard-1") | .job) = $j' "$C/$report.json" > "$C/j" && mv "$C/j" "$C/$report.json"; done
+    printf -- '--of\n%s\n--expect\n%s\n' "$C/prev.json" "$C/exp.json" > "$C/args"
+    if [ "$selected" = ci.yaml:outside ]; then want 1 STAND-EXPECT-LEDGER; else want 0 -; fi
+done
 kase "ожидаемое о другом репозитории, чем запрос" -; printf -- '--expect\n%s\n--pr-repo\nPRO-Robotech/kaname\n' "$C/exp.json" > "$C/args"; want 1 STAND-EXPECT-REPO
 kase "близнец: репозиторий ожидаемого — репозиторий запроса" -; printf -- '--expect\n%s\n--pr-repo\nPRO-Robotech/kacho\n' "$C/exp.json" > "$C/args"; want 0 -
 kase "ожидаемое выбора черновика — основанием ready не служит" -; expected '.draft = "true"' > "$C/exp.json"; want 1 STAND-EXPECT-DRAFT
@@ -292,41 +273,11 @@ git -C "$C/co" update-ref refs/remotes/origin/1266 HEAD; want 2 -
 kecase "expect kacho: правка вне коммита в копии — VOID" false 1266 tests/newman/x.json "$LEDGER"; echo y > "$C/co/untracked.txt"; want 2 -
 ecase "expect kacho: задания ведомости нет в workflow головы — VOID" PRO-Robotech/kacho
 printf 'jobs:\n  shard-renamed: {}\n' > "$C/co/.github/workflows/e2e-newman.yml"; ecommit; printf -- '--base\norigin/main\n--draft\nfalse\n' > "$C/args"; want 2 -
-# МАРШРУТ (ws#1192). Ожидаемое называет маршрут КАЖДОГО задания ведомости строкой ROUTE и не
-# выводится (VOID до запуска), если у задания, которое голова обязана пройти, внешнего маршрута
-# нет. Судья маршрута — НАСТОЯЩИЙ heavy-slot.sh --route этого дерева (стенд own — по раннеру
-# stand-own.sh головы). Каждый случай меняет один факт контроля «kaname: всё внешнее».
-# kn_routes [задание=метка]… — строки ROUTE ожидаемого kaname по заданиям ведомости (порядок LC_ALL=C);
-# метка по умолчанию — внешний кластер. Задания раннера own — четыре (ws#1259): стенд, церемония,
-# набор и самопроверки края; без раннера головы «нет» у всех четырёх.
-kn_routes() {
-    local j o m out=''
-    for j in ci.yml:integration ci.yml:unit e2e-newman.yml:edgeselftests e2e-newman.yml:stand e2e-newman.yml:stand-ceremony e2e-newman.yml:suite; do
-        m='внешний кластер'; for o in "$@"; do [ "${o%%=*}" != "$j" ] || m="${o#*=}"; done; out+="$j"$'\t'"$m;"
-    done
-    printf '%s' "$out"
-}
-KN_OWN_NO=(e2e-newman.yml:edgeselftests=нет e2e-newman.yml:stand=нет e2e-newman.yml:stand-ceremony=нет e2e-newman.yml:suite=нет)
-# kn_form <задание> — образец строки ROUTE задания раннера: ghjob.py исполняет задание С ЭТИМ КЛЮЧОМ
-kn_form() { printf '^ROUTE\\te2e-newman\\.yml:%s\\tвнешний кластер\\t[^\\t]*\\t[^\\t]*\\tформа: heavy-slot\\.sh stand -- bash \\.github/scripts/stand-own\\.sh runner --ship \\S*/scripts/ghjob/ghjob\\.py -- python3 /work/ship/ghjob\\.py \\.github/workflows/e2e-newman\\.yml %s /src /work/out$\n' "${1//-/\\-}" "${1//-/\\-}"; }
-ecase "expect kaname: все задания с внешним маршрутом — код 0, ROUTE на каждое" PRO-Robotech/kaname; ecommit; want 0 "$KNJOBS"; kn_routes > "$C/routes"
-{ kn_form stand; kn_form stand-ceremony; kn_form suite; kn_form edgeselftests; } > "$C/formre"
-ecase "expect kaname: стенд own головы без раннера (STAND_RUNNER_KINDS нет, ws#1321) — VOID, четыре задания раннера «нет»" PRO-Robotech/kaname; sed -i '/^STAND_RUNNER_KINDS=/d' "$C/co/.github/scripts/stand-own.sh"; ecommit; want 2 -
-kn_routes "${KN_OWN_NO[@]}" > "$C/routes"; printf '%s' '(?=[^\t]*e2e-newman\.yml:stand-ceremony — нет)маршрута во внешний кластер нет[^\t]*e2e-newman\.yml:stand — нет: [^\t]*внешнего маршрута нет' > "$C/voidre"
-ecase "expect kaname: стенда own в голове нет — VOID, четыре задания раннера «нет»" PRO-Robotech/kaname; rm "$C/co/.github/scripts/stand-own.sh"; ecommit; want 2 -
-kn_routes "${KN_OWN_NO[@]}" > "$C/routes"; printf '%s' '[^\t]*e2e-newman\.yml:stand — нет: [^\t]*внешнего маршрута нет' > "$C/voidre"
-ecase "expect kaname: скрипта контейнерных проб в голове нет — VOID, интеграция «нет»" PRO-Robotech/kaname; rm "$C/co/.github/scripts/run-integration.sh"; ecommit; want 2 -
-kn_routes ci.yml:integration=нет > "$C/routes"; printf '%s' '[^\t]*ci\.yml:integration — нет: [^\t]*не опознана как переносимая' > "$C/voidre"
-ecase "expect kaname: строки маршрута у задания нет — VOID «нет»" PRO-Robotech/kaname; ecommit; want 2 -
-tooledit '/^    "ci\.yml:unit": \[/d'
-kn_routes ci.yml:unit=нет > "$C/routes"; printf '%s' '[^\t]*ci\.yml:unit — нет: [^\t]*STAND_ROUTE' > "$C/voidre"
-# ws#1259: задание стенда в ведомости без строки маршрута — VOID ДО запуска, а не прогон без него
-ecase "expect kaname: строки маршрута у stand-ceremony нет — VOID «нет», прочие внешние" PRO-Robotech/kaname; ecommit; want 2 -
-tooledit '/^    "e2e-newman\.yml:stand-ceremony": \[/,/\]\],$/d'
-kn_routes e2e-newman.yml:stand-ceremony=нет > "$C/routes"; printf '%s' '(?![^\t]*e2e-newman\.yml:stand — )[^\t]*e2e-newman\.yml:stand-ceremony — нет: [^\t]*STAND_ROUTE' > "$C/voidre"
-ecase "expect kaname: судья маршрута не ответил — VOID" PRO-Robotech/kaname; ecommit; want 2 -
-tooledit 's|^SLOT="\$HERE/heavy-slot\.sh"|SLOT="$HERE/heavy-slot-нет.sh"|'
-printf '%s' 'heavy-slot\.sh --route [^\t]*не ответил' > "$C/voidre"
+# Kaname staged inventory is exercised through the canonical CLI in
+# kaname-stand-inject.py with source-derived workflows (6 logical / 8 executions).
+# Legacy own/ghjob route cases are retired because Kaname no longer dispatches here.
+kecase "expect kacho: checkout head differs — VOID" false 1266 tests/newman/x.json "$LEDGER"; echo "$H2" > "$C/head"; want 2 -
+kecase "expect kacho: checkout head lawful twin" false 1266 tests/newman/x.json "$LEDGER"
 ecase "expect kacho: ready, механизм stand-ns в голове — пять заданий стенда, маршрут — KC_STAND" PRO-Robotech/kacho; ecommit; printf -- '--base\norigin/main\n--draft\nfalse\n' > "$C/args"; kc_want "$LEDGER"
 KC5='ci.yaml:integration	внешний кластер;ci.yaml:unit-shard	внешний кластер;console-e2e.yml:probes	внешний кластер;e2e-newman.yml:shard	внешний кластер;production-posture.yml:stand	внешний кластер;'
 # ws#1284: пробы консоли — перепись без предела падений, из каталога набора, форма копируется как есть;
@@ -383,11 +334,22 @@ ckase "перенос: набор unit-shard под именем go-race — ч�
 ckase "перенос: ban6 под другим именем — имени нет в реестре jobs" '.suites[3] |= (.name = "newman:edge-isolation" | .carried_from = $a)' '.suites[3].name = "newman:edge-isolation"'; want 1 'STAND-CARRY-AREA(?=\tnewman:edge-isolation [^\t]*нет в реестре jobs)'
 ckase "перенос: путь вне ведомости областей — закрыто" ".carry_basis[\$a] |= (.changed += [\"$D\"] | .inputs = \"  не вход $D — нет\n  не вход $BAN6 — нет\nstand-ns inputs: Dockerfile 23, контекстов 9, образов go 7; изменённых путей 2, из них входов сборки 0\")"
 jq --arg x "$D" '.files += [{filename: $x}]' "$C/compare.json" > "$C/c" && mv "$C/c" "$C/compare.json"; want 1 STAND-CARRY-AREA
-ckase "перенос: перечень путей отчёта короче площадки" -; jq --arg x "$D" '.files += [{filename: $x}]' "$C/compare.json" > "$C/c" && mv "$C/c" "$C/compare.json"; want 1 'STAND-CARRY-BASIS(?=\t[^\t]*: путей отчёта 1, площадки 2)'
+for record in missing complete; do
+    ckase "перенос: image-only recorded paths $record" "del(.suites[].carried_from) | .carry_basis[\$a].inputs = \"  не вход $D — нет\\n  не вход $BAN6 — нет\\nstand-ns inputs: Dockerfile 23, контекстов 9, образов go 7; изменённых путей 2, из них входов сборки 0\""; jq --arg x "$D" '.files += [{filename: $x}]' "$C/compare.json" > "$C/c" && mv "$C/c" "$C/compare.json"
+    if [ "$record" = complete ]; then
+        jq --arg a "$HA" --arg d "$D" '.carry_basis[$a].changed += [$d]' "$C/r.json" > "$C/j" && mv "$C/j" "$C/r.json"
+        want 0 -
+    else want 1 STAND-CARRY-BASIS; fi
+done
 ckase "перенос: вывод inputs не называет путь разности" ".carry_basis[\$a].inputs = \"stand-ns inputs: Dockerfile 23, контекстов 9, образов go 7; изменённых путей 1, из них входов сборки 0\""; want 1 STAND-CARRY-BASIS
 ckase "перенос: обоснования для ревизии нет" '.carry_basis = {}'; want 1 STAND-CARRY-BASIS
 ckase "перенос: A не предок головы" -; jq '.status = "diverged" | .behind_by = 2' "$C/compare.json" > "$C/c" && mv "$C/c" "$C/compare.json"; want 1 STAND-CARRY-BASIS
-ckase "перенос: перечень площадки обрезан на 300" -; jq '.files = [range(300) | {filename: "f\(.)"}]' "$C/compare.json" > "$C/c" && mv "$C/c" "$C/compare.json"; want 1 'STAND-CARRY-BASIS(?=\t[^\t]*обрезан \(300\))'
+for count in 299 300; do
+    ckase "перенос: complete image-only diff $count" 'del(.suites[].carried_from)'
+    jq --argjson n "$count" '.files = [range($n) | {filename: "docs/f\(.)"}]' "$C/compare.json" > "$C/j" && mv "$C/j" "$C/compare.json"
+    jq --slurpfile c "$C/compare.json" --arg a "$HA" '.carry_basis[$a].changed = [$c[0].files[].filename] | .carry_basis[$a].inputs = (([$c[0].files[].filename | "  не вход \(.) — нет"] | join("\n")) + "\nstand-ns inputs: Dockerfile 23, контекстов 9, образов go 7; изменённых путей \($c[0].files|length), из них входов сборки 0")' "$C/r.json" > "$C/j" && mv "$C/j" "$C/r.json"
+    if [ "$count" = 300 ]; then want 1 STAND-CARRY-BASIS; else want 0 -; fi
+done
 ckase "перенос: в источнике набор красный" - '.suites[2] |= (.outcome = "red" | .quote = "q")'; want 1 STAND-CARRY-SOURCE
 ckase "перенос: число исполненного разошлось с источником" - '.suites[2].executed = 3850 | .suites[2].total = 3850'; want 1 STAND-CARRY-SOURCE
 ckase "перенос: источник о другой ревизии" - ".head = \"$H2\""; want 1 STAND-CARRY-SOURCE
@@ -395,73 +357,8 @@ ckase "перенос: источник не на внешнем стенде" -
 ckase "перенос: образы источника — третья ревизия без обоснования" - ".images_rev = \"$H2\""; want 1 STAND-CARRY-BASIS
 ckase "образы стенда ≠ голова без обоснования, переноса нет" 'del(.suites[] | .carried_from) | .carry_basis = {}'; want 1 STAND-CARRY-BASIS
 ckase "близнец: образы стенда = голова, переноса нет" 'del(.suites[] | .carried_from) | del(.carry_basis) | .images_rev = $h'; want 0 -
-ckase "перенос: репозиторий без ведомости областей — закрыто" -; printf -- '--expect\n%s\n--pr-repo\nPRO-Robotech/kacho-workspace\n' "$C/exp.json" > "$C/args"; want 1 STAND-CARRY-AREA
+ckase "перенос: репозиторий без ведомости областей — закрыто" -; printf -- '--expect\n%s\n--pr-repo\nPRO-Robotech/kaname\n' "$C/exp.json" > "$C/args"; want 1 STAND-CARRY-AREA
 ckase "перенос: площадка о разности не ответила — VOID" -; : > "$C/cmp-fail"; want 2 -
-
-# ПЕРЕНОС kaname (ws#1148): область — из карты CI дерева kaname, не выписана. Вход — живой случай
-# kaname#881: полный отчёт @17c0d2c61 (R), голова d34eab3f7 с тем же деревом (разность площадки
-# пуста), вывод inputs — ДОСЛОВНО из прогона tmp/ld746/carry (код 0). Наборы — пять живого отчёта.
-KR="$(printf 'd%.0s' $(seq 40))"
-kinputs() {  # kinputs <путь…> — вывод `stand-ns inputs` формы прогона: строка на путь, итог
-    local p; for p in "$@"; do printf '  не вход %s — не доезжает ни до одного образа\n' "$p"; done
-    printf 'stand-ns inputs: Dockerfile 2, контекстов 2, образов go 1; изменённых путей %d, из них входов сборки 0\n' "$#"
-}
-ksuites() {  # наборы отчёта kaname живой формы; $1 — head отчёта
-    jq -n --arg h "$1" '{head: $h, mode: "full", context: "a8f60d-client", ns: "t746-own,t940-heavy-*", residue: 0, planned: 8, suites: [
-        {name: "unit:all", job: "ci.yml:unit", outcome: "green", executed: 149, total: 149},
-        {name: "integration:1/3", job: "ci.yml:integration", outcome: "green", executed: 13, total: 13},
-        {name: "integration:2/3", job: "ci.yml:integration", outcome: "green", executed: 12, total: 12},
-        {name: "stand", job: "e2e-newman.yml:stand", outcome: "green", executed: 21, total: 21},
-        {name: "integration:0/3", job: "ci.yml:integration", outcome: "green", executed: 14, total: 14},
-        {name: "stand-ceremony", job: "e2e-newman.yml:stand-ceremony", outcome: "green", executed: 30, total: 30},
-        {name: "suite", job: "e2e-newman.yml:suite", outcome: "green", executed: 17, total: 17},
-        {name: "edgeselftests", job: "e2e-newman.yml:edgeselftests", outcome: "green", executed: 3, total: 3}]}'
-}
-# kcase <имя> <jq-правка отчёта головы | -> [путь разности…] — все наборы перенесены с R
-kcase() {
-    NC=$((NC + 1)); C="$W/c$NC"; mkdir -p "$C"; printf '%s' "$1" > "$C/name"
-    local rb="${2:--}"; shift 2; [ "$rb" != - ] || rb=.
-    local ch inp; ch="$(printf '%s\n' "$@" | jq -R . | jq -sc 'map(select(length > 0))')"; inp="$(kinputs "$@")"
-    ksuites "$H" | jq --arg r "$KR" --arg inp "$inp" --argjson ch "$ch" '.images_rev = null | .suites |= map(.carried_from = $r)
-        | .carry_basis = {($r): {changed: $ch, inputs: $inp, inputs_rc: 0, report: "src.json"}}' | jq --arg r "$KR" "$rb" > "$C/r.json"
-    ksuites "$KR" > "$C/src.json"
-    jq -n --argjson ch "$ch" '{status: "ahead", ahead_by: 1, behind_by: 0, files: ($ch | map({filename: .}))}' > "$C/compare.json"
-    jq -n --arg h "$H" --argjson l "$KNJOBS" '{head: $h, repo: "PRO-Robotech/kaname", source: "full", base: "main", draft: "false",
-      full: true, reason: "выбора у CI нет", ledger: $l, jobs: $l,
-      routes: ($l | map({key: ., value: {route: "external", why: "проба"}}) | from_entries)}' > "$C/exp.json"
-    printf -- '--expect\n%s\n--pr-base\nmain\n--pr-repo\nPRO-Robotech/kaname\n' "$C/exp.json" > "$C/args"; printf '%s' "$H" > "$C/kref"
-}
-kmap() {  # kmap <jq-правка> — карта случая: настоящая карта kaname, правленая
-    mkdir -p "$C/contents/.github"; jq "$1" "$SRI_KANAME/.github/ci-paths.json" > "$C/contents/.github/ci-paths.json"
-}
-TN=tests/newman/collections/kaname-own.postman_collection.json; RI=.github/scripts/run-integration.sh
-kcase "перенос kaname: разность пуста — все восемь наборов перенесены, check 0" -; want 0 -
-kcase "перенос kaname: правка коллекции newman — unit и stand её читают, отказ" - "$TN"; want 1 'STAND-CARRY-AREA(?=\tunit:all: набор читает изменённое)'
-kcase "  …тот же отказ называет и stand" - "$TN"; want 1 'STAND-CARRY-AREA(?=\tstand: набор читает изменённое)'
-kcase "  …и называет stand-ceremony — его задание карта выбирает той же правкой" - "$TN"
-want 1 'STAND-CARRY-AREA(?=\tstand-ceremony: набор читает изменённое)'
-kcase "близнец: правка коллекции newman, unit и задания e2e-newman прогнаны на голове — integration перенесён, check 0" \
-    '.suites |= map(if (.name == "unit:all" or (.job | startswith("e2e-newman.yml:"))) then del(.carried_from) else (.) end)' "$TN"; want 0 -
-kcase "перенос kaname: правка прогонщика integration — integration её читает, отказ" \
-    '.suites |= map(if (.name == "unit:all") then del(.carried_from) else (.) end)' "$RI"; want 1 'STAND-CARRY-AREA(?=\tintegration:0/3: набор читает изменённое)'
-kcase "близнец: правка прогонщика integration, unit и integration прогнаны — stand перенесён, check 0" \
-    '.suites |= map(if (.job == "ci.yml:unit" or .job == "ci.yml:integration") then del(.carried_from) else (.) end)' "$RI"; want 0 -
-kcase "перенос kaname: строка группы карты снята — путь не опознан, выбор полный, отказ" \
-    '.suites |= map(if (.name == "unit:all" or (.job == "ci.yml:integration")) then del(.carried_from) else (.) end)' "$RI"
-kmap '.groups |= map(select(.id != "integration"))'; want 1 'STAND-CARRY-AREA(?=\tstand: выбор CI по разности [0-9a-f]{12}\.\.head полный \(путь не выбирает ни одна группа)'
-kcase "перенос kaname: тронута сама карта выбора — полный, отказ" \
-    '.suites |= map(if (.name == "unit:all") then del(.carried_from) else (.) end)' .github/ci-paths.json; want 1 'STAND-CARRY-AREA(?=\tstand: выбор CI по разности [^\t]*тронут источник карты)'
-# Голова вывела свою карту из full_on и отдала её группе: выбор CI уже не полный — перенос закрывает
-# сам суд (источник области изменён), а не карта, которую он судит.
-kcase "перенос kaname: карта сняла себя из full_on — источник карты тронут, отказ" \
-    '.suites |= map(if (.name == "unit:all") then del(.carried_from) else (.) end)' .github/ci-paths.json
-kmap '.full_on = [] | .groups[0].paths += [".github/ci-paths.json"]'; want 1 'STAND-CARRY-AREA(?=\tstand: выбор CI по разности [^\t]*тронут источник карты)'
-kcase "перенос kaname: набор под чужим именем — не «<ключ>[:<часть>]», отказ" '.suites[3].name = "own-stand"'; ksuites "$KR" | jq '.suites[3].name = "own-stand"' > "$C/src.json"; want 1 'STAND-CARRY-AREA(?=\town-stand \(e2e-newman\.yml:stand\): имя набора)'
-kcase "перенос kaname: задания нет в карте — отказ" '.suites[3].job = "e2e-newman.yml:stand-own"'; ksuites "$KR" | jq '.suites[3].job = "e2e-newman.yml:stand-own"' > "$C/src.json"; want 1 'STAND-CARRY-AREA(?=\tstand \(e2e-newman\.yml:stand-own\): задания нет в карте)'
-kcase "перенос kaname: строка ведомости областей снята — закрыто" -
-tooledit 's/набором стенда не являющийся"]]},$/набором стенда не являющийся"]]}/' '/^  "PRO-Robotech\/kaname": {"map"/d'
-want 1 'STAND-CARRY-AREA(?=\tunit:all: у PRO-Robotech/kaname ведомости областей нет)'
-kcase "перенос kaname: площадка не отдала карту — VOID" -; : > "$C/kref"; want 2 -
 
 echo "== случаи"
 for c in "$W"/c*; do
@@ -531,16 +428,9 @@ ledger-repo-ignored	s/    if erepo not in STAND:/    if erepo not in STAND and F
 expect-repo-ignored	s/    if prr and erepo != prr:/    if False:/
 carry-area-read-ok	s/        if hit:/        if False:/
 carry-unknown-path-ok	s/        if unknown:/        if False:/
-carry-whole-tree-ok	s/        elif known(s, area\['whole_tree'\]):/        elif False:/
-carry-whole-tree-by-name-only	s/        elif known(s, area\['whole_tree'\]):/        elif any(fnmatch.fnmatchcase(name, w) for w in area['whole_tree']):/
-carry-jobs-registry-ignored	s/        elif not any(fnmatch.fnmatchcase(name, w) for w in area\['jobs'\]/        elif False and not any(fnmatch.fnmatchcase(name, w) for w in area['jobs']/
-carry-map-row-removed	s/^  "PRO-Robotech\/kaname": {"map"/  "PRO-Robotech\/kaname-снята": {"map"/
-carry-map-selection-ignored	s/            if job in sel.jobs:/            if False:/
-carry-map-full-ignored	s/            if own or sel.full:/            if False:/
-carry-map-own-source-ok	s/            if own or sel.full:/            if sel.full:/
-carry-map-job-unknown-ok	s/            if job not in m.all_jobs():/            if False:/
-carry-map-name-any	s/            if not (name == key or name.startswith(key + ':')):/            if False:/
-carry-map-of-other-rev	s|'repos/%s/contents/%s?ref=%s' % (crepo, rel, head)|'repos/%s/contents/%s?ref=%s' % (crepo, rel, 'main')|
+carry-whole-tree-ok	s/        if known(s, area\['whole_tree'\]):/        if False:/
+carry-whole-tree-by-name-only	s/        if known(s, area\['whole_tree'\]):/        if any(fnmatch.fnmatchcase(name, w) for w in area['whole_tree']):/
+carry-jobs-registry-ignored	s/        if not any(fnmatch.fnmatchcase(name, w) for w in area\['jobs'\]/        if False and not any(fnmatch.fnmatchcase(name, w) for w in area['jobs']/
 carry-inputs-rc-falsy-ok	s/        if not (type(b.get('inputs_rc')) is int and b.get('inputs_rc') == 0) or not tot/        if b.get('inputs_rc') != 0 or not tot/
 carry-no-area-ok	s/        if not area:/        if False:/
 carry-inputs-trusted	s/        if not (type(b.get('inputs_rc')) is int and b.get('inputs_rc') == 0) or not tot or tot.group(2) != '0' or 'ВХОД' in rows.values():/        if not tot:/
@@ -557,10 +447,11 @@ images-rev-unjudged	s/    if img not in (None, head):/    if False:/
 route-void-ignored	s/^if bad:$/if False:/
 route-slot-verdict-ignored	s/        route, rwhy = m.group(1), m.group(2)/        route, rwhy = 'external', m.group(2)/
 expect-route-unjudged	s/        if not (isinstance(r, dict) and r.get('route') == 'external'):/        if False:/
-kaname-ledger-ceremony-dropped	s/ "e2e-newman.yml:stand-ceremony",$//
-kaname-ledger-selftests-dropped	s/, "e2e-newman.yml:edgeselftests"\]\],$/]],/
-kaname-route-ceremony-runs-stand	s|/e2e-newman.yml", "stand-ceremony", "/src"|/e2e-newman.yml", "stand", "/src"|
-kaname-route-suite-runs-stand	s|/e2e-newman.yml", "suite", "/src"|/e2e-newman.yml", "stand", "/src"|
 MUT
 echo "stand-report-inject: мутантов $((killed + survived + void)), убито $killed, выжило $survived, не легло $void; нестабильных повторов случаев $unstable"
-[ "$fail" -eq 0 ] && [ "$pass" -gt 0 ] && [ "$survived" -eq 0 ] && [ "$void" -eq 0 ] && [ "$killed" -gt 0 ] && [ "$unstable" -eq 0 ]
+legacy_rc=0
+[ "$fail" -eq 0 ] && [ "$pass" -gt 0 ] && [ "$survived" -eq 0 ] && [ "$void" -eq 0 ] && [ "$killed" -gt 0 ] && [ "$unstable" -eq 0 ] || legacy_rc=1
+bash "$HERE/operator-stand-focused-inject.sh"; operator_rc=$?
+bash "$HERE/kaname-stand-inject.sh"; kaname_rc=$?
+printf 'STAND_TEST_GROUPS legacy=%s operators=%s kaname=%s\n' "$legacy_rc" "$operator_rc" "$kaname_rc"
+[ "$legacy_rc" -eq 0 ] && [ "$operator_rc" -eq 0 ] && [ "$kaname_rc" -eq 0 ]

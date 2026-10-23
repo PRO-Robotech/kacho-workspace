@@ -24,8 +24,7 @@
 # `.github/scripts/affected.py` КОПИИ ГОЛОВЫ (второй реализации выбора нет): запрос
 # не черновик (`--draft false`) либо база из `full_bases` — полный прогон, все задания;
 # черновик в ветку эпика — целевой по путям `<base>...HEAD` (условие задания CI —
-# `full == 'true' || contains(jobs, <ключ>)`). kaname: все задания стенда всегда (выбор его CI, kaname#707,
-# сужает лишь черновик в ветку эпика, а ведомость — нет: строже, не уже); kacho-workspace:
+# `full == 'true' || contains(jobs, <ключ>)`). kaname: CI без выбора — все задания стенда; kacho-workspace:
 # заданий на кластере у CI нет — ВЫВЕДЕННЫЙ ноль. Копия не на голове, репозиторий вне
 # ведомости, задание ведомости не найдено в файле workflow головы (ведомость отстала
 # от CI), выбор не выполнился, нет --base либо --draft — VOID, не ноль. Полный прогон
@@ -69,12 +68,6 @@
 # `gh api …/compare/R...head`, R — предок головы) и ни один путь разности не в его
 # ОБЛАСТИ: ведомость AREA ниже, закрытая — путь вне неё закрывает перенос всем, набор
 # whole_tree не переносится никогда; источник — зелёный тот же набор отчёта R, внешний.
-# Запись map (kaname, ws#1148) — область ВЫВОДИТСЯ из дерева головы, а не выписывается: карта
-# выбора CI `.github/ci-paths.json` и функция `select` его детектора `.github/scripts/affected.py`
-# (оба — `gh api …/contents/<путь>?ref=<голова>`; второй реализации выбора нет). Набор
-# переносим, лишь если `select` разности R..head его задание не выбирает: задание вне карты, имя
-# набора не «<ключ задания>[:<часть>]», полный выбор (путь не опознан ни одной группой, тронут
-# full_on, тронут сам источник карты) — закрыто; пустая разность не выбирает ничего.
 # Набор, чей путь изменился, — not-run, пока не прогнан (STAND-REPORT-NOT-RUN). ГРАНИЦА:
 # разбиение путей на входы читается из вывода inputs, не пересчитывается (копии нет).
 #
@@ -125,16 +118,41 @@ command -v python3 > /dev/null 2>&1 || void "нет python3"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Судья маршрута — слот ЭТОГО каталога (правленая копия инструмента в пробах лежит рядом с ним).
 SLOT="$HERE/heavy-slot.sh"
+# Operators use a closed two-executor inventory. Dispatch only those repositories;
+# the original parser, exit classes and local-proof boundary below stay unchanged.
+python3 - "$HERE/operator-stand.py" "$@" <<'OPERATOR_DISPATCH'
+import json, os, re, subprocess, sys
+helper, args = sys.argv[1], sys.argv[2:]
+def value(flag):
+    return args[args.index(flag) + 1] if flag in args and args.index(flag) + 1 < len(args) else ''
+repo = ''
+try:
+    if args and args[0] == 'expect':
+        result = subprocess.run(['git', '-C', value('--checkout'), 'remote', 'get-url', 'origin'],
+                                capture_output=True, text=True)
+        match = re.search(r'github\.com[:/]([^/]+/[^/]+?)(?:\.git)?\s*$', result.stdout)
+        repo = match.group(1) if match else ''
+    elif value('--expect'):
+        repo = json.load(open(value('--expect')))['repo']
+except (OSError, ValueError, KeyError):
+    pass
+if repo in ('PRO-Robotech/kaname-iam-operator', 'PRO-Robotech/registry-operator', 'PRO-Robotech/vault-operator'):
+    os.execv(sys.executable, [sys.executable, helper] + (args if args[0] in ('expect', 'check') else ['check'] + args))
+if repo == 'PRO-Robotech/kaname':
+    kaname = os.path.join(os.path.dirname(helper), 'kaname-stand.py')
+    os.execv(sys.executable, [sys.executable, kaname] + (args if args[0] in ('expect', 'check') else ['check'] + args))
+sys.exit(77)
+OPERATOR_DISPATCH
+operator_rc=$?
+[ "$operator_rc" = 77 ] || exit "$operator_rc"
 # Ведомость заданий CI, которые прогон на кластере воспроизводит, по репозиторию — ОДНА
 # для expect и check: source affected — выбор затронутого репозитория ∩ jobs; full — CI
 # без выбора, все jobs; none — у CI заданий на кластере нет (выведенный ноль). Задание —
-# «<workflow>:<ключ>». kaname (ws#1259): все задания проб e2e-newman.yml, у которых есть
-# внешний маршрут; `chart-own` (kind ранера) — вне ведомости до маршрута ws#1341.
+# «<workflow>:<ключ>».
 export STAND_JSON='{
   "PRO-Robotech/kacho": ["affected", ["ci.yaml:unit-shard", "ci.yaml:integration", "e2e-newman.yml:shard",
                                        "console-e2e.yml:probes", "production-posture.yml:stand"]],
-  "PRO-Robotech/kaname": ["full", ["ci.yml:unit", "ci.yml:integration", "e2e-newman.yml:stand", "e2e-newman.yml:stand-ceremony",
-                                   "e2e-newman.yml:suite", "e2e-newman.yml:edgeselftests"]],
+  "PRO-Robotech/kaname": ["full", ["ci.yml:unit", "ci.yml:integration", "e2e-newman.yml:stand"]],
   "PRO-Robotech/kacho-workspace": ["none", []]
 }'
 # Ведомость ОБЛАСТЕЙ переноса (ws#1148): запись paths — [пути (** — любые каталоги, * —
@@ -151,16 +169,14 @@ export STAND_AREA_JSON='{
                                       "newman:geo", "newman:api-gateway", "newman:ban6-external-isolation"]},
     "paths": [
     [["deploy/scripts/assert-ban6-external-isolation.py"], ["newman:ban6-external-isolation", "unit:*", "ci.yaml:unit-shard"],
-     "проба ban6 — шаг «гейт — ban» e2e-newman.yml:shard; её --self-test гонит ci.yaml:helm, набором стенда не являющийся"]]},
-  "PRO-Robotech/kaname": {"map": [".github/ci-paths.json", ".github/scripts/affected.py"]}
+     "проба ban6 — шаг «гейт — ban» e2e-newman.yml:shard; её --self-test гонит ci.yaml:helm, набором стенда не являющийся"]]}
 }'
 # Ведомость МАРШРУТОВ (ws#1192): задание → [класс слота, argv формы]; маршрут — суждение
 # heavy-slot.sh --route о форме в копии головы. Форма — шаг CI задания (kaname: integrationshard
 # зовёт run-integration.sh; unit — go test -race -short); стенд kacho — pod раннера ns стенда
 # (stand-ns-run RUNNER=<вид>, ws#1303), стенд own kaname — задание шагами ghjob в pod раннера
-# stand-own.sh (ws#1321, kaname#940; ns — t<задача ветки>-kaname-own); `suite` и `edgeselftests`
-# стенда не поднимают, но идут тем же pod: python3, pyyaml, node и go несёт он, а не Job слота
-# (ws#1259). Опрос `stand-own.sh census` снят: он судил выбор пути механизмом, а задание шло машиной (сборка и newman процессом машины).
+# stand-own.sh (ws#1321, kaname#940; ns — t<задача ветки>-kaname-own). Опрос `stand-own.sh census`
+# снят: он судил выбор пути механизмом, а задание шло машиной (сборка и newman процессом машины).
 # Пробы консоли — ПЕРЕПИСЬ всего набора: `--max-failures=0` снимает `maxFailures: 5` конфига, предел
 # времени шага CI, а не вердикта (ws#1284: прогон kacho#3305 исполнил 179 из 320 и встал на пяти
 # падениях); перепись — без остановки на красном (CLAUDE.md «Перепись — потом массово»). Форма
@@ -177,13 +193,7 @@ export STAND_ROUTE_JSON='{
     "ci.yml:unit": ["go-race", ["go", "test", "./...", "-race", "-short", "-count=1", "-timeout", "25m"]],
     "ci.yml:integration": ["integration", ["env", "INTEGRATION_SHARD=<k>/3", ".github/scripts/run-integration.sh"]],
     "e2e-newman.yml:stand": ["stand", ["bash", ".github/scripts/stand-own.sh", "runner", "--ship", "<ws>/scripts/ghjob/ghjob.py", "--",
-                             "python3", "/work/ship/ghjob.py", ".github/workflows/e2e-newman.yml", "stand", "/src", "/work/out"]],
-    "e2e-newman.yml:stand-ceremony": ["stand", ["bash", ".github/scripts/stand-own.sh", "runner", "--ship", "<ws>/scripts/ghjob/ghjob.py", "--",
-                             "python3", "/work/ship/ghjob.py", ".github/workflows/e2e-newman.yml", "stand-ceremony", "/src", "/work/out"]],
-    "e2e-newman.yml:suite": ["stand", ["bash", ".github/scripts/stand-own.sh", "runner", "--ship", "<ws>/scripts/ghjob/ghjob.py", "--",
-                             "python3", "/work/ship/ghjob.py", ".github/workflows/e2e-newman.yml", "suite", "/src", "/work/out"]],
-    "e2e-newman.yml:edgeselftests": ["stand", ["bash", ".github/scripts/stand-own.sh", "runner", "--ship", "<ws>/scripts/ghjob/ghjob.py", "--",
-                             "python3", "/work/ship/ghjob.py", ".github/workflows/e2e-newman.yml", "edgeselftests", "/src", "/work/out"]]
+                             "python3", "/work/ship/ghjob.py", ".github/workflows/e2e-newman.yml", "stand", "/src", "/work/out"]]
   }
 }'
 if [ "${1:-}" = expect ]; then
@@ -312,7 +322,7 @@ done
 [ -n "$OF" ] || [ -n "$EXP" ] || void "полный прогон судится лишь против --expect (stand-report.sh expect): отчёт свою полноту не объявляет"
 
 REP="$REP" HEAD="$HEAD" OF="$OF" EXP="$EXP" PRBASE="$PRBASE" PRREPO="$PRREPO" GH="${STAND_REPORT_GH:-gh}" python3 - <<'PY'
-import base64, fnmatch, importlib.util, json, os, pathlib, re, shutil, subprocess, sys, tempfile
+import fnmatch, json, os, re, subprocess, sys
 
 # Ведомость послаблений: причина not-run → задача, которая её снимает. Закрыта — истекло.
 RELAX = {
@@ -463,42 +473,6 @@ def carry(d, suites):
     if img not in (None, head):
         base(img, 'образы стенда %s' % img[:12])
     area = json.loads(os.environ['STAND_AREA_JSON']).get(crepo)
-    cmap = {}
-
-    def ci_map():  # (детектор, карта) головы — из дерева площадки; одна выборка на суд
-        if 'm' in cmap:
-            return cmap['m']
-        tmp = tempfile.mkdtemp(prefix='stand-area.')
-        try:
-            for rel in area['map']:
-                p = subprocess.run([gh, 'api', 'repos/%s/contents/%s?ref=%s' % (crepo, rel, head)], capture_output=True, text=True)
-                if p.returncode != 0:
-                    void('площадка не ответила о %s @%s (карта областей): %s' % (rel, head[:12], p.stderr.strip()[:200]))
-                try:
-                    c = json.loads(p.stdout)
-                    body = base64.b64decode(c['content']) if c.get('encoding') == 'base64' else None
-                except (ValueError, KeyError, TypeError):
-                    body = None
-                if not body:
-                    void('ответ площадки о %s @%s не содержимое файла — карту областей не вывести' % (rel, head[:12]))
-                os.makedirs(os.path.dirname(os.path.join(tmp, rel)), exist_ok=True)
-                open(os.path.join(tmp, rel), 'wb').write(body)
-            spec = importlib.util.spec_from_file_location('stand_area_selector', os.path.join(tmp, area['map'][1]))
-            mod = importlib.util.module_from_spec(spec)
-            sys.modules[spec.name] = mod  # dataclass модуля ищет его в sys.modules
-            sys.dont_write_bytecode = True
-            spec.loader.exec_module(mod)
-            m = mod.load_map(pathlib.Path(tmp, area['map'][0]))
-        except SystemExit:
-            raise
-        except Exception as e:  # noqa: BLE001 — детектор не разобрал карту — «не выполнилось», не «переносимо»
-            void('карта областей %s @%s не разобрана детектором головы: %s: %s' % (crepo, head[:12], type(e).__name__, str(e)[-200:]))
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-        cmap['m'] = (mod, m)
-        census.append('область %s: карта CI головы %s (%s), групп %d, заданий %d' % (crepo, head[:12], area['map'][0], len(m.groups), len(m.all_jobs())))
-        return cmap['m']
-
     moved = 0
     for s in carried:
         name, r = str(s.get('name') or '?'), s.get('carried_from')
@@ -511,47 +485,25 @@ def carry(d, suites):
         if not area:
             reason('STAND-CARRY-AREA', '%s: у %s ведомости областей нет — по умолчанию закрыто' % (name, crepo))
             continue
-        if 'map' in area:
-            mod, m = ci_map()
-            job = str(s.get('job') or '')
-            key = job.split(':', 1)[-1]
-            if job not in m.all_jobs():
-                reason('STAND-CARRY-AREA', '%s (%s): задания нет в карте выбора CI головы — по умолчанию закрыто' % (name, job))
-                continue
-            if not (name == key or name.startswith(key + ':')):
-                reason('STAND-CARRY-AREA', '%s (%s): имя набора не «%s[:<часть>]» задания карты — по умолчанию закрыто' % (name, job, key))
-                continue
-            own = sorted(changed & set(area['map']))
-            sel = mod.select(m, sorted(changed))
-            if own or sel.full:
-                reason('STAND-CARRY-AREA', '%s: выбор CI по разности %s..head полный (%s) — гнать заново, не переносить'
-                       % (name, r[:12], 'тронут источник карты: ' + ', '.join(own) if own else sel.reason))
-                continue
-            if job in sel.jobs:
-                hit = [pth for pth in sorted(changed) if job in mod.select(m, [pth]).jobs]
-                reason('STAND-CARRY-AREA', '%s: набор читает изменённое (%s) — карта CI выбирает %s, гнать заново, не переносить'
-                       % (name, ', '.join(hit[:5]), job))
-                continue
-        elif known(s, area['whole_tree']):
+        if known(s, area['whole_tree']):
             reason('STAND-CARRY-AREA', '%s (%s): набор читает всё дерево — не переносится' % (name, s.get('job')))
             continue
-        elif not any(fnmatch.fnmatchcase(name, w) for w in area['jobs'].get(str(s.get('job') or ''), [])):
+        if not any(fnmatch.fnmatchcase(name, w) for w in area['jobs'].get(str(s.get('job') or ''), [])):
             reason('STAND-CARRY-AREA', '%s (%s): имени и задания нет в реестре jobs ведомости — по умолчанию закрыто' % (name, s.get('job')))
             continue
-        else:
-            hit, unknown = [], []
-            for pth in sorted(changed):
-                ents = [en for en in area['paths'] if any(glob_re(g).match(pth) for g in en[0])]
-                if not ents:
-                    unknown.append(pth)
-                elif any(known(s, en[1]) for en in ents):
-                    hit.append(pth)
-            if hit:
-                reason('STAND-CARRY-AREA', '%s: набор читает изменённое (%s) — гнать заново, не переносить' % (name, ', '.join(hit[:5])))
-            if unknown:
-                reason('STAND-CARRY-AREA', '%s: пути вне ведомости областей (%s) — по умолчанию закрыто' % (name, ', '.join(unknown[:5])))
-            if hit or unknown:
-                continue
+        hit, unknown = [], []
+        for pth in sorted(changed):
+            ents = [en for en in area['paths'] if any(glob_re(g).match(pth) for g in en[0])]
+            if not ents:
+                unknown.append(pth)
+            elif any(known(s, en[1]) for en in ents):
+                hit.append(pth)
+        if hit:
+            reason('STAND-CARRY-AREA', '%s: набор читает изменённое (%s) — гнать заново, не переносить' % (name, ', '.join(hit[:5])))
+        if unknown:
+            reason('STAND-CARRY-AREA', '%s: пути вне ведомости областей (%s) — по умолчанию закрыто' % (name, ', '.join(unknown[:5])))
+        if hit or unknown:
+            continue
         sp = str(basis[r].get('report') or '')
         src = load(os.path.join(os.path.dirname(os.path.abspath(rep)), sp)) if sp else None
         twin = [x for x in (src or {}).get('suites', []) if x.get('name') == s.get('name') and x.get('job') == s.get('job')]
