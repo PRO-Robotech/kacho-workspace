@@ -473,7 +473,22 @@ def hosted(expected, name):
 
 
 def registry():
-    common = git(str(Path(__file__).parent), 'rev-parse', '--path-format=absolute', '--git-common-dir')
+    # Архив scripts не является checkout. Канонический launcher передаёт его
+    # исходный workspace; это привязка репозитория, не произвольный путь реестра.
+    explicit = 'LANDING_PRECHECK_WS' in os.environ
+    source = os.environ['LANDING_PRECHECK_WS'] if explicit else str(Path(__file__).parent)
+    require(bool(source), 'workspace binding is empty')
+    path = Path(source).resolve()
+    require(path.is_dir(), 'workspace binding is not a directory')
+    root = Path(git(str(path), 'rev-parse', '--show-toplevel')).resolve()
+    require(not explicit or path == root, 'workspace binding is not the repository root')
+    origin = git(str(root), 'remote', 'get-url', 'origin')
+    require(origin in {
+        'git@github.com:PRO-Robotech/kacho-workspace.git',
+        'https://github.com/PRO-Robotech/kacho-workspace.git',
+        'https://github.com/PRO-Robotech/kacho-workspace',
+    }, 'workspace repository differs')
+    common = git(str(root), 'rev-parse', '--path-format=absolute', '--git-common-dir')
     return Path(common).parent / 'tmp/operator-stand-registry'
 
 
