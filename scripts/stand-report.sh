@@ -116,6 +116,19 @@ command -v python3 > /dev/null 2>&1 || void "нет python3"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Судья маршрута — слот ЭТОГО каталога (правленая копия инструмента в пробах лежит рядом с ним).
 SLOT="$HERE/heavy-slot.sh"
+# Судья kaname на машине владельца — Job-ом внешнего кластера (ws#1365, scripts/remote-reader.sh,
+# там же — где маршрута нет): check (и форма без подкоманды), import-candidate, register-import,
+# report — по ожидаемому kaname (--expect). ГРАНИЦА: expect, kacho и операторы идут здесь — их
+# чтений GitHub драйвер не снимает, kacho заморожен до kaname (владелец 2026-10-23).
+if [ -z "${KUBERNETES_SERVICE_HOST:-}" ] && [ "${GITHUB_ACTIONS:-}" != true ] && [ "${KACHO_REMOTE_READER_POD:-}" != 1 ] &&
+   [ "${1:-}" != expect ]; then
+    _sr_exp=""; _sr_prev=""
+    for _sr_a in "$@"; do case "$_sr_prev" in --expect|--expected) _sr_exp="$_sr_a" ;; esac; _sr_prev="$_sr_a"; done
+    if [ -f "$_sr_exp" ] && [ "$(jq -r '.repo? // empty' "$_sr_exp" 2> /dev/null)" = PRO-Robotech/kaname ]; then
+        exec bash "$HERE/remote-reader.sh" scripts/stand-report.sh "$@"
+    fi
+fi
+
 # Operators use a closed two-executor inventory. Dispatch only those repositories;
 # the original parser, exit classes and local-proof boundary below stay unchanged.
 # Ступени судей (ws#1301): kaname — import-candidate, register-import, report; операторы —

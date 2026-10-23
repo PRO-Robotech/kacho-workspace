@@ -273,7 +273,7 @@ class HostedMatrixLegs(unittest.TestCase):
         _, keys = self.legs
         name = 'e2e-newman.yml:chart-own[include=1]'
         definition = gate.job_definition(self.workflow, 'chart-own', matrix=True)
-        exp = {'definitions': {name: {'workflow_job': 'e2e-newman.yml:chart-own', 'definition': definition,
+        exp = {'head': 'a' * 40, 'definitions': {name: {'workflow_job': 'e2e-newman.yml:chart-own', 'definition': definition,
                                       'matrix_leg': {'index': 1, 'total': 2, 'values': keys}}}}
         review = {'role': 'check-verifier', 'verdict': 'accept', 'blocking': [],
                   'expected_digest': gate.common.digest(exp), 'job': name,
