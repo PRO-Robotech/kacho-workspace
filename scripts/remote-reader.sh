@@ -112,6 +112,7 @@ ship_checkout() {  # ship_checkout <копия> — bundle HEAD, веток и o
 }
 
 ORIG=("$@"); EXTRA=()
+has_arg() { local a; for a in "${ORIG[@]}"; do [ "$a" = "$1" ] && return 0; done; return 1; }
 ARGS=(); prev=""
 # Доводы pr-body — имя, ревизии, не файлы: переносится лишь копия его репозитория (ниже).
 [ "$ENTRY" = scripts/pr-body.sh ] && ARGS=("$@") && set --
@@ -124,7 +125,7 @@ for a in "$@"; do
         ref="$(git -C "$a" symbolic-ref -q HEAD 2> /dev/null)" || ref=""
         a="$(ship_checkout "$a")" || die 69 "копия «$prev» не упакована"
         ARGS+=("$a"); prev="$a"
-        printf '%s\n' "${ORIG[@]}" | grep -qx -- --ref || [ -z "$ref" ] || EXTRA=(--ref "$ref")
+        has_arg --ref || [ -z "$ref" ] || EXTRA=(--ref "$ref")
         continue
     fi
     [ -d "$a" ] && die 64 "довод «$a» — каталог: Job-у он не переносится"
@@ -172,7 +173,7 @@ plan_kaname_hosted() {  # ответы GitHub для hosted-ступени kanam
     local exp events repo head branch file event key id attempt
     exp="$(opt --expected || opt --expect)" || return 0
     [ "$(jq -r '.repo // empty' "$exp" 2>/dev/null)" = PRO-Robotech/kaname ] || return 0
-    printf '%s\n' "${ORIG[@]}" | grep -qx -- --external-only && return 0
+    has_arg --external-only && return 0
     case "${ORIG[0]:-}" in
         report) events="$(opt --events)" || return 0; events="$(cat -- "$events")" ;;
         import-candidate|register-import|expect) return 0 ;;
@@ -280,7 +281,8 @@ cat -- "$BOX/err" >&2
 cat -- "$BOX/out"
 if [ -s "$BOX/tar" ]; then
     mkdir -p "$REG"
-    tar -tf "$BOX/tar" | grep -qv '^\(\./\)\?kaname-imports/[0-9a-f]\{64\}\.json$\|^\(\./\)\?kaname-imports/\?$\|^\./$' &&
+    listing="$(tar -tf "$BOX/tar")" || { say "файлы реестра из Job не читаются"; exit 70; }
+    grep -qv '^\(\./\)\?kaname-imports/[0-9a-f]\{64\}\.json$\|^\(\./\)\?kaname-imports/\?$\|^\./$' <<< "$listing" &&
         { say "файлы реестра вне kaname-imports/<64 hex>.json — не приняты; журнал $LOG"; exit 70; }
     mkdir -p "$BOX/reg" && tar -xf "$BOX/tar" -C "$BOX/reg" ||
         { say "файлы реестра из Job не распакованы"; exit 70; }
