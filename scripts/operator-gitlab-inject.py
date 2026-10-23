@@ -55,7 +55,7 @@ class NativeProof(unittest.TestCase):
         class FakeAPI(m.API):
             def __init__(self,forge,req):self.forge=m.descriptor(forge,req);self.require=req
             def pages(self,path):
-                if path.startswith('repository/tree?ref='):return outer.tree_entries
+                if path=='repository/tree?ref='+outer.head+'&recursive=false':return outer.tree_entries
                 if path.startswith('repository/tree?'):return [{'path':p,'type':'blob'} for p in outer.files if p.startswith('ci/gitlab/')]
                 if path.startswith('pipelines?'):return [outer.run]
                 if 'include_retried=true' in path:return outer.all_override if outer.all_override is not None else outer.jobs+outer.old
