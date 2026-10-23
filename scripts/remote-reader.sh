@@ -6,8 +6,8 @@
 # кластера (ws#1365, вариант (б) решения диспетчера; владелец 2026-10-22: машина — не для прогонов).
 #
 # ФОРМА
-#   remote-reader.sh scripts/stand-report.sh <доводы…>   check и ступени import-candidate,
-#                                                          register-import, report
+#   remote-reader.sh scripts/stand-report.sh <доводы…>   судья kaname: expect, check и ступени
+#                                                          import-candidate, register-import, report
 #   remote-reader.sh scripts/pr-body.sh <репо> <база> <голова>   (RITUAL_REPO_DIR — как у pr-body.sh)
 # Зовут его сами входы, руками — незачем. Вход идёт ЗДЕСЬ, а не сюда, лишь там, где машины
 # владельца нет либо маршрут уже пройден: pod внешнего кластера (KUBERNETES_SERVICE_HOST ставит
@@ -22,7 +22,9 @@
 #      коммита — отказ 64: Job исполнил бы не их);
 #   2. входы: каждый довод — существующий файл — копируется в rr/in, довод заменяется путём
 #      от rr; в JSON-входе строка — абсолютный путь к файлу — тоже (пакет импорта, отзывы);
-#      каталог доводом — 64. Реестр tmp/operator-stand-registry машины — в tmp/ копии;
+#      каталог доводом — 64, кроме копии expect (--checkout): она едет bundle HEAD, веток и origin/*
+#      (правка вне коммита — 64), в pod — клон с тем же origin. Реестр tmp/operator-stand-registry
+#      машины — в tmp/ копии;
 #   3. GitHub: ответы снимает здесь `gh` (на машине он разрешён), pod отдаёт их читателю
 #      через STAND_REPORT_GH и RITUAL_GH (scripts/remote-reader/replay-gh.sh). Снимается
 #      надмножество по плану читателя: hosted kaname — workflow, коммит, прогоны, задания,
@@ -39,8 +41,8 @@
 # прочие коды слота (69, 74, 75, 77) — его, «не выполнилось»: строки кода читателя нет.
 # Копия и её каталог снимаются при любом исходе; журнал Job — tmp/remote-reader/<метка>.log
 # основного клона — остаётся лишь на отказе.
-# ГРАНИЦА: expect не идёт (его копия головы ещё не опубликована — доставки каталога нет) —
-# решение диспетчера ws#1365 его не называет; ступени операторов — тоже.
+# ГРАНИЦА: kacho и ступени операторов не идут — решение диспетчера ws#1365 их не называет, а
+# чтений GitHub их судей план драйвера не знает (промахи снимались бы по одному).
 set -uo pipefail
 ROUNDS=3
 say() { printf 'remote-reader: %s\n' "$*" >&2; }
@@ -100,9 +102,30 @@ ship() {  # ship <файл> — то же, и в JSON-входе абсолют�
     printf '%s' "$dst"
 }
 
-ORIG=("$@")
+ship_checkout() {  # ship_checkout <копия> — bundle HEAD, веток и origin/*, адрес origin; печатает метку для pod
+    N=$(( N + 1 ))
+    local dst="in/$N-checkout.bundle"
+    git -C "$1" bundle create "$RR/$dst" HEAD --branches --remotes=origin > /dev/null 2>&1 || return 1
+    git -C "$1" remote get-url origin > "$RR/in/$N-checkout.url" 2> /dev/null || return 1
+    printf '@checkout:%s' "$dst"
+}
+
+ORIG=("$@"); EXTRA=()
 ARGS=(); prev=""
+# Доводы pr-body — имя, ревизии, не файлы: переносится лишь копия его репозитория (ниже).
+[ "$ENTRY" = scripts/pr-body.sh ] && ARGS=("$@") && set --
 for a in "$@"; do
+    if [ "$prev" = --checkout ] && [ -d "$a" ]; then
+        # expect судит голову копии, Job получает её коммитом: правка вне коммита — отказ, а не
+        # тихий суд другого дерева; ветка копии — доводом --ref (в pod копия отсоединена).
+        [ -z "$(git -C "$a" status --porcelain --untracked-files=all 2> /dev/null)" ] ||
+            die 64 "в копии «$a» правки вне коммита — expect судил бы не голову"
+        ref="$(git -C "$a" symbolic-ref -q HEAD 2> /dev/null)" || ref=""
+        a="$(ship_checkout "$a")" || die 69 "копия «$prev» не упакована"
+        ARGS+=("$a"); prev="$a"
+        printf '%s\n' "${ORIG[@]}" | grep -qx -- --ref || [ -z "$ref" ] || EXTRA=(--ref "$ref")
+        continue
+    fi
     [ -d "$a" ] && die 64 "довод «$a» — каталог: Job-у он не переносится"
     if [ -f "$a" ]; then
         # Пути внутри JSON переносятся лишь у пакета импорта и перечня отзывов: ожидаемое и
@@ -112,13 +135,14 @@ for a in "$@"; do
     fi
     ARGS+=("$a"); prev="$a"
 done
+ARGS+=("${EXTRA[@]}")
 [ -d "$REG" ] && { mkdir -p "$WT/tmp/operator-stand-registry" && cp -R -- "$REG/." "$WT/tmp/operator-stand-registry/"; }
 
 declare -A GOT=()
 LAST=""
 gh_fetch() {  # gh_fetch <доводы gh> — ответ и код в rr/gh, строка указателя; повтор не снимается
     local key rc
-    key="$(jq -cn '$ARGS.positional' --args "$@")"
+    key="$(printf '%s\n' "$@" | jq -Rsc 'split("\n")[:-1]')"  # не --args: доводы вида --method он съел бы
     if [ -n "${GOT[$key]:-}" ]; then LAST="${GOT[$key]#* }"; return "${GOT[$key]%% *}"; fi
     LAST="gh/$(( ${#GOT[@]} + 1 ))"
     gh "$@" > "$RR/$LAST" 2> /dev/null; rc=$?
@@ -197,8 +221,8 @@ if [ "$ENTRY" = scripts/pr-body.sh ]; then
         kacho|kaname|corelib) printf 'project/%s\n' "$name" > "$RR/env" ;;
         *) die 64 "копия «$name»: клона его в Job нет (kacho-workspace, kacho, kaname, corelib)" ;;
     esac
-    [ -n "$(git -C "$RRD" branch -r --contains "${3:-}" 2>/dev/null)" ] ||
-        die 64 "голова «${3:-}» не на origin копии $RRD — клон Job её не увидит: отправь ветку и повтори"
+    [ -n "$(git -C "$RRD" branch -r --contains "${ORIG[2]:-}" 2>/dev/null)" ] ||
+        die 64 "голова «${ORIG[2]:-}» не на origin копии $RRD — клон Job её не увидит: отправь ветку и повтори"
 fi
 [ "$ENTRY" = scripts/pr-body.sh ] && plan_pr_body
 [ "$ENTRY" = scripts/stand-report.sh ] && plan_kaname_hosted

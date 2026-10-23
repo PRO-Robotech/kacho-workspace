@@ -117,16 +117,23 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Судья маршрута — слот ЭТОГО каталога (правленая копия инструмента в пробах лежит рядом с ним).
 SLOT="$HERE/heavy-slot.sh"
 # Судья kaname на машине владельца — Job-ом внешнего кластера (ws#1365, scripts/remote-reader.sh,
-# там же — где маршрута нет): check (и форма без подкоманды), import-candidate, register-import,
-# report — по ожидаемому kaname (--expect). ГРАНИЦА: expect, kacho и операторы идут здесь — их
-# чтений GitHub драйвер не снимает, kacho заморожен до kaname (владелец 2026-10-23).
-if [ -z "${KUBERNETES_SERVICE_HOST:-}" ] && [ "${GITHUB_ACTIONS:-}" != true ] && [ "${KACHO_REMOTE_READER_POD:-}" != 1 ] &&
-   [ "${1:-}" != expect ]; then
-    _sr_exp=""; _sr_prev=""
-    for _sr_a in "$@"; do case "$_sr_prev" in --expect|--expected) _sr_exp="$_sr_a" ;; esac; _sr_prev="$_sr_a"; done
-    if [ -f "$_sr_exp" ] && [ "$(jq -r '.repo? // empty' "$_sr_exp" 2> /dev/null)" = PRO-Robotech/kaname ]; then
-        exec bash "$HERE/remote-reader.sh" scripts/stand-report.sh "$@"
+# там же — где маршрута нет): expect по копии kaname (--checkout), check (и форма без подкоманды),
+# import-candidate, register-import, report — по ожидаемому kaname (--expect). ГРАНИЦА: kacho и
+# операторы идут здесь — их чтений GitHub драйвер не снимает, kacho заморожен до kaname
+# (владелец 2026-10-23).
+if [ -z "${KUBERNETES_SERVICE_HOST:-}" ] && [ "${GITHUB_ACTIONS:-}" != true ] && [ "${KACHO_REMOTE_READER_POD:-}" != 1 ]; then
+    _sr_exp=""; _sr_co=""; _sr_prev=""; _sr_repo=""
+    for _sr_a in "$@"; do
+        case "$_sr_prev" in --expect|--expected) _sr_exp="$_sr_a" ;; --checkout) _sr_co="$_sr_a" ;; esac; _sr_prev="$_sr_a"
+    done
+    if [ "${1:-}" = expect ]; then
+        case "$(git -C "$_sr_co" remote get-url origin 2> /dev/null)" in
+            *github.com[:/]PRO-Robotech/kaname|*github.com[:/]PRO-Robotech/kaname.git) _sr_repo=PRO-Robotech/kaname ;;
+        esac
+    elif [ -f "$_sr_exp" ]; then
+        _sr_repo="$(jq -r '.repo? // empty' "$_sr_exp" 2> /dev/null)"
     fi
+    [ "$_sr_repo" != PRO-Robotech/kaname ] || exec bash "$HERE/remote-reader.sh" scripts/stand-report.sh "$@"
 fi
 
 # Operators use a closed two-executor inventory. Dispatch only those repositories;

@@ -9,7 +9,8 @@
 # отказывает «не выполнилось», а драйвер снимает промах и повторяет прогон.
 set -uo pipefail
 dir="${REMOTE_READER_GH:?replay-gh: REMOTE_READER_GH не задан}"
-key="$(jq -cn '$ARGS.positional' --args "$@")" || exit 1
+# Доводы — массивом JSON построчно (перевода строки в них нет): `jq --args` съел бы доводы вида --method.
+key="$(printf '%s\n' "$@" | jq -Rsc 'split("\n")[:-1]')" || exit 1
 hit="$(jq -c --argjson k "$key" 'select(.argv == $k)' "$dir/index.jsonl" 2> /dev/null | head -n 1)"
 if [ -z "$hit" ]; then
     printf '%s\n' "$key" >> "$dir/misses"

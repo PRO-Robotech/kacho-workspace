@@ -359,10 +359,44 @@ class RemoteReader(unittest.TestCase):
                                     RITUAL_REPO_DIR=str(self.box.ws), **real)
                 self.assertNotIn('remote-reader', body.stderr)
         self.assertEqual(self.box.slots(), [])
-        # ГРАНИЦА (решение диспетчера ws#1365 его не называет): expect идёт на машине.
+        # ГРАНИЦА (решение диспетчера ws#1365 их не называет): копия не kaname — вход здесь.
         boundary = self.box.run('stand-report.sh', 'expect', '--checkout', str(self.box.ws), '--head', '0' * 40)
         self.assertEqual(self.box.slots(), [])
         self.assertNotEqual(boundary.returncode, 0)
+
+    def kaname_checkout(self):
+        co = self.box.files / 'kaname'
+        wf = co / '.github/workflows'; wf.mkdir(parents=True)
+        for name, fixture in [('ci.yml', 'ci-workflow-native.yml'), ('e2e-newman.yml', 'e2e-workflow-matrix-native.yml'),
+                              ('docker-build.yml', 'image-workflow-native.yml'),
+                              ('pr-rule.yml', 'pr-rule-workflow-native.yml')]:
+            shutil.copyfile(FIX / fixture, wf / name)
+        self.box.git('init', '-q', '-b', '954-sandbox', cwd=co)
+        self.box.git('remote', 'add', 'origin', 'https://github.com/PRO-Robotech/kaname.git', cwd=co)
+        self.box.git('add', '-A', cwd=co); self.box.git('commit', '-qm', 'источник kaname', cwd=co)
+        self.box.git('update-ref', 'refs/remotes/origin/954', 'HEAD', cwd=co)
+        return co, self.box.git('rev-parse', 'HEAD', cwd=co)
+
+    def test_kaname_expect_ships_the_checkout(self):
+        co, head = self.kaname_checkout()
+        args = ['expect', '--checkout', str(co), '--head', head, '--base', 'origin/954', '--draft', 'false']
+        direct = self.box.run('stand-report.sh', *args, machine=False)
+        self.assertEqual(direct.returncode, 0, direct.stdout + direct.stderr)
+        self.assertEqual(len(json.loads(direct.stdout)['jobs']), 9)
+        machine = self.box.run('stand-report.sh', *args)
+        self.assertEqual((machine.returncode, json.loads(machine.stdout)), (0, json.loads(direct.stdout)), machine.stderr)
+        self.assertJob(machine)
+        # Правка вне коммита: expect на машине судил бы её, клон Job — нет; отказ до Job.
+        (co / 'untracked.txt').write_text('x\n')
+        dirty = self.box.run('stand-report.sh', *args)
+        self.assertEqual(dirty.returncode, 64, dirty.stderr)
+        self.assertEqual(len(self.box.slots()), 1)
+        (co / 'untracked.txt').unlink()
+        # Ветка копии доводом --ref: без него клон Job (отсоединённый) ref не вывел бы.
+        self.box.mutate('remote-reader.sh', '|| EXTRA=(--ref "$ref")', '|| EXTRA=()')
+        blind = self.box.run('stand-report.sh', *args)
+        self.assertEqual(blind.returncode, 2, blind.stdout + blind.stderr)
+        self.assertEqual(self.box.trap.read_text(), '')
 
 
 def build_packet(root, exp):

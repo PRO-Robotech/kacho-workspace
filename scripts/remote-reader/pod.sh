@@ -26,7 +26,22 @@ box="$(mktemp -d)"
 trap 'rm -rf -- "$box"' EXIT
 (cd "$reg" 2> /dev/null && find . -type f | sort) > "$box/before"
 : > "$RR/gh/misses"
-bash "$TOPP/$entry" "$@" > "$box/out" 2> "$box/err"
+# Копия expect (@checkout:<bundle>) — клон bundle: голова отсоединена, ветки и origin/* — как
+# у копии машины, origin — её адрес; правок вне коммита у клона нет по построению.
+args=(); k=0
+for a in "$@"; do
+    case "$a" in
+        @checkout:in/*.bundle)
+            k=$(( k + 1 )); co="$box/checkout-$k"; b="$RR/${a#@checkout:}"
+            git init -q "$co" &&
+                git -C "$co" fetch -q --update-head-ok "$b" 'refs/heads/*:refs/heads/*' 'refs/remotes/*:refs/remotes/*' &&
+                git -C "$co" fetch -q "$b" HEAD && git -C "$co" checkout -q --detach FETCH_HEAD &&
+                git -C "$co" remote add origin "$(cat "${b%.bundle}.url")" || { echo "remote-reader-rc 69"; exit 69; }
+            a="$co" ;;
+    esac
+    args+=("$a")
+done
+bash "$TOPP/$entry" "${args[@]}" > "$box/out" 2> "$box/err"
 rc=$?
 (cd "$reg" 2> /dev/null && find . -type f | sort) > "$box/after"
 : > "$box/tar"
