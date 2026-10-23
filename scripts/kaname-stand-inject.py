@@ -303,6 +303,60 @@ class TrustBoundaries(unittest.TestCase):
                 self.assertEqual(wrong.returncode, 2)
                 self.assertIn('wrong requested evidence stage', wrong.stdout)
 
+    def test_canonical_expect_source_inventory_and_one_fact_twins(self):
+        # Source snapshots from ad86098: actual mandatory inventory, no ghjob simulation.
+        import json, os, subprocess, tempfile
+        sources = {name: (HERE / 'kaname-stand-fixtures' / fixture).read_bytes()
+                   for name, fixture in [('ci.yml', 'ci-workflow-native.yml'),
+                                         ('e2e-newman.yml', 'e2e-workflow-native.yml'),
+                                         ('docker-build.yml', 'image-workflow-native.yml')]}
+        mutations = ('lawful', 'missing-job', 'missing-workflow', 'duplicate-shard',
+                     'checkout-ref', 'self-hosted')
+        for mutation in mutations:
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory); co = root / 'checkout'; co.mkdir()
+                wf = co / '.github/workflows'; wf.mkdir(parents=True)
+                env = dict(os.environ); env.pop('LANDING_PRECHECK_WS', None)
+                def git(*args):
+                    return subprocess.run(['bash', '-c',
+                        '. "$1"; sandbox_git_home "$2" || exit; shift 2; sandbox_run git "$@"',
+                        'fixture', str(HERE / 'lib/sandbox-git-home.sh'), str(root / 'git-home'),
+                        '-C', str(co), *args], env=env,
+                        check=True, capture_output=True, text=True).stdout.strip()
+                git('init', '-q'); git('remote', 'add', 'origin', 'https://github.com/PRO-Robotech/kaname.git')
+                for name, raw in sources.items(): (wf / name).write_bytes(raw)
+                git('add', '.'); git('commit', '-qm', 'lawful source inventory')
+                base = git('rev-parse', 'HEAD')
+                def expect():
+                    return subprocess.run(['bash', str(HERE / 'stand-report.sh'), 'expect',
+                        '--checkout', str(co), '--head', git('rev-parse', 'HEAD'),
+                        '--base', base, '--draft', 'false'], env=env,
+                        capture_output=True, text=True, timeout=30)
+                twin = expect()
+                self.assertEqual(twin.returncode, 0, twin.stdout + twin.stderr)
+                actual = json.loads(twin.stdout)
+                self.assertEqual(len(actual['logical_jobs']), 6)
+                self.assertEqual(len(actual['jobs']), 8)
+                self.assertEqual(sum(x['executor'] == 'external' for x in actual['definitions'].values()), 4)
+                if mutation == 'lawful': continue
+                ci = gate.common.load_workflow(sources['ci.yml'])
+                e2e = gate.common.load_workflow(sources['e2e-newman.yml'])
+                if mutation == 'missing-workflow': (wf / 'docker-build.yml').unlink()
+                elif mutation == 'missing-job':
+                    del e2e['jobs']['stand-ceremony']
+                    (wf / 'e2e-newman.yml').write_text(json.dumps(e2e))
+                else:
+                    if mutation == 'duplicate-shard':
+                        ci['jobs']['integrationshard']['strategy']['matrix']['shard'].append(0)
+                    elif mutation == 'checkout-ref':
+                        ci['jobs']['unit']['steps'][0].setdefault('with', {})['ref'] = 'other'
+                    else: ci['jobs']['unit']['runs-on'] = 'self-hosted'
+                    (wf / 'ci.yml').write_text(json.dumps(ci))
+                git('add', '-A'); git('commit', '-qm', mutation)
+                bad = expect()
+                self.assertEqual(bad.returncode, 2, bad.stdout + bad.stderr)
+                self.assertTrue(bad.stdout.startswith('VOID\t'), bad.stdout)
+
     def test_canonical_shell_entrypoint_reaches_stage_check(self):
         # Real shell dispatcher and parser, with no network or replacement helper.
         import json, subprocess, tempfile
