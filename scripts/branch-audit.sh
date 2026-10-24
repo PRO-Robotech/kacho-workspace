@@ -308,6 +308,18 @@
 # Ускорение самой переписи — ws#995; режим одной ветки — перечень кандидатов.
 
 set -euo pipefail
+# Форма --generator-outputs <генератор> (ws#1365) — ответ генератора на `--outputs` (перечень
+# машинно собираемых, ниже). Генератор — python, и на машине владельца форма идёт Job-ом
+# внешнего кластера (scripts/remote-reader.sh переносит файл генератора); здесь — в pod, на
+# ранере конвейера, на стороне pod драйвера и в локальном слоте. Код и вывод — генератора.
+if [ "${1:-}" = --generator-outputs ]; then
+  [ "$#" -eq 2 ] && [ -f "$2" ] || { echo "branch-audit: --generator-outputs <файл генератора>" >&2; exit 64; }
+  if [ -z "${KUBERNETES_SERVICE_HOST:-}" ] && [ "${GITHUB_ACTIONS:-}" != true ] && [ "${KACHO_REMOTE_READER_POD:-}" != 1 ] &&
+     [ -z "${HEAVY_SLOT_P:-}" ]; then
+    exec bash "$(dirname "${BASH_SOURCE[0]}")/remote-reader.sh" scripts/branch-audit.sh "$@"
+  fi
+  exec env -u GIT_LITERAL_PATHSPECS python3 "$2" --outputs
+fi
 if [ -z "${BRANCH_AUDIT_UNDER_DEADLINE:-}" ]; then
   ba_limit="${BRANCH_AUDIT_DEADLINE_S:-540}"
   case "$ba_limit" in ''|*[!0-9]*|0) echo "branch-audit: BRANCH_AUDIT_DEADLINE_S «$ba_limit» не число секунд ≥ 1 (0 у timeout — без предела)" >&2; exit 2 ;; esac
@@ -326,6 +338,7 @@ fi
 # пропускала такой файл, и ветка с ним одним уходила в «ВЛИТЫ». Образец нужен
 # ровно одному вызову (перечень генераторов), и он снимает это явно.
 export GIT_LITERAL_PATHSPECS=1
+BA_HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # до `cd "$REPO"`: путь вызова бывает относительным
 
 PRUNE=0
 if [ "${1:-}" = "--prune-merged" ]; then PRUNE=1; shift; fi
@@ -753,16 +766,43 @@ fi
 # список отстанет молча, то есть заведётся ровно тот класс, который перепись и
 # ловит. Генератор, не знающий такого ключа, пропускается, и это видно в
 # переписи: «ноль машинно собираемых» обязано быть отличимо от «не спросили».
+#
+# Генератор — python, а машина владельца не для прогонов (2026-10-22, ws#1365): на ней ответ
+# берётся Job-ом внешнего кластера (форма --generator-outputs, scripts/remote-reader.sh) и
+# запоминается по отпечатку текста генератора (`git hash-object`) в
+# ${XDG_CACHE_HOME:-~/.cache}/kacho-branch-audit/outputs — перепись без Job, пока текст тот же.
+# ГРАНИЦА: ответ --outputs считается функцией ТЕКСТА генератора (vault-index печатает
+# постоянную); генератор, чей ответ читает дерево, на машине ответил бы по дереву Job, а не по
+# переписываемому. Маршрут не исполнился (слот, номер задачи) — счёт «не спрошено», не «без ключа».
 GENERATED_PATHS=()
 GEN_ASKED=0
 GEN_MUTE=0
+GEN_UNROUTED=0
+GEN_FROM=""
+gen_outputs() {  # <файл генератора> <файл ответа> — ответ на --outputs; 1 — нет ответа, 3 — маршрут не исполнился
+  local f="$1" o="$2" h c rc
+  if [ -n "${KUBERNETES_SERVICE_HOST:-}" ] || [ "${GITHUB_ACTIONS:-}" = true ] || [ "${KACHO_REMOTE_READER_POD:-}" = 1 ] ||
+     [ -n "${HEAVY_SLOT_P:-}" ]; then
+    env -u GIT_LITERAL_PATHSPECS python3 "$f" --outputs > "$o" 2>/dev/null || return 1; return 0
+  fi
+  h="$(git hash-object -- "$f" 2>/dev/null)" || return 1
+  c="${XDG_CACHE_HOME:-$HOME/.cache}/kacho-branch-audit/outputs"
+  if [ -f "$c/$h" ]; then GEN_FROM="${GEN_FROM:-память по отпечатку текста}"; cat -- "$c/$h" > "$o"; return; fi
+  rc=0; bash "$BA_HERE/branch-audit.sh" --generator-outputs "$f" > "$o" 2>/dev/null || rc=$?
+  case "$rc" in 0) ;; 64|69|70|74|75|76|77) return 3 ;; *) return 1 ;; esac
+  GEN_FROM="Job внешнего кластера"
+  { mkdir -p -m 700 "$c" && cp -- "$o" "$c/$h.$$" && mv -f -- "$c/$h.$$" "$c/$h"; } 2>/dev/null || rm -f -- "$c/$h.$$"
+}
 collect_generated() {
-  local g out
+  local g out grc
   while IFS= read -r g; do
     [ -n "$g" ] || continue
     GEN_ASKED=$((GEN_ASKED + 1))
     # Генератор — чужой код: буквальный pathspec переписи ему не передаётся.
-    if out=$(env -u GIT_LITERAL_PATHSPECS python3 "$REPO/$g" --outputs 2>/dev/null) && [ -n "$out" ]; then
+    grc=0; gen_outputs "$REPO/$g" "$BA_TMP/gen.out" || grc=$?
+    if [ "$grc" -eq 3 ]; then GEN_UNROUTED=$((GEN_UNROUTED + 1)); continue; fi
+    out="$(cat -- "$BA_TMP/gen.out" 2>/dev/null)" || out=""
+    if [ "$grc" -eq 0 ] && [ -n "$out" ]; then
       while IFS= read -r line; do
         [ -n "$line" ] && GENERATED_PATHS+=("$line")
       done <<< "$out"
@@ -784,6 +824,8 @@ echo "branch-audit: замер $(date -u +'%Y-%m-%dT%H:%M:%SZ') (UTC) — вер
 collect_generated
 echo "branch-audit: генераторов спрошено ${GEN_ASKED}, без ключа --outputs ${GEN_MUTE};"\
      "машинно собираемых путей ${#GENERATED_PATHS[@]} — их дельта свойство генератора, не ветки"
+[ -z "$GEN_FROM" ] || echo "branch-audit: ответ генераторов на машине — ${GEN_FROM} (ws#1365)"
+[ "$GEN_UNROUTED" -eq 0 ] || echo "branch-audit: НЕ СПРОШЕНО ${GEN_UNROUTED} генераторов — внешний маршрут не исполнился (слот занят, номер задачи не установлен); их выход судится как авторская работа"
 echo
 
 # --- какие ветки заняты рабочими копиями (снимать нельзя, не спросив) ---------
