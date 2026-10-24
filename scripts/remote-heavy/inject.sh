@@ -4040,6 +4040,12 @@ ws6_case() {
     else bad "$c" "после установки нет yq, shellcheck 0.11.0, bats либо читателя трекера"; fi
 }
 ws6_case WS6 0 -
+# venv и локали (урок 2026-10-24) — НЕ фатальны: пакетов Debian двойник сети не отдаёт, шаг выходит 0,
+# а недоставленное названо строкой «среда: …» (пробы дадут «не выполнилось», не 69 всему профилю);
+# суммы трёх пакетов стоят в тексте по разу.
+if grep -q 'среда: venv python не поставлен' "$BOX/WS6.out" && grep -q 'среда: локали ru_RU.UTF-8, en_US.UTF-8 не поставлены' "$BOX/WS6.out" \
+   && [ "$(grep -cE 'b079db533ff9d9d1|e65351935aa4af2b|ffc5578d5c2c30ca' "$WC/raw.sh")" = 3 ]; then ok
+else OUT="$BOX/WS6.out"; bad WS6-venv-locale "недоставленные venv и локали не названы строкой «среда:» либо суммы пакетов не по разу"; fi
 ws6_case WS6-yqsum 125 "yq v4.45.4 не поставлен" WSC_BAD=yq
 ws6_case WS6-scsum 125 "shellcheck 0.11.0 не поставлен" WSC_BAD=sc
 ws6_case WS6-batssum 125 "bats-core 1.10.0 не поставлен" WSC_BAD=bats

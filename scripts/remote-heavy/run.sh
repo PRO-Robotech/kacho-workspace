@@ -3091,6 +3091,25 @@ if ! command -v bats >/dev/null 2>&1; then
     && tar -xzf /work/dl/ws/bats.tgz -C /work/dl/ws && bash /work/dl/ws/bats-core-1.10.0/install.sh /work/bats >/dev/null \
     && ln -sf /work/bats/bin/bats /work/bin/bats || pf "bats-core 1.10.0 не поставлен"
 fi
+# venv python и локали UTF-8 (урок 2026-10-24: два шага «не выполнилось» — ghjob/inject.sh зовёт
+# python3 -m venv, branch-audit-inject.sh AE — LANG=ru_RU.UTF-8; ранер конвейера несёт их образом).
+# Пакеты Debian trixie — версия и sha256 в тексте; пул архива, затем пул безопасности. НЕ ФАТАЛЬНО:
+# не легло — строка «среда: …», и пробы дают «не выполнилось», как без шага (не 69 всему профилю).
+wdeb() { wdl "https://deb.debian.org/debian/$1" "$3" "$2" || wdl "https://security.debian.org/debian-security/${1/pool\/main/pool\/updates\/main}" "$3" "$2"; }
+if ! python3 -c 'import ensurepip' > /dev/null 2>&1; then
+  if [ "$ya" = amd64 ] \
+    && wdeb pool/main/p/python3.13/python3.13-venv_3.13.5-2+deb13u5_amd64.deb b079db533ff9d9d11585d06c3b2a5c034d01453a1e915502ffece42fb0ce4a3f /work/dl/ws/venv.deb \
+    && wdeb pool/main/p/python-pip/python3-pip-whl_25.1.1+dfsg-1_all.deb e65351935aa4af2b10ae2abb5744f5059e9abad51aea6cd0cb825702010763f7 /work/dl/ws/pipwhl.deb \
+    && dpkg-deb -x /work/dl/ws/venv.deb / && dpkg-deb -x /work/dl/ws/pipwhl.deb / && python3 -c 'import ensurepip' > /dev/null 2>&1; then
+    echo "remote-heavy: venv python — python3.13-venv 3.13.5-2+deb13u5, python3-pip-whl 25.1.1" >&2
+  else echo "remote-heavy: среда: venv python не поставлен ($(uname -m)) — пробы с python3 -m venv дадут «не выполнилось»" >&2; fi
+fi
+if ! locale -a 2> /dev/null | grep -qix 'ru_RU.utf8'; then
+  if wdeb pool/main/g/glibc/locales_2.41-12+deb13u4_all.deb ffc5578d5c2c30ca70d46113908f200a09ab6e5e9eda199463af3285dbbaae8c /work/dl/ws/locales.deb \
+    && dpkg-deb -x /work/dl/ws/locales.deb / && localedef -i ru_RU -f UTF-8 ru_RU.UTF-8 && localedef -i en_US -f UTF-8 en_US.UTF-8; then
+    echo "remote-heavy: локали — $(locale -a 2> /dev/null | grep -ciE '^(ru_RU|en_US)\.utf8$') из 2 (ru_RU.UTF-8, en_US.UTF-8), locales 2.41-12+deb13u4" >&2
+  else echo "remote-heavy: среда: локали ru_RU.UTF-8, en_US.UTF-8 не поставлены — пробы с ними дадут «не выполнилось»" >&2; fi
+fi
 # Читатель трекера для хука отправки (PREPUSH_GH): публичный API, токена нет; форма — ровно
 # вызов хука, прочее — отказ 4. Ответ не 200 — «HTTP <код>» в stderr, код 1 (хук ищет «HTTP 404»).
 cat > /work/bin/gh-issue-public <<'GHP'
