@@ -359,6 +359,93 @@ class RemoteReader(unittest.TestCase):
         self.assertEqual(blind.returncode, 2, blind.stdout + blind.stderr)
         self.assertFalse(record.exists())
 
+    def archived_reader(self):
+        archive = self.box.root / 'archive'
+        archive.mkdir()
+        payload = subprocess.check_output(['git', '-C', str(self.box.ws), 'archive', 'HEAD', 'scripts'])
+        subprocess.run(['tar', '-xf', '-', '-C', str(archive)], input=payload, check=True)
+        k = Kaname(self.box)
+        args = ['report', '--expect', str(k.expect), '--import-id', k.identity, '--external-only']
+        def run(**env):
+            return subprocess.run(['bash', str(archive / 'scripts/stand-report.sh'), *args],
+                                  cwd=archive, env=self.box.env(**env), capture_output=True,
+                                  text=True, timeout=600)
+        return archive, run
+
+    def test_archived_reader_uses_explicit_source(self):
+        archive, run = self.archived_reader()
+        self.assertFalse((archive / '.git').exists())
+        result = run(LANDING_PRECHECK_WS=str(self.box.ws))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertJob(result)
+        self.assertEqual(self.box.trap.read_text(), '')
+
+    def test_archived_reader_refuses_unbound_or_foreign_root(self):
+        _, run = self.archived_reader()
+        for env in ({}, {'LANDING_PRECHECK_WS': str(self.box.ws / 'scripts')}):
+            result = run(**env)
+            self.assertEqual(result.returncode, 64, result.stdout + result.stderr)
+        for origin in ('https://example.invalid/foreign.git',
+                       'https://user:password@github.com/PRO-Robotech/kacho-workspace.git'):
+            self.box.git('remote', 'set-url', 'origin', origin)
+            result = run(LANDING_PRECHECK_WS=str(self.box.ws))
+            self.assertEqual(result.returncode, 64, result.stdout + result.stderr)
+        self.assertEqual(self.box.slots(), [])
+        self.assertEqual(self.box.gh_log.read_text(), '')
+
+    def test_archived_reader_binds_entire_snapshot(self):
+        archive, run = self.archived_reader()
+        target = archive / 'scripts/kaname-stand.py'
+        original = target.read_bytes()
+        for mutation in ('content', 'missing', 'extra', 'mode', 'symlink'):
+            with self.subTest(mutation=mutation):
+                extra = archive / 'scripts/unexpected.py'
+                if mutation == 'content': target.write_bytes(original + b'\n# changed judge\n')
+                elif mutation == 'missing': target.unlink()
+                elif mutation == 'extra': extra.write_text('# extra\n')
+                elif mutation == 'mode': target.chmod(target.stat().st_mode ^ 0o111)
+                elif mutation == 'symlink':
+                    target.unlink(); target.symlink_to('operator-stand.py')
+                result = run(LANDING_PRECHECK_WS=str(self.box.ws))
+                self.assertEqual(result.returncode, 64, result.stdout + result.stderr)
+                self.assertIn('archived scripts differ', result.stderr)
+                if target.is_symlink() or target.exists(): target.unlink()
+                target.write_bytes(original)
+                target.chmod((self.box.ws / 'scripts/kaname-stand.py').stat().st_mode)
+                extra.unlink(missing_ok=True)
+        self.assertEqual(self.box.slots(), [])
+        self.assertEqual(self.box.gh_log.read_text(), '')
+        lawful = run(LANDING_PRECHECK_WS=str(self.box.ws))
+        self.assertEqual(lawful.returncode, 0, lawful.stdout + lawful.stderr)
+
+    def test_archived_reader_refuses_dirty_source(self):
+        _, run = self.archived_reader()
+        target = self.box.ws / 'scripts/remote-reader.sh'
+        target.write_text(target.read_text() + '\n# uncommitted\n')
+        result = run(LANDING_PRECHECK_WS=str(self.box.ws))
+        self.assertEqual(result.returncode, 64, result.stdout + result.stderr)
+        self.assertEqual(self.box.slots(), [])
+        self.assertEqual(self.box.gh_log.read_text(), '')
+
+    def test_archived_reader_ignores_enclosing_foreign_git(self):
+        archive, run = self.archived_reader()
+        self.box.git('init', '-q', cwd=archive)
+        self.box.git('remote', 'add', 'origin', 'https://example.invalid/foreign.git', cwd=archive)
+        result = run(LANDING_PRECHECK_WS=str(self.box.ws))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertJob(result)
+
+    def test_archived_reader_refuses_mixed_committed_head(self):
+        _, run = self.archived_reader()
+        target = self.box.ws / 'scripts/kaname-stand.py'
+        target.write_text(target.read_text() + '\n# new committed judge\n')
+        self.box.commit('#1365 new judge snapshot')
+        result = run(LANDING_PRECHECK_WS=str(self.box.ws))
+        self.assertEqual(result.returncode, 64, result.stdout + result.stderr)
+        self.assertIn('archived scripts differ', result.stderr)
+        self.assertEqual(self.box.slots(), [])
+        self.assertEqual(self.box.gh_log.read_text(), '')
+
     def test_workspace_origin_binding_is_closed(self):
         k = Kaname(self.box)
         args = ['report', '--expect', str(k.expect), '--import-id', k.identity, '--external-only']

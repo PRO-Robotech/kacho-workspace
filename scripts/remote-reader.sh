@@ -49,7 +49,14 @@ ROUNDS=3
 say() { printf 'remote-reader: %s\n' "$*" >&2; }
 die() { local c="$1"; shift; say "$*"; exit "$c"; }
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TOP="$(git -C "$HERE" rev-parse --show-toplevel 2>/dev/null)" || die 64 "$HERE — не копия git воркспейса"
+SOURCE_ROOT="${LANDING_PRECHECK_WS:-$HERE}"
+TOP="$(git -C "$SOURCE_ROOT" rev-parse --show-toplevel 2>/dev/null)" || die 64 "$SOURCE_ROOT — не копия git воркспейса"
+[ -z "${LANDING_PRECHECK_WS+x}" ] || [ "$(realpath -- "$SOURCE_ROOT")" = "$(realpath -- "$TOP")" ] || die 64 "workspace binding is not the repository root"
+ARCHIVED=0
+if [ "$(realpath -- "$HERE")" != "$(realpath -- "$TOP/scripts")" ]; then
+    [ -n "${LANDING_PRECHECK_WS:-}" ] || die 64 "archived reader requires explicit workspace binding"
+    ARCHIVED=1
+fi
 ENTRY="${1:-}"; [ $# -gt 0 ] && shift
 case "$ENTRY" in scripts/stand-report.sh|scripts/pr-body.sh) ;; *) die 64 "вход «$ENTRY» вне перечня (scripts/stand-report.sh, scripts/pr-body.sh)" ;; esac
 [ -z "$(git -C "$TOP" status --porcelain --untracked-files=no -- scripts)" ] ||
@@ -77,6 +84,17 @@ canonical_origin() {
 SOURCE_ORIGIN="$(git -C "$TOP" remote get-url origin 2>/dev/null)" || die 64 "workspace origin missing"
 REGISTRY_ORIGIN="$(git -C "$RROOT" remote get-url origin 2>/dev/null)" || die 64 "registry workspace origin missing"
 canonical_origin "$SOURCE_ORIGIN" && canonical_origin "$REGISTRY_ORIGIN" || die 64 "workspace repository differs"
+# Bind the complete canonical scripts archive to the commit executed by the pod.
+if [ "$ARCHIVED" -eq 1 ]; then
+    bind="$(mktemp -d)" || die 69 "archive binding directory unavailable"
+    if ! (set -o pipefail; git -C "$TOP" archive HEAD scripts | tar -xf - -C "$bind"); then
+        rm -rf -- "$bind"; die 69 "committed scripts archive unavailable"
+    fi
+    git -c core.filemode=true diff --no-index --quiet --no-ext-diff --no-textconv -- "$bind/scripts" "$HERE"
+    bound=$?
+    rm -rf -- "$bind" || die 69 "archive binding directory cleanup failed"
+    [ "$bound" -eq 0 ] || die 64 "archived scripts differ from committed workspace HEAD"
+fi
 REG="$(dirname "$(git -C "$RROOT" rev-parse --path-format=absolute --git-common-dir)")/tmp/operator-stand-registry"
 
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)-$$"
