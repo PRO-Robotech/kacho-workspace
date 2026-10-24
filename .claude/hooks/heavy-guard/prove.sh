@@ -310,7 +310,6 @@ passes             'git status'
 passes             'git diff --stat origin/main...HEAD'
 passes             'gh issue view 1301'
 passes             "sed -i 's/a/b/' f.txt"
-passes             'gofmt -l .'
 passes             'go version'
 passes             'go list ./...'
 passes             'npm --version'
@@ -354,6 +353,10 @@ light go-unit 'go vet -run Race ./...'
 light go-unit 'go -C services/vpc vet ./...'
 light go-unit 'go run ./cmd/x'
 light go-unit 'go install ./cmd/x'
+light go-unit 'go fmt ./...'
+light go-unit 'gofmt -l .'
+light go-unit 'gofmt -w x.go'
+light go-unit 'cd services/vpc && gofmt -l .'
 light suite   './tool.py' "$WORK/lt"
 light suite   './tool.js' "$WORK/lt"
 echo "   обёртки не уводят"
@@ -393,6 +396,7 @@ passes  "awk '{print \$1}' f"
 passes  'kubectl --context x-client -n t1-x get pods'
 passes  "kubectl -n t1-x exec p -- python3 -c 'print(1)'"
 passes  'kubectl -n t1-x exec p -- go vet ./...'
+passes  'gofmt -h'
 passes  'tar -czf x.tgz dir'
 passes  "/ws/scripts/heavy-slot.sh suite -- python3 -c 'print(1)'"
 passes  'bash /ws/scripts/heavy-slot.sh suite -- bash -n x.sh'
@@ -408,7 +412,6 @@ passes  'shellcheck --version'
 passes  'openssl version'
 passes  'go list ./...'
 passes  'go env GOPATH'
-passes  'gofmt -l .'
 passes  'which python3 node shellcheck'
 passes  'command -v python3'
 passes  "echo 'python3 -c 1; bash -n x.sh'"
@@ -447,8 +450,10 @@ lt_mut node-blind "node -e 1" "$WORK" '    if base in LOCAL_FORMS:
         return local_form'
 lt_mut shebang-blind './tool.py' "$WORK/lt" \
     '        if head and (PYTHONS.match(head) or head in LOCAL_FORMS):' '        if False:'
+lt_mut gofmt-blind 'gofmt -l .' "$WORK" \
+    'if base == "gofmt" and level == 0 and' 'if False and'
 lt_mut go-vet-blind 'go vet ./...' "$WORK" \
-    'if sub in ("vet", "run", "install") and level == 0:' 'if False:'
+    'if sub in ("vet", "fmt", "run", "install") and level == 0:' 'if False:'
 lt_mut heredoc-noexec-blind "bash -n <<'EOF'
 echo x
 EOF" "$WORK" '                elif level == 0:  # noexec' '                elif False:  # noexec'

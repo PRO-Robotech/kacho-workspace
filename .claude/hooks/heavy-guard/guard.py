@@ -58,7 +58,7 @@ vitest, tsc, eslint (ci-local), playwright (stand), наборы и пробы �
 `python3 -c`, `go vet` агентов на машине): на машине — git, gh, jq, чтение и правка файлов,
 kubectl и tar раннера, короткие одиночные команды; интерпретатор (`python3` любой формой, в том
 числе `-c`, `-`, `-I`, скрипт и файл со строкой запуска python либо node), `node`, `shellcheck`,
-`openssl`, оболочка с noexec (`bash -n`, `set -n` первой командой), `go vet|run|install` —
+`openssl`, оболочка с noexec (`bash -n`, `set -n` первой командой), `go vet|fmt|run|install`, `gofmt` —
 отказ «лёгкая команда на машине владельца» с классом слота (LOCAL_FORMS; go — go-unit, прочее —
 suite) и маршрутом remote. JSON читает jq: исключения `-I` нет — замена на машине есть, а
 python3 этой формой исполняет любой код. Судится лишь СТРОКА КОМАНДЫ (уровень 0 — и за
@@ -1200,9 +1200,11 @@ def classify_argv(env, argv, cwd, ctx, level, alt):
             return go_test_class(rest, env) or "go-unit"
         if sub in ("run", "install") and go_test_class(rest, env) == "go-race":
             return "go-race"  # бинарь с -race запускают — ради этого его и собирают
-        if sub in ("vet", "run", "install") and level == 0:
+        if sub in ("vet", "fmt", "run", "install") and level == 0:
             return LOCAL + "go-unit"  # анализ и сборка на машине — внешний кластер (ws#1301)
         return None
+    if base == "gofmt" and level == 0 and not (args and all(a in ("-h", "--help") for a in args)):
+        return LOCAL + "go-unit"  # gofmt на машине (урок 2026-10-24: тела исполнителей звали его локально)
     if base == "golangci-lint" and "run" in args:
         return "lint"
     if base in ("govulncheck", "gosec") and any(not a.startswith("-") for a in args):
@@ -1406,7 +1408,7 @@ def deny_local(cls, env, argv, slot):
         "  найдено: %s\n"
         "Владелец 2026-10-22 (ws#1301): «использовать только в одном случае если доступа к кластеру нету».\n"
         "На машине — git, gh, jq, чтение и правка файлов, kubectl и tar раннера; python3, node, bash -n,\n"
-        "shellcheck, openssl, go vet|run|install — во внешнем кластере через слот (строка — как была):\n"
+        "shellcheck, openssl, go vet|fmt|run|install, gofmt — во внешнем кластере через слот (строка — как была):\n"
         "  %s\n"
         "  · Job-ом слот уводит go и make клона продукта и наборы и пробы воркспейса относительным\n"
         "    путём (ведомость PORTABLE: run-all.sh, inject*.sh, prove.sh, check-*); код — код там;\n"
