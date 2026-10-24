@@ -221,6 +221,7 @@
 #   GI1 ci-local отправкой при корневой учётке копии → имя и адрес в окружении run,
 #      шаг записи до exec, адрес не напечатан (ws#1115, отправка 853)
 #      GI1-env — имена окружения всех контейнеров Job из разрешённого списка;
+#      GI1-origin — адрес origin клона pod публичный, из имени репозитория (ws#1301);
 #      GI1-decoy — signingkey, credential.helper, http.extraHeader, insteadOf,
 #      include.path корневого gitconfig до Job и вывода не доходят
 #   NC2-update обновление опубликованной ветки: удалённый sha ненулевой, ветка влила
@@ -1843,8 +1844,14 @@ else OUT="$BOX/state/job.json"; bad GI1 "учётка не дошла до ок�
 if gi_in "$BOX/gi1.cmd"; then ok; else OUT="$BOX/gi1.cmd"; bad GI1 "шага записи учётки перед командой в Job ci-local нет"; fi
 if grep -qF "$GI_EMAIL" "$BOX/gi1.out"; then bad GI1 "адрес учётки напечатан в выводе run.sh"; else ok; fi
 # GI1-env: состав окружения КАЖДОГО контейнера Job — только разрешённые имена (до
-#     правки учётки и вход pre-push плюс HEAVY_GIT_NAME/EMAIL); envFrom нет
-GI_ALLOW="CI DOCKER_HOST GOCACHE GOLANGCI_LINT_CACHE GOMODCACHE GOTOOLCHAIN HEAVY_BUF HEAVY_DENY_PROBE HEAVY_GIT_EMAIL HEAVY_GIT_NAME HEAVY_HELM HEAVY_MAIN HEAVY_NODE HEAVY_PULL HEAVY_PUSH_INPUT HEAVY_SHA HEAVY_WORKDIR HEAVY_YQ TESTCONTAINERS_RYUK_DISABLED"
+#     правки учётки и вход pre-push плюс HEAVY_GIT_NAME/EMAIL, адрес origin клона pod —
+#     HEAVY_ORIGIN, ws#1301); envFrom нет
+GI_ALLOW="CI DOCKER_HOST GOCACHE GOLANGCI_LINT_CACHE GOMODCACHE GOTOOLCHAIN HEAVY_BUF HEAVY_DENY_PROBE HEAVY_GIT_EMAIL HEAVY_GIT_NAME HEAVY_HELM HEAVY_MAIN HEAVY_NODE HEAVY_ORIGIN HEAVY_PULL HEAVY_PUSH_INPUT HEAVY_SHA HEAVY_WORKDIR HEAVY_YQ TESTCONTAINERS_RYUK_DISABLED"
+# GI1-origin: адрес origin клона pod — публичный адрес репозитория, собранный из его имени, а
+#     не взятый из origin копии (тот может нести учётку в URL): как у checkout конвейера.
+gi_origin="$(kx env "$BOX/state/job.json" fetch HEAVY_ORIGIN)"
+if [ "$gi_origin" = "https://github.com/PRO-Robotech/kaname.git" ]; then ok
+else OUT="$BOX/state/job.json"; bad GI1-origin "адрес origin клона pod «$gi_origin», ждали публичный адрес kaname без учётки"; fi
 gi_extra="$(jq -r --arg a "$GI_ALLOW" '($a | split(" ")) as $al | [.spec.template.spec | (.containers[]?, .initContainers[]?) | (.env[]?.name), (if .envFrom then "envFrom" else empty end)] | unique | map(select(IN($al[]) | not)) | join(" ")' "$BOX/state/job.json" 2>/dev/null)" || gi_extra="(spec не разобран)"
 if [ -z "$gi_extra" ]; then ok; else bad GI1-env "в окружении Job имена вне разрешённого списка: $gi_extra"; fi
 # GI1-decoy: корневой gitconfig копии несёт приманки — ключ подписи, помощник
