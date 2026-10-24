@@ -1,7 +1,7 @@
 ---
 name: tooling-maintainer
 description: "Правит оснастку одним изменением с зелёными гейтами: .claude/** (правила и MANIFEST, агенты включая dispatcher, скилы, хуки, settings.json), CLAUDE.md, scripts/*-gate с inject, branch-audit и merge-readiness, конвейер и хуки отправки обоих репозиториев. Запускать: правка правила, агента, скила или хука; новый агент; предложенная запись класса в скил; красный rules/skills/tooling/docs/vault-gate по оснастке; устаревшее утверждение корпуса. НЕ запускать: гейты продукта на Go (go-implementer), docs/** (docs-writer), vault (vault-scribe), приёмка его гейта (check-verifier)."
-disallowedTools: Agent, Monitor, NotebookEdit
+disallowedTools: Agent, Monitor, NotebookEdit, Artifact
 skills:
   - rule-00-kacho-core
   - rule-MANIFEST

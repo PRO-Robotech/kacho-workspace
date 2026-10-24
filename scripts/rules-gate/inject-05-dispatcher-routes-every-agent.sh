@@ -292,6 +292,14 @@ elif op == 'dis_drop_monitor':       # исполнителю больше не 
         items = [x.strip() for x in m.group(1).split(',') if x.strip() and x.strip() != 'Monitor']
         return t[:m.start(1)] + ', '.join(items) + t[m.end(1):]
     edit(os.path.join(agents, args[0] + '.md'), dropm)
+elif op == 'dis_drop_artifact':      # исполнителю больше не запрещён Artifact (ws#1386)
+    def dropa(t):
+        m = re.search(r'^disallowedTools:[ \t]*(.*)$', t, re.M)
+        if not m or 'Artifact' not in m.group(1):
+            raise SystemExit('ФИКСТУРА ВАКУУМНА: у исполнителя нет Artifact в disallowedTools')
+        items = [x.strip() for x in m.group(1).split(',') if x.strip() and x.strip() != 'Artifact']
+        return t[:m.start(1)] + ', '.join(items) + t[m.end(1):]
+    edit(os.path.join(agents, args[0] + '.md'), dropa)
 elif op == 'dis_reorder':            # тот же набор запретов, обратный порядок
     def rev(t):
         m = re.search(r'^disallowedTools:[ \t]*(.*)$', t, re.M)
@@ -311,7 +319,7 @@ elif op == 'ref_quote':              # та же ссылка, другая ци
 elif op == 'new_agent':              # законно заведённый исполнитель
     name = args[0]
     io.open(os.path.join(agents, name + '.md'), 'w', encoding='utf-8').write(
-        '---\nname: %s\ndescription: "Проба инъекции."\ndisallowedTools: Agent, Monitor\n'
+        '---\nname: %s\ndescription: "Проба инъекции."\ndisallowedTools: Agent, Monitor, Artifact\n'
         'skills:\n  - rule-00-kacho-core\n---\n\n# Проба\n' % name)
     edit(disp, lambda t: allowlist(t, lambda ns: ns + [name]))
     edit(disp, lambda t: t.rstrip('\n') + '\n\n### %s\nКогда: никогда, это проба.\n' % name)
@@ -391,6 +399,14 @@ inj05_edit "$d5" dis_drop_monitor "$INJ05_AGENT"
 capture "$d5" "$CH05"
 assert_code 1 "«Monitor» пропал из disallowedTools — ход ждёт фоновый процесс без ВОЗВРАТ"
 assert_says "AGENT-CAN-WAIT" "  ...находка названа осью"
+assert_says "$INJ05_AGENT" "  ...и назван ИМЕННО этот исполнитель"
+
+echo "== ось C3: исполнитель, публикующий страницу claude.ai (AGENT-CAN-PUBLISH, ws#1386) =="
+d5="$(inj05_sandbox c_can_publish)"
+inj05_edit "$d5" dis_drop_artifact "$INJ05_AGENT"
+capture "$d5" "$CH05"
+assert_code 1 "«Artifact» пропал из disallowedTools — публикация, которую снимет лишь человек"
+assert_says "AGENT-CAN-PUBLISH" "  ...находка названа осью"
 assert_says "$INJ05_AGENT" "  ...и назван ИМЕННО этот исполнитель"
 
 echo "== ось C2′: БЛИЗНЕЦ — ci-watcher с разрешённым Monitor (режим wait, решение 2026-10-14) =="
