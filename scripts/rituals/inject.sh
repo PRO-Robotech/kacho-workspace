@@ -468,8 +468,8 @@ inject "M97 pr-body: слово закрытия — лишь в начале с
 inject "M98 pr-body: код тела — строка закрытия" check-01-pr-body.py \
     'CODE_RE.sub(" ", body or "")' '(body or "")'
 inject "M99 pr-body: перечень ссылок за словом — лишь первая" check-01-pr-body.py \
-    'pat = r"%s(?:%s\s*(?:,|\band\b|\bи\b)\s*)*(?:%s)" % (NAMED_KW, NAMED_ANY, ref)' \
-    'pat = r"%s(?:%s)" % (NAMED_KW, ref)'
+    'pat = r"%s(?:%s\s*(?:,|\band\b|\bи\b)\s*)*(?:https?://)?(?:%s)" % (NAMED_KW, NAMED_ANY, ref)' \
+    'pat = r"%s(?:https?://)?(?:%s)" % (NAMED_KW, ref)'
 twin "T3 pr-body: слово закрытия другой записью (перечень форм)" check-01-pr-body.py \
     '(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|refs)' '(?:closes|closed|close|fixes|fixed|fix|resolves|resolved|resolve|refs)'
 inject "M94 pr-body: закрытые запросы в счёте" check-01-pr-body.py \

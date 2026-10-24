@@ -408,7 +408,7 @@ CODE_RE = re.compile(r"```.*?(?:```|\Z)|~~~.*?(?:~~~|\Z)|`[^`\n]*`", re.S)
 
 def named_in_body(body: str, ref: str) -> bool:
     """Тело называет задачу `ref` (выражение `task_ref_pattern`) строкой закрытия вне кода."""
-    pat = r"%s(?:%s\s*(?:,|\band\b|\bи\b)\s*)*(?:%s)" % (NAMED_KW, NAMED_ANY, ref)
+    pat = r"%s(?:%s\s*(?:,|\band\b|\bи\b)\s*)*(?:https?://)?(?:%s)" % (NAMED_KW, NAMED_ANY, ref)
     return re.search(pat, CODE_RE.sub(" ", body or ""), re.I) is not None
 
 
