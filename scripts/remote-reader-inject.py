@@ -55,9 +55,9 @@ git -C "$top" bundle create "$pod/in.bundle" HEAD --remotes=origin > /dev/null 2
 git init -q "$pod/src" && git -C "$pod/src" fetch -q "$pod/in.bundle" 'refs/remotes/*:refs/remotes/*' &&
     git -C "$pod/src" fetch -q "$pod/in.bundle" HEAD &&
     git -C "$pod/src" checkout -q --detach FETCH_HEAD || exit 69
-# Клон Job настоящего маршрута (remote-heavy/run.sh: init + bundle) origin не несёт; заводят его лишь
-# явные случаи двойника — враждебный и законный близнец (SANDBOX_POD_ORIGIN).
-[ -z "${SANDBOX_POD_ORIGIN:-}" ] || git -C "$pod/src" remote add origin "$SANDBOX_POD_ORIGIN" || exit 69
+# Клон Job настоящего маршрута (remote-heavy/run.sh: init + bundle) origin НЕСЁТ — адрес, выведенный
+# из run.sh (POD_ORIGIN ниже, ws#1403); «-» — клон без origin, иное — враждебный либо законный близнец.
+[ "${SANDBOX_POD_ORIGIN:--}" = - ] || git -C "$pod/src" remote add origin "$SANDBOX_POD_ORIGIN" || exit 69
 case "${SANDBOX_ORIGIN_BINDING:-}" in
     missing) rm -f "$pod/src/$rel/workspace-origin" ;;
     foreign) printf '%s\n' https://example.invalid/foreign.git > "$pod/src/$rel/workspace-origin" ;;
@@ -82,6 +82,18 @@ rc=${PIPESTATUS[0]}
 [ -z "${SANDBOX_MACHINE:-}" ] || mv "$SANDBOX_MACHINE.hidden" "$SANDBOX_MACHINE"
 rm -rf "$pod"; exit "$rc"
 '''
+def run_origin():
+    """Адрес origin клона Job — из remote-heavy/run.sh (HEAVY_ORIGIN), не выписан: предпосылка двойника."""
+    import re
+    found = re.findall(r'--arg origin "([^"]+)"', (HERE / 'remote-heavy' / 'run.sh').read_text())
+    assert len(found) == 1, f'remote-heavy/run.sh: адрес origin клона Job не найден однозначно ({found})'
+    return found[0].replace('$REPO', 'kacho-workspace')
+
+
+POD_ORIGIN = run_origin()
+# Копия машины — адрес ssh, как у настоящей (`git remote get-url origin` воркспейса, ws#1403): написание
+# расходится с адресом клона Job, репозиторий — один.
+MACHINE_ORIGIN = 'git@github.com:PRO-Robotech/kacho-workspace.git'
 TRAP = '#!/usr/bin/env bash\necho "$0 $*" >> "$SANDBOX_TRAP"\nexit 97\n'
 SECRET = 'SANDBOX-CREDENTIAL-7f3c'  # метка учётных данных машины: в дереве Job её быть не должно
 # Промахи, которые называет pod (ws#1365): машина исполняет своим токеном лишь закрытый перечень
@@ -158,7 +170,7 @@ class Sandbox:
         self.home = root / 'home'
         (self.ws / '.gitignore').write_text('tmp/*\n')
         self.git('init', '-q', '-b', '1365-sandbox')
-        self.git('remote', 'add', 'origin', 'https://github.com/PRO-Robotech/kacho-workspace.git')
+        self.git('remote', 'add', 'origin', MACHINE_ORIGIN)
         self.commit('#1365 песочница')
         self.git('update-ref', 'refs/remotes/origin/main', 'HEAD')
 
@@ -184,7 +196,8 @@ class Sandbox:
         env.update(SANDBOX_TRAP=str(self.trap), SANDBOX_SLOT_LOG=str(self.slot_log),
                    SANDBOX_GH_LOG=str(self.gh_log), SANDBOX_GH=str(self.gh), SANDBOX_MACHINE=str(self.files),
                    SANDBOX_SECRET=SECRET, SANDBOX_LEAK=str(self.leak),
-                   SANDBOX_POD_PATH=os.environ['PATH'], SANDBOX_POD_HOME=os.environ.get('HOME', '/'))
+                   SANDBOX_POD_PATH=os.environ['PATH'], SANDBOX_POD_HOME=os.environ.get('HOME', '/'),
+                   SANDBOX_POD_ORIGIN=POD_ORIGIN)
         if machine:
             # HOME машины — песочницы: коммит драйвера подписывается её корневым gitconfig.
             env.update(PATH=str(self.machine_bin) + ':' + os.environ['PATH'], HOME=str(self.home))
@@ -508,25 +521,64 @@ class RemoteReader(unittest.TestCase):
             denied = self.box.run('stand-report.sh', *args)
             self.assertEqual(denied.returncode, 64, denied.stdout + denied.stderr)
             self.assertEqual(len(self.box.slots()), before)
-        canonical = 'https://github.com/PRO-Robotech/kacho-workspace.git'
-        self.box.git('remote', 'set-url', 'origin', canonical)
+        self.box.git('remote', 'set-url', 'origin', MACHINE_ORIGIN)
         invalid_root = self.box.run('stand-report.sh', *args,
                                     LANDING_PRECHECK_WS=str(self.box.ws / 'scripts'))
         self.assertEqual(invalid_root.returncode, 64, invalid_root.stderr)
-        for extra in ({'SANDBOX_ORIGIN_BINDING': 'missing'}, {'SANDBOX_ORIGIN_BINDING': 'foreign'},
-                      {'SANDBOX_ORIGIN_BINDING': 'credentials'},
-                      {'SANDBOX_POD_ORIGIN': 'https://example.invalid/foreign.git'}):
-            denied = self.box.run('stand-report.sh', *args, **extra)
-            self.assertNotEqual(denied.returncode, 0, denied.stdout + denied.stderr)
-        for extra in ({}, {'SANDBOX_POD_ORIGIN': canonical}, {'LANDING_PRECHECK_WS': str(self.box.ws)}):
-            lawful = self.box.run('stand-report.sh', *args, **extra)
-            self.assertEqual(lawful.returncode, 0, lawful.stdout + lawful.stderr)
+        # Сторона pod: иной репозиторий у файла либо у клона Job — 70, и отказ НАЗЫВАЕТ проверку, что
+        # ожидалось и что получено (ws#1403); учётные данные адреса в текст не попадают.
+        file_check = 'remote-reader: Job: rr/workspace-origin (адрес копии машины): ожидалось '
+        clone_check = 'remote-reader: Job: origin клона Job (remote-heavy/run.sh): ожидалось '
+        for extra, said in (
+                ({'SANDBOX_ORIGIN_BINDING': 'missing'},
+                 'remote-reader: Job: файл rr/workspace-origin: ожидалось обычный файл; получено «нет файла»'),
+                ({'SANDBOX_ORIGIN_BINDING': 'foreign'}, file_check),
+                ({'SANDBOX_ORIGIN_BINDING': 'credentials'},
+                 'получено «https://github.com/PRO-Robotech/kacho-workspace.git»'),
+                ({'SANDBOX_POD_ORIGIN': 'https://example.invalid/foreign.git'},
+                 'получено «https://example.invalid/foreign.git»'),
+                ({'SANDBOX_POD_ORIGIN': 'https://github.com/PRO-Robotech/kacho-workspace-fork.git'}, clone_check),
+                ({'SANDBOX_POD_ORIGIN': 'https://github.com/pro-robotech/kacho-workspace.git'}, clone_check),
+                ({'SANDBOX_POD_ORIGIN': 'https://user:password@github.com/PRO-Robotech/kacho-workspace.git'},
+                 'получено «https://github.com/PRO-Robotech/kacho-workspace.git»')):
+            with self.subTest(denied=extra):
+                denied = self.box.run('stand-report.sh', *args, **extra)
+                self.assertEqual(denied.returncode, 70, denied.stdout + denied.stderr)
+                self.assertIn(said, denied.stderr)
+                self.assertNotIn('password', denied.stdout + denied.stderr)
+        # Законный клон: адрес копии машины любой канонической формы, клон Job — с адресом run.sh
+        # (настоящий маршрут) либо без origin; репозиторий один — 0.
+        for machine_origin in (MACHINE_ORIGIN, 'https://github.com/PRO-Robotech/kacho-workspace.git',
+                               'https://github.com/PRO-Robotech/kacho-workspace'):
+            self.box.git('remote', 'set-url', 'origin', machine_origin)
+            for extra in ({}, {'SANDBOX_POD_ORIGIN': '-'}, {'LANDING_PRECHECK_WS': str(self.box.ws)}):
+                with self.subTest(machine=machine_origin, lawful=extra):
+                    lawful = self.box.run('stand-report.sh', *args, **extra)
+                    self.assertEqual(lawful.returncode, 0, lawful.stdout + lawful.stderr)
+                    self.assertNotIn('remote-reader: Job:', lawful.stderr)
         self.assertEqual(self.box.trap.read_text(), '')
 
+    def test_twin_job_clone_carries_the_run_origin(self):
+        """Предпосылка двойника (ws#1403): адрес origin клона Job выведен из remote-heavy/run.sh, и его
+        написание расходится с адресом копии машины — иначе сверка написаний прошла бы в песочнице и
+        отказала на настоящем маршруте, как после ws#1378."""
+        self.assertEqual(POD_ORIGIN, 'https://github.com/PRO-Robotech/kacho-workspace.git')
+        self.assertNotEqual(POD_ORIGIN, self.box.git('remote', 'get-url', 'origin'))
+        k = Kaname(self.box)
+        args = ['report', '--expect', str(k.expect), '--import-id', k.identity, '--external-only']
+        lawful = self.box.run('stand-report.sh', *args)
+        self.assertEqual(lawful.returncode, 0, lawful.stdout + lawful.stderr)
+        # Старый дефект (ws#1378): сверка написаний вместо репозитория — законный клон получает 70.
+        self.box.mutate('remote-reader/pod.sh', 'canonical_origin "$clone_origin" ||',
+                        '[ "$clone_origin" = "$workspace_origin" ] ||')
+        old = self.box.run('stand-report.sh', *args)
+        self.assertEqual(old.returncode, 70, old.stdout + old.stderr)
+        self.assertIn('remote-reader: Job: origin клона Job (remote-heavy/run.sh): ожидалось', old.stderr)
+
     def test_registry_stages_run_in_a_job_clone_without_origin(self):
-        # Клон Job настоящего маршрута (remote-heavy/run.sh: init + bundle) origin не несёт, а судья
+        # Клон Job без origin (SANDBOX_POD_ORIGIN=-; настоящий маршрут заводит его в run.sh), а судья
         # реестра сверяет адрес origin воркспейса (находка kaname#881): pod заводит его каноническим адресом
-        # rr/workspace-origin (двойник слота origin не заводит, как настоящий маршрут).
+        # rr/workspace-origin.
         exp = {'schema': 'kaname-stand-v1', 'repo': gate.REPO, 'head': 'a' * 40, 'tree': 'b' * 40,
                'definitions': {str(i): {'matrix_index': i} for i in range(3)}}
         expect = self.box.files / 'expect.json'; expect.write_text(json.dumps(exp))
@@ -538,7 +590,7 @@ class RemoteReader(unittest.TestCase):
             'selected-package-partition', 'short-skip-applicability']}))
         record = self.box.ws / 'tmp/operator-stand-registry/kaname-imports' / (identity + '.json')
         args = ['register-import', '--expect', str(expect), '--packet', str(packet), '--review', str(review)]
-        got = self.box.run('stand-report.sh', *args)
+        got = self.box.run('stand-report.sh', *args, SANDBOX_POD_ORIGIN='-')
         self.assertEqual((got.returncode, json.loads(got.stdout or '{}')), (0, {'import_id': identity}),
                          got.stdout + got.stderr)
         self.assertTrue(record.exists())
@@ -547,7 +599,7 @@ class RemoteReader(unittest.TestCase):
         record.unlink()
         self.box.mutate('remote-reader/pod.sh', 'git -C "$TOPP" remote add origin "$workspace_origin" || reader_fail',
                         ': || reader_fail')
-        blind = self.box.run('stand-report.sh', *args)
+        blind = self.box.run('stand-report.sh', *args, SANDBOX_POD_ORIGIN='-')
         self.assertEqual(blind.returncode, 2, blind.stdout + blind.stderr)
         self.assertFalse(record.exists())
 
@@ -879,6 +931,24 @@ class DaemonReaders(unittest.TestCase):
                 self.assertEqual(lp_out(machine), lp_out(direct), machine.stderr)
                 self.assertNotIn('промахов GitHub', machine.stderr)
                 self.assertJob(machine)
+
+    def test_ci_read_answer_without_stderr_is_caught(self):
+        """Мутант ws#1398: драйвер снимает ответ gh без stderr — «Branch not protected» теряется, и
+        маршрут даёт иной вывод, чем прямой прогон; проба выше обязана это различить."""
+        fx = self.box.files / 'ci-no-stderr'
+        shutil.copytree(HERE / 'ci-read-fixtures' / 'kacho-3296', fx)
+        (fx / 'protection.json').unlink()
+        (fx / 'protection.json.err').write_text('gh: Branch not protected (HTTP 404)\n')
+        self.box.write(self.box.machine_bin / 'gh', (HERE / 'ci-read-fixtures' / 'gh-twin.sh').read_text())
+        args = ['PRO-Robotech/kacho', '3296']
+        direct = self.box.run('ci-read.sh', *args, machine=False,
+                              CI_READ_GH=str(self.box.machine_bin / 'gh'), CI_READ_FX=str(fx))
+        self.assertIn('CENSUS\tзащиты ветки main нет', direct.stdout + direct.stderr)
+        self.box.mutate('remote-reader.sh', 'gh "$@" > "$RR/$LAST" 2> "$RR/$LAST.err"; rc=$?',
+                        'gh "$@" > "$RR/$LAST" 2> /dev/null; : > "$RR/$LAST.err"; rc=$?')
+        blind = self.box.run('remote-reader.sh', 'scripts/ci-read.sh', *args, CI_READ_FX=str(fx))
+        self.assertNotEqual(lp_out(blind), lp_out(direct), blind.stderr)
+        self.assertNotIn('CENSUS\tзащиты ветки main нет', blind.stdout)
 
     def audited(self):
         """Репозиторий переписи: голый origin, ствол, генератор с постоянным ответом (как vault-index)."""
