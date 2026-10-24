@@ -1947,7 +1947,8 @@ route_static() {
     fi
     case "$url" in
         *PRO-Robotech/kacho|*PRO-Robotech/kacho.git|*PRO-Robotech/kaname|*PRO-Robotech/kaname.git|*PRO-Robotech/corelib|*PRO-Robotech/corelib.git)
-            [ "$CLASS" != suite ] || { WHY_LOCAL="класс «suite» — наборы и пробы воркспейса: у клона $RS_REPO внешнего пути нет"; return 1; }            RS_PROFILE="$PCLASS"; RS_WHY="клон $RS_REPO — Job профиля $PCLASS" ;;
+            [ "$CLASS" != suite ] || { WHY_LOCAL="класс «suite» — наборы и пробы воркспейса: у клона $RS_REPO внешнего пути нет"; return 1; }
+            RS_PROFILE="$PCLASS"; RS_WHY="клон $RS_REPO — Job профиля $PCLASS" ;;
         *PRO-Robotech/kacho-workspace|*PRO-Robotech/kacho-workspace.git)
             case "$CLASS" in ci-local|suite) ;; *) WHY_LOCAL="клон воркспейса: класс «$CLASS» внешнего пути не имеет — Job профиля ws несёт лишь ci-local и suite"; return 1 ;; esac
             RS_PROFILE=ws
