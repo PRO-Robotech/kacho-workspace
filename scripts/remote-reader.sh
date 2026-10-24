@@ -31,7 +31,12 @@
 #      надмножество по плану читателя: hosted kaname — workflow, коммит, прогоны, задания,
 #      журналы заданий; pr-body — задачи с номерами из сообщений диапазона и комментарии.
 #      Чего нет в снятом — промах: читатель отказывает, pod называет вызов, здесь он
-#      снимается (только GET) и прогон повторяется, всего не больше ROUNDS раз;
+#      снимается и прогон повторяется, всего не больше ROUNDS раз. Вызов gh — и плана, и
+#      промаха — исполняется, лишь если он из ЗАКРЫТОГО перечня чтений (gh_read_ok ниже):
+#      промах называет pod, и машина своим токеном исполнила бы что угодно (ws#1365);
+#      прочее — отказ строкой «вне перечня чтений», вызова нет. Учётные данные в pod не едут:
+#      адрес origin копии — без userinfo, путь внутри JSON-входа в хранилище учётных данных
+#      машины (secret_path) не переносится;
 #   4. коммит копии (локальный, не публикуется), `heavy-slot.sh suite -- bash
 #      ../scripts/remote-reader/pod.sh …` из rr — ведомость PORTABLE слота;
 #   5. вывод: pod печатает stdout, stderr, промахи и новые файлы реестра base64 строками
@@ -48,6 +53,67 @@ set -uo pipefail
 ROUNDS=3
 say() { printf 'remote-reader: %s\n' "$*" >&2; }
 die() { local c="$1"; shift; say "$*"; exit "$c"; }
+
+# ЗАКРЫТЫЙ ПЕРЕЧЕНЬ ЧТЕНИЙ GitHub, которые машина исполняет своим токеном (ws#1365). Форма —
+# ровно та, что строят план драйвера и читатели в pod; всё прочее — 1, вызова нет:
+#   api [--method GET] [--paginate] [--allow-escape-sequences] <repos/<вл>/<имя>[/…][?…] | rate_limit>
+#   pr|issue|run view <номер> [-R <вл>/<имя>] [--json <поля>]
+#   pr|issue|run list [-R <вл>/<имя>] [--json <поля>] [-L <число>]
+# Довод — латиница, цифры и знаки адреса, без пробелов и управляющих; ключ — отдельным доводом
+# (`--method=…`, `-XGET` — отказ); сегмент `.`/`..`, полный URL, graphql, тело (-f/-F/--input),
+# заголовки, --jq/--template (jq видит окружение), --hostname, --verbose — вне перечня.
+RR_ARG_RE='^[A-Za-z0-9_.,/%@:+=~&?-]+$'
+RR_REPO_RE='^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'
+RR_EP_RE='^/?(rate_limit|repos/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(/[A-Za-z0-9_.,%@:+=~-]+)*(\?[A-Za-z0-9_.,%@:+=~&/-]*)?)$'
+RR_DOT_RE='(^|/)\.\.?(/|\?|$)'
+gh_read_ok() {  # gh_read_ok <доводы gh> — 0, если вызов из закрытого перечня чтений
+    local a sub ep=0 pos=0
+    [ $# -gt 0 ] || return 1
+    for a in "$@"; do [[ "$a" =~ $RR_ARG_RE ]] || return 1; done
+    case "$1" in
+        api)
+            shift
+            while [ $# -gt 0 ]; do
+                case "$1" in
+                    --paginate|--allow-escape-sequences) ;;
+                    --method) [ "${2:-}" = GET ] || return 1; shift ;;
+                    -*) return 1 ;;
+                    *) [ "$ep" = 0 ] && [[ "$1" =~ $RR_EP_RE ]] && ! [[ "$1" =~ $RR_DOT_RE ]] || return 1; ep=1 ;;
+                esac
+                shift
+            done
+            [ "$ep" = 1 ] ;;
+        pr|issue|run)
+            sub="${2:-}"; [ "$sub" = view ] || [ "$sub" = list ] || return 1
+            shift 2
+            while [ $# -gt 0 ]; do
+                case "$1" in
+                    -R) [[ "${2:-}" =~ $RR_REPO_RE ]] || return 1; shift ;;
+                    --json) [[ "${2:-}" =~ ^[A-Za-z]+(,[A-Za-z]+)*$ ]] || return 1; shift ;;
+                    -L) [ "$sub" = list ] && [[ "${2:-}" =~ ^[1-9][0-9]{0,3}$ ]] || return 1; shift ;;
+                    -*) return 1 ;;
+                    *) [ "$sub" = view ] && [ "$pos" = 0 ] && [[ "$1" =~ ^[1-9][0-9]*$ ]] || return 1; pos=1 ;;
+                esac
+                shift
+            done
+            [ "$sub" = list ] || [ "$pos" = 1 ] ;;
+        *) return 1 ;;
+    esac
+}
+
+# Хранилища учётных данных машины и псевдо-ФС: файл оттуда в pod не переносится (ws#1365).
+# ГРАНИЦА: перечень мест — не обход; верхний довод входа — выбор вызывающего, путь внутри
+# JSON-входа — содержимое файла, и для обоих судится одно и то же.
+secret_path() {  # secret_path <путь> — 0, если путь (после разрешения ссылок) — в таком месте
+    local r h="${HOME:-/nonexistent}"
+    r="$(realpath -e -- "$1" 2> /dev/null)" || return 0
+    case "$r/" in
+        /proc/*|/sys/*|/dev/*|/etc/*|/run/*|*/.git/*) return 0 ;;
+        "$h"/.ssh/*|"$h"/.gnupg/*|"$h"/.config/*|"$h"/.kube/*|"$h"/.docker/*|"$h"/.aws/*|"$h"/.claude/*|"$h"/.admin/*) return 0 ;;
+        "$h"/.netrc/*|"$h"/.git-credentials/*|"$h"/.pgpass/*|"$h"/.local/share/keyrings/*) return 0 ;;
+    esac
+    return 1
+}
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOP="$(git -C "$HERE" rev-parse --show-toplevel 2>/dev/null)" || die 64 "$HERE — не копия git воркспейса"
 ENTRY="${1:-}"; [ $# -gt 0 ] && shift
@@ -83,6 +149,7 @@ mkdir -p "$RR/in" "$RR/gh" && : > "$RR/gh/index.jsonl"
 
 N=0
 ship_plain() {  # ship_plain <файл> — копия в rr/in, печатает путь от rr
+    secret_path "$1" && { say "«$1» — хранилище учётных данных машины либо псевдо-ФС: в pod не переносится"; return 1; }
     N=$(( N + 1 ))
     local dst="in/$N-$(basename -- "$1")"
     cp -- "$1" "$RR/$dst" || return 1
@@ -94,6 +161,9 @@ ship() {  # ship <файл> — то же, и в JSON-входе абсолют�
     if jq -e . "$RR/$dst" > /dev/null 2>&1; then
         while IFS= read -r p; do
             [ -f "$p" ] || continue
+            # Путь внутри JSON — содержимое файла, не выбор вызывающего: хранилище учётных
+            # данных не переносится, строка остаётся как есть (читатель в pod его не найдёт).
+            secret_path "$p" && { say "путь «$p» в $1 — хранилище учётных данных машины: в pod не переносится"; continue; }
             q="$(ship_plain "$p")" || return 1
             tmp="$RR/$dst.tmp"
             jq --arg a "$p" --arg b "$q" '(.. | select(type == "string" and . == $a)) |= $b' "$RR/$dst" > "$tmp" &&
@@ -107,7 +177,9 @@ ship_checkout() {  # ship_checkout <копия> — bundle HEAD, веток и o
     N=$(( N + 1 ))
     local dst="in/$N-checkout.bundle"
     git -C "$1" bundle create "$RR/$dst" HEAD --branches --remotes=origin > /dev/null 2>&1 || return 1
-    git -C "$1" remote get-url origin > "$RR/in/$N-checkout.url" 2> /dev/null || return 1
+    # Адрес — без userinfo (`https://<учётка>@…`): учётные данные в pod не едут.
+    git -C "$1" remote get-url origin 2> /dev/null | sed -E 's#^([A-Za-z][A-Za-z0-9+.-]*://)[^/@]*@#\1#' > "$RR/in/$N-checkout.url" &&
+        [ -s "$RR/in/$N-checkout.url" ] || return 1
     printf '@checkout:%s' "$dst"
 }
 
@@ -129,6 +201,7 @@ for a in "$@"; do
         continue
     fi
     [ -d "$a" ] && die 64 "довод «$a» — каталог: Job-у он не переносится"
+    [ -f "$a" ] && secret_path "$a" && die 64 "довод «$a» — хранилище учётных данных машины либо псевдо-ФС: в pod не переносится"
     if [ -f "$a" ]; then
         # Пути внутри JSON переносятся лишь у пакета импорта и перечня отзывов: ожидаемое и
         # отчёт судья сверяет отпечатком содержимого, и правка их строк сменила бы его.
@@ -146,6 +219,7 @@ gh_fetch() {  # gh_fetch <доводы gh> — ответ и код в rr/gh, с
     local key rc
     key="$(printf '%s\n' "$@" | jq -Rsc 'split("\n")[:-1]')"  # не --args: доводы вида --method он съел бы
     if [ -n "${GOT[$key]:-}" ]; then LAST="${GOT[$key]#* }"; return "${GOT[$key]%% *}"; fi
+    gh_read_ok "$@" || { say "вызов gh вне перечня чтений — не исполнен: ${key:0:200}"; LAST=""; return 126; }
     LAST="gh/$(( ${#GOT[@]} + 1 ))"
     gh "$@" > "$RR/$LAST" 2> /dev/null; rc=$?
     GOT[$key]="$rc $LAST"
@@ -264,10 +338,15 @@ while :; do
     if [ "$rc" -ne 0 ] && [ -s "$BOX/miss" ] && [ "$round" -lt "$ROUNDS" ]; then
         fetched=0
         while IFS= read -r key; do
-            if jq -e 'index("--input") or (index("--method") as $i | $i != null and .[$i + 1] != "GET")' <<< "$key" > /dev/null; then
-                say "промах записи в GitHub не снимается: $key"; continue
+            # Промах называет pod: исполняется лишь чтение из закрытого перечня (gh_read_ok),
+            # доводы — ровно те, что в ключе (строка с переводом строки разбилась бы — отказ).
+            argv=()
+            if n="$(jq -e 'if type == "array" and length > 0 and all(.[]; type == "string") then length else false end' <<< "$key" 2> /dev/null)"; then
+                mapfile -t argv < <(jq -r '.[]' <<< "$key")
             fi
-            mapfile -t argv < <(jq -r '.[]' <<< "$key")
+            if [ "${#argv[@]}" -eq 0 ] || [ "${#argv[@]}" != "$n" ] || ! gh_read_ok "${argv[@]}"; then
+                say "промах вне перечня чтений GitHub не снимается: ${key:0:200}"; continue
+            fi
             gh_fetch "${argv[@]}"; fetched=$(( fetched + 1 ))
         done < "$BOX/miss"
         if [ "$fetched" -gt 0 ]; then
