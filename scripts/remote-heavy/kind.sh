@@ -56,8 +56,10 @@
 # вправе освобождать учётку запуска, и проба от своего имени прошла бы там, где Job откажут) —
 # 77 до создания Job. Kind в pod не исполним — вложенный privileged-контейнер не стартует
 # (sysfs, cgroup) — строка «remote-heavy-kind: …» в termination-log run и 77. Образ пробы не
-# скачан — «remote-heavy-prep: …», 69 (сеть, а не политика). Ни один из трёх не красный и
-# не зелёный: вердикт даёт лишь исполненная команда (её код).
+# скачан — «remote-heavy-prep: …» с последними строками `docker pull` (сеть pod, зеркало,
+# предел анонимных скачиваний docker.io — что именно, говорит сам демон), 69: kind этим не
+# опровергнут и не подтверждён. Ни один из трёх не красный и не зелёный: вердикт даёт лишь
+# исполненная команда (её код).
 
 # Профиль: имя|cpu pod, m|cpu предел run|память предел run|ephemeral|dind|основание.
 PROFILES="$PROFILES
@@ -81,8 +83,11 @@ KIND_OPERATORS='registry-operator|github.com/PRO-Robotech/registry-operator|39f2
 vault-operator|github.com/PRO-Robotech/vault-operator|cc0bb2ad55b81f8e1a448b06c5baa77c719d9f01|https://github.com/PRO-Robotech/vault-operator.git
 kaname-iam-operator|github.com/PRO-Robotech/kaname-iam-operator|4220c2646b618c327ed33d127348056dcfa49b43|https://github.com/PRO-Robotech/kaname-iam-operator.git'
 # kind-operators-end
-# Образ пробы исполнимости — через то же зеркало, что docker:dind (registry-mirror демона).
-KIND_PROBE_IMAGE='mirror.gcr.io/library/alpine:3'
+# Образ пробы исполнимости — по имени docker.io: демон тянет его через своё зеркало
+# (--registry-mirror) с откатом на docker.io. Ссылка с явным хостом зеркала обходит и
+# зеркало демона, и откат (замер check-verifier: `docker pull mirror.gcr.io/library/busybox:1`
+# — «could not fetch content descriptor … not found», `docker pull busybox:1` — код 0).
+KIND_PROBE_IMAGE='alpine:3'
 KIND_JOB_SA='system:serviceaccount:kube-system:job-controller'
 
 # kind_on — прогон идёт профилем kind (PROFILE run.sh).
@@ -137,7 +142,7 @@ exec dockerd --host=unix:///run/dind/docker.sock --registry-mirror=https://mirro
 KIND_PREFLIGHT_SH="$(cat <<'KIND'
 # kind-begin
 kf() { echo "remote-heavy-kind: $1" | tee /dev/termination-log >&2; exit 125; }
-docker pull -q "$HEAVY_KIND_PROBE" > /dev/null 2>&1 || pf "образ пробы kind $HEAVY_KIND_PROBE не скачан в dind"
+po="$(docker pull -q "$HEAVY_KIND_PROBE" 2>&1)" || pf "образ пробы kind $HEAVY_KIND_PROBE не скачан в dind: $(printf '%s\n' "$po" | tail -n 2 | tr '\n' ' ')"
 ko="$(docker run --rm --privileged "$HEAVY_KIND_PROBE" sh -c 'mount -t sysfs sysfs /mnt && mkdir /sys/fs/cgroup/kind-probe && rmdir /sys/fs/cgroup/kind-probe && echo ok' 2>&1)"; krc=$?
 if [ "$krc" -ne 0 ] || [ "$(printf '%s\n' "$ko" | tail -n 1)" != ok ]; then
   kf "вложенный privileged-контейнер не исполним, узел kind не встанет (код $krc): $(printf '%s\n' "$ko" | tail -n 2 | tr '\n' ' ')"

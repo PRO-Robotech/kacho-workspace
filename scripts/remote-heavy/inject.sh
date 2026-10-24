@@ -4062,13 +4062,23 @@ else bad KD2 "privileged — не ровно у dind: $(jq -c '[.spec.template.s
 kd_dind="$(kx cmd "$J" dind 2)"; kd_prep="$(kx cmd "$J" run 2)"
 if grep -q 'exec dockerd' <<< "$kd_dind" && ! grep -q 'crun' <<< "$kd_dind" && ! grep -q 'remote-heavy-userns' <<< "$kd_dind"; then ok; else bad KD2 "dind профиля kind — не dockerd на runc без проверки userns"; fi
 if grep -q '^# kind-begin$' <<< "$kd_prep" && ! grep -q 'remote-heavy-userns' <<< "$kd_prep"; then ok; else bad KD2 "run профиля kind — без пробы kind либо с проверкой userns"; fi
-if [ "$(kx env "$J" run HEAVY_KIND_PROBE)" = mirror.gcr.io/library/alpine:3 ]; then ok; else bad KD2 "образ пробы kind не дан run (HEAVY_KIND_PROBE)"; fi
+if [ "$(kx env "$J" run HEAVY_KIND_PROBE)" = alpine:3 ]; then ok; else bad KD2 "образ пробы kind не дан run по имени docker.io (HEAVY_KIND_PROBE)"; fi
 if grep -q '^server system:serviceaccount:kube-system:job-controller Pod .*run' "$BOX/state/dryrun" 2>/dev/null; then ok
 else bad KD2 "пробного pod от имени job-controller (--dry-run=server) не было: $(cat "$BOX/state/dryrun" 2>/dev/null)"; fi
 if grep -n -- '--dry-run=server' "$BOX/state/calls" | head -n 1 | cut -d: -f1 | { read -r d; j="$(grep -n 'create -f .*job.json' "$BOX/state/calls" | grep -v -- '--dry-run' | head -n 1 | cut -d: -f1)"; [ -n "$d" ] && [ -n "$j" ] && [ "$d" -lt "$j" ]; }; then ok
 else bad KD2 "проба допуска — не раньше создания Job"; fi
 if grep -q 'допуск pod профиля kind: принят от имени job-controller' "$OUT"; then ok; else bad KD2 "строки допуска нет"; fi
 if [ "$(jq -r '.spec.template.spec.initContainers[] | select(.name == "dind") | .resources.limits.memory' "$J" 2>/dev/null)" = 12Gi ]; then ok; else bad KD2 "предел памяти dind профиля kind — не KIND_DIND_RES (12Gi)"; fi
+# KD2-deadline — срок Job профиля kind: --timeout по умолчанию (5400) + WAIT_START_S (1800)
+if [ "$(jq -r '.spec.activeDeadlineSeconds // empty' "$J" 2>/dev/null)" = 7200 ] && [ "$(jq -r '.spec.backoffLimit' "$J" 2>/dev/null)" = 0 ]; then ok
+else bad KD2-deadline "срок Job профиля kind — не 7200 с либо backoffLimit не 0: $(jq -c '{d: .spec.activeDeadlineSeconds, b: .spec.backoffLimit}' "$J" 2>/dev/null)"; fi
+# KD2-quota — квота ns профиля kind: один Job, два pod, пределы памяти — run (17408) + dind
+# KIND_DIND_RES (12288) + 2048 запаса = 31744 МиБ; LimitRange с умолчаниями контейнера
+A="$BOX/state/applied.json"
+if [ "$(jq -r '.items[] | select(.kind == "ResourceQuota") | [.spec.hard.pods, .spec.hard["count/jobs.batch"], .spec.hard["limits.memory"]] | join(" ")' "$A" 2>/dev/null)" = "2 1 31744Mi" ]; then ok
+else bad KD2-quota "квота ns профиля kind не та: $(jq -c '.items[] | select(.kind == "ResourceQuota") | .spec.hard' "$A" 2>/dev/null)"; fi
+if [ "$(jq -r '.items[] | select(.kind == "LimitRange") | .spec.limits[] | select(.type == "Container") | [.default.memory, .defaultRequest.memory] | join(" ")' "$A" 2>/dev/null)" = "1Gi 128Mi" ]; then ok
+else bad KD2-limitrange "LimitRange ns профиля kind не поставлен либо не тот: $(jq -c '.items[] | select(.kind == "LimitRange")' "$A" 2>/dev/null)"; fi
 # KD2-twin — тот же клон профилем go-race: hostUsers false, dind без privileged, проверка userns,
 # пробы kind и пробного pod нет
 fresh; go_run kd2t env FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$SRC" --profile go-race --short kd2t -- make test
@@ -4171,7 +4181,7 @@ if [ "$(grep -c . "$KK/raw.sh")" -ge 5 ] && grep -q 'docker run --rm --privilege
 kd_case() {
     local c="$1" want="$2" word="$3" mode="$4"
     rm -f "$KK/tl"; OUT="$BOX/$c.out"
-    env -i PATH="$KK/bin:/usr/bin:/bin" HEAVY_KIND_PROBE=mirror.gcr.io/library/alpine:3 KD_DOCKER="$mode" bash "$KK/kind.sh" > "$OUT" 2>&1; RC=$?
+    env -i PATH="$KK/bin:/usr/bin:/bin" HEAVY_KIND_PROBE=alpine:3 KD_DOCKER="$mode" bash "$KK/kind.sh" > "$OUT" 2>&1; RC=$?
     expect_rc "$c" "$want"
     if [ "$want" -eq 0 ]; then
         if [ ! -e "$KK/tl" ] && grep -q 'kind исполним' "$OUT"; then ok; else bad "$c" "исполнимый kind: строка в termination-log либо нет строки «kind исполним»"; fi
@@ -4183,7 +4193,7 @@ kd_case KD7 0 - ok
 kd_case KD8-sysfs 125 'remote-heavy-kind: .*mount `sysfs`' sysfs
 kd_case KD8-cgroup 125 'remote-heavy-kind: .*cgroup' cgroup
 kd_case KD8-silent 125 'remote-heavy-kind: ' silent
-kd_case KD9-pull 125 'remote-heavy-prep: образ пробы kind' pull
+kd_case KD9-pull 125 "remote-heavy-prep: образ пробы kind alpine:3 не скачан в dind: .*i/o timeout" pull
 export REMOTE_HEAVY_KIND_DIR="$SELF_DIR"
 
 # L0 — двойник печатает адрес и IPv4 (иначе L1 пуста)

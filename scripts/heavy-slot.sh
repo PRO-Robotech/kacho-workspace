@@ -1907,15 +1907,23 @@ portable_script() {
 # есть лишь у хука отправки (ci-local) и скриптов ведомости PORTABLE (ci-local, suite): образ
 # профиля ws несёт среду наборов, а не go и make (ws#1304), — у прочего внешнего пути нет (no_route_judge).
 # origin_addr <адрес remote> — «хост/путь» без схемы, учётки, порта ssh-формы и «.git»:
-# https://u:t@host/o/r.git, ssh://git@host/o/r, git@host:o/r.git → host/o/r.
+# https://u:t@host/o/r.git, ssh://git@host:22/o/r, git@host:o/r.git → host/o/r.
 origin_addr() {
-    local u="${1%/}"; u="${u%.git}"
+    local u="${1%/}" h; u="${u%.git}"
     case "$u" in
-        *://*) u="${u#*://}"; u="${u#*@}" ;;
+        *://*) u="${u#*://}"; u="${u#*@}"; h="${u%%/*}"; u="${h%%:*}/${u#*/}" ;;
         *@*:*) u="${u#*@}"; u="${u%%:*}/${u#*:}" ;;
     esac
     printf '%s\n' "$u"
 }
+# Канонические адреса клонов внешних операторов — хост и путь целиком (решение диспетчера
+# 2026-10-24, ws#1385): registry-operator — зеркало GitHub и источник правды GitLab;
+# vault-operator и kaname-iam-operator — GitHub. Суффиксное совпадение не годится: чужой хост
+# с тем же хвостом пути — не наш клон.
+OPERATOR_ADDRS='github.com/PRO-Robotech/vault-operator
+github.com/PRO-Robotech/kaname-iam-operator
+github.com/PRO-Robotech/registry-operator
+gitlab.beget.ru/cloud/k8s/controllers/registry-operator'
 route_static() {
     local url
     RS_KNOWN=""; RS_TOP=""; RS_REPO=""; RS_PROFILE=""; RS_WHY=""; RS_MACHINE=""
@@ -1937,15 +1945,15 @@ route_static() {
     RS_TOP="$(cd "$RS_TOP" && pwd -P)"
     url="$(git -C "$RS_TOP" remote get-url origin 2>/dev/null)"
     RS_REPO="${url%.git}"; RS_REPO="${RS_REPO##*/}"
-    # Класс kind — адрес origin целиком (хост и путь), не суффикс: privileged-профиль (run.sh
-    # kind.sh, ПОВЕРХНОСТЬ); личность исходников и ветку канонического судит run.sh.
-    if [ "$CLASS" = kind ]; then
-        case "$(origin_addr "$url")" in
-            github.com/PRO-Robotech/vault-operator|github.com/PRO-Robotech/kaname-iam-operator|github.com/PRO-Robotech/registry-operator) ;;
-            *) WHY_LOCAL="класс «kind» — лишь клонам внешних операторов, origin сверяется по хосту и пути целиком (github.com/PRO-Robotech/<оператор>), не по суффиксу: у этого клона внешнего пути нет"; return 1 ;;
-        esac
+    # Клон внешнего оператора — origin ровно по OPERATOR_ADDRS (хост и путь целиком); класс
+    # kind — лишь ему: privileged-профиль (run.sh kind.sh, ПОВЕРХНОСТЬ), личность исходников и
+    # ветку канонического судит run.sh.
+    local key="$url"
+    grep -qxF -- "$(origin_addr "$url")" <<< "$OPERATOR_ADDRS" && key=operator
+    if [ "$CLASS" = kind ] && [ "$key" != operator ]; then
+        WHY_LOCAL="класс «kind» — лишь клонам внешних операторов, origin сверяется по хосту и пути целиком ($(tr '\n' ' ' <<< "$OPERATOR_ADDRS")), не по суффиксу: у этого клона внешнего пути нет"; return 1
     fi
-    case "$url" in
+    case "$key" in
         *PRO-Robotech/kacho|*PRO-Robotech/kacho.git|*PRO-Robotech/kaname|*PRO-Robotech/kaname.git|*PRO-Robotech/corelib|*PRO-Robotech/corelib.git)
             [ "$CLASS" != suite ] || { WHY_LOCAL="класс «suite» — наборы и пробы воркспейса: у клона $RS_REPO внешнего пути нет"; return 1; }
             RS_PROFILE="$PCLASS"; RS_WHY="клон $RS_REPO — Job профиля $PCLASS" ;;
@@ -1963,7 +1971,7 @@ route_static() {
                 WHY_LOCAL="клон воркспейса: нагрузка «${PAY_SH:-$PAY}» — не хук отправки и не отслеживаемый набор либо проба относительным путём (ведомость PORTABLE: run-all.sh, inject*.sh, *-inject.sh, prove*.sh, *mutants.py, run-suites.sh, hook-proofs.sh, check-*): внешнего пути нет"; return 1
             fi
             return 0 ;;
-        *PRO-Robotech/vault-operator|*PRO-Robotech/vault-operator.git|*PRO-Robotech/kaname-iam-operator|*PRO-Robotech/kaname-iam-operator.git|*PRO-Robotech/registry-operator|*PRO-Robotech/registry-operator.git)
+        operator)
             case "$CLASS" in go-race|go-unit|integration|ci-local|kind) ;; *) WHY_LOCAL="клон внешнего оператора $RS_REPO: класс «$CLASS» внешнего пути не имеет — Job несёт go-race, go-unit, integration, ci-local и kind (lint — пин линтера run.sh берёт лишь из ci.yaml, ci.yml)"; return 1 ;; esac
             RS_PROFILE="$PCLASS"; RS_WHY="клон внешнего оператора $RS_REPO — Job профиля $PCLASS, образ golang версии его go.mod" ;;
         *) WHY_LOCAL="клон не kacho, kaname, corelib, kacho-workspace, vault-operator, kaname-iam-operator или registry-operator: внешнего пути нет"; return 1 ;;
