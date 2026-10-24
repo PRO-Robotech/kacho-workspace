@@ -336,6 +336,77 @@ class HostedMatrixLegs(unittest.TestCase):
                 self.assertEqual(verdict(), 8)
 
 
+class HostedShardLegs(unittest.TestCase):
+    """Ноги chart-own осью `shard` плана — снимок e2e-newman.yml и плана kaname 190eabc04 (kaname#848, ws#1259)."""
+    PLAN = 'tests/newman/chart-own-shards.txt'
+
+    def setUp(self):
+        import copy
+        self.copy = copy.deepcopy
+        self.workflow = gate.common.load_workflow(
+            (HERE / 'kaname-stand-fixtures/e2e-workflow-chart-own-shards-native.yml').read_bytes())
+        self.plan = gate.shard_plan((HERE / 'kaname-stand-fixtures/chart-own-shards-native.txt').read_text(), self.PLAN)
+        self.job = self.workflow['jobs']['chart-own']
+        (self.step,) = [s for s in self.job['steps'] if './scripts/run.sh ' in s.get('run', '')]
+        self.legs = [{'index': i, 'total': 3, 'values': v, 'plan': self.PLAN, 'suites': self.plan[v['shard']]}
+                     for i, v in enumerate(gate.matrix_legs(self.job))]
+
+    def calls(self, leg, step=None, env=None, values=None):
+        return gate.suite_calls(step or self.step, leg['values'] if values is None else values,
+                                self.job['env'] if env is None else env, leg)
+
+    def test_each_leg_runs_its_own_plan_row(self):
+        self.assertEqual(self.plan, {'sf': ['kaname-second-factor'],
+                                     'ak': ['kaname-login-lane', 'kaname-authorization-code', 'kaname-access-keys'],
+                                     'ec': ['kaname-recovery-lane', 'kaname-registration',
+                                            'kaname-address-verification', 'kaname-email-change']})
+        self.assertEqual([self.calls(leg) for leg in self.legs], [[self.plan[s]] for s in ('sf', 'ec', 'ak')])
+        sf = self.legs[0]
+        other_plan = self.copy(self.step)
+        other_plan['run'] = other_plan['run'].replace('chart-own-shards.txt', 'other-shards.txt')
+        with_service = self.copy(self.step)
+        with_service['run'] = with_service['run'].replace('--shard "$CHART_OWN_SHARD"',
+                                                          '--shard "$CHART_OWN_SHARD" --service kaname-registration')
+        for label, call in [
+                ('leg without a plan row', lambda: gate.suite_calls(self.step, sf['values'], self.job['env'], None)),
+                ('runner names another plan', lambda: self.calls(sf, step=other_plan)),
+                ('shard variable bound to a literal', lambda: self.calls(sf, env=dict(self.job['env'], CHART_OWN_SHARD='sf'))),
+                ('shard variable unbound', lambda: self.calls(sf, env={})),
+                ('values of another leg', lambda: self.calls(sf, values=self.legs[1]['values'])),
+                ('service beside the shard', lambda: self.calls(sf, step=with_service))]:
+            with self.subTest(label=label):
+                with self.assertRaisesRegex(gate.common.Unread, 'unsupported shard plan selection'): call()
+                self.assertEqual(self.calls(sf), [['kaname-second-factor']])
+
+    def test_leg_verdict_reads_its_plan_row_wave(self):
+        leg = self.legs[2]
+        name = 'e2e-newman.yml:chart-own[shard=ak]'
+        definition = gate.job_definition(self.workflow, 'chart-own', matrix=True)
+        exp = {'head': 'a' * 40, 'definitions': {name: {'workflow_job': 'e2e-newman.yml:chart-own',
+                                                        'definition': definition, 'matrix_leg': leg}}}
+        review = {'role': 'check-verifier', 'verdict': 'accept', 'blocking': [],
+                  'expected_digest': gate.common.digest(exp), 'job': name,
+                  'temporary_resources': 'job-vm-only', 'transitive_source_review': True}
+        steps = [{'number': i, 'name': gate.expand(s['name'], leg['values']), 'status': 'completed',
+                  'conclusion': 'success'} for i, s in enumerate(definition['job']['steps'], 1) if 'name' in s]
+        def table(names):
+            rows = ''.join(f'{n} 4 0 2 0 0\n' for n in names)
+            return ('RESOURCE ASSERT FAILED REQUESTS UNANSWERED RC NOTE\n' + rows +
+                    f'TOTAL: {len(names)}/{len(names)} коллекций отчиталось — {2 * len(names)} запрос(ов), 0 без '
+                    f'ответа, {4 * len(names)} утверждени(й), 0 упавших, 0 немых отчёт(ов)\n')
+        def verdict(native):
+            captured = {'job': {'run_id': 1, 'run_attempt': 1, 'id': 2, 'steps': steps}, 'native': native,
+                        'log_digest': 'synthetic', 'event': 'workflow_dispatch'}
+            return gate.hosted_verdict(exp, name, captured, review)['census']['passed']
+        self.assertEqual(verdict(table(self.plan['ak'])), 12)
+        for label, native in [('wave of another shard', table(self.plan['sf'])),
+                              ('suite of the row lost', table(self.plan['ak'][:2])),
+                              ('suite of another row added', table(self.plan['ak'] + ['kaname-second-factor']))]:
+            with self.subTest(label=label):
+                with self.assertRaises(gate.common.Unread): verdict(native)
+                self.assertEqual(verdict(table(self.plan['ak'])), 12)
+
+
 class TrustBoundaries(unittest.TestCase):
     def setUp(self):
         import json, base64, copy
@@ -778,9 +849,61 @@ class TrustBoundaries(unittest.TestCase):
              'overridden primary checkout'),
             ('shards-sparse-on-shard', 'ci.yml', lambda d: d['jobs']['unitshard']['steps'][0]['with'].update(
                 {'sparse-checkout': '.github\n', 'sparse-checkout-cone-mode': False}), 'overridden primary checkout')]
+        # ws#1259: e2e-newman.yml и план шардов kaname 190eabc04 (сборка W2 kaname#977, kaname#848):
+        # chart-own — ось `shard` [sf, ec, ak] плана `tests/newman/chart-own-shards.txt` и свод
+        # `chart-own-verdict`. ci/docker/pr-rule — снимки ad86098: их наборы заданий те же.
+        plan_path = 'tests/newman/chart-own-shards.txt'
+        chart = dict(plain, **{'e2e-newman.yml': fixture('e2e-workflow-chart-own-shards-native.yml'),
+                               plan_path: fixture('chart-own-shards-native.txt')})
+        own = lambda d: d['jobs']['chart-own']
+        own_run = lambda d: next(s for s in own(d)['steps'] if './scripts/run.sh ' in s.get('run', ''))
+        own_verdict = lambda d: next(s for s in d['jobs']['chart-own-verdict']['steps'] if 'shard_plan.py' in s.get('run', ''))
+        def moved_var(d):
+            own(d)['env']['OWN_SHARD'] = own(d)['env'].pop('CHART_OWN_SHARD')
+            own_run(d)['run'] = own_run(d)['run'].replace('--shard "$CHART_OWN_SHARD"', '--shard "$OWN_SHARD"')
+        cases += [
+            ('chart-lawful', None, None, None),
+            ('chart-var-in-step-twin', 'e2e-newman.yml', lambda d: own_run(d).update(
+                env={'CHART_OWN_SHARD': own(d)['env'].pop('CHART_OWN_SHARD')}), None),
+            ('chart-var-renamed-twin', 'e2e-newman.yml', moved_var, None),
+            ('chart-plan-order-twin', plan_path, lambda t: t.replace(
+                'sf: kaname-second-factor\n', '') + 'sf: kaname-second-factor\n', None),
+            ('chart-shard-lost', 'e2e-newman.yml', lambda d: own(d)['strategy']['matrix']['shard'].remove('ak'),
+             'chart-own plan shard without matrix leg: ak'),
+            ('chart-shard-extra', 'e2e-newman.yml', lambda d: own(d)['strategy']['matrix']['shard'].append('zz'),
+             'chart-own matrix leg without plan shard: zz'),
+            ('chart-plan-row-lost', plan_path, lambda t: t.replace('sf: kaname-second-factor\n', ''),
+             'chart-own matrix leg without plan shard: sf'),
+            ('chart-plan-stem-twice', plan_path, lambda t: t + 'zz: kaname-second-factor\n',
+             'invalid chart-own shard plan: ' + plan_path),
+            ('chart-plan-untracked', plan_path, 'unlink', 'chart-own shard plan is not tracked: ' + plan_path),
+            ('chart-shard-duplicate', 'e2e-newman.yml', lambda d: own(d)['strategy']['matrix']['shard'].append('sf'),
+             'duplicate matrix leg'),
+            ('chart-axis-and-include', 'e2e-newman.yml', lambda d: own(d)['strategy']['matrix'].update(
+                include=[{'shard': 'sf'}]), 'unreviewed matrix axes'),
+            ('chart-verdict-lost', 'e2e-newman.yml', lambda d: d['jobs'].pop('chart-own-verdict'),
+             'chart-own shard matrix lost its verdict'),
+            ('chart-verdict-unbound', 'e2e-newman.yml', lambda d: d['jobs']['chart-own-verdict'].update(
+                needs=['changes']), 'chart-own verdict lost its producer'),
+            ('chart-verdict-other-plan', 'e2e-newman.yml', lambda d: own_verdict(d).update(run=own_verdict(d)[
+                'run'].replace('--plan tests/newman/chart-own-shards.txt', '--plan tests/newman/other.txt')),
+             'chart-own verdict shape differs'),
+            ('chart-verdict-copy', 'e2e-newman.yml', lambda d: d['jobs'].update(
+                {'chart-own-verdict2': copy.deepcopy(d['jobs']['chart-own-verdict'])}),
+             'CI job outside the Kaname ledger: e2e-newman.yml:chart-own-verdict2'),
+            ('chart-runner-literal', 'e2e-newman.yml', lambda d: own(d)['env'].update(CHART_OWN_SHARD='sf'),
+             'chart-own shard runner form differs'),
+            ('chart-runner-plus-service', 'e2e-newman.yml', lambda d: own_run(d).update(run=own_run(d)['run'].replace(
+                '--shard "$CHART_OWN_SHARD"', '--shard "$CHART_OWN_SHARD" --service kaname-registration')),
+             'chart-own shard runner form differs'),
+            ('verdict-without-shards', 'e2e-newman.yml', lambda d: d['jobs'].update({'chart-own-verdict': {
+                'needs': ['chart-own'], 'runs-on': 'ubuntu-latest', 'steps': [{'run': 'true'}]}}),
+             'chart-own verdict without shard matrix')]
+        def where(co, name):
+            return co / (name if '/' in name else '.github/workflows/' + name)
         for mutation, target, change, refused in cases:
             sources = (plain if mutation == 'lawful-plain' else shards if mutation.startswith('shards-')
-                       else matrix)
+                       else chart if mutation.startswith('chart-') else matrix)
             with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory); co = root / 'checkout'; co.mkdir()
                 wf = co / '.github/workflows'; wf.mkdir(parents=True)
@@ -792,7 +915,9 @@ class TrustBoundaries(unittest.TestCase):
                         '-C', str(co), *args], env=env,
                         check=True, capture_output=True, text=True).stdout.strip()
                 git('init', '-q'); git('remote', 'add', 'origin', 'https://github.com/PRO-Robotech/kaname.git')
-                for name, raw in sources.items(): (wf / name).write_bytes(raw)
+                for name, raw in sources.items():
+                    where(co, name).parent.mkdir(parents=True, exist_ok=True)
+                    where(co, name).write_bytes(raw)
                 git('add', '.'); git('commit', '-qm', 'lawful source inventory')
                 base = git('rev-parse', 'HEAD')
                 def expect():
@@ -807,10 +932,21 @@ class TrustBoundaries(unittest.TestCase):
                 self.assertEqual(len(actual['logical_jobs']), 6)
                 unit_legs = [n for n in actual['jobs'] if n.startswith('ci.yml:unitshard')]
                 width = 5 if sources is shards else 0
-                self.assertEqual(len(actual['jobs']), (8 if sources is plain else 9) + width)
+                planned = sources is chart
+                self.assertEqual(len(actual['jobs']), (8 if sources is plain else 10 if planned else 9) + width)
                 self.assertEqual(legs, ['e2e-newman.yml:chart-own'] if sources is plain else
+                                 [f'e2e-newman.yml:chart-own[shard={v}]' for v in ('sf', 'ec', 'ak')] if planned else
                                  ['e2e-newman.yml:chart-own[include=0]', 'e2e-newman.yml:chart-own[include=1]'])
-                if sources is not plain:
+                if planned:
+                    self.assertEqual([actual['definitions'][n]['matrix_leg'] for n in legs], [
+                        {'index': 0, 'total': 3, 'values': {'shard': 'sf'}, 'plan': plan_path,
+                         'suites': ['kaname-second-factor']},
+                        {'index': 1, 'total': 3, 'values': {'shard': 'ec'}, 'plan': plan_path,
+                         'suites': ['kaname-recovery-lane', 'kaname-registration', 'kaname-address-verification',
+                                    'kaname-email-change']},
+                        {'index': 2, 'total': 3, 'values': {'shard': 'ak'}, 'plan': plan_path,
+                         'suites': ['kaname-login-lane', 'kaname-authorization-code', 'kaname-access-keys']}])
+                elif sources is not plain:
                     self.assertEqual([actual['definitions'][n]['matrix_leg']['values']['half'] for n in legs],
                                      ['entry', 'keys'])
                 self.assertEqual(unit_legs, [f'ci.yml:unitshard[shard={v}]' for v in range(1, width + 1)])
@@ -819,14 +955,17 @@ class TrustBoundaries(unittest.TestCase):
                 self.assertEqual(actual.get('unit_shards'), width or None)
                 self.assertEqual(sum('unit_shard' in x for x in actual['definitions'].values()), width)
                 self.assertEqual(sum(x['executor'] == 'external' for x in actual['definitions'].values()), 4 + width)
-                self.assertEqual(actual['ledger'], {'workflows': sorted(sources), 'jobs': 27 + bool(width),
-                                                    'staged': 6 + bool(width), 'ci_read': 21})
+                self.assertEqual(actual['ledger'], {'workflows': sorted(n for n in sources if '/' not in n),
+                                                    'jobs': 27 + bool(width) + planned,
+                                                    'staged': 6 + bool(width), 'ci_read': 21 + planned})
                 if target is None: continue
-                if change == 'unlink': (wf / target).unlink()
+                if change == 'unlink': where(co, target).unlink()
+                elif target.endswith('.txt'):
+                    where(co, target).write_text(change(sources[target].decode()))
                 else:
                     doc = gate.common.load_workflow(sources[target]) if target in sources else {}
                     change(doc)
-                    (wf / target).write_text(json.dumps(doc, ensure_ascii=False))
+                    where(co, target).write_text(json.dumps(doc, ensure_ascii=False))
                 git('add', '-A'); git('commit', '-qm', mutation)
                 bad = expect()
                 if refused is None:
