@@ -881,6 +881,8 @@ class TrustBoundaries(unittest.TestCase):
              'duplicate matrix leg'),
             ('chart-axis-and-include', 'e2e-newman.yml', lambda d: own(d)['strategy']['matrix'].update(
                 include=[{'shard': 'sf'}]), 'unreviewed matrix axes'),
+            ('chart-shard-axis-on-stand', 'e2e-newman.yml', lambda d: d['jobs']['stand'].update(
+                strategy={'matrix': {'shard': ['a', 'b']}}), 'unreviewed matrix axes'),
             ('chart-verdict-lost', 'e2e-newman.yml', lambda d: d['jobs'].pop('chart-own-verdict'),
              'chart-own shard matrix lost its verdict'),
             ('chart-verdict-unbound', 'e2e-newman.yml', lambda d: d['jobs']['chart-own-verdict'].update(

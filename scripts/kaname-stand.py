@@ -281,7 +281,10 @@ def expected(checkout, head, base, ref):
         if legs is None:
             names.append((source, source, None, None))
         elif chart_plan is None or source != 'e2e-newman.yml:chart-own':
-            names += [(f'{source}[include={i}]', source, None, {'index': i, 'total': len(legs), 'values': leg})
+            # Ось `shard` разобрана лишь у chart-own с планом: у иного задания она не просмотрена.
+            require(SHARD_AXIS not in workflows[filename][0]['jobs'][key]['strategy']['matrix'],
+                    'unreviewed matrix axes')
+            names +=[(f'{source}[include={i}]', source, None, {'index': i, 'total': len(legs), 'values': leg})
                       for i, leg in enumerate(legs)]
         else:
             # Нога шарда несёт план и свои наборы: отчёт судит её волну по ним.
