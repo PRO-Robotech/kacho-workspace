@@ -18,6 +18,7 @@
 #      тела и демона нет.
 # Затем мутанты chain.sh — каждый обязан покрасить свою сцену.
 # Коды: 0 — всё прошло; 1 — провал; 2 — предпосылки нет (git).
+# shellcheck disable=SC2317,SC2329  # сцены зовутся косвенно ("$c"), мутанты — через CH
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 CHAIN="$HERE/chain.sh"
@@ -95,7 +96,7 @@ c3() { fixture c3 да; run; local rc=$?; local p b nh
     p="$(line_no push)"; b="$(line_no body)"; nh="$(git -C "$FX/origin.git" rev-parse refs/heads/5-x)"
     [ "$rc" = 0 ] && grep -q '^push task=5$' "$FX/calls" && [ -n "$p" ] && [ -n "$b" ] && [ "$p" -lt "$b" ] \
         && grep -q "^body task=5 head=$nh onorigin=1\$" "$FX/calls" && grep -q "^daemon task=5 head=$nh\$" "$FX/calls" && [ ! -e "$FX/ws/tmp/land-kaname-1" ]; }
-c4() { fixture c4 да; run env DAEMON_RC=1; [ ! -e "$FX/ws/tmp/land-kaname-1" ] && [ -z "$(git -C "$FX/clone" worktree list | grep land-kaname)" ] && grep -q '^daemon' "$FX/calls"; }
+c4() { fixture c4 да; run env DAEMON_RC=1; [ ! -e "$FX/ws/tmp/land-kaname-1" ] && ! git -C "$FX/clone" worktree list | grep -q land-kaname && grep -q "^daemon" "$FX/calls"; }
 c5() { fixture c5 нет; run env KACHO_DETACHED_UNTIL="$(( $(date +%s) + 5 ))"; local rc=$?; [ "$rc" = 64 ] && [ ! -s "$FX/calls" ] && grep -q 'срок службы' "$FX/out"; }
 c6() { fixture c6 нет; run env -u KACHO_DETACHED_UNTIL; local rc=$?; [ "$rc" = 64 ] && [ ! -s "$FX/calls" ]; }
 c7() { fixture c7 нет; echo 1 > "$FX/pred.rc"; AFTER="$FX/pred.rc" run; local rc=$?; [ "$rc" = 3 ] && [ ! -s "$FX/calls" ] || return 1

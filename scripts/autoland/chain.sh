@@ -75,6 +75,7 @@ left=$(( KACHO_DETACHED_UNTIL - $(date +%s) ))
 [ "$left" -ge "$need" ] || { echo "chain: срок службы $left с короче нужного $need с (строк $lines × (демон $TIMEOUT + гейт $GATE_TIMEOUT + снятие 600)) — detach.sh start … --deadline $need" >&2; exit 64; }
 
 WTS=()
+# shellcheck disable=SC2317,SC2329  # зовётся ловушкой EXIT
 cleanup() { local w; for w in "${WTS[@]+"${WTS[@]}"}"; do [ -e "$w" ] && git -C "$CLONE" worktree remove --force "$w" > /dev/null 2>&1; done; git -C "$CLONE" worktree prune > /dev/null 2>&1; }
 trap cleanup EXIT
 
