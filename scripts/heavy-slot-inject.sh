@@ -787,6 +787,28 @@ git -C "$W/rclone-vault-operator" remote set-url origin https://github.com/PRO-R
 assert "0 none" "$(route "$W/rclone-vault-operator" go-unit -- go vet ./...)" "близнец: имя оператора с хвостом (vault-operator-x) → none"
 sed '/^        \*PRO-Robotech\/vault-operator|/,/^            RS_PROFILE=.*внешнего оператора/d' "$SLOT" > "$W/slot-mut-op.sh"
 assert "3 0 none" "$(diff "$SLOT" "$W/slot-mut-op.sh" | grep -c '^<') $(RSLOT="$W/slot-mut-op.sh" route "$W/rclone-registry-operator" go-unit -- go vet ./...)" "мутант «клоны операторов не приняты»: go-unit → none — пробы выше его ловят"
+# ws#1375: select the existing resource profile without forging GitHub identity.
+RG="$W/rclone-native-registry"; git init -q -b 1375-profile "$RG"
+printf 'module github.com/PRO-Robotech/registry-operator\n\ngo 1.26.10\n' > "$RG/go.mod"
+git -C "$RG" add go.mod; sandbox_git -C "$RG" commit -q -m module
+git -C "$RG" remote add origin https://forge.example/group/registry-operator.git
+for remote in https://forge.example/group/controllers/registry-operator.git ssh://git@forge.example:2222/group/registry-operator git@forge.example:group/registry-operator.git; do
+    git -C "$RG" remote set-url origin "$remote"
+    assert "0 external" "$(route "$RG" go-unit -- go test ./...)" "native Registry lawful remote: $remote"
+    assert "0 none" "$(route "$RG" lint -- go vet ./...)" "native Registry unsupported class: $remote"
+done
+for remote in http://forge.example/group/registry-operator.git https://user:password@forge.example/group/registry-operator.git file:///group/registry-operator.git /group/registry-operator.git https://forge.example/group/registry-operator-extra.git ssh://root@forge.example/group/registry-operator.git; do
+    git -C "$RG" remote set-url origin "$remote"
+    assert "0 none" "$(route "$RG" go-unit -- go test ./...)" "native Registry malformed or foreign remote: $remote"
+done
+git -C "$RG" remote set-url origin https://forge.example/group/registry-operator.git
+printf 'module example.org/other\n' > "$RG/go.mod"
+git -C "$RG" add go.mod; sandbox_git -C "$RG" commit -q -m foreign
+assert "0 none" "$(route "$RG" go-unit -- go test ./...)" "native Registry wrong committed module"
+printf 'module github.com/PRO-Robotech/registry-operator\n' > "$RG/go.mod"
+assert "0 none" "$(route "$RG" go-unit -- go test ./...)" "native Registry dirty module cannot spoof HEAD"
+git -C "$RG" rm -q -f go.mod; sandbox_git -C "$RG" commit -q -m absent
+assert "0 none" "$(route "$RG" go-unit -- go test ./...)" "native Registry missing module"
 RK="$W/rclone-sn"; git init -q -b 984-s "$RK"; git -C "$RK" remote add origin https://github.com/PRO-Robotech/kacho.git
 mkdir -p "$RK/deploy/scripts"; printf 'stand-ns-run:\n\t@true\n' > "$RK/deploy/Makefile"; printf '#!/usr/bin/env bash\ntrue\n' > "$RK/deploy/scripts/stand-ns.sh"
 git -C "$RK" add deploy; sandbox_git -C "$RK" commit -q -m sn

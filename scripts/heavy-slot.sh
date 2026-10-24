@@ -1905,6 +1905,15 @@ portable_script() {
 # доступном кластере — 77, при недоступном — локально с доказательством. У клона воркспейса путь
 # есть лишь у хука отправки (ci-local) и скриптов ведомости PORTABLE (ci-local, suite): образ
 # профиля ws несёт среду наборов, а не go и make (ws#1304), — у прочего внешнего пути нет (no_route_judge).
+# Resource profile selection only; the collector authenticates forge/project/source.
+registry_source_profile() {
+    local remote="$1" module
+    [[ "$remote" =~ ^https://[A-Za-z0-9][A-Za-z0-9.-]*(:[0-9]+)?/([A-Za-z0-9_-]+/)+registry-operator(\.git)?$ ||
+       "$remote" =~ ^ssh://git@[A-Za-z0-9][A-Za-z0-9.-]*(:[0-9]+)?/([A-Za-z0-9_-]+/)+registry-operator(\.git)?$ ||
+       "$remote" =~ ^git@[A-Za-z0-9][A-Za-z0-9.-]*:([A-Za-z0-9_-]+/)+registry-operator(\.git)?$ ]] || return 1
+    module="$(git -C "$RS_TOP" show HEAD:go.mod 2>/dev/null | awk '$1 == "module" {print $2}')" || return 1
+    [ "$module" = github.com/PRO-Robotech/registry-operator ]
+}
 route_static() {
     local url
     RS_KNOWN=""; RS_TOP=""; RS_REPO=""; RS_PROFILE=""; RS_WHY=""; RS_MACHINE=""
@@ -1947,7 +1956,12 @@ route_static() {
         *PRO-Robotech/vault-operator|*PRO-Robotech/vault-operator.git|*PRO-Robotech/kaname-iam-operator|*PRO-Robotech/kaname-iam-operator.git|*PRO-Robotech/registry-operator|*PRO-Robotech/registry-operator.git)
             case "$CLASS" in go-race|go-unit|integration|ci-local) ;; *) WHY_LOCAL="клон внешнего оператора $RS_REPO: класс «$CLASS» внешнего пути не имеет — Job несёт go-race, go-unit, integration и ci-local (lint — пин линтера run.sh берёт лишь из ci.yaml, ci.yml)"; return 1 ;; esac
             RS_PROFILE="$PCLASS"; RS_WHY="клон внешнего оператора $RS_REPO — Job профиля $PCLASS, образ golang версии его go.mod" ;;
-        *) WHY_LOCAL="клон не kacho, kaname, corelib, kacho-workspace, vault-operator, kaname-iam-operator или registry-operator: внешнего пути нет"; return 1 ;;
+        *)
+            if ! registry_source_profile "$url"; then
+                WHY_LOCAL="клон не kacho, kaname, corelib, kacho-workspace, vault-operator, kaname-iam-operator или registry-operator: внешнего пути нет"; return 1
+            fi
+            case "$CLASS" in go-race|go-unit|integration|ci-local) ;; *) WHY_LOCAL="клон внешнего оператора $RS_REPO: класс «$CLASS» внешнего пути не имеет"; return 1 ;; esac
+            RS_PROFILE="$PCLASS"; RS_WHY="module registry-operator — Job профиля $PCLASS; forge проверяется сборщиком доказательств" ;;
     esac
     [ -n "$RS_KNOWN" ] || ! portable_script || RS_KNOWN=1
     return 0

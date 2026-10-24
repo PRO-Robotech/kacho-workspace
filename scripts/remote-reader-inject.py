@@ -42,8 +42,20 @@ pod="$(mktemp -d)"
 git -C "$top" bundle create "$pod/in.bundle" HEAD --remotes=origin > /dev/null 2>&1 || exit 69
 git init -q "$pod/src" && git -C "$pod/src" fetch -q "$pod/in.bundle" 'refs/remotes/*:refs/remotes/*' &&
     git -C "$pod/src" fetch -q "$pod/in.bundle" HEAD &&
-    git -C "$pod/src" checkout -q --detach FETCH_HEAD &&
-    git -C "$pod/src" remote add origin https://github.com/PRO-Robotech/kacho-workspace.git || exit 69
+    git -C "$pod/src" checkout -q --detach FETCH_HEAD || exit 69
+# Actual remote-heavy bundle fetch has no origin. Only explicit adversarial/twin cases preseed one.
+[ -z "${SANDBOX_POD_ORIGIN:-}" ] || git -C "$pod/src" remote add origin "$SANDBOX_POD_ORIGIN" || exit 69
+case "${SANDBOX_ORIGIN_BINDING:-}" in
+    missing) rm -f "$pod/src/$rel/workspace-origin" ;;
+    foreign) printf '%s\n' https://example.invalid/foreign.git > "$pod/src/$rel/workspace-origin" ;;
+    credentials) printf '%s\n' https://user:password@github.com/PRO-Robotech/kacho-workspace.git > "$pod/src/$rel/workspace-origin" ;;
+esac
+if [ -n "${SANDBOX_EXPORT_FAIL:-}" ]; then
+    mkdir -p "$pod/failbin"
+    printf '#!/bin/sh\nexit 73\n' > "$pod/failbin/$SANDBOX_EXPORT_FAIL"
+    chmod +x "$pod/failbin/$SANDBOX_EXPORT_FAIL"
+    SANDBOX_POD_PATH="$pod/failbin:$SANDBOX_POD_PATH"
+fi
 [ -z "${SANDBOX_MACHINE:-}" ] || mv "$SANDBOX_MACHINE" "$SANDBOX_MACHINE.hidden"
 (cd "$pod/src/$rel" && env HOME="$SANDBOX_POD_HOME" PATH="$SANDBOX_POD_PATH" KUBERNETES_SERVICE_HOST=sandbox "$@") |
     case "${SANDBOX_STREAM:-}" in
@@ -263,10 +275,14 @@ class RemoteReader(unittest.TestCase):
         self.assertEqual(once.returncode, 2, once.stdout + once.stderr)
         self.assertIn('producer command failed', once.stdout)
 
-    def test_register_import_returns_its_registry_record(self):
+    def import_inputs(self):
         # Настоящий пакет импорта: исходные журналы и абсолютные пути машины внутри JSON.
+        names = ['ci.yml:unit'] + [f'ci.yml:integrationshard[shard={i}]' for i in range(3)]
         exp = {'schema': 'kaname-stand-v1', 'repo': gate.REPO, 'head': 'a' * 40, 'tree': 'b' * 40,
-               'definitions': {str(i): {'matrix_index': i} for i in range(3)}}
+               'base': '955', 'ref': 'refs/heads/954', 'jobs': names,
+               'logical_jobs': ['ci.yml:unit', 'ci.yml:integration'],
+               'definitions': {'ci.yml:unit': {'executor': 'external', 'matrix_index': None},
+                               **{names[i + 1]: {'executor': 'external', 'matrix_index': i} for i in range(3)}}}
         expect = self.box.files / 'expect.json'; expect.write_text(json.dumps(exp))
         packet = build_packet(self.box.files, exp)
         candidate = gate.import_candidate(exp, packet)
@@ -276,26 +292,184 @@ class RemoteReader(unittest.TestCase):
             'candidate_digest': identity, 'claims': ['source-and-command-binding', 'native-verdict-and-cleanup',
             'selected-package-partition', 'short-skip-applicability']}))
         record = self.box.ws / 'tmp/operator-stand-registry/kaname-imports' / (identity + '.json')
+        return exp, expect, packet, review, candidate, identity, record
+
+    def test_register_import_returns_its_registry_record(self):
+        exp, expect, packet, review, candidate, identity, record = self.import_inputs()
         got = self.box.run('stand-report.sh', 'register-import', '--expect', str(expect), '--packet', str(packet),
                            '--review', str(review))
         self.assertEqual(got.returncode, 0, got.stdout + got.stderr)
         self.assertEqual(json.loads(got.stdout), {'import_id': identity})
         self.assertJob(got)
         self.assertEqual(json.loads(record.read_text())['candidate'], candidate)
-        # Запись уже есть и другая — драйвер её не перезаписывает (save_new судьи — тоже).
-        record.write_text('{"tampered": true}')
-        again = self.box.run('stand-report.sh', 'register-import', '--expect', str(expect), '--packet', str(packet),
-                             '--review', str(review))
-        self.assertNotEqual(again.returncode, 0, again.stdout + again.stderr)
-        self.assertEqual(record.read_text(), '{"tampered": true}')
-        # Пути внутри пакета не перенесены — журналов в Job нет, импорт не принят.
-        record.unlink()
+        # Separate originless pods must retain the accepted identity through report and check.
+        report = self.box.run('stand-report.sh', 'report', '--expect', str(expect), '--import-id', identity,
+                              '--external-only')
+        self.assertEqual(report.returncode, 0, report.stdout + report.stderr)
+        report_file = self.box.files / 'report.json'; report_file.write_text(report.stdout)
+        checked = self.box.run('stand-report.sh', 'check', str(report_file), '--expect', str(expect),
+                               '--head', exp['head'], '--pr-base', '955', '--external-only')
+        self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+    def register(self, expect, packet, review, **env):
+        return self.box.run('stand-report.sh', 'register-import', '--expect', str(expect),
+                            '--packet', str(packet), '--review', str(review), **env)
+
+    def test_register_identical_record_refuses_without_mutation(self):
+        _, expect, packet, review, _, _, record = self.import_inputs()
+        first = self.register(expect, packet, review)
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        before = record.read_bytes()
+        denied = self.register(expect, packet, review)
+        self.assertEqual(denied.returncode, 2, denied.stdout + denied.stderr)
+        self.assertIn('[Errno 17] File exists:', denied.stdout + denied.stderr)
+        self.assertEqual(record.read_bytes(), before)
+
+    def test_register_conflicting_record_refuses_without_mutation(self):
+        _, expect, packet, review, _, _, record = self.import_inputs()
+        record.parent.mkdir(parents=True, exist_ok=True)
+        record.write_bytes(b'{"tampered": true}')
+        denied = self.register(expect, packet, review)
+        self.assertEqual(denied.returncode, 2, denied.stdout + denied.stderr)
+        self.assertIn('[Errno 17] File exists:', denied.stdout + denied.stderr)
+        self.assertEqual(record.read_bytes(), b'{"tampered": true}')
+
+    def export_failure(self, tool):
+        _, expect, packet, review, _, _, record = self.import_inputs()
+        failed = self.register(expect, packet, review, SANDBOX_EXPORT_FAIL=tool)
+        self.assertNotEqual(failed.returncode, 0, failed.stdout + failed.stderr)
+        self.assertFalse(record.exists(), tool)
+        restored = self.register(expect, packet, review)
+        self.assertEqual(restored.returncode, 0, restored.stdout + restored.stderr)
+        self.assertTrue(record.is_file())
+
+    def test_register_tar_export_failure(self):
+        self.export_failure('tar')
+
+    def test_register_find_export_failure(self):
+        self.export_failure('find')
+
+    def test_register_cp_export_failure(self):
+        self.export_failure('cp')
+
+    def test_register_unshipped_packet_refuses(self):
+        _, expect, packet, review, _, _, record = self.import_inputs()
         self.box.mutate('remote-reader.sh', '--packet|--hosted-reviews) a="$(ship "$a")"',
                         '--hosted-reviews) a="$(ship "$a")"')
-        blind = self.box.run('stand-report.sh', 'register-import', '--expect', str(expect), '--packet', str(packet),
-                             '--review', str(review))
+        blind = self.register(expect, packet, review)
         self.assertEqual(blind.returncode, 2, blind.stdout + blind.stderr)
         self.assertFalse(record.exists())
+
+    def archived_reader(self):
+        archive = self.box.root / 'archive'
+        archive.mkdir()
+        payload = subprocess.check_output(['git', '-C', str(self.box.ws), 'archive', 'HEAD', 'scripts'])
+        subprocess.run(['tar', '-xf', '-', '-C', str(archive)], input=payload, check=True)
+        k = Kaname(self.box)
+        args = ['report', '--expect', str(k.expect), '--import-id', k.identity, '--external-only']
+        def run(**env):
+            return subprocess.run(['bash', str(archive / 'scripts/stand-report.sh'), *args],
+                                  cwd=archive, env=self.box.env(**env), capture_output=True,
+                                  text=True, timeout=600)
+        return archive, run
+
+    def test_archived_reader_uses_explicit_source(self):
+        archive, run = self.archived_reader()
+        self.assertFalse((archive / '.git').exists())
+        result = run(LANDING_PRECHECK_WS=str(self.box.ws))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertJob(result)
+        self.assertEqual(self.box.trap.read_text(), '')
+
+    def test_archived_reader_refuses_unbound_or_foreign_root(self):
+        _, run = self.archived_reader()
+        for env in ({}, {'LANDING_PRECHECK_WS': str(self.box.ws / 'scripts')}):
+            result = run(**env)
+            self.assertEqual(result.returncode, 64, result.stdout + result.stderr)
+        for origin in ('https://example.invalid/foreign.git',
+                       'https://user:password@github.com/PRO-Robotech/kacho-workspace.git'):
+            self.box.git('remote', 'set-url', 'origin', origin)
+            result = run(LANDING_PRECHECK_WS=str(self.box.ws))
+            self.assertEqual(result.returncode, 64, result.stdout + result.stderr)
+        self.assertEqual(self.box.slots(), [])
+        self.assertEqual(self.box.gh_log.read_text(), '')
+
+    def test_archived_reader_binds_entire_snapshot(self):
+        archive, run = self.archived_reader()
+        target = archive / 'scripts/kaname-stand.py'
+        original = target.read_bytes()
+        for mutation in ('content', 'missing', 'extra', 'mode', 'symlink'):
+            with self.subTest(mutation=mutation):
+                extra = archive / 'scripts/unexpected.py'
+                if mutation == 'content': target.write_bytes(original + b'\n# changed judge\n')
+                elif mutation == 'missing': target.unlink()
+                elif mutation == 'extra': extra.write_text('# extra\n')
+                elif mutation == 'mode': target.chmod(target.stat().st_mode ^ 0o111)
+                elif mutation == 'symlink':
+                    target.unlink(); target.symlink_to('operator-stand.py')
+                result = run(LANDING_PRECHECK_WS=str(self.box.ws))
+                self.assertEqual(result.returncode, 64, result.stdout + result.stderr)
+                self.assertIn('archived scripts differ', result.stderr)
+                if target.is_symlink() or target.exists(): target.unlink()
+                target.write_bytes(original)
+                target.chmod((self.box.ws / 'scripts/kaname-stand.py').stat().st_mode)
+                extra.unlink(missing_ok=True)
+        self.assertEqual(self.box.slots(), [])
+        self.assertEqual(self.box.gh_log.read_text(), '')
+        lawful = run(LANDING_PRECHECK_WS=str(self.box.ws))
+        self.assertEqual(lawful.returncode, 0, lawful.stdout + lawful.stderr)
+
+    def test_archived_reader_refuses_dirty_source(self):
+        _, run = self.archived_reader()
+        target = self.box.ws / 'scripts/remote-reader.sh'
+        target.write_text(target.read_text() + '\n# uncommitted\n')
+        result = run(LANDING_PRECHECK_WS=str(self.box.ws))
+        self.assertEqual(result.returncode, 64, result.stdout + result.stderr)
+        self.assertEqual(self.box.slots(), [])
+        self.assertEqual(self.box.gh_log.read_text(), '')
+
+    def test_archived_reader_ignores_enclosing_foreign_git(self):
+        archive, run = self.archived_reader()
+        self.box.git('init', '-q', cwd=archive)
+        self.box.git('remote', 'add', 'origin', 'https://example.invalid/foreign.git', cwd=archive)
+        result = run(LANDING_PRECHECK_WS=str(self.box.ws))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertJob(result)
+
+    def test_archived_reader_refuses_mixed_committed_head(self):
+        _, run = self.archived_reader()
+        target = self.box.ws / 'scripts/kaname-stand.py'
+        target.write_text(target.read_text() + '\n# new committed judge\n')
+        self.box.commit('#1365 new judge snapshot')
+        result = run(LANDING_PRECHECK_WS=str(self.box.ws))
+        self.assertEqual(result.returncode, 64, result.stdout + result.stderr)
+        self.assertIn('archived scripts differ', result.stderr)
+        self.assertEqual(self.box.slots(), [])
+        self.assertEqual(self.box.gh_log.read_text(), '')
+
+    def test_workspace_origin_binding_is_closed(self):
+        k = Kaname(self.box)
+        args = ['report', '--expect', str(k.expect), '--import-id', k.identity, '--external-only']
+        for origin in ('https://example.invalid/foreign.git',
+                       'https://user:password@github.com/PRO-Robotech/kacho-workspace.git'):
+            before = len(self.box.slots())
+            self.box.git('remote', 'set-url', 'origin', origin)
+            denied = self.box.run('stand-report.sh', *args)
+            self.assertEqual(denied.returncode, 64, denied.stdout + denied.stderr)
+            self.assertEqual(len(self.box.slots()), before)
+        canonical = 'https://github.com/PRO-Robotech/kacho-workspace.git'
+        self.box.git('remote', 'set-url', 'origin', canonical)
+        invalid_root = self.box.run('stand-report.sh', *args,
+                                    LANDING_PRECHECK_WS=str(self.box.ws / 'scripts'))
+        self.assertEqual(invalid_root.returncode, 64, invalid_root.stderr)
+        for extra in ({'SANDBOX_ORIGIN_BINDING': 'missing'}, {'SANDBOX_ORIGIN_BINDING': 'foreign'},
+                      {'SANDBOX_ORIGIN_BINDING': 'credentials'},
+                      {'SANDBOX_POD_ORIGIN': 'https://example.invalid/foreign.git'}):
+            denied = self.box.run('stand-report.sh', *args, **extra)
+            self.assertNotEqual(denied.returncode, 0, denied.stdout + denied.stderr)
+        for extra in ({}, {'SANDBOX_POD_ORIGIN': canonical}, {'LANDING_PRECHECK_WS': str(self.box.ws)}):
+            lawful = self.box.run('stand-report.sh', *args, **extra)
+            self.assertEqual(lawful.returncode, 0, lawful.stdout + lawful.stderr)
+        self.assertEqual(self.box.trap.read_text(), '')
 
     def test_pr_body_runs_in_the_job_with_the_tracker_captured(self):
         g = self.box.gh
