@@ -35,6 +35,13 @@ CI_READ = frozenset((
     'e2e-newman.yml:trunkverdict', 'e2e-newman.yml:prverdict',
     'docker-build.yml:changes', 'docker-build.yml:trunkverdict', 'pr-rule.yml:pr-rule'))
 LEDGER = frozenset(EXTERNAL + HOSTED) | CI_READ
+# Юниты матрицей шардов (kaname#873, ws#1259): `unitshard` исполняет пробы долей плана,
+# `unit` — свод по описям шардов с разреженной копией `.github`. Строка ведомости — только
+# вместе со сводом в канонической форме производителя (`unit_shards`), иначе отказ.
+UNIT_SHARD = 'ci.yml:unitshard'
+UNIT_RUN = ('python3 .github/scripts/unit-shards.py --run --job-index "$JOB_INDEX" '
+            '--job-total "$JOB_TOTAL" ')
+UNIT_WIDTH_ENV = {'JOB_INDEX': '${{ strategy.job-index }}', 'JOB_TOTAL': '${{ strategy.job-total }}'}
 MATRIX_REF = re.compile(r'\$\{\{\s*matrix\.([A-Za-z0-9_-]+)\s*\}\}')
 
 
@@ -83,29 +90,79 @@ def ledger_census(co):
         name = path.rsplit('/', 1)[1]
         workflows[name] = (doc, common.digest(raw))
         found |= {name + ':' + key for key in doc['jobs']}
-    outside = sorted(found - LEDGER)
+    # Шарды юнитов — строка ведомости лишь в топологии «шарды + свод»; её форму судит unit_shards.
+    ledger = LEDGER | ({UNIT_SHARD} if UNIT_SHARD in found else set())
+    outside = sorted(found - ledger)
     require(not outside, 'CI job outside the Kaname ledger: ' + ', '.join(outside))
-    stale = sorted(LEDGER - found)
+    stale = sorted(ledger - found)
     require(not stale, 'Kaname ledger row without CI job: ' + ', '.join(stale))
     return workflows, {'workflows': sorted(workflows), 'jobs': len(found),
-                       'staged': len(EXTERNAL) + len(HOSTED), 'ci_read': len(CI_READ)}
+                       'staged': len(EXTERNAL) + len(HOSTED) + (UNIT_SHARD in found),
+                       'ci_read': len(CI_READ)}
 
 
-def job_definition(doc, key, matrix=False):
+def sparse_aggregate_checkout(options):
+    """Свод юнитов читает лишь `.github` своей головы: разрежена копия, источник прежний."""
+    return (set(options) == {'sparse-checkout', 'sparse-checkout-cone-mode'}
+            and isinstance(options['sparse-checkout'], str)
+            and options['sparse-checkout'].split() == ['.github']
+            and options['sparse-checkout-cone-mode'] is False)
+
+
+def job_definition(doc, key, matrix=False, sparse=False):
     # Kaname сохраняет собственные changed-job conditions и shard matrix.
     # Условие не объявляется истинным по source: actual job всё равно обязана исполниться.
     job = doc['jobs'][key]
     require(isinstance(job, dict) and 'uses' not in job, 'unexpanded reusable job')
     require(job.get('runs-on') in ('ubuntu-latest', 'ubuntu-24.04', 'ubuntu-22.04'),
             'unsupported job runner')
-    require('strategy' not in job or key == 'integrationshard' or (matrix and matrix_legs(job) is not None),
-            'unexpected matrix job')
+    require('strategy' not in job or key in ('integrationshard', 'unitshard')
+            or (matrix and matrix_legs(job) is not None), 'unexpected matrix job')
     steps = job.get('steps')
     require(isinstance(steps, list) and steps, 'missing job steps')
     require(steps[0].get('uses', '').startswith('actions/checkout@'), 'primary checkout must be first')
-    require(not ({'ref', 'repository', 'path', 'sparse-checkout'} & set(steps[0].get('with', {}))),
+    options = steps[0].get('with', {})
+    require(isinstance(options, dict), 'overridden primary checkout')
+    lawful_sparse = sparse and 'sparse-checkout' in options and sparse_aggregate_checkout(options)
+    require(lawful_sparse or not ({'ref', 'repository', 'path', 'sparse-checkout'} & set(options)),
             'overridden primary checkout')
     return {'job': job, 'env': doc.get('env', {}), 'defaults': doc.get('defaults', {})}
+
+
+def unit_shards(jobs):
+    """Значения матрицы шардов юнитов по канону производителя kaname#873; None — одно задание.
+
+    Ширину плана шард берёт у матрицы (`strategy.job-total`), долю — по `strategy.job-index`:
+    иная запись ширины оставила бы пакеты без шарда, поэтому форма вызова — часть канона.
+    Свод `unit` обязан ждать шарды и исполнять `--aggregate`; своих проб у него нет.
+    """
+    unit = jobs['unit']
+    require(isinstance(unit, dict), 'unexpanded reusable job')
+    if 'unitshard' not in jobs:
+        require('unitshard' not in (unit.get('needs') or []), 'unit aggregate lost its producer')
+        return None
+    shards = jobs['unitshard']
+    require(isinstance(shards, dict), 'invalid unit shard job')
+    strategy = shards.get('strategy')
+    require(isinstance(strategy, dict) and set(strategy) <= {'fail-fast', 'matrix', 'max-parallel'},
+            'unreviewed unit shard strategy')
+    matrix = strategy.get('matrix')
+    require(isinstance(matrix, dict) and set(matrix) == {'shard'}, 'unreviewed unit matrix axes')
+    values = matrix['shard']
+    require(isinstance(values, list) and values and all(type(x) is int for x in values)
+            and len(values) == len(set(values)), 'invalid unit shard matrix')
+    require('unitshard' in (unit.get('needs') or []), 'unit aggregate lost its producer')
+    runs = [s for s in shards.get('steps') or []
+            if isinstance(s, dict) and 'unit-shards.py --run' in str(s.get('run', ''))]
+    env = runs[0].get('env') if len(runs) == 1 else None
+    require(isinstance(env, dict) and str(runs[0]['run']).startswith(UNIT_RUN)
+            and {k: env.get(k) for k in UNIT_WIDTH_ENV} == UNIT_WIDTH_ENV,
+            'unit shard width is not the matrix width')
+    steps = [s for s in unit.get('steps') or [] if isinstance(s, dict)]
+    require(sum('unit-shards.py --aggregate' in str(s.get('run', '')) for s in steps) == 1
+            and not any(re.search(r'\bgo test\b', str(s.get('run', ''))) for s in steps),
+            'unit aggregate shape differs')
+    return values
 
 
 def expected(checkout, head, base, ref):
@@ -126,8 +183,13 @@ def expected(checkout, head, base, ref):
             and len(values) == len(set(values)), 'invalid shard matrix')
     require('integrationshard' in ci['jobs']['integration'].get('needs', []),
             'integration aggregate lost its producer')
-    definitions = {}
+    unit_values = unit_shards(ci['jobs'])
+    definitions, unit_legs = {}, {}
     names = [('ci.yml:unit', 'ci.yml:unit', None, None)]
+    if unit_values is not None:
+        for i, v in enumerate(unit_values):
+            unit_legs[f'{UNIT_SHARD}[shard={v}]'] = {'index': i, 'total': len(unit_values)}
+        names += [(name, UNIT_SHARD, None, None) for name in unit_legs]
     names += [(f'ci.yml:integrationshard[shard={v}]', 'ci.yml:integrationshard', i, None)
               for i, v in enumerate(values)]
     for source in HOSTED:
@@ -140,18 +202,36 @@ def expected(checkout, head, base, ref):
         filename, key = source.split(':')
         doc, wf_digest = workflows[filename]
         hosted = source in HOSTED
-        definition = job_definition(doc, key, matrix=hosted)
+        # Разреженная копия законна лишь у свода юнитов шардовой топологии.
+        definition = job_definition(doc, key, matrix=hosted,
+                                    sparse=unit_values is not None and source == 'ci.yml:unit')
         require('uses' not in definition['job'], 'reusable job needs an explicit reviewed expansion')
         definitions[name] = {'workflow_job': source, 'executor': 'github-hosted' if hosted else 'external',
                              'definition': definition, 'definition_digest': common.digest(definition),
                              'workflow_digest': wf_digest, 'matrix_index': index,
                              'matrix_total': len(values) if index is not None else None, 'matrix_leg': leg}
-    return {'schema': 'kaname-stand-v1', 'repo': REPO, 'head': head,
-            'tree': common.git(co, 'rev-parse', 'HEAD^{tree}'), 'base': base,
-            'base_sha': common.git(co, 'rev-parse', base), 'ref': ref,
-            'logical_jobs': ['ci.yml:unit', 'ci.yml:integration', *HOSTED],
-            'jobs': list(definitions), 'definitions': definitions, 'ledger': census,
-            'unsupported_external': list(HOSTED), 'full': True}
+        if name in unit_legs:
+            # Поле есть только у шардов юнитов: ожидаемое прежней топологии не меняет отпечатка.
+            definitions[name]['unit_shard'] = unit_legs[name]
+    result = {'schema': 'kaname-stand-v1', 'repo': REPO, 'head': head,
+              'tree': common.git(co, 'rev-parse', 'HEAD^{tree}'), 'base': base,
+              'base_sha': common.git(co, 'rev-parse', base), 'ref': ref,
+              'logical_jobs': ['ci.yml:unit', 'ci.yml:integration', *HOSTED],
+              'jobs': list(definitions), 'definitions': definitions, 'ledger': census,
+              'unsupported_external': list(HOSTED), 'full': True}
+    if unit_values is not None:
+        result['unit_shards'] = len(unit_values)
+    return result
+
+
+def unit_shard_total(exp):
+    """Шардов юнитов в ожидаемом; 0 — юниты одним заданием. Объявление сверено с определениями."""
+    legs = sorted(d['unit_shard']['index'] for d in exp['definitions'].values() if 'unit_shard' in d)
+    total = exp.get('unit_shards', 0)
+    require(legs == list(range(total)) and all(
+        d['unit_shard']['total'] == total for d in exp['definitions'].values() if 'unit_shard' in d),
+        'unit shard inventory differs')
+    return total
 
 
 def hosted_names(exp):
@@ -231,6 +311,40 @@ def integration(text, index, total):
             'test_cases': None, 'matrix_index': index, 'matrix_total': total}
 
 
+def unit_shard_union(shard_texts, aggregate_text, combined_json, total):
+    """Юниты шардами (kaname#873): каждый номер матрицы — ровно один шард плана, свод — их все.
+
+    Строки — дословный вывод `unit-shards.py --run` и `--aggregate`; счёт проб — объединённый
+    поток `go test -json` свода, тем же разбором, что у одного задания.
+    """
+    require(type(total) is int and total > 0 and isinstance(shard_texts, list)
+            and len(shard_texts) == total, 'unit shard inventory differs')
+    shards = []
+    for index, text in enumerate(shard_texts):
+        picked = re.findall(r'^задание матрицы №(\d+) из (\d+) → шард (\S+)$', text, re.M)
+        require(len(picked) == 1 and picked[0][:2] == (str(index), str(total)), 'wrong/missing unit shard')
+        width = re.findall(r'^  шардов:\s+(\d+) \(', text, re.M)
+        require(width == [str(total)], 'unit shard plan width differs')
+        calls = re.findall(r'^  go test #(\d+) завершился с кодом (\d+) ', text, re.M)
+        require(calls and [int(n) for n, _ in calls] == list(range(1, len(calls) + 1))
+                and all(rc == '0' for _, rc in calls), 'failed/missing go test call in unit shard')
+        require(re.findall(r'^ЗЕЛЁНЫЙ: отказов нет\.$', text, re.M) == ['ЗЕЛЁНЫЙ: отказов нет.']
+                and not re.search(r'^(?:КРАСНЫЙ|НЕ ВЫПОЛНИЛОСЬ|ОТКАЗ)', text, re.M),
+                'missing native unit shard verdict')
+        shards.append({'unit': 'unit shard of the plan', 'shard': picked[0][2],
+                       'go_test_calls': len(calls), 'matrix_index': index, 'matrix_total': total})
+    require(len({s['shard'] for s in shards}) == total, 'unit shard executed twice')
+    require(re.findall(r'^исход шардов: (\S+)$', aggregate_text, re.M) == ['success']
+            and re.findall(r'^  копий плана: (\d+) · разошлось: (\S+)$', aggregate_text, re.M) == [(str(total), 'нет')]
+            and re.findall(r'^  шардов в плане: (\d+) · отчиталось: (\d+)$', aggregate_text, re.M)
+            == [(str(total), str(total))], 'unit aggregate shard census differs')
+    require(re.findall(r'^ЗЕЛЁНЫЙ: .*$', aggregate_text, re.M)
+            == ['ЗЕЛЁНЫЙ: все шарды плана отчитались, роздано = дерево, отказов нет.']
+            and not re.search(r'^(?:КРАСНЫЙ|НЕ ВЫПОЛНИЛОСЬ|НАХОДОК СВОДА)', aggregate_text, re.M),
+            'missing native unit aggregate verdict')
+    return {**go_json(combined_json), 'shards': shards}
+
+
 def remote_log(text, exp, argv, parse_groups=True):
     """Imported evidence: исходный журнал, не задним числом произведённый receipt."""
     sources = re.findall(r'^SOURCE ([0-9a-f]{40}) TREE ([0-9a-f]{40})$', text, re.M)
@@ -302,12 +416,17 @@ def import_candidate(exp, packet_file):
         parsed[name] = remote_log(Path(run['log']).read_text(), exp, run['command_line'])
         artifacts[name]['command_line'] = run['command_line']
     core, platform = parsed['core']['groups'], parsed['platform']['groups']
+    # Шардовая топология: вывод каждого шарда — группа `unit-<номер>`, свод — `unit-aggregate`,
+    # `unit` — объединённый поток свода. Шард пропал или лишний — отказ переписи групп.
+    m = unit_shard_total(exp)
+    sharded = {*(f'unit-{i}' for i in range(m)), 'unit-aggregate'} if m else set()
     require(set(core) == {'build', 'vet', 'vet-integration', 'unit-verdict-self', 'unit',
-                          'unit-verdict', 'listfilter', 'manifest'}, 'core group inventory differs')
+                          'unit-verdict', 'listfilter', 'manifest'} | sharded, 'core group inventory differs')
     n = len([d for d in exp['definitions'].values() if d['matrix_index'] is not None])
     require(set(platform) == {'platform-tests', 'platform-verdict', 'canon', 'catalog',
                               *(f'integration-{i}' for i in range(n))}, 'platform group inventory differs')
-    unit = go_json(core['unit'])
+    unit = (unit_shard_union([core[f'unit-{i}'] for i in range(m)], core['unit-aggregate'], core['unit'], m)
+            if m else go_json(core['unit']))
     integration_result = integration_union([platform[f'integration-{i}'] for i in range(n)],
                                             packet['selected_packages'])
     # Review обязан сверить отбор пакетов и applicability short SKIP по исходным
@@ -611,7 +730,12 @@ def staged_report(exp, import_id, reviews=None, events=None, external_only=False
             and admitted['review'].get('verdict') == 'accept' and admitted['review'].get('blocking') == [],
             'stored imported review differs')
     jobs = {'ci.yml:unit': {'executor': 'external', 'census': candidate['unit'], 'import_id': import_id}}
+    m = unit_shard_total(exp)
+    require(len(candidate['unit'].get('shards', [])) == m, 'imported unit shards differ from expectation')
     for name, definition in exp['definitions'].items():
+        if 'unit_shard' in definition:
+            jobs[name] = {'executor': 'external', 'import_id': import_id,
+                          'census': candidate['unit']['shards'][definition['unit_shard']['index']]}
         if definition['matrix_index'] is not None:
             index = definition['matrix_index']
             jobs[name] = {'executor': 'external', 'census': candidate['integration']['shards'][index],

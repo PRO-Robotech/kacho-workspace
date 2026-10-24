@@ -141,7 +141,7 @@
 # нет. Своё слово слот печатает строкой «heavy-slot: …» в stderr.
 #
 # ВНЕШНИЙ КЛАСТЕР (ws#984, ws#1105; норма — testing-verdict.md#external-cluster-first):
-# классы go-race, integration, lint и ci-local при отвечающем кластере уходят Job-ом
+# классы go-race, integration, lint, ci-local и kind (клоны внешних операторов, ws#1385) при отвечающем кластере уходят Job-ом
 # в scripts/remote-heavy/run.sh и слота машины не занимают; код — код команды там.
 # Локальный подъём стенда и неопознанная нагрузка при отвечающем кластере — 77;
 # кластер занят — 74/75, локально не идёт. Стенд во внешнем ns (make stand-ns-up,
@@ -182,7 +182,10 @@
 # когда правка её трогает (ws#1115, ЗАВИСИМОСТИ КОНСОЛИ в шапке run.sh). Прочие
 # хуки клона переходник берёт ссылками. Отправка не головы копии (иная вершина, их
 # несколько) переходник отклоняет кодом 78, и слот гонит ту же команду локально с
-# причиной; Job не состоялся (69, 75) — тот код, «не выполнилось».
+# причиной; Job не состоялся (69, 75) — тот код, «не выполнилось». Тег (ws#1303):
+# аннотированный, чья цель достижима из origin/main клона, — Job судит ЦЕЛЬ тега (не голову
+# копии); лёгкий тег и цель вне origin/main — 64 до Job. ГРАНИЦА: при недоступном кластере
+# тег идёт локальным хуком, а тот судит рабочее дерево копии, а не цель тега.
 #
 # ЗАПИСЬ ПРОВЕРЕННОГО — НА МАШИНЕ, А НЕ В ПОДЕ (ws#1288, kacho#3336). Хук пишет вершину,
 # судившуюся зелёным, в `<общий каталог git>/kacho-prepush-verified` и по ней не гонит
@@ -343,6 +346,7 @@ lint|8192|golangci-lint run, govulncheck, gosec, make lint|golangci-lint run ./.
 docker|4096|docker run/create/start/build, docker compose up/run/build|общий класс — предел, а не прогноз: docker run получает --memory=бюджет
 go-unit|4096|go test и go build без -race и integration; make с «test» в имени цели (ws#1301: любая сборка и тест — во внешний кластер)|предел, а не прогноз: ниже замера go test -race свои пакеты services/vpc (49) — 3,5 ГиБ (строка go-race); Job — профиль go-race run.sh
 stand|8192|kind create cluster; make dev-up, reload-svc*, stand-ns-run; helm install/upgrade (stand-ns-up, -down, -census — без слота, ws#1143; stand-ns-run RUNNER=<вид> клона kacho и stand-own.sh runner клона kaname — без слота, pod ns стенда, ws#1303, ws#1321)|узел kind — до 2,9 ГиБ (9 показаний docker stats в журналах сессий); сборка образов dev-up последовательная, её память в BuildKit не замерена
+kind|8192|группы с kind-кластером внутри прогона клона внешнего оператора (kind-e2e, kaname, charts-admission registry-operator) — Job профиля kind run.sh (dind privileged, kind.sh; ws#1385)|предел, а не прогноз: при доступном кластере машина не занимается; локально (кластер недоступен) — узел kind до 2,9 ГиБ (строка stand) и сборка образов группы
 newman|2048|newman run; make e2e-newman, e2e-test; newman-e2e.sh, newman-parallel.sh (пробы стенда — stand-ns-run RUNNER=newman|browser без слота, ws#1303)|newman run самой большой коллекции (2,7 МБ, отчёт json) — 0,4 ГиБ; JOBS=1
 suite|1536|наборы и пробы воркспейса: scripts/<набор>/run-all.sh, inject.sh, *-inject.sh, mutants.py, prove.sh (heavy-guard, ws#1291)|пик отправки воркспейса со всеми run-all.sh — 790 МиБ × 1,5, вверх до 512 (бронь SUBJECT_BUDGETS); tooling-gate/inject.sh — 206 МиБ за 1449 с (журнал слотов, 2026-10-21)'
 
@@ -840,7 +844,7 @@ push_homes() {
 }
 # local_push_untracked <команда…> — ci-local, `git push` с хуком из клона продукта (kacho, kaname,
 # corelib) идёт ЛОКАЛЬНО (флаг --local, кластер недоступен, переходник Job-а ответил 78 — отправка
-# несёт не голову копии, как у аннотированного тега): локальный хук судит РАБОЧЕЕ ДЕРЕВО, а не
+# несёт не голову копии; тег — лишь при недоступном кластере, ws#1303): локальный хук судит РАБОЧЕЕ ДЕРЕВО, а не
 # отправляемую ревизию. Неотслеживаемое в копии (не игнорируемое git) — отказ 64 до запуска с
 # путями и формой чистой копии: урок 2026-10-19 (ws#1280) — отправка тега из общего клона kaname
 # краснела хуком от чужой неотслеживаемой папки с Go-кодом. Тот же класс — правка отслеживаемого
@@ -1899,17 +1903,35 @@ portable_script() {
 }
 # route_static — статическая часть маршрута Job-ом, ОДНА у прогона и у --route: класс с внешним
 # путём, клон kacho, kaname, corelib, внешнего оператора (vault-operator, kaname-iam-operator,
-# registry-operator — go-race, go-unit, integration, ci-local; ws#1303) либо воркспейса (RS_TOP, RS_REPO), нагрузка опознана (RS_KNOWN),
+# registry-operator — go-race, go-unit, integration, ci-local; ws#1303; kind — лишь им, ws#1385) либо воркспейса (RS_TOP, RS_REPO), нагрузка опознана (RS_KNOWN),
 # профиль Job (RS_PROFILE: класс, у клона воркспейса — ws) и причина маршрута (RS_WHY). 1 — внешнего
 # пути у команды нет (WHY_LOCAL); неопознанная нагрузка клона продукта пути не закрывает: при
 # доступном кластере — 77, при недоступном — локально с доказательством. У клона воркспейса путь
 # есть лишь у хука отправки (ci-local) и скриптов ведомости PORTABLE (ci-local, suite): образ
 # профиля ws несёт среду наборов, а не go и make (ws#1304), — у прочего внешнего пути нет (no_route_judge).
+# origin_addr <адрес remote> — «хост/путь» без схемы, учётки, порта ssh-формы и «.git»:
+# https://u:t@host/o/r.git, ssh://git@host:22/o/r, git@host:o/r.git → host/o/r.
+origin_addr() {
+    local u="${1%/}" h; u="${u%.git}"
+    case "$u" in
+        *://*) u="${u#*://}"; u="${u#*@}"; h="${u%%/*}"; u="${h%%:*}/${u#*/}" ;;
+        *@*:*) u="${u#*@}"; u="${u%%:*}/${u#*:}" ;;
+    esac
+    printf '%s\n' "$u"
+}
+# Канонические адреса клонов внешних операторов — хост и путь целиком (решение диспетчера
+# 2026-10-24, ws#1385): registry-operator — зеркало GitHub и источник правды GitLab;
+# vault-operator и kaname-iam-operator — GitHub. Суффиксное совпадение не годится: чужой хост
+# с тем же хвостом пути — не наш клон.
+OPERATOR_ADDRS='github.com/PRO-Robotech/vault-operator
+github.com/PRO-Robotech/kaname-iam-operator
+github.com/PRO-Robotech/registry-operator
+gitlab.beget.ru/cloud/k8s/controllers/registry-operator'
 route_static() {
     local url
     RS_KNOWN=""; RS_TOP=""; RS_REPO=""; RS_PROFILE=""; RS_WHY=""; RS_MACHINE=""
     case "$CLASS" in
-        go-race|go-unit|integration|lint|ci-local|suite) ;;
+        go-race|go-unit|integration|lint|ci-local|suite|kind) ;;
         newman) WHY_LOCAL="класс «newman» вне стенда внешнего пути не имеет — пробы стенда: $RUNNER_HINT"; return 1 ;;
         *) WHY_LOCAL="класс «$CLASS» внешнего пути не имеет"; return 1 ;;
     esac
@@ -1926,7 +1948,15 @@ route_static() {
     RS_TOP="$(cd "$RS_TOP" && pwd -P)"
     url="$(git -C "$RS_TOP" remote get-url origin 2>/dev/null)"
     RS_REPO="${url%.git}"; RS_REPO="${RS_REPO##*/}"
-    case "$url" in
+    # Клон внешнего оператора — origin ровно по OPERATOR_ADDRS (хост и путь целиком); класс
+    # kind — лишь ему: privileged-профиль (run.sh kind.sh, ПОВЕРХНОСТЬ), личность исходников и
+    # ветку канонического судит run.sh.
+    local key="$url"
+    grep -qxF -- "$(origin_addr "$url")" <<< "$OPERATOR_ADDRS" && key=operator
+    if [ "$CLASS" = kind ] && [ "$key" != operator ]; then
+        WHY_LOCAL="класс «kind» — лишь клонам внешних операторов, origin сверяется по хосту и пути целиком ($(tr '\n' ' ' <<< "$OPERATOR_ADDRS")), не по суффиксу: у этого клона внешнего пути нет"; return 1
+    fi
+    case "$key" in
         *PRO-Robotech/kacho|*PRO-Robotech/kacho.git|*PRO-Robotech/kaname|*PRO-Robotech/kaname.git|*PRO-Robotech/corelib|*PRO-Robotech/corelib.git)
             [ "$CLASS" != suite ] || { WHY_LOCAL="класс «suite» — наборы и пробы воркспейса: у клона $RS_REPO внешнего пути нет"; return 1; }
             RS_PROFILE="$PCLASS"; RS_WHY="клон $RS_REPO — Job профиля $PCLASS" ;;
@@ -1944,8 +1974,8 @@ route_static() {
                 WHY_LOCAL="клон воркспейса: нагрузка «${PAY_SH:-$PAY}» — не хук отправки и не отслеживаемый набор либо проба относительным путём (ведомость PORTABLE: run-all.sh, inject*.sh, *-inject.sh, prove*.sh, *mutants.py, run-suites.sh, hook-proofs.sh, check-*): внешнего пути нет"; return 1
             fi
             return 0 ;;
-        *PRO-Robotech/vault-operator|*PRO-Robotech/vault-operator.git|*PRO-Robotech/kaname-iam-operator|*PRO-Robotech/kaname-iam-operator.git|*PRO-Robotech/registry-operator|*PRO-Robotech/registry-operator.git)
-            case "$CLASS" in go-race|go-unit|integration|ci-local) ;; *) WHY_LOCAL="клон внешнего оператора $RS_REPO: класс «$CLASS» внешнего пути не имеет — Job несёт go-race, go-unit, integration и ci-local (lint — пин линтера run.sh берёт лишь из ci.yaml, ci.yml)"; return 1 ;; esac
+        operator)
+            case "$CLASS" in go-race|go-unit|integration|ci-local|kind) ;; *) WHY_LOCAL="клон внешнего оператора $RS_REPO: класс «$CLASS» внешнего пути не имеет — Job несёт go-race, go-unit, integration, ci-local и kind (lint — пин линтера run.sh берёт лишь из ci.yaml, ci.yml)"; return 1 ;; esac
             RS_PROFILE="$PCLASS"; RS_WHY="клон внешнего оператора $RS_REPO — Job профиля $PCLASS, образ golang версии его go.mod" ;;
         *) WHY_LOCAL="клон не kacho, kaname, corelib, kacho-workspace, vault-operator, kaname-iam-operator или registry-operator: внешнего пути нет"; return 1 ;;
     esac
@@ -2038,9 +2068,36 @@ push_remote() {
 #!/usr/bin/env bash
 set -uo pipefail
 lines="$(cat)"
-tips="$(printf '%s\n' "$lines" | awk 'NF >= 4 && $2 !~ /^0+$/ { print $2 }' | sort -u)"
+# ТЕГ ВЫПУСКА (ws#1303): строка refs/tags/* — лишь аннотированный тег, чья цель (коммит
+# объекта тега) достижима из refs/remotes/origin/main; Job судит эту цель. Лёгкий тег, цель
+# вне origin/main, нет origin/main — отказ 64 до Job и до отправки.
+tips=""; tagged=""
+while read -r lr ls _rr rs; do
+    [ -n "${rs:-}" ] || continue
+    case "$ls" in *[!0]*) ;; *) continue ;; esac
+    case "$lr" in
+        refs/tags/*)
+            t="$(git cat-file -t "$ls" 2> /dev/null)"
+            if [ "$t" != tag ]; then
+                echo 64 > "$HS_RC"
+                echo "heavy-slot: тег «${lr#refs/tags/}» лёгкий (объект ${ls:0:12} — ${t:-нет}, не аннотированный): отправляется лишь аннотированный тег (git tag -a) — отправка не запускалась" >&2
+                exit 1
+            fi
+            c="$(git rev-parse --verify --quiet "$ls^{commit}")"
+            if [ -z "$c" ] || ! git rev-parse --verify --quiet refs/remotes/origin/main > /dev/null || ! git merge-base --is-ancestor "$c" refs/remotes/origin/main 2> /dev/null; then
+                echo 64 > "$HS_RC"
+                echo "heavy-slot: цель тега «${lr#refs/tags/}» (${c:0:12}) не достижима из origin/main этого клона (git merge-base --is-ancestor; ссылку обновляет git fetch origin): тег ставится лишь на влитое в main — отправка не запускалась" >&2
+                exit 1
+            fi
+            tagged="${tagged:+$tagged }${lr#refs/tags/}→${c:0:12}"; ls="$c" ;;
+    esac
+    tips="$tips$ls"$'\n'
+done <<< "$lines"
+tips="$(printf '%s' "$tips" | sort -u)"
 if [ -z "$tips" ]; then printf '%s\n' "$lines" | exec "$HS_ORIG" "$@"; fi
-if [ "$tips" != "$HS_HEAD" ]; then
+if [ -n "$tagged" ] && [[ "$tips" != *$'\n'* ]]; then
+    echo "heavy-slot: тег $tagged — цель достижима из origin/main; Job судит цель тега" >&2
+elif [ "$tips" != "$HS_HEAD" ]; then
     echo 78 > "$HS_RC"
     echo "heavy-slot: отправка несёт не голову копии ($(printf '%s' "$tips" | cut -c1-8 | tr '\n' ' ')) — Job судит голову; слот повторит отправку локально" >&2
     exit 1
@@ -2079,6 +2136,7 @@ ADAPTER
     journal_early "remote-done class=$CLASS route=push rc=$rc hook_rc=${hrc:-—} verified=${how:-—} dur=$(( $(now) - t0 ))s profile=$PUSH_PROFILE repo=$PUSH_REPO"
     case "$hrc" in
         78) WHY_LOCAL="отправка несёт не голову копии — Job судит голову"; return 0 ;;
+        64) say "отправка тега отклонена до Job (причина — строкой heavy-slot выше; ws#1303): не выполнилось"; exit 64 ;;
         69|74|75|124|125)
             say "Job хука отправки не состоялся (код $hrc) — отправка остановлена; не выполнилось, не красное: вердикта по хуку нет"
             exit "$( [ "$hrc" = 69 ] && echo 69 || echo 75 )" ;;
