@@ -73,7 +73,10 @@
 # Без этих доводов — с получением черёда и на ci-read 4: в первом клоне репозитория (как у снятия)
 # fetch базы и ветки, `git rev-list --count <голова>..origin/<база>`; 0 — дальше; иначе в
 # копии очереди (worktree $DIR/queue/…/wt, отделённая голова) `git merge --no-ff` базы с заголовком
-# «#<задача ветки> merge <база>: догон базы перед вливанием #<N>», отправка
+# «#<задача> merge <база>: догон базы перед вливанием #<N>» — форма слияния правила ветки трёх
+# репозиториев (kaname: `^#[0-9]+ merge (#[0-9]+|main)`, ветка-номер несёт свой номер; ws#1393):
+# задача — голая ветка `^[0-9]+$` либо N из `<N>-…`, иначе первое слово --subject; база — `main`,
+# `#<база>` у голой, `#<N>` у `<N>-…`, иначе как есть; отправка
 # `git push origin HEAD:refs/heads/<ветка>` через `heavy-slot.sh --wait 300 ci-local --` — полный
 # хук отправки, без форсирующих флагов; удалась — когда голова ветки на origin стала новой
 # (код отправки — лишь при отказе: 141 после хука и есть снятый простоем ssh). Новая голова —
@@ -836,7 +839,7 @@ cu_drop() {  # <клон> <копия> — копия догона снимае�
     git -C "$1" worktree remove "$2" 2> "$W/cu-wt.err" || log "догон базы: копия $2 не снята — $(head -c 200 "$W/cu-wt.err" | tr '\n' ' ')"
 }
 catchup() {  # <turn|stale> → CU_RC: 0 — отставания нет, дальше; 1 — круг заново; 2 — клона нет
-    local mode="$1" c base n cw msg new rh rc task
+    local mode="$1" c base n cw msg new rh rc task bref
     CU_RC=0; base="$(norm_base "$PR_BASE")"
     c="$(clones | head -n1)"
     if [ -z "$c" ]; then log "догон базы: клона $REPO нет — отставание не проверено"; CU_RC=2; return; fi
@@ -864,8 +867,11 @@ catchup() {  # <turn|stale> → CU_RC: 0 — отставания нет, дал
     if ! git -C "$c" worktree add -q --detach "$cw" "$HEAD" 2> "$W/cu.err"; then
         void_step догон "догон базы: копия в $c не заведена" "$(head -c 200 "$W/cu.err" | tr '\n' ' ')"; CU_RC=1; wait_change; return
     fi
-    task="${SUBJECT%% *}"; [[ "$PR_REF" =~ ^([0-9]+)- ]] && task="#${BASH_REMATCH[1]}"
-    msg="$task merge $base: догон базы перед вливанием #$PR"
+    task="${SUBJECT%% *}"
+    if [[ "$PR_REF" =~ ^[0-9]+$ ]]; then task="#$PR_REF"; elif [[ "$PR_REF" =~ ^([0-9]+)- ]]; then task="#${BASH_REMATCH[1]}"; fi
+    bref="$base"
+    if [[ "$base" =~ ^[0-9]+$ ]]; then bref="#$base"; elif [[ "$base" =~ ^([0-9]+)- ]]; then bref="#${BASH_REMATCH[1]}"; fi
+    msg="$task merge $bref: догон базы перед вливанием #$PR"
     if ! git -C "$cw" merge --no-ff --no-edit -q -m "$msg" "refs/remotes/origin/$base" > "$W/cu-merge.out" 2>&1; then
         local files; files="$(git -C "$cw" diff --name-only --diff-filter=U | join)"
         git -C "$cw" merge --abort 2>/dev/null
