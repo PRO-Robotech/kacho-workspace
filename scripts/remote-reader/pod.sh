@@ -25,6 +25,11 @@ export REMOTE_READER_GH="$RR/gh"
 unset LANDING_PRECHECK_WS RITUAL_LEDGER_CLONES RITUAL_REPO_DIR
 if [ -f "$RR/env" ]; then IFS= read -r rel < "$RR/env"; export RITUAL_REPO_DIR="$TOPP/$rel"; fi
 reg="$TOPP/tmp/operator-stand-registry"
+# Клон Job (remote-heavy/run.sh: init + bundle) origin не несёт, а судья реестра (operator-stand.py
+# registry()) сверяет адрес origin воркспейса: заводится адресом копии машины (rr/origin.url).
+if ! git -C "$TOPP" remote get-url origin > /dev/null 2>&1 && [ -s "$RR/origin.url" ]; then
+    git -C "$TOPP" remote add origin "$(head -n 1 "$RR/origin.url")" || { echo "remote-reader-rc 69"; exit 69; }
+fi
 box="$(mktemp -d)"
 trap 'rm -rf -- "$box"' EXIT
 # gh первым в PATH — снятый машиной: предпроверка зовёт gh сама и через merge-readiness и ci-read;

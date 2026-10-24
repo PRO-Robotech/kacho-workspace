@@ -54,8 +54,9 @@ pod="$(mktemp -d)"
 git -C "$top" bundle create "$pod/in.bundle" HEAD --remotes=origin > /dev/null 2>&1 || exit 69
 git init -q "$pod/src" && git -C "$pod/src" fetch -q "$pod/in.bundle" 'refs/remotes/*:refs/remotes/*' &&
     git -C "$pod/src" fetch -q "$pod/in.bundle" HEAD &&
-    git -C "$pod/src" checkout -q --detach FETCH_HEAD &&
-    git -C "$pod/src" remote add origin https://github.com/PRO-Robotech/kacho-workspace.git || exit 69
+    git -C "$pod/src" checkout -q --detach FETCH_HEAD || exit 69
+# Клон Job настоящего маршрута (remote-heavy/run.sh: init + bundle) origin не несёт — SANDBOX_NO_ORIGIN.
+[ -n "${SANDBOX_NO_ORIGIN:-}" ] || git -C "$pod/src" remote add origin https://github.com/PRO-Robotech/kacho-workspace.git || exit 69
 # Учётные данные машины в Job не едут: метка секрета в дереве, которое получил pod, — утечка.
 [ -z "${SANDBOX_SECRET:-}" ] || ! grep -rqsF -- "$SANDBOX_SECRET" "$pod/src" || echo "$*" >> "$SANDBOX_LEAK"
 [ -z "${SANDBOX_MACHINE:-}" ] || mv "$SANDBOX_MACHINE" "$SANDBOX_MACHINE.hidden"
@@ -345,6 +346,33 @@ class RemoteReader(unittest.TestCase):
         self.assertEqual(blind.returncode, 2, blind.stdout + blind.stderr)
         self.assertFalse(record.exists())
 
+    def test_registry_stages_run_in_a_job_clone_without_origin(self):
+        # Клон Job настоящего маршрута (remote-heavy/run.sh: init + bundle) origin не несёт, а судья
+        # реестра сверяет адрес origin воркспейса (находка kaname#881): pod заводит его адресом копии.
+        exp = {'schema': 'kaname-stand-v1', 'repo': gate.REPO, 'head': 'a' * 40, 'tree': 'b' * 40,
+               'definitions': {str(i): {'matrix_index': i} for i in range(3)}}
+        expect = self.box.files / 'expect.json'; expect.write_text(json.dumps(exp))
+        packet = build_packet(self.box.files, exp)
+        identity = gate.common.digest(gate.import_candidate(exp, packet))
+        review = self.box.files / 'review.json'
+        review.write_text(json.dumps({'role': 'check-verifier', 'verdict': 'accept', 'blocking': [],
+            'candidate_digest': identity, 'claims': ['source-and-command-binding', 'native-verdict-and-cleanup',
+            'selected-package-partition', 'short-skip-applicability']}))
+        record = self.box.ws / 'tmp/operator-stand-registry/kaname-imports' / (identity + '.json')
+        args = ['register-import', '--expect', str(expect), '--packet', str(packet), '--review', str(review)]
+        got = self.box.run('stand-report.sh', *args, SANDBOX_NO_ORIGIN='1')
+        self.assertEqual((got.returncode, json.loads(got.stdout or '{}')), (0, {'import_id': identity}),
+                         got.stdout + got.stderr)
+        self.assertTrue(record.exists())
+        self.assertJob(got)
+        # Мутант: pod origin не заводит — судья реестра отказывает (как на настоящем маршруте).
+        record.unlink()
+        self.box.mutate('remote-reader/pod.sh', 'if ! git -C "$TOPP" remote get-url origin > /dev/null 2>&1 && [ -s "$RR/origin.url" ]; then',
+                        'if false; then')
+        blind = self.box.run('stand-report.sh', *args, SANDBOX_NO_ORIGIN='1')
+        self.assertEqual(blind.returncode, 2, blind.stdout + blind.stderr)
+        self.assertFalse(record.exists())
+
     def test_pr_body_runs_in_the_job_with_the_tracker_captured(self):
         g = self.box.gh
         (g / 'issue.json').write_text(json.dumps({'number': 5, 'state': 'open', 'title': 'задача песочницы'}))
@@ -424,7 +452,8 @@ class RemoteReader(unittest.TestCase):
         self.assertEqual(len(self.box.slots()), 2)
         self.assertEqual(self.box.leak.read_text(), '', 'userinfo адреса origin уехал в Job')
         # Мутант: адрес без очистки — метка в дереве Job (проба читает свой предмет).
-        self.box.mutate('remote-reader.sh', "| sed -E 's#^([A-Za-z][A-Za-z0-9+.-]*://)[^/@]*@#\\1#' >", '| cat >')
+        self.box.mutate('remote-reader.sh', "no_userinfo() { sed -E 's#^([A-Za-z][A-Za-z0-9+.-]*://)[^/@]*@#\\1#'; }",
+                        'no_userinfo() { cat; }')
         self.box.run('stand-report.sh', 'expect', '--checkout', str(co), '--head', head, '--base', 'origin/954',
                      '--draft', 'false')
         self.assertNotEqual(self.box.leak.read_text(), '', 'проба утечки слепа')

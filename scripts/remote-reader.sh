@@ -178,6 +178,10 @@ git -C "$TOP" worktree add -q --detach "$WT" "$REV" 2>/dev/null || die 69 "ко�
 [ "$ARCHIVE" = 0 ] || diff -rq -- "$HERE" "$WT/scripts" > /dev/null 2>&1 ||
     die 64 "архив $HERE не совпадает с origin/main ${REV:0:12} воркспейса $TOP — Job исполнил бы не вызванное"
 mkdir -p "$RR/in" "$RR/gh" && : > "$RR/gh/index.jsonl"
+# Адрес — без userinfo (`https://<учётка>@…`): учётные данные в pod не едут.
+no_userinfo() { sed -E 's#^([A-Za-z][A-Za-z0-9+.-]*://)[^/@]*@#\1#'; }
+# Адрес origin воркспейса — для клона Job без origin (pod.sh).
+git -C "$TOP" remote get-url origin 2> /dev/null | no_userinfo > "$RR/origin.url" || :
 
 # Каталог на вход — свой (mktemp): ship* зовутся подстановкой $(…), и счётчик в подоболочке не
 # доживал до следующего вызова — одноимённые входы из разных каталогов ложились в один путь.
@@ -211,8 +215,7 @@ ship_checkout() {  # ship_checkout <копия> — bundle HEAD, веток и o
     d="$(mktemp -d "$RR/in/c.XXXXXX")" || return 1
     dst="${d#"$RR/"}/checkout.bundle"
     git -C "$1" bundle create "$RR/$dst" HEAD --branches --remotes=origin > /dev/null 2>&1 || return 1
-    # Адрес — без userinfo (`https://<учётка>@…`): учётные данные в pod не едут.
-    git -C "$1" remote get-url origin 2> /dev/null | sed -E 's#^([A-Za-z][A-Za-z0-9+.-]*://)[^/@]*@#\1#' > "$d/checkout.url" &&
+    git -C "$1" remote get-url origin 2> /dev/null | no_userinfo > "$d/checkout.url" &&
         [ -s "$d/checkout.url" ] || return 1
     printf '@checkout:%s' "$dst"
 }
@@ -274,7 +277,8 @@ gh_fetch() {  # gh_fetch <доводы gh> — ответ и код в rr/gh, с
     local key rc
     key="$(printf '%s\n' "$@" | jq -Rsc 'split("\n")[:-1]')"  # не --args: доводы вида --method он съел бы
     if [ -n "${GOT[$key]:-}" ]; then LAST="${GOT[$key]#* }"; return "${GOT[$key]%% *}"; fi
-    gh_read_ok "$@" || { say "вызов gh вне перечня чтений — не исполнен: ${key:0:200}"; LAST=""; return 126; }
+    # Подоболочкой: [[ =~ ]] перечня затёр бы BASH_REMATCH вызывающего (план читает его после gh_fetch).
+    ( gh_read_ok "$@" ) || { say "вызов gh вне перечня чтений — не исполнен: ${key:0:200}"; LAST=""; return 126; }
     LAST="gh/$(( ${#GOT[@]} + 1 ))"
     gh "$@" > "$RR/$LAST" 2> /dev/null; rc=$?
     GOT[$key]="$rc $LAST"
