@@ -407,7 +407,9 @@ fi
 
 if [ -n "$premise" ]; then
     [ "${#pos[@]}" -eq 0 ] || usage
-    [ -r "$premise" ] || { echo "lane-precheck: файла предусловий $premise нет; вердикта нет" >&2; exit 2; }
+    # --premise — ПУТЬ к файлу (строка на предусловие), не строка предусловия: строкой его
+    # звала подготовка полос git-operator (урок ws#1386) — отказ называет форму.
+    [ -r "$premise" ] || { echo "lane-precheck: файла предусловий «$premise» нет; вердикта нет — --premise принимает путь к файлу (строка на предусловие): printf '%s\n' '<предусловие>' > <файл>; lane-precheck.sh --premise <файл>" >&2; exit 2; }
     reasons=() voids=() heads=() n=0
     while IFS= read -r line || [ -n "$line" ]; do
         case "$line" in '' | '#'*) continue ;; esac
