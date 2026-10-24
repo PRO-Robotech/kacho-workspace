@@ -43,12 +43,22 @@ UNIT_RUN = ('python3 .github/scripts/unit-shards.py --run --job-index "$JOB_INDE
             '--job-total "$JOB_TOTAL" ')
 UNIT_WIDTH_ENV = {'JOB_INDEX': '${{ strategy.job-index }}', 'JOB_TOTAL': '${{ strategy.job-total }}'}
 MATRIX_REF = re.compile(r'\$\{\{\s*matrix\.([A-Za-z0-9_-]+)\s*\}\}')
+# chart-own матрицей шардов плана (kaname#848, ws#1259): ось `shard`, наборы шарда — строка
+# плана `tests/newman/<план>`, сводный вердикт — задание `chart-own-verdict`. Строка ведомости
+# свода — только вместе с осью `shard` в канонической форме производителя (`chart_own_shards`);
+# шард плана без ноги матрицы и нога без шарда плана — отказ.
+CHART_OWN_VERDICT = 'e2e-newman.yml:chart-own-verdict'
+SHARD_AXIS = 'shard'
+SHARD_PLAN_RUN = re.compile(
+    r'\./scripts/run\.sh\s+--shard-plan\s+([A-Za-z0-9._-]+)\s+--shard\s+"\$([A-Za-z_][A-Za-z0-9_]*)"(?=\s|$)')
+MATRIX_SHARD = re.compile(r'\$\{\{\s*matrix\.shard\s*\}\}')
 
 
 def matrix_legs(job):
-    """Ноги задания-матрицы по канону производителя — `strategy.matrix.include` workflow головы.
+    """Ноги задания-матрицы по канону производителя: `strategy.matrix.include` либо одна ось
+    `shard` (kaname#848) — нога `{shard: значение}`.
 
-    Оси (декартово произведение), `exclude` и выражение вместо списка не разобраны — отказ.
+    Иные оси, их произведение, `exclude` и выражение вместо списка не разобраны — отказ.
     """
     strategy = job.get('strategy')
     if strategy is None:
@@ -56,7 +66,13 @@ def matrix_legs(job):
     require(isinstance(strategy, dict) and set(strategy) <= {'fail-fast', 'matrix', 'max-parallel'},
             'unreviewed matrix strategy')
     matrix = strategy.get('matrix')
-    require(isinstance(matrix, dict) and set(matrix) == {'include'}, 'unreviewed matrix axes')
+    require(isinstance(matrix, dict) and set(matrix) in ({'include'}, {SHARD_AXIS}), 'unreviewed matrix axes')
+    if SHARD_AXIS in matrix:
+        values = matrix[SHARD_AXIS]
+        require(isinstance(values, list) and values and all(type(v) in (str, int) for v in values),
+                'invalid matrix axis')
+        require(len(values) == len(set(values)), 'duplicate matrix leg')
+        return [{SHARD_AXIS: v} for v in values]
     include = matrix['include']
     require(isinstance(include, list) and include and all(
         isinstance(leg, dict) and leg and all(isinstance(k, str) and type(v) in (str, int) for k, v in leg.items())
@@ -91,14 +107,15 @@ def ledger_census(co):
         workflows[name] = (doc, common.digest(raw))
         found |= {name + ':' + key for key in doc['jobs']}
     # Шарды юнитов — строка ведомости лишь в топологии «шарды + свод»; её форму судит unit_shards.
-    ledger = LEDGER | ({UNIT_SHARD} if UNIT_SHARD in found else set())
+    # Свод шардов chart-own — лишь при оси `shard`; её форму судит chart_own_shards.
+    ledger = LEDGER | ({UNIT_SHARD, CHART_OWN_VERDICT} & found)
     outside = sorted(found - ledger)
     require(not outside, 'CI job outside the Kaname ledger: ' + ', '.join(outside))
     stale = sorted(ledger - found)
     require(not stale, 'Kaname ledger row without CI job: ' + ', '.join(stale))
     return workflows, {'workflows': sorted(workflows), 'jobs': len(found),
                        'staged': len(EXTERNAL) + len(HOSTED) + (UNIT_SHARD in found),
-                       'ci_read': len(CI_READ)}
+                       'ci_read': len(CI_READ) + (CHART_OWN_VERDICT in found)}
 
 
 def sparse_aggregate_checkout(options):
@@ -165,6 +182,71 @@ def unit_shards(jobs):
     return values
 
 
+def shard_plan(text, path):
+    """{шард: [набор, …]} плана в порядке файла — грамматика `tests/newman/scripts/shard_plan.py`."""
+    plan, seen = {}, set()
+    for n, raw in enumerate(text.splitlines(), 1):
+        line = raw.split('#', 1)[0].strip()
+        if not line:
+            continue
+        head, sep, rest = line.partition(':')
+        shard, stems = head.strip(), rest.split()
+        require(sep and re.fullmatch(r'[a-z0-9][a-z0-9-]*', shard) and shard not in plan and stems
+                and len(stems) == len(set(stems)) and not seen.intersection(stems)
+                and all(re.fullmatch(r'[A-Za-z0-9._-]+', s) for s in stems),
+                f'invalid chart-own shard plan: {path}:{n}')
+        seen.update(stems)
+        plan[shard] = stems
+    require(plan, 'chart-own shard plan without shards: ' + path)
+    return plan
+
+
+def joined_run(step):
+    """Тело `run:` шага с продолжениями строк `\\` в одну строку."""
+    return re.sub(r'\\\n\s*', ' ', str(step.get('run', ''))) if isinstance(step, dict) else ''
+
+
+def chart_own_shards(co, jobs):
+    """План шардов chart-own по канону производителя kaname#848; None — ноги `include` без свода.
+
+    Нога гоняет `./scripts/run.sh --shard-plan <план> --shard "$V"` из `tests/newman`, V —
+    `${{ matrix.shard }}` env задания либо шага; план отслеживаем, его шарды и ноги матрицы
+    совпадают в обе стороны. Свод ждёт chart-own и судит тот же план `shard_plan.py --verdict`.
+    """
+    chart = jobs['chart-own']
+    require(isinstance(chart, dict), 'unexpanded reusable job')
+    strategy = chart.get('strategy')
+    matrix = strategy.get('matrix') if isinstance(strategy, dict) else None
+    if not (isinstance(matrix, dict) and SHARD_AXIS in matrix):
+        require('chart-own-verdict' not in jobs, 'chart-own verdict without shard matrix')
+        return None
+    require('chart-own-verdict' in jobs, 'chart-own shard matrix lost its verdict')
+    values = [str(leg[SHARD_AXIS]) for leg in matrix_legs(chart)]
+    runs = [s for s in chart.get('steps') or [] if './scripts/run.sh ' in joined_run(s)]
+    text = joined_run(runs[0]) if len(runs) == 1 else ''
+    form = SHARD_PLAN_RUN.findall(text)
+    env = {**(chart.get('env') or {}), **(runs[0].get('env') or {})} if len(runs) == 1 else {}
+    require(len(form) == 1 and text.count('./scripts/run.sh ') == 1 and '--service' not in text
+            and text.splitlines()[0].strip() == 'cd tests/newman'
+            and MATRIX_SHARD.fullmatch(str(env.get(form[0][1], ''))),
+            'chart-own shard runner form differs')
+    path = 'tests/newman/' + form[0][0]
+    require(common.git(co, 'ls-files', '--', path) == path, 'chart-own shard plan is not tracked: ' + path)
+    plan = shard_plan((Path(co) / path).read_text(encoding='utf-8'), path)
+    missing, extra = sorted(set(plan) - set(values)), sorted(set(values) - set(plan))
+    require(not missing, 'chart-own plan shard without matrix leg: ' + ', '.join(missing))
+    require(not extra, 'chart-own matrix leg without plan shard: ' + ', '.join(extra))
+    verdict = jobs['chart-own-verdict']
+    require(isinstance(verdict, dict), 'unexpanded reusable job')
+    needs = verdict.get('needs') or []
+    require('chart-own' in ([needs] if isinstance(needs, str) else needs), 'chart-own verdict lost its producer')
+    steps = [joined_run(s) for s in verdict.get('steps') or []]
+    judged = [r for r in steps if 'shard_plan.py' in r]
+    require(len(judged) == 1 and '--verdict ' in judged[0] and re.findall(r'--plan (\S+)', judged[0]) == [path]
+            and not any('./scripts/run.sh' in r for r in steps), 'chart-own verdict shape differs')
+    return {'plan': path, 'shards': plan}
+
+
 def expected(checkout, head, base, ref):
     """Не исполняет workflow и не подменяет отсутствующий cluster route."""
     co = Path(checkout)
@@ -184,6 +266,7 @@ def expected(checkout, head, base, ref):
     require('integrationshard' in ci['jobs']['integration'].get('needs', []),
             'integration aggregate lost its producer')
     unit_values = unit_shards(ci['jobs'])
+    chart_plan = chart_own_shards(co, workflows['e2e-newman.yml'][0]['jobs'])
     definitions, unit_legs = {}, {}
     names = [('ci.yml:unit', 'ci.yml:unit', None, None)]
     if unit_values is not None:
@@ -195,9 +278,20 @@ def expected(checkout, head, base, ref):
     for source in HOSTED:
         filename, key = source.split(':')
         legs = matrix_legs(workflows[filename][0]['jobs'][key])
-        names += ([(source, source, None, None)] if legs is None else
-                  [(f'{source}[include={i}]', source, None, {'index': i, 'total': len(legs), 'values': leg})
-                   for i, leg in enumerate(legs)])
+        if legs is None:
+            names.append((source, source, None, None))
+        elif chart_plan is None or source != 'e2e-newman.yml:chart-own':
+            # Ось `shard` разобрана лишь у chart-own с планом: у иного задания она не просмотрена.
+            require(SHARD_AXIS not in workflows[filename][0]['jobs'][key]['strategy']['matrix'],
+                    'unreviewed matrix axes')
+            names +=[(f'{source}[include={i}]', source, None, {'index': i, 'total': len(legs), 'values': leg})
+                      for i, leg in enumerate(legs)]
+        else:
+            # Нога шарда несёт план и свои наборы: отчёт судит её волну по ним.
+            names += [(f'{source}[{SHARD_AXIS}={leg[SHARD_AXIS]}]', source, None,
+                       {'index': i, 'total': len(legs), 'values': leg, 'plan': chart_plan['plan'],
+                        'suites': chart_plan['shards'][str(leg[SHARD_AXIS])]})
+                      for i, leg in enumerate(legs)]
     for name, source, index, leg in names:
         filename, key = source.split(':')
         doc, wf_digest = workflows[filename]
@@ -617,13 +711,15 @@ def hosted_capture(exp, name, event):
             'source': head, 'event': event}
 
 
-def suite_calls(step, values):
+def suite_calls(step, values, job_env=None, leg=None):
     """Вызовы прогонщика наборов `./scripts/run.sh` шага, которые исполнит эта нога.
 
     Каждый вызов — одна волна (одна таблица TOTAL в журнале), с любыми ключами перед
     `--service`. Вызов внутри `if`/`elif [ "$VAR" = значение ]` берётся, когда VAR — env
     шага `${{ matrix.K }}` и значение ноги равно; `else` — когда ни одна ветвь цепочки не
     взята. Вызов в иной конструкции (`case`, иное условие, переменная не из матрицы) — отказ.
+    Вызов `--shard-plan <план> --shard "$V"` (kaname#848) — наборы шарда ноги из плана,
+    записанного в ожидаемое; V — `${{ matrix.shard }}` env шага либо задания.
     """
     bound = {var: m[1] for var, val in (step.get('env') or {}).items()
              for m in [re.fullmatch(r'\$\{\{\s*matrix\.([A-Za-z0-9_-]+)\s*\}\}', str(val))] if m}
@@ -664,6 +760,17 @@ def suite_calls(step, values):
         require(head == './scripts/run.sh' and text.count('./scripts/run.sh ') == 1,
                 'unsupported suite runner form')
         require(all(f['taken'] is not None for f in frames), 'unsupported service selection')
+        if '--shard' in text:
+            form = SHARD_PLAN_RUN.findall(text)
+            env = {**(job_env or {}), **(step.get('env') or {})}
+            require(len(form) == 1 and text.count('--shard') == 2 and '--service' not in text
+                    and isinstance(leg, dict) and leg.get('plan') == 'tests/newman/' + form[0][0]
+                    and leg.get('values') == values and isinstance(leg.get('suites'), list) and leg['suites']
+                    and MATRIX_SHARD.fullmatch(str(env.get(form[0][1], ''))),
+                    'unsupported shard plan selection')
+            if all(f['taken'] for f in frames):
+                calls.append(list(leg['suites']))
+            continue
         services = re.findall(r'--service ([a-z0-9-]+)(?=\s|$)', text)
         require(services and len(services) == text.count('--service '), 'unsupported service selection')
         if all(f['taken'] for f in frames):
@@ -704,7 +811,8 @@ def hosted_verdict(exp, name, captured, cleanup_review):
             run = step.get('run', '')
             if './scripts/run.sh ' in run:
                 require(isinstance(step.get('name'), str), 'test step has no stable name')
-                calls = suite_calls(step, values)
+                calls = suite_calls(step, values, target['definition']['job'].get('env'),
+                                    target.get('matrix_leg'))
                 passed_step(step['name'])
                 waves.extend(calls)
             if 'python3 .github/scripts/stand-assert.py ||' in run:
