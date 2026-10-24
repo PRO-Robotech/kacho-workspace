@@ -45,6 +45,20 @@ INJECT = os.path.join(HERE, "inject.sh")
 
 # (id, проба, что портит, фрагмент, замена)
 MUTANTS = [
+    # ПРОФИЛЬ kind (ws#1385, kind.sh): hostUsers узла лишь ему, допуск до Job, 77 — не красное,
+    # сверка hostUsers без «//» jq (false для него пусто).
+    ("kind-hostusers", "KD2", "Job профиля kind в своём пространстве пользователей — узел kind не встанет",
+     'hostUsers: ($kind == 1),',
+     'hostUsers: false,'),
+    ("kind-admission-off", "KD5", "допуск pod профиля kind не проверяется до Job — отказ политики читается позже и иначе",
+     'if kind_on; then kind_admission "$BOX/job.json" || exit $?; fi',
+     ':'),
+    ("kind-77-red", "KD4", "«kind в pod не исполним» выдаётся кодом команды — красным, а не «не выполнилось»",
+     '(не выполнилось)"; exit 77\nfi',
+     '(не выполнилось)"; exit "$RUN_RC"\nfi'),
+    ("hostusers-alt", "S1", "сверка hostUsers через «//»: снятый сервером hostUsers читается запрошенным false",
+     'def hu($s): if $s.hostUsers == null then true else $s.hostUsers end;',
+     'def hu($s): ($s.hostUsers // true);'),
     # ВОШЕДШИЕ (ws#1302): вошедший без ns держит место и предел.
     ("pending-no-place", "PD", "вошедшие без ns не раскладываются по узлам — второй вход по тому же месту проходит",
      "placement \"$ncpu\" \"$nmib\" \"$BUSY_DEM${AV_PENDING:+$'\\n'$AV_PENDING}\"; prc=$?",
