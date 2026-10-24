@@ -1906,6 +1906,16 @@ portable_script() {
 # доступном кластере — 77, при недоступном — локально с доказательством. У клона воркспейса путь
 # есть лишь у хука отправки (ci-local) и скриптов ведомости PORTABLE (ci-local, suite): образ
 # профиля ws несёт среду наборов, а не go и make (ws#1304), — у прочего внешнего пути нет (no_route_judge).
+# origin_addr <адрес remote> — «хост/путь» без схемы, учётки, порта ssh-формы и «.git»:
+# https://u:t@host/o/r.git, ssh://git@host/o/r, git@host:o/r.git → host/o/r.
+origin_addr() {
+    local u="${1%/}"; u="${u%.git}"
+    case "$u" in
+        *://*) u="${u#*://}"; u="${u#*@}" ;;
+        *@*:*) u="${u#*@}"; u="${u%%:*}/${u#*:}" ;;
+    esac
+    printf '%s\n' "$u"
+}
 route_static() {
     local url
     RS_KNOWN=""; RS_TOP=""; RS_REPO=""; RS_PROFILE=""; RS_WHY=""; RS_MACHINE=""
@@ -1927,11 +1937,17 @@ route_static() {
     RS_TOP="$(cd "$RS_TOP" && pwd -P)"
     url="$(git -C "$RS_TOP" remote get-url origin 2>/dev/null)"
     RS_REPO="${url%.git}"; RS_REPO="${RS_REPO##*/}"
+    # Класс kind — адрес origin целиком (хост и путь), не суффикс: privileged-профиль (run.sh
+    # kind.sh, ПОВЕРХНОСТЬ); личность исходников и ветку канонического судит run.sh.
+    if [ "$CLASS" = kind ]; then
+        case "$(origin_addr "$url")" in
+            github.com/PRO-Robotech/vault-operator|github.com/PRO-Robotech/kaname-iam-operator|github.com/PRO-Robotech/registry-operator) ;;
+            *) WHY_LOCAL="класс «kind» — лишь клонам внешних операторов, origin сверяется по хосту и пути целиком (github.com/PRO-Robotech/<оператор>), не по суффиксу: у этого клона внешнего пути нет"; return 1 ;;
+        esac
+    fi
     case "$url" in
         *PRO-Robotech/kacho|*PRO-Robotech/kacho.git|*PRO-Robotech/kaname|*PRO-Robotech/kaname.git|*PRO-Robotech/corelib|*PRO-Robotech/corelib.git)
-            [ "$CLASS" != suite ] || { WHY_LOCAL="класс «suite» — наборы и пробы воркспейса: у клона $RS_REPO внешнего пути нет"; return 1; }
-            [ "$CLASS" != kind ] || { WHY_LOCAL="класс «kind» — dind privileged в пространстве пользователей узла лишь клонам внешних операторов (run.sh kind.sh, ПОВЕРХНОСТЬ): у клона $RS_REPO внешнего пути нет"; return 1; }
-            RS_PROFILE="$PCLASS"; RS_WHY="клон $RS_REPO — Job профиля $PCLASS" ;;
+            [ "$CLASS" != suite ] || { WHY_LOCAL="класс «suite» — наборы и пробы воркспейса: у клона $RS_REPO внешнего пути нет"; return 1; }            RS_PROFILE="$PCLASS"; RS_WHY="клон $RS_REPO — Job профиля $PCLASS" ;;
         *PRO-Robotech/kacho-workspace|*PRO-Robotech/kacho-workspace.git)
             case "$CLASS" in ci-local|suite) ;; *) WHY_LOCAL="клон воркспейса: класс «$CLASS» внешнего пути не имеет — Job профиля ws несёт лишь ci-local и suite"; return 1 ;; esac
             RS_PROFILE=ws

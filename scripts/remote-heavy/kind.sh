@@ -15,46 +15,46 @@
 # Operation not permitted» (прогон registry-operator 85ae95b 2026-10-24) — с кодом группы 2,
 # то есть КРАСНЫМ вместо «не выполнилось».
 #
-# ПУТЬ ВЫБРАН ПО ФАКТУ ПОЛИТИКИ КЛАСТЕРА (перепись 2026-10-24, ws#1385):
-#   • допуск — PodSecurity по метке ns (t<N>-heavy-* с dind ставят enforce=privileged и без
-#     этого профиля); ValidatingAdmissionPolicy кластера судят лишь ns платформы, а не ns
-#     задач; политик Kyverno ноль.
-#     Под privileged от имени job-controller (`--dry-run=server --as`) в ns t1385-* принят; тот
-#     же в ns платформы — отказ политики допуска (контроль: проба умеет увидеть отказ);
-#   • исполнение — одноразовые pod docker:29-dind в ns t1385-kindprobe-* (сняты, перепись ns
-#     до/после — новых 0):
-#       privileged + hostUsers: false, runc — `runc create failed: … unable to apply cgroup
-#         configuration: mkdir /sys/fs/cgroup/docker: permission denied`: cgroup pod принадлежит
-#         root узла (изнутри 65534), делегации cgroup в пространство пользователей нет;
-#       privileged + hostUsers: false, crun --cgroup-manager=disabled — вложенный sysfs
-#         монтируется, узел kind стартует, но его systemd без cgroup на запись не доходит до
-#         цели: «could not find a log line that matches "Reached target .*Multi-User System.*|
-#         detected cgroup v1"»;
-#       privileged в пространстве пользователей узла — kind v0.33.0 (kindest/node v1.37.0)
-#         создан, control-plane Ready за 18 с.
+# ПУТЬ (опыт 2026-10-24, ws#1385; одноразовые pod docker:29-dind в своём ns, сняты):
+#   • privileged + hostUsers: false, runc — `runc create failed: … unable to apply cgroup
+#     configuration: mkdir /sys/fs/cgroup/docker: permission denied`: cgroup pod принадлежит
+#     root узла (изнутри 65534), делегации cgroup в пространство пользователей нет;
+#   • privileged + hostUsers: false, crun --cgroup-manager=disabled — вложенный sysfs
+#     монтируется, узел kind стартует, но его systemd без cgroup на запись не доходит до
+#     цели: «could not find a log line that matches "Reached target .*Multi-User System.*|
+#     detected cgroup v1"»;
+#   • privileged в пространстве пользователей узла — kind v0.33.0 (kindest/node v1.37.0)
+#     создан, control-plane Ready за 18 с.
 #   Путь (б) — kind заменить кластером в ns (vcluster, k3s в pod без привилегий) — упирается
 #   в ту же делегацию cgroup (k3s/kubelet) либо выносит рабочую нагрузку пробы на узлы
-#   общего кластера (vcluster синхронизирует pod в ns хозяина, а образы проб лежат в
-#   реестре localhost:5001 внутри pod — узлам хозяина недоступны), и переписывает группы
-#   registry-operator. Поэтому — путь (а): dind privileged в пространстве пользователей узла.
+#   общего кластера (образы проб лежат в реестре localhost:5001 внутри pod — узлам хозяина
+#   недоступны) и переписывает группы. Поэтому — путь (а). Выделенных узлов (taint) и
+#   изолированного RuntimeClass в кластере нет (перепись 2026-10-24: RuntimeClass 0, узлов с
+#   taint 0) — уйти профилю от общих узлов некуда.
 #
-# ПОВЕРХНОСТЬ (ban18-q-security). privileged в пространстве пользователей узла — root узла
-# для кода ревизии: побег из контейнера ему не нужен. Поэтому профиль уже прочих:
-#   • только клоны внешних операторов (KIND_REPOS); kacho, kaname, corelib и воркспейс его
-#     не получают — kind_pair_ok в pair_ok run.sh, и heavy-slot даёт класс kind лишь им;
+# ПОВЕРХНОСТЬ (ban18-q-security). privileged без своего пространства пользователей ≈ root
+# на узле для кода ревизии: побег из контейнера ему не нужен. NetworkPolicy, квота и срок
+# ограничивают pod, а не узел. Узел защищает лишь то, ЧЕЙ код сюда попадает:
+#   • Ф1 — личность исходников (kind_identity): модуль go.mod ревизии и корневой коммит
+#     истории клона --src — того, из которого собирается bundle, — сверяются с таблицей
+#     KIND_OPERATORS для названного --repo; строка --repo и адрес origin сами по себе
+#     ничего не доказывают. Kacho, kaname, corelib и воркспейс профиля не получают вовсе;
+#   • Ф2 — ревизия достижима из ВЕТКИ (refs/heads/*) канонического удалённого репозитория
+#     оператора (`git ls-remote`, затем `merge-base --is-ancestor`): локальный коммит,
+#     refs/pull/* и форки не проходят; верхушка ветки обязана быть в клоне, иначе отказ с
+#     подсказкой `git fetch`;
 #   • privileged — у ОДНОГО контейнера dind; run, fetch, tools, pgclient — без расширенных
 #     прав: сверка фактического spec Job и pod (spec_drift) судит это как прежде;
-#   • ns — свой t<N>-heavy-kind-*: NetworkPolicy та же (вход закрыт; управление кластера,
-#     частные диапазоны и адреса узлов закрыты — предпосылка сети в pod та же), квота,
-#     срок Job и ns, снятие trap'ом;
 #   • исходники — bundle нашего клона, токенов и учётных данных в pod нет.
-# Проверка пространства пользователей pod (USERNS_SH run.sh) этому профилю не ставится —
-# его отличие в этом и есть; вместо неё pod печатает строку KIND_NOTE_SH.
+# Обе сверки — в run.sh, общем пути прямого вызова и вызова слотом, до любого обращения к
+# кластеру; отказ — 64 с причиной, канонический не ответил — 69. Проверка пространства
+# пользователей pod (USERNS_SH run.sh) этому профилю не ставится — его отличие в этом и
+# есть; вместо неё pod печатает строку KIND_NOTE_SH.
 #
 # ИСХОДЫ. Отказ допуска — пробный pod шаблона Job от имени job-controller
-# (`--dry-run=server --as=system:serviceaccount:kube-system:job-controller`: VAP кластера
-# освобождают system:masters, и проба от своего имени прошла бы там, где Job откажут) — 77
-# до создания Job. Kind в pod не исполним — вложенный privileged-контейнер не стартует
+# (`--dry-run=server --as=system:serviceaccount:kube-system:job-controller`: политики допуска
+# вправе освобождать учётку запуска, и проба от своего имени прошла бы там, где Job откажут) —
+# 77 до создания Job. Kind в pod не исполним — вложенный privileged-контейнер не стартует
 # (sysfs, cgroup) — строка «remote-heavy-kind: …» в termination-log run и 77. Образ пробы не
 # скачан — «remote-heavy-prep: …», 69 (сеть, а не политика). Ни один из трёх не красный и
 # не зелёный: вердикт даёт лишь исполненная команда (её код).
@@ -72,6 +72,15 @@ kind|*|0|8265|13992"
 # строка stand heavy-slot.sh), реестр и сборка образов группы (docker build).
 KIND_DIND_RES='100m|8|256Mi|12Gi'
 KIND_REPOS='vault-operator kaname-iam-operator registry-operator'
+# Личность оператора (Ф1, Ф2): --repo|модуль go.mod|корневой коммит истории|канонический
+# удалённый репозиторий (ls-remote). Корень — `git rev-list --max-parents=0 --all` клона
+# канонического (2026-10-24: у каждого ровно один). Маркеры — граница, по которой inject.sh
+# подменяет таблицу фикстурой (клон пробы со своим корнем и каноническим — каталог).
+# kind-operators-begin
+KIND_OPERATORS='registry-operator|github.com/PRO-Robotech/registry-operator|39f27cd75c3c161675ced5c315e8e2f714f263fa|git@gitlab.beget.ru:cloud/k8s/controllers/registry-operator.git
+vault-operator|github.com/PRO-Robotech/vault-operator|cc0bb2ad55b81f8e1a448b06c5baa77c719d9f01|https://github.com/PRO-Robotech/vault-operator.git
+kaname-iam-operator|github.com/PRO-Robotech/kaname-iam-operator|4220c2646b618c327ed33d127348056dcfa49b43|https://github.com/PRO-Robotech/kaname-iam-operator.git'
+# kind-operators-end
 # Образ пробы исполнимости — через то же зеркало, что docker:dind (registry-mirror демона).
 KIND_PROBE_IMAGE='mirror.gcr.io/library/alpine:3'
 KIND_JOB_SA='system:serviceaccount:kube-system:job-controller'
@@ -85,6 +94,35 @@ kind_pair_ok() {
     case " $KIND_REPOS " in *" $2 "*) return 0 ;; esac
     say "профиль kind — лишь для клонов внешних операторов ($KIND_REPOS): privileged в пространстве пользователей узла продуктам не даётся (kind.sh, ПОВЕРХНОСТЬ), получено «$2»"
     return 1
+}
+
+# kind_identity <репозиторий> <клон> <ревизия> — Ф1 и Ф2 (ПОВЕРХНОСТЬ). 0 — исходники того
+# оператора и ревизия достижима из ветки канонического; 64 — нет (причина — строкой);
+# 69 — канонический не ответил.
+kind_identity() {
+    local repo="$1" src="$2" sha="$3" row mod root canon have heads h ok=""
+    row="$(awk -F'|' -v r="$repo" '$1 == r' <<< "$KIND_OPERATORS")"
+    [ -n "$row" ] || { say "профиль kind: оператора «$repo» нет в таблице личности (KIND_OPERATORS) — Job не создаётся"; return 64; }
+    IFS='|' read -r _ mod root canon <<< "$row"
+    have="$(git -C "$src" show "$sha:go.mod" 2>/dev/null | awk '$1 == "module" { print $2; exit }')"
+    if [ "$have" != "$mod" ]; then
+        say "профиль kind: клон --src не $repo — модуль go.mod ревизии «${have:-нет}», ждали «$mod» (Ф1: судятся исходники bundle, а не строка --repo)"; return 64
+    fi
+    if ! git -C "$src" rev-list --max-parents=0 "$sha" 2>/dev/null | grep -qxF -- "$root"; then
+        say "профиль kind: история ревизии не начинается корнем $repo (${root:0:12}) — клон --src не этот репозиторий (Ф1)"; return 64
+    fi
+    heads="$(GIT_TERMINAL_PROMPT=0 timeout 60 git -C "$src" ls-remote "$canon" 'refs/heads/*' 2>/dev/null)" \
+        || { say "профиль kind: канонический репозиторий $repo не ответил (git ls-remote) — достижимость ревизии не проверена (не выполнилось)"; return 69; }
+    while read -r h _; do
+        [ -n "$h" ] || continue
+        git -C "$src" cat-file -e "$h^{commit}" 2>/dev/null || continue
+        if git -C "$src" merge-base --is-ancestor "$sha" "$h" 2>/dev/null; then ok=1; break; fi
+    done <<< "$heads"
+    if [ -z "$ok" ]; then
+        say "профиль kind: ревизия ${sha:0:12} не достижима ни из одной ветки канонического $repo, чьи верхушки есть в клоне (веток $(grep -c . <<< "$heads")) — отправь ветку в канонический и обнови клон (git fetch); refs/pull и форки не в счёт (Ф2)"; return 64
+    fi
+    say "профиль kind: исходники — $repo (модуль и корень сверены), ревизия достижима из ветки канонического (Ф1, Ф2)"
+    return 0
 }
 
 # dind профиля kind: среда исполнения по умолчанию (runc) и cgroup — узла, как у dind

@@ -4020,6 +4020,26 @@ ws6_case WS6-batssum 125 "bats-core 1.10.0 не поставлен" WSC_BAD=bats
 ws6_case WS6-down 125 "yq v4.45.4 не поставлен" WSC_DOWN=1
 
 # ── KD: профиль kind (ws#1385, kind.sh) ──────────────────────────────────────
+# Личность оператора (Ф1, Ф2) у клона пробы своя: таблица KIND_OPERATORS kind.sh подменяется
+# фикстурой — модуль и корень клона пробы, канонический — голый репозиторий в каталоге пробы
+# с ветками клона. Прочее в kind.sh — дословно, как в дереве.
+KDLIB="$BOX/kindlib"; KDDOWN="$BOX/kindlib-down"; mkdir -p "$KDLIB" "$KDDOWN"
+git init -q --bare "$BOX/canon.git"
+git -C "$SRC" push -q "$BOX/canon.git" 'refs/heads/*:refs/heads/*'
+kd_root="$(git -C "$SRC" rev-list --max-parents=0 HEAD | head -n 1)"
+kd_lib() {  # kd_lib <каталог> <канонический>
+    awk -v row="registry-operator|example.com/x|$kd_root|$2" '
+      /^# kind-operators-begin$/ { print; print "KIND_OPERATORS=\x27" row "\x27"; skip = 1; next }
+      /^# kind-operators-end$/ { skip = 0 } !skip' "$SELF_DIR/kind.sh" > "$1/kind.sh"
+}
+kd_lib "$KDLIB" "$BOX/canon.git"; kd_lib "$KDDOWN" "$BOX/no-such-canon.git"
+if grep -q "^KIND_OPERATORS='registry-operator|example.com/x|$kd_root|" "$KDLIB/kind.sh" && ! grep -q '39f27cd75c3c' "$KDLIB/kind.sh" \
+   && [ "$(grep -c '^kind_identity()' "$KDLIB/kind.sh")" = 1 ]; then ok; else OUT="$KDLIB/kind.sh"; bad KD-premise "фикстура таблицы личности не собрана"; fi
+# Таблица дерева — три оператора KIND_REPOS, у каждого модуль github.com/PRO-Robotech/<имя>,
+# корень — 40 знаков, канонический назван.
+kd_tab="$(sed -n '/^# kind-operators-begin$/,/^# kind-operators-end$/p' "$SELF_DIR/kind.sh" | grep -cE '^(KIND_OPERATORS=.)?(vault-operator|kaname-iam-operator|registry-operator)\|github\.com/PRO-Robotech/(vault-operator|kaname-iam-operator|registry-operator)\|[0-9a-f]{40}\|[^|]+$')"
+if [ "$kd_tab" = 3 ]; then ok; else bad KD-table "строк таблицы личности дерева годной формы $kd_tab, ждали 3"; fi
+export REMOTE_HEAVY_KIND_DIR="$KDLIB"
 # KD1 — пара профиля: kind лишь клонам внешних операторов; продукт — 64 с причиной (ПОВЕРХНОСТЬ)
 fresh; go_run kd1 bash "$RUN" --request --profile kind --repo kacho
 expect_rc KD1 64
@@ -4091,6 +4111,40 @@ if grep -q 'отказан кластером: Error from server (Forbidden): .*
 fresh; go_run kd6 env FAKE_EXIT=0 FAKE_POD_MUT=privileged bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$SRC" --profile kind --short kd6 -- make test-e2e
 expect_rc KD6 69
 if grep -q 'контейнер fetch: privileged без запроса' "$OUT"; then ok; else bad KD6 "privileged у fetch не назван расхождением"; fi
+# KF1 — Ф1: подмена --src — клон kacho (модуль github.com/PRO-Robotech/kacho) при разрешённом
+# --repo registry-operator и таблице ДЕРЕВА → 64 до кластера, причина — модуль
+KC="$BOX/kf-kacho"; git init -q "$KC"; printf 'module github.com/PRO-Robotech/kacho\n\ngo 1.26.0\n' > "$KC/go.mod"
+git -C "$KC" add -A; sandbox_git -C "$KC" commit -q -m kacho
+fresh; go_run kf1 env REMOTE_HEAVY_KIND_DIR="$SELF_DIR" FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$KC" --profile kind --short kf1 -- make test-e2e
+expect_rc KF1 64
+if grep -q 'клон --src не registry-operator — модуль go.mod ревизии «github.com/PRO-Robotech/kacho»' "$OUT"; then ok; else bad KF1 "причина отказа (модуль) не названа"; fi
+no_cluster_call KF1
+# KF1-root — модуль совпал, история чужая (свой корень) → 64, причина — корень
+K2="$BOX/kf-alien"; git init -q "$K2"; cp "$SRC/go.mod" "$K2/go.mod"; git -C "$K2" add -A; sandbox_git -C "$K2" commit -q -m alien
+fresh; go_run kf1r env FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$K2" --profile kind --short kf1r -- make test-e2e
+expect_rc KF1-root 64
+if grep -q 'история ревизии не начинается корнем registry-operator' "$OUT"; then ok; else bad KF1-root "причина отказа (корень) не названа"; fi
+no_cluster_call KF1-root
+# KF1-twin — свой клон и своя таблица: личность сверена (строка Ф1, Ф2) — уже в KD2
+if grep -q 'профиль kind: исходники — registry-operator (модуль и корень сверены)' "$BOX/kd2.out"; then ok; else OUT="$BOX/kd2.out"; bad KF1-twin "строки сверки личности в законном прогоне нет"; fi
+# KF2 — Ф2: локальный коммит, не отправленный в канонический → 64 до кластера; он же под
+# refs/pull/* канонического → 64; он же в ветке канонического → прогон идёт (0)
+git -C "$SRC" checkout -q -b kf2; echo kf2 > "$SRC/kf2.txt"; git -C "$SRC" add kf2.txt; sandbox_git -C "$SRC" commit -q -m kf2; git -C "$SRC" checkout -q -
+fresh; go_run kf2 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref kf2 --src "$SRC" --profile kind --short kf2 -- make test-e2e
+expect_rc KF2 64
+if grep -q 'не достижима ни из одной ветки канонического registry-operator' "$OUT"; then ok; else bad KF2 "причина отказа (ветка канонического) не названа"; fi
+no_cluster_call KF2
+git -C "$SRC" push -q "$BOX/canon.git" kf2:refs/pull/1/head
+fresh; go_run kf2p env FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref kf2 --src "$SRC" --profile kind --short kf2p -- make test-e2e
+expect_rc KF2-pull 64
+no_cluster_call KF2-pull
+git -C "$SRC" push -q "$BOX/canon.git" kf2:refs/heads/kf2
+fresh; go_run kf2t env FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref kf2 --src "$SRC" --profile kind --short kf2t -- make test-e2e
+expect_rc KF2-twin 0
+# KF2-down — канонический не ответил → 69 («не проверено»), не 64 и не 0
+fresh; go_run kf2d env REMOTE_HEAVY_KIND_DIR="$KDDOWN" FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$SRC" --profile kind --short kf2d -- make test-e2e
+expect_rc KF2-down 69
+no_cluster_call KF2-down
 # KD7–KD9 — проба исполнимости kind ИСПОЛНЕНИЕМ шага из Job над двойником docker: исполним → 0,
 # строки в termination-log нет; sysfs не монтируется (опыт 85ae95b) либо cgroup закрыт (опыт
 # hostUsers: false) → 125 и «remote-heavy-kind:»; образ пробы не скачан → «remote-heavy-prep:» (69)
@@ -4130,6 +4184,7 @@ kd_case KD8-sysfs 125 'remote-heavy-kind: .*mount `sysfs`' sysfs
 kd_case KD8-cgroup 125 'remote-heavy-kind: .*cgroup' cgroup
 kd_case KD8-silent 125 'remote-heavy-kind: ' silent
 kd_case KD9-pull 125 'remote-heavy-prep: образ пробы kind' pull
+export REMOTE_HEAVY_KIND_DIR="$SELF_DIR"
 
 # L0 — двойник печатает адрес и IPv4 (иначе L1 пуста)
 OUT="$BOX/l0.out"

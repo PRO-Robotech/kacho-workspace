@@ -1253,6 +1253,8 @@ SRC="${SRC:-$WS/project/$REPO}"
 git -C "$SRC" rev-parse --git-dir >/dev/null 2>&1 || { say "клон $REPO не найден: $SRC (--src)"; exit 69; }
 SHA="$(git -C "$SRC" rev-parse --verify --quiet "$REF^{commit}")" || { say "ревизии «$REF» в клоне $REPO нет"; exit 69; }
 MAIN_SHA="$(git -C "$SRC" rev-parse --verify --quiet 'refs/remotes/origin/main^{commit}')" || MAIN_SHA=""
+# Профиль kind — личность исходников bundle и достижимость ревизии (kind.sh, Ф1 и Ф2) до кластера.
+if kind_on; then kind_identity "$REPO" "$SRC" "$SHA" || exit $?; fi
 # Корневая учётка вызывающей копии (УЧЁТКА GIT в шапке) — до первого обращения к кластеру.
 GIT_NAME=""; GIT_EMAIL=""
 if [ "$PROFILE" = ci-local ] || [ "$PROFILE" = ws ]; then
