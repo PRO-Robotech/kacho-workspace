@@ -747,7 +747,7 @@ Negative-тестов должно быть **больше**, чем positive.
 
 | Триггер | Что запускается | Бюджет времени |
 |---|---|---|
-| Pre-commit hook (локально) | gofmt + go vet + unit с -short | < 30s |
+| Pre-commit (gofmt — локально; прочее — `heavy-slot.sh go-unit`) | gofmt + go vet + unit с -short | < 30s |
 | PR commit | Полный unit + integration | < 10min |
 | PR merge / nightly | + newman против dev-стенда (край, не E2E пирамиды §2.1) | < 30min |
 | Release | + perf benchmarks + mutation testing | < 2h |
