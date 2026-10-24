@@ -62,6 +62,10 @@
 #                  вызов назван, вливания и повтора гейта нет (ws#1365); близнец py-guard-slot:
 #                  локальный слот (HEAVY_SLOT_P) — python3 законен, merged; py-guard-prune:
 #                  python3 переписи снятия — merged остаётся, отказ строкой в исходе;
+#                  py-guard-{ver,abs,path,export,envi,var,timeout,xargs}: версия в имени, вызов
+#                  мимо PATH и через обёртку — тот же void (трасса); близнец py-guard-word —
+#                  слово python3 не командой, merged; py-guard-slot-abs — слот, merged;
+#                  py-guard-sh: sh -c (трасса слепа) — void двойником семейства имён;
 #   ff           — PR в main воркспейса влит: голова основного клона равна origin/main,
 #                  локальная правка вне входящих и неотслеживаемый файл целы (ws#1200);
 #                  ff-overlap: локальная правка пересекает входящий файл — отказ ff с
