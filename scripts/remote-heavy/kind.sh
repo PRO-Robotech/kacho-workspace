@@ -110,7 +110,7 @@ KIND
 # kind_admission <job.json> — допуск pod шаблона Job, как его создаст job-controller.
 # 0 — принят; 77 — отказ допуска (текст сервера — в строке); 69 — допуск не проверен.
 kind_admission() {
-    local doc out
+    local doc out line
     doc="$BOX/kind-admission.json"
     jq '{apiVersion: "v1", kind: "Pod",
          metadata: {generateName: "run-", namespace: .metadata.namespace, labels: .spec.template.metadata.labels},
@@ -118,10 +118,14 @@ kind_admission() {
     if out="$(kc create --dry-run=server --as="$KIND_JOB_SA" -f "$doc" -o name 2>&1)"; then
         say "допуск pod профиля kind: принят от имени job-controller (--dry-run=server)"; return 0
     fi
+    # Строка сервера — первая «Error…», а не предупреждение PodSecurity (warn) перед ней.
+    line="$(grep -m 1 '^Error' <<< "$out" || head -n 1 <<< "$out")"
     case "$out" in
-        *[Ff]orbidden*|*denied*|*violates\ PodSecurity*)
+        # Нет права выдать себя за job-controller — допуск не проверен, а не отказан.
+        *"cannot impersonate"*) ;;
+        *[Ff]orbidden*|*denied*|*"violates PodSecurity"*)
             KEEP_H=""
-            say "допуск pod профиля kind отказан кластером: $(mask <<< "$(head -n 1 <<< "$out")") — Job не создаётся, kind здесь не исполним (не выполнилось)"; return 77 ;;
+            say "допуск pod профиля kind отказан кластером: $(mask <<< "$line") — Job не создаётся, kind здесь не исполним (не выполнилось)"; return 77 ;;
     esac
-    say "допуск pod профиля kind не проверен: $(mask <<< "$(head -n 1 <<< "$out")") (не выполнилось)"; return 69
+    say "допуск pod профиля kind не проверен: $(mask <<< "$line") (не выполнилось)"; return 69
 }

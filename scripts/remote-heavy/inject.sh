@@ -409,6 +409,9 @@ if [ "$1" = create ] && [ -n "$dry" ]; then
     case "${FAKE_ADMISSION:-}" in
         deny) echo "Error from server (Forbidden): error when creating \"$3\": pods \"run-x\" is forbidden: ValidatingAdmissionPolicy 'host-access-allowlist' with binding 'host-access-allowlist' denied request: host access for pod requested by $as" >&2; exit 1 ;;
         down) echo "Unable to connect to the server: dial tcp $FAKE_IP:6443: i/o timeout" >&2; exit 1 ;;
+        noimp) echo "Error from server (Forbidden): serviceaccounts \"job-controller\" is forbidden: User \"probe\" cannot impersonate resource \"serviceaccounts\" in API group \"\" in the namespace \"kube-system\"" >&2; exit 1 ;;
+        warn) echo "Warning: would violate PodSecurity \"restricted:latest\": privileged (container \"dind\" must not set securityContext.privileged=true)" >&2
+              echo "Error from server (Forbidden): error when creating \"$3\": pods \"run-x\" is forbidden: violates PodSecurity \"baseline:latest\": privileged (container \"dind\" must not set securityContext.privileged=true)" >&2; exit 1 ;;
     esac
     echo "pod/run-x"; exit 0
 fi
@@ -4066,6 +4069,14 @@ expect_ns_gone KD5 t1-heavy-kd5
 fresh; go_run kd5d env FAKE_ADMISSION=down FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$SRC" --profile kind --short kd5d -- make test-e2e
 expect_rc KD5-down 69
 if [ ! -e "$BOX/state/job.json" ]; then ok; else bad KD5-down "Job создан при непроверенном допуске"; fi
+# KD5-noimp — нет права выдать себя за job-controller (Forbidden о самозванстве) → 69, не 77
+fresh; go_run kd5i env FAKE_ADMISSION=noimp FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$SRC" --profile kind --short kd5i -- make test-e2e
+expect_rc KD5-noimp 69
+if grep -q 'допуск pod профиля kind не проверен: .*cannot impersonate' "$OUT"; then ok; else bad KD5-noimp "отказ самозванства не назван «не проверен»"; fi
+# KD5-warn — перед отказом PodSecurity сервер печатает предупреждение: цитируется строка отказа
+fresh; go_run kd5w env FAKE_ADMISSION=warn FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$SRC" --profile kind --short kd5w -- make test-e2e
+expect_rc KD5-warn 77
+if grep -q 'отказан кластером: Error from server (Forbidden): .*violates PodSecurity' "$OUT"; then ok; else bad KD5-warn "процитировано предупреждение, а не отказ"; fi
 # KD6 — сервер снял privileged у fetch (вебхук правит pod): privileged сверх запроса — 69 и в kind
 fresh; go_run kd6 env FAKE_EXIT=0 FAKE_POD_MUT=privileged bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$SRC" --profile kind --short kd6 -- make test-e2e
 expect_rc KD6 69
