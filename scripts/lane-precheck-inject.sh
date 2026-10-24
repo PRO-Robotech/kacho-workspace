@@ -292,6 +292,7 @@ prem() { printf '%s\n' "$@" > "$W/premise.txt"; }
 runp() { bash "$P" --premise "$W/premise.txt" > "$W/out" 2>&1; echo $?; }
 prem '# предусловия' 'pr o/r#5 MERGED' 'pr o/r#6 OPEN' 'branch o/r 1-lane' 'proof o/r#7' "verdict $W/rev-ok.yaml accept"
 assert "0 да" "$(runp) $(has 'предусловий 5; ложных 0, не судимо 0')" "контроль: пять верных предусловий → 0, перепись"
+assert "2 да" "$(bash "$P" --premise 'pr o/r#5 MERGED' > "$W/out" 2>&1; echo $?) $(has '--premise принимает путь к файлу')" "строка предусловия вместо файла → 2, отказ называет форму (урок ws#1386)"
 prem 'pr o/r#6 MERGED'
 assert "1 да" "$(runp) $(has 'REASON PREMISE-FALSE pr o/r#6 MERGED: состояние OPEN')" "PR открыт, задание считает влитым → PREMISE-FALSE"
 prem 'pr o/r#9 OPEN'
