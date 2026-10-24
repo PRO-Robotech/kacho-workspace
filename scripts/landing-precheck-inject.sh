@@ -45,6 +45,11 @@
 # Мутанты самой предпроверки («любой skipped законен», «список имён») обязаны
 # провалить пробу (2) «skipped без такого if».
 #
+# ДВОЙНИК PUSH (пункт (г), ws#1365): skipped задания запроса законен и тогда, когда
+# его `if` снимается признаком `needs.<зависимость>.outputs.duplicate`, голова не
+# отстаёт от базы, и та же проверка прогона push той же головы — success. Вход —
+# четвёртый захват, `landing-precheck-fixtures/kaname-962/` (раздел ниже).
+#
 # Каждая инъекция меняет ОДИН факт против близнеца и обязана дать код 1 и строку
 # REASON со своим кодом причины; близнец — код 0 и ни одной строки REASON.
 # Коды: 0 — все утверждения сошлись; 1 — хотя бы одно нет.
@@ -99,8 +104,10 @@ case "$2" in
         [ "$h" = "$(cat "$FAKE/head" 2>/dev/null)" ] || { echo "fake gh: сравнение до $h — не голова случая" >&2; exit 1; }
         pg="${2##*page=}"; pg="${pg%%&*}"
         src="$FAKE/compare.json"; [ -f "$src" ] || src="$FAKE/commits.json"
+        # behind_by — отставание головы от базы (ws#1365: двойник push): $FAKE/behind, нет — 0.
         jq -c --argjson p "$pg" --argjson t "$(cat "$FAKE/compare-total" 2>/dev/null || jq length "$src")" \
-            '{total_commits: $t, commits: .[(($p - 1) * 100):($p * 100)]}' "$src" ;;
+            --argjson b "$(cat "$FAKE/behind" 2>/dev/null || echo 0)" \
+            '{total_commits: $t, behind_by: $b, commits: .[(($p - 1) * 100):($p * 100)]}' "$src" ;;
     */check-runs\?*page=1*)     cat "$FAKE/check-runs.json" ;;
     */check-runs\?*)            echo '{"total_count":0,"check_runs":[]}' ;;
     */pulls/[0-9]*)             cat "$FAKE/pull.json" ;;
@@ -240,7 +247,7 @@ expect 1 $'REASON\tCI-NOT-SUCCESS\tсводный вердикт юнитов (�
 TRUNKJOB='вердикт ствола — красное не остаётся без читателя'
 # ws#1397: набора нет — skipped по невыполнимому if не судим и идёт причиной (д), а не CI-NOT-SUCCESS.
 # Код свой (SKIPPED-UNJUDGED), не MERGE-READINESS: допуск merge-readiness его не снимает.
-UNJS=" не получен — skipped по невыполнимому if не судимы: $TRUNKJOB ×4"
+UNJS=" не получен — skipped, законный лишь при известном наборе, не судим: $TRUNKJOB ×4"
 UNJ=$'REASON\tSKIPPED-UNJUDGED\tнабор обязательных от merge-readiness (код 0)'"$UNJS"
 UNJ2=$'REASON\tSKIPPED-UNJUDGED\tнабор обязательных от merge-readiness (код 2)'"$UNJS"
 # reason_codes — коды строк REASON последнего прогона, различные, по алфавиту, через запятую.
@@ -422,7 +429,7 @@ expect_allow MERGE-READINESS,SKIPPED-UNJUDGED red "(ws#1397) близнец: mer
 twin; addskip; rm "$W/case/required"; setif del; run 0
 expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (.github/workflows/' "(ws#1397) близнец: набора нет, skipped без условия if — CI-NOT-SUCCESS, не «не судимо»"
 # Мутант предпроверки: «не судим» читается законным — набора нет, а посадка зелёная.
-sed 's|        return None, f"{path} на {ev}"|        return True, f"{path} на {ev}"|' "$TOOL" > "$W/mut/precheck-unjudged-lawful.sh"
+sed 's|        return (True if required is not None else None), f"{path} на {ev}"|        return True, f"{path} на {ev}"|' "$TOOL" > "$W/mut/precheck-unjudged-lawful.sh"
 if cmp -s "$TOOL" "$W/mut/precheck-unjudged-lawful.sh"; then
     echo "  [FAIL] мутант «не судим = законен»: образец не найден" >&2; fail=$((fail + 1))
 else
@@ -469,6 +476,77 @@ twin; addskip
 # shellcheck disable=SC2016  # $n — переменная jq
 edit check-runs.json --arg n "$TRUNKJOB" '(.check_runs[] | select(.name == $n) | .conclusion) |= "failure"'; run 0
 expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — failure' "необязательное failure — красное остаётся причиной"
+
+echo "== (г) skipped запроса — двойник успешного прогона push той же головы (ws#1365)"
+# Вход — четвёртый захват, `landing-precheck-fixtures/kaname-962/` (2026-10-24,
+# kaname#962 @bd4b6dbb, голова 309, база 942): прогон pull_request 40092399441
+# файла docker-build.yml — «образ службы» skipped (шаг `duplicate` задания «выбор
+# затронутого» записал duplicate=true), прогон push 40092395140 той же ревизии
+# ветки 309 — success. Шесть check-run двух наборов (`…/commits/<sha>/check-runs`:
+# name, status, conclusion, head_sha, started_at, app.id, check_suite.id), оба
+# прогона workflow (`…/actions/runs?head_sha=`: id, check_suite_id, event,
+# head_branch, head_sha, path) и файл на голове, обрезанный до
+# jobs.{changes,image,trunkverdict}.{name,outputs,needs,if} — значения дословны.
+# Прививка (addtwin) — как addskip: head_sha и ветка прогонов переписаны на голову
+# случая, больше правок нет. Каждая проба меняет против привитого близнеца ОДИН факт.
+K962="$FIX/kaname-962"
+IMAGE='образ службы (сборка · публикация по пину)'
+IMG_WHY="$IMAGE"' — skipped (.github/workflows/docker-build.yml: условие не решается без исхода прогона; двойник прогона push не установлен: '
+# shellcheck disable=SC2016  # $h, $b — переменные jq
+addtwin() {
+    local s b
+    s="$(jq -r '.check_runs[0].head_sha' "$W/case/check-runs.json")"
+    b="$(jq -r '.head.ref' "$W/case/pull.json")"
+    jq --slurpfile k "$K962/check-runs.json" --arg h "$s" \
+        '.check_runs += [$k[0][] | .head_sha = $h] | .total_count += ($k[0] | length)' \
+        "$W/case/check-runs.json" > "$W/case/check-runs.new" && mv "$W/case/check-runs.new" "$W/case/check-runs.json"
+    jq --arg h "$s" --arg b "$b" '.workflow_runs |= map(.head_sha = $h | .head_branch = $b)' "$K962/runs.json" > "$W/case/runs.json"
+    rm -rf "$W/case/wf"; cp -r "$K962/wf" "$W/case/wf"
+}
+# jqin <файл случая> <доводы jq…> — правка файла привитого случая (несколько --arg).
+jqin() { local f="$1"; shift; jq "$@" "$W/case/$f" > "$W/case/$f.new" && mv "$W/case/$f.new" "$W/case/$f"; }
+twinrun() { jqin runs.json "$1"; }
+PUSHSUITE="$(jq -r '.workflow_runs[] | select(.event == "push") | .check_suite_id' "$K962/runs.json")"
+twin; addtwin; run 0
+expect 0 - "двойник: skipped образа запроса при success образа push той же головы — не причина"
+if grep -q $'^CENSUS\tci: skipped не причина — двойник успешного прогона push: '"$IMAGE"' ×1 (двойник: .github/workflows/docker-build.yml, прогон push 40092395140 на ' "$W/out" \
+    && grep -q $'^CENSUS\tci: .*skipped двойником push 1, skipped по невыполнимому if 2; набор обязательных' "$W/out"; then
+    echo "  [OK]   двойник назван в переписи поимённо, файлом и прогоном push; счёт отдельно от if"; pass=$((pass + 1))
+else echo "  [FAIL] перепись не называет двойника push:" >&2; sed 's/^/           /' "$W/out" >&2; fail=$((fail + 1)); fi
+# ws#1397 × ws#1365: двойник push несёт признак 1 (имени нет в наборе обязательных). При
+# известном наборе он законен и в SKIPPED-UNJUDGED не попадает (сцена выше — ни одной REASON);
+# без набора — не судим, как невыполнимый if, и поимённо помечен «двойник push».
+twin; addtwin; rm "$W/case/required"; run 0
+expect_codes 1 SKIPPED-UNJUDGED "$IMAGE ×1 (двойник push)" "(ws#1397) двойник push при неполученном наборе — SKIPPED-UNJUDGED поимённо, CI-NOT-SUCCESS нет"
+expect_allow MERGE-READINESS red "(ws#1397) двойник push при неполученном наборе — --allow MERGE-READINESS не вливает"
+twin; addtwin; yq -i '.jobs.image.needs = "changes"' "$W/case/wf/.github/workflows/docker-build.yml"; run 0
+expect 0 - "близнец: needs строкой, а не списком — тот же признак"
+twin; addtwin; twinrun '(.workflow_runs[] | select(.event == "push") | .head_sha) |= "0000000000000000000000000000000000000000"'; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$IMG_WHY"'прогон push 40092395140 — ревизия 000000000000' "прогон push на другой ревизии — skipped причина"
+twin; addtwin
+# shellcheck disable=SC2016  # $s — переменная jq
+jqin check-runs.json --argjson s "$PUSHSUITE" '(.check_runs[] | select(.check_suite.id == $s) | .head_sha) |= "0000000000000000000000000000000000000000"'
+twinrun '(.workflow_runs[] | select(.event == "push") | .head_sha) |= "0000000000000000000000000000000000000000"'; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$IMG_WHY"'прогона push задания в .github/workflows/docker-build.yml на голове нет' "образ собран push другой ревизии — на голове его нет, причина"
+twin; addtwin
+# shellcheck disable=SC2016  # $s, $n — переменные jq
+jqin check-runs.json --argjson s "$PUSHSUITE" --arg n "$IMAGE" '(.check_runs[] | select(.check_suite.id == $s and .name == $n) | .conclusion) |= "failure"'
+run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$IMG_WHY"'задание в прогоне push 40092395140 — failure)' "образ push той же головы красный — skipped запроса причина"
+twin; addtwin; V="\${{ needs.changes.outputs.full == 'true' || contains(fromJSON(needs.changes.outputs.jobs || '[]'), 'image') }}" \
+    yq -i '.jobs.image.if = strenv(V)' "$W/case/wf/.github/workflows/docker-build.yml"; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$IMG_WHY"'условие не снимает задание признаком' "if без признака duplicate — пропуск не двойником, причина при success push"
+twin; addtwin; V="\${{ needs.other.outputs.duplicate != 'true' && needs.changes.outputs.full == 'true' }}" \
+    yq -i '.jobs.image.if = strenv(V)' "$W/case/wf/.github/workflows/docker-build.yml"; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$IMG_WHY"'условие не снимает задание признаком' "признак duplicate задания вне needs — не признак, причина"
+twin; addtwin; echo 3 > "$W/case/behind"; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$IMG_WHY"'голова отстаёт от 1266 на 3' "голова отстаёт от базы — дерево слияния не собрано push, причина"
+twin; addtwin; : > "$W/case/compare-fail"; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$IMG_WHY"'сверка головы с базой 1266 не прочитана' "сверка с базой отказала — отставание не установлено, причина"
+twin; addtwin; twinrun '(.workflow_runs[] | select(.event == "push") | .path) |= ".github/workflows/ci.yml"'; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$IMG_WHY"'прогона push задания в .github/workflows/docker-build.yml на голове нет' "push-прогон другого файла workflow — не та же проверка, причина"
+twin; addtwin; echo "$IMAGE" >> "$W/case/required"; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$IMAGE"' — skipped (контекст обязательный)' "двойник не снимает skipped обязательного контекста"
 twin; edit check-runs.json '.check_runs[0].status = "in_progress" | .check_runs[0].conclusion = null'; run 0
 expect 1 $'REASON\tCI-PENDING' "один check-run идёт"
 twin; edit check-runs.json '.check_runs = [] | .total_count = 0'; run 0
@@ -796,7 +874,7 @@ runwave() {
 P404='{"message":"Branch not protected","documentation_url":"https://docs.github.com/rest/branches/branch-protection#get-status-checks-protection","status":"404"}'
 mrwave "$P404"; runwave
 expect 0 - "(ws#1397) ветка волны без защиты, отказ 404 лишь в теле: настоящие merge-readiness и ci-read отдали набор — skipped по if ×4 не причина, код 0"
-if grep -q $'^CENSUS\tci: .*skipped не судимых без набора 0, skipped по невыполнимому if 4; набор обязательных 0 — установленный ноль (ci-read: ' "$W/out" \
+if grep -q $'^CENSUS\tci: .*skipped не судимых без набора 0, skipped двойником push 0, skipped по невыполнимому if 4; набор обязательных 0 — установленный ноль (ci-read: ' "$W/out" \
     && grep -q $'^CENSUS\tmerge-readiness: код 0, источник origin/main@' "$W/out"; then
     echo "  [OK]   (ws#1397) перепись: merge-readiness код 0, набор 0 от ci-read с основанием"; pass=$((pass + 1))
 else echo "  [FAIL] (ws#1397) перепись не называет код 0 merge-readiness и набор 0 с основанием:" >&2; sed 's/^/           /' "$W/out" >&2; fail=$((fail + 1)); fi

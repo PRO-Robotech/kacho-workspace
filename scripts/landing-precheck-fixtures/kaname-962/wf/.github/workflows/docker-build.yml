@@ -1,0 +1,17 @@
+jobs:
+  changes:
+    name: выбор затронутого (образ)
+    outputs:
+      full: ${{ steps.pick.outputs.full }}
+      jobs: ${{ steps.pick.outputs.jobs }}
+      duplicate: ${{ steps.duplicate.outputs.duplicate }}
+  image:
+    name: образ службы (сборка · публикация по пину)
+    needs: [changes]
+    if: ${{ needs.changes.outputs.duplicate != 'true' && (needs.changes.outputs.full == 'true' || contains(fromJSON(needs.changes.outputs.jobs || '[]'), 'image')) }}
+  trunkverdict:
+    name: вердикт ствола — красное не остаётся без читателя
+    needs:
+      - image
+      - changes
+    if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}

@@ -31,7 +31,8 @@
 #   1. копия: связанный worktree того же коммита, что у копии входа (правки scripts/ вне
 #      коммита — отказ 64: Job исполнил бы не их);
 #      Архив рецепта «ЗАПУСК» (scripts/ из origin/main вне копии; LANDING_PRECHECK_WS — так зовёт
-#      гейты демон вливания) — worktree origin/main того воркспейса, архив сверен с ним (`diff -r`);
+#      гейты демон вливания) — worktree origin/main того воркспейса, архив сверен с ним файл
+#      в файл вместе с режимом (`git diff --no-index`);
 #   2. входы: каждый довод — существующий файл — копируется в rr/in, довод заменяется путём
 #      от rr; в JSON-входе строка — абсолютный путь к файлу — тоже (пакет импорта, отзывы);
 #      каталог доводом — 64, кроме копии expect (--checkout): она едет bundle HEAD, веток и origin/*
@@ -132,7 +133,14 @@ secret_path() {  # secret_path <путь> — 0, если путь (после �
     return 1
 }
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TOP="$(git -C "$HERE" rev-parse --show-toplevel 2>/dev/null)" || TOP=""
+# Явная привязка воркспейса (LANDING_PRECHECK_WS) сильнее объемлющей копии git: архив, лёгший в
+# чужой репозиторий, судится по воркспейсу привязки, а не по чужому корню. Привязка — корень копии.
+if [ -n "${LANDING_PRECHECK_WS:-}" ]; then
+    TOP="$(git -C "$LANDING_PRECHECK_WS" rev-parse --show-toplevel 2>/dev/null)" || die 64 "LANDING_PRECHECK_WS «$LANDING_PRECHECK_WS» — не копия git"
+    [ "$(realpath -- "$LANDING_PRECHECK_WS")" = "$(realpath -- "$TOP")" ] || die 64 "workspace binding is not the repository root"
+else
+    TOP="$(git -C "$HERE" rev-parse --show-toplevel 2>/dev/null)" || TOP=""
+fi
 ENTRY="${1:-}"; [ $# -gt 0 ] && shift
 case "$ENTRY" in
     scripts/stand-report.sh|scripts/pr-body.sh|scripts/landing-precheck.sh) ;;
@@ -143,20 +151,18 @@ case "$ENTRY" in
     scripts/branch-audit.sh) [ "${1:-}" = --generator-outputs ] || die 64 "branch-audit.sh — лишь формой --generator-outputs (перепись судит клоны машины)" ;;
     *) die 64 "вход «$ENTRY» вне перечня (scripts/stand-report.sh, scripts/pr-body.sh, scripts/landing-precheck.sh, scripts/ci-read.sh, scripts/branch-audit.sh --generator-outputs)" ;;
 esac
-# Ревизия Job. Копия: HEAD копии, где лежит вход (правка scripts/ вне коммита — 64). Архив рецепта
-# «ЗАПУСК» (scripts/ из origin/main в каталог вне копии, LANDING_PRECHECK_WS — воркспейс; так
-# зовёт гейты демон вливания): origin/main того воркспейса, и архив обязан совпасть с ним файл в
-# файл — иначе Job исполнил бы не то, что вызвано (64).
+# Ревизия Job. Копия: HEAD копии, где лежит вход. Архив рецепта «ЗАПУСК» (scripts/ из origin/main в
+# каталог вне копии, LANDING_PRECHECK_WS — воркспейс; так зовёт гейты демон вливания): origin/main
+# того воркспейса, и архив обязан совпасть с ним файл в файл — иначе Job исполнил бы не то, что
+# вызвано (64). Правка scripts/ вне коммита в копии привязки — 64 в обоих видах.
 REV=HEAD; ARCHIVE=0
 if ! { [ -n "$TOP" ] && [ "$TOP/scripts" -ef "$HERE" ]; }; then
     [ -n "${LANDING_PRECHECK_WS:-}" ] || die 64 "$HERE — не scripts/ копии git воркспейса и не архив рецепта «ЗАПУСК» (LANDING_PRECHECK_WS не задан)"
-    TOP="$(git -C "$LANDING_PRECHECK_WS" rev-parse --show-toplevel 2>/dev/null)" || die 64 "LANDING_PRECHECK_WS «$LANDING_PRECHECK_WS» — не копия git"
     REV="$(git -C "$TOP" rev-parse --verify -q 'refs/remotes/origin/main^{commit}')" || die 64 "в $TOP нет origin/main — архив рецепта сверить не с чем"
     ARCHIVE=1
-else
-    [ -z "$(git -C "$TOP" status --porcelain --untracked-files=no -- scripts)" ] ||
-        die 64 "в $TOP правки scripts/ вне коммита — Job исполнил бы коммит, а не их: закоммить и повтори"
 fi
+[ -z "$(git -C "$TOP" status --porcelain --untracked-files=no -- scripts)" ] ||
+    die 64 "в $TOP правки scripts/ вне коммита — Job исполнил бы коммит, а не их: закоммить и повтори"
 
 branch_task() { local b; b="$(git -C "$1" symbolic-ref --short -q HEAD 2>/dev/null)" && [[ "$b" =~ ^([1-9][0-9]*) ]] && printf '%s' "${BASH_REMATCH[1]}"; }
 TASK="${KACHO_TASK:-}"
@@ -170,6 +176,16 @@ WSROOT="$(dirname "$COMMON")"
 # Реестр — тот, что открыл бы судья на машине (operator-stand.py registry()).
 RSRC="${LANDING_PRECHECK_WS:-$HERE}"
 RROOT="$(git -C "$RSRC" rev-parse --show-toplevel 2>/dev/null)" || die 64 "привязка реестра «$RSRC» — не копия git"
+[ -z "${LANDING_PRECHECK_WS+x}" ] || [ "$(realpath -- "$RSRC")" = "$(realpath -- "$RROOT")" ] || die 64 "workspace binding is not the repository root"
+canonical_origin() {
+    case "$1" in
+        git@github.com:PRO-Robotech/kacho-workspace.git|https://github.com/PRO-Robotech/kacho-workspace.git|https://github.com/PRO-Robotech/kacho-workspace) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+SOURCE_ORIGIN="$(git -C "$TOP" remote get-url origin 2>/dev/null)" || die 64 "workspace origin missing"
+REGISTRY_ORIGIN="$(git -C "$RROOT" remote get-url origin 2>/dev/null)" || die 64 "registry workspace origin missing"
+canonical_origin "$SOURCE_ORIGIN" && canonical_origin "$REGISTRY_ORIGIN" || die 64 "workspace repository differs"
 REG="$(dirname "$(git -C "$RROOT" rev-parse --path-format=absolute --git-common-dir)")/tmp/operator-stand-registry"
 
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)-$$"
@@ -182,13 +198,15 @@ cleanup() {
 }
 trap cleanup EXIT
 git -C "$TOP" worktree add -q --detach "$WT" "$REV" 2>/dev/null || die 69 "копия $WT не создана"
-[ "$ARCHIVE" = 0 ] || diff -rq -- "$HERE" "$WT/scripts" > /dev/null 2>&1 ||
+# Сверка — файл в файл, вместе с режимом и видом файла (исполнимость, символьная ссылка, лишний
+# и недостающий): архив, разошедшийся с origin/main хоть битом режима, исполнил бы не вызванное.
+[ "$ARCHIVE" = 0 ] || git -c core.filemode=true diff --no-index --quiet --no-ext-diff --no-textconv -- "$WT/scripts" "$HERE" ||
     die 64 "архив $HERE не совпадает с origin/main ${REV:0:12} воркспейса $TOP — Job исполнил бы не вызванное"
 mkdir -p "$RR/in" "$RR/gh" && : > "$RR/gh/index.jsonl"
 # Адрес — без userinfo (`https://<учётка>@…`): учётные данные в pod не едут.
 no_userinfo() { sed -E 's#^([A-Za-z][A-Za-z0-9+.-]*://)[^/@]*@#\1#'; }
-# Адрес origin воркспейса — для клона Job без origin (pod.sh).
-git -C "$TOP" remote get-url origin 2> /dev/null | no_userinfo > "$RR/origin.url" || :
+# Адрес origin воркспейса — для клона Job без origin (pod.sh): лишь канонический, сверен выше.
+printf '%s\n' "$SOURCE_ORIGIN" > "$RR/workspace-origin" || die 69 "workspace origin binding not written"
 
 # Каталог на вход — свой (mktemp): ship* зовутся подстановкой $(…), и счётчик в подоболочке не
 # доживал до следующего вызова — одноимённые входы из разных каталогов ложились в один путь.
