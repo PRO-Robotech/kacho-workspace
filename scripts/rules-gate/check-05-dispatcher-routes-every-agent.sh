@@ -28,6 +28,8 @@
 #     (`multi-agent-flow-orchestration.md` §«14а»).
 #   · AGENT-CAN-WAIT: исполнитель с `Monitor` ждёт свой фоновый процесс в ходе; законный
 #     близнец — WAIT_LAWFUL (`ci-watcher`), имя без исполнителя — находка (ws#1078).
+#   · AGENT-CAN-PUBLISH: исполнитель без запрета КАЖДОГО инструмента публикации (перечень PUBLISH:
+#     Artifact и запись Claude Docs) публикует в claude.ai то, что снять может лишь человек (ws#1386).
 #   · DISPATCHER-HAS-TOOLS: диспетчер с `Read`/`Bash` перестаёт быть диспетчером в
 #     тот же час — разведать самому дешевле, чем раздать, и база съедает контекст,
 #     ради экономии которого заведена. Перечень запрещённых инструментов объявлен
@@ -120,6 +122,13 @@ FORBIDDEN = ("Read", "Write", "Edit", "Bash", "Grep", "Glob",
              "NotebookEdit", "Skill", "WebFetch", "WebSearch")
 # Исполнители, которым Monitor РАЗРЕШЁН (ось AGENT-CAN-WAIT) — объявлено один раз.
 WAIT_LAWFUL = ("ci-watcher",)
+# ИНСТРУМЕНТЫ ПУБЛИКАЦИИ В CLAUDE.AI (ось AGENT-CAN-PUBLISH, ws#1386) — объявлены один раз,
+# исполнителю запрещён каждый. Страница Artifact и запись документа Claude Docs (MCP-сервер
+# claude.ai «Claude Docs»; имена — по реестру инструментов сессии 2026-10-24: create, batch,
+# update, delete пишут, guide, read, query, export только читают и в перечень не входят).
+PUBLISH = ("Artifact",
+           "mcp__claude_ai_Claude_Docs__create", "mcp__claude_ai_Claude_Docs__batch",
+           "mcp__claude_ai_Claude_Docs__update", "mcp__claude_ai_Claude_Docs__delete")
 
 
 def census(msg):
@@ -341,6 +350,17 @@ for a in execs:
              "исполнитель ждёт свой фоновый процесс в ходе и кончает его без ВОЗВРАТ"
              % (AGENTS_REL, a, ("«%s»" % raw) if raw else "ключа нет вовсе"))
         findings += 1
+    # Ось AGENT-CAN-PUBLISH (ws#1386, урок диспетчера 2026-10-24): рецензент приёмки
+    # опубликовал запись ревью приватным артефактом claude.ai, а снять её агент не смог —
+    # удаление подтверждает только человек. Публикация из полосы — вне маршрута
+    # (`security-disclosure.md` §«Публичные артефакты»). Запрет — КЛАССОМ: каждый инструмент
+    # перечня PUBLISH, точным именем (подстрока и регистр не засчитываются).
+    for t in PUBLISH:
+        if t not in items:
+            fail("AGENT-CAN-PUBLISH: %s/%s.md — `disallowedTools` не содержит `%s` (там %s); "
+                 "исполнитель публикует в claude.ai то, что снять может лишь человек"
+                 % (AGENTS_REL, a, t, ("«%s»" % raw) if raw else "ключа нет вовсе"))
+            findings += 1
 
 # Исключение истекает с предметом: имени WAIT_LAWFUL нет среди исполнителей — находка.
 for a in sorted(set(WAIT_LAWFUL) - set(execs)):

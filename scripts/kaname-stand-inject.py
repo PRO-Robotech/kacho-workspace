@@ -60,6 +60,40 @@ class NativeCensus(unittest.TestCase):
                 gate.integration_union(captures, inventory)
         self.assertEqual(gate.integration_union(captures, selected)['passed'], 37)
 
+    def test_actual_unit_shards_missing_extra_and_lawful(self):
+        # ws#1259: дословный вывод `unit-shards.py --run` пяти шардов и `--aggregate` свода
+        # (kaname 9712e677d, прогон 40001733834; README фикстур). Поток — разбор grammar.
+        shards = [(HERE / f'kaname-stand-fixtures/unit-shard-{i}-native.log').read_text() for i in range(5)]
+        aggregate = (HERE / 'kaname-stand-fixtures/unit-aggregate-native.log').read_text()
+        stream = (HERE / 'kaname-stand-fixtures/go-json-native.log').read_text()
+        positive = gate.unit_shard_union(shards, aggregate, stream, 5)
+        self.assertEqual([s['shard'] for s in positive['shards']], ['u01', 'u02', 'u03', 'u04', 'u05'])
+        self.assertEqual(positive['passed'], gate.go_json(stream)['passed'])
+        refused = [
+            ('shard-missing', shards[:-1], aggregate, 5, 'unit shard inventory differs'),
+            ('shard-missing-narrow', shards[:-1], aggregate, 4, 'wrong/missing unit shard'),
+            ('shard-extra', shards + [shards[0]], aggregate, 5, 'unit shard inventory differs'),
+            ('shard-extra-wide', shards + [shards[0]], aggregate, 6, 'wrong/missing unit shard'),
+            ('shard-twice', [shards[0], shards[0], *shards[2:]], aggregate, 5, 'wrong/missing unit shard'),
+            ('shard-reordered', [shards[1], shards[0], *shards[2:]], aggregate, 5, 'wrong/missing unit shard'),
+            ('shard-red-call', [shards[0].replace('#1 завершился с кодом 0', '#1 завершился с кодом 1'),
+                                *shards[1:]], aggregate, 5, 'failed/missing go test call in unit shard'),
+            ('shard-red-verdict', [shards[0].replace('ЗЕЛЁНЫЙ: отказов нет.', 'КРАСНЫЙ: отказов 1.'),
+                                   *shards[1:]], aggregate, 5, 'missing native unit shard verdict'),
+            ('shard-plan-width', [shards[0].replace('шардов:                5 (', 'шардов:                4 ('),
+                                  *shards[1:]], aggregate, 5, 'unit shard plan width differs'),
+            ('aggregate-reported', shards, aggregate.replace('отчиталось: 5', 'отчиталось: 4'), 5,
+             'unit aggregate shard census differs'),
+            ('aggregate-result', shards, aggregate.replace('исход шардов: success', 'исход шардов: failure'), 5,
+             'unit aggregate shard census differs'),
+            ('aggregate-verdict', shards, aggregate.replace('ЗЕЛЁНЫЙ: все шарды', 'КРАСНЫЙ: все шарды'), 5,
+             'missing native unit aggregate verdict')]
+        for mutation, texts, agg, total, message in refused:
+            with self.subTest(mutation=mutation):
+                with self.assertRaisesRegex(gate.common.Unread, message):
+                    gate.unit_shard_union(texts, agg, stream, total)
+                self.assertEqual(gate.unit_shard_union(shards, aggregate, stream, 5), positive)
+
     def test_real_integration_and_one_fact_twins(self):
         raw = (HERE / 'kaname-stand-fixtures/integration-shard-native.log').read_text()
         positive = gate.integration(raw, 0, 3)
@@ -454,6 +488,66 @@ class TrustBoundaries(unittest.TestCase):
             log.write_text(original)
             self.assertEqual(gate.import_candidate(exp, packet_path), positive)
 
+    def test_import_unit_shard_groups_missing_extra_and_lawful(self):
+        # ws#1259: шардовая голова — группы `unit-<i>` по номеру матрицы и `unit-aggregate`.
+        import json, re, tempfile
+        names = [f'ci.yml:unitshard[shard={v}]' for v in range(1, 6)]
+        exp = {'repo': gate.REPO, 'head': 'a' * 40, 'tree': 'b' * 40, 'unit_shards': 5,
+               'definitions': {**{str(i): {'matrix_index': i} for i in range(3)},
+                               **{n: {'matrix_index': None, 'unit_shard': {'index': i, 'total': 5}}
+                                  for i, n in enumerate(names)}}}
+        captures = [(HERE / f'kaname-stand-fixtures/integration-{i}-native.log').read_text() for i in range(3)]
+        selected = [p for raw in captures for p in re.findall(r'^ok\s+(\S+)\s+\d+(?:\.\d+)?s\s*$', raw, re.M)]
+        core = {name: 'fixture output\n' for name in
+                ('build', 'vet', 'vet-integration', 'unit-verdict-self', 'unit-verdict', 'listfilter', 'manifest')}
+        core['unit'] = (HERE / 'kaname-stand-fixtures/go-json-native.log').read_text()
+        core.update({f'unit-{i}': (HERE / f'kaname-stand-fixtures/unit-shard-{i}-native.log').read_text()
+                     for i in range(5)})
+        core['unit-aggregate'] = (HERE / 'kaname-stand-fixtures/unit-aggregate-native.log').read_text()
+        platform = {name: 'fixture output\n' for name in ('platform-tests', 'platform-verdict', 'canon', 'catalog')}
+        platform.update({f'integration-{i}': raw for i, raw in enumerate(captures)})
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            artifact = root / 'fixture.txt'; artifact.write_text('synthetic fixture, not a receipt')
+            packet = {'kind': 'imported-native-remote-heavy', 'head': exp['head'], 'tree': exp['tree'],
+                      'runs': {}, 'selected_packages': selected, 'applicability_audit': str(artifact)}
+            def write(name, census):
+                ns = 'fixture-' + name
+                command = f'remote-heavy: [{ns}] команда начата через fixture-only'
+                raw = (f"HEAD {exp['head']} class=suite at=fixture dir=/src\n"
+                       f'remote-heavy: [{ns}] ns {ns} создано: fixture\n'
+                       + command + f"\nSOURCE {exp['head']} TREE {exp['tree']}\n")
+                raw += ''.join(f'GROUP_BEGIN {group}\n{body.rstrip()}\nGROUP_END {group} rc=0\n'
+                               for group, body in census.items())
+                raw += (f'remote-heavy: [{ns}] команда завершилась кодом 0 за 1 с\n'
+                        f'remote-heavy: [{ns}] ns {ns} снято\n')
+                log = root / (name + '.log'); log.write_text(raw)
+                packet['runs'][name] = dict(log=str(log), script=str(artifact), command_line=command,
+                                            runner=str(artifact), auxiliary={})
+            write('core', core); write('platform', platform)
+            packet_path = root / 'packet.json'; packet_path.write_text(json.dumps(packet))
+            positive = gate.import_candidate(exp, packet_path)
+            self.assertEqual([s['matrix_index'] for s in positive['unit']['shards']], list(range(5)))
+            refused = [('shard-missing', {k: v for k, v in core.items() if k != 'unit-4'}),
+                       ('shard-extra', {**core, 'unit-5': core['unit-0']}),
+                       ('aggregate-missing', {k: v for k, v in core.items() if k != 'unit-aggregate'})]
+            for mutation, census in refused:
+                with self.subTest(mutation=mutation):
+                    write('core', census); packet_path.write_text(json.dumps(packet))
+                    with self.assertRaisesRegex(gate.common.Unread, 'core group inventory differs'):
+                        gate.import_candidate(exp, packet_path)
+                    write('core', core); packet_path.write_text(json.dumps(packet))
+                    self.assertEqual(gate.import_candidate(exp, packet_path), positive)
+            # Ожидаемое расходится со своими определениями — отказ до чтения улик.
+            for broken in (dict(exp, unit_shards=4), dict(exp, unit_shards=6)):
+                with self.assertRaisesRegex(gate.common.Unread, 'unit shard inventory differs'):
+                    gate.import_candidate(broken, packet_path)
+            # Прежняя топология (одно задание) не принимает группы шардов.
+            plain = {**exp, 'definitions': {str(i): {'matrix_index': i} for i in range(3)}}
+            plain.pop('unit_shards')
+            with self.assertRaisesRegex(gate.common.Unread, 'core group inventory differs'):
+                gate.import_candidate(plain, packet_path)
+
     def test_register_import_binds_review_to_current_artifacts(self):
         from unittest.mock import patch
         import tempfile
@@ -541,6 +635,37 @@ class TrustBoundaries(unittest.TestCase):
                     with self.assertRaises(gate.common.Unread):
                         gate.staged_report(exp, identity, external_only=True)
 
+    def test_external_stage_carries_each_unit_shard(self):
+        # ws#1259: каждое исполнение шарда юнитов — своей строкой отчёта, перепись из импорта.
+        from unittest.mock import patch
+        shards = ['ci.yml:unitshard[shard=1]', 'ci.yml:unitshard[shard=2]']
+        exp = {'repo': gate.REPO, 'head': 'a' * 40, 'tree': 'b' * 40, 'base': '955', 'unit_shards': 2,
+               'logical_jobs': ['ci.yml:unit', 'ci.yml:integration', *gate.HOSTED],
+               'jobs': ['ci.yml:unit', *shards, 'ci.yml:integrationshard[0]'],
+               'definitions': {'ci.yml:unit': {'matrix_index': None, 'executor': 'external'},
+                               **{n: {'matrix_index': None, 'executor': 'external',
+                                      'unit_shard': {'index': i, 'total': 2}} for i, n in enumerate(shards)},
+                               'ci.yml:integrationshard[0]': {'matrix_index': 0, 'executor': 'external'}}}
+        def report(unit):
+            candidate = {'expected_digest': gate.common.digest(exp), 'unit': unit,
+                         'integration': {'shards': [{'passed': 1}]}}
+            identity = gate.common.digest(candidate)
+            admitted = {'candidate': candidate, 'review': {'candidate_digest': identity,
+                        'verdict': 'accept', 'blocking': []}}
+            with patch.object(gate.common, 'registry', return_value=Path('/unused')), \
+                 patch.object(gate.common, 'read_json', return_value=admitted):
+                return gate.staged_report(exp, identity, external_only=True)
+        lawful = {'passed': 3, 'shards': [{'shard': 'u01'}, {'shard': 'u02'}]}
+        jobs = report(lawful)['jobs']
+        self.assertEqual(list(jobs), ['ci.yml:unit', *shards, 'ci.yml:integrationshard[0]'])
+        self.assertEqual([jobs[n]['census']['shard'] for n in shards], ['u01', 'u02'])
+        for broken in ({'passed': 3, 'shards': [{'shard': 'u01'}]},
+                       {'passed': 3, 'shards': [{'shard': 'u01'}, {'shard': 'u02'}, {'shard': 'u03'}]},
+                       {'passed': 3}):
+            with self.assertRaisesRegex(gate.common.Unread, 'imported unit shards differ from expectation'):
+                report(broken)
+            self.assertEqual(report(lawful)['jobs'], jobs)
+
     def test_real_cli_external_positive_and_full_refusal(self):
         # Isolated Git checkout gives the real registry() a private evidence directory.
         # This is a synthetic admitted-record fixture, never production registration.
@@ -624,9 +749,38 @@ class TrustBoundaries(unittest.TestCase):
             ('checkout-ref', 'ci.yml', lambda d: d['jobs']['unit']['steps'][0].setdefault('with', {}).update(ref='other'),
              'overridden primary checkout'),
             ('self-hosted', 'ci.yml', lambda d: d['jobs']['unit'].update({'runs-on': 'self-hosted'}),
-             'unsupported job runner')]
+             'unsupported job runner'),
+            ('sparse-without-shards', 'ci.yml', lambda d: d['jobs']['unit']['steps'][0].setdefault('with', {}).update(
+                {'sparse-checkout': '.github\n', 'sparse-checkout-cone-mode': False}), 'overridden primary checkout')]
+        # ws#1259: ci.yml kaname fe0261ffb — юниты матрицей шардов `unitshard` и свод `unit` (kaname#873).
+        shards = dict(matrix, **{'ci.yml': fixture('ci-workflow-shards-native.yml')})
+        unit_run = lambda d: next(s for s in d['jobs']['unitshard']['steps'] if 'unit-shards.py --run' in s.get('run', ''))
+        cases += [
+            ('shards-lawful', None, None, None),
+            ('shards-producer-missing', 'ci.yml', lambda d: d['jobs'].pop('unitshard'), 'unit aggregate lost its producer'),
+            ('shards-aggregate-unbound', 'ci.yml', lambda d: d['jobs']['unit'].update(needs=['changes']),
+             'unit aggregate lost its producer'),
+            ('shards-width-literal', 'ci.yml', lambda d: unit_run(d).update(run=unit_run(d)['run'].replace(
+                '--job-total "$JOB_TOTAL"', '--job-total 4')), 'unit shard width is not the matrix width'),
+            ('shards-width-env', 'ci.yml', lambda d: unit_run(d)['env'].update(JOB_TOTAL='4'),
+             'unit shard width is not the matrix width'),
+            ('shards-duplicate', 'ci.yml', lambda d: d['jobs']['unitshard']['strategy']['matrix']['shard'].append(1),
+             'invalid unit shard matrix'),
+            ('shards-extra-axis', 'ci.yml', lambda d: d['jobs']['unitshard']['strategy']['matrix'].update(os=['a']),
+             'unreviewed unit matrix axes'),
+            ('shards-extra-job', 'ci.yml', lambda d: d['jobs'].update(unitshard2=copy.deepcopy(d['jobs']['unitshard'])),
+             'CI job outside the Kaname ledger: ci.yml:unitshard2'),
+            ('shards-aggregate-tests', 'ci.yml', lambda d: d['jobs']['unit']['steps'].append({'run': 'go test ./...'}),
+             'unit aggregate shape differs'),
+            ('shards-sparse-wider', 'ci.yml', lambda d: d['jobs']['unit']['steps'][0]['with'].update(
+                {'sparse-checkout': '.github\ninternal\n'}), 'overridden primary checkout'),
+            ('shards-sparse-plus-ref', 'ci.yml', lambda d: d['jobs']['unit']['steps'][0]['with'].update(ref='other'),
+             'overridden primary checkout'),
+            ('shards-sparse-on-shard', 'ci.yml', lambda d: d['jobs']['unitshard']['steps'][0]['with'].update(
+                {'sparse-checkout': '.github\n', 'sparse-checkout-cone-mode': False}), 'overridden primary checkout')]
         for mutation, target, change, refused in cases:
-            sources = plain if mutation == 'lawful-plain' else matrix
+            sources = (plain if mutation == 'lawful-plain' else shards if mutation.startswith('shards-')
+                       else matrix)
             with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory); co = root / 'checkout'; co.mkdir()
                 wf = co / '.github/workflows'; wf.mkdir(parents=True)
@@ -651,15 +805,22 @@ class TrustBoundaries(unittest.TestCase):
                 actual = json.loads(twin.stdout)
                 legs = [n for n in actual['jobs'] if n.startswith('e2e-newman.yml:chart-own')]
                 self.assertEqual(len(actual['logical_jobs']), 6)
-                self.assertEqual(len(actual['jobs']), 8 if sources is plain else 9)
+                unit_legs = [n for n in actual['jobs'] if n.startswith('ci.yml:unitshard')]
+                width = 5 if sources is shards else 0
+                self.assertEqual(len(actual['jobs']), (8 if sources is plain else 9) + width)
                 self.assertEqual(legs, ['e2e-newman.yml:chart-own'] if sources is plain else
                                  ['e2e-newman.yml:chart-own[include=0]', 'e2e-newman.yml:chart-own[include=1]'])
-                if sources is matrix:
+                if sources is not plain:
                     self.assertEqual([actual['definitions'][n]['matrix_leg']['values']['half'] for n in legs],
                                      ['entry', 'keys'])
-                self.assertEqual(sum(x['executor'] == 'external' for x in actual['definitions'].values()), 4)
-                self.assertEqual(actual['ledger'], {'workflows': sorted(sources), 'jobs': 27, 'staged': 6,
-                                                    'ci_read': 21})
+                self.assertEqual(unit_legs, [f'ci.yml:unitshard[shard={v}]' for v in range(1, width + 1)])
+                self.assertEqual([actual['definitions'][n]['unit_shard'] for n in unit_legs],
+                                 [{'index': i, 'total': width} for i in range(width)])
+                self.assertEqual(actual.get('unit_shards'), width or None)
+                self.assertEqual(sum('unit_shard' in x for x in actual['definitions'].values()), width)
+                self.assertEqual(sum(x['executor'] == 'external' for x in actual['definitions'].values()), 4 + width)
+                self.assertEqual(actual['ledger'], {'workflows': sorted(sources), 'jobs': 27 + bool(width),
+                                                    'staged': 6 + bool(width), 'ci_read': 21})
                 if target is None: continue
                 if change == 'unlink': (wf / target).unlink()
                 else:
@@ -1076,6 +1237,13 @@ class PreciCensus(unittest.TestCase):
                 self.assertEqual(imported(parallel), parallel_positive)
             broken = copy.deepcopy(parallel); broken['runs']['duplicate'] = copy.deepcopy(broken['runs']['integration-1'])
             with self.assertRaises(self.preci.EvidenceError): imported(broken)
+            self.assertEqual(imported(parallel), parallel_positive)
+            # ws#1259: шардов юнитов производитель PRECI не воспроизводит — отказ, а не молчание.
+            exp['definitions']['unitshard'] = {'matrix_index': None, 'unit_shard': {'index': 0, 'total': 1},
+                'workflow_job': 'ci.yml:unitshard', 'workflow_digest': gate.common.digest(workflow_paths['ci.yml'].read_bytes())}
+            with self.assertRaisesRegex(self.preci.EvidenceError, 'PRECI producer does not support unit shards'):
+                imported(parallel)
+            del exp['definitions']['unitshard']
             self.assertEqual(imported(parallel), parallel_positive)
 
 
