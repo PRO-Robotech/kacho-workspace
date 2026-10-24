@@ -1,6 +1,8 @@
-# shellcheck shell=bash
 # Copyright (c) PRO-Robotech
 # SPDX-License-Identifier: BUSL-1.1
+# shellcheck shell=bash
+# Переменные файла читает run.sh, подключающий его `source`, — отдельный разбор их не видит.
+# shellcheck disable=SC2034
 #
 # kind.sh — профиль kind тяжёлого прогона (ws#1385). Сам не запускается: run.sh
 # подключает его `source` после таблиц PROFILES и PEAKS (REMOTE_HEAVY_KIND_LIB — путь

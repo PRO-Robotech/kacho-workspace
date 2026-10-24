@@ -4115,6 +4115,7 @@ kd_case() {
     else bad "$c" "в termination-log не «$word…»: $(cat "$KK/tl" 2>/dev/null)"; fi
 }
 kd_case KD7 0 - ok
+# shellcheck disable=SC2016  # обратные кавычки — буквы отказа crun, не подстановка
 kd_case KD8-sysfs 125 'remote-heavy-kind: .*mount `sysfs`' sysfs
 kd_case KD8-cgroup 125 'remote-heavy-kind: .*cgroup' cgroup
 kd_case KD8-silent 125 'remote-heavy-kind: ' silent
