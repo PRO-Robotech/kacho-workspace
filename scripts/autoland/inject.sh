@@ -1181,7 +1181,8 @@ mk_qr() {  # <N> <ветка> <база> — origin с main; база (не main
     : > "$Q/ci.calls"; : > "$Q/push.calls"; QP=(); QRC=()
 }
 cu_subj() {  # <база> <N> — заголовок коммита догона перед вливанием #N в истории базы на origin
-    git -C "$Q/origin.git" log --format=%s "refs/heads/$1" | grep -m1 -F "догон базы перед вливанием #$2"
+    local log; log="$(git -C "$Q/origin.git" log --format=%s "refs/heads/$1")" || return 1
+    grep -m1 -F "догон базы перед вливанием #$2" <<< "$log"
 }
 cu_owned() {  # <база> <N> — коммит догона — первый родитель влитой головы (принадлежит ветке PR)
     local m h; read -r h m < "$Q/pr/$2/merged" || return 1
