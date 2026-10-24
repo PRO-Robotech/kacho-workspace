@@ -275,7 +275,7 @@ class RemoteReader(unittest.TestCase):
         self.assertEqual(once.returncode, 2, once.stdout + once.stderr)
         self.assertIn('producer command failed', once.stdout)
 
-    def test_register_import_returns_its_registry_record(self):
+    def import_inputs(self):
         # Настоящий пакет импорта: исходные журналы и абсолютные пути машины внутри JSON.
         names = ['ci.yml:unit'] + [f'ci.yml:integrationshard[shard={i}]' for i in range(3)]
         exp = {'schema': 'kaname-stand-v1', 'repo': gate.REPO, 'head': 'a' * 40, 'tree': 'b' * 40,
@@ -292,6 +292,10 @@ class RemoteReader(unittest.TestCase):
             'candidate_digest': identity, 'claims': ['source-and-command-binding', 'native-verdict-and-cleanup',
             'selected-package-partition', 'short-skip-applicability']}))
         record = self.box.ws / 'tmp/operator-stand-registry/kaname-imports' / (identity + '.json')
+        return exp, expect, packet, review, candidate, identity, record
+
+    def test_register_import_returns_its_registry_record(self):
+        exp, expect, packet, review, candidate, identity, record = self.import_inputs()
         got = self.box.run('stand-report.sh', 'register-import', '--expect', str(expect), '--packet', str(packet),
                            '--review', str(review))
         self.assertEqual(got.returncode, 0, got.stdout + got.stderr)
@@ -306,31 +310,52 @@ class RemoteReader(unittest.TestCase):
         checked = self.box.run('stand-report.sh', 'check', str(report_file), '--expect', str(expect),
                                '--head', exp['head'], '--pr-base', '955', '--external-only')
         self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
-        identical = self.box.run('stand-report.sh', 'register-import', '--expect', str(expect),
-                                 '--packet', str(packet), '--review', str(review))
-        self.assertEqual(identical.returncode, 0, identical.stdout + identical.stderr)
-        # Failed record export must not be green or install a host record.
-        for tool in ('tar', 'find', 'cp'):
-            record.unlink()
-            failed = self.box.run('stand-report.sh', 'register-import', '--expect', str(expect),
-                                  '--packet', str(packet), '--review', str(review), SANDBOX_EXPORT_FAIL=tool)
-            self.assertNotEqual(failed.returncode, 0, failed.stdout + failed.stderr)
-            self.assertFalse(record.exists(), tool)
-            restored = self.box.run('stand-report.sh', 'register-import', '--expect', str(expect),
-                                    '--packet', str(packet), '--review', str(review))
-            self.assertEqual(restored.returncode, 0, restored.stdout + restored.stderr)
-        # Запись уже есть и другая — драйвер её не перезаписывает (save_new судьи — тоже).
-        record.write_text('{"tampered": true}')
-        again = self.box.run('stand-report.sh', 'register-import', '--expect', str(expect), '--packet', str(packet),
-                             '--review', str(review))
-        self.assertNotEqual(again.returncode, 0, again.stdout + again.stderr)
-        self.assertEqual(record.read_text(), '{"tampered": true}')
-        # Пути внутри пакета не перенесены — журналов в Job нет, импорт не принят.
-        record.unlink()
+    def register(self, expect, packet, review, **env):
+        return self.box.run('stand-report.sh', 'register-import', '--expect', str(expect),
+                            '--packet', str(packet), '--review', str(review), **env)
+
+    def test_register_identical_record_refuses_without_mutation(self):
+        _, expect, packet, review, _, _, record = self.import_inputs()
+        first = self.register(expect, packet, review)
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        before = record.read_bytes()
+        denied = self.register(expect, packet, review)
+        self.assertEqual(denied.returncode, 2, denied.stdout + denied.stderr)
+        self.assertIn('[Errno 17] File exists:', denied.stdout + denied.stderr)
+        self.assertEqual(record.read_bytes(), before)
+
+    def test_register_conflicting_record_refuses_without_mutation(self):
+        _, expect, packet, review, _, _, record = self.import_inputs()
+        record.parent.mkdir(parents=True, exist_ok=True)
+        record.write_bytes(b'{"tampered": true}')
+        denied = self.register(expect, packet, review)
+        self.assertEqual(denied.returncode, 2, denied.stdout + denied.stderr)
+        self.assertIn('[Errno 17] File exists:', denied.stdout + denied.stderr)
+        self.assertEqual(record.read_bytes(), b'{"tampered": true}')
+
+    def export_failure(self, tool):
+        _, expect, packet, review, _, _, record = self.import_inputs()
+        failed = self.register(expect, packet, review, SANDBOX_EXPORT_FAIL=tool)
+        self.assertNotEqual(failed.returncode, 0, failed.stdout + failed.stderr)
+        self.assertFalse(record.exists(), tool)
+        restored = self.register(expect, packet, review)
+        self.assertEqual(restored.returncode, 0, restored.stdout + restored.stderr)
+        self.assertTrue(record.is_file())
+
+    def test_register_tar_export_failure(self):
+        self.export_failure('tar')
+
+    def test_register_find_export_failure(self):
+        self.export_failure('find')
+
+    def test_register_cp_export_failure(self):
+        self.export_failure('cp')
+
+    def test_register_unshipped_packet_refuses(self):
+        _, expect, packet, review, _, _, record = self.import_inputs()
         self.box.mutate('remote-reader.sh', '--packet|--hosted-reviews) a="$(ship "$a")"',
                         '--hosted-reviews) a="$(ship "$a")"')
-        blind = self.box.run('stand-report.sh', 'register-import', '--expect', str(expect), '--packet', str(packet),
-                             '--review', str(review))
+        blind = self.register(expect, packet, review)
         self.assertEqual(blind.returncode, 2, blind.stdout + blind.stderr)
         self.assertFalse(record.exists())
 
