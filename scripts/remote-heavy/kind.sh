@@ -25,7 +25,9 @@
 #         configuration: mkdir /sys/fs/cgroup/docker: permission denied`: cgroup pod принадлежит
 #         root узла (изнутри 65534), делегации cgroup в пространство пользователей нет;
 #       privileged + hostUsers: false, crun --cgroup-manager=disabled — вложенный sysfs
-#         монтируется, но узлу kind нужен cgroup на запись (systemd и kubelet узла);
+#         монтируется, узел kind стартует, но его systemd без cgroup на запись не доходит до
+#         цели: «could not find a log line that matches "Reached target .*Multi-User System.*|
+#         detected cgroup v1"»;
 #       privileged в пространстве пользователей узла — kind v0.33.0 (kindest/node v1.37.0)
 #         создан, control-plane Ready за 18 с.
 #   Путь (б) — kind заменить кластером в ns (vcluster, k3s в pod без привилегий) — упирается
