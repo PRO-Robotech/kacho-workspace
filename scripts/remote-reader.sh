@@ -282,16 +282,19 @@ ARGS+=("${EXTRA[@]}")
 
 declare -A GOT=()
 LAST=""
-gh_fetch() {  # gh_fetch <доводы gh> — ответ и код в rr/gh, строка указателя; повтор не снимается
+gh_fetch() {  # gh_fetch <доводы gh> — ответ, текст отказа и код в rr/gh, строка указателя; повтор не снимается
     local key rc
     key="$(printf '%s\n' "$@" | jq -Rsc 'split("\n")[:-1]')"  # не --args: доводы вида --method он съел бы
     if [ -n "${GOT[$key]:-}" ]; then LAST="${GOT[$key]#* }"; return "${GOT[$key]%% *}"; fi
     # Подоболочкой: [[ =~ ]] перечня затёр бы BASH_REMATCH вызывающего (план читает его после gh_fetch).
     ( gh_read_ok "$@" ) || { say "вызов gh вне перечня чтений — не исполнен: ${key:0:200}"; LAST=""; return 126; }
     LAST="gh/$(( ${#GOT[@]} + 1 ))"
-    gh "$@" > "$RR/$LAST" 2> /dev/null; rc=$?
+    # stderr — данные ответа, как stdout: отказ площадки («Branch not protected», HTTP 404) читатель
+    # различает лишь по его тексту (ci-read.sh: «защиты нет» против VOID «не прочитана»).
+    gh "$@" > "$RR/$LAST" 2> "$RR/$LAST.err"; rc=$?
     GOT[$key]="$rc $LAST"
-    jq -cn --argjson argv "$key" --arg out "$LAST" --argjson rc "$rc" '{argv: $argv, rc: $rc, out: $out}' >> "$RR/gh/index.jsonl"
+    jq -cn --argjson argv "$key" --arg out "$LAST" --arg err "$LAST.err" --argjson rc "$rc" \
+        '{argv: $argv, rc: $rc, out: $out, err: $err}' >> "$RR/gh/index.jsonl"
     return "$rc"
 }
 gh_pages() {  # gh_pages <поле|-> <путь без per_page> <доводы gh перед путём…> — страницы до неполной
