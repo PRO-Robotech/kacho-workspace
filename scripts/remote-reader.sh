@@ -9,6 +9,15 @@
 #   remote-reader.sh scripts/stand-report.sh <доводы…>   судья kaname: expect, check и ступени
 #                                                          import-candidate, register-import, report
 #   remote-reader.sh scripts/pr-body.sh <репо> <база> <голова>   (RITUAL_REPO_DIR — как у pr-body.sh)
+#   remote-reader.sh scripts/landing-precheck.sh <репо> <N> [--reviews …] [--stand-report … --stand-expect …]
+#   remote-reader.sh scripts/ci-read.sh --job-names <файл workflow> <имена на голове>
+#   remote-reader.sh scripts/ci-read.sh <владелец/репозиторий> <номер PR | sha40> [--base …] [--head …] [--draft …]
+#   remote-reader.sh scripts/branch-audit.sh --generator-outputs <файл генератора>
+#       — python-части читателей демона вливания (ws#1365): предпроверка целиком; у branch-audit —
+#         лишь форма с python3 (перепись клонов машины в pod не годится). ci-read: --job-names сам
+#         уходит сюда; полная форма — вход полос, которым ci-read на машине не положен (владелец
+#         2026-10-22), и зовётся сюда ЯВНО: демон вливания читает CI на машине (Job на каждый его
+#         опрос не годится); --from-state — 64: снимок демона лежит на машине, Job его не видит
 # Зовут его сами входы, руками — незачем. Вход идёт ЗДЕСЬ, а не сюда, лишь там, где машины
 # владельца нет либо маршрут уже пройден: pod внешнего кластера (KUBERNETES_SERVICE_HOST ставит
 # kubelet), ранер конвейера (GITHUB_ACTIONS=true), сторона pod драйвера (KACHO_REMOTE_READER_POD=1 —
@@ -21,15 +30,22 @@
 # машины, ответы GitHub (токена в pod нет) и реестр принятых импортов. Поэтому:
 #   1. копия: связанный worktree того же коммита, что у копии входа (правки scripts/ вне
 #      коммита — отказ 64: Job исполнил бы не их);
+#      Архив рецепта «ЗАПУСК» (scripts/ из origin/main вне копии; LANDING_PRECHECK_WS — так зовёт
+#      гейты демон вливания) — worktree origin/main того воркспейса, архив сверен с ним (`diff -r`);
 #   2. входы: каждый довод — существующий файл — копируется в rr/in, довод заменяется путём
 #      от rr; в JSON-входе строка — абсолютный путь к файлу — тоже (пакет импорта, отзывы);
 #      каталог доводом — 64, кроме копии expect (--checkout): она едет bundle HEAD, веток и origin/*
 #      (правка вне коммита — 64), в pod — клон с тем же origin. Реестр tmp/operator-stand-registry
-#      машины — в tmp/ копии;
+#      машины — в tmp/ копии. У предпроверки файлы — лишь значения --reviews, --stand-report,
+#      --stand-expect; у форм --job-names и --generator-outputs — все доводы после ключа формы;
+#      у полной формы ci-read файлов нет (репозиторий, номер, ревизии);
 #   3. GitHub: ответы снимает здесь `gh` (на машине он разрешён), pod отдаёт их читателю
 #      через STAND_REPORT_GH и RITUAL_GH (scripts/remote-reader/replay-gh.sh). Снимается
 #      надмножество по плану читателя: hosted kaname — workflow, коммит, прогоны, задания,
-#      журналы заданий; pr-body — задачи с номерами из сообщений диапазона и комментарии.
+#      журналы заданий; pr-body — задачи с номерами из сообщений диапазона и комментарии;
+#      предпроверка — запрос, коммиты, сравнения, check-runs, прогоны и файлы workflow головы,
+#      ответы merge-readiness и ci-read внутри (в pod gh — снятый, CI_READ_GH — чтение без условия),
+#      комментарии задач из тела, hosted-ступень kaname отчёта стенда; кругов — 4.
 #      Чего нет в снятом — промах: читатель отказывает, pod называет вызов, здесь он
 #      снимается и прогон повторяется, всего не больше ROUNDS раз. Вызов gh — и плана, и
 #      промаха — исполняется, лишь если он из ЗАКРЫТОГО перечня чтений (gh_read_ok ниже):
@@ -48,7 +64,8 @@
 # Копия и её каталог снимаются при любом исходе; журнал Job — tmp/remote-reader/<метка>.log
 # основного клона — остаётся лишь на отказе.
 # ГРАНИЦА: kacho и ступени операторов не идут — решение диспетчера ws#1365 их не называет, а
-# чтений GitHub их судей план драйвера не знает (промахи снимались бы по одному).
+# чтений GitHub их судей план драйвера не знает (промахи снимались бы по одному); отчёт стенда
+# kacho либо оператора в предпроверке судит stand-report.sh в pod — его чтения снимаются промахами.
 set -uo pipefail
 ROUNDS=3
 say() { printf 'remote-reader: %s\n' "$*" >&2; }
@@ -115,11 +132,31 @@ secret_path() {  # secret_path <путь> — 0, если путь (после �
     return 1
 }
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TOP="$(git -C "$HERE" rev-parse --show-toplevel 2>/dev/null)" || die 64 "$HERE — не копия git воркспейса"
+TOP="$(git -C "$HERE" rev-parse --show-toplevel 2>/dev/null)" || TOP=""
 ENTRY="${1:-}"; [ $# -gt 0 ] && shift
-case "$ENTRY" in scripts/stand-report.sh|scripts/pr-body.sh) ;; *) die 64 "вход «$ENTRY» вне перечня (scripts/stand-report.sh, scripts/pr-body.sh)" ;; esac
-[ -z "$(git -C "$TOP" status --porcelain --untracked-files=no -- scripts)" ] ||
-    die 64 "в $TOP правки scripts/ вне коммита — Job исполнил бы коммит, а не их: закоммить и повтори"
+case "$ENTRY" in
+    scripts/stand-report.sh|scripts/pr-body.sh|scripts/landing-precheck.sh) ;;
+    scripts/ci-read.sh)
+        for a in "$@"; do
+            [ "$a" != --from-state ] || die 64 "ci-read.sh --from-state — снимок демона лежит на машине, Job его не видит: без ключа — живое чтение Job-ом"
+        done ;;
+    scripts/branch-audit.sh) [ "${1:-}" = --generator-outputs ] || die 64 "branch-audit.sh — лишь формой --generator-outputs (перепись судит клоны машины)" ;;
+    *) die 64 "вход «$ENTRY» вне перечня (scripts/stand-report.sh, scripts/pr-body.sh, scripts/landing-precheck.sh, scripts/ci-read.sh, scripts/branch-audit.sh --generator-outputs)" ;;
+esac
+# Ревизия Job. Копия: HEAD копии, где лежит вход (правка scripts/ вне коммита — 64). Архив рецепта
+# «ЗАПУСК» (scripts/ из origin/main в каталог вне копии, LANDING_PRECHECK_WS — воркспейс; так
+# зовёт гейты демон вливания): origin/main того воркспейса, и архив обязан совпасть с ним файл в
+# файл — иначе Job исполнил бы не то, что вызвано (64).
+REV=HEAD; ARCHIVE=0
+if ! { [ -n "$TOP" ] && [ "$TOP/scripts" -ef "$HERE" ]; }; then
+    [ -n "${LANDING_PRECHECK_WS:-}" ] || die 64 "$HERE — не scripts/ копии git воркспейса и не архив рецепта «ЗАПУСК» (LANDING_PRECHECK_WS не задан)"
+    TOP="$(git -C "$LANDING_PRECHECK_WS" rev-parse --show-toplevel 2>/dev/null)" || die 64 "LANDING_PRECHECK_WS «$LANDING_PRECHECK_WS» — не копия git"
+    REV="$(git -C "$TOP" rev-parse --verify -q 'refs/remotes/origin/main^{commit}')" || die 64 "в $TOP нет origin/main — архив рецепта сверить не с чем"
+    ARCHIVE=1
+else
+    [ -z "$(git -C "$TOP" status --porcelain --untracked-files=no -- scripts)" ] ||
+        die 64 "в $TOP правки scripts/ вне коммита — Job исполнил бы коммит, а не их: закоммить и повтори"
+fi
 
 branch_task() { local b; b="$(git -C "$1" symbolic-ref --short -q HEAD 2>/dev/null)" && [[ "$b" =~ ^([1-9][0-9]*) ]] && printf '%s' "${BASH_REMATCH[1]}"; }
 TASK="${KACHO_TASK:-}"
@@ -144,16 +181,23 @@ cleanup() {
     rm -rf -- "$BOX"
 }
 trap cleanup EXIT
-git -C "$TOP" worktree add -q --detach "$WT" HEAD 2>/dev/null || die 69 "копия $WT не создана"
+git -C "$TOP" worktree add -q --detach "$WT" "$REV" 2>/dev/null || die 69 "копия $WT не создана"
+[ "$ARCHIVE" = 0 ] || diff -rq -- "$HERE" "$WT/scripts" > /dev/null 2>&1 ||
+    die 64 "архив $HERE не совпадает с origin/main ${REV:0:12} воркспейса $TOP — Job исполнил бы не вызванное"
 mkdir -p "$RR/in" "$RR/gh" && : > "$RR/gh/index.jsonl"
+# Адрес — без userinfo (`https://<учётка>@…`): учётные данные в pod не едут.
+no_userinfo() { sed -E 's#^([A-Za-z][A-Za-z0-9+.-]*://)[^/@]*@#\1#'; }
+# Адрес origin воркспейса — для клона Job без origin (pod.sh).
+git -C "$TOP" remote get-url origin 2> /dev/null | no_userinfo > "$RR/origin.url" || :
 
-N=0
+# Каталог на вход — свой (mktemp): ship* зовутся подстановкой $(…), и счётчик в подоболочке не
+# доживал до следующего вызова — одноимённые входы из разных каталогов ложились в один путь.
 ship_plain() {  # ship_plain <файл> — копия в rr/in, печатает путь от rr
+    local d
     secret_path "$1" && { say "«$1» — хранилище учётных данных машины либо псевдо-ФС: в pod не переносится"; return 1; }
-    N=$(( N + 1 ))
-    local dst="in/$N-$(basename -- "$1")"
-    cp -- "$1" "$RR/$dst" || return 1
-    printf '%s' "$dst"
+    d="$(mktemp -d "$RR/in/f.XXXXXX")" || return 1
+    cp -- "$1" "$d/$(basename -- "$1")" || return 1
+    printf '%s' "${d#"$RR/"}/$(basename -- "$1")"
 }
 ship() {  # ship <файл> — то же, и в JSON-входе абсолютные пути к файлам машины — путями от rr
     local dst p q tmp
@@ -174,12 +218,12 @@ ship() {  # ship <файл> — то же, и в JSON-входе абсолют�
 }
 
 ship_checkout() {  # ship_checkout <копия> — bundle HEAD, веток и origin/*, адрес origin; печатает метку для pod
-    N=$(( N + 1 ))
-    local dst="in/$N-checkout.bundle"
+    local d dst
+    d="$(mktemp -d "$RR/in/c.XXXXXX")" || return 1
+    dst="${d#"$RR/"}/checkout.bundle"
     git -C "$1" bundle create "$RR/$dst" HEAD --branches --remotes=origin > /dev/null 2>&1 || return 1
-    # Адрес — без userinfo (`https://<учётка>@…`): учётные данные в pod не едут.
-    git -C "$1" remote get-url origin 2> /dev/null | sed -E 's#^([A-Za-z][A-Za-z0-9+.-]*://)[^/@]*@#\1#' > "$RR/in/$N-checkout.url" &&
-        [ -s "$RR/in/$N-checkout.url" ] || return 1
+    git -C "$1" remote get-url origin 2> /dev/null | no_userinfo > "$d/checkout.url" &&
+        [ -s "$d/checkout.url" ] || return 1
     printf '@checkout:%s' "$dst"
 }
 
@@ -188,6 +232,29 @@ has_arg() { local a; for a in "${ORIG[@]}"; do [ "$a" = "$1" ] && return 0; done
 ARGS=(); prev=""
 # Доводы pr-body — имя, ревизии, не файлы: переносится лишь копия его репозитория (ниже).
 [ "$ENTRY" = scripts/pr-body.sh ] && ARGS=("$@") && set --
+# Предпроверка посадки: файлы — лишь значения --reviews, --stand-report, --stand-expect (репозиторий
+# и номер — не пути, даже если в каталоге вызова лежит одноимённый файл). Формы --job-names и
+# --generator-outputs: после ключа формы — только файлы; полная форма ci-read — без файлов, как есть.
+if [ "$ENTRY" = scripts/ci-read.sh ] && [ "${1:-}" != --job-names ]; then
+    ARGS=("$@"); set --
+elif [ "$ENTRY" = scripts/landing-precheck.sh ]; then
+    for a in "$@"; do
+        case "$prev" in
+            --reviews|--stand-report|--stand-expect)  # не файл — довод как есть: отказ скажет предпроверка
+                if [ -f "$a" ]; then a="$(ship_plain "$a")" || die 69 "вход «$a» не скопирован"; fi ;;
+        esac
+        ARGS+=("$a"); prev="$a"
+    done
+    set --
+elif [ "$ENTRY" = scripts/ci-read.sh ] || [ "$ENTRY" = scripts/branch-audit.sh ]; then
+    ARGS=("$1"); shift
+    for a in "$@"; do
+        [ -f "$a" ] || die 64 "довод формы «$a» — не файл"
+        a="$(ship_plain "$a")" || die 69 "вход «$a» не скопирован"
+        ARGS+=("$a")
+    done
+    set --
+fi
 for a in "$@"; do
     if [ "$prev" = --checkout ] && [ -d "$a" ]; then
         # expect судит голову копии, Job получает её коммитом: правка вне коммита — отказ, а не
@@ -219,7 +286,8 @@ gh_fetch() {  # gh_fetch <доводы gh> — ответ и код в rr/gh, с
     local key rc
     key="$(printf '%s\n' "$@" | jq -Rsc 'split("\n")[:-1]')"  # не --args: доводы вида --method он съел бы
     if [ -n "${GOT[$key]:-}" ]; then LAST="${GOT[$key]#* }"; return "${GOT[$key]%% *}"; fi
-    gh_read_ok "$@" || { say "вызов gh вне перечня чтений — не исполнен: ${key:0:200}"; LAST=""; return 126; }
+    # Подоболочкой: [[ =~ ]] перечня затёр бы BASH_REMATCH вызывающего (план читает его после gh_fetch).
+    ( gh_read_ok "$@" ) || { say "вызов gh вне перечня чтений — не исполнен: ${key:0:200}"; LAST=""; return 126; }
     LAST="gh/$(( ${#GOT[@]} + 1 ))"
     gh "$@" > "$RR/$LAST" 2> /dev/null; rc=$?
     GOT[$key]="$rc $LAST"
@@ -244,9 +312,8 @@ opt() {  # opt <имя> — значение довода --имя из исхо
 }
 
 plan_kaname_hosted() {  # ответы GitHub для hosted-ступени kaname (report без --external-only, check полного)
-    local exp events repo head branch file event key id attempt
+    local exp events
     exp="$(opt --expected || opt --expect)" || return 0
-    [ "$(jq -r '.repo // empty' "$exp" 2>/dev/null)" = PRO-Robotech/kaname ] || return 0
     has_arg --external-only && return 0
     case "${ORIG[0]:-}" in
         report) events="$(opt --events)" || return 0; events="$(cat -- "$events")" ;;
@@ -254,6 +321,12 @@ plan_kaname_hosted() {  # ответы GitHub для hosted-ступени kanam
         check) events="$(jq -c '.events // {}' "${ORIG[1]}" 2>/dev/null)" || return 0 ;;
         *) events="$(jq -c '.events // {}' "${ORIG[0]}" 2>/dev/null)" || return 0 ;;
     esac
+    hosted_reads "$exp" "$events"
+}
+
+hosted_reads() {  # <ожидаемое kaname> <события JSON> — workflow, коммит, прогоны, задания, журналы hosted-заданий
+    local exp="$1" events="$2" repo head branch file event key id attempt
+    [ "$(jq -r '.repo // empty' "$exp" 2>/dev/null)" = PRO-Robotech/kaname ] || return 0
     repo=PRO-Robotech/kaname; head="$(jq -r .head "$exp")"; branch="$(jq -r '.ref | ltrimstr("refs/heads/") | @uri' "$exp")"
     while IFS=$'\t' read -r file event; do
         gh_fetch api "repos/$repo/contents/.github/workflows/$file?ref=$head"
@@ -287,6 +360,105 @@ plan_pr_body() {  # задачи номеров из сообщений диап
     done < <(git -C "$rrd" log --format=%B "$base..$head" 2>/dev/null | grep -oE '#[0-9]+' | tr -d '#' | sort -un)
 }
 
+pages_q() {  # pages_q <поле|-> <путь до page=> <после page=N…> — страницы до неполной, адрес — ДОСЛОВНО вызова
+    local field="$1" pre="$2" post="$3" page=1 n
+    while [ "$page" -le 100 ]; do
+        gh_fetch api "$pre$page$post" || return 1
+        n="$(jq -r --arg f "$field" 'if $f == "-" then length else (.[$f] // [] | length) end' "$RR/$LAST" 2>/dev/null)" || return 1
+        [ "${n:-0}" -ge 100 ] || return 0
+        page=$(( page + 1 ))
+    done
+}
+
+ci_read_reads() {  # ci_read_reads <репо> <голова> <база> — чтения ci-read.sh после головы и базы (надмножество)
+    # Адреса — те, что строит scripts/ci-read.sh (CI_READ_GH в pod — чтение без условия: api, apip).
+    local repo="$1" head="$2" base="$3" p st f sx
+    gh_fetch api --paginate "repos/$repo/commits/$head/check-runs?per_page=100"
+    while IFS= read -r p; do gh_fetch api "repos/$repo/check-runs/$p/annotations"; done < <(
+        jq -r '.check_runs[]? | select(.status == "completed" and .conclusion == "failure") | .id' "$RR/$LAST" 2>/dev/null | sort -u)
+    gh_fetch api "repos/$repo/commits/$head/status"
+    gh_fetch api --paginate "repos/$repo/actions/runs?head_sha=$head&per_page=100"
+    gh_fetch api "repos/$repo/branches/$base/protection/required_status_checks"
+    gh_fetch api "repos/$repo/rules/branches/$base"
+    if gh_fetch api "repos/$repo/branches/$base"; then
+        st="$(jq -r '.commit.sha // empty' "$RR/$LAST" 2>/dev/null)"
+        [[ "$st" =~ ^[0-9a-f]{40}$ ]] && gh_fetch api "repos/$repo/compare/$st...$head"
+    fi
+    # файлы workflow на голове: условие if у skipped (предпроверка), имена вытесненного (ci-read);
+    # прогоны — любой формой чтения (страницами предпроверки и --paginate ci-read)
+    while IFS= read -r f; do gh_fetch api "repos/$repo/contents/$f?ref=$head"; done < <(
+        jq -r 'select(any(.argv[]; test("/actions/runs\\?head_sha="))) | .out' "$RR/gh/index.jsonl" |
+        while IFS= read -r sx; do jq -r '.workflow_runs[]?.path // empty' "$RR/$sx" 2>/dev/null; done | sed 's/@.*//' | sort -u)
+    return 0
+}
+
+plan_ci_read() {  # ответы GitHub полной формы ci-read.sh; --job-names GitHub не читает
+    local repo="${ORIG[0]:-}" ref="${ORIG[1]:-}" base="" head="" a prev=""
+    [[ "$repo" =~ $RR_REPO_RE ]] || return 0
+    for a in "${ORIG[@]:2}"; do [ "$prev" = --base ] && base="$a"; prev="$a"; done
+    gh_fetch api rate_limit
+    if [[ "$ref" =~ ^[0-9]+$ ]]; then
+        gh_fetch api "repos/$repo/pulls/$ref" || return 0
+        head="$(jq -r '.head.sha // empty' "$RR/$LAST" 2>/dev/null)"; base="$(jq -r '.base.ref // empty' "$RR/$LAST" 2>/dev/null)"
+    elif [[ "$ref" =~ ^[0-9a-f]{40}$ ]]; then
+        head="$ref"
+        if [ -z "$base" ]; then
+            gh_fetch api "repos/$repo" || return 0
+            base="$(jq -r '.default_branch // empty' "$RR/$LAST" 2>/dev/null)"
+        fi
+    fi
+    [[ "$head" =~ ^[0-9a-f]{40}$ ]] && [[ "$base" =~ $RR_ARG_RE ]] || return 0
+    ci_read_reads "$repo" "$head" "$base"
+}
+
+plan_landing_precheck() {  # ответы GitHub предпроверки посадки и её merge-readiness и ci-read (надмножество)
+    # Адреса — те, что строят scripts/landing-precheck.sh, merge-readiness.sh и ci-read.sh (CI_READ_GH в
+    # pod — чтение без условия); лишний ответ безвреден (отказ площадки снимается с кодом, как у gh),
+    # недостающий — промах, его снимает круг повтора.
+    local repo="${ORIG[0]:-}" pr="${ORIG[1]:-}" pull head base bsha href rb rh o r n sx f b
+    [[ "$repo" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ && "$pr" =~ ^[0-9]+$ ]] || return 0
+    gh_fetch api rate_limit
+    gh_fetch api "repos/$repo/pulls/$pr" || return 0
+    pull="$RR/$LAST"
+    head="$(jq -r '.head.sha // empty' "$pull" 2>/dev/null)"; base="$(jq -r '.base.ref // empty' "$pull" 2>/dev/null)"
+    bsha="$(jq -r '.base.sha // empty' "$pull" 2>/dev/null)"; href="$(jq -r '.head.ref // empty' "$pull" 2>/dev/null)"
+    [[ "$head" =~ ^[0-9a-f]{40}$ ]] || return 0
+    # предпроверка: коммиты, сравнение base...head (объявлено больше отданного), check-runs, прогоны, workflow
+    pages_q - "repos/$repo/pulls/$pr/commits?per_page=100&page=" ""
+    [[ "$bsha" =~ ^[0-9a-f]{40}$ ]] && gh_pages commits "repos/$repo/compare/$bsha...$head" api
+    pages_q check_runs "repos/$repo/commits/$head/check-runs?per_page=100&filter=latest&page=" ""
+    gh_pages workflow_runs "repos/$repo/actions/runs?head_sha=$head" api
+    # merge-readiness
+    gh_fetch pr view "$pr" -R "$repo" --json state,baseRefName,baseRefOid,headRefName,headRefOid,mergeStateStatus,statusCheckRollup,body,closingIssuesReferences
+    o="$RR/$LAST"
+    rb="$(jq -r '.baseRefOid // empty' "$o" 2>/dev/null)"; rh="$(jq -r '.headRefOid // empty' "$o" 2>/dev/null)"
+    [[ "$rb" =~ ^[0-9a-f]{40}$ && "$rh" =~ ^[0-9a-f]{40}$ ]] && [ "$rb...$rh" != "$bsha...$head" ] &&
+        gh_pages commits "repos/$repo/compare/$rb...$rh" api
+    if [[ "$href" =~ ^([0-9]+)(-[^/]*)?$ ]]; then
+        gh_fetch api "repos/$repo/issues/${BASH_REMATCH[1]}"; gh_fetch api "repos/$repo/issues/${BASH_REMATCH[1]}/parent"
+    fi
+    for b in "$base" main; do gh_fetch api "repos/$repo/branches/$b/protection"; done
+    gh_fetch api "repos/$repo/actions/workflows/ci.yaml/runs?event=workflow_dispatch&head_sha=$head&per_page=100"
+    gh_fetch api "repos/$repo/commits/$head/check-runs?per_page=100&filter=latest"
+    # задачи из тела и закрываемые хостингом: комментарии обеими формами (предпроверка — страницами,
+    # merge-readiness — --paginate)
+    while IFS= read -r r; do
+        n="${r##*#}"; r="${r%#*}"; [ -n "$r" ] || r="$repo"
+        pages_q - "repos/$r/issues/$n/comments?per_page=100&page=" ""
+        gh_fetch api "repos/$r/issues/$n/comments?per_page=100" --paginate
+    done < <({ jq -r '.body // ""' "$pull" 2>/dev/null |
+                 grep -oE '([[:alnum:]_.-]+/[[:alnum:]_.-]+)?#[0-9]+|github\.com/[[:alnum:]_.-]+/[[:alnum:]_.-]+/issues/[0-9]+' |
+                 sed -E 's|^github\.com/||; s|/issues/|#|'
+             jq -r '.closingIssuesReferences[]? | "\(.repository.owner.login)/\(.repository.name)#\(.number)"' "$o" 2>/dev/null
+           } | sort -u)
+    # ci-read внутри merge-readiness (база без контекстов со строкой ведомости)
+    ci_read_reads "$repo" "$head" "$base"
+    # отчёт стенда — судья kaname (hosted-ступень), события — из отчёта
+    f="$(opt --stand-expect)" && [ -f "$f" ] && sx="$(opt --stand-report)" && [ -f "$sx" ] &&
+        hosted_reads "$f" "$(jq -c '.events // {}' "$sx" 2>/dev/null || echo '{}')"
+    return 0
+}
+
 # Копия pr-body: ws — сам клон Job, продукт — project/<имя> его клонов; голова — на origin.
 if [ "$ENTRY" = scripts/pr-body.sh ]; then
     RRD="${RITUAL_REPO_DIR:-$PWD}"
@@ -302,6 +474,9 @@ if [ "$ENTRY" = scripts/pr-body.sh ]; then
 fi
 [ "$ENTRY" = scripts/pr-body.sh ] && plan_pr_body
 [ "$ENTRY" = scripts/stand-report.sh ] && plan_kaname_hosted
+[ "$ENTRY" = scripts/ci-read.sh ] && [ "${ORIG[0]:-}" != --job-names ] && plan_ci_read
+# Предпроверка посадки: цепочки чтений длиннее (merge-readiness, ci-read, комментарии) — кругов больше.
+[ "$ENTRY" = scripts/landing-precheck.sh ] && plan_landing_precheck && ROUNDS=4
 
 decode() {  # decode <вид> — поток вида из журнала: номера без пропуска, размер — объявленный
     local kind="$1" want got
