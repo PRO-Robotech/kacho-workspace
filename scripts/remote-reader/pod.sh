@@ -9,29 +9,48 @@
 # GitHub — снятым машиной (replay-gh.sh рядом), реестр — tmp/ этого клона. Печатает:
 #   remote-reader-<вид> <номер> <base64 до 76 знаков>   вид: out, err, miss, tar
 #   remote-reader-size <вид> <байт>                     для каждого вида, и пустого
+#   remote-reader-fail <проверка>[: ожидалось …; получено «…»]   отказ стороны pod (код 70)
 #   remote-reader-rc <код входа>                        последней строкой
 # tar — новые файлы реестра (kaname-imports/<отпечаток>.json), записанные входом.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOPP="$(cd "$HERE/../.." && pwd)"
 RR="$PWD"
-# Клон Job (remote-heavy/run.sh: init + bundle) несёт коммиты, а не .git/config: origin у него нет,
-# а судья реестра (operator-stand.py registry()) сверяет адрес origin воркспейса. Заводится он лишь
-# каноническим публичным адресом из rr/workspace-origin; иной адрес либо иной уже заведённый — 70.
-reader_fail() { printf 'remote-reader-rc 70\n'; exit 70; }
-[ "$(git -C "$TOPP" rev-parse --show-toplevel)" = "$TOPP" ] || reader_fail
-[ -f "$RR/workspace-origin" ] && [ ! -L "$RR/workspace-origin" ] || reader_fail
-[ "$(wc -l < "$RR/workspace-origin")" -eq 1 ] || reader_fail
+# Судья реестра (operator-stand.py registry()) сверяет адрес origin воркспейса. Клон Job
+# (remote-heavy/run.sh: init + bundle) origin НЕСЁТ — `https://github.com/PRO-Robotech/<репо>.git`, как
+# checkout конвейера (ws#1301), а копия машины — свой адрес, обычно ssh (ws#1403). Поэтому сверяется
+# РЕПОЗИТОРИЙ: и rr/workspace-origin, и origin клона — одна из канонических форм адреса
+# PRO-Robotech/kacho-workspace (тот же перечень, что у судьи реестра), а не одно написание. Клону без
+# origin он заводится адресом rr/workspace-origin; иной репозиторий у файла либо у клона — 70.
+# Отказ называет проверку: «remote-reader-fail <проверка>: ожидалось …; получено «…»» перед
+# строкой кода; полученное — без userinfo и управляющих знаков, не длиннее 200.
+CANON='git@github.com:PRO-Robotech/kacho-workspace.git | https://github.com/PRO-Robotech/kacho-workspace.git | https://github.com/PRO-Robotech/kacho-workspace'
+canonical_origin() {
+    case "$1" in
+        git@github.com:PRO-Robotech/kacho-workspace.git|https://github.com/PRO-Robotech/kacho-workspace.git|https://github.com/PRO-Robotech/kacho-workspace) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+shown() { printf '%s' "$1" | sed -E 's#^([A-Za-z][A-Za-z0-9+.-]*://)[^/@]*@#\1#' | tr -d '\000-\037\177' | cut -c1-200; }
+reader_fail() {  # reader_fail <проверка> [<ожидалось> <получено>]
+    printf 'remote-reader-fail %s' "$1"
+    [ $# -lt 3 ] || printf ': ожидалось %s; получено «%s»' "$2" "$(shown "$3")"
+    printf '\nremote-reader-rc 70\n'; exit 70
+}
+top_got="$(git -C "$TOPP" rev-parse --show-toplevel 2> /dev/null)" || top_got=""
+[ "$top_got" = "$TOPP" ] || reader_fail "корень клона Job" "$TOPP" "$top_got"
+if [ -L "$RR/workspace-origin" ]; then reader_fail "файл rr/workspace-origin" "обычный файл" "символьная ссылка"; fi
+[ -f "$RR/workspace-origin" ] || reader_fail "файл rr/workspace-origin" "обычный файл" "нет файла"
+lines="$(wc -l < "$RR/workspace-origin")"
+[ "$lines" -eq 1 ] || reader_fail "строк в rr/workspace-origin" 1 "$lines"
 IFS= read -r workspace_origin < "$RR/workspace-origin"
-case "$workspace_origin" in
-    git@github.com:PRO-Robotech/kacho-workspace.git|https://github.com/PRO-Robotech/kacho-workspace.git|https://github.com/PRO-Robotech/kacho-workspace) ;;
-    *) reader_fail ;;
-esac
-workspace_remotes="$(git -C "$TOPP" remote)" || reader_fail
+canonical_origin "$workspace_origin" || reader_fail "rr/workspace-origin (адрес копии машины)" "$CANON" "$workspace_origin"
+workspace_remotes="$(git -C "$TOPP" remote)" || reader_fail "перечень remote клона Job"
 if grep -qx origin <<< "$workspace_remotes"; then
-    [ "$(git -C "$TOPP" remote get-url origin)" = "$workspace_origin" ] || reader_fail
+    clone_origin="$(git -C "$TOPP" remote get-url origin)" || reader_fail "адрес origin клона Job"
+    canonical_origin "$clone_origin" || reader_fail "origin клона Job (remote-heavy/run.sh)" "$CANON" "$clone_origin"
 else
-    git -C "$TOPP" remote add origin "$workspace_origin" || reader_fail
+    git -C "$TOPP" remote add origin "$workspace_origin" || reader_fail "origin клону Job не заведён"
 fi
 entry="${1:-}"; [ $# -gt 0 ] && shift
 case "$entry" in
@@ -45,7 +64,7 @@ if [ -f "$RR/env" ]; then IFS= read -r rel < "$RR/env"; export RITUAL_REPO_DIR="
 reg="$TOPP/tmp/operator-stand-registry"
 box="$(mktemp -d)"
 trap 'rm -rf -- "$box"' EXIT
-if [ -d "$reg" ]; then (cd "$reg" && find . -type f | sort) > "$box/before" || reader_fail; else : > "$box/before"; fi
+if [ -d "$reg" ]; then (cd "$reg" && find . -type f | sort) > "$box/before" || reader_fail "перепись реестра до входа"; else : > "$box/before"; fi
 # gh первым в PATH — снятый машиной: предпроверка зовёт gh сама и через merge-readiness и ci-read;
 # ci-read — без условного чтения (`-i`), его ключи машина снимает простой формой.
 mkdir -p "$box/bin" && ln -s "$HERE/replay-gh.sh" "$box/bin/gh" || { echo "remote-reader-rc 69"; exit 69; }
@@ -69,14 +88,14 @@ for a in "$@"; do
 done
 rc=0
 bash "$TOPP/$entry" "${args[@]}" > "$box/out" 2> "$box/err" || rc=$?
-if [ -d "$reg" ]; then (cd "$reg" && find . -type f | sort) > "$box/after" || reader_fail; else : > "$box/after"; fi
+if [ -d "$reg" ]; then (cd "$reg" && find . -type f | sort) > "$box/after" || reader_fail "перепись реестра после входа"; else : > "$box/after"; fi
 : > "$box/tar"
-comm -13 "$box/before" "$box/after" | sed 's#^\./##' > "$box/new" || reader_fail
+comm -13 "$box/before" "$box/after" | sed 's#^\./##' > "$box/new" || reader_fail "новые файлы реестра"
 mapfile -t new < "$box/new"
-if [ "${#new[@]}" -gt 0 ]; then tar -cf "$box/tar" -C "$reg" -- "${new[@]}" || reader_fail; fi
-cp -- "$RR/gh/misses" "$box/miss" || reader_fail
+if [ "${#new[@]}" -gt 0 ]; then tar -cf "$box/tar" -C "$reg" -- "${new[@]}" || reader_fail "архив новых файлов реестра"; fi
+cp -- "$RR/gh/misses" "$box/miss" || reader_fail "промахи GitHub"
 for kind in out err miss tar; do
-    base64 -w 76 < "$box/$kind" | awk -v k="$kind" '{print "remote-reader-" k " " NR " " $0}' || reader_fail
+    base64 -w 76 < "$box/$kind" | awk -v k="$kind" '{print "remote-reader-" k " " NR " " $0}' || reader_fail "поток $kind"
     printf 'remote-reader-size %s %s\n' "$kind" "$(wc -c < "$box/$kind")"
 done
 printf 'remote-reader-rc %s\n' "$rc"
