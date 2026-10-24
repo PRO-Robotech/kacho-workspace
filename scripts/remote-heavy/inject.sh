@@ -4187,6 +4187,7 @@ no_cluster_call KF2-down
 # библиотека KDOLD: на ней сцены KF3 и KF4 обязаны ПРОЙТИ, иначе их красное новой сверки ничего
 # не доказывает (проба не пуста).
 KDOLD="$BOX/kindlib-old"; mkdir -p "$KDOLD"
+# shellcheck disable=SC2016  # $ в образцах sed — буквы текста kind.sh, не подстановка
 sed -e 's#heads="$(kind_ls_remote "$canon")"#heads="$(git -C "$src" ls-remote "$canon" '"'"'refs/heads/*'"'"' 2>/dev/null)"#' \
     -e 's#GIT_NO_REPLACE_OBJECTS=1 git -C "$s" "$@"#git -C "$s" "$@"#' \
     -e 's#if kind_history_forged "$src"; then#if false; then#' "$KDLIB/kind.sh" > "$KDOLD/kind.sh"
