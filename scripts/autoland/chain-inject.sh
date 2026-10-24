@@ -37,7 +37,7 @@ cat > "$T/bin/gh" <<'EOF'
 echo "gh $*" >> "$CALLS"
 case "$1 $2" in
   "pr view") br="$(cat "$FX/pr-$3")"; h="$(git -C "$FX/origin.git" rev-parse "refs/heads/$br")"; printf 'OPEN\t%s\t%s\n' "$h" "$br" ;;
-  "pr edit") cp "$6" "$FX/edited-$3"; exit "${GH_EDIT_RC:-0}" ;;
+  "pr edit") cp "$7" "$FX/edited-$3"; exit "${GH_EDIT_RC:-0}" ;;
   "run list") ;;
 esac
 EOF
