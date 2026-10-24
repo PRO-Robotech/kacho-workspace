@@ -188,7 +188,9 @@
 #   rules-read-tolerated — отказ чтения наборов правил терпим: набор пуст, а не
 #                         «не получен» (M2 check-verifier, ws#1215);
 #   protection-read-tolerated — то же для отказа чтения защиты не вида «not protected»;
-#   no-rule-e           — (е) снято целиком (прежняя форма «последний по имени»);
+#   protection-body-blind — 404 «Branch not protected» судится лишь по stderr: снятый
+#                         ответ без него снова VOID (ws#1397, kaname#978);
+#   no-rule-e         — (е) снято целиком (прежняя форма «последний по имени»);
 #   expect-compare-dropped — сверка числа снята: CHECKS-INCOMPLETE не выносится (ws#1097);
 #   ledger-stale-dropped — строка LEDGER-STALE не печатается: занижение снова молчит (ws#1244);
 #   rate-limit-dropped  — проверка лимита до чтения снята (урок 2026-10-16, ws#1110);
@@ -687,6 +689,18 @@ mk; : > "$C/reqout"; rm "$C/protection.json"; echo 'gh: HTTP 502 Bad Gateway' > 
 run "защита не прочитана (HTTP 502, не «not protected») — VOID" 2 '^VOID\tзащита ветки 1266 не прочитана: '
 mk; : > "$C/reqout"; rm "$C/protection.json"; echo 'gh: HTTP 502 Bad Gateway' > "$C/protection.json.err"
 run "защита не прочитана — файла набора нет" 2 '^REQOUT-ABSENT$'
+# ws#1397 (kaname#978 @062a3449): снятый ответ без stderr (remote-reader до 73a3bda2) — отказ
+# площадки лишь в ТЕЛЕ, как его печатает gh в stdout (замер `gh api …/955/protection/required_status_checks`
+# 2026-10-24). merge-readiness судит защиту по телу; ci-read — только по stderr, и выходил VOID.
+P404='{"message":"Branch not protected","documentation_url":"https://docs.github.com/rest/branches/branch-protection#get-status-checks-protection","status":"404"}'
+mk; : > "$C/reqout"; rm "$C/protection.json"; : > "$C/protection.json.err"; printf '%s\n' "$P404" > "$C/protection.json.errbody"
+run "(ws#1397) защиты нет, отказ лишь в теле (stderr пуст): набор пустой, а не VOID" 0 '^REQOUT\t$'
+mk; rm "$C/protection.json"; : > "$C/protection.json.err"; printf '%s\n' "$P404" > "$C/protection.json.errbody"
+run "(ws#1397) защиты нет, отказ лишь в теле: перепись «защиты нет»" 0 '^CENSUS\tзащиты ветки 1266 нет'
+mk; : > "$C/reqout"; rm "$C/protection.json"; : > "$C/protection.json.err"; echo '{"message":"Server Error","status":"502"}' > "$C/protection.json.errbody"
+run "(ws#1397) близнец: в теле иной отказ (502), stderr пуст — VOID, набора нет" 2 '^REQOUT-ABSENT$'
+mk; rm "$C/protection.json"; : > "$C/protection.json.err"; printf '%s\n' "${P404/\"404\"/\"403\"}" > "$C/protection.json.errbody"
+run "(ws#1397) близнец: текст «not protected» в теле при статусе не 404 — VOID" 2 '^VOID\tзащита ветки 1266 не прочитана'
 
 say "== чтение по sha: база по умолчанию названа таковой (урок 775de6d0)"
 # 2026-10-22: ci-read по sha без PR вывел базу main, а судить надо было базу будущего запроса;
@@ -766,6 +780,7 @@ required-out-dropped	/cp "$W\/req.txt" "$CI_READ_REQUIRED_OUT"/s/cp "$W\/req.txt
 required-out-empty	/cp "$W\/req.txt" "$CI_READ_REQUIRED_OUT"/s/cp "$W\/req.txt"/cp \/dev\/null/
 rules-read-tolerated	/void "наборы правил ветки \$BASE не прочитаны/s/void "/: "/
 protection-read-tolerated	/void "защита ветки \$BASE не прочитана/s/void "/: "/
+protection-body-blind	/(\.message == "Branch not protected" or/s/type == "object" and/false and/
 no-rule-e	/\.drop = (\$pr and/s/\.drop = (\$pr and/.drop = (false and/;/if (\$red | length) > 0/s/if (\$red | length) > 0/if false/
 MUT
 for tr in $TRUNKS; do

@@ -107,9 +107,12 @@
 #                             1) имени нет в наборе обязательных контекстов, которым
 #                             судит ЭТОТ PR `merge-readiness.sh` (набор он отдаёт
 #                             файлом MERGE_READINESS_REQUIRED_OUT; набор не получен
-#                             или пуст без основания `<файл>.basis` — любой skipped
-#                             причина; пуст С основанием — установленный ноль: база
-#                             без контекстов судится ci-read по ведомости, ws#1215);
+#                             или пуст без основания `<файл>.basis` — skipped не снят:
+#                             при условиях 2 и 3 он не судим и идёт причиной (д)
+#                             MERGE-READINESS поимённо, иначе — CI-NOT-SUCCESS (ws#1397,
+#                             kaname#978: VOID ci-read не красит CI); пуст С основанием —
+#                             установленный ноль: база без контекстов судится ci-read
+#                             по ведомости, ws#1215);
 #                             2) прогон workflow этого check-run найден
 #                             (`actions/runs?head_sha=`, ключ — check_suite.id), его
 #                             событие — pull_request в базу запроса либо push ветки
@@ -144,7 +147,8 @@
 #                             код 2). Ведомость не читается — VOID;
 #   (д) MERGE-READINESS     — `scripts/merge-readiness.sh` из origin/main
 #                             воркспейса дал не 0 (1 — нельзя; 2 — вердикта нет;
-#                             оба — не «можно»).
+#                             оба — не «можно») либо не отдал набор обязательных,
+#                             а skipped с невыполнимым if им не судим (ws#1397).
 #   (е) ATTRIBUTION         — строка атрибуции в сообщении коммита диапазона
 #                             либо в теле. Предикат — ОДИН на дерево:
 #                             `scripts/hooks/attribution-rule.sh`
@@ -718,10 +722,12 @@ def workflow_jobs(path):
     return wf_files[path]
 
 def skip_lawful(r):
-    """(законен ли skipped, почему нет | где условие)."""
-    if required is None:
-        return False, "набор обязательных от merge-readiness не получен — необязательность не установлена"
-    if r.get("name") in required:
+    """(True законен | False причина CI | None — if невыполним, набора обязательных нет; почему | где условие)."""
+    # Набора нет — условия 2 и 3 судятся всё равно (ws#1397): skipped, пропущенный не
+    # невыполнимым if, — неуспех CI при любом наборе; с невыполнимым — не судим без
+    # набора, и это причина пункта (д), а не CI-NOT-SUCCESS (kaname#978 @062a3449: ci-read
+    # в pod вышел VOID, «вердикт ствола» ×4 на запросе в ветку 955 читался красным CI).
+    if required is not None and r.get("name") in required:
         return False, "контекст обязательный"
     suite = (r.get("check_suite") or {}).get("id")
     runs_map = runs_by_suite()
@@ -759,6 +765,8 @@ def skip_lawful(r):
         ok, why = if_unexecutable(j.get("if"), ctx)
         if not ok:
             return False, f"{path}: {why}"
+    if required is None:
+        return None, f"{path} на {ev}"
     return True, f"{path} на {ev}"
 
 # Судится ПОСЛЕДНИЙ прогон каждой проверки, а не каждый прогон на голове (находка
@@ -805,22 +813,24 @@ if collided and wf_err:
 pending = [r for r in judged if r.get("status") != "completed"]
 bad = [r for r in judged if r.get("status") == "completed" and r.get("conclusion") != "success"]
 
-skipped_lawful, skip_why = [], {}
+skipped_lawful, skipped_unjudged, skip_why = [], [], {}
 for r in bad:
     if r.get("conclusion") != "skipped":
         continue
     ok, why = skip_lawful(r)
     if ok:
         skipped_lawful.append(r)
+    elif ok is None:
+        skipped_unjudged.append(r)
     skip_why[id(r)] = why
 for r in pending:
     reason("CI-PENDING", f"{r.get('name')} — {r.get('status')}")
 for r in bad:
-    if r in skipped_lawful:
+    if r in skipped_lawful or r in skipped_unjudged:
         continue
     why = f" ({skip_why[id(r)]})" if id(r) in skip_why else ""
     reason("CI-NOT-SUCCESS", f"{r.get('name')} — {r.get('conclusion')}{why}")
-census.append(f"ci: check-runs на голове {len(own_runs)}, судится последних {len(judged)}, вытеснено поздним прогоном той же проверки {len(superseded)}, success {len(judged) - len(pending) - len(bad)}, идут {len(pending)}, не-success {len(bad) - len(skipped_lawful)}, skipped по невыполнимому if {len(skipped_lawful)}; набор обязательных {len(required) if required is not None else 'НЕ ПОЛУЧЕН'}{f' — установленный ноль ({req_basis})' if required == set() else ''}")
+census.append(f"ci: check-runs на голове {len(own_runs)}, судится последних {len(judged)}, вытеснено поздним прогоном той же проверки {len(superseded)}, success {len(judged) - len(pending) - len(bad)}, идут {len(pending)}, не-success {len(bad) - len(skipped_lawful) - len(skipped_unjudged)}, skipped не судимых без набора {len(skipped_unjudged)}, skipped по невыполнимому if {len(skipped_lawful)}; набор обязательных {len(required) if required is not None else 'НЕ ПОЛУЧЕН'}{f' — установленный ноль ({req_basis})' if required == set() else ''}")
 for name in sorted({r.get("name") for r in superseded}):
     gone = [r for r in superseded if r.get("name") == name]
     gone = sorted(gone, key=lambda r: r.get("started_at") or "")
@@ -838,10 +848,21 @@ else:
            + " — ci-read.sh демона вливания ответит VOID «ожидаемое не известно»; строка заводится замером предикатом шапки ведомости")
 
 # (д) merge-readiness
+# skipped с невыполнимым if при НЕ полученном наборе обязательных — не неуспех CI, а
+# недосуженный пункт (д): обязательность не установлена, посадка стоит на нём (ws#1397).
 mr = int(os.environ["MR_CODE"])
+unjudged = ""
+if skipped_unjudged:
+    nm = {}
+    for r in skipped_unjudged:
+        nm[r.get("name")] = nm.get(r.get("name"), 0) + 1
+    unjudged = ("набор обязательных не получен — skipped по невыполнимому if не судимы: "
+                + "; ".join(f"{n} ×{k}" for n, k in sorted(nm.items())))
 if mr != 0:
     tail = [l for l in open(f"{W}/mr.out").read().splitlines() if l.strip()][-1:] or ["(вывода нет)"]
-    reason("MERGE-READINESS", f"код {mr}: {tail[0]}")
+    reason("MERGE-READINESS", f"код {mr}: {tail[0]}" + (f"; {unjudged}" if unjudged else ""))
+elif unjudged:
+    reason("MERGE-READINESS", f"код 0 без набора (MERGE_READINESS_REQUIRED_OUT не записан либо пуст без основания): {unjudged}")
 census.append(f"merge-readiness: код {mr}, источник {os.environ['MR_SRC']}")
 
 # (е) атрибуция — строки собраны предикатом дерева до этого места

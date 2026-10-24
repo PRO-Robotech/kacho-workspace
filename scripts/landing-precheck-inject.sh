@@ -238,6 +238,9 @@ expect 1 $'REASON\tCI-NOT-SUCCESS\tсводный вердикт юнитов (�
 # на PR skipped по построению, в наборе обязательных его нет. Вход — захват
 # kaname#629, привитый к случаю (шапка, «УСЛОВИЕ IF»).
 TRUNKJOB='вердикт ствола — красное не остаётся без читателя'
+# ws#1397: набора нет — skipped по невыполнимому if не судим и идёт причиной (д), а не CI-NOT-SUCCESS.
+UNJS="набор обязательных не получен — skipped по невыполнимому if не судимы: $TRUNKJOB ×4"
+UNJ=$'REASON\tMERGE-READINESS\tкод 0 без набора (MERGE_READINESS_REQUIRED_OUT не записан либо пуст без основания): '"$UNJS"
 K629="$FIX/kaname-629"
 # shellcheck disable=SC2016  # $h, $b, $s — переменные jq
 addskip() {
@@ -360,9 +363,37 @@ mutant name-list 'return r.get("name") in {"вердикт ствола — кр
 twin; addskip; echo "$TRUNKJOB" >> "$W/case/required"; run 0
 expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (контекст обязательный)' "близнец: то же задание в наборе обязательных — skipped не зелёный и при невыполнимом if"
 twin; addskip; rm "$W/case/required"; run 0
-expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (набор обязательных' "набор от merge-readiness не получен — skipped не снимается"
+expect 1 "$UNJ" "набор от merge-readiness не получен — skipped не снимается, причина — (д), не CI-NOT-SUCCESS (ws#1397)"
 twin; addskip; : > "$W/case/required"; run 0
-expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (набор обязательных' "пустой набор — не «всё необязательно»"
+expect 1 "$UNJ" "пустой набор — не «всё необязательно»: причина (д), не CI-NOT-SUCCESS (ws#1397)"
+# ws#1397 (kaname#978 @062a3449, запрос в ветку 955): merge-readiness вышел кодом 2 без набора —
+# отказ остаётся, но причиной (д) с поимённым «не судимы», а не ложным CI-NOT-SUCCESS ×4.
+twin; addskip; rm "$W/case/required"; run 2
+expect 1 $'REASON\tMERGE-READINESS\tкод 2: merge-readiness stub: код 2; '"$UNJS" "(ws#1397) merge-readiness код 2, набора нет, skipped по if ×4 — одна причина (д), CI-NOT-SUCCESS нет"
+# Близнецы: набор не получен — красное и skipped не невыполнимым if остаются неуспехом CI.
+twin; addskip; rm "$W/case/required"
+# shellcheck disable=SC2016  # $n — переменная jq
+edit check-runs.json --arg n "$TRUNKJOB" '(.check_runs[] | select(.name == $n) | .conclusion) |= "failure"'; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — failure' "(ws#1397) близнец: набора нет, задание failure — CI-NOT-SUCCESS, не «не судимо»"
+twin; addskip; rm "$W/case/required"
+# shellcheck disable=SC2016  # $n — переменная jq
+edit check-runs.json --arg n "$TRUNKJOB" '(.check_runs[] | select(.name == $n) | .conclusion) |= "failure"'; run 2
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — failure' "(ws#1397) близнец: merge-readiness код 2 и failure — красное CI названо" many
+twin; addskip; rm "$W/case/required"; setif del; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (.github/workflows/' "(ws#1397) близнец: набора нет, skipped без условия if — CI-NOT-SUCCESS, не «не судимо»"
+# Мутант предпроверки: «не судим» читается законным — набора нет, а посадка зелёная.
+sed 's|        return None, f"{path} на {ev}"|        return True, f"{path} на {ev}"|' "$TOOL" > "$W/mut/precheck-unjudged-lawful.sh"
+if cmp -s "$TOOL" "$W/mut/precheck-unjudged-lawful.sh"; then
+    echo "  [FAIL] мутант «не судим = законен»: образец не найден" >&2; fail=$((fail + 1))
+else
+    twin; addskip; rm "$W/case/required"
+    FAKE="$W/case" LANDING_PRECHECK_GH="$W/gh" LANDING_PRECHECK_MERGE_READINESS="$W/mr0" \
+        bash "$W/mut/precheck-unjudged-lawful.sh" PRO-Robotech/kacho 3036 > "$W/out" 2>&1
+    mcode=$?
+    if [ "$mcode" = 0 ] && ! grep -q '^REASON' "$W/out"; then
+        echo "  [OK]   мутант «не судим = законен» проваливает пробу: код 0 без набора обязательных"; pass=$((pass + 1))
+    else echo "  [FAIL] мутант «не судим = законен» не пойман пробой «набора нет»: код $mcode" >&2; sed 's/^/           /' "$W/out" >&2; fail=$((fail + 1)); fi
+fi
 # ws#1215 (kaname#900 @78e68ecc): запрос в ветку эпика без защиты — набор судит ci-read по
 # ведомости, обязательных 0 прочитано из защиты и наборов правил базы; merge-readiness
 # отдаёт пустой набор С основанием. Установленный ноль снимает skipped лишь при
@@ -386,7 +417,7 @@ else
     FAKE="$W/case" LANDING_PRECHECK_GH="$W/gh" LANDING_PRECHECK_MERGE_READINESS="$W/mr0" \
         bash "$W/mut/precheck-nobasis.sh" PRO-Robotech/kacho 3036 > "$W/out" 2>&1
     mcode=$?
-    if [ "$mcode" = 1 ] && grep -q $'^REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (набор обязательных' "$W/out"; then
+    if [ "$mcode" = 1 ] && grep -q "^$UNJ" "$W/out"; then
         echo "  [OK]   мутант «основание не читается» пойман: код 1 там, где установленный ноль"; pass=$((pass + 1))
     else echo "  [FAIL] мутант «основание не читается» не пойман: код $mcode" >&2; sed 's/^/           /' "$W/out" >&2; fail=$((fail + 1)); fi
 fi
@@ -667,7 +698,7 @@ if cmp -s "$HERE/merge-readiness.sh" "$W/ws/scripts/merge-readiness.sh"; then
 else
     sandbox_git -C "$W/ws" commit -qam mutant; sandbox_git -C "$W/ws" update-ref refs/remotes/origin/main HEAD
     runreal
-    expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (набор обязательных' "инъекция: merge-readiness не отдаёт набор — skipped остаётся причиной"
+    expect 1 "$UNJ" "инъекция: merge-readiness не отдаёт набор — skipped не снят, причина (д) (ws#1397)"
 fi
 # ws#1215 — путь базы без контекстов (kaname#900): защиты нет (404), строка ведомости
 # kacho/1266 есть, вердикт выносит ci-read. Здесь ci-read песочницы — заглушка кода 0,
@@ -701,8 +732,38 @@ if cmp -s "$HERE/merge-readiness.sh" "$W/ws/scripts/merge-readiness.sh"; then
 else
     sandbox_git -C "$W/ws" commit -qam mutant-ledger; sandbox_git -C "$W/ws" update-ref refs/remotes/origin/main HEAD
     runreal
-    expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (набор обязательных' "(ws#1215) инъекция: путь ci-read не передаёт набор — skipped остаётся причиной"
+    expect 1 "$UNJ" "(ws#1215) инъекция: путь ci-read не передаёт набор — skipped не снят, причина (д) (ws#1397)"
 fi
+# ws#1397 (kaname#978 @062a3449, запрос в ветку волны 955 без защиты): НАСТОЯЩИЕ merge-readiness и
+# ci-read песочницы, ci-read — двойником gh-twin.sh на фикстуре kacho-3140 (база 1266, проверок 68 —
+# FX_N ci-read-inject.sh). Защиту ci-read читает ответом, снятым без stderr (remote-reader в pod до
+# 73a3bda2): отказ 404 лишь в теле. merge-readiness судит тело и видит «не защищена»; ci-read судил
+# лишь stderr, выходил VOID, merge-readiness — кодом 2, и предпроверка красила «вердикт ствола» ×4
+# неуспехом CI. Предикат: исход тот же, что у отдельного merge-readiness, — код 0.
+printf 'PRO-Robotech/kacho\t1266\t68\tфикстура kacho-3140 (ci-read-inject.sh FX_N)\n' > "$W/ledger-3140.tsv"
+mrwave() {  # mrwave <тело отказа защиты для ci-read> [stderr отказа] — запрос в ветку волны
+    mrskip
+    rm -f "$W/case/protection.json"; : > "$W/case/protection-404"
+    rm -rf "$W/cr"; mkdir -p "$W/cr"; cp "$HERE/ci-read-fixtures/kacho-3140/"*.json "$W/cr/"
+    rm "$W/cr/protection.json"; printf '%s' "${2:-}" > "$W/cr/protection.json.err"; printf '%s\n' "$1" > "$W/cr/protection.json.errbody"
+}
+runwave() {
+    FAKE="$W/case" LANDING_PRECHECK_GH="$W/gh" LANDING_PRECHECK_WS="$W/ws" PATH="$W:$PATH" \
+        CI_READ_GH="$HERE/ci-read-fixtures/gh-twin.sh" CI_READ_FX="$W/cr" CI_READ_EXPECTED="$W/ledger-3140.tsv" \
+        bash "$TOOL" PRO-Robotech/kacho 3036 > "$W/out" 2>&1
+    echo $? > "$W/code"
+}
+P404='{"message":"Branch not protected","documentation_url":"https://docs.github.com/rest/branches/branch-protection#get-status-checks-protection","status":"404"}'
+mrwave "$P404"; runwave
+expect 0 - "(ws#1397) ветка волны без защиты, отказ 404 лишь в теле: настоящие merge-readiness и ci-read отдали набор — skipped по if ×4 не причина, код 0"
+if grep -q $'^CENSUS\tci: .*skipped не судимых без набора 0, skipped по невыполнимому if 4; набор обязательных 0 — установленный ноль (ci-read: ' "$W/out" \
+    && grep -q $'^CENSUS\tmerge-readiness: код 0, источник origin/main@' "$W/out"; then
+    echo "  [OK]   (ws#1397) перепись: merge-readiness код 0, набор 0 от ci-read с основанием"; pass=$((pass + 1))
+else echo "  [FAIL] (ws#1397) перепись не называет код 0 merge-readiness и набор 0 с основанием:" >&2; sed 's/^/           /' "$W/out" >&2; fail=$((fail + 1)); fi
+mrwave "$P404" 'gh: Branch not protected (HTTP 404)'; runwave
+expect 0 - "(ws#1397) близнец: отказ 404 и в stderr (живой gh) — тот же код 0"
+mrwave '{"message":"Server Error","status":"502"}'; runwave
+expect 1 $'REASON\tMERGE-READINESS\tкод 2: merge-readiness: ci-read вердикта не вынес (код 2); это НЕ «сливать нельзя»; '"$UNJS" "(ws#1397) близнец: защита ci-read не прочитана (502 в теле) — merge-readiness код 2, причина одна (д), CI-NOT-SUCCESS нет"
 rm -f "$W/case/protection-404"
 mrcase 1; rm "$W/case/comments-2690.json"; runreal
 expect 1 $'REASON\tMERGE-READINESS\tкод 1' "Closes #2690 без DoD-proof — merge-readiness судит по существу (код 1)" many

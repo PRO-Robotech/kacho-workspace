@@ -510,7 +510,12 @@ fi
 if apic "repos/$REPO/branches/$BASE/protection/required_status_checks" > "$W/prot.json"; then
     jq -e 'type=="object"' "$W/prot.json" >/dev/null 2>&1 || void "ответ о защите $BASE не разбирается"
     jq -r '[(.contexts // [])[], ((.checks // [])[] | .context)] | unique[]' "$W/prot.json" >> "$W/req.txt"
-elif grep -qE 'not protected|Required status checks not enabled' "$W/api.err"; then
+# Отказ площадки читается и по ТЕЛУ (.message 404), как у merge-readiness read_protection:
+# транспорт без stderr (снятый ответ remote-reader до ws#1365 73a3bda2) давал здесь VOID, там —
+# «не защищена», и предпроверка kaname#978 теряла набор обязательных (ws#1397).
+elif grep -qE 'not protected|Required status checks not enabled' "$W/api.err" \
+    || jq -e 'type == "object" and (.message == "Branch not protected" or .message == "Required status checks not enabled")
+              and ((.status // "") | tostring) == "404"' "$W/prot.json" >/dev/null 2>&1; then
     printf 'CENSUS\tзащиты ветки %s нет — обязательных контекстов по защите 0\n' "$BASE"
 else
     void "защита ветки $BASE не прочитана: $(apierr)"
