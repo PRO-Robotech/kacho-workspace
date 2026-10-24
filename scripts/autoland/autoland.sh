@@ -168,6 +168,8 @@
 #   AUTOLAND_CLONES  — клоны для снятия и догона через «:» (заданная пустой — ни одного);
 #   AUTOLAND_PUSH    — вместо `heavy-slot.sh --wait 300 ci-local --` перед `git push` догона;
 #   AUTOLAND_PUSH_TIMEOUT — предел отправки догона, с (по умолчанию 3600);
+#   AUTOLAND_LABEL_TRIES, AUTOLAND_LABEL_WAIT — перечтений открытой задачи после вливания в ствол и
+#                      пауза между ними, с (по умолчанию 4 и 5): закрытие по Closes асинхронно;
 #   AUTOLAND_QUEUE_POLL — пауза локальной сверки очереди, с (по умолчанию 5);
 #   AUTOLAND_CATCHUP_LIMIT — догонов базы за жизнь демона (по умолчанию 2);
 #   AUTOLAND_GATE_TIMEOUT — предел одного гейта, с (по умолчанию 900);
@@ -184,6 +186,7 @@ FF_FETCH_TIMEOUT="${AUTOLAND_FF_FETCH_TIMEOUT:-8}"
 INTERIM_LOCK="${AUTOLAND_INTERIM_LOCK:-$HOME/.cache/heavy-slots/interim.lock}"
 QUEUE_POLL="${AUTOLAND_QUEUE_POLL:-5}"; CATCHUP_LIMIT="${AUTOLAND_CATCHUP_LIMIT:-2}"
 PUSH_TIMEOUT="${AUTOLAND_PUSH_TIMEOUT:-3600}"
+LABEL_TRIES="${AUTOLAND_LABEL_TRIES:-4}"; LABEL_WAIT="${AUTOLAND_LABEL_WAIT:-5}"
 
 die() { printf 'autoland: ОТКАЗ — %s\n' "$1" >&2; exit "${2:-2}"; }
 
@@ -256,6 +259,8 @@ parse_args() {
         || die "AUTOLAND_HEAD_SYNC «$HEAD_SYNC» / AUTOLAND_HEAD_SYNC_POLL «$HEAD_SYNC_POLL» не секунды"
     [[ "$QUEUE_POLL" =~ ^[1-9][0-9]*$ ]] && [[ "$CATCHUP_LIMIT" =~ ^[0-9]+$ ]] && [[ "$PUSH_TIMEOUT" =~ ^[1-9][0-9]*$ ]] \
         || die "AUTOLAND_QUEUE_POLL «$QUEUE_POLL», AUTOLAND_CATCHUP_LIMIT «$CATCHUP_LIMIT», AUTOLAND_PUSH_TIMEOUT «$PUSH_TIMEOUT» не числа"
+    [[ "$LABEL_TRIES" =~ ^[1-9][0-9]*$ ]] && [[ "$LABEL_WAIT" =~ ^[0-9]+$ ]] \
+        || die "AUTOLAND_LABEL_TRIES «$LABEL_TRIES» / AUTOLAND_LABEL_WAIT «$LABEL_WAIT» не числа"
 }
 
 paths() {
@@ -641,8 +646,16 @@ drop_status_labels() {
     fi
     while read -r r n; do
         [ -n "$n" ] || continue
-        if ! "$GH" api "repos/$r/issues/$n" > "$W/issue.json" 2> "$W/issue.err"; then kept+=("$r#$n не прочитана"); continue; fi
-        st="$(jq -r '.state // ""' "$W/issue.json")"
+        # Хостинг закрывает задачи по Closes асинхронно: сразу после вливания в ствол задача ещё
+        # открыта. Перечитывается до LABEL_TRIES раз через LABEL_WAIT с — лишь при базе-стволе.
+        local try=1
+        while :; do
+            if ! "$GH" api "repos/$r/issues/$n" > "$W/issue.json" 2> "$W/issue.err"; then st=unread; break; fi
+            st="$(jq -r '.state // ""' "$W/issue.json")"
+            [ "$st" = open ] && { [ "$PR_BASE" = main ] || [ "$PR_BASE" = master ]; } && [ "$try" -lt "$LABEL_TRIES" ] || break
+            try=$((try + 1)); sleep "$LABEL_WAIT" & BG=$!; wait "$BG"; BG=""
+        done
+        [ "$st" != unread ] || { kept+=("$r#$n не прочитана"); continue; }
         ls="$(jq -r '[.labels[]?.name | select(startswith("status:"))] | join(" ")' "$W/issue.json")"
         [ "$st" = closed ] && [ -n "$ls" ] || continue
         for l in $ls; do
