@@ -58,6 +58,14 @@
 #                  судимой головы нет → void;
 #   prune-origin-ahead — ветка на origin ушла вперёд после вливания → не снимается;
 #   prune-not-in-base  — хостинг сказал merged, а влитой головы в базе нет → ничего не снято;
+#   py-guard     — гейт исполнил python3 (python) на машине → void «страж python3: <гейт>» сразу,
+#                  вызов назван, вливания и повтора гейта нет (ws#1365); близнец py-guard-slot:
+#                  локальный слот (HEAVY_SLOT_P) — python3 законен, merged; py-guard-prune:
+#                  python3 переписи снятия — merged остаётся, отказ строкой в исходе;
+#                  py-guard-{ver,abs,path,export,envi,var,timeout,xargs}: версия в имени, вызов
+#                  мимо PATH и через обёртку — тот же void (трасса); близнец py-guard-word —
+#                  слово python3 не командой, merged; py-guard-slot-abs — слот, merged;
+#                  py-guard-sh: sh -c (трасса слепа) — void двойником семейства имён;
 #   ff           — PR в main воркспейса влит: голова основного клона равна origin/main,
 #                  локальная правка вне входящих и неотслеживаемый файл целы (ws#1200);
 #                  ff-overlap: локальная правка пересекает входящий файл — отказ ff с
@@ -285,7 +293,7 @@ cat > "$T/gates/gate" <<'GATE'
 #!/usr/bin/env bash
 n="$(basename "$0")"; FX="$AL_FX"
 printf '%s %s\n' "$n" "$*" >> "$FX/calls"
-[ "$n" != branch-audit.sh ] || exit 0
+[ "$n" != branch-audit.sh ] || { [ ! -f "$FX/$n.hook" ] || bash "$FX/$n.hook"; exit 0; }
 i=$(( $(cat "$FX/$n.n" 2>/dev/null || echo 0) + 1 )); echo "$i" > "$FX/$n.n"
 if [ "$n" = landing-precheck.sh ] && [ ! -f "$FX/lp.nohead" ]; then   # форма landing-precheck.sh: CENSUS судимой головы
   h="$(cat "$FX/lp.head" 2>/dev/null || jq -r .head.sha "$FX/pull.json")"
@@ -931,6 +939,51 @@ s_guard() {
     ok guard "страж пропускает status (0)" eval '[ "$c2" = 0 ]'
     ok guard "страж отказывает циклу ожидания агентом (2)" eval '[ "$c3" = 2 ]'
 }
+# ── страж python3 гейтов (ws#1365): python3 на машине из гейта — void сразу, вердикт не читается ──
+s_py_guard() {
+    new_fx py-guard; echo "python3 -c 'print(1)' > /dev/null" > "$FX/landing-precheck.sh.hook"; run_al
+    ok py-guard "python3 из гейта — исход void «страж python3», код 2" eval '[ "$RC" -eq 2 ] && st_is void && st_has "страж python3: landing-precheck.sh"'
+    ok py-guard "исход называет вызов" st_has "python3 -c print(1)"
+    ok py-guard "вливания нет" not_merge_called
+    ok py-guard "landing-precheck зван ровно раз — повтора VOID нет" eval '[ "$(grep -c "^landing-precheck.sh " "$FX/calls")" -eq 1 ]'
+    new_fx py-guard-python; echo "python -V > /dev/null 2>&1" > "$FX/ci-read.sh.hook"; run_al
+    ok py-guard-python "python (без 3) из ci-read — тот же void" eval '[ "$RC" -eq 2 ] && st_has "страж python3: ci-read.sh"'
+    # Близнец: локальный слот (HEAVY_SLOT_P — кластер недоступен, доказано слотом) — python3 законен.
+    new_fx py-guard-slot; echo "python3 -c 'print(1)' > /dev/null" > "$FX/landing-precheck.sh.hook"; HEAVY_SLOT_P=/slot run_al
+    ok py-guard-slot "локальный слот: python3 исполнен, merged" eval '[ "$RC" -eq 0 ] && st_is merged && ! st_has "страж python3"'
+}
+# Обход двойника (ws#1365, опыт check-verifier): версия в имени, абсолютный путь, сброс PATH,
+# имя из переменной, обёртка — тот же void (слой трассы); законный близнец — слово python3 не
+# командой и поиск `command -v`; локальный слот — абсолютный путь законен.
+s_py_guard_bypass() {
+    local c name cmd
+    for c in 'ver|python3.13 -V' 'abs|/usr/bin/python3 -V' 'path|PATH=/usr/bin:/bin python3 -V' \
+             'export|export PATH=/usr/bin:/bin; python3 -V' 'envi|env -i /usr/bin/python3 -V' \
+             'var|PY=/usr/local/bin/python3.12; "$PY" -V' 'timeout|timeout -k 1 5 /usr/bin/python3 -V' \
+             'xargs|echo -V | xargs -r /usr/bin/python3'; do
+        name="${c%%|*}"; cmd="${c#*|}"
+        new_fx "py-guard-$name"; printf '%s > /dev/null 2>&1\n' "$cmd" > "$FX/landing-precheck.sh.hook"; run_al
+        ok "py-guard-$name" "«$cmd» из гейта — void «страж python3»" eval '[ "$RC" -eq 2 ] && st_is void && st_has "страж python3: landing-precheck.sh"'
+        ok "py-guard-$name" "вливания нет" not_merge_called
+    done
+    new_fx py-guard-word; printf '%s\n' 'grep -c python3 /dev/null; echo "python3 -V"; command -v python3 > /dev/null' > "$FX/landing-precheck.sh.hook"; run_al
+    ok py-guard-word "слово python3 не командой и command -v — merged, стража нет" eval '[ "$RC" -eq 0 ] && st_is merged && ! st_has "страж python3"'
+    new_fx py-guard-slot-abs; echo '/usr/bin/python3 -V > /dev/null 2>&1' > "$FX/landing-precheck.sh.hook"; HEAVY_SLOT_P=/slot run_al
+    ok py-guard-slot-abs "локальный слот: абсолютный путь законен, merged" eval '[ "$RC" -eq 0 ] && st_is merged && ! st_has "страж python3"'
+}
+# Не bash (трасса слепа): ловит лишь двойник — по имени семейства через PATH.
+s_py_guard_sh() {
+    local c
+    for c in 'python3.29 -V' 'python2 -V' 'python3 -V'; do
+        new_fx py-guard-sh; printf 'sh -c %q > /dev/null 2>&1\n' "$c" > "$FX/landing-precheck.sh.hook"; run_al
+        ok py-guard-sh "sh -c «$c» — void «страж python3» (двойник)" eval '[ "$RC" -eq 2 ] && st_is void && st_has "страж python3: landing-precheck.sh"'
+    done
+}
+s_py_guard_prune() {  # перепись снятия — после вливания: исход merged, отказ — в его строке
+    new_fx py-guard-prune; mk_git; echo "python3 -c 'print(1)' > /dev/null" > "$FX/branch-audit.sh.hook"; run_al
+    ok py-guard-prune "merged остаётся, строка «страж python3: branch-audit.sh»" eval '[ "$RC" -eq 0 ] && st_is merged && st_has "страж python3: branch-audit.sh"'
+    ok py-guard-prune "снятие прошло" eval '! has_branch'
+}
 s_static() {
     local code; code="$(grep -v '^[[:space:]]*#' "$AL")"
     ST="статика"; RC=-
@@ -1357,7 +1410,7 @@ ALL=(s_green s_red s_moved_start s_moved_gates s_moved_merge s_allow_ok s_allow_
      s_prune_no_clone s_prune_readonly
      s_ff s_ff_overlap s_ff_worktree s_ff_foreign s_ff_hang s_ff_epic s_lag s_lag_own s_lag_nofetch s_lag_hang
      s_start_stale s_head_sync
-     s_status s_empty_code s_lp_head s_census s_guard s_static
+     s_status s_empty_code s_lp_head s_census s_guard s_static s_py_guard s_py_guard_bypass s_py_guard_sh s_py_guard_prune
      s_q3 s_q_spelling s_q_diff_base s_q_dead s_q_live s_q_queued s_q_stale_ext s_q_conflict s_q_push s_q_task s_q_limit s_q_stale_lag s_q_fetch s_q_lock
      s_q_pinned s_q_pin_twins s_real_states s_real_replica)
 
@@ -1504,6 +1557,20 @@ mutant task-not-exported s_q_task,s_detach $'    export KACHO_TASK\n' $'\n'
 mutant task-unchecked s_args '[[ "$KACHO_TASK" =~ ^[1-9][0-9]*$ ]]' 'true'
 mutant task-unanchored s_args '[[ "$KACHO_TASK" =~ ^[1-9][0-9]*$ ]]' '[[ "$KACHO_TASK" =~ ^[1-9][0-9]* ]]'
 mutant catchup-fetch-unchecked s_q_fetch 'if ! GIT_TERMINAL_PROMPT=0 git -C "$c" fetch' 'if false && git -C "$c" fetch'
+# страж python3 гейтов (ws#1365)
+mutant py-guard-not-in-path s_py_guard_sh '    local PATH="$PYG:$AUTOLAND_PATH" BASH_ENV="$PY_ENV"' '    local PATH="$AUTOLAND_PATH" BASH_ENV="$PY_ENV"'
+mutant py-guard-trip-ignored s_py_guard '    if [ -s "$PY_TRIP" ]; then  # страж python3' '    if false; then  # страж python3'
+mutant py-guard-slot-refused s_py_guard "'[ -z \"\${HEAVY_SLOT_P:-}\" ] || PATH=\"\$AUTOLAND_PATH\" exec \"\${0##*/}\" \"\$@\"' \\" "':' \\"
+mutant py-guard-python2-unshimmed s_py_guard_sh 'PY_NAMES=(python python2 python3)' 'PY_NAMES=(python python3)'
+mutant py-guard-family-dropped s_py_guard_sh 'for _v in $(seq 0 40); do PY_NAMES+=("python3.$_v"); done' ':'
+mutant py-guard-xtrace-off s_py_guard_bypass 'BASH_XTRACEFD=83; set -x; fi' 'BASH_XTRACEFD=83; fi'
+mutant py-guard-bash-env-unexported s_py_guard_bypass 'export PATH AUTOLAND_PATH AUTOLAND_PY_TRIP BASH_ENV' 'export PATH AUTOLAND_PATH AUTOLAND_PY_TRIP'
+mutant py-guard-scan-unwired s_py_guard_bypass '    awk -v q="'\''" "$PY_SCAN" "$xt" >> "$PY_TRIP"' '    true || awk -v q="'\''" "$PY_SCAN" "$xt" >> "$PY_TRIP"'
+mutant py-guard-scan-env-blind s_py_guard_bypass 'if (w !~ /^(env|exec|' 'if (w !~ /^(exec|'
+mutant py-guard-scan-timeout-opts s_py_guard_bypass '    if (w == "timeout") return o ~ /^-[sk]$/' '    if (w == "timeout") return 0'
+mutant py-guard-slot-marker-ignored s_py_guard_bypass '    if ($1 ~ /=SLOT$/) next' '    if (0) next'
+mutant py-guard-prune-voids s_py_guard_prune '[ "$s" != branch-audit.sh ] || { PY_NOTE=' 'false && { PY_NOTE='
+mutant py-guard-note-dropped s_py_guard_prune '${SYNC:+; $SYNC}${PY_NOTE:+; $PY_NOTE}"' '${SYNC:+; $SYNC}"'
 
 reap
 for _ in 1 2 3 4 5 6 7 8 9 10; do [ "$(probe_procs)" -eq 0 ] && break; sleep 0.3; done
