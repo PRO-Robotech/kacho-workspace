@@ -44,6 +44,8 @@ git init -q "$pod/src" && git -C "$pod/src" fetch -q "$pod/in.bundle" 'refs/remo
     git -C "$pod/src" fetch -q "$pod/in.bundle" HEAD &&
     git -C "$pod/src" checkout -q --detach FETCH_HEAD &&
     git -C "$pod/src" remote add origin https://github.com/PRO-Robotech/kacho-workspace.git || exit 69
+# Учётные данные машины в Job не едут: метка секрета в дереве, которое получил pod, — утечка.
+[ -z "${SANDBOX_SECRET:-}" ] || ! grep -rqsF -- "$SANDBOX_SECRET" "$pod/src" || echo "$*" >> "$SANDBOX_LEAK"
 [ -z "${SANDBOX_MACHINE:-}" ] || mv "$SANDBOX_MACHINE" "$SANDBOX_MACHINE.hidden"
 (cd "$pod/src/$rel" && env HOME="$SANDBOX_POD_HOME" PATH="$SANDBOX_POD_PATH" KUBERNETES_SERVICE_HOST=sandbox "$@") |
     case "${SANDBOX_STREAM:-}" in
@@ -56,6 +58,37 @@ rc=${PIPESTATUS[0]}
 rm -rf "$pod"; exit "$rc"
 '''
 TRAP = '#!/usr/bin/env bash\necho "$0 $*" >> "$SANDBOX_TRAP"\nexit 97\n'
+SECRET = 'SANDBOX-CREDENTIAL-7f3c'  # метка учётных данных машины: в дереве Job её быть не должно
+# Промахи, которые называет pod (ws#1365): машина исполняет своим токеном лишь закрытый перечень
+# чтений. REFUSED — запись, выдача токена, тело, заголовки, jq, чужой хост, обход регистром,
+# слитной формой ключа, переводом строки внутри довода, псевдоним; READS — законные чтения.
+R = 'repos/PRO-Robotech/kaname/issues/1/comments'
+REFUSED = [
+    ['api', '-X', 'POST', R], ['api', '--method=POST', R], ['api', R, '-f', 'body=x'],
+    ['pr', 'merge', '1', '-R', 'PRO-Robotech/kaname', '--merge'], ['auth', 'token'],
+    ['api', '--method', 'post', R], ['api', '--method', 'POST', R], ['api', '-XPOST', R],
+    ['api', R, '--method', 'PATCH'], ['api', '--method', 'GET', '--method', 'POST', R],
+    ['api', R, '--input', '/etc/hostname'], ['api', '-F', 'x=@/etc/passwd', R], ['api', '--field', 'a=b', R],
+    ['api', '--raw-field', 'a=b', R], ['api', R, '--method', 'GET', '-f', 'x=y'],
+    ['api', 'graphql', '-f', 'query=mutation{x}'], ['api', 'graphql'],
+    ['API', R], ['PR', 'merge', '1'], ['co', '1'], ['repo', 'delete', 'PRO-Robotech/kaname', '--yes'],
+    ['issue', 'comment', '1', '--body', 'x'], ['run', 'rerun', '1'], ['pr', 'view', '1', '--web'],
+    ['api', '--jq', 'env', R], ['api', '--verbose', R], ['api', '--hostname', 'evil.example', R],
+    ['api', '-H', 'X-HTTP-Method-Override: DELETE', R], ['api', 'https://evil.example/x'],
+    ['api', 'repos/PRO-Robotech/kaname/../../user'], ['api', R + '\n--method\nPOST'],
+]
+REFUSED_RAW = ['[]', '{"argv": ["auth", "token"]}', '["api", 5]']
+READS = [
+    ['api', 'repos/PRO-Robotech/kaname/pulls/1'], ['api', 'rate_limit'],
+    ['api', '--method', 'GET', R + '?per_page=100&page=1'],
+    ['api', '--paginate', 'repos/PRO-Robotech/kaname/actions/runs?head_sha=' + 'a' * 40],
+    ['pr', 'view', '1', '-R', 'PRO-Robotech/kaname', '--json', 'state,headRefOid'],
+    ['pr', 'list', '-R', 'PRO-Robotech/kaname', '--json', 'number', '-L', '5'],
+    ['issue', 'view', '1365', '-R', 'PRO-Robotech/kacho-workspace', '--json', 'state'],
+    ['issue', 'list', '-R', 'PRO-Robotech/kacho-workspace'],
+    ['run', 'view', '1', '-R', 'PRO-Robotech/kaname', '--json', 'conclusion'],
+    ['run', 'list', '-R', 'PRO-Robotech/kaname', '-L', '3'],
+]
 # Двойник площадки по ВИДУ пути, как отвечает GitHub; неизвестный путь — 404 и строка в журнале.
 GH = r'''#!/usr/bin/env bash
 printf '%s\n' "$*" >> "$SANDBOX_GH_LOG"
@@ -81,7 +114,8 @@ class Sandbox:
         self.root = root
         self.ws = root / 'ws'
         self.trap, self.slot_log, self.gh_log = root / 'trap', root / 'slot.log', root / 'gh.log'
-        for p in (self.trap, self.slot_log, self.gh_log): p.write_text('')
+        self.leak = root / 'leak'
+        for p in (self.trap, self.slot_log, self.gh_log, self.leak): p.write_text('')
         (self.ws / 'scripts' / 'remote-reader').mkdir(parents=True)
         for rel in COPY:
             dst = self.ws / 'scripts' / rel
@@ -124,6 +158,7 @@ class Sandbox:
                             'STAND_REPORT_GH', 'RITUAL_LEDGER_CLONES')}
         env.update(SANDBOX_TRAP=str(self.trap), SANDBOX_SLOT_LOG=str(self.slot_log),
                    SANDBOX_GH_LOG=str(self.gh_log), SANDBOX_GH=str(self.gh), SANDBOX_MACHINE=str(self.files),
+                   SANDBOX_SECRET=SECRET, SANDBOX_LEAK=str(self.leak),
                    SANDBOX_POD_PATH=os.environ['PATH'], SANDBOX_POD_HOME=os.environ.get('HOME', '/'))
         if machine:
             # HOME машины — песочницы: коммит драйвера подписывается её корневым gitconfig.
@@ -210,6 +245,7 @@ class RemoteReader(unittest.TestCase):
 
     def assertJob(self, result, slots=1):
         self.assertEqual(self.box.trap.read_text(), '', 'python3 исполнен на машине: ' + result.stderr)
+        self.assertEqual(self.box.leak.read_text(), '', 'учётные данные машины уехали в Job')
         self.assertEqual(len(self.box.slots()), slots, result.stderr)
         if result.returncode == 0: self.assertEqual(self.box.residue(), [], 'журнал либо копия драйвера остались')
         self.assertFalse([p for p in self.box.residue() if not p.endswith('.log')], 'копия драйвера осталась')
@@ -315,6 +351,71 @@ class RemoteReader(unittest.TestCase):
         unpublished = self.box.run('pr-body.sh', *args, RITUAL_REPO_DIR=str(self.box.ws))
         self.assertEqual(unpublished.returncode, 64, unpublished.stderr)
         self.assertIn('не на origin', unpublished.stderr)
+
+    def test_pod_named_calls_outside_the_read_list_are_refused(self):
+        # Промах называет pod — значит, его текст пишет то, что исполнилось в Job. Машина исполняет
+        # своим токеном лишь закрытый перечень чтений: прочее — строка отказа, вызова gh нет.
+        k = Kaname(self.box, hosted=True)
+        args = ['report', '--expect', str(k.expect), '--import-id', k.identity,
+                '--hosted-reviews', str(k.reviews), '--events', str(k.events)]
+        direct = self.box.run('stand-report.sh', *args, machine=False)
+        self.assertEqual(direct.returncode, 0, direct.stdout + direct.stderr)
+        # Контроль: настоящий промах (журнал задания) снимается — законное чтение проходит.
+        self.box.mutate('remote-reader.sh', 'gh_fetch api --allow-escape-sequences "repos/$repo/actions/jobs/$key/logs"',
+                        ': "$key"')
+        self.box.gh_log.write_text('')
+        lawful = self.box.run('stand-report.sh', *args)
+        self.assertEqual((lawful.returncode, json.loads(lawful.stdout)), (0, json.loads(direct.stdout)), lawful.stderr)
+        self.assertIn('промахов GitHub 1 — сняты', lawful.stderr)
+        base = set(self.box.gh_log.read_text().splitlines())
+        # Pod дописывает к промахам вызовы, которых читатель не делал.
+        forge = self.box.root / 'forge.jsonl'
+        forge.write_text(''.join(json.dumps(a) + '\n' for a in REFUSED + READS) + ''.join(r + '\n' for r in REFUSED_RAW))
+        self.box.mutate('remote-reader/pod.sh', 'cp -- "$RR/gh/misses" "$box/miss"',
+                        'cat -- "$RR/gh/misses" "$SANDBOX_FORGE" > "$box/miss"')
+        self.box.gh_log.write_text(''); self.box.slot_log.write_text('')
+        got = self.box.run('stand-report.sh', *args, SANDBOX_FORGE=str(forge))
+        self.assertEqual((got.returncode, json.loads(got.stdout)), (0, json.loads(direct.stdout)), got.stderr)
+        self.assertJob(got, slots=2)
+        calls = set(self.box.gh_log.read_text().splitlines())
+        self.assertEqual(calls - base, {' '.join(a) for a in READS}, 'исполнено сверх законных чтений')
+        refused = [line for line in got.stderr.splitlines() if 'промах вне перечня чтений GitHub не снимается' in line]
+        self.assertEqual(len(refused), len(REFUSED) + len(REFUSED_RAW), got.stderr)
+        # Мутант: перечень снят (всякий промах — «чтение») — запись и выдача токена исполнены.
+        self.box.mutate('remote-reader.sh', 'gh_read_ok() {  # gh_read_ok', 'gh_read_ok() { return 0; }\nunused_read_ok() {  #')
+        self.box.gh_log.write_text('')
+        blind = self.box.run('stand-report.sh', *args, SANDBOX_FORGE=str(forge))
+        self.assertIn('auth token', self.box.gh_log.read_text().splitlines(), blind.stderr)
+
+    def test_credentials_of_the_machine_do_not_ship(self):
+        secret = self.box.home / '.config' / 'gh' / 'hosts.yml'
+        secret.parent.mkdir(parents=True); secret.write_text('oauth_token: ' + SECRET + '\n')
+        k = Kaname(self.box, hosted=True)
+        # Довод входа — сразу 64, Job не создаётся.
+        top = self.box.run('stand-report.sh', 'report', '--expect', str(k.expect), '--import-id', k.identity,
+                           '--hosted-reviews', str(secret), '--events', str(k.events))
+        self.assertEqual(top.returncode, 64, top.stderr)
+        self.assertEqual(self.box.slots(), [])
+        # Путь внутри JSON-входа — не переносится, строка остаётся, Job идёт без него.
+        reviews = json.loads(k.reviews.read_text()); reviews['leak'] = str(secret)
+        k.reviews.write_text(json.dumps(reviews))
+        inner = self.box.run('stand-report.sh', 'report', '--expect', str(k.expect), '--import-id', k.identity,
+                             '--hosted-reviews', str(k.reviews), '--events', str(k.events))
+        self.assertIn('хранилище учётных данных машины', inner.stderr)
+        self.assertEqual(len(self.box.slots()), 1, inner.stderr)
+        self.assertEqual(self.box.leak.read_text(), '', 'учётные данные машины уехали в Job')
+        # Адрес origin копии expect — без userinfo.
+        co, head = self.kaname_checkout()
+        self.box.git('remote', 'set-url', 'origin', 'https://x-access-token:' + SECRET + '@github.com/PRO-Robotech/kaname.git', cwd=co)
+        self.box.run('stand-report.sh', 'expect', '--checkout', str(co), '--head', head, '--base', 'origin/954',
+                     '--draft', 'false')
+        self.assertEqual(len(self.box.slots()), 2)
+        self.assertEqual(self.box.leak.read_text(), '', 'userinfo адреса origin уехал в Job')
+        # Мутант: адрес без очистки — метка в дереве Job (проба читает свой предмет).
+        self.box.mutate('remote-reader.sh', "| sed -E 's#^([A-Za-z][A-Za-z0-9+.-]*://)[^/@]*@#\\1#' >", '| cat >')
+        self.box.run('stand-report.sh', 'expect', '--checkout', str(co), '--head', head, '--base', 'origin/954',
+                     '--draft', 'false')
+        self.assertNotEqual(self.box.leak.read_text(), '', 'проба утечки слепа')
 
     def test_stream_is_deduplicated_and_a_gap_is_refused(self):
         k = Kaname(self.box)
