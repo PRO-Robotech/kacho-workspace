@@ -4233,6 +4233,8 @@ fresh; go_run kf7 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator 
 expect_rc KF7 64
 if grep -q 'клон --src подменяет историю (objects/info/alternates)' "$OUT"; then ok; else bad KF7 "alternates не отказаны причиной подмены истории"; fi
 no_cluster_call KF7
+fresh; go_run kf7o env REMOTE_HEAVY_KIND_DIR="$KDOLD" FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$BOX/kf-alt" --profile kind --short kf7o -- make test-e2e
+expect_rc KF7-old 0
 # KF8 — хуки и fsmonitor клона не исполняются ни сверкой, ни ссылкой, ни сборкой bundle:
 # core.hooksPath клона ведёт в каталог с reference-transaction-маркером, core.fsmonitor — на
 # команду-маркер. Предпосылка: обычный git по тому же клону маркер хука создаёт (сцена не пуста).
