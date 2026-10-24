@@ -3880,6 +3880,7 @@ if grep -q 'env.SHELLCHECK_VERSION конвейера нет' "$OUT"; then ok; e
 # ws не зовёт (ws#1365: страж демона вливания отказывает python3 маршруту читателей) — ловушка
 # python3/python первой в PATH, путь до Job тот же, что у WS1.
 mkdir -p "$BOX/pytrap"; : > "$BOX/pytrap.log"
+# shellcheck disable=SC2016  # текст ловушки: $0 и $* раскрывает она сама при запуске, не здесь
 for p in python3 python; do printf '#!/usr/bin/env bash\necho "$0 $*" >> %q\nexit 97\n' "$BOX/pytrap.log" > "$BOX/pytrap/$p"; chmod +x "$BOX/pytrap/$p"; done
 fresh; go_run ws3-nopy env PATH="$BOX/pytrap:$BOX/bin:$PATH" FAKE_EXIT=0 bash "$RUN" --task 1 --repo kacho-workspace --ref scsq --src "$SRCW" --profile ws --short ws3 -- true
 expect_rc WS3-nopy 0

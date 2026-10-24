@@ -11,10 +11,13 @@
 #   remote-reader.sh scripts/pr-body.sh <репо> <база> <голова>   (RITUAL_REPO_DIR — как у pr-body.sh)
 #   remote-reader.sh scripts/landing-precheck.sh <репо> <N> [--reviews …] [--stand-report … --stand-expect …]
 #   remote-reader.sh scripts/ci-read.sh --job-names <файл workflow> <имена на голове>
+#   remote-reader.sh scripts/ci-read.sh <владелец/репозиторий> <номер PR | sha40> [--base …] [--head …] [--draft …]
 #   remote-reader.sh scripts/branch-audit.sh --generator-outputs <файл генератора>
-#       — python-части читателей демона вливания (ws#1365): предпроверка целиком; у ci-read и
-#         branch-audit — лишь форма с python3 (прочее у них — gh, jq, git машины: Job на каждый
-#         опрос CI демона и перепись клонов машины в pod не годятся)
+#       — python-части читателей демона вливания (ws#1365): предпроверка целиком; у branch-audit —
+#         лишь форма с python3 (перепись клонов машины в pod не годится). ci-read: --job-names сам
+#         уходит сюда; полная форма — вход полос, которым ci-read на машине не положен (владелец
+#         2026-10-22), и зовётся сюда ЯВНО: демон вливания читает CI на машине (Job на каждый его
+#         опрос не годится); --from-state — 64: снимок демона лежит на машине, Job его не видит
 # Зовут его сами входы, руками — незачем. Вход идёт ЗДЕСЬ, а не сюда, лишь там, где машины
 # владельца нет либо маршрут уже пройден: pod внешнего кластера (KUBERNETES_SERVICE_HOST ставит
 # kubelet), ранер конвейера (GITHUB_ACTIONS=true), сторона pod драйвера (KACHO_REMOTE_READER_POD=1 —
@@ -34,7 +37,8 @@
 #      каталог доводом — 64, кроме копии expect (--checkout): она едет bundle HEAD, веток и origin/*
 #      (правка вне коммита — 64), в pod — клон с тем же origin. Реестр tmp/operator-stand-registry
 #      машины — в tmp/ копии. У предпроверки файлы — лишь значения --reviews, --stand-report,
-#      --stand-expect; у форм ci-read и branch-audit — все доводы после ключа формы;
+#      --stand-expect; у форм --job-names и --generator-outputs — все доводы после ключа формы;
+#      у полной формы ci-read файлов нет (репозиторий, номер, ревизии);
 #   3. GitHub: ответы снимает здесь `gh` (на машине он разрешён), pod отдаёт их читателю
 #      через STAND_REPORT_GH и RITUAL_GH (scripts/remote-reader/replay-gh.sh). Снимается
 #      надмножество по плану читателя: hosted kaname — workflow, коммит, прогоны, задания,
@@ -132,9 +136,12 @@ TOP="$(git -C "$HERE" rev-parse --show-toplevel 2>/dev/null)" || TOP=""
 ENTRY="${1:-}"; [ $# -gt 0 ] && shift
 case "$ENTRY" in
     scripts/stand-report.sh|scripts/pr-body.sh|scripts/landing-precheck.sh) ;;
-    scripts/ci-read.sh) [ "${1:-}" = --job-names ] || die 64 "ci-read.sh — лишь формой --job-names (прочее читает gh и jq здесь)" ;;
+    scripts/ci-read.sh)
+        for a in "$@"; do
+            [ "$a" != --from-state ] || die 64 "ci-read.sh --from-state — снимок демона лежит на машине, Job его не видит: без ключа — живое чтение Job-ом"
+        done ;;
     scripts/branch-audit.sh) [ "${1:-}" = --generator-outputs ] || die 64 "branch-audit.sh — лишь формой --generator-outputs (перепись судит клоны машины)" ;;
-    *) die 64 "вход «$ENTRY» вне перечня (scripts/stand-report.sh, scripts/pr-body.sh, scripts/landing-precheck.sh, scripts/ci-read.sh --job-names, scripts/branch-audit.sh --generator-outputs)" ;;
+    *) die 64 "вход «$ENTRY» вне перечня (scripts/stand-report.sh, scripts/pr-body.sh, scripts/landing-precheck.sh, scripts/ci-read.sh, scripts/branch-audit.sh --generator-outputs)" ;;
 esac
 # Ревизия Job. Копия: HEAD копии, где лежит вход (правка scripts/ вне коммита — 64). Архив рецепта
 # «ЗАПУСК» (scripts/ из origin/main в каталог вне копии, LANDING_PRECHECK_WS — воркспейс; так
@@ -226,9 +233,11 @@ ARGS=(); prev=""
 # Доводы pr-body — имя, ревизии, не файлы: переносится лишь копия его репозитория (ниже).
 [ "$ENTRY" = scripts/pr-body.sh ] && ARGS=("$@") && set --
 # Предпроверка посадки: файлы — лишь значения --reviews, --stand-report, --stand-expect (репозиторий
-# и номер — не пути, даже если в каталоге вызова лежит одноимённый файл). Формы ci-read и
-# branch-audit: после ключа формы — только файлы.
-if [ "$ENTRY" = scripts/landing-precheck.sh ]; then
+# и номер — не пути, даже если в каталоге вызова лежит одноимённый файл). Формы --job-names и
+# --generator-outputs: после ключа формы — только файлы; полная форма ci-read — без файлов, как есть.
+if [ "$ENTRY" = scripts/ci-read.sh ] && [ "${1:-}" != --job-names ]; then
+    ARGS=("$@"); set --
+elif [ "$ENTRY" = scripts/landing-precheck.sh ]; then
     for a in "$@"; do
         case "$prev" in
             --reviews|--stand-report|--stand-expect)  # не файл — довод как есть: отказ скажет предпроверка
@@ -361,11 +370,52 @@ pages_q() {  # pages_q <поле|-> <путь до page=> <после page=N…>
     done
 }
 
+ci_read_reads() {  # ci_read_reads <репо> <голова> <база> — чтения ci-read.sh после головы и базы (надмножество)
+    # Адреса — те, что строит scripts/ci-read.sh (CI_READ_GH в pod — чтение без условия: api, apip).
+    local repo="$1" head="$2" base="$3" p st f sx
+    gh_fetch api --paginate "repos/$repo/commits/$head/check-runs?per_page=100"
+    while IFS= read -r p; do gh_fetch api "repos/$repo/check-runs/$p/annotations"; done < <(
+        jq -r '.check_runs[]? | select(.status == "completed" and .conclusion == "failure") | .id' "$RR/$LAST" 2>/dev/null | sort -u)
+    gh_fetch api "repos/$repo/commits/$head/status"
+    gh_fetch api --paginate "repos/$repo/actions/runs?head_sha=$head&per_page=100"
+    gh_fetch api "repos/$repo/branches/$base/protection/required_status_checks"
+    gh_fetch api "repos/$repo/rules/branches/$base"
+    if gh_fetch api "repos/$repo/branches/$base"; then
+        st="$(jq -r '.commit.sha // empty' "$RR/$LAST" 2>/dev/null)"
+        [[ "$st" =~ ^[0-9a-f]{40}$ ]] && gh_fetch api "repos/$repo/compare/$st...$head"
+    fi
+    # файлы workflow на голове: условие if у skipped (предпроверка), имена вытесненного (ci-read);
+    # прогоны — любой формой чтения (страницами предпроверки и --paginate ci-read)
+    while IFS= read -r f; do gh_fetch api "repos/$repo/contents/$f?ref=$head"; done < <(
+        jq -r 'select(any(.argv[]; test("/actions/runs\\?head_sha="))) | .out' "$RR/gh/index.jsonl" |
+        while IFS= read -r sx; do jq -r '.workflow_runs[]?.path // empty' "$RR/$sx" 2>/dev/null; done | sed 's/@.*//' | sort -u)
+    return 0
+}
+
+plan_ci_read() {  # ответы GitHub полной формы ci-read.sh; --job-names GitHub не читает
+    local repo="${ORIG[0]:-}" ref="${ORIG[1]:-}" base="" head="" a prev=""
+    [[ "$repo" =~ $RR_REPO_RE ]] || return 0
+    for a in "${ORIG[@]:2}"; do [ "$prev" = --base ] && base="$a"; prev="$a"; done
+    gh_fetch api rate_limit
+    if [[ "$ref" =~ ^[0-9]+$ ]]; then
+        gh_fetch api "repos/$repo/pulls/$ref" || return 0
+        head="$(jq -r '.head.sha // empty' "$RR/$LAST" 2>/dev/null)"; base="$(jq -r '.base.ref // empty' "$RR/$LAST" 2>/dev/null)"
+    elif [[ "$ref" =~ ^[0-9a-f]{40}$ ]]; then
+        head="$ref"
+        if [ -z "$base" ]; then
+            gh_fetch api "repos/$repo" || return 0
+            base="$(jq -r '.default_branch // empty' "$RR/$LAST" 2>/dev/null)"
+        fi
+    fi
+    [[ "$head" =~ ^[0-9a-f]{40}$ ]] && [[ "$base" =~ $RR_ARG_RE ]] || return 0
+    ci_read_reads "$repo" "$head" "$base"
+}
+
 plan_landing_precheck() {  # ответы GitHub предпроверки посадки и её merge-readiness и ci-read (надмножество)
     # Адреса — те, что строят scripts/landing-precheck.sh, merge-readiness.sh и ci-read.sh (CI_READ_GH в
     # pod — чтение без условия); лишний ответ безвреден (отказ площадки снимается с кодом, как у gh),
     # недостающий — промах, его снимает круг повтора.
-    local repo="${ORIG[0]:-}" pr="${ORIG[1]:-}" pull head base bsha href rb rh o r n p st sx f b
+    local repo="${ORIG[0]:-}" pr="${ORIG[1]:-}" pull head base bsha href rb rh o r n sx f b
     [[ "$repo" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ && "$pr" =~ ^[0-9]+$ ]] || return 0
     gh_fetch api rate_limit
     gh_fetch api "repos/$repo/pulls/$pr" || return 0
@@ -402,21 +452,7 @@ plan_landing_precheck() {  # ответы GitHub предпроверки пос
              jq -r '.closingIssuesReferences[]? | "\(.repository.owner.login)/\(.repository.name)#\(.number)"' "$o" 2>/dev/null
            } | sort -u)
     # ci-read внутри merge-readiness (база без контекстов со строкой ведомости)
-    gh_fetch api --paginate "repos/$repo/commits/$head/check-runs?per_page=100"
-    while IFS= read -r p; do gh_fetch api "repos/$repo/check-runs/$p/annotations"; done < <(
-        jq -r '.check_runs[]? | select(.status == "completed" and .conclusion == "failure") | .id' "$RR/$LAST" 2>/dev/null | sort -u)
-    gh_fetch api "repos/$repo/commits/$head/status"
-    gh_fetch api --paginate "repos/$repo/actions/runs?head_sha=$head&per_page=100"
-    gh_fetch api "repos/$repo/branches/$base/protection/required_status_checks"
-    gh_fetch api "repos/$repo/rules/branches/$base"
-    if gh_fetch api "repos/$repo/branches/$base"; then
-        st="$(jq -r '.commit.sha // empty' "$RR/$LAST" 2>/dev/null)"
-        [[ "$st" =~ ^[0-9a-f]{40}$ ]] && gh_fetch api "repos/$repo/compare/$st...$head"
-    fi
-    # файлы workflow на голове: условие if у skipped (предпроверка), имена вытесненного (ci-read)
-    while IFS= read -r f; do gh_fetch api "repos/$repo/contents/$f?ref=$head"; done < <(
-        jq -r 'select(.argv[1] | test("/actions/runs\\?head_sha=")) | .out' "$RR/gh/index.jsonl" |
-        while IFS= read -r sx; do jq -r '.workflow_runs[]?.path // empty' "$RR/$sx" 2>/dev/null; done | sed 's/@.*//' | sort -u)
+    ci_read_reads "$repo" "$head" "$base"
     # отчёт стенда — судья kaname (hosted-ступень), события — из отчёта
     f="$(opt --stand-expect)" && [ -f "$f" ] && sx="$(opt --stand-report)" && [ -f "$sx" ] &&
         hosted_reads "$f" "$(jq -c '.events // {}' "$sx" 2>/dev/null || echo '{}')"
@@ -438,6 +474,7 @@ if [ "$ENTRY" = scripts/pr-body.sh ]; then
 fi
 [ "$ENTRY" = scripts/pr-body.sh ] && plan_pr_body
 [ "$ENTRY" = scripts/stand-report.sh ] && plan_kaname_hosted
+[ "$ENTRY" = scripts/ci-read.sh ] && [ "${ORIG[0]:-}" != --job-names ] && plan_ci_read
 # Предпроверка посадки: цепочки чтений длиннее (merge-readiness, ci-read, комментарии) — кругов больше.
 [ "$ENTRY" = scripts/landing-precheck.sh ] && plan_landing_precheck && ROUNDS=4
 

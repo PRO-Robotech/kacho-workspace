@@ -645,12 +645,38 @@ class DaemonReaders(unittest.TestCase):
         machine = self.box.run('ci-read.sh', '--job-names', str(wf), str(present))
         self.assertEqual((machine.returncode, machine.stdout), (0, direct.stdout), machine.stderr)
         self.assertJob(machine)
-        # Иная форма ci-read внешним маршрутом не идёт: его чтения — gh и jq машины.
+        # Снимок демона (--from-state) лежит на машине — Job его не видит: 64 до Job.
         refused = subprocess.run(['bash', str(self.box.ws / 'scripts/remote-reader.sh'), 'scripts/ci-read.sh',
-                                  'PRO-Robotech/kacho', '1'], cwd=str(self.box.ws), env=self.box.env(),
+                                  'PRO-Robotech/kacho', '1', '--from-state'], cwd=str(self.box.ws), env=self.box.env(),
                                  capture_output=True, text=True, timeout=60)
         self.assertEqual(refused.returncode, 64, refused.stderr)
+        self.assertIn('--from-state', refused.stderr)
         self.assertEqual(len(self.box.slots()), 1)
+
+    def test_ci_read_full_form_runs_in_the_job(self):
+        """Полная форма ci-read — вход полос, которым ci-read на машине не положен (ws#1383).
+
+        Захват kacho#3296 (ci-read-fixtures): вытесненный прогон — чтение файла workflow на голове и
+        разбор его имён (--job-names) в pod; двойник площадки — gh-twin.sh проб ci-read."""
+        fx = self.box.files / 'ci'
+        shutil.copytree(HERE / 'ci-read-fixtures' / 'kacho-3296', fx)
+        self.box.write(self.box.machine_bin / 'gh', (HERE / 'ci-read-fixtures' / 'gh-twin.sh').read_text())
+        args = ['PRO-Robotech/kacho', '3296']
+        direct = self.box.run('ci-read.sh', *args, machine=False, CI_READ_GH=str(self.box.machine_bin / 'gh'),
+                              CI_READ_FX=str(fx))
+        self.assertIn(direct.returncode, (1, 3), direct.stdout + direct.stderr)
+        self.assertRegex(direct.stdout, r'REASON\tRUN-DISPLACED\tproduction-posture .*не появились 3 из 3')
+        machine = self.box.run('remote-reader.sh', 'scripts/ci-read.sh', *args, CI_READ_FX=str(fx))
+        self.assertEqual(lp_out(machine), lp_out(direct), machine.stderr)
+        self.assertNotIn('промахов GitHub', machine.stderr)
+        self.assertJob(machine)
+        # План без статуса коммита: промах снимается вторым кругом, вывод тот же.
+        self.box.mutate('remote-reader.sh', '    gh_fetch api "repos/$repo/commits/$head/status"\n', '')
+        self.box.slot_log.write_text('')
+        second = self.box.run('remote-reader.sh', 'scripts/ci-read.sh', *args, CI_READ_FX=str(fx))
+        self.assertEqual(lp_out(second), lp_out(direct), second.stderr)
+        self.assertIn('промахов GitHub 1 — сняты, прогон 2 из 3', second.stderr)
+        self.assertJob(second, slots=2)
 
     def audited(self):
         """Репозиторий переписи: голый origin, ствол, генератор с постоянным ответом (как vault-index)."""
