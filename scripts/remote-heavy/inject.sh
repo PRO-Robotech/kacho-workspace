@@ -4076,7 +4076,7 @@ WW="$BOX/wsw"; rm -rf "$WW"; mkdir -p "$WW/bin" "$WW/work"
 # shellcheck disable=SC2016  # текст двойника часов раскрывает он сам
 printf '#!/bin/sh\nn=$(cat "%s/n" 2>/dev/null || echo 0); echo $((n + 1)) > "%s/n"; echo $((1000 + 10 * n))\n' "$WW" "$WW" > "$WW/bin/date"
 printf '#!/bin/sh\n:\n' > "$WW/bin/sleep"; chmod +x "$WW/bin/date" "$WW/bin/sleep"
-for t in cat kill pkill; do p_="$(command -v "$t" 2>/dev/null)" && [ -n "$p_" ] && [ -x "$p_" ] && ln -sf "$p_" "$WW/bin/$t"; done
+for t in bash cat kill pkill; do p_="$(command -v "$t" 2>/dev/null)" && [ -n "$p_" ] && [ -x "$p_" ] && ln -sf "$p_" "$WW/bin/$t"; done
 sed -n '/^if \[ -n "\${wsenv_pid:-}" \]; then$/,/^# wsclonewait-end$/p' "$BOX/ws1.cmd" | sed "s#/work/#$WW/work/#g" > "$WW/wait.sh"
 real_sleep="$(command -v sleep)"
 # shellcheck disable=SC2016  # текст скрипта ожидания раскрывает он сам
