@@ -232,7 +232,10 @@
 # (тот же канал, что kubectl cp). Токена нет вовсе: ни git, ни реестра — в
 # кластер не уходит ни одного секрета, а неотправленная ревизия доставляется так
 # же, как отправленная. Bundle несёт историю, поэтому проверки, читающие git
-# (`git ls-files`, предок ли ствол), видят дерево как в клоне конвейера.
+# (`git ls-files`, предок ли ствол), видят дерево как в клоне конвейера. Адрес
+# `origin` — тот же, что у checkout конвейера (`https://github.com/PRO-Robotech/<репозиторий>.git`,
+# без токена): по нему проверки узнают собственное имя клона (docfresh `_origin_repo`), и без
+# него проба «координата по имени СВОЕГО репозитория» краснела в pod при зелёном конвейере (ws#1301).
 #
 # ВЕРСИИ — из дерева ревизии, а не из машины: go — строка toolchain (иначе go)
 # в go.mod, golangci-lint и gosec — пин `go install …@vX` в .github/workflows/ci.y*ml.
@@ -3352,13 +3355,14 @@ FETCH='set -e; i=0; while [ ! -f /work/in.done ]; do i=$((i+1)); [ "$i" -le 600 
 git init -q /work/src; cd /work/src; git bundle unbundle /work/in.bundle >/dev/null
 git bundle list-heads /work/in.bundle | while read -r h r; do case "$r" in refs/remotes/*|refs/tags/*) git update-ref "$r" "$h" ;; esac; done
 git update-ref refs/heads/heavy-run "$HEAVY_SHA"
+[ -z "$HEAVY_ORIGIN" ] || git remote add origin "$HEAVY_ORIGIN"
 [ -z "$HEAVY_MAIN" ] || git update-ref refs/remotes/origin/main "$HEAVY_MAIN"
 git -c advice.detachedHead=false checkout -q --detach "$HEAVY_SHA"
 [ "$(git rev-parse HEAD)" = "$HEAVY_SHA" ]; rm -f /work/in.bundle /work/in.done
 mkdir -p /work/bin; echo "remote-heavy: дерево $HEAVY_SHA" >&2'
 
 jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg goimg "$GO_IMAGE" --arg dimg "$DIND_IMAGE" --arg cimg "$CLI_IMAGE" \
-    --arg sha "$SHA" --arg main "$MAIN_SHA" --arg wd "$WORKDIR" --arg prep "$PREP" --arg fetch "$FETCH" \
+    --arg sha "$SHA" --arg main "$MAIN_SHA" --arg origin "https://github.com/PRO-Robotech/$REPO.git" --arg wd "$WORKDIR" --arg prep "$PREP" --arg fetch "$FETCH" \
     --argjson deadline "$(( TIMEOUT_S + WAIT_START_S ))" --argjson dind "$DIND" \
     --arg cr "${RUN_CPU_REQ}m" --arg cl "$CPU_LIM" --arg mr "${RUN_MEM_REQ}Mi" --arg ml "${RUN_MEM_LIM}Mi" --arg eph "$EPH" \
     --arg dcr "$DCR" --arg dcl "$DCL" --arg dmr "$DMR" --arg dml "$DML" \
@@ -3390,7 +3394,7 @@ def kesc_c: (if .command then .command |= map(kesc) else (.) end)
         volumeMounts: [{name: "dind-lib", mountPath: "/var/lib/docker"}, {name: "dind-sock", mountPath: "/run/dind"}]}]
       else [] end) + [
        {name: "fetch", image: $goimg, command: ["sh", "-c", $fetch],
-        env: [{name: "HEAVY_SHA", value: $sha}, {name: "HEAVY_MAIN", value: $main}],
+        env: [{name: "HEAVY_SHA", value: $sha}, {name: "HEAVY_MAIN", value: $main}, {name: "HEAVY_ORIGIN", value: $origin}],
         resources: {requests: {cpu: "100m", memory: "256Mi"}, limits: {cpu: "2", memory: "2Gi"}},
         volumeMounts: [{name: "work", mountPath: "/work"}]}]),
      containers: ([{name: "run", image: $goimg, command: (["bash", "-c", $prep, "run"] + $cmdv[0]),

@@ -267,6 +267,13 @@ MUTANTS = [
     ("V9b-gitid-smuggle", "GI1-decoy", "помощник учётных данных копии провезён в значении разрешённого имени",
      r'''    GIT_EMAIL="$(git -C "$SRC" config --global --includes --get user.email 2>/dev/null)" || GIT_EMAIL=""''',
      r'''    GIT_EMAIL="$(git -C "$SRC" config --global --includes --get user.email 2>/dev/null)$(git -C "$SRC" config --global --get credential.helper)" || GIT_EMAIL=""'''),
+    # ws#1301: клон pod без адреса origin — проверки, узнающие своё имя по origin, судят иначе, чем в конвейере.
+    ("origin-unset", "GI1-origin", "адрес origin клона pod не передан",
+     r'''--arg origin "https://github.com/PRO-Robotech/$REPO.git"''',
+     r'''--arg origin ""'''),
+    ("origin-from-copy", "GI1-origin", "адрес origin клона pod взят из origin копии (может нести учётку)",
+     r'''--arg origin "https://github.com/PRO-Robotech/$REPO.git"''',
+     r'''--arg origin "$(git -C "$SRC" remote get-url origin 2>/dev/null)"'''),
     ("V11-gitid-email-only", "GI2-name-only", "учётка без адреса принимается",
      r'''[ -z "$GIT_EMAIL" ] || ''',
      r''''''),
