@@ -272,6 +272,11 @@
 #   WS1–WS6 профиль ws клона воркспейса (ws#1304): Job — образ продуктов, клоны продуктов, среда
 #      наборов, её сверка и команда от runner; пара профиля и репозитория; пин shellcheck; сверка
 #      среды, читатель трекера и установка с пином суммы исполнением (подробно — у случаев)
+#   KD1–KD9 профиль kind (ws#1385, kind.sh): пара профиля — лишь клоны внешних операторов
+#      (kind + kacho → 64); Job — hostUsers узла и privileged лишь у dind, проба допуска от
+#      имени job-controller до Job, проба исполнимости kind в pod (исполнением шага над
+#      двойником docker); исполненная команда — её код (0 и 1), отказ допуска и «kind не
+#      исполним» — 77, допуск не проверен и образ пробы не скачан — 69; близнецы go-race
 #   L0 двойник сам печатает адрес и IPv4   → да (контроль пробы утечки)
 #   L0b двойник печатает адреса pod в stdout лога → да (контроль F4)
 #   L1 вывод всех случаев без адреса сервера, IPv4/IPv6 узлов и pod, токена,
@@ -303,6 +308,9 @@ export LC_ALL=C
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # REMOTE_HEAVY_RUN — испорченная копия run.sh от mutants.sh; иначе run.sh рядом.
 RUN="${REMOTE_HEAVY_RUN:-$SELF_DIR/run.sh}"
+# Профиль kind run.sh подключает рядом с собой; копия run.sh (mutants.py, QE) лежит вне
+# каталога — путь к kind.sh ей даётся явно.
+export REMOTE_HEAVY_KIND_LIB="${REMOTE_HEAVY_KIND_LIB:-$SELF_DIR/kind.sh}"
 BOX="$(mktemp -d)" || { echo "inject: каталог пробы не создан" >&2; exit 2; }
 trap 'rm -rf -- "$BOX"' EXIT
 
@@ -349,13 +357,15 @@ mkdir -p "$S/ns" "$S/jobs"
 mkdir -p "$S/ns" "$S/jobs"
 echo "$*" >> "$S/calls"
 echo "Warning: cluster https://$FAKE_HOST:6443 ($FAKE_IP) answered slowly" >&2
-ns=""; sel=""; all=0; ctx=""; kcfg=""
+ns=""; sel=""; all=0; ctx=""; kcfg=""; dry=""; as=""
 args=()
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --kubeconfig) kcfg="$2"; shift 2 ;;
         --context) ctx="$2"; shift 2 ;;
         --request-timeout=*|--field-selector=*|--wait=*|--timeout=*) shift ;;
+        --dry-run=*) dry="${1#--dry-run=}"; shift ;;
+        --as=*) as="${1#--as=}"; shift ;;
         -n) ns="$2"; shift 2 ;;
         -l) sel="$2"; shift 2 ;;
         -o) shift 2 ;;
@@ -392,6 +402,16 @@ case "$1" in
             echo "Error from server (Forbidden): admission webhook denied the request: policy host-access-allowlist (context $ctx)" >&2; exit 1 ;;
         esac ;;
 esac
+# Пробный create (профиль kind, ws#1385): допуск pod от имени --as; FAKE_ADMISSION — deny
+# (политика отказала), down (сервер не ответил).
+if [ "$1" = create ] && [ -n "$dry" ]; then
+    printf '%s %s %s\n' "$dry" "$as" "$(jq -r '.kind + " " + ((.spec.containers // []) | map(.name) | join(","))' "$3")" >> "$S/dryrun"
+    case "${FAKE_ADMISSION:-}" in
+        deny) echo "Error from server (Forbidden): error when creating \"$3\": pods \"run-x\" is forbidden: ValidatingAdmissionPolicy 'host-access-allowlist' with binding 'host-access-allowlist' denied request: host access for pod requested by $as" >&2; exit 1 ;;
+        down) echo "Unable to connect to the server: dial tcp $FAKE_IP:6443: i/o timeout" >&2; exit 1 ;;
+    esac
+    echo "pod/run-x"; exit 0
+fi
 case "$1 ${2:-}" in
     "config get-contexts") jq -r '.contexts[].name' "$kcfg" ;;
     "config view") printf 'https://%s:6443' "$FAKE_HOST" ;;
@@ -3985,6 +4005,109 @@ ws6_case WS6-yqsum 125 "yq v4.45.4 не поставлен" WSC_BAD=yq
 ws6_case WS6-scsum 125 "shellcheck 0.11.0 не поставлен" WSC_BAD=sc
 ws6_case WS6-batssum 125 "bats-core 1.10.0 не поставлен" WSC_BAD=bats
 ws6_case WS6-down 125 "yq v4.45.4 не поставлен" WSC_DOWN=1
+
+# ── KD: профиль kind (ws#1385, kind.sh) ──────────────────────────────────────
+# KD1 — пара профиля: kind лишь клонам внешних операторов; продукт — 64 с причиной (ПОВЕРХНОСТЬ)
+fresh; go_run kd1 bash "$RUN" --request --profile kind --repo kacho
+expect_rc KD1 64
+if grep -q 'профиль kind — лишь для клонов внешних операторов' "$OUT"; then ok; else bad KD1 "причина отказа пары kind + kacho не названа"; fi
+fresh; go_run kd1b bash "$RUN" --request --profile kind --repo registry-operator
+expect_rc KD1b 0
+if grep -qE '^[1-9][0-9]* [1-9][0-9]*$' "$OUT"; then ok; else bad KD1b "запрос профиля kind не «mCPU МиБ»"; fi
+fresh; go_run kd1c bash "$RUN" --task 1 --repo kaname --ref HEAD --src "$SRC" --profile kind --short kd1c -- true
+expect_rc KD1c 64
+no_cluster_call KD1c
+# KD2 — Job профиля kind: hostUsers узла, privileged лишь у dind, dind — runc без проверки userns,
+# run — проба исполнимости kind вместо проверки userns; допуск — пробным pod от имени
+# job-controller ДО Job. Исполненная команда — её код (0 — зелёное).
+fresh; go_run kd2 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$SRC" --profile kind --short kd2 -- make test-e2e
+expect_rc KD2 0
+J="$BOX/state/job.json"; cp "$J" "$BOX/kd2.job.json" 2>/dev/null
+if [ "$(jq -r '.spec.template.spec.hostUsers' "$J" 2>/dev/null)" = true ]; then ok; else bad KD2 "hostUsers Job профиля kind — не true"; fi
+if [ "$(jq -c '[.spec.template.spec.initContainers[], .spec.template.spec.containers[]] | map(select(.securityContext.privileged == true) | .name)' "$J" 2>/dev/null)" = '["dind"]' ]; then ok
+else bad KD2 "privileged — не ровно у dind: $(jq -c '[.spec.template.spec.initContainers[], .spec.template.spec.containers[]] | map(select(.securityContext.privileged == true) | .name)' "$J" 2>/dev/null)"; fi
+kd_dind="$(kx cmd "$J" dind 2)"; kd_prep="$(kx cmd "$J" run 2)"
+if grep -q 'exec dockerd' <<< "$kd_dind" && ! grep -q 'crun' <<< "$kd_dind" && ! grep -q 'remote-heavy-userns' <<< "$kd_dind"; then ok; else bad KD2 "dind профиля kind — не dockerd на runc без проверки userns"; fi
+if grep -q '^# kind-begin$' <<< "$kd_prep" && ! grep -q 'remote-heavy-userns' <<< "$kd_prep"; then ok; else bad KD2 "run профиля kind — без пробы kind либо с проверкой userns"; fi
+if [ "$(kx env "$J" run HEAVY_KIND_PROBE)" = mirror.gcr.io/library/alpine:3 ]; then ok; else bad KD2 "образ пробы kind не дан run (HEAVY_KIND_PROBE)"; fi
+if grep -q '^server system:serviceaccount:kube-system:job-controller Pod .*run' "$BOX/state/dryrun" 2>/dev/null; then ok
+else bad KD2 "пробного pod от имени job-controller (--dry-run=server) не было: $(cat "$BOX/state/dryrun" 2>/dev/null)"; fi
+if grep -n -- '--dry-run=server' "$BOX/state/calls" | head -n 1 | cut -d: -f1 | { read -r d; j="$(grep -n 'create -f .*job.json' "$BOX/state/calls" | grep -v -- '--dry-run' | head -n 1 | cut -d: -f1)"; [ -n "$d" ] && [ -n "$j" ] && [ "$d" -lt "$j" ]; }; then ok
+else bad KD2 "проба допуска — не раньше создания Job"; fi
+if grep -q 'допуск pod профиля kind: принят от имени job-controller' "$OUT"; then ok; else bad KD2 "строки допуска нет"; fi
+if [ "$(jq -r '.spec.template.spec.initContainers[] | select(.name == "dind") | .resources.limits.memory' "$J" 2>/dev/null)" = 12Gi ]; then ok; else bad KD2 "предел памяти dind профиля kind — не KIND_DIND_RES (12Gi)"; fi
+# KD2-twin — тот же клон профилем go-race: hostUsers false, dind без privileged, проверка userns,
+# пробы kind и пробного pod нет
+fresh; go_run kd2t env FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$SRC" --profile go-race --short kd2t -- make test
+expect_rc KD2-twin 0
+J="$BOX/state/job.json"
+if [ "$(jq -r '.spec.template.spec.hostUsers' "$J" 2>/dev/null)" = false ] \
+   && [ "$(jq -c '[.spec.template.spec.initContainers[], .spec.template.spec.containers[]] | map(select(.securityContext.privileged == true)) | length' "$J" 2>/dev/null)" = 0 ]; then ok
+else bad KD2-twin "go-race: hostUsers не false либо есть privileged"; fi
+if grep -q 'remote-heavy-userns' <<< "$(kx cmd "$J" run 2)" && ! grep -q '^# kind-begin$' <<< "$(kx cmd "$J" run 2)"; then ok; else bad KD2-twin "go-race: нет проверки userns либо есть проба kind"; fi
+if [ ! -s "$BOX/state/dryrun" ]; then ok; else bad KD2-twin "go-race звал пробный pod допуска"; fi
+# KD3 — kind исполнен, команда красная: код команды проходит как есть (вердикт, не 77)
+fresh; go_run kd3 env FAKE_EXIT=1 bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$SRC" --profile kind --short kd3 -- make test-e2e
+expect_rc KD3 1
+expect_ns_gone KD3 t1-heavy-kd3
+# KD4 — kind в pod не исполним (строка «remote-heavy-kind:» в termination-log run) → 77, не красное
+fresh; go_run kd4 env FAKE_EXIT=125 FAKE_MSG="remote-heavy-kind: вложенный privileged-контейнер не исполним, узел kind не встанет (код 126): OCI runtime create failed: mount sysfs to sys: Operation not permitted" \
+    bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$SRC" --profile kind --short kd4 -- make test-e2e
+expect_rc KD4 77
+if grep -q 'kind в pod не исполним — вложенный privileged-контейнер' "$OUT" && grep -q 'не выполнилось' "$OUT"; then ok; else bad KD4 "отказ kind не назван «не выполнилось» с причиной"; fi
+expect_ns_gone KD4 t1-heavy-kd4
+# KD5 — допуск отказан (политика кластера) → 77 ДО Job, ns снято; близнец KD5-down — допуск не
+# проверен (сервер не ответил) → 69, не 77
+fresh; go_run kd5 env FAKE_ADMISSION=deny FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$SRC" --profile kind --short kd5 -- make test-e2e
+expect_rc KD5 77
+if [ ! -e "$BOX/state/job.json" ]; then ok; else bad KD5 "Job создан после отказа допуска"; fi
+if grep -q 'допуск pod профиля kind отказан кластером: .*host-access-allowlist' "$OUT"; then ok; else bad KD5 "текст отказа допуска не процитирован"; fi
+expect_ns_gone KD5 t1-heavy-kd5
+fresh; go_run kd5d env FAKE_ADMISSION=down FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$SRC" --profile kind --short kd5d -- make test-e2e
+expect_rc KD5-down 69
+if [ ! -e "$BOX/state/job.json" ]; then ok; else bad KD5-down "Job создан при непроверенном допуске"; fi
+# KD6 — сервер снял privileged у fetch (вебхук правит pod): privileged сверх запроса — 69 и в kind
+fresh; go_run kd6 env FAKE_EXIT=0 FAKE_POD_MUT=privileged bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$SRC" --profile kind --short kd6 -- make test-e2e
+expect_rc KD6 69
+if grep -q 'контейнер fetch: privileged без запроса' "$OUT"; then ok; else bad KD6 "privileged у fetch не назван расхождением"; fi
+# KD7–KD9 — проба исполнимости kind ИСПОЛНЕНИЕМ шага из Job над двойником docker: исполним → 0,
+# строки в termination-log нет; sysfs не монтируется (опыт 85ae95b) либо cgroup закрыт (опыт
+# hostUsers: false) → 125 и «remote-heavy-kind:»; образ пробы не скачан → «remote-heavy-prep:» (69)
+KK="$BOX/kd-pod"; mkdir -p "$KK/bin"
+cat > "$KK/bin/docker" <<'KDD'
+#!/bin/sh
+case "$1" in
+  pull) [ "${KD_DOCKER:-}" = pull ] && { echo "Error response from daemon: Get \"https://mirror.gcr.io/v2/\": dial tcp: i/o timeout" >&2; exit 1; }; exit 0 ;;
+  run)
+    case "${KD_DOCKER:-}" in
+      sysfs) echo 'docker: Error response from daemon: failed to create task for container: failed to create shim task: OCI runtime create failed: mount `sysfs` to `sys`: Operation not permitted' >&2; exit 126 ;;
+      cgroup) echo 'docker: Error response from daemon: failed to create task for container: failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: unable to apply cgroup configuration: mkdir /sys/fs/cgroup/docker: permission denied' >&2; exit 126 ;;
+      silent) echo 'mkdir: can'"'"'t create directory '"'"'/sys/fs/cgroup/kind-probe'"'"': Read-only file system'; exit 0 ;;
+    esac
+    echo ok; exit 0 ;;
+esac
+exit 9
+KDD
+chmod +x "$KK/bin/docker"
+sed -n '/^# kind-begin$/,/^# kind-end$/p' <<< "$kd_prep" | sed "s#/dev/termination-log#$KK/tl#g" > "$KK/raw.sh"
+if [ "$(grep -c . "$KK/raw.sh")" -ge 5 ] && grep -q 'docker run --rm --privileged' "$KK/raw.sh"; then ok; else OUT="$KK/raw.sh"; bad KD7-premise "шаг пробы kind не извлечён из Job"; fi
+# shellcheck disable=SC2016  # текст функции раскрывает исполняемый шаг
+{ printf 'pf() { echo "remote-heavy-prep: $1" > "%s/tl"; exit 125; }\n' "$KK"; cat "$KK/raw.sh"; } > "$KK/kind.sh"
+kd_case() {
+    local c="$1" want="$2" word="$3" mode="$4"
+    rm -f "$KK/tl"; OUT="$BOX/$c.out"
+    env -i PATH="$KK/bin:/usr/bin:/bin" HEAVY_KIND_PROBE=mirror.gcr.io/library/alpine:3 KD_DOCKER="$mode" bash "$KK/kind.sh" > "$OUT" 2>&1; RC=$?
+    expect_rc "$c" "$want"
+    if [ "$want" -eq 0 ]; then
+        if [ ! -e "$KK/tl" ] && grep -q 'kind исполним' "$OUT"; then ok; else bad "$c" "исполнимый kind: строка в termination-log либо нет строки «kind исполним»"; fi
+    elif grep -q "^$word" "$KK/tl" 2>/dev/null; then ok
+    else bad "$c" "в termination-log не «$word…»: $(cat "$KK/tl" 2>/dev/null)"; fi
+}
+kd_case KD7 0 - ok
+kd_case KD8-sysfs 125 'remote-heavy-kind: .*mount `sysfs`' sysfs
+kd_case KD8-cgroup 125 'remote-heavy-kind: .*cgroup' cgroup
+kd_case KD8-silent 125 'remote-heavy-kind: ' silent
+kd_case KD9-pull 125 'remote-heavy-prep: образ пробы kind' pull
 
 # L0 — двойник печатает адрес и IPv4 (иначе L1 пуста)
 OUT="$BOX/l0.out"

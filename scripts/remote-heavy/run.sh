@@ -13,7 +13,7 @@
 #
 # ФОРМА
 #   run.sh --task <N> --repo <kacho|kaname|corelib|kacho-workspace|<оператор>> --ref <ревизия>
-#          [--profile go-race|integration|lint|ci-local|ws] [--src <клон>]
+#          [--profile go-race|integration|lint|ci-local|ws|kind] [--src <клон>]
 #          [--workdir <путь в дереве>] [--short <слово>] [--ns <имя>]
 #          [--timeout <с>] [--keep <часы ≤ 12>] [--push-input <вход pre-push>]
 #          -- <команда> [аргументы…]
@@ -146,7 +146,9 @@
 # ИЗОЛЯЦИЯ. pod — в своём пространстве пользователей (hostUsers: false): root
 # контейнера — непривилегированный uid узла, возможности SYS_ADMIN, NET_ADMIN и
 # SYS_PTRACE dind действуют только внутри него. privileged нет ни у одного
-# контейнера (ревью ws#984, F1). NetworkPolicy ns (F2): входящие запрещены;
+# контейнера (ревью ws#984, F1). Исключение — профиль kind (kind.sh, ws#1385): его dind
+# privileged в пространстве пользователей узла, лишь клонам внешних операторов, — поверхность
+# и доказательство политики кластера названы в шапке kind.sh. NetworkPolicy ns (F2): входящие запрещены;
 # исходящие — к DNS кластера (служба с портом 53/UDP, выводится из кластера) и в
 # мир, кроме частных диапазонов, адресов узлов, диапазонов служб и адресов
 # управления кластера (конечные точки default/kubernetes и адреса имени сервера
@@ -470,7 +472,8 @@
 # недоступен (кластер, узлы не того кластера — СТРАЖ, образ, доставка, пин, СРЕДА, МОДУЛИ, ЗАВИСИМОСТИ КОНСОЛИ, УЧЁТКА GIT, сеть
 # pod, открытого узла нет — РАЗМЕЩЕНИЕ); 75 — кластер занят (ПРЕДЕЛ либо места под профиль нет), pod не начал
 # команду в срок, Job снят по сроку либо образ testcontainers не загружен в предел (ОБРАЗЫ TESTCONTAINERS); 76 — команда оборвана
-# пределом памяти. 69, 75, 76 —
+# пределом памяти; 77 — профиль kind: кластер отказал pod в допуске либо kind в pod не исполним
+# (kind.sh, ИСХОДЫ). 69, 75, 76, 77 —
 # «не выполнилось», а не красное: вердикта по предмету команды нет. Своё слово —
 # строкой «remote-heavy: …» в stderr.
 #
@@ -607,6 +610,10 @@ DIND_RES='100m|2|256Mi|6Gi'
 # запрос тоже входит в запрос pod и вычитается из run.
 PG_REQ_M=10
 PG_REQ_MIB=32
+# Профиль kind (ws#1385) — строки PROFILES и PEAKS, dind privileged, проба допуска и
+# исполнимости — отдельным файлом рядом; без него прогон не идёт ни одним профилем.
+# shellcheck source=scripts/remote-heavy/kind.sh
+. "${REMOTE_HEAVY_KIND_LIB:-$SELF_DIR/kind.sh}" || { say "профиль kind не подключён: ${REMOTE_HEAVY_KIND_LIB:-$SELF_DIR/kind.sh} (не выполнилось)"; exit 69; }
 
 profile_row() {
     local line
@@ -624,13 +631,15 @@ to_mib() { case "$1" in *Gi) printf '%s\n' "$(( ${1%Gi} * 1024 ))" ;; *Mi) print
 # ревизии, исходники — bundle клона (--src), модули — сетью, как у продуктов. Своих строк PEAKS
 # нет — запрос по строке «*» профиля; в profile_repos и table_max они не входят: их запрос — «*»,
 # не выше наибольшего по продуктам. Профиль lint им не дан: пин линтера — лишь из ci.yaml, ci.yml.
-# profile_repos <профиль> — репозитории профиля: ws — лишь kacho-workspace, прочие — три продукта.
-profile_repos() { if [ "$1" = ws ]; then echo kacho-workspace; else echo kacho kaname corelib; fi; }
+# profile_repos <профиль> — репозитории профиля: ws — лишь kacho-workspace, kind — внешние операторы
+# (KIND_REPOS, kind.sh), прочие — три продукта.
+profile_repos() { if [ "$1" = ws ]; then echo kacho-workspace; elif [ "$1" = kind ]; then echo "$KIND_REPOS"; else echo kacho kaname corelib; fi; }
 # pair_ok <профиль> <репозиторий> — профиль ws и клон воркспейса — только друг с другом
 # (СРЕДА ВОРКСПЕЙСА): образ ws без go, а в образе golang нет среды наборов воркспейса.
 pair_ok() {
     if [ "$1" = ws ] && [ "$2" != kacho-workspace ]; then say "профиль ws — лишь для --repo kacho-workspace (образ без go), получено «$2»"; return 1; fi
     if [ "$1" != ws ] && [ "$2" = kacho-workspace ]; then say "--repo kacho-workspace — лишь профиль ws (среда наборов воркспейса), получено «$1»"; return 1; fi
+    kind_pair_ok "$1" "$2" || return 1
     return 0
 }
 
@@ -1725,7 +1734,7 @@ DENY_PROBE="$(jq -nr --slurpfile SV <(kc get svc -n kacho -o json 2>/dev/null ||
 
 # Квота — сумма запросов профиля с запасом на init: ns не способно занять больше
 # одного прогона, даже если в нём появится второй pod.
-IFS='|' read -r DCR DCL DMR DML <<< "$DIND_RES"
+IFS='|' read -r DCR DCL DMR DML <<< "$(if kind_on; then echo "$KIND_DIND_RES"; else echo "$DIND_RES"; fi)"
 [ "$DIND" = 1 ] || { DCR=0m; DCL=0; DMR=0Mi; DML=0Mi; }
 jq -n --arg ns "$NSNAME" \
     --arg rc "$(( RUN_CPU_REQ + $(to_m "$DCR") + 1000 ))m" --arg lc "$(( CPU_LIM + DCL + 2 ))" \
@@ -1756,7 +1765,7 @@ spec_drift() {
       def caps($s): (($s.capabilities // {}).add // []);
       def wide($s): ($s.privileged == true) or (caps($s) | length > 0) or (($s.procMount // "Default") != "Default");
       (ctrs($q) | map({key: .name, value: sc(.)}) | from_entries) as $qs
-      | (if $a.hostUsers == false then empty else "hostUsers \($a.hostUsers // "снято") при запрошенном false" end),
+      | (if ($a.hostUsers // true) == ($q.hostUsers // true) then empty else "hostUsers \($a.hostUsers // "снято") при запрошенном \($q.hostUsers // true)" end),
         (["hostNetwork", "hostPID", "hostIPC"][] as $k | select($a[$k] == true) | "\($k) true без запроса"),
         ($qs | keys[] as $n | select([ctrs($a)[] | select(.name == $n)] | length != 1) | "контейнер \($n): в pod не ровно один"),
         (ctrs($a)[] as $c | sc($c) as $s | $qs[$c.name] as $r
@@ -1775,7 +1784,7 @@ verify_spec() {
     local d l
     if [ -z "$2" ]; then KEEP_H=""; say "$1: фактический spec не прочитан — изоляцию не сверить (не выполнилось)"; exit 69; fi
     d="$(spec_drift "$REQ_SPEC" "$2")" || { KEEP_H=""; say "$1: сверка spec не исполнилась (не выполнилось)"; exit 69; }
-    if [ -z "$d" ]; then say "$1: spec сверен с запрошенным — hostUsers false, securityContext как запрошен"; return 0; fi
+    if [ -z "$d" ]; then say "$1: spec сверен с запрошенным — hostUsers $(jq -r '.hostUsers // true' <<< "$REQ_SPEC"), securityContext как запрошен"; return 0; fi
     KEEP_H=""
     while IFS= read -r l; do say "$1: $l"; done <<< "$d"
     say "$1: сервер исполнил не то, что запрошено, — изоляции нет; команда не запускается, ns снимается (не выполнилось)"; exit 69
@@ -3291,7 +3300,9 @@ REDLOG
 # Команда — своей строкой: последняя строка сверки среды — комментарий-маркер, и
 # «; команда» после неё не исполнилась бы никогда. Код контейнера — код команды
 # (heavy_cmd возвращает его, шаг красных групп кода не меняет).
-PREP="$USERNS_SH
+kind_on && PREP="$PREP
+$KIND_PREFLIGHT_SH"
+PREP="$(if kind_on; then echo "$KIND_NOTE_SH"; else echo "$USERNS_SH"; fi)
 $PREP
 $REDLOG_SH
 echo \"remote-heavy: подготовка pod до команды — \$(( \$(date +%s) - PT0 )) с\" >&2
@@ -3338,6 +3349,7 @@ DIND_SH="$USERNS_SH
 mkdir -p /etc/docker
 printf "%s" "{\"runtimes\":{\"crun\":{\"path\":\"/usr/bin/crun\",\"runtimeArgs\":[\"--cgroup-manager=disabled\"]}},\"default-runtime\":\"crun\"}" > /etc/docker/daemon.json
 exec dockerd --host=unix:///run/dind/docker.sock --registry-mirror=https://mirror.gcr.io'
+kind_on && DIND_SH="$KIND_DIND_SH"
 
 # shellcheck disable=SC2016  # раскрывается в pod, не здесь
 FETCH='set -e; i=0; while [ ! -f /work/in.done ]; do i=$((i+1)); [ "$i" -le 600 ] || { echo "remote-heavy: исходники не доставлены за 600 с" >&2; exit 3; }; sleep 1; done
@@ -3355,7 +3367,8 @@ jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg goimg "$GO_IMAGE" --arg dimg "
     --arg cr "${RUN_CPU_REQ}m" --arg cl "$CPU_LIM" --arg mr "${RUN_MEM_REQ}Mi" --arg ml "${RUN_MEM_LIM}Mi" --arg eph "$EPH" \
     --arg dcr "$DCR" --arg dcl "$DCL" --arg dmr "$DMR" --arg dml "$DML" \
     --arg pgimg "$PG_IMAGE" --arg pgsh "$PG_SH" --argjson pg "$PG" --arg pgcr "${PG_REQ_M}m" --arg pgmr "${PG_REQ_MIB}Mi" --arg dindsh "$DIND_SH" --arg deny "$DENY_PROBE" --arg helm "$HELM_PIN" --arg node "$NODE_PIN" --arg buf "$BUF_PIN" --arg yq "$YQ_PIN" \
-    --arg pull "$PULL_IMG" --arg pushin "$PUSH_INPUT" --arg gname "$GIT_NAME" --arg gemail "$GIT_EMAIL" --arg wssc "$WS_SC" --slurpfile cmdv <(printf '%s' "$CMD_JSON") '
+    --arg pull "$PULL_IMG" --arg pushin "$PUSH_INPUT" --arg gname "$GIT_NAME" --arg gemail "$GIT_EMAIL" --arg wssc "$WS_SC" --slurpfile cmdv <(printf '%s' "$CMD_JSON") \
+    --argjson kind "$(if kind_on; then echo 1; else echo 0; fi)" --arg kprobe "$KIND_PROBE_IMAGE" '
 # kubelet раскрывает в command, args и value env контейнера $(ИМЯ) значением env и
 # сворачивает $$ в $ (ws#1142: составной Job потерял переменные и коды осей). Каждый
 # $ удваивается: kubelet свернёт его обратно, и байты дойдут до контейнера как есть.
@@ -3368,14 +3381,14 @@ def kesc_c: (if .command then .command |= map(kesc) else (.) end)
   metadata: {name: "run", namespace: $ns, labels: {"kacho.io/task": $task, "kacho.io/kind": "heavy"}},
   spec: {backoffLimit: 0, activeDeadlineSeconds: $deadline, ttlSecondsAfterFinished: 3600,
    template: {metadata: {labels: {"kacho.io/task": $task, "kacho.io/kind": "heavy"}},
-    spec: ({restartPolicy: "Never", enableServiceLinks: false, automountServiceAccountToken: false, hostUsers: false,
+    spec: ({restartPolicy: "Never", enableServiceLinks: false, automountServiceAccountToken: false, hostUsers: ($kind == 1),
      initContainers: ((if $dind == 1 then [
        {name: "tools", image: $cimg, command: ["cp", "/usr/local/bin/docker", "/tools/docker"],
         volumeMounts: [{name: "tools", mountPath: "/tools"}]},
        {name: "dind", image: $dimg, restartPolicy: "Always",
-        securityContext: {privileged: false,
+        securityContext: (if $kind == 1 then {privileged: true} else {privileged: false,
                           capabilities: {add: ["SYS_ADMIN", "NET_ADMIN", "SYS_PTRACE"]},
-                          seccompProfile: {type: "Unconfined"}, appArmorProfile: {type: "Unconfined"}, procMount: "Unmasked"},
+                          seccompProfile: {type: "Unconfined"}, appArmorProfile: {type: "Unconfined"}, procMount: "Unmasked"} end),
         command: ["sh", "-c", $dindsh],
         startupProbe: {exec: {command: ["docker", "-H", "unix:///run/dind/docker.sock", "info"]}, periodSeconds: 2, failureThreshold: 150},
         resources: {requests: {cpu: $dcr, memory: $dmr}, limits: {cpu: $dcl, memory: $dml}},
@@ -3392,7 +3405,8 @@ def kesc_c: (if .command then .command |= map(kesc) else (.) end)
              + (if $wssc != "" then [{name: "HEAVY_SHELLCHECK", value: $wssc},
                                     {name: "PREPUSH_GH", value: "/work/bin/gh-issue-public"}] else [] end)
              + (if $dind == 1 then [{name: "DOCKER_HOST", value: "unix:///run/dind/docker.sock"},
-                                    {name: "TESTCONTAINERS_RYUK_DISABLED", value: "true"}] else [] end)),
+                                    {name: "TESTCONTAINERS_RYUK_DISABLED", value: "true"}] else [] end)
+             + (if $kind == 1 then [{name: "HEAVY_KIND_PROBE", value: $kprobe}] else [] end)),
        resources: {requests: {cpu: $cr, memory: $mr, "ephemeral-storage": "1Gi"}, limits: {cpu: $cl, memory: $ml, "ephemeral-storage": $eph}},
        volumeMounts: ([{name: "work", mountPath: "/work"}, {name: "cache", mountPath: "/cache"}]
                       + (if $dind == 1 then [{name: "dind-sock", mountPath: "/run/dind"}] else [] end)
@@ -3408,11 +3422,12 @@ def kesc_c: (if .command then .command |= map(kesc) else (.) end)
   | .spec.template.spec |= ((.initContainers, .containers) |= map(kesc_c))' \
     > "$BOX/job.json"
 guard_write "Job" || guard_exit $?
+if kind_on; then kind_admission "$BOX/job.json" || exit $?; fi
 kc create -f "$BOX/job.json" >/dev/null || { say "Job не создан (не выполнилось)"; exit 69; }
 T0="$(now)"
 REQ_SPEC="$(jq -c '.spec.template.spec' "$BOX/job.json")"
 verify_spec Job "$(kc -n "$NSNAME" get job run -o json 2>/dev/null | jq -c '.spec.template.spec // empty' 2>/dev/null)"
-say "Job создан: образ $IMG_NAME$([ -n "$LINT_PIN" ] && [ "$PROFILE" != go-race ] && [ "$PROFILE" != integration ] && echo ", golangci-lint $LINT_PIN"), cpu ${RUN_CPU_REQ}m/$CPU_LIM, память $RUN_MEM_REQ/$RUN_MEM_LIM МиБ$([ "$DIND" = 1 ] && echo ', dind')$([ -n "$HELM_PIN$NODE_PIN$BUF_PIN$YQ_PIN" ] && echo ", helm ${HELM_PIN:-нет пина}${HELM_SRC:+ ($HELM_SRC)}, node ${NODE_PIN:-нет пина}, buf ${BUF_PIN:-нет пина}, yq ${YQ_PIN:-нет пина}")"
+say "Job создан: образ $IMG_NAME$([ -n "$LINT_PIN" ] && [ "$PROFILE" != go-race ] && [ "$PROFILE" != integration ] && echo ", golangci-lint $LINT_PIN"), cpu ${RUN_CPU_REQ}m/$CPU_LIM, память $RUN_MEM_REQ/$RUN_MEM_LIM МиБ$([ "$DIND" = 1 ] && echo ', dind')$(kind_on && echo ' privileged в пространстве пользователей узла (профиль kind)')$([ -n "$HELM_PIN$NODE_PIN$BUF_PIN$YQ_PIN" ] && echo ", helm ${HELM_PIN:-нет пина}${HELM_SRC:+ ($HELM_SRC)}, node ${NODE_PIN:-нет пина}, buf ${BUF_PIN:-нет пина}, yq ${YQ_PIN:-нет пина}")"
 
 # pod_state — «имя|фаза|fetch|run|код run|причина run|сообщение run|ожидание|
 # планирование|отказ userns». Отказ userns — строка «remote-heavy-userns: …» в
@@ -3541,6 +3556,9 @@ fi
 [ -z "$USERNS" ] || userns_refused "$USERNS"
 if [[ "$RUN_MSG" == remote-heavy-pull:* ]]; then
     say "образ testcontainers не загружен в dind до команды — ${RUN_MSG#remote-heavy-pull: } — команда не запускалась (не выполнилось)"; exit 75
+fi
+if [[ "$RUN_MSG" == remote-heavy-kind:* ]]; then
+    say "kind в pod не исполним — ${RUN_MSG#remote-heavy-kind: } — команда не запускалась (не выполнилось)"; exit 77
 fi
 if [[ "$RUN_MSG" == "remote-heavy-prep: среда: "* ]]; then
     say "команда не запускалась — не выполнилось — среда: ${RUN_MSG#remote-heavy-prep: среда: }"; exit 69

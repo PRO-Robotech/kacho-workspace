@@ -97,7 +97,7 @@ import sys
 
 # Имена классов — те же, что у слота (`heavy-slot.sh --classes`), в обе стороны, и
 # в порядке убывания бюджета: из нескольких найденных берётся первый (сверяет prove.sh).
-RANK = ("go-race", "ci-local", "integration", "lint", "stand", "docker", "go-unit", "newman", "suite")
+RANK = ("go-race", "ci-local", "integration", "lint", "stand", "kind", "docker", "go-unit", "newman", "suite")
 
 # Скрипт, чей класс не выводится из текста: ci-local — класс слота со своим TMPDIR
 # (замок golangci-lint), а по тексту вышел бы go-race; newman-parallel зовёт
