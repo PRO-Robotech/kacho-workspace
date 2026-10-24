@@ -3093,14 +3093,14 @@ if ! command -v bats >/dev/null 2>&1; then
 fi
 # venv python и локали UTF-8 (урок 2026-10-24: два шага «не выполнилось» — ghjob/inject.sh зовёт
 # python3 -m venv, branch-audit-inject.sh AE — LANG=ru_RU.UTF-8; ранер конвейера несёт их образом).
-# Пакеты Debian trixie — версия и sha256 в тексте; пул архива, затем пул безопасности. ФОНОМ, под
+# Пакеты Debian trixie — версия и sha256 в тексте; пул архива (два зеркала), затем пул безопасности. ФОНОМ, под
 # прочую подготовку (сеть pod медленна: живой прогон 2026-10-24 — 3,8 МБ locales дольше 5 мин при
 # девяти Job), ждётся шагом wsclonewait не дольше 90 с (здоровая сеть — секунды: подготовка 28 с целиком). НЕ ФАТАЛЬНО: не легло либо не дождались —
 # строка «среда: …», и пробы дают «не выполнилось», как без шага (не 69 всему профилю).
 mkdir -p /work/dl/wsenv
 (
   wq() { curl -fsSL --retry 2 --retry-all-errors --retry-delay 3 --connect-timeout 10 --max-time 120 -o "$2" "$1" && printf '%s  %s\n' "$3" "$2" | sha256sum -c --quiet -; }
-  wdeb() { wq "https://deb.debian.org/debian/$1" "$3" "$2" || wq "https://security.debian.org/debian-security/${1/pool\/main/pool\/updates\/main}" "$3" "$2"; }
+  wdeb() { wq "https://deb.debian.org/debian/$1" "$3" "$2" || wq "https://ftp.debian.org/debian/$1" "$3" "$2" || wq "https://security.debian.org/debian-security/${1/pool\/main/pool\/updates\/main}" "$3" "$2"; }
   if ! python3 -c 'import ensurepip' > /dev/null 2>&1; then
     if [ "$ya" = amd64 ] \
       && wdeb pool/main/p/python3.13/python3.13-venv_3.13.5-2+deb13u5_amd64.deb b079db533ff9d9d11585d06c3b2a5c034d01453a1e915502ffece42fb0ce4a3f /work/dl/wsenv/venv.deb \
