@@ -712,7 +712,8 @@ open(sys.argv[2], "w", encoding="utf-8").write(s.replace(sys.argv[3], sys.argv[4
         assert "построен" "не построен" "мутант $id: фрагмент порчи в guard.py не единствен"; return
     fi
     # исход — код И первая строка: отказ suite и отказ лёгкой форме (ws#1301) — оба код 2
-    rc="$(run "$form" "$at")"; local base="$rc|$(head -n 1 "$WORK/out")" got
+    local base got
+    rc="$(run "$form" "$at")"; base="$rc|$(head -n 1 "$WORK/out")"
     assert "$want" "$rc" "мутант $id: без порчи код $want"
     rc="$(HOOK_RUN="$md/heavy-guard.sh" run "$form" "$at")"; got="$rc|$(head -n 1 "$WORK/out")"
     assert "убит" "$([ "$got" != "$base" ] && echo убит || echo выжил)" "мутант $id ($form в ${at##*/}): с порчей «${got:0:90}», без неё «${base:0:90}»"
