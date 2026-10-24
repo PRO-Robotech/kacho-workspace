@@ -3096,26 +3096,27 @@ fi
 # Пакеты Debian trixie — версия и sha256 в тексте; пул архива (два зеркала), затем пул безопасности. ФОНОМ, под
 # прочую подготовку (сеть pod медленна: живой прогон 2026-10-24 — 3,8 МБ locales дольше 5 мин при
 # девяти Job), ждётся шагом wsclonewait не дольше 90 с (здоровая сеть — секунды: подготовка 28 с целиком). НЕ ФАТАЛЬНО: не легло либо не дождались —
-# строка «среда: …», и пробы дают «не выполнилось», как без шага (не 69 всему профилю).
-mkdir -p /work/dl/wsenv
+# строка «среда: …», и пробы дают «не выполнилось», как без шага (не 69 всему профилю). Каталог загрузки —
+# /work/wsenv-dl, не под /work/dl: шаг install снимает /work/dl целиком, пока фон пишет (живой прогон: curl 23).
+mkdir -p /work/wsenv-dl
 (
   wq() { curl -fsSL --retry 2 --retry-all-errors --retry-delay 3 --connect-timeout 10 --max-time 120 -o "$2" "$1" && printf '%s  %s\n' "$3" "$2" | sha256sum -c --quiet -; }
   wdeb() { wq "https://deb.debian.org/debian/$1" "$3" "$2" || wq "https://ftp.debian.org/debian/$1" "$3" "$2" || wq "https://security.debian.org/debian-security/${1/pool\/main/pool\/updates\/main}" "$3" "$2"; }
   if ! python3 -c 'import ensurepip' > /dev/null 2>&1; then
     if [ "$ya" = amd64 ] \
-      && wdeb pool/main/p/python3.13/python3.13-venv_3.13.5-2+deb13u5_amd64.deb b079db533ff9d9d11585d06c3b2a5c034d01453a1e915502ffece42fb0ce4a3f /work/dl/wsenv/venv.deb \
-      && wdeb pool/main/p/python-pip/python3-pip-whl_25.1.1+dfsg-1_all.deb e65351935aa4af2b10ae2abb5744f5059e9abad51aea6cd0cb825702010763f7 /work/dl/wsenv/pipwhl.deb \
-      && dpkg-deb -x /work/dl/wsenv/venv.deb / && dpkg-deb -x /work/dl/wsenv/pipwhl.deb / && python3 -c 'import ensurepip' > /dev/null 2>&1; then
+      && wdeb pool/main/p/python3.13/python3.13-venv_3.13.5-2+deb13u5_amd64.deb b079db533ff9d9d11585d06c3b2a5c034d01453a1e915502ffece42fb0ce4a3f /work/wsenv-dl/venv.deb \
+      && wdeb pool/main/p/python-pip/python3-pip-whl_25.1.1+dfsg-1_all.deb e65351935aa4af2b10ae2abb5744f5059e9abad51aea6cd0cb825702010763f7 /work/wsenv-dl/pipwhl.deb \
+      && dpkg-deb -x /work/wsenv-dl/venv.deb / && dpkg-deb -x /work/wsenv-dl/pipwhl.deb / && python3 -c 'import ensurepip' > /dev/null 2>&1; then
       echo "remote-heavy: venv python — python3.13-venv 3.13.5-2+deb13u5, python3-pip-whl 25.1.1"
     else echo "remote-heavy: среда: venv python не поставлен ($(uname -m)) — пробы с python3 -m venv дадут «не выполнилось»"; fi
   fi
   if ! locale -a 2> /dev/null | grep -qix 'ru_RU.utf8'; then
-    if wdeb pool/main/g/glibc/locales_2.41-12+deb13u4_all.deb ffc5578d5c2c30ca70d46113908f200a09ab6e5e9eda199463af3285dbbaae8c /work/dl/wsenv/locales.deb \
-      && dpkg-deb -x /work/dl/wsenv/locales.deb / && localedef -i ru_RU -f UTF-8 ru_RU.UTF-8 && localedef -i en_US -f UTF-8 en_US.UTF-8; then
+    if wdeb pool/main/g/glibc/locales_2.41-12+deb13u4_all.deb ffc5578d5c2c30ca70d46113908f200a09ab6e5e9eda199463af3285dbbaae8c /work/wsenv-dl/locales.deb \
+      && dpkg-deb -x /work/wsenv-dl/locales.deb / && localedef -i ru_RU -f UTF-8 ru_RU.UTF-8 && localedef -i en_US -f UTF-8 en_US.UTF-8; then
       echo "remote-heavy: локали — $(locale -a 2> /dev/null | grep -ciE '^(ru_RU|en_US)\.utf8$') из 2 (ru_RU.UTF-8, en_US.UTF-8), locales 2.41-12+deb13u4"
     else echo "remote-heavy: среда: локали ru_RU.UTF-8, en_US.UTF-8 не поставлены — пробы с ними дадут «не выполнилось»"; fi
   fi
-  rm -rf /work/dl/wsenv
+  rm -rf /work/wsenv-dl
 ) > /work/wsenv.log 2>&1 < /dev/null &
 wsenv_pid=$!
 # Читатель трекера для хука отправки (PREPUSH_GH): публичный API, токена нет; форма — ровно
