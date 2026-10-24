@@ -672,6 +672,19 @@ $FILEWAIT_SH"'''),
     ("file-elf", "F2x", "собранный file не судится исполнением на настоящем ELF",
      '''case "$fk" in ELF*) ;;''',
      '''case "$fk" in *) ;;'''),
+    # ws#1387 (приёмка check-verifier @e91dbdb60, RM1–RM3): venv и локали — фоном, ожидание
+    # не дольше 90 с, загрузка вне /work/dl (его снимает шаг install посреди записи — curl 23).
+    ("wsenv-foreground", "WS6-bg", "venv и локали ставятся в переднем плане — подготовка ждёт медленное зеркало",
+     ''') > /work/wsenv.log 2>&1 < /dev/null &
+wsenv_pid=$!''',
+     ''') > /work/wsenv.log 2>&1 < /dev/null
+wsenv_pid='''),
+    ("wsenv-wait-unbounded", "WS6-wait", "ожидание фона venv и локалей — 9000 с вместо 90",
+     '''-lt 90 ]; do sleep 1; done''',
+     '''-lt 9000 ]; do sleep 1; done'''),
+    ("wsenv-under-dl", "WS6-dir", "загрузка локалей — под /work/dl, который снимает шаг install",
+     '''ffc5578d5c2c30ca70d46113908f200a09ab6e5e9eda199463af3285dbbaae8c /work/wsenv-dl/locales.deb''',
+     '''ffc5578d5c2c30ca70d46113908f200a09ab6e5e9eda199463af3285dbbaae8c /work/dl/locales.deb'''),
 ]
 
 
