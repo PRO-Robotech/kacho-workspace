@@ -148,6 +148,7 @@ helper, args = sys.argv[1], sys.argv[2:]
 def value(flag):
     return args[args.index(flag) + 1] if flag in args and args.index(flag) + 1 < len(args) else ''
 repo = ''
+native = bool(value('--forge'))
 try:
     if args and args[0] == 'expect':
         result = subprocess.run(['git', '-C', value('--checkout'), 'remote', 'get-url', 'origin'],
@@ -155,10 +156,12 @@ try:
         match = re.search(r'github\.com[:/]([^/]+/[^/]+?)(?:\.git)?\s*$', result.stdout)
         repo = match.group(1) if match else ''
     elif value('--expect'):
-        repo = json.load(open(value('--expect')))['repo']
+        expected = json.load(open(value('--expect')))
+        repo = expected['repo']
+        native = expected.get('forge', {}).get('kind') == 'gitlab'
 except (OSError, ValueError, KeyError):
     pass
-if repo in ('PRO-Robotech/kaname-iam-operator', 'PRO-Robotech/registry-operator', 'PRO-Robotech/vault-operator'):
+if native or repo in ('PRO-Robotech/kaname-iam-operator', 'PRO-Robotech/registry-operator', 'PRO-Robotech/vault-operator'):
     os.execv(sys.executable, [sys.executable, helper] + (args if args[0] in ('expect', 'check', 'register', 'cluster-check') else ['check'] + args))
 if repo == 'PRO-Robotech/kaname':
     kaname = os.path.join(os.path.dirname(helper), 'kaname-stand.py')

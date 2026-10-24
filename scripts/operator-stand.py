@@ -171,7 +171,18 @@ def definition(doc, key):
     return {'job': job, 'env': doc.get('env', {}), 'defaults': doc.get('defaults', {})}
 
 
-def expected(co, head, base, ref, push_before=None):
+def gitlab_helper():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('operator_gitlab', Path(__file__).with_name('operator-gitlab.py'))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def expected(co, head, base, ref, push_before=None, forge=None):
+    if forge is not None:
+        return gitlab_helper().expected(co, head, base, ref, forge,
+            INVENTORY['PRO-Robotech/registry-operator'], git, require, digest, yaml.safe_load)
     require(git(co, 'rev-parse', 'HEAD') == head, 'checkout SHA differs')
     require(not git(co, 'status', '--porcelain', '--untracked-files=all'), 'checkout is dirty')
     url = git(co, 'remote', 'get-url', 'origin')
@@ -696,11 +707,15 @@ def cluster(exp, name, identity, uid):
 
 
 def validate_expected(exp, head, repo=None, base=None):
-    require(exp.get('schema') == 'operator-stand-v1' and exp.get('repo') in INVENTORY, 'invalid operator expectation')
+    native = exp.get('forge') is not None
+    if native:
+        gitlab_helper().descriptor(exp['forge'], require)
+        require(exp.get('operator_kind') == 'registry-operator' and exp.get('repo') == exp['forge']['path'], 'native operator identity differs')
+    require(exp.get('schema') == 'operator-stand-v1' and (native or exp.get('repo') in INVENTORY), 'invalid operator expectation')
     require(exp.get('head') == head, 'expected source differs')
     require(not repo or exp['repo'] == repo, 'repository differs')
     require(not base or exp['base'] == base, 'base differs')
-    inventory = INVENTORY[exp['repo']]
+    inventory = (gitlab_helper().inventory(INVENTORY['PRO-Robotech/registry-operator']) if native else INVENTORY[exp['repo']])
     require(exp.get('jobs') == list(inventory) and exp.get('ledger') == list(inventory) and
             set(exp.get('definitions', {})) == set(inventory), 'expected inventory differs')
     require(exp.get('full') is True and exp.get('source') == 'operator-full', 'operator selection must be full')
@@ -764,7 +779,9 @@ def check(exp, report, head, repo=None, base=None, cluster_only=False):
         require('carried_from' not in suite, 'operator evidence cannot be carried')
         executor = exp['definitions'][name]['executor']
         require(suite.get('executor') == executor, 'wrong executor for ' + name)
-        if executor == 'github-hosted':
+        if executor == 'gitlab-job':
+            results[name] = gitlab_helper().job_evidence(exp, name, census, require)
+        elif executor == 'github-hosted':
             results[name] = hosted(exp, name)
         else:
             results[name] = cluster(exp, name, suite.get('definition_id', ''), suite.get('job_uid', ''))
@@ -781,6 +798,7 @@ def main(args):
     expect.add_argument('--source-ref')
     expect.add_argument('--push-before')
     expect.add_argument('--draft')
+    expect.add_argument('--forge', help='trusted native forge descriptor JSON')
     verify = sub.add_parser('check')
     verify.add_argument('report')
     for flag in ('head', 'expect'):
@@ -811,7 +829,7 @@ def main(args):
     opts = parser.parse_args(args)
     if opts.action == 'expect':
         ref = opts.source_ref or git(opts.checkout, 'symbolic-ref', 'HEAD')
-        print(json.dumps(expected(opts.checkout, opts.head, opts.base, ref, opts.push_before), indent=2))
+        print(json.dumps(expected(opts.checkout, opts.head, opts.base, ref, opts.push_before, read_json(opts.forge) if opts.forge else None), indent=2))
     elif opts.action == 'argv':
         print(json.dumps(canonical_argv(Path(opts.script).read_bytes())))
     elif opts.action == 'definition':
