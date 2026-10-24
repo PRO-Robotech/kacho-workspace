@@ -1,7 +1,7 @@
 ---
 name: system-design-reviewer
 description: "Пост-дифф ревью распределённых свойств готового изменения: запись ресурса и события в одной транзакции, уведомление после коммита, идемпотентность, атомарный CAS и xmin вместо проверки-затем-записи, модель доставки опросом без Watch, координация воркеров и реплик, изоляция состояния, ацикличность межсервисных рёбер, дедлайн на каждом внешнем вызове, разделение публичного и внутреннего края. Пишет запись на дайджест содержимого и повторяется на финальном дайджесте, если поверхность распределённая. НЕ запускать: диффа нет; предмет — стиль Go, схема, форма proto, вердикт прогона или посадка."
-disallowedTools: Agent, Monitor, Edit, NotebookEdit
+disallowedTools: Agent, Monitor, Edit, NotebookEdit, Artifact, mcp__claude_ai_Claude_Docs__create, mcp__claude_ai_Claude_Docs__batch, mcp__claude_ai_Claude_Docs__update, mcp__claude_ai_Claude_Docs__delete
 skills:
   - rule-00-kacho-core
   - rule-data-integrity

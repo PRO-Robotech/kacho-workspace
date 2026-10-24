@@ -109,6 +109,8 @@
 #      `gh pr merge <N> -R <репо> --merge --match-head-commit <sha> --subject <…>
 #      --body "" --delete-branch` (способ — с сервера, сквош и rebase там выключены);
 #      хостинг отказал, а голова ушла — head-moved;
+#   5а. метки: с задач closingIssuesReferences, закрытых вливанием, снимается `status:*`
+#      (ws#1386; `git-issues.md#gi-label-same-action`); сбой — строкой «метки:» в исход merged;
 #   6. снятие влитой ветки коммитным предикатом (git-operator.md §«Вливание и снятие»,
 #      `git-issues.md#gi-prune-commit-predicate`): во всех клонах репозитория запроса
 #      (воркспейс и project/*, чей origin — этот репозиторий) — fetch --prune; ветка
@@ -173,6 +175,8 @@
 #   AUTOLAND_CLONES  — клоны для снятия и догона через «:» (заданная пустой — ни одного);
 #   AUTOLAND_PUSH    — вместо `heavy-slot.sh --wait 300 ci-local --` перед `git push` догона;
 #   AUTOLAND_PUSH_TIMEOUT — предел отправки догона, с (по умолчанию 3600);
+#   AUTOLAND_LABEL_TRIES, AUTOLAND_LABEL_WAIT — перечтений открытой задачи после вливания в ствол и
+#                      пауза между ними, с (по умолчанию 4 и 5): закрытие по Closes асинхронно;
 #   AUTOLAND_QUEUE_POLL — пауза локальной сверки очереди, с (по умолчанию 5);
 #   AUTOLAND_CATCHUP_LIMIT — догонов базы за жизнь демона (по умолчанию 2);
 #   AUTOLAND_GATE_TIMEOUT — предел одного гейта, с (по умолчанию 900);
@@ -189,6 +193,7 @@ FF_FETCH_TIMEOUT="${AUTOLAND_FF_FETCH_TIMEOUT:-8}"
 INTERIM_LOCK="${AUTOLAND_INTERIM_LOCK:-$HOME/.cache/heavy-slots/interim.lock}"
 QUEUE_POLL="${AUTOLAND_QUEUE_POLL:-5}"; CATCHUP_LIMIT="${AUTOLAND_CATCHUP_LIMIT:-2}"
 PUSH_TIMEOUT="${AUTOLAND_PUSH_TIMEOUT:-3600}"
+LABEL_TRIES="${AUTOLAND_LABEL_TRIES:-4}"; LABEL_WAIT="${AUTOLAND_LABEL_WAIT:-5}"
 
 die() { printf 'autoland: ОТКАЗ — %s\n' "$1" >&2; exit "${2:-2}"; }
 
@@ -261,6 +266,8 @@ parse_args() {
         || die "AUTOLAND_HEAD_SYNC «$HEAD_SYNC» / AUTOLAND_HEAD_SYNC_POLL «$HEAD_SYNC_POLL» не секунды"
     [[ "$QUEUE_POLL" =~ ^[1-9][0-9]*$ ]] && [[ "$CATCHUP_LIMIT" =~ ^[0-9]+$ ]] && [[ "$PUSH_TIMEOUT" =~ ^[1-9][0-9]*$ ]] \
         || die "AUTOLAND_QUEUE_POLL «$QUEUE_POLL», AUTOLAND_CATCHUP_LIMIT «$CATCHUP_LIMIT», AUTOLAND_PUSH_TIMEOUT «$PUSH_TIMEOUT» не числа"
+    [[ "$LABEL_TRIES" =~ ^[1-9][0-9]*$ ]] && [[ "$LABEL_WAIT" =~ ^[0-9]+$ ]] \
+        || die "AUTOLAND_LABEL_TRIES «$LABEL_TRIES» / AUTOLAND_LABEL_WAIT «$LABEL_WAIT» не числа"
 }
 
 paths() {
@@ -719,8 +726,49 @@ sync_main_clone() {  # запрос в main репозитория основн�
     log "$SYNC"; return 0  # отказ ff — не ошибка вливания: исход остаётся merged
 }
 
+# Метки состояния закрытых вливанием задач (ws#1386, урок ws#1381): `Closes` закрывает задачу,
+# а `status:*` на ней остаётся — `git-issues.md#gi-label-same-action` красна. Снимается
+# `status:*` лишь с задач `closingIssuesReferences`, которые после вливания ЗАКРЫТЫ (вливание
+# в ветку эпика задач не закрывает — их метки не трогаются); прочие метки не трогаются. Сбой
+# чтения или правки — строкой в исход, вливанием он не отменяется.
+LABELS=""
+drop_status_labels() {
+    local refs r n st l done_=() kept=()
+    if ! "$GH" pr view "$PR" -R "$REPO" --json closingIssuesReferences > "$W/closing.json" 2> "$W/closing.err" \
+        || ! refs="$(jq -r '.closingIssuesReferences[]? | .url // "" | capture("github\\.com/(?<r>[^/]+/[^/]+)/issues/(?<n>[0-9]+)") | "\(.r) \(.n)"' "$W/closing.json" 2>> "$W/closing.err")"; then
+        LABELS="метки: закрываемые задачи не прочитаны — $(head -c 200 "$W/closing.err" | tr '\n' ' ')"; log "$LABELS"; return 0
+    fi
+    while read -r r n; do
+        [ -n "$n" ] || continue
+        # Хостинг закрывает задачи по Closes асинхронно: сразу после вливания в ствол задача ещё
+        # открыта. Перечитывается до LABEL_TRIES раз через LABEL_WAIT с — лишь при базе-стволе.
+        local try=1
+        while :; do
+            if ! "$GH" api "repos/$r/issues/$n" < /dev/null > "$W/issue.json" 2> "$W/issue.err"; then st=unread; break; fi
+            st="$(jq -r '.state // ""' "$W/issue.json")"
+            [ "$st" = open ] && { [ "$PR_BASE" = main ] || [ "$PR_BASE" = master ]; } && [ "$try" -lt "$LABEL_TRIES" ] || break
+            try=$((try + 1)); sleep "$LABEL_WAIT" & BG=$!; wait "$BG"; BG=""
+        done
+        [ "$st" != unread ] || { kept+=("$r#$n не прочитана"); continue; }
+        # Метки — построчно, а не словами: «status:needs review» иначе рассыпалась бы на две, и
+        # вторая («review») снялась бы чужой (возврат check-verifier к ws#1386).
+        local lbls=()
+        mapfile -t lbls < <(jq -r '.labels[]?.name | select(startswith("status:"))' "$W/issue.json")
+        [ "$st" = closed ] && [ "${#lbls[@]}" -gt 0 ] || continue
+        for l in "${lbls[@]}"; do
+            if "$GH" issue edit "$n" -R "$r" --remove-label "$l" < /dev/null > /dev/null 2> "$W/label.err"; then done_+=("$r#$n −«$l»")
+            else kept+=("$r#$n «$l»: $(head -c 120 "$W/label.err" | tr '\n' ' ')"); fi
+        done
+    done <<< "$refs"
+    # Снимать нечего и сбоев нет — исход без строки (её «снято 0» читалось бы как итог снятия ветки).
+    [ "${#done_[@]}" -gt 0 ] || [ "${#kept[@]}" -gt 0 ] || { LABELS=""; return 0; }
+    LABELS="метки: сняты ${#done_[@]}${done_[*]:+ (${done_[*]})}${kept[*]:+; не сняты: ${kept[*]}}"
+    log "$LABELS"
+}
+
 landed() {  # запрос влит — проверка родителя, снятие, догон основного клона, исход
     local note="${1:-}"
+    drop_status_labels; [ -z "$LABELS" ] || note="${note:+$note; }$LABELS"
     if "$GH" api "repos/$REPO/commits/$PR_MSHA" > "$W/mc.json" 2>/dev/null \
         && jq -e --arg h "$HEAD" '[.parents[].sha] | index($h) != null' "$W/mc.json" > /dev/null 2>&1; then
         log "коммит слияния $PR_MSHA — родитель $HEAD есть"
