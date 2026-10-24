@@ -32,6 +32,18 @@ COPY = ['remote-reader.sh', 'remote-reader/pod.sh', 'remote-reader/replay-gh.sh'
         'kaname-stand.py', 'operator-stand.py', 'pr-body.sh', 'ci-read-expected.tsv', 'lib/ws-home.sh',
         'lib/sandbox-git-home.sh', 'lib/gate_root.py', 'lib/dod_proof.jq', 'lib/gh-rate.sh',
         'hooks/attribution-rule.sh']
+# Читатели демона вливания (ws#1365) и их соседи по рецепту «ЗАПУСК».
+DAEMON_COPY = ['landing-precheck.sh', 'merge-readiness.sh', 'ci-read.sh', 'branch-audit.sh']
+LPFIX = HERE / 'landing-precheck-fixtures'
+
+
+def lp_out(result):
+    """Код и вывод предпроверки; путь ведомости — каталог, где судья её читал (в pod — клон Job)."""
+    import re
+    return result.returncode, re.sub(r'\(/\S*/scripts/ci-read-expected\.tsv\)', '(<scripts>/ci-read-expected.tsv)',
+                                     result.stdout)
+
+
 SLOT = r'''#!/usr/bin/env bash
 # Двойник heavy-slot.sh: Job — bundle закоммиченного дерева (HEAD и origin/*), тот же workdir.
 printf '%s\n' "$*" >> "$SANDBOX_SLOT_LOG"
@@ -42,8 +54,11 @@ pod="$(mktemp -d)"
 git -C "$top" bundle create "$pod/in.bundle" HEAD --remotes=origin > /dev/null 2>&1 || exit 69
 git init -q "$pod/src" && git -C "$pod/src" fetch -q "$pod/in.bundle" 'refs/remotes/*:refs/remotes/*' &&
     git -C "$pod/src" fetch -q "$pod/in.bundle" HEAD &&
-    git -C "$pod/src" checkout -q --detach FETCH_HEAD &&
-    git -C "$pod/src" remote add origin https://github.com/PRO-Robotech/kacho-workspace.git || exit 69
+    git -C "$pod/src" checkout -q --detach FETCH_HEAD || exit 69
+# Клон Job настоящего маршрута (remote-heavy/run.sh: init + bundle) origin не несёт — SANDBOX_NO_ORIGIN.
+[ -n "${SANDBOX_NO_ORIGIN:-}" ] || git -C "$pod/src" remote add origin https://github.com/PRO-Robotech/kacho-workspace.git || exit 69
+# Учётные данные машины в Job не едут: метка секрета в дереве, которое получил pod, — утечка.
+[ -z "${SANDBOX_SECRET:-}" ] || ! grep -rqsF -- "$SANDBOX_SECRET" "$pod/src" || echo "$*" >> "$SANDBOX_LEAK"
 [ -z "${SANDBOX_MACHINE:-}" ] || mv "$SANDBOX_MACHINE" "$SANDBOX_MACHINE.hidden"
 (cd "$pod/src/$rel" && env HOME="$SANDBOX_POD_HOME" PATH="$SANDBOX_POD_PATH" KUBERNETES_SERVICE_HOST=sandbox "$@") |
     case "${SANDBOX_STREAM:-}" in
@@ -56,6 +71,37 @@ rc=${PIPESTATUS[0]}
 rm -rf "$pod"; exit "$rc"
 '''
 TRAP = '#!/usr/bin/env bash\necho "$0 $*" >> "$SANDBOX_TRAP"\nexit 97\n'
+SECRET = 'SANDBOX-CREDENTIAL-7f3c'  # метка учётных данных машины: в дереве Job её быть не должно
+# Промахи, которые называет pod (ws#1365): машина исполняет своим токеном лишь закрытый перечень
+# чтений. REFUSED — запись, выдача токена, тело, заголовки, jq, чужой хост, обход регистром,
+# слитной формой ключа, переводом строки внутри довода, псевдоним; READS — законные чтения.
+R = 'repos/PRO-Robotech/kaname/issues/1/comments'
+REFUSED = [
+    ['api', '-X', 'POST', R], ['api', '--method=POST', R], ['api', R, '-f', 'body=x'],
+    ['pr', 'merge', '1', '-R', 'PRO-Robotech/kaname', '--merge'], ['auth', 'token'],
+    ['api', '--method', 'post', R], ['api', '--method', 'POST', R], ['api', '-XPOST', R],
+    ['api', R, '--method', 'PATCH'], ['api', '--method', 'GET', '--method', 'POST', R],
+    ['api', R, '--input', '/etc/hostname'], ['api', '-F', 'x=@/etc/passwd', R], ['api', '--field', 'a=b', R],
+    ['api', '--raw-field', 'a=b', R], ['api', R, '--method', 'GET', '-f', 'x=y'],
+    ['api', 'graphql', '-f', 'query=mutation{x}'], ['api', 'graphql'],
+    ['API', R], ['PR', 'merge', '1'], ['co', '1'], ['repo', 'delete', 'PRO-Robotech/kaname', '--yes'],
+    ['issue', 'comment', '1', '--body', 'x'], ['run', 'rerun', '1'], ['pr', 'view', '1', '--web'],
+    ['api', '--jq', 'env', R], ['api', '--verbose', R], ['api', '--hostname', 'evil.example', R],
+    ['api', '-H', 'X-HTTP-Method-Override: DELETE', R], ['api', 'https://evil.example/x'],
+    ['api', 'repos/PRO-Robotech/kaname/../../user'], ['api', R + '\n--method\nPOST'],
+]
+REFUSED_RAW = ['[]', '{"argv": ["auth", "token"]}', '["api", 5]']
+READS = [
+    ['api', 'repos/PRO-Robotech/kaname/pulls/1'], ['api', 'rate_limit'],
+    ['api', '--method', 'GET', R + '?per_page=100&page=1'],
+    ['api', '--paginate', 'repos/PRO-Robotech/kaname/actions/runs?head_sha=' + 'a' * 40],
+    ['pr', 'view', '1', '-R', 'PRO-Robotech/kaname', '--json', 'state,headRefOid'],
+    ['pr', 'list', '-R', 'PRO-Robotech/kaname', '--json', 'number', '-L', '5'],
+    ['issue', 'view', '1365', '-R', 'PRO-Robotech/kacho-workspace', '--json', 'state'],
+    ['issue', 'list', '-R', 'PRO-Robotech/kacho-workspace'],
+    ['run', 'view', '1', '-R', 'PRO-Robotech/kaname', '--json', 'conclusion'],
+    ['run', 'list', '-R', 'PRO-Robotech/kaname', '-L', '3'],
+]
 # Двойник площадки по ВИДУ пути, как отвечает GitHub; неизвестный путь — 404 и строка в журнале.
 GH = r'''#!/usr/bin/env bash
 printf '%s\n' "$*" >> "$SANDBOX_GH_LOG"
@@ -81,7 +127,8 @@ class Sandbox:
         self.root = root
         self.ws = root / 'ws'
         self.trap, self.slot_log, self.gh_log = root / 'trap', root / 'slot.log', root / 'gh.log'
-        for p in (self.trap, self.slot_log, self.gh_log): p.write_text('')
+        self.leak = root / 'leak'
+        for p in (self.trap, self.slot_log, self.gh_log, self.leak): p.write_text('')
         (self.ws / 'scripts' / 'remote-reader').mkdir(parents=True)
         for rel in COPY:
             dst = self.ws / 'scripts' / rel
@@ -124,6 +171,7 @@ class Sandbox:
                             'STAND_REPORT_GH', 'RITUAL_LEDGER_CLONES')}
         env.update(SANDBOX_TRAP=str(self.trap), SANDBOX_SLOT_LOG=str(self.slot_log),
                    SANDBOX_GH_LOG=str(self.gh_log), SANDBOX_GH=str(self.gh), SANDBOX_MACHINE=str(self.files),
+                   SANDBOX_SECRET=SECRET, SANDBOX_LEAK=str(self.leak),
                    SANDBOX_POD_PATH=os.environ['PATH'], SANDBOX_POD_HOME=os.environ.get('HOME', '/'))
         if machine:
             # HOME машины — песочницы: коммит драйвера подписывается её корневым gitconfig.
@@ -210,6 +258,7 @@ class RemoteReader(unittest.TestCase):
 
     def assertJob(self, result, slots=1):
         self.assertEqual(self.box.trap.read_text(), '', 'python3 исполнен на машине: ' + result.stderr)
+        self.assertEqual(self.box.leak.read_text(), '', 'учётные данные машины уехали в Job')
         self.assertEqual(len(self.box.slots()), slots, result.stderr)
         if result.returncode == 0: self.assertEqual(self.box.residue(), [], 'журнал либо копия драйвера остались')
         self.assertFalse([p for p in self.box.residue() if not p.endswith('.log')], 'копия драйвера осталась')
@@ -297,6 +346,33 @@ class RemoteReader(unittest.TestCase):
         self.assertEqual(blind.returncode, 2, blind.stdout + blind.stderr)
         self.assertFalse(record.exists())
 
+    def test_registry_stages_run_in_a_job_clone_without_origin(self):
+        # Клон Job настоящего маршрута (remote-heavy/run.sh: init + bundle) origin не несёт, а судья
+        # реестра сверяет адрес origin воркспейса (находка kaname#881): pod заводит его адресом копии.
+        exp = {'schema': 'kaname-stand-v1', 'repo': gate.REPO, 'head': 'a' * 40, 'tree': 'b' * 40,
+               'definitions': {str(i): {'matrix_index': i} for i in range(3)}}
+        expect = self.box.files / 'expect.json'; expect.write_text(json.dumps(exp))
+        packet = build_packet(self.box.files, exp)
+        identity = gate.common.digest(gate.import_candidate(exp, packet))
+        review = self.box.files / 'review.json'
+        review.write_text(json.dumps({'role': 'check-verifier', 'verdict': 'accept', 'blocking': [],
+            'candidate_digest': identity, 'claims': ['source-and-command-binding', 'native-verdict-and-cleanup',
+            'selected-package-partition', 'short-skip-applicability']}))
+        record = self.box.ws / 'tmp/operator-stand-registry/kaname-imports' / (identity + '.json')
+        args = ['register-import', '--expect', str(expect), '--packet', str(packet), '--review', str(review)]
+        got = self.box.run('stand-report.sh', *args, SANDBOX_NO_ORIGIN='1')
+        self.assertEqual((got.returncode, json.loads(got.stdout or '{}')), (0, {'import_id': identity}),
+                         got.stdout + got.stderr)
+        self.assertTrue(record.exists())
+        self.assertJob(got)
+        # Мутант: pod origin не заводит — судья реестра отказывает (как на настоящем маршруте).
+        record.unlink()
+        self.box.mutate('remote-reader/pod.sh', 'if ! git -C "$TOPP" remote get-url origin > /dev/null 2>&1 && [ -s "$RR/origin.url" ]; then',
+                        'if false; then')
+        blind = self.box.run('stand-report.sh', *args, SANDBOX_NO_ORIGIN='1')
+        self.assertEqual(blind.returncode, 2, blind.stdout + blind.stderr)
+        self.assertFalse(record.exists())
+
     def test_pr_body_runs_in_the_job_with_the_tracker_captured(self):
         g = self.box.gh
         (g / 'issue.json').write_text(json.dumps({'number': 5, 'state': 'open', 'title': 'задача песочницы'}))
@@ -315,6 +391,72 @@ class RemoteReader(unittest.TestCase):
         unpublished = self.box.run('pr-body.sh', *args, RITUAL_REPO_DIR=str(self.box.ws))
         self.assertEqual(unpublished.returncode, 64, unpublished.stderr)
         self.assertIn('не на origin', unpublished.stderr)
+
+    def test_pod_named_calls_outside_the_read_list_are_refused(self):
+        # Промах называет pod — значит, его текст пишет то, что исполнилось в Job. Машина исполняет
+        # своим токеном лишь закрытый перечень чтений: прочее — строка отказа, вызова gh нет.
+        k = Kaname(self.box, hosted=True)
+        args = ['report', '--expect', str(k.expect), '--import-id', k.identity,
+                '--hosted-reviews', str(k.reviews), '--events', str(k.events)]
+        direct = self.box.run('stand-report.sh', *args, machine=False)
+        self.assertEqual(direct.returncode, 0, direct.stdout + direct.stderr)
+        # Контроль: настоящий промах (журнал задания) снимается — законное чтение проходит.
+        self.box.mutate('remote-reader.sh', 'gh_fetch api --allow-escape-sequences "repos/$repo/actions/jobs/$key/logs"',
+                        ': "$key"')
+        self.box.gh_log.write_text('')
+        lawful = self.box.run('stand-report.sh', *args)
+        self.assertEqual((lawful.returncode, json.loads(lawful.stdout)), (0, json.loads(direct.stdout)), lawful.stderr)
+        self.assertIn('промахов GitHub 1 — сняты', lawful.stderr)
+        base = set(self.box.gh_log.read_text().splitlines())
+        # Pod дописывает к промахам вызовы, которых читатель не делал.
+        forge = self.box.root / 'forge.jsonl'
+        forge.write_text(''.join(json.dumps(a) + '\n' for a in REFUSED + READS) + ''.join(r + '\n' for r in REFUSED_RAW))
+        self.box.mutate('remote-reader/pod.sh', 'cp -- "$RR/gh/misses" "$box/miss"',
+                        'cat -- "$RR/gh/misses" "$SANDBOX_FORGE" > "$box/miss"')
+        self.box.gh_log.write_text(''); self.box.slot_log.write_text('')
+        got = self.box.run('stand-report.sh', *args, SANDBOX_FORGE=str(forge))
+        self.assertEqual((got.returncode, json.loads(got.stdout)), (0, json.loads(direct.stdout)), got.stderr)
+        self.assertJob(got, slots=2)
+        calls = set(self.box.gh_log.read_text().splitlines())
+        self.assertEqual(calls - base, {' '.join(a) for a in READS}, 'исполнено сверх законных чтений')
+        refused = [line for line in got.stderr.splitlines() if 'промах вне перечня чтений GitHub не снимается' in line]
+        self.assertEqual(len(refused), len(REFUSED) + len(REFUSED_RAW), got.stderr)
+        # Мутант: перечень снят (всякий промах — «чтение») — запись и выдача токена исполнены.
+        self.box.mutate('remote-reader.sh', 'gh_read_ok() {  # gh_read_ok', 'gh_read_ok() { return 0; }\nunused_read_ok() {  #')
+        self.box.gh_log.write_text('')
+        blind = self.box.run('stand-report.sh', *args, SANDBOX_FORGE=str(forge))
+        self.assertIn('auth token', self.box.gh_log.read_text().splitlines(), blind.stderr)
+
+    def test_credentials_of_the_machine_do_not_ship(self):
+        secret = self.box.home / '.config' / 'gh' / 'hosts.yml'
+        secret.parent.mkdir(parents=True); secret.write_text('oauth_token: ' + SECRET + '\n')
+        k = Kaname(self.box, hosted=True)
+        # Довод входа — сразу 64, Job не создаётся.
+        top = self.box.run('stand-report.sh', 'report', '--expect', str(k.expect), '--import-id', k.identity,
+                           '--hosted-reviews', str(secret), '--events', str(k.events))
+        self.assertEqual(top.returncode, 64, top.stderr)
+        self.assertEqual(self.box.slots(), [])
+        # Путь внутри JSON-входа — не переносится, строка остаётся, Job идёт без него.
+        reviews = json.loads(k.reviews.read_text()); reviews['leak'] = str(secret)
+        k.reviews.write_text(json.dumps(reviews))
+        inner = self.box.run('stand-report.sh', 'report', '--expect', str(k.expect), '--import-id', k.identity,
+                             '--hosted-reviews', str(k.reviews), '--events', str(k.events))
+        self.assertIn('хранилище учётных данных машины', inner.stderr)
+        self.assertEqual(len(self.box.slots()), 1, inner.stderr)
+        self.assertEqual(self.box.leak.read_text(), '', 'учётные данные машины уехали в Job')
+        # Адрес origin копии expect — без userinfo.
+        co, head = self.kaname_checkout()
+        self.box.git('remote', 'set-url', 'origin', 'https://x-access-token:' + SECRET + '@github.com/PRO-Robotech/kaname.git', cwd=co)
+        self.box.run('stand-report.sh', 'expect', '--checkout', str(co), '--head', head, '--base', 'origin/954',
+                     '--draft', 'false')
+        self.assertEqual(len(self.box.slots()), 2)
+        self.assertEqual(self.box.leak.read_text(), '', 'userinfo адреса origin уехал в Job')
+        # Мутант: адрес без очистки — метка в дереве Job (проба читает свой предмет).
+        self.box.mutate('remote-reader.sh', "no_userinfo() { sed -E 's#^([A-Za-z][A-Za-z0-9+.-]*://)[^/@]*@#\\1#'; }",
+                        'no_userinfo() { cat; }')
+        self.box.run('stand-report.sh', 'expect', '--checkout', str(co), '--head', head, '--base', 'origin/954',
+                     '--draft', 'false')
+        self.assertNotEqual(self.box.leak.read_text(), '', 'проба утечки слепа')
 
     def test_stream_is_deduplicated_and_a_gap_is_refused(self):
         k = Kaname(self.box)
@@ -397,6 +539,185 @@ class RemoteReader(unittest.TestCase):
         self.box.mutate('remote-reader.sh', '|| EXTRA=(--ref "$ref")', '|| EXTRA=()')
         blind = self.box.run('stand-report.sh', *args)
         self.assertEqual(blind.returncode, 2, blind.stdout + blind.stderr)
+        self.assertEqual(self.box.trap.read_text(), '')
+
+
+class DaemonReaders(unittest.TestCase):
+    """Читатели демона вливания (ws#1365): предпроверка целиком, формы ci-read и branch-audit — Job-ом."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.box = Sandbox(Path(self.tmp.name))
+        for rel in DAEMON_COPY:
+            dst = self.box.ws / 'scripts' / rel
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(HERE / rel, dst)
+        self.box.commit('#1365 читатели демона')
+        self.box.git('update-ref', 'refs/remotes/origin/main', 'HEAD')
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def assertJob(self, result, slots=1):
+        RemoteReader.assertJob(self, result, slots)
+
+    def lp_case(self):
+        """Случай kacho#3036 (landing-precheck-fixtures) и двойник площадки landing-precheck-inject.sh."""
+        case = self.box.files / 'case'; case.mkdir()
+        pull = json.loads((LPFIX / 'pull.json').read_text())
+        commits = json.loads((LPFIX / 'commits.json').read_text())
+        runs = json.loads((LPFIX / 'check-runs.json').read_text())
+        pull['state'] = 'open'; pull['body'] = pull['body'].replace(' вместе с #3028', '')
+        head = pull['head']['sha']
+        (case / 'head').write_text(head + '\n')
+        (case / 'pull.json').write_text(json.dumps(pull))
+        shutil.copyfile(LPFIX / 'commits.json', case / 'commits.json')
+        shutil.copyfile(LPFIX / 'check-runs.json', case / 'check-runs.json')
+        for n in (2878, 2885, 2690, 2707):
+            sha = next(c['sha'] for c in commits if f'#{n}' in c['commit']['message'].split('\n')[0])
+            (case / f'comments-{n}.json').write_text(json.dumps([{'body': f'сдача\nDoD-proof @{sha[:12]}'}]))
+        (case / 'comments-3020.json').write_text(json.dumps([{'body': f'DoD-proof @{head}'}]))
+        (case / 'prview.json').write_text(json.dumps({
+            'state': 'OPEN', 'baseRefName': pull['base']['ref'],
+            'baseRefOid': pull['base'].get('sha') or commits[0]['parents'][0]['sha'], 'headRefName': pull['head']['ref'],
+            'headRefOid': head, 'mergeStateStatus': 'CLEAN', 'body': pull['body'], 'closingIssuesReferences': [],
+            'statusCheckRollup': [{'name': r['name'], 'conclusion': (r.get('conclusion') or '').upper()}
+                                  for r in runs['check_runs']]}))
+        (case / 'protection.json').write_text(json.dumps(
+            {'required_status_checks': {'contexts': sorted({r['name'] for r in runs['check_runs']})}}))
+        text = (HERE / 'landing-precheck-inject.sh').read_text().split("cat > \"$W/gh\" <<'GH'\n", 1)[1]
+        double = text.split('\nGH\n', 1)[0] + '\n'
+        self.box.write(self.box.machine_bin / 'gh', double)
+        pod_bin = self.box.root / 'pod-bin'; pod_bin.mkdir()
+        self.box.write(pod_bin / 'gh', double)
+        return case, pod_bin
+
+    def test_landing_precheck_runs_in_the_job(self):
+        case, pod_bin = self.lp_case()
+        args = ['PRO-Robotech/kacho', '3036']
+        direct = self.box.run('landing-precheck.sh', *args, machine=False, FAKE=str(case),
+                              PATH=str(pod_bin) + ':' + os.environ['PATH'])
+        self.assertIn(direct.returncode, (0, 1), direct.stdout + direct.stderr)
+        self.assertIn('CENSUS\tmerge-readiness: код 0', direct.stdout, direct.stdout)
+        machine = self.box.run('landing-precheck.sh', *args, FAKE=str(case))
+        self.assertEqual(lp_out(machine), lp_out(direct), machine.stderr)
+        self.assertNotIn('промахов GitHub', machine.stderr)
+        self.assertJob(machine)
+        # План без check-runs предпроверки: промах снимается вторым кругом, вывод тот же.
+        self.box.mutate('remote-reader.sh',
+                        '    pages_q check_runs "repos/$repo/commits/$head/check-runs?per_page=100&filter=latest&page=" ""\n', '')
+        self.box.slot_log.write_text('')
+        second = self.box.run('landing-precheck.sh', *args, FAKE=str(case))
+        self.assertEqual(lp_out(second), lp_out(direct), second.stderr)
+        self.assertIn('промахов GitHub 1 — сняты, прогон 2 из 4', second.stderr)
+        self.assertJob(second, slots=2)
+
+    def test_landing_precheck_from_the_recipe_archive(self):
+        case, pod_bin = self.lp_case()
+        args = ['PRO-Robotech/kacho', '3036']
+        direct = self.box.run('landing-precheck.sh', *args, machine=False, FAKE=str(case),
+                              PATH=str(pod_bin) + ':' + os.environ['PATH'])
+        # Рецепт «ЗАПУСК»: scripts/ из origin/main — каталог вне копии; LANDING_PRECHECK_WS — воркспейс.
+        arch = self.box.root / 'wsg'; arch.mkdir()
+        subprocess.run(f'git -C "{self.box.ws}" archive origin/main scripts | tar -x -C "{arch}"',
+                       shell=True, check=True)
+        got = subprocess.run(['bash', str(arch / 'scripts' / 'landing-precheck.sh'), *args], cwd='/',
+                             env=self.box.env(FAKE=str(case), LANDING_PRECHECK_WS=str(self.box.ws), KACHO_TASK='1365'),
+                             capture_output=True, text=True, timeout=600)
+        self.assertEqual(lp_out(got), lp_out(direct), got.stderr)
+        self.assertJob(got)
+        # Архив разошёлся с origin/main — Job исполнил бы не вызванное: 64 до Job.
+        (arch / 'scripts' / 'merge-readiness.sh').write_text('#!/usr/bin/env bash\nexit 0\n')
+        drift = subprocess.run(['bash', str(arch / 'scripts' / 'landing-precheck.sh'), *args], cwd='/',
+                               env=self.box.env(FAKE=str(case), LANDING_PRECHECK_WS=str(self.box.ws), KACHO_TASK='1365'),
+                               capture_output=True, text=True, timeout=600)
+        self.assertEqual(drift.returncode, 64, drift.stderr)
+        self.assertIn('не совпадает с origin/main', drift.stderr)
+        self.assertEqual(len(self.box.slots()), 1)
+
+    def test_ci_read_job_names_run_in_the_job(self):
+        wf = self.box.files / 'wf.yml'
+        wf.write_text('jobs:\n  a:\n    name: сборка\n  b:\n    name: "шард ${{ matrix.n }}"\n'
+                      '    strategy:\n      matrix:\n        n: [1, 2]\n')
+        present = self.box.files / 'present.txt'; present.write_text('сборка\nшард 1\n')
+        direct = self.box.run('ci-read.sh', '--job-names', str(wf), str(present), machine=False)
+        self.assertEqual((direct.returncode, direct.stdout), (0, 'не появились 1 из 3: шард 2'), direct.stderr)
+        machine = self.box.run('ci-read.sh', '--job-names', str(wf), str(present))
+        self.assertEqual((machine.returncode, machine.stdout), (0, direct.stdout), machine.stderr)
+        self.assertJob(machine)
+        # Снимок демона (--from-state) лежит на машине — Job его не видит: 64 до Job.
+        refused = subprocess.run(['bash', str(self.box.ws / 'scripts/remote-reader.sh'), 'scripts/ci-read.sh',
+                                  'PRO-Robotech/kacho', '1', '--from-state'], cwd=str(self.box.ws), env=self.box.env(),
+                                 capture_output=True, text=True, timeout=60)
+        self.assertEqual(refused.returncode, 64, refused.stderr)
+        self.assertIn('--from-state', refused.stderr)
+        self.assertEqual(len(self.box.slots()), 1)
+
+    def test_ci_read_full_form_runs_in_the_job(self):
+        """Полная форма ci-read — вход полос, которым ci-read на машине не положен (ws#1383).
+
+        Захват kacho#3296 (ci-read-fixtures): вытесненный прогон — чтение файла workflow на голове и
+        разбор его имён (--job-names) в pod; двойник площадки — gh-twin.sh проб ci-read."""
+        fx = self.box.files / 'ci'
+        shutil.copytree(HERE / 'ci-read-fixtures' / 'kacho-3296', fx)
+        self.box.write(self.box.machine_bin / 'gh', (HERE / 'ci-read-fixtures' / 'gh-twin.sh').read_text())
+        args = ['PRO-Robotech/kacho', '3296']
+        direct = self.box.run('ci-read.sh', *args, machine=False, CI_READ_GH=str(self.box.machine_bin / 'gh'),
+                              CI_READ_FX=str(fx))
+        self.assertIn(direct.returncode, (1, 3), direct.stdout + direct.stderr)
+        self.assertRegex(direct.stdout, r'REASON\tRUN-DISPLACED\tproduction-posture .*не появились 3 из 3')
+        machine = self.box.run('remote-reader.sh', 'scripts/ci-read.sh', *args, CI_READ_FX=str(fx))
+        self.assertEqual(lp_out(machine), lp_out(direct), machine.stderr)
+        self.assertNotIn('промахов GitHub', machine.stderr)
+        self.assertJob(machine)
+        # План без статуса коммита: промах снимается вторым кругом, вывод тот же.
+        self.box.mutate('remote-reader.sh', '    gh_fetch api "repos/$repo/commits/$head/status"\n', '')
+        self.box.slot_log.write_text('')
+        second = self.box.run('remote-reader.sh', 'scripts/ci-read.sh', *args, CI_READ_FX=str(fx))
+        self.assertEqual(lp_out(second), lp_out(direct), second.stderr)
+        self.assertIn('промахов GitHub 1 — сняты, прогон 2 из 3', second.stderr)
+        self.assertJob(second, slots=2)
+
+    def audited(self):
+        """Репозиторий переписи: голый origin, ствол, генератор с постоянным ответом (как vault-index)."""
+        origin = self.box.root / 'origin.git'
+        self.box.git('init', '-q', '--bare', '-b', 'main', str(origin), cwd=self.box.root)
+        repo = self.box.root / 'audited'
+        self.box.git('clone', '-q', str(origin), str(repo), cwd=self.box.root)
+        self.box.git('symbolic-ref', 'HEAD', 'refs/heads/main', cwd=repo)
+        (repo / 'scripts/vault-index').mkdir(parents=True)
+        (repo / 'scripts/vault-index/generate.py').write_text(
+            'import sys\nif "--outputs" in sys.argv:\n    print("machine/INDEX.md")\n')
+        (repo / 'machine').mkdir(); (repo / 'machine/INDEX.md').write_text('собрано\n')
+        self.box.git('add', '-A', cwd=repo); self.box.git('commit', '-qm', 'ствол', cwd=repo)
+        self.box.git('push', '-q', 'origin', 'main', cwd=repo)
+        return repo
+
+    def test_branch_audit_generator_answer_by_job_then_memory(self):
+        repo = self.audited()
+        cache = self.box.root / 'cache'
+        knobs = dict(XDG_CACHE_HOME=str(cache), BRANCH_AUDIT_NO_FETCH='1', BRANCH_AUDIT_NO_ACCUM='1',
+                     BRANCH_AUDIT_FRESH_MIN='0')
+        first = self.box.run('branch-audit.sh', str(repo), **knobs)
+        self.assertIn('генераторов спрошено 1, без ключа --outputs 0; машинно собираемых путей 1', first.stdout,
+                      first.stdout + first.stderr)
+        self.assertIn('ответ генераторов на машине — Job внешнего кластера', first.stdout)
+        self.assertJob(first)
+        second = self.box.run('branch-audit.sh', str(repo), **knobs)
+        self.assertIn('машинно собираемых путей 1', second.stdout, second.stdout + second.stderr)
+        self.assertIn('ответ генераторов на машине — память по отпечатку текста', second.stdout)
+        self.assertEqual(len(self.box.slots()), 1, 'второй прогон ходил в Job: память по отпечатку не читалась')
+        # Текст генератора сменился — отпечаток иной, ответ снова Job-ом.
+        (repo / 'scripts/vault-index/generate.py').write_text(
+            'import sys\nif "--outputs" in sys.argv:\n    print("machine/OTHER.md")\n')
+        third = self.box.run('branch-audit.sh', str(repo), **knobs)
+        self.assertIn('ответ генераторов на машине — Job внешнего кластера', third.stdout, third.stdout + third.stderr)
+        self.assertEqual(len(self.box.slots()), 2)
+        # Маршрут не исполнился (слот занят) — «не спрошено», а не «без ключа».
+        (repo / 'scripts/vault-index/generate.py').write_text('import sys\nprint("x")\n')
+        busy = self.box.run('branch-audit.sh', str(repo), SANDBOX_SLOT_RC='74', **knobs)
+        self.assertIn('без ключа --outputs 0', busy.stdout, busy.stdout + busy.stderr)
+        self.assertIn('НЕ СПРОШЕНО 1 генераторов', busy.stdout)
         self.assertEqual(self.box.trap.read_text(), '')
 
 

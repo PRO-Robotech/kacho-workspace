@@ -221,6 +221,7 @@
 #   GI1 ci-local отправкой при корневой учётке копии → имя и адрес в окружении run,
 #      шаг записи до exec, адрес не напечатан (ws#1115, отправка 853)
 #      GI1-env — имена окружения всех контейнеров Job из разрешённого списка;
+#      GI1-origin — адрес origin клона pod публичный, из имени репозитория (ws#1301);
 #      GI1-decoy — signingkey, credential.helper, http.extraHeader, insteadOf,
 #      include.path корневого gitconfig до Job и вывода не доходят
 #   NC2-update обновление опубликованной ветки: удалённый sha ненулевой, ветка влила
@@ -1338,6 +1339,16 @@ jobs: {}
 '
 ws_rev scnone 'jobs: {}
 '
+ws_rev scjob 'jobs:
+  t:
+    env:
+      SHELLCHECK_VERSION: "0.11.0"
+    runs-on: ubuntu-latest
+'
+ws_rev scsq "env:
+  SHELLCHECK_VERSION: '0.11.0'  # пин
+jobs: {}
+"
 mapfile -t PPROFS < <(sed -n "/^PROFILES='/,/'\$/p" "$RUN" | sed -e "s/^PROFILES='//" | cut -d'|' -f1 | grep -E '^[a-z][a-z0-9-]*$')
 if [ "${#PPROFS[@]}" -ge 4 ]; then ok; else bad P8 "профилей в таблице run.sh прочитано ${#PPROFS[@]} (ждали не меньше 4) — судить нечем"; fi
 for prof in "${PPROFS[@]}"; do
@@ -1834,6 +1845,8 @@ else ok; fi
 GI_NAME="Probe Signer"; GI_EMAIL="probe-signer@example.invalid"
 printf '[user]\n\tname = %s\n\temail = %s\n' "$GI_NAME" "$GI_EMAIL" > "$BOX/gi.cfg"; : > "$BOX/gi-empty.cfg"
 gi_in() { awk '/^# gitid-begin$/ { b = NR } /^# gitid-end$/ { m = NR } /^heavy_cmd "\$@"$/ { e = NR } END { exit !(b && m && e && b < m && m < e) }' "$1"; }
+# origin копии несёт учётку в URL: GI1-origin ниже судит, что адрес pod собран из имени, а не скопирован
+git -C "$SRC" remote add origin "https://tok:secret@github.com/PRO-Robotech/kaname.git"
 fresh
 go_run gi1 env FAKE_EXIT=0 GIT_CONFIG_GLOBAL="$BOX/gi.cfg" bash "$RUN" --task 1 --repo kaname --ref HEAD --src "$SRC" --profile ci-local --short gi1 --push-input "$PUSH_LINE" -- true
 expect_rc GI1 0
@@ -1843,8 +1856,15 @@ else OUT="$BOX/state/job.json"; bad GI1 "учётка не дошла до ок�
 if gi_in "$BOX/gi1.cmd"; then ok; else OUT="$BOX/gi1.cmd"; bad GI1 "шага записи учётки перед командой в Job ci-local нет"; fi
 if grep -qF "$GI_EMAIL" "$BOX/gi1.out"; then bad GI1 "адрес учётки напечатан в выводе run.sh"; else ok; fi
 # GI1-env: состав окружения КАЖДОГО контейнера Job — только разрешённые имена (до
-#     правки учётки и вход pre-push плюс HEAVY_GIT_NAME/EMAIL); envFrom нет
-GI_ALLOW="CI DOCKER_HOST GOCACHE GOLANGCI_LINT_CACHE GOMODCACHE GOTOOLCHAIN HEAVY_BUF HEAVY_DENY_PROBE HEAVY_GIT_EMAIL HEAVY_GIT_NAME HEAVY_HELM HEAVY_MAIN HEAVY_NODE HEAVY_PULL HEAVY_PUSH_INPUT HEAVY_SHA HEAVY_WORKDIR HEAVY_YQ TESTCONTAINERS_RYUK_DISABLED"
+#     правки учётки и вход pre-push плюс HEAVY_GIT_NAME/EMAIL, адрес origin клона pod —
+#     HEAVY_ORIGIN, ws#1301); envFrom нет
+GI_ALLOW="CI DOCKER_HOST GOCACHE GOLANGCI_LINT_CACHE GOMODCACHE GOTOOLCHAIN HEAVY_BUF HEAVY_DENY_PROBE HEAVY_GIT_EMAIL HEAVY_GIT_NAME HEAVY_HELM HEAVY_MAIN HEAVY_NODE HEAVY_ORIGIN HEAVY_PULL HEAVY_PUSH_INPUT HEAVY_SHA HEAVY_WORKDIR HEAVY_YQ TESTCONTAINERS_RYUK_DISABLED"
+# GI1-origin: адрес origin клона pod — публичный адрес репозитория, собранный из его имени, а
+#     не взятый из origin копии (тот может нести учётку в URL): как у checkout конвейера.
+gi_origin="$(kx env "$BOX/state/job.json" fetch HEAVY_ORIGIN)"
+if [ "$gi_origin" = "https://github.com/PRO-Robotech/kaname.git" ]; then ok
+else bad GI1-origin "адрес origin клона pod не публичный адрес kaname без учётки (пуст: $([ -z "$gi_origin" ] && echo да || echo нет), учётка в нём: $(case "$gi_origin" in *@*) echo да ;; *) echo нет ;; esac))"; fi
+git -C "$SRC" remote remove origin
 gi_extra="$(jq -r --arg a "$GI_ALLOW" '($a | split(" ")) as $al | [.spec.template.spec | (.containers[]?, .initContainers[]?) | (.env[]?.name), (if .envFrom then "envFrom" else empty end)] | unique | map(select(IN($al[]) | not)) | join(" ")' "$BOX/state/job.json" 2>/dev/null)" || gi_extra="(spec не разобран)"
 if [ -z "$gi_extra" ]; then ok; else bad GI1-env "в окружении Job имена вне разрешённого списка: $gi_extra"; fi
 # GI1-decoy: корневой gitconfig копии несёт приманки — ключ подписи, помощник
@@ -3862,6 +3882,19 @@ if grep -q 'пин shellcheck на .* — 0.10.0' "$OUT"; then ok; else bad WS3-
 fresh; go_run ws3-none env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kacho-workspace --ref scnone --src "$SRCW" --profile ws --short ws3 -- true
 expect_rc WS3-none 69; no_cluster_call WS3-none
 if grep -q 'env.SHELLCHECK_VERSION конвейера нет' "$OUT"; then ok; else bad WS3-none "причина не названа (пина нет)"; fi
+# env ЗАДАНИЯ — не пин конвейера: верхнеуровневого нет → 69 «пина нет» (законный близнец — scsq)
+fresh; go_run ws3-jobenv env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kacho-workspace --ref scjob --src "$SRCW" --profile ws --short ws3 -- true
+expect_rc WS3-jobenv 69; no_cluster_call WS3-jobenv
+if grep -q 'env.SHELLCHECK_VERSION конвейера нет' "$OUT"; then ok; else bad WS3-jobenv "env задания прочитан пином конвейера"; fi
+# Пин в одинарных кавычках с комментарием строки — тот же 0.11.0, и python3 машины драйвер профиля
+# ws не зовёт (ws#1365: страж демона вливания отказывает python3 маршруту читателей) — ловушка
+# python3/python первой в PATH, путь до Job тот же, что у WS1.
+mkdir -p "$BOX/pytrap"; : > "$BOX/pytrap.log"
+# shellcheck disable=SC2016  # текст ловушки: $0 и $* раскрывает она сама при запуске, не здесь
+for p in python3 python; do printf '#!/usr/bin/env bash\necho "$0 $*" >> %q\nexit 97\n' "$BOX/pytrap.log" > "$BOX/pytrap/$p"; chmod +x "$BOX/pytrap/$p"; done
+fresh; go_run ws3-nopy env PATH="$BOX/pytrap:$BOX/bin:$PATH" FAKE_EXIT=0 bash "$RUN" --task 1 --repo kacho-workspace --ref scsq --src "$SRCW" --profile ws --short ws3 -- true
+expect_rc WS3-nopy 0
+if [ ! -s "$BOX/pytrap.log" ]; then ok; else bad WS3-nopy "драйвер профиля ws исполнил python3 на машине: $(head -n 2 "$BOX/pytrap.log" | tr '\n' ' ')"; fi
 # WS4 — сверка среды исполнением над поддельным PATH образа
 sed -n '/^# wscheck-begin$/,/^# wscheck-end$/p' "$BOX/ws1.cmd" | sed "s#/dev/termination-log#$BOX/wtl#g" > "$BOX/wscheck.sh"
 if grep -q '^# wscheck-end$' "$BOX/wscheck.sh"; then ok; else OUT="$BOX/ws1.cmd"; bad WS4 "текста сверки среды воркспейса в Job нет — исполнять нечего"; fi
