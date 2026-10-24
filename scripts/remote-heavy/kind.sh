@@ -5,8 +5,8 @@
 # shellcheck disable=SC2034
 #
 # kind.sh — профиль kind тяжёлого прогона (ws#1385). Сам не запускается: run.sh
-# подключает его `source` после таблиц PROFILES и PEAKS (REMOTE_HEAVY_KIND_LIB — путь
-# для копии run.sh вне каталога, как у inject.sh и mutants.py).
+# подключает его `source` после таблиц PROFILES и PEAKS (REMOTE_HEAVY_KIND_DIR — каталог
+# kind.sh для копии run.sh вне каталога, как у inject.sh и mutants.py).
 #
 # ПРЕДМЕТ. Группы конвейера, поднимающие kind-кластер внутри прогона (registry-operator:
 # kind-e2e, kaname — ci/gitlab/kaname.sh ставит kind со kaname, charts-admission), на

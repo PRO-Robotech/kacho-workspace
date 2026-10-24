@@ -309,8 +309,8 @@ SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # REMOTE_HEAVY_RUN — испорченная копия run.sh от mutants.sh; иначе run.sh рядом.
 RUN="${REMOTE_HEAVY_RUN:-$SELF_DIR/run.sh}"
 # Профиль kind run.sh подключает рядом с собой; копия run.sh (mutants.py, QE) лежит вне
-# каталога — путь к kind.sh ей даётся явно.
-export REMOTE_HEAVY_KIND_LIB="${REMOTE_HEAVY_KIND_LIB:-$SELF_DIR/kind.sh}"
+# каталога — каталог kind.sh ей даётся явно.
+export REMOTE_HEAVY_KIND_DIR="${REMOTE_HEAVY_KIND_DIR:-$SELF_DIR}"
 BOX="$(mktemp -d)" || { echo "inject: каталог пробы не создан" >&2; exit 2; }
 trap 'rm -rf -- "$BOX"' EXIT
 

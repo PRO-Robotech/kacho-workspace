@@ -613,7 +613,7 @@ PG_REQ_MIB=32
 # Профиль kind (ws#1385) — строки PROFILES и PEAKS, dind privileged, проба допуска и
 # исполнимости — отдельным файлом рядом; без него прогон не идёт ни одним профилем.
 # shellcheck source=scripts/remote-heavy/kind.sh
-. "${REMOTE_HEAVY_KIND_LIB:-$SELF_DIR/kind.sh}" || { say "профиль kind не подключён: ${REMOTE_HEAVY_KIND_LIB:-$SELF_DIR/kind.sh} (не выполнилось)"; exit 69; }
+. "${REMOTE_HEAVY_KIND_DIR:-$SELF_DIR}/kind.sh" || { say "профиль kind не подключён: ${REMOTE_HEAVY_KIND_DIR:-$SELF_DIR}/kind.sh (не выполнилось)"; exit 69; }
 
 profile_row() {
     local line
