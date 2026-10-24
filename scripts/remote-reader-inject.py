@@ -678,6 +678,30 @@ class DaemonReaders(unittest.TestCase):
         self.assertIn('промахов GitHub 1 — сняты, прогон 2 из 3', second.stderr)
         self.assertJob(second, slots=2)
 
+    def test_ci_read_refusal_text_of_github_ships_with_the_answer(self):
+        """Текст отказа площадки (stderr `gh`) — часть ответа (ws#1365, kaname PR 967): ветка без
+        защиты отвечает 404 с «Branch not protected» лишь в stderr, и ci-read различает по нему
+        «защиты нет» и «не прочитано». Без текста в снятом ответе маршрут дал бы VOID вместо
+        вердикта прямого прогона. Близнец — отказ иного текста: VOID с тем же текстом с обеих сторон."""
+        for err, want in [('gh: Branch not protected (HTTP 404)\n', 'CENSUS\tзащиты ветки main нет'),
+                          ('gh: Resource not accessible by integration (HTTP 403)\n',
+                           'защита ветки main не прочитана: gh: Resource not accessible by integration')]:
+            with self.subTest(err=err.strip()):
+                fx = self.box.files / ('ci-' + str(len(err)))
+                shutil.copytree(HERE / 'ci-read-fixtures' / 'kacho-3296', fx)
+                (fx / 'protection.json').unlink()
+                (fx / 'protection.json.err').write_text(err)
+                self.box.write(self.box.machine_bin / 'gh', (HERE / 'ci-read-fixtures' / 'gh-twin.sh').read_text())
+                args = ['PRO-Robotech/kacho', '3296']
+                direct = self.box.run('ci-read.sh', *args, machine=False,
+                                      CI_READ_GH=str(self.box.machine_bin / 'gh'), CI_READ_FX=str(fx))
+                self.assertIn(want, direct.stdout + direct.stderr, direct.stdout + direct.stderr)
+                self.box.slot_log.write_text('')
+                machine = self.box.run('remote-reader.sh', 'scripts/ci-read.sh', *args, CI_READ_FX=str(fx))
+                self.assertEqual(lp_out(machine), lp_out(direct), machine.stderr)
+                self.assertNotIn('промахов GitHub', machine.stderr)
+                self.assertJob(machine)
+
     def audited(self):
         """Репозиторий переписи: голый origin, ствол, генератор с постоянным ответом (как vault-index)."""
         origin = self.box.root / 'origin.git'
