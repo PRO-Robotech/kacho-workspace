@@ -1,0 +1,80 @@
+[
+  {
+    "app": {
+      "id": 15368
+    },
+    "check_suite": {
+      "id": 108670831431
+    },
+    "conclusion": "skipped",
+    "head_sha": "bd4b6dbb8b09b4051a301eaa966eb31a92409c53",
+    "name": "вердикт ствола — красное не остаётся без читателя",
+    "started_at": "2026-10-24T12:05:53Z",
+    "status": "completed"
+  },
+  {
+    "app": {
+      "id": 15368
+    },
+    "check_suite": {
+      "id": 108670831431
+    },
+    "conclusion": "success",
+    "head_sha": "bd4b6dbb8b09b4051a301eaa966eb31a92409c53",
+    "name": "выбор затронутого (образ)",
+    "started_at": "2026-10-24T12:03:59Z",
+    "status": "completed"
+  },
+  {
+    "app": {
+      "id": 15368
+    },
+    "check_suite": {
+      "id": 108670831431
+    },
+    "conclusion": "success",
+    "head_sha": "bd4b6dbb8b09b4051a301eaa966eb31a92409c53",
+    "name": "образ службы (сборка · публикация по пину)",
+    "started_at": "2026-10-24T12:04:05Z",
+    "status": "completed"
+  },
+  {
+    "app": {
+      "id": 15368
+    },
+    "check_suite": {
+      "id": 108670843325
+    },
+    "conclusion": "skipped",
+    "head_sha": "bd4b6dbb8b09b4051a301eaa966eb31a92409c53",
+    "name": "вердикт ствола — красное не остаётся без читателя",
+    "started_at": "2026-10-24T12:04:09Z",
+    "status": "completed"
+  },
+  {
+    "app": {
+      "id": 15368
+    },
+    "check_suite": {
+      "id": 108670843325
+    },
+    "conclusion": "success",
+    "head_sha": "bd4b6dbb8b09b4051a301eaa966eb31a92409c53",
+    "name": "выбор затронутого (образ)",
+    "started_at": "2026-10-24T12:04:03Z",
+    "status": "completed"
+  },
+  {
+    "app": {
+      "id": 15368
+    },
+    "check_suite": {
+      "id": 108670843325
+    },
+    "conclusion": "skipped",
+    "head_sha": "bd4b6dbb8b09b4051a301eaa966eb31a92409c53",
+    "name": "образ службы (сборка · публикация по пину)",
+    "started_at": "2026-10-24T12:04:09Z",
+    "status": "completed"
+  }
+]

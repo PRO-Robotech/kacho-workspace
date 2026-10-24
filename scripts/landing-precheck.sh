@@ -102,7 +102,7 @@
 #                             `filter=latest` их не сворачивает. Прогон workflow
 #                             набора не найден, started_at нет либо поздних
 #                             несколько — вытеснения нет, судятся все.
-#       ИСКЛЮЧЕНИЕ ОДНО — skipped задания, чьё условие `if` НЕВЫПОЛНИМО на
+#       ИСКЛЮЧЕНИЙ ДВА, оба — для skipped. Первое — skipped задания, чьё условие `if` НЕВЫПОЛНИМО на
 #                             событии его прогона. Признак (ws#947) — все три:
 #                             1) имени нет в наборе обязательных контекстов, которым
 #                             судит ЭТОТ PR `merge-readiness.sh` (набор он отдаёт
@@ -132,7 +132,29 @@
 #                             'refs/heads/main' }}` — замер 2026-10-06 на kaname#629
 #                             @88c4e475: 4 skipped из 24 check-runs. Маски по именам
 #                             нет: имя — только ключ к записи задания в файле.
-#                             Снятые skipped печатаются строкой CENSUS поимённо;
+#                             Снятые skipped печатаются строкой CENSUS поимённо.
+#                             Второе (ws#1365) — skipped задания прогона
+#                             pull_request, которое ДВОЙНИК задания прогона push
+#                             (kaname docker-build.yml «образ службы», шаг
+#                             `duplicate`, kaname#847: запрос не пересобирает
+#                             дерево, которое собирает отправка его головы). Признак
+#                             — все пять: 1) имени нет в наборе обязательных (как
+#                             выше); 2) условие `if` задания ЛОЖНО при
+#                             `needs.<зависимость>.outputs.duplicate == 'true'` для
+#                             одной из его `needs` — пропуск выводим из признака,
+#                             а не из имени; 3) голова не отстаёт от базы запроса
+#                             (`compare/<база>...<голова>` behind_by 0): дерево
+#                             слияния равно дереву головы; 4) на голове есть
+#                             последний прогон той же проверки (приложение, имя,
+#                             файл workflow) с событием push ветки головы и
+#                             head_sha, равным голове; 5) он завершён success.
+#                             Значение вывода `duplicate` API не отдаёт — довод
+#                             законности не он, а собранное прогоном push то же
+#                             дерево; push-прогон красный, на другой ревизии либо
+#                             его нет — причина. Форма, ради которой исключение
+#                             есть: kaname#962 @bd4b6dbb — pull_request 40092399441
+#                             skipped, push 40092395140 success (захват
+#                             `landing-precheck-fixtures/kaname-962/`).
 #       CI-LEDGER-MISSING   — у пары (репозиторий, база запроса) нет строки в той
 #                             ведомости, которую читает `ci-read.sh` рядом
 #                             (`${CI_READ_EXPECTED:-<каталог скрипта>/ci-read-expected.tsv}`,
@@ -658,6 +680,10 @@ class Expr:
                     known = False
         if known and len(path) == 2 and path[0] == "github" and path[1] in self.ctx:
             return self.ctx[path[1]]
+        # Вывод задания-зависимости задаётся только пробой признака двойника
+        # (`push_twin`): ключ — путь целиком, `needs.<задание>.outputs.<имя>`.
+        if known and path[0] == "needs" and ".".join(path) in self.ctx:
+            return self.ctx[".".join(path)]
         return UNK
 
 def if_unexecutable(cond, ctx):
@@ -755,11 +781,53 @@ def skip_lawful(r):
     mine = [j for k, j in jobs.items() if isinstance(j, dict) and (j.get("name") or k) == r.get("name")]
     if not mine:
         return False, f"в {path} нет задания с именем {r.get('name')!r}"
+    live = []
     for j in mine:
         ok, why = if_unexecutable(j.get("if"), ctx)
         if not ok:
-            return False, f"{path}: {why}"
-    return True, f"{path} на {ev}"
+            live.append((j, why))
+    if not live:
+        return True, f"{path} на {ev}"
+    if ev != "pull_request":
+        return False, f"{path}: {live[0][1]}"
+    ok, twin_why = push_twin(r, [j for j, _ in live], ctx, path)
+    if ok:
+        return True, twin_why
+    return False, f"{path}: {live[0][1]}; двойник прогона push не установлен: {twin_why}"
+
+def push_twin(r, jobs, ctx, path):
+    """(skipped запроса — двойник успешного прогона push той же головы, почему). ws#1365."""
+    for j in jobs:
+        needs = j.get("needs")
+        needs = [needs] if isinstance(needs, str) else (needs if isinstance(needs, list) else [])
+        if not any(isinstance(n, str) and if_unexecutable(
+                j.get("if"), {**ctx, f"needs.{n}.outputs.duplicate": "true"})[0] for n in needs):
+            return False, "условие не снимает задание признаком needs.<зависимость>.outputs.duplicate"
+    d, err = gh_json(f"repos/{os.environ['REPO']}/compare/{base_ref}...{head}?per_page=1&page=1")
+    behind = d.get("behind_by") if isinstance(d, dict) else None
+    if type(behind) is not int:
+        return False, f"сверка головы с базой {base_ref} не прочитана: {err or 'нет behind_by'}"
+    if behind != 0:
+        return False, f"голова отстаёт от {base_ref} на {behind} — дерево слияния прогон push не собирал"
+    app = (r.get("app") or {}).get("id")
+    runs_map = runs_by_suite() or {}
+    twins = []
+    for r2 in judged:
+        if r2.get("name") != r.get("name") or (r2.get("app") or {}).get("id") != app:
+            continue
+        run2 = runs_map.get((r2.get("check_suite") or {}).get("id"))
+        if run2 is not None and run2.get("event") == "push" and run2.get("path") == path:
+            twins.append((r2, run2))
+    if not twins:
+        return False, f"прогона push задания в {path} на голове нет"
+    for r2, run2 in twins:
+        if run2.get("head_sha") != head or (run2.get("head_branch") or "") != head_ref:
+            return False, (f"прогон push {run2.get('id')} — ревизия {str(run2.get('head_sha'))[:12]} ветки "
+                           f"{run2.get('head_branch')!r}, а не голова {head[:12]} ветки {head_ref!r}")
+        if r2.get("status") != "completed" or r2.get("conclusion") != "success":
+            return False, f"задание в прогоне push {run2.get('id')} — {r2.get('conclusion') or r2.get('status')}"
+    ids = ", ".join(str(run2.get("id")) for _, run2 in twins)
+    return True, f"двойник: {path}, прогон push {ids} на {head[:12]} — success"
 
 # Судится ПОСЛЕДНИЙ прогон каждой проверки, а не каждый прогон на голове (находка
 # kaname#673 @1197a78e: «правило запроса» cancelled 05:57:02 и failure 05:57:11
@@ -813,6 +881,7 @@ for r in bad:
     if ok:
         skipped_lawful.append(r)
     skip_why[id(r)] = why
+n_twin = sum(1 for r in skipped_lawful if skip_why[id(r)].startswith("двойник: "))
 for r in pending:
     reason("CI-PENDING", f"{r.get('name')} — {r.get('status')}")
 for r in bad:
@@ -820,14 +889,15 @@ for r in bad:
         continue
     why = f" ({skip_why[id(r)]})" if id(r) in skip_why else ""
     reason("CI-NOT-SUCCESS", f"{r.get('name')} — {r.get('conclusion')}{why}")
-census.append(f"ci: check-runs на голове {len(own_runs)}, судится последних {len(judged)}, вытеснено поздним прогоном той же проверки {len(superseded)}, success {len(judged) - len(pending) - len(bad)}, идут {len(pending)}, не-success {len(bad) - len(skipped_lawful)}, skipped по невыполнимому if {len(skipped_lawful)}; набор обязательных {len(required) if required is not None else 'НЕ ПОЛУЧЕН'}{f' — установленный ноль ({req_basis})' if required == set() else ''}")
+census.append(f"ci: check-runs на голове {len(own_runs)}, судится последних {len(judged)}, вытеснено поздним прогоном той же проверки {len(superseded)}, success {len(judged) - len(pending) - len(bad)}, идут {len(pending)}, не-success {len(bad) - len(skipped_lawful)}, skipped двойником push {n_twin}, skipped по невыполнимому if {len(skipped_lawful) - n_twin}; набор обязательных {len(required) if required is not None else 'НЕ ПОЛУЧЕН'}{f' — установленный ноль ({req_basis})' if required == set() else ''}")
 for name in sorted({r.get("name") for r in superseded}):
     gone = [r for r in superseded if r.get("name") == name]
     gone = sorted(gone, key=lambda r: r.get("started_at") or "")
     what = ", ".join(f"{r.get('started_at')} {r.get('conclusion') or r.get('status')}" for r in gone)
     census.append(f"ci: вытеснены поздним прогоном: {name} ×{len(gone)} ({what})")
 for key in sorted({(r.get("name"), skip_why[id(r)]) for r in skipped_lawful}):
-    census.append(f"ci: skipped не причина — условие if невыполнимо: {key[0]} ×{sum(1 for r in skipped_lawful if (r.get('name'), skip_why[id(r)]) == key)} ({key[1]})")
+    kind = "двойник успешного прогона push" if key[1].startswith("двойник: ") else "условие if невыполнимо"
+    census.append(f"ci: skipped не причина — {kind}: {key[0]} ×{sum(1 for r in skipped_lawful if (r.get('name'), skip_why[id(r)]) == key)} ({key[1]})")
 # Строка ведомости ci-read — выбрана и судима формой числа в оболочке выражением ci-read.sh.
 if os.environ["LEDGER_OK"] == "1":
     census.append(f"ведомость ci-read: {os.environ['REPO']} / {base_ref} — строка есть, проверок не меньше {os.environ['LEDGER_EXPECT']} ({os.environ['LEDGER_SRC']})")
