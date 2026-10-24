@@ -19,15 +19,19 @@
 # Затем мутанты chain.sh — каждый обязан покрасить свою сцену.
 # Коды: 0 — всё прошло; 1 — провал; 2 — предпосылки нет (git).
 # shellcheck disable=SC2317,SC2329  # сцены зовутся косвенно ("$c"), мутанты — через CH
+# shellcheck source-path=SCRIPTDIR
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 CHAIN="$HERE/chain.sh"
 command -v git > /dev/null || { echo "[VOID] chain-inject: git нет"; exit 2; }
 T="$(mktemp -d)" || exit 2
 trap 'rm -rf "$T"' EXIT
-export GIT_CONFIG_GLOBAL="$T/gitconfig" GIT_CONFIG_NOSYSTEM=1
-git config --file "$T/gitconfig" user.name pointpu; git config --file "$T/gitconfig" user.email pointpu@in-cloud.io
-git config --file "$T/gitconfig" init.defaultBranch main
+# Подпись песочницы — корневая учётка вызывающего в своём HOME (scripts/lib/sandbox-git-home.sh,
+# tooling-gate check-16); посев и сама цепочка (её слияние догона) идут под этим HOME.
+# shellcheck source=../lib/sandbox-git-home.sh
+. "$HERE/../lib/sandbox-git-home.sh"
+sandbox_git_home "$T/home" || { echo "[VOID] chain-inject: корневой подписи нет"; exit 2; }
+git() { sandbox_git "$@"; }
 pass=0; fail=0
 ok() { if [ "$2" = 0 ]; then echo "  [OK]   $1"; pass=$((pass + 1)); else echo "  [FAIL] $1${3:+ — $3}"; fail=$((fail + 1)); fi; }
 
@@ -70,7 +74,7 @@ chmod +x "$T/bin/"*
 fixture() {
     local d="$T/$1"; rm -rf "$d"; mkdir -p "$d/ws/tmp/autoland"
     git init -q --bare "$d/origin.git"
-    git clone -q "$d/origin.git" "$d/clone" 2> /dev/null
+    git clone -q "$d/origin.git" "$d/clone" 2> /dev/null; git -C "$d/clone" checkout -q -B main
     echo a > "$d/clone/a"; git -C "$d/clone" add a; git -C "$d/clone" commit -qm "#1 база"; git -C "$d/clone" push -q origin HEAD:main
     git -C "$d/clone" checkout -qb 5-x; echo b > "$d/clone/b"; git -C "$d/clone" add b; git -C "$d/clone" commit -qm "#5 правка"
     git -C "$d/clone" push -q origin 5-x; git -C "$d/clone" checkout -q main
@@ -81,7 +85,7 @@ fixture() {
     FX="$d"
 }
 run() {  # [env…] — цепочка над фикстурой FX; код
-    env CALLS="$FX/calls" FX="$FX" CHAIN_WS="$FX/ws" CHAIN_GH="$T/bin/gh" CHAIN_PUSH="$T/bin/push" CHAIN_PR_BODY="$T/bin/body" \
+    sandbox_run env CALLS="$FX/calls" FX="$FX" CHAIN_WS="$FX/ws" CHAIN_GH="$T/bin/gh" CHAIN_PUSH="$T/bin/push" CHAIN_PR_BODY="$T/bin/body" \
         CHAIN_AUTOLAND="$T/bin/autoland" CHAIN_DETACH="$T/bin/detach" CHAIN_TIMEOUT=10 CHAIN_GATE_TIMEOUT=10 CHAIN_LS_PAUSE=0 CHAIN_AFTER_POLL=0 \
         KACHO_DETACHED_UNTIL="$(( $(date +%s) + 100000 ))" "$@" bash "${CH:-$CHAIN}" PRO-Robotech/kaname "$FX/clone" main "$FX/spec" ${AFTER:+--after "$AFTER"} > "$FX/out" 2>&1
 }
@@ -96,7 +100,7 @@ c3() { fixture c3 да; run; local rc=$?; local p b nh
     p="$(line_no push)"; b="$(line_no body)"; nh="$(git -C "$FX/origin.git" rev-parse refs/heads/5-x)"
     [ "$rc" = 0 ] && grep -q '^push task=5$' "$FX/calls" && [ -n "$p" ] && [ -n "$b" ] && [ "$p" -lt "$b" ] \
         && grep -q "^body task=5 head=$nh onorigin=1\$" "$FX/calls" && grep -q "^daemon task=5 head=$nh\$" "$FX/calls" && [ ! -e "$FX/ws/tmp/land-kaname-1" ]; }
-c4() { fixture c4 да; run env DAEMON_RC=1; [ ! -e "$FX/ws/tmp/land-kaname-1" ] && ! git -C "$FX/clone" worktree list | grep -q land-kaname && grep -q "^daemon" "$FX/calls"; }
+c4() { fixture c4 да; run env DAEMON_RC=1; local wl; wl="$(git -C "$FX/clone" worktree list)"; [ ! -e "$FX/ws/tmp/land-kaname-1" ] && [[ "$wl" != *land-kaname* ]] && grep -q "^daemon" "$FX/calls"; }
 c5() { fixture c5 нет; run env KACHO_DETACHED_UNTIL="$(( $(date +%s) + 5 ))"; local rc=$?; [ "$rc" = 64 ] && [ ! -s "$FX/calls" ] && grep -q 'срок службы' "$FX/out"; }
 c6() { fixture c6 нет; run env -u KACHO_DETACHED_UNTIL; local rc=$?; [ "$rc" = 64 ] && [ ! -s "$FX/calls" ]; }
 c7() { fixture c7 нет; echo 1 > "$FX/pred.rc"; AFTER="$FX/pred.rc" run; local rc=$?; [ "$rc" = 3 ] && [ ! -s "$FX/calls" ] || return 1
