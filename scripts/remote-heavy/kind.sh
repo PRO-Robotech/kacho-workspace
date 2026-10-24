@@ -105,7 +105,7 @@ kind_pair_ok() {
 # оператора и ревизия достижима из ветки канонического; 64 — нет (причина — строкой);
 # 69 — канонический не ответил.
 kind_identity() {
-    local repo="$1" src="$2" sha="$3" row mod root canon have heads h ok=""
+    local repo="$1" src="$2" sha="$3" row mod root roots canon have heads h ok=""
     row="$(awk -F'|' -v r="$repo" '$1 == r' <<< "$KIND_OPERATORS")"
     [ -n "$row" ] || { say "профиль kind: оператора «$repo» нет в таблице личности (KIND_OPERATORS) — Job не создаётся"; return 64; }
     IFS='|' read -r _ mod root canon <<< "$row"
@@ -113,7 +113,8 @@ kind_identity() {
     if [ "$have" != "$mod" ]; then
         say "профиль kind: клон --src не $repo — модуль go.mod ревизии «${have:-нет}», ждали «$mod» (Ф1: судятся исходники bundle, а не строка --repo)"; return 64
     fi
-    if ! git -C "$src" rev-list --max-parents=0 "$sha" 2>/dev/null | grep -qxF -- "$root"; then
+    roots="$(git -C "$src" rev-list --max-parents=0 "$sha" 2>/dev/null)"
+    if ! grep -qxF -- "$root" <<< "$roots"; then
         say "профиль kind: история ревизии не начинается корнем $repo (${root:0:12}) — клон --src не этот репозиторий (Ф1)"; return 64
     fi
     heads="$(GIT_TERMINAL_PROMPT=0 timeout 60 git -C "$src" ls-remote "$canon" 'refs/heads/*' 2>/dev/null)" \
