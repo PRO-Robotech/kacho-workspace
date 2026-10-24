@@ -1084,6 +1084,29 @@ be="$(jn ' enter id=')"; rm -f "$HL"
 assert "0 1 да $((be + 1))" "$(rslot env FAKE_AVAIL=1 FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- git push -q "$W/bare.git" HEAD:refs/heads/1115-w) $(grep -c '^job=нет ' "$HL" 2>/dev/null) $(has_ref 1115-w) $(jn ' enter id=')" "близнец: кластер недоступен → хук локально слотом (enter в журнале)"
 be="$(jn ' enter id=')"; b78="$(jn 'route=push rc=1 hook_rc=78 ')"; rm -f "$HL"
 assert "77   нет $be $((b78 + 1))" "$(rslot env FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- git push -q "$W/bare.git" HEAD~1:refs/heads/1115-v) $(grep -c '^job=1 ' "$HL" 2>/dev/null) $(grep -c '^job=нет ' "$HL" 2>/dev/null) $(has_ref 1115-v) $(jn ' enter id=') $(jn 'route=push rc=1 hook_rc=78 ')" "отправка не головы копии: переходник — 78, Job не звался, та же отправка локально слотом с хуком"
+echo "── тег выпуска (ws#1303): аннотированный с целью из origin/main — Job судит цель; лёгкий и цель вне main — 64 до Job"
+# Урок 2026-10-23: kaname v0.6.0 (аннотированный, цель — коммит слияния в main) слот дважды
+# отказал 77: переходник сравнивал объект тега с головой копии — совпасть они не могут.
+has_tag() { git -C "$W/bare.git" rev-parse --verify --quiet "refs/tags/$1" > /dev/null && echo да || echo нет; }
+git -C "$R" update-ref refs/remotes/origin/main HEAD~1
+sandbox_git -C "$R" tag -a -m rel t1303-ok HEAD~1; sandbox_git -C "$R" tag -a -m rel t1303-out HEAD
+sandbox_git -C "$R" tag -a -m rel t1303-mut HEAD; git -C "$R" tag t1303-light HEAD~1; git -C "$R" tag t1303-lmut HEAD~1
+tpush() { local s="$1" t="$2"; shift 2; rm -f "$HL" "$W/argv"; echo "$(rslot env FAKE_EXEC=1 HOOK_LOG="$HL" "$@" bash "$s" ci-local -- git push -q "$W/bare.git" "refs/tags/$t") $(cat -- "$HL" 2> /dev/null | grep -c '^job=1 ') $(has_tag "$t")"; }
+bt="$(jn ' remote class=ci-local route=push ')"
+assert "0 1 да $(git -C "$R" rev-parse HEAD~1) 1 да $((bt + 1))" "$(tpush "$SLOT" t1303-ok) $(argv_of ref) $(grep -c 'refs/tags/t1303-ok' "$HL" 2> /dev/null) $(has "$W/err" 'Job судит цель тега') $(jn ' remote class=ci-local route=push ')" "законный тег (аннотированный, цель — предок origin/main, не голова копии): хук Job-ом на цели тега, вход git — строка тега, тег дошёл"
+assert "64 0 нет да" "$(tpush "$SLOT" t1303-out) $(has "$W/err" 'не достижима из origin/main')" "тег на коммит вне origin/main (голова копии впереди main) → 64 до Job, тега нет"
+assert "64 0 нет да" "$(tpush "$SLOT" t1303-light) $(has "$W/err" 'лёгкий')" "лёгкий тег на коммит из main → 64 до Job, тега нет"
+git -C "$R" update-ref -d refs/remotes/origin/main
+assert "64 0 нет да" "$(tpush "$SLOT" t1303-ok) $(has "$W/err" 'не достижима из origin/main')" "близнец: законный тег без origin/main в клоне → 64 (отказ закрыт, не «main нет — пропускаю»)"
+git -C "$R" update-ref refs/remotes/origin/main HEAD~1
+sed 's#^            if \[ -z "\$c" \] || ! git rev-parse --verify --quiet refs/remotes/origin/main > /dev/null || ! git merge-base --is-ancestor "\$c" refs/remotes/origin/main 2> /dev/null; then$#            if [ -z "$c" ]; then#' "$SLOT" > "$W/slot-mut-1303anc.sh"
+assert "1 0 1 да" "$(diff "$SLOT" "$W/slot-mut-1303anc.sh" | grep -c '^<') $(tpush "$W/slot-mut-1303anc.sh" t1303-mut)" "мутант «достижимость из main не судится»: тег вне main ушёл Job-ом — проба «вне origin/main» его ловит"
+sed 's#^            if \[ "\$t" != tag \]; then$#            if false; then#' "$SLOT" > "$W/slot-mut-1303light.sh"
+assert "1 0 1 да" "$(diff "$SLOT" "$W/slot-mut-1303light.sh" | grep -c '^<') $(tpush "$W/slot-mut-1303light.sh" t1303-lmut)" "мутант «вид тега не судится»: лёгкий тег ушёл Job-ом — проба «лёгкий» его ловит"
+sed 's#^if \[ -n "\$tagged" \] && \[\[ "\$tips" != \*\$.\\n.\* \]\]; then$#if false; then#' "$SLOT" > "$W/slot-mut-1303route.sh"
+sandbox_git -C "$R" tag -a -m rel t1303-rmut HEAD~1
+assert "1 77 0 нет" "$(diff "$SLOT" "$W/slot-mut-1303route.sh" | grep -c '^<') $(tpush "$W/slot-mut-1303route.sh" t1303-rmut)" "мутант «тег судится как голова» (до ws#1303): законный тег — 78, затем 77 — проба «законный тег» его ловит"
+git -C "$R" update-ref -d refs/remotes/origin/main
 echo "── локальная отправка из клона продукта с неотслеживаемым: 64 с путями до хука (ws#1280)"
 # Урок 2026-10-19: отправка тега из общего клона kaname ушла локально (переходник — 78: объект тега
 # не голова копии), и локальный хук покраснел от чужой неотслеживаемой папки с Go-кодом.
