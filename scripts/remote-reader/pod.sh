@@ -25,7 +25,8 @@ case "$workspace_origin" in
     git@github.com:PRO-Robotech/kacho-workspace.git|https://github.com/PRO-Robotech/kacho-workspace.git|https://github.com/PRO-Robotech/kacho-workspace) ;;
     *) reader_fail ;;
 esac
-if git -C "$TOPP" remote | grep -qx origin; then
+workspace_remotes="$(git -C "$TOPP" remote)" || reader_fail
+if grep -qx origin <<< "$workspace_remotes"; then
     [ "$(git -C "$TOPP" remote get-url origin)" = "$workspace_origin" ] || reader_fail
 else
     git -C "$TOPP" remote add origin "$workspace_origin" || reader_fail
