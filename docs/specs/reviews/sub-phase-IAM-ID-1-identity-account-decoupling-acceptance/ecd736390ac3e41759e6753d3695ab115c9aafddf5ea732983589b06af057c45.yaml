@@ -1,0 +1,279 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-IAM-ID-1-identity-account-decoupling-acceptance.md
+  sha256: ecd736390ac3e41759e6753d3695ab115c9aafddf5ea732983589b06af057c45
+  revision: 16
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT — редакция круга 16, ждёт вердикта; шапка намеренно НЕ правлена
+    (change-graph.md §2). Ниже неё сохранена ДОСЛОВНО прежняя шапка кругов 1–12 со строкой
+    «✅ APPROVED — круг 12»: она описывает прежние редакции и ЭТОТ текст не одобряет (документ
+    объясняет это тремя предикатами в шапке). Машинный читатель docs-gate прочтёт объявленный
+    вердикт — это его объявленный предел (судит объявление, а не одобрение). Действующий вердикт
+    о редакции 16 — ЭТА запись, и он ОТКАЗ: одобрение круга 15 (`4b28757a…`) обесценено сменой
+    отпечатка (change-graph.md §2).
+  base_commit: 9d26309e87ca282277698a4af538e038df4e81de
+  content_commit: 9d26309e87ca282277698a4af538e038df4e81de
+  parent_commit: 93359033
+  parent_review_record: docs/specs/reviews/sub-phase-IAM-ID-1-identity-account-decoupling-acceptance/4b28757a944a7e0494072eee146aa36c7b8c137fb6b556a85a01aacdf8466cb6.yaml
+  task: https://github.com/PRO-Robotech/kacho/issues/1351
+  epic: https://github.com/PRO-Robotech/kacho-workspace/issues/211
+  fingerprint_predicate: git show 9d26309e:docs/specs/sub-phase-IAM-ID-1-identity-account-decoupling-acceptance.md | sha256sum
+  fingerprint_verified: true
+  lines: 7840
+
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-19T00:00:00Z'
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac 9d26309e
+    в PRO-Robotech/kacho-workspace вернул 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: 9d26309e87ca282277698a4af538e038df4e81de
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: ff087e513f8a42d5f92a8f374cdcf4e1790b0b4630d4b611224ccbd16b4b9c24
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_expected_from_orchestrator: false
+  rationale: >-
+    Вердикт — ОТКАЗ. Внешнее событие полномочия публикует курьер (оркестратор) под учётной
+    записью, допущенной политикой (pointpu), ТОЛЬКО для действующего одобрения. Отказ полномочия
+    не выдаёт и ничего не открывает: его действительность от события не зависит. Форма события
+    для БУДУЩЕГО ✅ — ниже.
+  external_event_form_for_future_approval: >-
+    роль: acceptance-reviewer · вердикт: APPROVED · SHA-256 предмета: <отпечаток одобряемой
+    редакции> — как комментарий/событие GitHub задачи kacho#1351 под pointpu; gate сверяет
+    digest тела и subject (policy.yaml §2).
+
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    note: >-
+      Соседние записи 1b202071….yaml (⛔ круг 14 о редакции 14) и 4b28757a….yaml (✅ круг 15 о
+      редакции 15) НЕ правятся и НЕ удаляются — каждая остаётся вердиктом о своём содержимом. Эта
+      запись — соседняя, новая, на отпечаток редакции 16 (`ecd73639…`). Предикат отсутствия
+      прежней записи на этот отпечаток: `ls docs/specs/reviews/…/ | grep -c ecd73639` → 0 до
+      создания.
+
+round_numbering:
+  convention: Круг называется РЕДАКЦИЕЙ, которую он прочитал. Эта запись — круг по редакции 16.
+  predicate: >-
+    `git show 9d26309e:<путь> | sha256sum` → ecd736390ac3e41759e6753d3695ab115c9aafddf5ea732983589b06af057c45 —
+    совпал с отпечатком, названным в задании и в шапке.
+
+# ─────────────────────────────────────────────────────────────────────────────
+measurement_home:
+  workspace_branch: issue-1351-iam-id-1-s4 @ 9d26309e (worktree tmp/w-s31-rebase)
+  subject_tree_service: PRO-Robotech/kaname @ f8fc5a37 (клон project/kaname; коммит резолвится)
+  subject_tree_foundation: PRO-Robotech/corelib @ 34bc8104 = тег v1.9.0 (клон project/corelib; резолвится)
+  freshness_note: >-
+    Документ объявляет kaname@f8fc5a37 «последним известным origin/main» (fetch не прошёл,
+    ssh-agent). В клоне project/kaname origin/main = 8294f83a; f8fc5a37 — его предок (1 коммит
+    впереди), и этот единственный коммит НЕ трогает proto/kaname/cloud/iam, internal/authzmodel,
+    internal/migrations. Числа S3.1 стабильны между f8fc5a37 и 8294f83a — названный документом
+    предел «перемерить после успешного fetch» удовлетворён на доступном стволе.
+
+# ─────────────────────────────────────────────────────────────────────────────
+what_i_verified_by_measurement:
+  fingerprint:
+    result: подтверждено
+    command: "git show 9d26309e:…acceptance.md | sha256sum → ecd73639… (совпал с заданием)"
+  authoritative_tree_declaration:
+    claim: kaname@f8fc5a37 ПИНит corelib v1.9.0 = 34bc8104; дерево объявлено корректно
+    result: подтверждено
+    commands:
+      - "git -C project/kaname cat-file -t f8fc5a37 → commit"
+      - "git -C project/kaname show f8fc5a37:go.mod | grep corelib → corelib v1.9.0"
+      - "git -C project/corelib rev-parse v1.9.0^{commit} → 34bc8104a832…"
+      - "git -C project/kaname merge-base --is-ancestor f8fc5a37 8294f83a → 0 (предок tip)"
+  already_landed_out_of_remainder:
+    claim: 4 из 6 пунктов, которые приёмка называла работой S3.1, УЖЕ приземлены вне монорепо
+    result: подтверждено на субъект-дереве
+    commands:
+      - "MembershipService: git show f8fc5a37:proto/kaname/cloud/iam/v1/membership_service.proto | grep -cE '^\\s*rpc ' → 4 (Create/Get/List/ListMine); 'rpc Delete' → 0"
+      - "префикс mbr: git show 34bc8104:ids/ids.go (corelib) — PrefixMembershipHyphen = \"mbr\" (стр.345), входит в hyphenFormPrefixes (стр.388) → дефект §2.1а НЕ жив"
+      - "звено: git show f8fc5a37:internal/migrations/0001_initial.sql — VIEW resource_scope_edge + memberships присутствуют"
+      - "membership_id: git grep -c membership_id f8fc5a37 -- proto/kaname/cloud/iam/v1/ → 2 (GetMembershipRequest + HTTP-путь); RemoveUserFromAccountRequest → 0 (адресация парой, §1.9 верна)"
+      - "5 надзорных прав: блок iam_user — token_reader/session_reader/record_writer/identity_suspender/identity_remover резолвятся через 'super_admin from account' (уровень облака) → 5"
+  remainder_reduced_to_two:
+    claim: остаток S3.1 = тип iam_membership (0/32) + смена объекта гейта v_get/v_list
+    result: подтверждено на субъект-дереве
+    commands:
+      - "git show f8fc5a37:proto/kaname/cloud/iam/v1/fga_model.fga | grep -cE '^type ' → 32; grep -c 'type iam_membership' → 0 (станет 33)"
+      - "блок iam_user: аккаунт-скоупны через super_admin (не 'from account') → v_get, v_list (2); все v-глаголы типа → те же 2 (v_delete снят #1189, v_update снят #1128)"
+      - "разбор permission_catalog.json (kaname, internal/apps/kaname/seed/embedded/) по scope_extractor.object_type==iam_user → 15 записей; из них required_relation v_get 1 (iam.users.get) + v_list 1 (iam.user_operationses.listOperations) = 2 меняют объект; прочие 13 (token_issuer 5, token_reader 2, session_reader 1, identity_suspender 3, identity_remover 1, record_writer 1) — надзорные/субъект, объект не меняется"
+  model_radius_unchanged:
+    claim: "account:[account] 6 · super_admin: admin from account 6 · голой формой 4 — не сдвинуто сменой дерева"
+    result: подтверждено на f8fc5a37 (6·6·4)
+  model_copies_byte_identical:
+    claim: две копии fga_model.fga байт-идентичны
+    result: подтверждено
+    command: "diff <(git show f8fc5a37:proto/kaname/cloud/iam/v1/fga_model.fga) <(git show f8fc5a37:internal/authzmodel/fga_model.fga) → пусто"
+  constructibility_of_given:
+    claim: Given «человек в двух аккаунтах = одна строка личности, два членства» конструируем на субъект-дереве
+    result: подтверждено ПОСАЖЕННОЙ пробой субъект-дерева (не свежим посевом на стенде)
+    commands:
+      - "git show f8fc5a37:internal/migrations/0001_initial.sql — CREATE UNIQUE INDEX users_identity_email_uniq ON kaname.users (lower(email)) — глобальный ключ идентичности (стр.5080)"
+      - "git show f8fc5a37:internal/repo/kaname/pg/user_invite_second_account_integration_test.go — TestUserInvite_ExistingActiveEmail_SecondAccount: require.Len(mems, 2) при 'строк с этой почтой обязана остаться одна'; оба членства ACTIVE; чужой аккаунт членства не несёт"
+  producer_and_twin_of_remainder:
+    claim: у остатка производитель — будущая приёмка S3.1; различающий сценарий IAM-ID-1-31 несёт положительного близнеца
+    result: подтверждено чтением действующего контракта
+    commands:
+      - "§6а: S3.1 — 5-я зависимость (сиблинг, приёмки ещё нет), производитель = будущая приёмка S3.1, держатели 31/57 (переданы §9.3), предикат старта В1 — DoD п.26 (git show <ствол службы>:internal/authzmodel/fga_model.fga | grep -cE '^type .*membership' → ≥1; сегодня 0/32) — арранжировка принята кругом 15, не менялась"
+      - "врезка «Перебазировка S3.1» и §2.3а: отрицание IAM-ID-1-31 несёт положительного близнеца (то же действие в контексте A ПРОХОДИТ); дельта одного факта — второе членство"
+      - "владение S3.1 как отдельным предметом (B14-1) — сведено кругом 15, кругом 16 не тронуто"
+  open_questions:
+    claim: ни один открытый вопрос не блокирует; у каждого исход по умолчанию
+    result: подтверждено (§7 В-1…В-16 отвечены/дефолтны; блокирующим назван только П2≠0, а он неконструируем — глобальный ключ почты)
+
+# ─────────────────────────────────────────────────────────────────────────────
+blocking_findings:
+  - id: B16-1
+    rod: CONVENTION
+    class: >-
+      [CONVENTION] монорепо-предикат остатка S3.1 пережил перебазировку: НЕ перемерен, НЕ помечен,
+      противоречит перебазированной врезке — ровно тот предикат, что class-exposure назвал пунктом 4
+      возврата kaname#292
+    where:
+      - '§2.3а, внутри блока «[!warning] Круг 3 перенёс эту работу из S2 в S3», подраздел «Радиус смены объекта — измерен, а не назван»: git show "$R":gateway/internal/middleware/embed/permission_catalog.json | grep -c ''"object_type": "iam_user"'' # 10 — записей каталога на объекте личности'
+      - 'врезка «Перебазировка S3.1» (§2.3а) утверждает: «монорепо-формы ниже помечены как перемеренные» — а этот подраздел НЕ помечен (в отличие от соседних блоков «ТРИ глагола» и «все четыре», получивших круг-16 [!warning])'
+      - '§20.2 (строка 6 таблицы было→стало) сам называет этот предикат: «§2.3а: радиус объекта «10 записей на iam_user» → 15 записей … аккаунт-скоупны через super_admin только 2 … место правки: врезка «Перебазировка S3.1»» — то есть автор знает о предикате, но правку внёс ТОЛЬКО во врезку, а исходный подраздел оставил как есть'
+    sign: >-
+      Подраздел «Радиус смены объекта — измерен» стоит в ЖИВОМ §2.3а и предъявляет «10» как радиус
+      смены объекта на МОНОРЕПО ($R = gateway/…/permission_catalog.json). Он противоречит
+      перебазированной врезке ДВАЖДЫ: (а) дерево — 10 (монорепо) против 15 (субъект-дерево kaname);
+      (б) объём смены — «10 записей на объекте личности» как радиус (подразумевает, что меняются
+      все) против «2 из 15» (меняются только v_get/v_list; прочие 13 — надзорные/субъект, объект
+      не меняется). Врезка обещает читателю, что «монорепо-формы ниже помечены»; здесь обещание
+      ложно ровно на предикате, который class-exposure назвал причиной ⛔.
+    subject: >-
+      Class-exposure kaname#292 вернул ⛔ именно потому, что предикаты S3.1 меряли покинутое
+      монорепо (его пункт 4 — этот радиус дословно). Круг 16 перебазировал остальные S3.1-предикаты
+      (mbr, глаголы, membership_id, адрес модели, источник каскада, «три глагола»→«два»), но этот
+      один оставил монорепо-формой без пометки. Приёмка — единственный артефакт санкции остатка
+      S3.1: автор будущей приёмки S3.1 читает §2.3а как handoff остатка. Взяв «10 записей на объекте
+      личности» как радиус смены объекта, он сменит object_type у ВСЕХ 15 записей (в т.ч. у 13
+      надзорных прав, чей объект оставаться должен iam_user — они cloud-level, «super_admin from
+      account», не аккаунт-скоупны через голый super_admin), а это отняло бы у надзорных прав их
+      уровень облака. Радиус остатка завышен в ~7 раз (10-всё против 2-из-15), и это тот самый
+      класс «перечень «что S3.1 сменит» шире, чем дерево поддерживает», который class-exposure и
+      назвал.
+    why_not_a_measurement_gap: >-
+      Ни один сценарий не теряет производителя; предмет — не покрытие, а ПЕРЕБАЗИРОВКА ПРЕДИКАТА на
+      авторитетное дерево (полирепо-дисциплина) и правдивость собственного обещания врезки. Это тот
+      же класс «два места об одном предикате, из которых верно одно», который class-exposure назвал
+      причиной возврата; круг 16 закрыл его во всех местах, кроме этого одного.
+    predicate_of_removal: >-
+      Одно из двух, любое:
+      (а) пометить подраздел «Радиус смены объекта — измерен» круг-16 [!warning] дословно как
+      соседние блоки («ТРИ глагола», «все четыре»): «здесь стояло «10 записей на iam_user» на
+      монорепо — на субъект-дереве их 15, из которых объект меняют ровно 2 (v_get/v_list); прочие
+      13 надзорные/субъект — объект iam_user СОХРАНЯЮТ; монорепо-форма историческая»; либо
+      (б) заменить сам предикат на субъект-дерево: git show f8fc5a37:internal/apps/kaname/seed/embedded/permission_catalog.json
+      → 15 записей на iam_user; из них required_relation v_get + v_list = 2 меняют object_type на
+      iam_membership. Врезка тогда перестаёт нести ложное обещание «монорепо-формы ниже помечены».
+    repeat_of_prior_round_rod: false   # круг 14 — SCOPE, круг 15 — APPROVED; CONVENTION впервые. §14а не срабатывает
+
+# ─────────────────────────────────────────────────────────────────────────────
+non_blocking_findings:
+  - id: N16-1
+    rod: '—'
+    class: '[DATED] врезка ссылается на §16.2 как на посев Given, а §16.2 — монорепо-предикаты (круг-11 история)'
+    text: >-
+      Врезка «Перебазировка S3.1» и §2.3а называют §16.2 доказательством конструируемости Given
+      («предикат, посаженная проба»). §16.2 — круг-11 раздел, его предикаты меряют МОНОРЕПО
+      (R=f58089a44, services/iam/internal/…, TestUserInvite_ExistingActiveEmail_SecondAccount в
+      services/iam). §16.2 — история (дописывается, не переписывается), поэтому его правка не
+      требуется; но ссылка на него как на ЖИВОЙ посев указывает на покинутое дерево.
+    why_not_blocking: >-
+      Конструируемость Given РЕАЛЬНА и подтверждена мной на субъект-дереве: тот же по имени тест
+      живёт в kaname — internal/repo/kaname/pg/user_invite_second_account_integration_test.go,
+      TestUserInvite_ExistingActiveEmail_SecondAccount, require.Len(mems, 2) на одной строке
+      личности. Обещание врезки истинно на субъект-дереве, стар лишь адрес цитаты.
+    suggested_cleanup: >-
+      Рядом со ссылкой на §16.2 назвать субъект-дерево-аналог (kaname
+      internal/repo/kaname/pg/user_invite_second_account_integration_test.go) — лучше при
+      написании приёмки S3.1, чтобы её автор шёл к живому посеву, а не к монорепо.
+  - id: N16-2
+    rod: '—'
+    class: '[DATED] §1.9 смешивает историческую монорепо-таблицу ($R) с перебазированным субъект-блоком; member_remover=4 на $R'
+    text: >-
+      §1.9 стоит внутри блока §1.0–§1.9, помеченного кругом 13 как ИСТОРИЯ (замер по монорепо).
+      Круг 16 внёс в §1.9 живой субъект-блок (membership_id 2 на $KN), при этом историческая
+      таблица §1.9 продолжает нести member_remover=4 на $R. Class-exposure отметил member_remover=5
+      на kaname (числовая таблица, не пункт возврата). Число вне остатка S3.1 (снятие уже
+      приземлено, §1.9) и в помеченном историей блоке.
+    why_not_blocking: >-
+      В §1.0–§1.9, помеченном ИСТОРИЕЙ (круг 13), и не входит в остаток. Ни одно действующее
+      «Тогда» на него не опирается. Смешение живого субъект-блока с исторической таблицей в одной
+      секции — читаемо (субъект-блок помечен «СУБЪЕКТ-ДЕРЕВО»), но лучше вынести субъект-блок из
+      исторической §1.9 в §1.10.7 при следующей правке.
+
+# ─────────────────────────────────────────────────────────────────────────────
+constructibility:
+  seeded_by_me: 0
+  seeding_environment_named_in_task: false
+  reproduced_predicates: 14
+  reproduced_list:
+    - отпечаток ecd73639
+    - пин kaname@f8fc5a37 → corelib v1.9.0 = 34bc8104
+    - f8fc5a37 предок tip, числа S3.1 стабильны
+    - MembershipService 4 RPC без Delete
+    - mbr в corelib v1.9.0 (hyphenFormPrefixes)
+    - VIEW resource_scope_edge из memberships
+    - membership_id 2, RemoveUserFromAccountRequest 0
+    - iam_membership 0/32
+    - v_get/v_list аккаунт-скоупны (2), v_delete/v_update сняты
+    - 15 записей каталога на iam_user, объект меняют 2, прочие 13 надзорные/субъект
+    - радиус модели 6/6/4
+    - две копии модели байт-идентичны
+    - посаженная проба субъект-дерева строит два членства на одну строку (require.Len mems 2)
+    - 5 надзорных прав через super_admin from account
+  not_performed: 1
+  not_performed_detail: >-
+    Свежий ПОСЕВ Given на поднятом стенде мной не ставился: стенд заданием не назван и не
+    поднимался. Конструируемость Given доказана ПОСАЖЕННОЙ пробой субъект-дерева
+    (TestUserInvite_ExistingActiveEmail_SecondAccount, kaname@f8fc5a37) — я прочёл её утверждения
+    (require.Len(mems, 2) на одной строке почты), но не исполнял её в testcontainer. Это третий
+    исход «не выполнилось» для свежего посева; в зелёное и в красное не зачитывается. На вердикт
+    не влияет: блокирующее найдено чтением текста + сверкой числа (10 против 15/2), не посевом.
+
+# ─────────────────────────────────────────────────────────────────────────────
+scope:
+  reviewed: >-
+    вся редакция 16 на предмет полноты и корректности перебазировки S3.1-предикатов с монорепо на
+    субъект-дерево (kaname@f8fc5a37 + corelib@v1.9.0): совпадение отпечатка; корректность
+    объявления авторитетного дерева и пина; каждый «уже приземлено» и «остаток» пункт сверен на
+    субъект-дереве; производитель остатка (будущая приёмка S3.1) и близнец IAM-ID-1-31;
+    конструируемость Given посаженной пробой; не остался ли монорепо-предикат неперемеренным.
+    Замысел, владение (B14-1, круг 15), группы A–H, счёт §9.3, соседи §6а, DoD, открытые вопросы —
+    перепроверены на «не тронуто круг-16-правкой» (§20.4) и приняты как есть от круга 15.
+  blocking_count: 1
+  blocking_rods: [CONVENTION]
+  monorepo_predicate_remaining: >-
+    ДА — один: §2.3а «Радиус смены объекта — измерен» («10 записей на iam_user», $R монорепо),
+    не перемерен, не помечен, противоречит врезке (2 из 15). B16-1.
+  authoritative_tree_declared_correctly: true
+  effective_approval_requires_event: n/a  # вердикт — отказ
+  next: >-
+    ⛔ → acceptance-author: пометить/перебазировать подраздел «Радиус смены объекта» §2.3а по
+    предикату снятия B16-1 (одна правка). После нового отпечатка — новый круг acceptance-reviewer.
+    ПРИ ✅ следующей редакции: git-operator обновляет PR #683 и событие полномочия kacho#1351 под
+    новый отпечаток (прежний APPROVED 4b28757a обесценен); затем integration-tester — честный
+    красный на IAM-ID-1-31.
