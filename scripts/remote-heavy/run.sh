@@ -1765,7 +1765,8 @@ spec_drift() {
       def caps($s): (($s.capabilities // {}).add // []);
       def wide($s): ($s.privileged == true) or (caps($s) | length > 0) or (($s.procMount // "Default") != "Default");
       (ctrs($q) | map({key: .name, value: sc(.)}) | from_entries) as $qs
-      | (if ($a.hostUsers // true) == ($q.hostUsers // true) then empty else "hostUsers \($a.hostUsers // "снято") при запрошенном \($q.hostUsers // true)" end),
+      | def hu($s): if $s.hostUsers == null then true else $s.hostUsers end;
+        (if hu($a) == hu($q) then empty else "hostUsers \(if $a.hostUsers == null then "снято" else $a.hostUsers end) при запрошенном \(hu($q))" end),
         (["hostNetwork", "hostPID", "hostIPC"][] as $k | select($a[$k] == true) | "\($k) true без запроса"),
         ($qs | keys[] as $n | select([ctrs($a)[] | select(.name == $n)] | length != 1) | "контейнер \($n): в pod не ровно один"),
         (ctrs($a)[] as $c | sc($c) as $s | $qs[$c.name] as $r
@@ -1784,7 +1785,7 @@ verify_spec() {
     local d l
     if [ -z "$2" ]; then KEEP_H=""; say "$1: фактический spec не прочитан — изоляцию не сверить (не выполнилось)"; exit 69; fi
     d="$(spec_drift "$REQ_SPEC" "$2")" || { KEEP_H=""; say "$1: сверка spec не исполнилась (не выполнилось)"; exit 69; }
-    if [ -z "$d" ]; then say "$1: spec сверен с запрошенным — hostUsers $(jq -r '.hostUsers // true' <<< "$REQ_SPEC"), securityContext как запрошен"; return 0; fi
+    if [ -z "$d" ]; then say "$1: spec сверен с запрошенным — hostUsers $(jq -r 'if .hostUsers == null then true else .hostUsers end' <<< "$REQ_SPEC"), securityContext как запрошен"; return 0; fi
     KEEP_H=""
     while IFS= read -r l; do say "$1: $l"; done <<< "$d"
     say "$1: сервер исполнил не то, что запрошено, — изоляции нет; команда не запускается, ns снимается (не выполнилось)"; exit 69
