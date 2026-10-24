@@ -45,6 +45,32 @@ INJECT = os.path.join(HERE, "inject.sh")
 
 # (id, проба, что портит, фрагмент, замена)
 MUTANTS = [
+    # ПРОФИЛЬ kind (ws#1385, kind.sh): hostUsers узла лишь ему, допуск до Job, 77 — не красное,
+    # сверка hostUsers без «//» jq (false для него пусто).
+    ("kind-hostusers", "KD2", "Job профиля kind в своём пространстве пользователей — узел kind не встанет",
+     'hostUsers: ($kind == 1),',
+     'hostUsers: false,'),
+    ("kind-admission-off", "KD5", "допуск pod профиля kind не проверяется до Job — отказ политики читается позже и иначе",
+     'if kind_on; then kind_admission "$BOX/job.json" || exit $?; fi',
+     ':'),
+    ("kind-77-red", "KD4", "«kind в pod не исполним» выдаётся кодом команды — красным, а не «не выполнилось»",
+     '(не выполнилось)"; exit 77\nfi',
+     '(не выполнилось)"; exit "$RUN_RC"\nfi'),
+    ("kind-identity-off", "KF1", "личность исходников и ветка канонического не судятся — privileged получает чужой клон",
+     'if kind_on; then kind_identity "$REPO" "$SRC" "$SHA" || exit $?; fi',
+     ':'),
+    ("kind-sha-recheck-off", "KF6", "ссылка, сменившая цель между сверкой личности и сборкой bundle, не отказана",
+     '[ "$KSHA" = "$SHA" ] || {',
+     'true || {'),
+    ("kind-bundle-plain-git", "KF8", "ссылка и bundle профиля kind — обычным git: хуки клона исполняются при сборке",
+     'src_git() { if kind_on; then kind_git "$SRC" "$@"; else git -C "$SRC" "$@"; fi; }',
+     'src_git() { git -C "$SRC" "$@"; }'),
+    ("kind-priv-run", "KD2", "privileged уходит и в контейнер run профиля kind — не ровно у dind",
+     '{name: "run", image: $goimg, command:',
+     '{name: "run", image: $goimg, securityContext: (if $kind == 1 then {privileged: true} else {} end), command:'),
+    ("hostusers-alt", "S1", "сверка hostUsers через «//»: снятый сервером hostUsers читается запрошенным false",
+     'def hu($s): if $s.hostUsers == null then true else $s.hostUsers end;',
+     'def hu($s): ($s.hostUsers // true);'),
     # ВОШЕДШИЕ (ws#1302): вошедший без ns держит место и предел.
     ("pending-no-place", "PD", "вошедшие без ns не раскладываются по узлам — второй вход по тому же месту проходит",
      "placement \"$ncpu\" \"$nmib\" \"$BUSY_DEM${AV_PENDING:+$'\\n'$AV_PENDING}\"; prc=$?",
