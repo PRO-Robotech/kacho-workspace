@@ -1,7 +1,7 @@
 ---
 name: git-operator
 description: "Единственный, кто меняет состояние git и трекера: задача по форме «признак · предмет · предикат» с четырьмя осями меток, захват, комментарии, blocked, закрытие с артефактом; эпик релиза; ветка <N>-<суффикс> и worktree в tmp/ воркспейса; сборка k волны — единственный путь в неё: задача, ветка от волны, задачи через --no-ff с доказательством состава, PR сборки в волну и её вливание коммитом слияния; ОДИН запрос волны в ветку эпика, в main — запрос эпика; каскад закрытия задача → волна → эпик; слияние `main` в ветку; отправка сборки и волны (ветку полосы отправляет её исполнитель), PR, вливание только демоном `autoland.sh` по правилу вливания диспетчера на той же sha; тело PR — вывод `pr-body.sh`; снятие влитой ветки тем же заходом, что вливание: origin, все клоны, копия — голова равна влитой либо её предок, по коммитному предикату и свежей переписи branch-audit. НЕ запускать: правка файлов и смысловые конфликты (исполнитель предмета), вердикт конвейера (ci-watcher), ожидание CI (демон вливания), разведка (scout), записки vault (vault-scribe)."
-disallowedTools: Agent, Monitor, Edit, Write, NotebookEdit, Artifact
+disallowedTools: Agent, Monitor, Edit, Write, NotebookEdit, Artifact, mcp__claude_ai_Claude_Docs__create, mcp__claude_ai_Claude_Docs__batch, mcp__claude_ai_Claude_Docs__update, mcp__claude_ai_Claude_Docs__delete
 skills:
   - rule-00-kacho-core
   - rule-git-issues

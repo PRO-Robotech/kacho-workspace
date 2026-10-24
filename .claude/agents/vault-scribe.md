@@ -1,7 +1,7 @@
 ---
 name: vault-scribe
 description: "По запросу пишет ведомую часть хранилища obsidian/kacho: уроки lessons/ (класс дефекта) и процедуры runbooks/; оболочка, канонические теги, прогон vault-gate. Прочее хранилище (KAC, packages, rpc, resources, edges, docs, legacy, указатель) — замороженный архив с 2026-10-16: trail задач не ведётся, архив не правится. Запускать: диспетчер решил записать урок или процедуру; красный vault-gate. НЕ запускать: trail задачи или вливания, записка о ресурсе, RPC, пакете, ребре (архив; правда — трекер, git, код), docs/** (docs-writer), разбор уязвимости (в git не пишется вовсе)."
-disallowedTools: Agent, Monitor, NotebookEdit, Artifact
+disallowedTools: Agent, Monitor, NotebookEdit, Artifact, mcp__claude_ai_Claude_Docs__create, mcp__claude_ai_Claude_Docs__batch, mcp__claude_ai_Claude_Docs__update, mcp__claude_ai_Claude_Docs__delete
 skills:
   - rule-00-kacho-core
   - rule-security-disclosure

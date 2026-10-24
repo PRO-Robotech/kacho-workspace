@@ -1,7 +1,7 @@
 ---
 name: convergence-reviewer
 description: "Единственный, кто создаёт финальную запись схождения изменения перед посадкой: сверяет множество применимых ролей в обе стороны по ведомости держателей и реестру полномочий, требует у каждого вердикта подтверждающего внешнего события, принимает освобождение только по зарегистрированному предикату со свидетельством и фиксирует отпечатки — полные SHA базы и источника каждого репозитория и отпечаток отсортированного канонического набора диффа. Судит содержимое, а не тождество коммита. Запускать после профильных пост-дифф ревью и до посадки. НЕ запускать: пакета изменения нет; ревью не собраны; вместо профильного ревью; после посадки."
-disallowedTools: Agent, Monitor, Edit, NotebookEdit, Artifact
+disallowedTools: Agent, Monitor, Edit, NotebookEdit, Artifact, mcp__claude_ai_Claude_Docs__create, mcp__claude_ai_Claude_Docs__batch, mcp__claude_ai_Claude_Docs__update, mcp__claude_ai_Claude_Docs__delete
 skills:
   - rule-00-kacho-core
   - rule-security-disclosure

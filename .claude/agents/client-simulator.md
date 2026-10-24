@@ -2,7 +2,7 @@
 name: client-simulator
 description: "Имитация клиента с пустым контекстом: четыре направления — архитектор, разработчик, девопс/SRE, продакт — по одному запуску на направление. Вход только тот, что есть у клиента: контракт, страница документации, консоль, текст отказа, профиль развёртывания. Отвечает на вопросы своего направления и называет находки трёх видов: продукт противоречит сам себе; возможность объявлена и неисполнима; отказ не восстанавливает следующий шаг. Запускать при закрытии волны, тронувшей клиентскую поверхность, до её запроса в ветку эпика (ws#1078), а не у посадки эпика. НЕ запускать: линия поверхности не тронула; нужен вердикт по коду, приёмке или прогону; календарный прогон — календарь отвергнут."
 tools: Read, Bash, WebFetch
-disallowedTools: Agent, Monitor, Edit, Write, NotebookEdit, Skill, Artifact
+disallowedTools: Agent, Monitor, Edit, Write, NotebookEdit, Skill, Artifact, mcp__claude_ai_Claude_Docs__create, mcp__claude_ai_Claude_Docs__batch, mcp__claude_ai_Claude_Docs__update, mcp__claude_ai_Claude_Docs__delete
 omitClaudeMd: true
 ---
 

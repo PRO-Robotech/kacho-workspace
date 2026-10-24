@@ -292,14 +292,15 @@ elif op == 'dis_drop_monitor':       # исполнителю больше не 
         items = [x.strip() for x in m.group(1).split(',') if x.strip() and x.strip() != 'Monitor']
         return t[:m.start(1)] + ', '.join(items) + t[m.end(1):]
     edit(os.path.join(agents, args[0] + '.md'), dropm)
-elif op == 'dis_drop_artifact':      # исполнителю больше не запрещён Artifact (ws#1386)
-    def dropa(t):
+elif op == 'dis_swap_tool':          # запрет инструмента args[1] снят либо заменён args[2] (ws#1386)
+    def swap(t):
         m = re.search(r'^disallowedTools:[ \t]*(.*)$', t, re.M)
-        if not m or 'Artifact' not in m.group(1):
-            raise SystemExit('ФИКСТУРА ВАКУУМНА: у исполнителя нет Artifact в disallowedTools')
-        items = [x.strip() for x in m.group(1).split(',') if x.strip() and x.strip() != 'Artifact']
+        items = [x.strip() for x in (m.group(1) if m else '').split(',') if x.strip()]
+        if args[1] not in items:
+            raise SystemExit('ФИКСТУРА ВАКУУМНА: у исполнителя нет %s в disallowedTools' % args[1])
+        items = [x for x in items if x != args[1]] + args[2:3]
         return t[:m.start(1)] + ', '.join(items) + t[m.end(1):]
-    edit(os.path.join(agents, args[0] + '.md'), dropa)
+    edit(os.path.join(agents, args[0] + '.md'), swap)
 elif op == 'dis_reorder':            # тот же набор запретов, обратный порядок
     def rev(t):
         m = re.search(r'^disallowedTools:[ \t]*(.*)$', t, re.M)
@@ -319,8 +320,8 @@ elif op == 'ref_quote':              # та же ссылка, другая ци
 elif op == 'new_agent':              # законно заведённый исполнитель
     name = args[0]
     io.open(os.path.join(agents, name + '.md'), 'w', encoding='utf-8').write(
-        '---\nname: %s\ndescription: "Проба инъекции."\ndisallowedTools: Agent, Monitor, Artifact\n'
-        'skills:\n  - rule-00-kacho-core\n---\n\n# Проба\n' % name)
+        '---\nname: %s\ndescription: "Проба инъекции."\ndisallowedTools: Agent, Monitor%s\n'
+        'skills:\n  - rule-00-kacho-core\n---\n\n# Проба\n' % (name, ''.join(', ' + x for x in os.environ['INJ05_PUBLISH'].split())))
     edit(disp, lambda t: allowlist(t, lambda ns: ns + [name]))
     edit(disp, lambda t: t.rstrip('\n') + '\n\n### %s\nКогда: никогда, это проба.\n' % name)
 else:
@@ -328,6 +329,10 @@ else:
 PY
 }
 
+# Перечень инструментов публикации — из самой проверки (PUBLISH объявлен там один раз): инъекция
+# идёт на каждый его элемент, близнец «новый агент» объявляет запрет на все (ws#1386).
+INJ05_PUBLISH="$(sed -n '/^PUBLISH = (/,/)$/p' "$GATE/$CH05" | grep -oE '"[^"]+"' | tr -d '"' | tr '\n' ' ')"
+export INJ05_PUBLISH
 echo "== контроль: нетронутая копия — check-05 молчит =="
 d5="$(inj05_sandbox control)"
 capture "$d5" "$CH05"
@@ -401,13 +406,34 @@ assert_code 1 "«Monitor» пропал из disallowedTools — ход ждёт
 assert_says "AGENT-CAN-WAIT" "  ...находка названа осью"
 assert_says "$INJ05_AGENT" "  ...и назван ИМЕННО этот исполнитель"
 
-echo "== ось C3: исполнитель, публикующий страницу claude.ai (AGENT-CAN-PUBLISH, ws#1386) =="
-d5="$(inj05_sandbox c_can_publish)"
-inj05_edit "$d5" dis_drop_artifact "$INJ05_AGENT"
-capture "$d5" "$CH05"
-assert_code 1 "«Artifact» пропал из disallowedTools — публикация, которую снимет лишь человек"
-assert_says "AGENT-CAN-PUBLISH" "  ...находка названа осью"
-assert_says "$INJ05_AGENT" "  ...и назван ИМЕННО этот исполнитель"
+echo "== ось C3: исполнитель, публикующий в claude.ai (AGENT-CAN-PUBLISH, ws#1386) =="
+# Предпосылка: перечень выведен из проверки и в нём Artifact и записи Claude Docs.
+n_pub=0; for t in $INJ05_PUBLISH; do n_pub=$((n_pub + 1)); done
+[ "$n_pub" -ge 2 ] && [[ " $INJ05_PUBLISH " == *" Artifact "* ]]; RC=$?
+assert_code 0 "  ...предпосылка: PUBLISH проверки прочитан, элементов $n_pub, Artifact среди них"
+for t in $INJ05_PUBLISH; do
+    d5="$(inj05_sandbox "c_can_publish_${t//[^A-Za-z0-9]/_}")"
+    inj05_edit "$d5" dis_swap_tool "$INJ05_AGENT" "$t"
+    capture "$d5" "$CH05"
+    assert_code 1 "«$t» пропал из disallowedTools — публикация, которую снимет лишь человек"
+    assert_says "AGENT-CAN-PUBLISH: .claude/agents/$INJ05_AGENT.md — \`disallowedTools\` не содержит \`$t\`" "  ...названы ось, ИМЕННО этот исполнитель и ИМЕННО этот инструмент"
+done
+echo "== ось C3′: СОСЕД ПО ИМЕНИ — «artifact» строчными и одинокий «ArtifactComments» запрет Artifact не заменяют =="
+# Пара: настоящая проверка краснеет на соседе; мутант «подстрока вместо точного имени» на том же
+# соседе молчит — значит, сосед различает точное сравнение и подстроку (возврат check-verifier).
+mkdir -p "$TMP/g05p"
+sed 's/^        if t not in items:$/        if not any(t[1:] in x for x in items):/' "$GATE/$CH05" > "$TMP/g05p/$CH05"
+if cmp -s "$GATE/$CH05" "$TMP/g05p/$CH05"; then RC=0; else RC=1; fi
+assert_code 1 "  ...образец «if t not in items:» найден в проверке — мутант подстроки построен"
+for nb in artifact ArtifactComments; do
+    d5="$(inj05_sandbox "c_publish_neighbour_$nb")"
+    inj05_edit "$d5" dis_swap_tool "$INJ05_AGENT" Artifact "$nb"
+    capture "$d5" "$CH05"
+    assert_code 1 "сосед «$nb» вместо Artifact — запрета Artifact нет, гейт краснеет"
+    assert_says "не содержит \`Artifact\`" "  ...и называет ИМЕННО Artifact"
+    keep="$GATE"; GATE="$TMP/g05p"; capture "$d5" "$CH05"; GATE="$keep"
+    assert_code 0 "  ...мутант «подстрока имени» на том же соседе молчит — сосед держит точное сравнение"
+done
 
 echo "== ось C2′: БЛИЗНЕЦ — ci-watcher с разрешённым Monitor (режим wait, решение 2026-10-14) =="
 # Обе стороны одним предметом: у ci-watcher в дереве Monitor не запрещён — гейт молчит;

@@ -1,7 +1,7 @@
 ---
 name: go-style-reviewer
 description: "Пост-дифф ревью Go-кода продукта: обёртка ошибок и сравнение по значению, проброс контекста, структурный журнал, отсутствие паники в рабочем пути, тонкий транспорт, направление зависимостей, дублирование вместо фундамента, дедлайн на каждом внешнем вызове, отсутствие утечки текста драйвера и персональных данных в журнале, комментарий о защите против кода, свежие маркеры отсрочки и наличие проб в том же PR. Пишет запись на дайджест. НЕ запускать: диффа нет; предмет — схема, форма контракта, распределённые свойства, консоль, вердикт прогона или посадка. Исход линтера и проб он не объявляет."
-disallowedTools: Agent, Monitor, Edit, NotebookEdit, Artifact
+disallowedTools: Agent, Monitor, Edit, NotebookEdit, Artifact, mcp__claude_ai_Claude_Docs__create, mcp__claude_ai_Claude_Docs__batch, mcp__claude_ai_Claude_Docs__update, mcp__claude_ai_Claude_Docs__delete
 skills:
   - rule-00-kacho-core
   - rule-architecture
