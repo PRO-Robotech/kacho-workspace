@@ -786,9 +786,33 @@ for op in vault-operator kaname-iam-operator registry-operator; do
     assert "0 none да" "$(route "$RV" suite -- bash scripts/x/run-all.sh) $(has "$W/out" "клон внешнего оператора $op: класс «suite»")" "близнец: класс suite в клоне $op → none"
     assert "0 none да" "$(route "$RV" lint -- go version) $(has "$W/out" 'пин линтера')" "близнец: класс lint в клоне $op → none (пин линтера — лишь из ci.yaml, ci.yml)"
 done
+# Класс kind (ws#1385): privileged-профиль — origin клона по хосту и пути целиком, не по суффиксу.
+RG="$W/rclone-registry-operator"
+assert "0 external да" "$(route "$RG" kind -- make vet) $(has "$W/out" 'профиль kind, репозиторий registry-operator')" "класс kind в клоне registry-operator (https github) → external, профиль kind"
+git -C "$RG" remote set-url origin git@github.com:PRO-Robotech/registry-operator.git
+assert "0 external" "$(route "$RG" kind -- make vet)" "класс kind: scp-форма того же адреса github → external"
+git -C "$RG" remote set-url origin https://evil.example/PRO-Robotech/registry-operator.git
+assert "0 none да" "$(route "$RG" kind -- make vet) $(has "$W/out" 'по хосту и пути целиком')" "класс kind: чужой хост с тем же суффиксом пути → none"
+# registry-operator — ровно два канонических адреса (зеркало GitHub и источник правды GitLab),
+# формы https, ssh (с портом) и scp; чужой хост с тем же путём — none
+for u in https://gitlab.beget.ru/cloud/k8s/controllers/registry-operator.git \
+         ssh://git@gitlab.beget.ru:22/cloud/k8s/controllers/registry-operator.git \
+         git@gitlab.beget.ru:cloud/k8s/controllers/registry-operator.git; do
+    git -C "$RG" remote set-url origin "$u"
+    assert "0 external 0 external" "$(route "$RG" kind -- make vet) $(route "$RG" go-unit -- go vet ./...)" "registry-operator с origin GitLab ($u): kind и go-unit → external"
+done
+git -C "$RG" remote set-url origin https://evil.example/cloud/k8s/controllers/registry-operator.git
+assert "0 none 0 none" "$(route "$RG" kind -- make vet) $(route "$RG" go-unit -- go vet ./...)" "чужой хост с путём GitLab registry-operator → none (и для kind, и для go-unit)"
+git -C "$RG" remote set-url origin https://evil.example/PRO-Robotech/registry-operator.git
+assert "0 none" "$(route "$RG" go-unit -- go vet ./...)" "чужой хост с путём GitHub registry-operator классом go-unit → none: суффикс не годится и прочим классам"
+git -C "$RG" remote set-url origin https://github.com/PRO-Robotech/registry-operator.git
+assert "0 none да" "$(route "$R" kind -- make vet) $(has "$W/out" 'по хосту и пути целиком')" "класс kind в клоне kaname → none"
+# Мутант «отказ классу kind снят»: клон продукта получил бы privileged-профиль — проба выше ловит
+sed '/^    if \[ "\$CLASS" = kind \] && \[ "\$key" != operator \]; then$/,/^    fi$/d' "$SLOT" > "$W/slot-mut-kind.sh"
+assert "3 0 external" "$(diff "$SLOT" "$W/slot-mut-kind.sh" | grep -c '^<') $(RSLOT="$W/slot-mut-kind.sh" route "$R" kind -- make vet)" "мутант «отказ классу kind для клона продукта снят»: kaname классом kind → external — проба выше его ловит"
 git -C "$W/rclone-vault-operator" remote set-url origin https://github.com/PRO-Robotech/vault-operator-x.git
 assert "0 none" "$(route "$W/rclone-vault-operator" go-unit -- go vet ./...)" "близнец: имя оператора с хвостом (vault-operator-x) → none"
-sed '/^        \*PRO-Robotech\/vault-operator|/,/^            RS_PROFILE=.*внешнего оператора/d' "$SLOT" > "$W/slot-mut-op.sh"
+sed '/^        operator)$/,/^            RS_PROFILE=.*внешнего оператора/d' "$SLOT" > "$W/slot-mut-op.sh"
 assert "3 0 none" "$(diff "$SLOT" "$W/slot-mut-op.sh" | grep -c '^<') $(RSLOT="$W/slot-mut-op.sh" route "$W/rclone-registry-operator" go-unit -- go vet ./...)" "мутант «клоны операторов не приняты»: go-unit → none — пробы выше его ловят"
 RK="$W/rclone-sn"; git init -q -b 984-s "$RK"; git -C "$RK" remote add origin https://github.com/PRO-Robotech/kacho.git
 mkdir -p "$RK/deploy/scripts"; printf 'stand-ns-run:\n\t@true\n' > "$RK/deploy/Makefile"; printf '#!/usr/bin/env bash\ntrue\n' > "$RK/deploy/scripts/stand-ns.sh"
