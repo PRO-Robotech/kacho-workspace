@@ -4040,12 +4040,14 @@ ws6_case() {
     else bad "$c" "после установки нет yq, shellcheck 0.11.0, bats либо читателя трекера"; fi
 }
 ws6_case WS6 0 -
-# venv и локали (урок 2026-10-24) — НЕ фатальны: пакетов Debian двойник сети не отдаёт, шаг выходит 0,
-# а недоставленное названо строкой «среда: …» (пробы дадут «не выполнилось», не 69 всему профилю);
-# суммы трёх пакетов стоят в тексте по разу.
-if grep -q 'среда: venv python не поставлен' "$BOX/WS6.out" && grep -q 'среда: локали ru_RU.UTF-8, en_US.UTF-8 не поставлены' "$BOX/WS6.out" \
+# venv и локали (урок 2026-10-24) — ФОНОМ и НЕ фатальны: пакетов Debian двойник сети не отдаёт, шаг
+# выходит 0 сразу, а недоставленное фон пишет строкой «среда: …» в wsenv.log (шаг wsclonewait печатает
+# его); venv судится, лишь если ensurepip у python3 пробы нет; суммы трёх пакетов — в тексте по разу.
+for _ in $(seq 1 40); do grep -q 'среда: локали' "$WK/wsenv.log" 2> /dev/null && break; sleep 0.5; done
+venv_ok=1; env -i PATH="$WC/bin" python3 -c 'import ensurepip' > /dev/null 2>&1 || grep -q 'среда: venv python не поставлен' "$WK/wsenv.log" || venv_ok=0
+if [ "$venv_ok" = 1 ] && grep -q 'среда: локали ru_RU.UTF-8, en_US.UTF-8 не поставлены' "$WK/wsenv.log" && ! grep -q 'среда:' "$BOX/WS6.out" \
    && [ "$(grep -cE 'b079db533ff9d9d1|e65351935aa4af2b|ffc5578d5c2c30ca' "$WC/raw.sh")" = 3 ]; then ok
-else OUT="$BOX/WS6.out"; bad WS6-venv-locale "недоставленные venv и локали не названы строкой «среда:» либо суммы пакетов не по разу"; fi
+else OUT="$WK/wsenv.log"; bad WS6-venv-locale "фон venv и локалей не назвал недоставленное строкой «среда:» в wsenv.log, шаг ждал его либо суммы пакетов не по разу"; fi
 ws6_case WS6-yqsum 125 "yq v4.45.4 не поставлен" WSC_BAD=yq
 ws6_case WS6-scsum 125 "shellcheck 0.11.0 не поставлен" WSC_BAD=sc
 ws6_case WS6-batssum 125 "bats-core 1.10.0 не поставлен" WSC_BAD=bats
