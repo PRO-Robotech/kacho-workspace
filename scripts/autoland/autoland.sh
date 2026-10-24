@@ -663,13 +663,15 @@ drop_status_labels() {
             else kept+=("$r#$n $l: $(head -c 120 "$W/label.err" | tr '\n' ' ')"); fi
         done
     done <<< "$refs"
-    LABELS="метки: снято ${#done_[@]}${done_[*]:+ (${done_[*]})}${kept[*]:+; не снято: ${kept[*]}}"
+    # Снимать нечего и сбоев нет — исход без строки (её «снято 0» читалось бы как итог снятия ветки).
+    [ "${#done_[@]}" -gt 0 ] || [ "${#kept[@]}" -gt 0 ] || { LABELS=""; return 0; }
+    LABELS="метки: сняты ${#done_[@]}${done_[*]:+ (${done_[*]})}${kept[*]:+; не сняты: ${kept[*]}}"
     log "$LABELS"
 }
 
 landed() {  # запрос влит — проверка родителя, снятие, догон основного клона, исход
     local note="${1:-}"
-    drop_status_labels; note="${note:+$note; }$LABELS"
+    drop_status_labels; [ -z "$LABELS" ] || note="${note:+$note; }$LABELS"
     if "$GH" api "repos/$REPO/commits/$PR_MSHA" > "$W/mc.json" 2>/dev/null \
         && jq -e --arg h "$HEAD" '[.parents[].sha] | index($h) != null' "$W/mc.json" > /dev/null 2>&1; then
         log "коммит слияния $PR_MSHA — родитель $HEAD есть"

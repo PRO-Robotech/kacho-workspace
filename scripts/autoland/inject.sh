@@ -473,7 +473,7 @@ s_labels() {
     echo '{"state":"closed","labels":[{"name":"status:test"},{"name":"P2"}]}' > "$FX/issue.41.json"
     echo '{"state":"open","labels":[{"name":"status:in-progress"}]}' > "$FX/issue.42.json"
     AUTOLAND_LABEL_WAIT=0 run_al
-    ok labels "merged и строка «метки: снято 1» в исходе" eval '[ "$RC" -eq 0 ] && st_is merged && st_has "метки: снято 1"'
+    ok labels "merged и строка «метки: сняты 1» в исходе" eval '[ "$RC" -eq 0 ] && st_is merged && st_has "метки: сняты 1"'
     ok labels "снят ровно status:test с #41" eval '[ "$(cat "$FX/labels.removed" 2>/dev/null)" = "41 status:test" ]'
 }
 # labels-late — хостинг закрыл задачу по Closes не сразу: первое чтение «open», второе «closed» —
@@ -1452,10 +1452,10 @@ mutant prune-busy-glob-unescaped s_prune_busy_glob "e=\"\$(printf '%s' \"\$d\" |
 mutant prune-no-clone-silent s_prune_no_clone 'if [ "$n_cl" -eq 0 ]; then' 'if false; then'
 mutant prune-readonly-chmod-dropped s_prune_readonly '{ chmod -R u+w -- "$wt" 2>/dev/null; true; } \
                 && ' ''
-mutant labels-not-dropped s_labels 'drop_status_labels; note=' 'note='
+mutant labels-not-dropped s_labels 'drop_status_labels; [ -z "$LABELS" ]' 'LABELS=""; [ -z "$LABELS" ]'
 mutant labels-open-issue-too s_labels '[ "$st" = closed ] && [ -n "$ls" ] || continue' '[ -n "$ls" ] || continue'
 mutant labels-no-reread s_labels_late '&& [ "$try" -lt "$LABEL_TRIES" ] || break' '&& false || break'
-mutant prune-base-ancestor-dropped s_prune_not_in_base'if ! git -C "$c" merge-base --is-ancestor "$HEAD" "origin/$base" 2>/dev/null; then' 'if false; then'
+mutant prune-base-ancestor-dropped s_prune_not_in_base 'if ! git -C "$c" merge-base --is-ancestor "$HEAD" "origin/$base" 2>/dev/null; then' 'if false; then'
 mutant status-alive-by-kill0 s_detach '[[ "$1" =~ ^[0-9]+$ ]] || return 1
     { mapfile' '[[ "$1" =~ ^[0-9]+$ ]] || return 1
     kill -0 "$1" 2>/dev/null && return 0
