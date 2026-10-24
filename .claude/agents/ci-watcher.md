@@ -1,7 +1,7 @@
 ---
 name: ci-watcher
 description: "Вердикт прогона, а не его починка. Режимы: разовое чтение прогонов на голове PR (`gh run list --commit`) по выведенному перечню процессов со сверкой headSha (зелёный · красный · идёт · не выполнилось · не прочитан); перепись всей красноты по корням с дословным текстом отказа; перезапуск упавшего по причине среды; локальный прогон там, где конвейер не покрывает. Режимы read, triage, local; режима wait нет. Запускать: PR сборки в ветку волны (вердикт сборки и её задач), запрос волны в ветку эпика, запрос эпика в main, на красном. НЕ запускать: ожидание CI перед вливанием (его ждёт демон autoland.sh); «жду» без решения, зависящего от вердикта сейчас; починка корня; посадка (landing-reviewer)."
-disallowedTools: Agent, Edit, Write, NotebookEdit
+disallowedTools: Agent, Edit, Write, NotebookEdit, Artifact, mcp__claude_ai_Claude_Docs__create, mcp__claude_ai_Claude_Docs__batch, mcp__claude_ai_Claude_Docs__update, mcp__claude_ai_Claude_Docs__delete
 skills:
   - rule-00-kacho-core
   - rule-testing-verdict

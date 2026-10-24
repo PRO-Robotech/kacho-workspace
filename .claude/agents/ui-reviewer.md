@@ -1,7 +1,7 @@
 ---
 name: ui-reviewer
 description: "Пост-дифф ревью консоли по её канону: пара «имя слева — ввод справа», ссылка на чужой ресурс с иконкой и переходом, один предмет — один вид и одна оболочка, кэш только у того, чьё имя меняется вместе с содержимым, переход по имени, булево как следствие, фильтр вместе с выбором столбцов, поле без источника не показывается, одна прокрутка, список значений таблицей, пустой экран как пустой ответ края, и на каждую находку — проба браузером, написанная до фикса, со ссылкой на задачу внутри вызова пробы. Запускать на дифф консоли до посадки. НЕ запускать: диффа нет; предмет — Go, схема, контракт; вердикт прогона; способность пробы упасть."
-disallowedTools: Agent, Monitor, Edit, Write, NotebookEdit
+disallowedTools: Agent, Monitor, Edit, Write, NotebookEdit, Artifact, mcp__claude_ai_Claude_Docs__create, mcp__claude_ai_Claude_Docs__batch, mcp__claude_ai_Claude_Docs__update, mcp__claude_ai_Claude_Docs__delete
 skills:
   - rule-00-kacho-core
   - rule-ui
