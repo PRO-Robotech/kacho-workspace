@@ -137,6 +137,13 @@
 #                  KACHO_TASK не задан — отправка получила M темы «#<M> merge …»; близнец —
 #                  заданный KACHO_TASK сильнее темы; в args — «#0» темы и KACHO_TASK не номер —
 #                  отказ start кодом 2; в detach — номер темы в окружении демона.
+#   q-subject    — заголовок коммита догона (ws#1393, kaname#970 вышел void: «#955 merge 955: …»
+#                  трижды отвергнут хуком коммита kaname); номер PR (432x) отличен от номера
+#                  ветки (431x) и темы: PR 4320, голова-номер `4310` на базе-номере `4300` —
+#                  «#4310 merge #4300: догон базы перед вливанием #4320» (номер — ветки, не темы
+#                  и не PR, база — с `#`); `4311-x` на main — «#4311 merge main: …»; `4312` на
+#                  `4300-epic` — «#4312 merge #4300: …»; голова без номера `feat-x` — номер темы
+#                  «#4000 merge main: …»; коммит догона — первый родитель головы, влитой в базу.
 #
 # МУТАНТЫ — копия autoland.sh с одним дефектом обязана уронить свою сцену: без
 # --match-head-commit, с --admin, без --delete-branch, допуск всех причин, без сверки
@@ -1157,7 +1164,31 @@ mk_q() {  # <N>… — origin с main, ветка p<N> на PR, свой фай�
     git clone -q "$Q/origin.git" "$Q/clone" 2>/dev/null; git clone -q "$Q/origin.git" "$Q/merger" 2>/dev/null
     : > "$Q/ci.calls"; : > "$Q/push.calls"; QP=(); QRC=()
 }
-qhead() { git -C "$Q/origin.git" rev-parse "refs/heads/p$1"; }
+qhead() { local ref; read -r ref _ < "$Q/pr/$1/meta"; git -C "$Q/origin.git" rev-parse "refs/heads/$ref"; }
+mk_qr() {  # <N> <ветка> <база> — origin с main; база (не main) — от main; ветка PR — от базы; meta «ветка база»
+    local n="$1" ref="$2" base="$3" s
+    Q="$FX/q"; mkdir -p "$Q/pr/$n"; s="$Q/seed"
+    git init -q --bare -b main "$Q/origin.git"
+    git clone -q "$Q/origin.git" "$s" 2>/dev/null; git -C "$s" symbolic-ref HEAD refs/heads/main
+    echo base > "$s/f"; git -C "$s" add f; sandbox_run git -C "$s" commit -qm base; git -C "$s" push -q origin main
+    if [ "$base" != main ]; then
+        git -C "$s" checkout -q -b "$base" main; echo "$base" > "$s/epic.txt"; git -C "$s" add epic.txt
+        sandbox_run git -C "$s" commit -qm "#${base%%-*} эпик"; git -C "$s" push -q origin "$base"
+    fi
+    git -C "$s" checkout -q -b "$ref" "$base"; echo "$n" > "$s/p$n.txt"; git -C "$s" add "p$n.txt"
+    sandbox_run git -C "$s" commit -qm "#${ref%%-*} предмет"; git -C "$s" push -q origin "$ref"
+    echo "$ref $base" > "$Q/pr/$n/meta"; git -C "$s" checkout -q main
+    git clone -q "$Q/origin.git" "$Q/clone" 2>/dev/null; git clone -q "$Q/origin.git" "$Q/merger" 2>/dev/null
+    : > "$Q/ci.calls"; : > "$Q/push.calls"; QP=(); QRC=()
+}
+cu_subj() {  # <база> <N> — заголовок коммита догона перед вливанием #N в истории базы на origin
+    local log; log="$(git -C "$Q/origin.git" log --format=%s "refs/heads/$1")" || return 1
+    grep -m1 -F "догон базы перед вливанием #$2" <<< "$log"
+}
+cu_owned() {  # <база> <N> — коммит догона — первый родитель влитой головы (принадлежит ветке PR)
+    local m h; read -r h m < "$Q/pr/$2/merged" || return 1
+    [ "$(git -C "$Q/origin.git" log -1 --format=%s "$h")" = "$(cu_subj "$1" "$2")" ]
+}
 base_push() {  # <база> <файл> <текст> — коммит в базу мимо очереди (посадка вне демона)
     local s="$Q/seed"
     git -C "$s" fetch -q origin; git -C "$s" checkout -q -B "$1" "origin/$1"; echo "$3" > "$s/$2"; git -C "$s" add "$2"
@@ -1317,6 +1348,27 @@ s_q_task() {  # номер задачи слота отправки догона
     ok q-task "близнец: KACHO_TASK задан — отправка с ним, не с темой" \
         eval '[ "$RC" = 0 ] && st_is merged && grep -q "^push .* task=4301$" "$Q/push.calls"'
 }
+s_q_subject() {  # заголовок коммита догона — форма слияния правила ветки (ws#1393)
+    # Номер PR (432x) всюду отличен от номера ветки (431x) и темы (#4000): иначе «номер из $PR»
+    # неотличим от верного, а «#<PR> merge …» хук kaname отвергает (класс kaname#970).
+    new_fx q-subject-bare; mk_qr 4320 4310 4300; base_push 4300 b.txt b
+    run_q 4320; wait_q 4320; ST_Q 4320
+    ok q-subject "PR 4320, голова-номер 4310, база-номер 4300 — «#4310 merge #4300: догон базы перед вливанием #4320», merged" \
+        eval '[ "$RC" = 0 ] && st_is merged && [ "$(cu_subj 4300 4320)" = "#4310 merge #4300: догон базы перед вливанием #4320" ]'
+    ok q-subject "коммит догона — первый родитель влитой головы 4310 (несёт номер ветки-номера)" cu_owned 4300 4320
+    new_fx q-subject-dash; mk_qr 4321 4311-x main; base_push main b.txt b
+    run_q 4321; wait_q 4321; ST_Q 4321
+    ok q-subject "PR 4321, голова 4311-x, база main — «#4311 merge main: догон базы перед вливанием #4321», merged" \
+        eval '[ "$RC" = 0 ] && st_is merged && [ "$(cu_subj main 4321)" = "#4311 merge main: догон базы перед вливанием #4321" ]'
+    new_fx q-subject-epic; mk_qr 4322 4312 4300-epic; base_push 4300-epic b.txt b
+    run_q 4322; wait_q 4322; ST_Q 4322
+    ok q-subject "PR 4322, голова 4312, база 4300-epic — «#4312 merge #4300: догон базы перед вливанием #4322», merged" \
+        eval '[ "$RC" = 0 ] && st_is merged && [ "$(cu_subj 4300-epic 4322)" = "#4312 merge #4300: догон базы перед вливанием #4322" ]'
+    new_fx q-subject-plain; mk_qr 4323 feat-x main; base_push main b.txt b
+    run_q 4323; wait_q 4323; ST_Q 4323
+    ok q-subject "PR 4323, голова без номера feat-x — номер из темы: «#4000 merge main: догон базы перед вливанием #4323», merged" \
+        eval '[ "$RC" = 0 ] && st_is merged && [ "$(cu_subj main 4323)" = "#4000 merge main: догон базы перед вливанием #4323" ]'
+}
 s_q_limit() {  # предел догонов
     new_fx q-limit; mk_q 4301; base_push main b.txt b
     QLIMIT=0 run_q 4301; wait_q 4301; ST_Q 4301
@@ -1465,7 +1517,7 @@ ALL=(s_green s_red s_moved_start s_moved_gates s_moved_merge s_allow_ok s_allow_
      s_ff s_ff_overlap s_ff_worktree s_ff_foreign s_ff_hang s_ff_epic s_lag s_lag_own s_lag_nofetch s_lag_hang
      s_start_stale s_head_sync
      s_status s_empty_code s_lp_head s_census s_guard s_static s_py_guard s_py_guard_bypass s_py_guard_sh s_py_guard_prune
-     s_q3 s_q_spelling s_q_diff_base s_q_dead s_q_live s_q_queued s_q_stale_ext s_q_conflict s_q_push s_q_task s_q_limit s_q_stale_lag s_q_fetch s_q_lock
+     s_q3 s_q_spelling s_q_diff_base s_q_dead s_q_live s_q_queued s_q_stale_ext s_q_conflict s_q_push s_q_task s_q_subject s_q_limit s_q_stale_lag s_q_fetch s_q_lock
      s_q_pinned s_q_pin_twins s_real_states s_real_replica)
 
 AL="$AL_REAL"
@@ -1616,6 +1668,15 @@ mutant task-subject-overrides-env s_q_task '[ -n "${KACHO_TASK:-}" ] || KACHO_TA
 mutant task-not-exported s_q_task,s_detach $'    export KACHO_TASK\n' $'\n'
 mutant task-unchecked s_args '[[ "$KACHO_TASK" =~ ^[1-9][0-9]*$ ]]' 'true'
 mutant task-unanchored s_args '[[ "$KACHO_TASK" =~ ^[1-9][0-9]*$ ]]' '[[ "$KACHO_TASK" =~ ^[1-9][0-9]* ]]'
+# заголовок коммита догона (ws#1393)
+mutant subject-base-without-hash s_q_subject 'if [[ "$base" =~ ^[0-9]+$ ]]; then bref="#$base";' 'if [[ "$base" =~ ^[0-9]+$ ]]; then bref="$base";'
+mutant subject-bare-head-from-subject s_q_subject 'if [[ "$PR_REF" =~ ^[0-9]+$ ]]; then task="#$PR_REF"; elif' 'if false; then task="#$PR_REF"; elif'
+mutant subject-dash-head-from-subject s_q_subject 'elif [[ "$PR_REF" =~ ^([0-9]+)- ]]; then task=' 'elif false; then task='
+mutant subject-dash-base-as-is s_q_subject 'elif [[ "$base" =~ ^([0-9]+)- ]]; then bref=' 'elif false; then bref='
+mutant subject-main-hashed s_q_subject '    bref="$base"' '    bref="#$base"'
+mutant subject-bare-head-task-from-pr s_q_subject 'then task="#$PR_REF"; elif' 'then task="#$PR"; elif'
+mutant subject-dash-head-task-from-pr s_q_subject '=~ ^([0-9]+)- ]]; then task="#${BASH_REMATCH[1]}"' '=~ ^([0-9]+)- ]]; then task="#$PR"'
+mutant subject-fallback-task-from-pr s_q_subject '    task="${SUBJECT%% *}"' '    task="#$PR"'
 mutant catchup-fetch-unchecked s_q_fetch 'if ! GIT_TERMINAL_PROMPT=0 git -C "$c" fetch' 'if false && git -C "$c" fetch'
 # страж python3 гейтов (ws#1365)
 mutant py-guard-not-in-path s_py_guard_sh '    local PATH="$PYG:$AUTOLAND_PATH" BASH_ENV="$PY_ENV"' '    local PATH="$AUTOLAND_PATH" BASH_ENV="$PY_ENV"'
