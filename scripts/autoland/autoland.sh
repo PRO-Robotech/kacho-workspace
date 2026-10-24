@@ -506,7 +506,7 @@ done
 gate() {  # <скрипт> <доводы…> → $W/<скрипт>.out, код в GATE_RC
     local s="$1" out="$W/$1.out" recipe; shift
     : > "$PY_TRIP"
-    local xt="$W/$1.xtrace"; ( umask 077; : > "$xt" ) || exit 2
+    local xt="$W/$s.xtrace"; ( umask 077; : > "$xt" ) || exit 2
     local AUTOLAND_PATH="$PATH" AUTOLAND_PY_TRIP="$PY_TRIP"
     local PATH="$PYG:$AUTOLAND_PATH" BASH_ENV="$PY_ENV"
     export PATH AUTOLAND_PATH AUTOLAND_PY_TRIP BASH_ENV
