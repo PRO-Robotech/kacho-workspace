@@ -50,9 +50,22 @@ cluster.sh`). make страж НЕ зовёт: `make -n` исполняет ст
 Машина владельца — не для прогонов (владелец 2026-10-22, ws#1301: «запиши в рул что бы не
 использовал мою локальную тачку. использовать только в одном случае если доступа к кластеру
 нету»): тяжёлым считается ЛЮБАЯ сборка и любой тест, а не только -race — `go test` и
-`go build` без -race (класс go-unit, Job — профилем go-race; `go vet` — граница, BOUNDARY),
+`go build` без -race (класс go-unit, Job — профилем go-race),
 `make` с «test» в имени цели, pytest (suite), npm test/ci и сценарии test/e2e/build/typecheck/lint,
 vitest, tsc, eslint (ci-local), playwright (stand), наборы и пробы оснастки (suite). Слот уводит их во внешний кластер либо отвечает 77; локально — лишь при недоступном.
+
+Лёгкие формы на машине владельца (тот же ws#1301; три случая за 2026-10-21…22 — `bash -n`,
+`python3 -c`, `go vet` агентов на машине): на машине — git, gh, jq, чтение и правка файлов,
+kubectl и tar раннера, короткие одиночные команды; интерпретатор (`python3` любой формой, в том
+числе `-c`, `-`, `-I`, скрипт и файл со строкой запуска python либо node), `node`, `shellcheck`,
+`openssl`, оболочка с noexec (`bash -n`, `set -n` первой командой), `go vet|run|install` —
+отказ «лёгкая команда на машине владельца» с классом слота (LOCAL_FORMS; go — go-unit, прочее —
+suite) и маршрутом remote. JSON читает jq: исключения `-I` нет — замена на машине есть, а
+python3 этой формой исполняет любой код. Судится лишь СТРОКА КОМАНДЫ (уровень 0 — и за
+обёртками env, timeout, nice, xargs, find -exec, `bash -c`, heredoc оболочке): предпроверки,
+pr-body.sh, collect.sh зовут python3 и go vet своим текстом, и тот уровень страж не судит
+(BOUNDARY). Версия (`python3 -V`, `node --version`, `openssl version`) — пропуск; слова
+`kubectl exec … --` исполняет pod, а не машина, — пропуск.
 
 Исходы: 0 без вывода — пропуск; 2 и текст в stderr — отказ (текст видит тот, кто
 звал Bash: исполнитель, у диспетчера Bash нет); 0 и additionalContext «СЛОМАН» —
@@ -64,9 +77,11 @@ vitest, tsc, eslint (ci-local), playwright (stand), наборы и пробы �
 (`bash -n x.sh`, `sh -n`, слитно `-xn`, `-o noexec`; последующее `+n`/`+o noexec` его
 снимает — по порядку опций до скрипта), и строка `-c`, ПЕРВАЯ команда которой — `set`,
 включающий noexec, за которой `;`, `&&`, `||` или перевод строки (труба и `&` — подоболочка,
-noexec до хвоста не доходит), команд не исполняют: страж их пропускает. Флаг после имени
+noexec до хвоста не доходит), команд не исполняют: тяжёлой их страж не зовёт, а в строке
+команды отказывает ЛЁГКОЙ формой (класс suite, владелец 2026-10-22 — абзац выше: прежде, по
+ws#1247, — пропуск); в тексте скрипта — пропуск. Флаг после имени
 скрипта (`bash x.sh -n`) — его аргумент, а `set -n` не первой командой — после
-исполненного; оба — прежний отказ. Замер 2026-10-19, bash 5 и dash.
+исполненного; оба — прежний отказ тяжёлой. Замер 2026-10-19, bash 5 и dash.
 Интерактивная оболочка (`-i` в опциях вызова в любой связке: `-ic`, `-xi`, `-i -c`) noexec не
 соблюдает — `set -n`/`set -o noexec` в строке и в heredoc bash игнорирует и тело исполняет
 (замер bash 5.3); `-n` флагом при `-i` bash 5.3 соблюдает, но man bash называет его
@@ -118,6 +133,37 @@ SCRIPTS = {"ci-local.sh": "ci-local", "newman-parallel.sh": "newman"}
 SUITE_NAME = re.compile(r"^(run-all\.sh|inject\.sh|inject-[^/]+\.sh|[^/]+-inject\.sh|prove\.sh|"
                         r"prove-all\.sh|mutants\.py|[^/]+-mutants\.py|run-suites\.sh|hook-proofs\.sh)$")
 PYTHONS = re.compile(r"^python(3(\.\d+)?)?$")
+# Лёгкая форма на машине владельца (ws#1301, шапка): класс несёт префикс LOCAL — это не бюджет
+# слота, а отказ строке команды; после префикса — класс слота для готовой строки. Голова →
+# слова, с которыми она лишь называет версию (пропуск).
+LOCAL = "local:"
+LOCAL_FORMS = {"node": {"-v", "--version", "-h", "--help"}, "nodejs": {"-v", "--version"},
+               "shellcheck": {"-V", "--version"}, "openssl": {"version", "help"}}
+PY_VERSION = {"-V", "-VV", "--version", "-h", "--help"}
+REMOTE_EXEC = {"kubectl", "oc"}  # слова после `exec … --` исполняет pod внешнего кластера
+
+
+def local_form(base, args):
+    """Класс LOCAL лёгкой формы `base args` либо None: версия и справка — пропуск."""
+    if PYTHONS.match(base):
+        return None if args and all(a in PY_VERSION for a in args) else LOCAL + "suite"
+    if base in LOCAL_FORMS:
+        ver = LOCAL_FORMS[base]
+        if args and (all(a in ver for a in args) or (base == "openssl" and args[0] in ver)):
+            return None
+        return LOCAL + "suite"
+    return None
+
+
+def shebang_head(path, ctx):
+    """Интерпретатор строки запуска файла (`#!/usr/bin/env python3`, `#!/usr/bin/node`) либо None."""
+    text = read_text(path, ctx) if path else None
+    if not text or not text.startswith("#!"):
+        return None
+    ws = text.split("\n", 1)[0][2:].split()
+    while ws and (os.path.basename(ws[0]) == "env" or ws[0].startswith("-")):
+        ws = ws[1:]
+    return os.path.basename(ws[0]) if ws else None
 PY_VALUE = {"-W", "-X", "-Q"}  # опции python, берущие значение отдельным словом
 
 
@@ -217,10 +263,14 @@ BOUNDARY = (
     ("файл, записанный и запущенный той же строкой", "cat > t.sh <<'EOF'\ngo test -race ./...\nEOF\nbash t.sh"),
     ("строка оболочке одним словом у незнакомой обёртки", "tmux new -d 'go test -race ./...'"),
     ("аргументы скрипта в его $@", "bash run.sh go test -race ./..."),
-    ("запуск из другого языка", "python3 -c \"import os; os.system('go test -race ./...')\""),
-    ("настройка, сохранённая инструментом", "go env -w GOFLAGS=-race && go run ./cmd/x"),
+    ("запуск из другого языка вне перечня лёгких форм", "perl -e \"system('go test -race ./...')\""),
+    ("настройка, сохранённая инструментом", "go env -w GOFLAGS=-race && make build"),
     ("alias", "alias gt='go test -race'; gt ./..."),
-    ("go vet — анализ без исполнения; его зовёт lane-precheck.sh cherry-vet (ws#1301)", "go vet ./..."),
+    # лёгкие формы (ws#1301): судится лишь строка команды
+    ("лёгкая форма в $@ скрипта и в его тексте — предпроверки и pr-body.sh зовут python3 сами",
+     "bash run.sh python3 -c 'print(1)'"),
+    ("интерпретатор и линтер вне перечня LOCAL_FORMS", "ruby -e 'puts 1'"),
+    ("исполняемый файл по имени из PATH — строка запуска не читается", "affected.py --run"),
 )
 
 
@@ -734,11 +784,11 @@ def docker_class(args, ctx, level):
 
 
 def best(classes):
-    """Из найденных — с наибольшим бюджетом."""
+    """Из найденных — с наибольшим бюджетом; тяжёлый — прежде лёгкой формы (LOCAL)."""
     for c in RANK:
         if c in classes:
             return c
-    return None
+    return min((c for c in classes if c and c.startswith(LOCAL)), default=None)
 
 
 def resolve(path, cwd, alt):
@@ -1081,11 +1131,14 @@ def classify_argv(env, argv, cwd, ctx, level, alt):
         return best(classes_in(text, cwd, ctx, level, alt, env)) if text else None
     if base in SHELLS:
         noexec = not shell_interactive(args)  # -i: noexec не соблюдается (ws#1247)
-        if noexec and shell_noexec(args):
-            return None  # noexec: строки читаются, не исполняются (ws#1247)
         cmd, script, params, _ = shell_args(args)
+        # noexec: строки читаются, не исполняются (ws#1247) — не тяжёлое; в строке команды —
+        # лёгкая форма на машине (ws#1301); stdin-форму (`bash -n <<EOF`) судит ветвь heredoc scan
+        nx_light = LOCAL + "suite" if level == 0 and (cmd is not None or script) else None
+        if noexec and shell_noexec(args):
+            return nx_light
         if cmd is not None:
-            return None if noexec and set_noexec_first(cmd) else text_class(positional(cmd, params))
+            return nx_light if noexec and set_noexec_first(cmd) else text_class(positional(cmd, params))
         if script is None or os.path.basename(script) == "heavy-slot.sh":
             return None
         if os.path.basename(script) in SCRIPTS:
@@ -1096,7 +1149,11 @@ def classify_argv(env, argv, cwd, ctx, level, alt):
         if any(a == "-m" and args[k + 1:k + 2] == ["pytest"] for k, a in enumerate(args)) or "-mpytest" in args:
             return "suite"
         script = python_script(args)
-        return "suite" if script and suite_member(resolve(script, cwd, alt)) else None
+        if script and suite_member(resolve(script, cwd, alt)):
+            return "suite"
+        return local_form(base, args) if level == 0 else None  # python3 на машине (ws#1301)
+    if base in LOCAL_FORMS:
+        return local_form(base, args) if level == 0 else None  # node, shellcheck, openssl (ws#1301)
     if base in (".", "source"):
         return best(file_classes(args[0], cwd, ctx, level, alt, True, env)) if args else None
     if base == "eval":
@@ -1143,6 +1200,8 @@ def classify_argv(env, argv, cwd, ctx, level, alt):
             return go_test_class(rest, env) or "go-unit"
         if sub in ("run", "install") and go_test_class(rest, env) == "go-race":
             return "go-race"  # бинарь с -race запускают — ради этого его и собирают
+        if sub in ("vet", "run", "install") and level == 0:
+            return LOCAL + "go-unit"  # анализ и сборка на машине — внешний кластер (ws#1301)
         return None
     if base == "golangci-lint" and "run" in args:
         return "lint"
@@ -1192,17 +1251,25 @@ def classify_argv(env, argv, cwd, ctx, level, alt):
         c = best(got | ({"suite"} if suite_member(resolve(argv[0], cwd, alt)) else set()))
         if c:
             return c
+        head = shebang_head(resolve(argv[0], cwd, alt), ctx) if level == 0 else None
+        if head and (PYTHONS.match(head) or head in LOCAL_FORMS):  # `./x.py` — тот же python3
+            return local_form(head, args)
     if base in NON_EXEC or "$" in argv[0] or "__SUBST__" in argv[0]:
         return None
     # Незнакомая команда, в чьих словах стоит тяжёлая программа (`strace -f go test
     # -race`, `parallel go test -race ::: …`, `doas docker run …`), — обёртка. Имя
-    # скрипта в словах — не признак: у chmod, cp, ls оно путь, а не запуск.
+    # скрипта в словах — не признак: у chmod, cp, ls оно путь, а не запуск. Лёгкая форма
+    # (ws#1301) — лишь с аргументом после головы и не у `kubectl exec`: его слова исполняет pod.
     for k in range(1, len(args) + 1):
         b = os.path.basename(argv[k])
         if b == "heavy-slot.sh":
             return None
         if b in HEADS:
             c = classify_argv(env, argv[k:], cwd, ctx, level, alt)
+            if c and not (c.startswith(LOCAL) and base in REMOTE_EXEC):
+                return c
+        elif level == 0 and k < len(args) and base not in REMOTE_EXEC and (PYTHONS.match(b) or b in LOCAL_FORMS):
+            c = local_form(b, argv[k + 1:])
             if c:
                 return c
     return None
@@ -1271,6 +1338,8 @@ def scan(text, cwd, ctx, level=0, alt=None, env0=None):
             if argv and os.path.basename(argv[0]) in SHELLS and shell_args(argv[1:])[3]:
                 if shell_interactive(argv[1:]) or not (shell_noexec(argv[1:]) or set_noexec_first(body)):
                     yield from scan(body, cur, ctx, level, alt, vis)
+                elif level == 0:  # noexec — не тяжёлое, но на машине (ws#1301)
+                    yield "heavy", LOCAL + "suite", vis, argv
                 break
 
 
@@ -1309,9 +1378,12 @@ def classes_in(text, cwd, ctx, level=0, alt=None, env0=None):
 def find_heavy(text, cwd, ctx=None):
     # GOFLAGS, экспортированный профилем, делает -race каждый `go test` строки
     env0 = ["GOFLAGS=" + os.environ["GOFLAGS"]] if os.environ.get("GOFLAGS") else []
+    light = None  # лёгкая форма (LOCAL) уступает тяжёлому и ручке слота той же строки
     for hit in scan(text, cwd, ctx or Ctx(), env0=env0):
-        return hit
-    return None
+        if hit[0] == "knob" or not hit[1].startswith(LOCAL):
+            return hit
+        light = light or hit
+    return light
 
 
 REDIRECT = re.compile(r"^(\d*|&)(>>?|<)&?[\w./-]*$")
@@ -1325,7 +1397,30 @@ def clip(s, n):
     return s if len(s) <= n else s[:n] + " …"
 
 
+def deny_local(cls, env, argv, slot):
+    """Лёгкая форма на машине владельца (ws#1301): отказ с маршрутом remote через слот."""
+    shown = show(argv)
+    fixed = clip(" ".join([show(env), slot, cls, "--", shown]).strip(), 400)
+    sys.stderr.write(
+        "HEAVY-GUARD: отказ — лёгкая команда на машине владельца (класс слота «%s»), маршрут — внешний кластер.\n"
+        "  найдено: %s\n"
+        "Владелец 2026-10-22 (ws#1301): «использовать только в одном случае если доступа к кластеру нету».\n"
+        "На машине — git, gh, jq, чтение и правка файлов, kubectl и tar раннера; python3, node, bash -n,\n"
+        "shellcheck, openssl, go vet|run|install — во внешнем кластере через слот (строка — как была):\n"
+        "  %s\n"
+        "  · Job-ом слот уводит go и make клона продукта и наборы и пробы воркспейса относительным\n"
+        "    путём (ведомость PORTABLE: run-all.sh, inject*.sh, prove.sh, check-*); код — код там;\n"
+        "  · иному внешнего пути пока нет: слот ответит 77 «не выполнилось», маршрут — ws#1303;\n"
+        "    локально — лишь при недоступном кластере, его доказывает сам слот;\n"
+        "  · без прогона: JSON — jq; синтаксис и shellcheck скрипта — его набор Job-ом либо хук\n"
+        "    отправки (%s ci-local -- git push …).\n"
+        % (cls, clip(shown, 300), fixed, slot))
+    sys.exit(2)
+
+
 def deny(cls, env, argv, slot):
+    if cls.startswith(LOCAL):
+        deny_local(cls[len(LOCAL):], env, argv, slot)
     shown = show(argv)
     fixed = clip(" ".join([show(env), slot, cls, "--", shown]).strip(), 400)
     sys.stderr.write(
