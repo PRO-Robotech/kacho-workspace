@@ -218,7 +218,11 @@ def selected_unit_transform(manifest):
     if 'unitReportTransform' not in manifest:
         return None
     profile = manifest['unitReportTransform']
-    require(manifest.get('jobs') == 'unit' and isinstance(profile, dict)
+    jobs = manifest.get('jobs')
+    wanted = jobs.split(',') if isinstance(jobs, str) else []
+    allowed = {job for names in WORKFLOW_JOBS.values() for job in names}
+    require(wanted.count('unit') == 1 and len(wanted) == len(set(wanted))
+            and set(wanted) <= allowed and isinstance(profile, dict)
             and profile == {'transform': UNIT_REPORT_TRANSFORM,
                             'transform_sha256': UNIT_REPORT_POLICY_SHA},
             'invalid selected unit report transform')
@@ -385,7 +389,8 @@ def import_candidate(exp, packet, common, remote_log, go_json, integration_union
         parsed = parse_partition(raw, {'head': exp['head'], 'tree': exp['tree'], 'status': ''}, definitions)
         require(not set(parsed['groups']) & set(groups), 'group repeated across imported runs')
         for key, group in parsed['groups'].items():
-            group['unit_json'] = verify_native(group, common.digest, selected_unit_transform(manifest))
+            group['unit_json'] = verify_native(
+                group, common.digest, selected_unit_transform(manifest) if key == 'ci.yml:unit' else None)
             groups[key] = group
         cleanup[name] = {'namespace': transport['namespace'], 'kind': transport['cleanup_kind']}
     # Every producer version is independently bound and reviewed. An unchanged

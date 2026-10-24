@@ -1244,6 +1244,26 @@ class PreciCensus(unittest.TestCase):
                 self.preci.bind_command_line(command_line, replacement)
             self.preci.bind_command_line(command_line, argv)
 
+    def test_preci_unit_transform_in_complete_partition(self):
+        import tempfile
+        profile = {'transform': self.preci.UNIT_REPORT_TRANSFORM,
+                   'transform_sha256': self.preci.UNIT_REPORT_POLICY_SHA}
+        with tempfile.TemporaryDirectory() as temporary:
+            argv, bootstrap, manifest, producer = self.make_transport(
+                Path(temporary), 'build,unit,listfilter', unit_transform=profile)
+            bind = lambda value: self.preci.bind_transport(argv, bootstrap, value, producer, gate.common.digest)
+            positive = bind(manifest)
+            self.assertEqual(self.preci.selected_unit_transform(manifest), profile)
+            for jobs in ('build,listfilter', 'unit,unit', 'build,unit,build',
+                         'unit,unknown', 'stand,unit,', 'e2e-newman.yml:unit', None, True):
+                with self.subTest(jobs=jobs):
+                    with self.assertRaises(self.preci.EvidenceError):
+                        self.preci.selected_unit_transform(dict(manifest, jobs=jobs))
+                    self.assertEqual(bind(manifest), positive)
+            removed = dict(manifest); del removed['unitReportTransform']
+            with self.assertRaises(self.preci.EvidenceError): bind(removed)
+            with self.assertRaises(self.preci.EvidenceError): bind(dict(manifest, jobs='unit'))
+
     def test_preci_canonical_transport_negative_twins(self):
         import tempfile, copy
         with tempfile.TemporaryDirectory() as temporary:
@@ -1325,6 +1345,37 @@ class PreciCensus(unittest.TestCase):
                 return self.preci.import_candidate(exp, value, gate.common, gate.remote_log, gate.go_json, gate.integration_union)
             positive = imported(packet)
             self.assertEqual(positive['integration']['passed'], 37)
+            # A source-bound transformed unit report can share its complete
+            # partition with other jobs; those jobs retain ordinary metadata.
+            profile = {'transform': self.preci.UNIT_REPORT_TRANSFORM,
+                       'transform_sha256': self.preci.UNIT_REPORT_POLICY_SHA}
+            transformed_argv, _, _, _ = self.make_transport(directory, jobs, unit_transform=profile)
+            transformed_quote = subprocess.check_output(
+                ['bash', '--noprofile', '--norc', '-c', 'printf "%q " "$@"', 'argv-data', *transformed_argv],
+                env={'PATH': '/usr/bin:/bin', 'LC_ALL': 'C'}, text=True)
+            transformed_command = f'remote-heavy: [{ns}] команда начата через 1 с после создания Job: ' + transformed_quote
+            transformed_raw = raw.replace(command_line, transformed_command)
+            legacy_report = line('PRECI_REPORT', {'group': 'ci.yml:unit', 'name': 'test.json',
+                'sha256': gate.common.digest(self.native.encode()), 'rc': 0})
+            transformed_report = line('PRECI_REPORT', {'group': 'ci.yml:unit', 'name': 'test.json',
+                'sha256': gate.common.digest(self.native.encode()), 'rc': 0, **profile, 'source_sha256': 'a' * 64})
+            self.assertIn(legacy_report, transformed_raw)
+            transformed_raw = transformed_raw.replace(legacy_report, transformed_report)
+            transformed_packet = copy.deepcopy(packet)
+            transformed_packet['runs']['synthetic']['command_line'] = transformed_command
+            (directory / 'raw.log').write_text(transformed_raw)
+            transformed_positive = imported(transformed_packet)
+            self.assertEqual(transformed_positive['integration'], positive['integration'])
+            for broken in (transformed_raw.replace(transformed_report, legacy_report),
+                           transformed_raw.replace(transformed_report,
+                               transformed_report.replace('ci.yml:unit', 'e2e-newman.yml:unit'))):
+                (directory / 'raw.log').write_text(broken)
+                with self.assertRaises(self.preci.EvidenceError): imported(transformed_packet)
+                (directory / 'raw.log').write_text(transformed_raw)
+                self.assertEqual(imported(transformed_packet), transformed_positive)
+            self.make_transport(directory, jobs)
+            (directory / 'raw.log').write_text(raw)
+            self.assertEqual(imported(packet), positive)
             # All local transport artifacts agree with each other, but they
             # must still equal the actual argv captured in the unchanged log.
             self.make_transport(directory, jobs, b'# Different self-consistent producer.\n')
