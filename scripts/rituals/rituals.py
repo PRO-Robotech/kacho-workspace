@@ -122,8 +122,8 @@ _DOD_COMMENTS = ('include "dod_proof"; [.[] | {url: (.html_url // ""), revs: ((.
                  ' | select(.revs | length > 0)]')
 
 
-def _dod_query(repo: str, n: int, tail: str, rng: list | None = None):
-    """Комментарии задачи через общий распознаватель `scripts/lib/dod_proof.jq` и хвост `tail`.
+def _dod_query(repo: str, n: int, tail: str, rng: list | None = None, head: str = _DOD_COMMENTS):
+    """Комментарии задачи через общий распознаватель `scripts/lib/dod_proof.jq`: `head`, затем `tail`.
 
     `rng` — полные sha диапазона запроса (`$range` хвоста, привязка `dod_proof_bound`).
     """
@@ -133,7 +133,7 @@ def _dod_query(repo: str, n: int, tail: str, rng: list | None = None):
                     % os.path.normpath(os.path.join(DOD_LIB, "dod_proof.jq")))
     try:
         p = subprocess.run(["jq", "-L", DOD_LIB, "-c", "--argjson", "range", json.dumps(rng or []),
-                            _DOD_COMMENTS + tail], input=json.dumps(comments),
+                            head + tail], input=json.dumps(comments),
                            capture_output=True, text=True)
     except OSError as e:
         raise Unmet("jq не вызывается: %s — доказательство DoD судить нечем" % e)
@@ -145,10 +145,11 @@ def _dod_query(repo: str, n: int, tail: str, rng: list | None = None):
 def dod_proof(repo: str, n: int):
     """(адрес комментария, ревизия) последнего доказательства DoD либо None.
 
-    Распознаёт общий `scripts/lib/dod_proof.jq` — тот же, что у merge-readiness и
-    cascade-census; ревизия — первая строка-доказательство последнего такого комментария.
+    Решает ПОСЛЕДНЕЕ доказательство задачи, полное или частичное (`dod_proof_last`, ws#1324): частичное
+    после полного — None, как у `cascade-census.sh --proof`. Распознаватель — общий `scripts/lib/dod_proof.jq`.
     """
-    got = _dod_query(repo, n, ' | last | if . == null then null else [.url, .revs[0]] end')
+    got = _dod_query(repo, n, "", head='include "dod_proof"; dod_proof_last'
+                     ' | if . == null or .partial then null else [.url, .rev] end')
     return tuple(got) if got else None
 
 
@@ -160,6 +161,14 @@ def dod_proofs(repo: str, n: int, rng: list) -> list:
     """
     return [tuple(x) for x in _dod_query(repo, n, ' | [.[] | .url as $u | .revs[] | [$u, ., dod_proof_bound($range)]]',
                                          rng) or []]
+
+
+def dod_last(repo: str, n: int, rng: list):
+    """Последнее доказательство диапазона — {rev, partial} либо None (`dod_proof_last_in`, ws#1320 (в)).
+
+    Тот же вызов, что у merge-readiness (`dod_proof_closes_in`): частичное после полного снимает Closes.
+    """
+    return _dod_query(repo, n, "", rng, head='include "dod_proof"; dod_proof_last_in($range)')
 
 
 def dod_partial(repo: str, n: int):
@@ -241,7 +250,9 @@ def need_repo(repo: str) -> str:
 #     `<владелец>/<имя>#N` (её BODY-FOREIGN-TASK не судит, Closes судит пункт (ж)); прочие
 #     номера — без `#`;
 #   * `Closes` — задаче с доказательством DoD, чья ревизия — коммит диапазона (предок
-#     головы, не предок базы; CLOSES-WITHOUT-PROOF), и не держателю записи долга;
+#     головы, не предок базы; CLOSES-WITHOUT-PROOF), чьё ПОСЛЕДНЕЕ доказательство диапазона не
+#     частичное (`dod_proof_last_in`, ws#1320 (в): частичное после полного — Refs), чья работа
+#     не откачена в диапазоне (`Reverts`, ws#1320), и не держателю записи долга;
 #   * закрывающие строки — последними (`git-issues.md#gi-closes-last-line`).
 
 # Номер задачи так, как его судит landing-precheck (пункт (в), `NUM`): `#N` не после
@@ -426,6 +437,88 @@ def rev_commit(rev: str) -> str:
     return out
 
 
+# ОТКАТ РАБОТЫ В ДИАПАЗОНЕ (ws#1320). Доказательство привязано к коммиту диапазона, но работа
+# могла быть откачена тем же диапазоном: kaname#881 — `DoD-proof @7292501e3` задачи #836,
+# слияние полосы `5f4f2c041` обращено коммитом `8e621ca5a` («#853 revert merge 836»), правки в
+# дереве головы нет, а тело давало `Closes #836`. Единица работы — коммит доказательства и
+# каждое слияние диапазона, внёсшее его стороной (ревизия достижима из стороннего родителя и не
+# из первого). Откат единицы X — коммит диапазона C после X, чей ОБРАТНЫЙ дифф равен диффу X по
+# `git patch-id --stable` (слияние — к первому родителю, как `git revert -m 1`), либо чьё
+# сообщение несёт строку git `This reverts [merge] commit <X>` (откат с разрешённым конфликтом
+# дифф не повторяет). Откат не действует, если откачен сам (откат отката) либо X внесён заново
+# после него коммитом того же диффа, который сам стоит (не откачен следом). Работа откачена —
+# `Refs` с причиной, а не `Closes`.
+REVERTS_RE = re.compile(r"^This reverts (?:merge )?commit ([0-9a-f]{7,40})\b", re.M)
+
+
+def _patch_ids(span: str, reverse: bool) -> dict[str, str]:
+    """Коммит диапазона → patch-id его диффа (`reverse` — диффа наоборот); пустой дифф не входит."""
+    root = os.environ.get("RITUAL_REPO_DIR") or os.getcwd()
+    lg = subprocess.run(["git", "-C", root, "log", "--no-color", "--no-ext-diff", "--no-textconv", "--no-prefix",
+                         "-p", "--diff-merges=first-parent", *(["-R"] if reverse else []), "--format=commit %H", span],
+                        capture_output=True)
+    if lg.returncode != 0:
+        raise Unmet("git log -p %s: %s" % (span, lg.stderr.decode(errors="replace").strip()[:300]))
+    pid = subprocess.run(["git", "-C", root, "patch-id", "--stable"], input=lg.stdout, capture_output=True)
+    if pid.returncode != 0:
+        raise Unmet("git patch-id: %s" % pid.stderr.decode(errors="replace").strip()[:300])
+    out = {}
+    for ln in pid.stdout.decode().splitlines():
+        p = ln.split()
+        if len(p) == 2:
+            out[p[1]] = p[0]
+    return out
+
+
+class Reverts:
+    """Откаты единиц работы в диапазоне `база..голова`; считается один раз и лишь по запросу."""
+
+    def __init__(self, base_sha: str, head_sha: str, meta: dict, msgs: dict):
+        self.span, self.meta, self.msgs = "%s..%s" % (base_sha, head_sha), meta, msgs
+        self.undoers = None
+
+    def _load(self):
+        fwd, rev = _patch_ids(self.span, False), _patch_ids(self.span, True)
+        by_fwd: dict[str, list[str]] = {}
+        for c, p in fwd.items():
+            by_fwd.setdefault(p, []).append(c)
+        self.fwd, self.by_fwd, self.undoers = fwd, by_fwd, {}
+        for c in self.meta:
+            cands = set(by_fwd.get(rev.get(c, ""), []))
+            for m in REVERTS_RE.finditer(self.msgs[c]):
+                x = git("rev-parse", "--verify", "-q", "--end-of-options", m.group(1) + "^{commit}", check=False).strip()
+                if x in self.meta:
+                    cands.add(x)
+            for x in cands - {c}:
+                if is_ancestor(x, c):
+                    self.undoers.setdefault(x, []).append(c)
+
+    def _stands(self, x: str) -> bool:
+        """Изменение X стоит на голове: ни один его откат не действует."""
+        return self._undone_by(x) is None
+
+    def _undone_by(self, x: str):
+        for c in self.undoers.get(x, []):
+            again = [d for d in self.by_fwd.get(self.fwd.get(x, ""), [])
+                     if d not in (x, c) and is_ancestor(c, d) and self._stands(d)]
+            if self._stands(c) and not again:
+                return c
+        return None
+
+    def undone(self, rev: str):
+        """(откат, единица) — живой откат работы ревизии `rev` (полный sha коммита диапазона), либо None."""
+        if self.undoers is None:
+            self._load()
+        for x in sorted(self.undoers):
+            parents = self.meta[x][0]
+            if x == rev or (len(parents) > 1 and not is_ancestor(rev, parents[0])
+                            and any(is_ancestor(rev, p) for p in parents[1:])):
+                c = self._undone_by(x)
+                if c:
+                    return c, x
+        return None
+
+
 def lanes(tip: str, excl: list[str], meta: dict) -> list:
     """Линия первого родителя `tip` за вычетом `excl`, старшим вперёд: [(sha, [ветви слияния])].
 
@@ -528,6 +621,7 @@ def pr_body(argv: list[str]) -> int:
 
     ledgers, census = read_ledgers(repo, head_sha)
     range_shas = list(meta)
+    reverts = Reverts(base_sha, head_sha, meta, msgs)
     closes, refs, pulls, rows = [], [], [], []
     for n in sorted(first | qual):
         try:
@@ -576,7 +670,21 @@ def pr_body(argv: list[str]) -> int:
             continue
         proofs = dod_proofs(repo, n, range_shas)
         inside = [(u, r) for u, r, bound in proofs if bound]
+        last = dod_last(repo, n, range_shas) if inside else None
+        if inside and last and last.get("partial"):
+            refs.append(n)
+            rows.append("- %s «%s» — последнее доказательство диапазона `DoD-proof @%s` частичное (после полного `@%s`): `Refs`, не `Closes`"
+                        % (label(n), title, last.get("rev"), inside[-1][1]))
+            continue
+        undone = None
         if inside:
+            full = next(s for s in range_shas if s.startswith(inside[-1][1]))
+            undone = reverts.undone(full)
+        if undone:
+            refs.append(n)
+            rows.append("- %s «%s» — `DoD-proof @%s`, но работа откачена в диапазоне: `%s` обращает `%s`: `Refs`, не `Closes`"
+                        % (label(n), title, inside[-1][1], undone[0][:9], undone[1][:9]))
+        elif inside:
             url, rev = inside[-1]
             closes.append(n)
             rows.append("- %s «%s» — доказательство DoD: %s (`DoD-proof @%s`, коммит диапазона)" % (label(n), title, url, rev))
@@ -668,10 +776,13 @@ def close_wave(argv: list[str]) -> int:
         gh("PATCH", "repos/%s/issues/%d" % (repo, n), {"state": "closed", "state_reason": "completed"})
     for c, _ in remainder:
         n = int(c["number"])
+        part = dod_partial(repo, n)
+        why = ("последнее доказательство DoD (`DoD-proof @%s`) частичное" % part if part
+               else "Комментария-доказательства DoD (`DoD-proof @<ревизия>`) нет")
         gh("POST", "repos/%s/issues/%d/comments" % (repo, n), {"body": (
-            "Остаток → волна #%d. Комментария-доказательства DoD (`DoD-proof @<ревизия>`) нет, поэтому "
+            "Остаток → волна #%d. %s, поэтому "
             "задача не закрывается вместе с волной #%d (вливание `%s`) и переведена подзадачей в #%d."
-            % (nxt, wave, sha, nxt))})
+            % (nxt, why, wave, sha, nxt))})
         gh("POST", "repos/%s/issues/%d/sub_issues" % (repo, nxt), {"sub_issue_id": c["id"], "replace_parent": True})
 
     if w.get("state") == "open":

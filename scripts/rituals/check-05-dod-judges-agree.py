@@ -20,8 +20,15 @@ ws#1162 merge-readiness засчитывал любую распознанную
   * @X — то же дерево, но коммит вне диапазона — не засчитан никем (судят коммит, не дерево);
   * @deadbeef1 — ревизии нет — не засчитан никем;
   * доказательства нет — не засчитан никем;
-  * @H частичное (ws#1242: «частично: пункт 0», признак строкой ниже, «пп. 1–5 из 6») — не
-    засчитан никем.
+  * @H частичное (ws#1242: «частично: пункт 0», признак строкой ниже, «пп. 1–5 из 6»; ws#1320:
+    раздел «Не сошлось» ниже по комментарию) — не засчитан никем;
+  * решает ПОСЛЕДНЕЕ доказательство диапазона (ws#1320 (в), `dod_proof_closes_in`): @C1 полное, затем
+    @H с разделом «Не выполнилось» (форма ws#1284 @c22fd37ef) — не засчитан никем; близнец — @C1
+    частичное, затем @H полное — засчитан всеми.
+Остальные судьи того же распознавателя диапазона PR не имеют и здесь не гонятся; правило «решает
+последнее» (ws#1324) у них держат свои пробы той же парой «полное, затем частичное» и близнецом:
+`cascade-census.sh --proof` — tooling-gate check-14 (случай T), `close-wave` — rituals check-02,
+`lane-precheck.sh` (полоса и предусловие `proof`) — `lane-precheck-inject.sh` (o/r#15, o/r#16).
 Исход судьи читается по его НАЗВАННОЙ строке, а не по одному коду: merge-readiness — код 0 и
 «с доказательством DoD: 1 · без: 0» либо код 1 и «Closes без доказательства DoD»;
 landing-precheck — CENSUS «закрытие: Closes 1, с доказательством 1» либо REASON
@@ -154,7 +161,7 @@ def body(pr):
     commits = [{"sha": s, "commit": {"message": m}, "parents": [{"sha": p}]}
                for s, m, p in ((sha["C1"], "#41 правка", sha["B"]), (sha["H"], "#41 пустой коммит головы", sha["C1"]))]
 
-    def world(proof, tail="\nкоманда — код 0"):
+    def world(proof, tail="\nкоманда — код 0", prior=None):
         return {
             "repo": R, "pr": PR_N, "base": sha["B"], "head": sha["H"], "commits": commits,
             "prview": {"state": "OPEN", "baseRefName": "main", "headRefName": "41-x", "headRefOid": sha["H"],
@@ -170,6 +177,7 @@ def body(pr):
                       "sub_issues_summary": {"total": 0, "completed": 0},
                       "html_url": "https://github.com/%s/issues/41" % R},
             "comments": [{"id": 1, "body": "обсуждение", "html_url": "https://github.com/%s/issues/41#issuecomment-1" % R}]
+            + ([{"id": 3, "body": prior, "html_url": "https://github.com/%s/issues/41#issuecomment-3" % R}] if prior else [])
             + ([{"id": 2, "body": "DoD-proof @%s%s" % (proof, tail),
                  "html_url": "https://github.com/%s/issues/41#issuecomment-2" % R}] if proof else []),
         }
@@ -187,8 +195,17 @@ def body(pr):
         ("@H — частично: пункт 0", " — частично: пункт 0\nкод 0"),
         ("@H, частичность на следующей строке", "\nчастично: пункт 2\nкод 0"),
         ("@H — пп. 1–5 из 6", " — пп. 1–5 из 6\nкод 0"),
+        # ws#1320: раздел неисполненного ниже по комментарию (форма kaname#916).
+        ("@H, раздел «Не сошлось»", "\nкод 0\n\nНе сошлось (предикат задачи): п.2"),
     )
     cases = cases + tuple((label, sha["H"][:12], False, tail) for label, tail in partial)
+    # ws#1320 (в): решает последнее доказательство диапазона, а не любое полное.
+    cases = cases + (
+        ("@C1 полное, затем @H «Не выполнилось»", sha["H"][:12], False,
+         " — дополнение: догон\nкод 0\n\n**Не выполнилось:** проба машины", "DoD-proof @%s\nкод 0" % sha["C1"][:9]),
+        ("@C1 частичное, затем @H полное (близнец)", sha["H"][:12], True,
+         "\nкод 0", "DoD-proof @%s — частично: пункт 0" % sha["C1"][:9]),
+    )
     for case in cases:
         label, proof, want = case[:3]
         got = verdicts(pr, d, world(proof, *case[3:]), sha)

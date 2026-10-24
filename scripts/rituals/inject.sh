@@ -5,7 +5,7 @@
 # месте (`mutate` требует, чтобы якорь встретился один раз: иначе мутант молча не
 # применился бы, и зелёное контроля читалось бы как доказательство). От самопробы
 # своего ритуала требуется код 1. Контроль — та же копия без мутации — обязан дать 0
-# по всем пяти: иначе красное мутанта пришло бы от соседа, а не от предмета.
+# по всем шести: иначе красное мутанта пришло бы от соседа, а не от предмета.
 #
 #   M1 pr-body: Closes без доказательства        → check-01 красная
 #   M2 pr-body: предикат атрибуции ослеп          → check-01 красная
@@ -113,10 +113,60 @@
 #   M73 dod_proof.jq: привязка — по началу sha ГОЛОВЫ, а не диапазона     → check-05
 #   близнец T2: привязка записана иначе (срез вместо startswith) — check-05 и check-01 зелены
 #
+# ws#1320: работа доказательства откачена в диапазоне (`Reverts`) — Refs, не Closes; раздел
+# неисполненного в комментарии-доказательстве — частичное.
+#   M74 pr-body: откат не судится                                        → check-01
+#   M75 Reverts: откат без строки git не виден (patch-id снят)           → check-01
+#   M76 Reverts: строка git `This reverts commit` не читается            → check-01
+#   M77 Reverts: откат отката не снимает отката                          → check-01
+#   M78 Reverts: внесение заново тем же диффом не снимает отката         → check-01
+#   M79 Reverts: единица — лишь коммит доказательства, без слияния полосы → check-01
+#   M80 dod_proof.jq: раздел неисполненного не судится                   → check-01, check-05
+#   M81 Reverts: внесённое заново, но откаченное следом, снимает откат    → check-01
+#   (M78 ловит случай #77: откат с правкой по строке git — внесённое заново откатом отката по
+#   patch-id не видно; при откате тем же диффом внесение заново — и откат отката, M78 там слеп.)
+# ws#1320 (в): решает ПОСЛЕДНЕЕ доказательство диапазона (`dod_proof_closes_in`) у троих судей Closes.
+#   M82 pr-body: последнее частичное не судится                          → check-01, check-05
+#   M83 dod_proof.jq: последнее — лишь из полных (прежнее «любое полное»)  → check-01, check-05
+#   M84 merge-readiness: любое привязанное полное (прежнее)              → check-05
+#   M85 landing-precheck (ж): любое привязанное полное (прежнее)         → check-05
+# ws#1324: без диапазона решает последнее доказательство задачи (`dod_proof_last`) — close-wave, trail.
+#   M86 close-wave: последнее — лишь из полных (прежнее)                 → check-02
+#   M87 dod_proof.jq: `dod_proof_last` — лишь из полных                   → check-02
+# ws#1320, возврат check-verifier: раздел неисполненного — по КЛАССУ начала строки и перечню
+# слов-исходов, выведенному переписью (`_dod_unmet_line`); каждая часть краснит свой случай check-06,
+# нумерованный пункт ws#1225 — и генератор тела конец в конец (check-01).
+#   M88 нумерованный «N.» не допущен                                    → check-06, check-01
+#   M89 нумерованный «N)» не допущен                                    → check-06
+#   M90 флажок задачи «[ ]» не допущен                                  → check-06
+#   M91 отступ перед маркером не допущен                                → check-06
+#   M92 знак, заголовок и выделение перед словом — лишь `**` (прежнее)   → check-06
+#   M93 выделение сразу после «Не» не допущено                          → check-06
+#   M94 регистр не сводится (флаг снят)                                 → check-06
+#   M95 слово-исход снято из перечня — мутант на каждое слово           → check-06
+#   M96 цитата `>` — раздел                                             → check-06
+#   M97 ячейка таблицы `|` — раздел                                     → check-06
+#   M98 фрагмент кода в начале строки — раздел                          → check-06
+#   M99 любое слово — исход (граница зелёного стала разделом)           → check-06
+#   M100 «не требуется» не снимает раздела                              → check-06
+#   близнец T4: перечень слов записан одной строкой — check-06 зелена
+#
 # Хранилище для check-04 берётся из HEAD настоящего воркспейса (`RITUALS_WS`):
 # копия несёт только код ритуалов и их общие зависимости.
-# Коды: 0 — все доказательства прошли; 1 — хоть одно нет; 2 — копию не завести.
+# Коды: 0 — все доказательства прошли и покрытие плана полное; 1 — хоть одно нет либо
+# покрытие неполно; 2 — копию не завести.
 # shellcheck source-path=SCRIPTDIR
+
+# ИСПОЛНЕНИЕ (ws#1337): случаи (контроль, мутант, близнец) сначала ЗАПИСЫВАЮТСЯ планом —
+# каталог на случай под номером, — затем гонятся параллельно, RITUALS_INJECT_JOBS
+# исполнителей (по умолчанию nproc, не больше 8: память — каждая самопроба check-01 строит
+# свои песочницы git). Каждый случай — своя копия каталога и свой mktemp пробы, общего
+# состояния у случаев нет. Прежде случаи шли подряд: 125 случаев, 56 из 97 исполненных —
+# check-01 по 18,2 с в среднем; задание `rituals` снято пределом 20 мин на 97-м (прогон
+# 39777966207, задание 119821638471, ws#1337).
+# ПОКРЫТИЕ — СУДОМ, А НЕ ДОВЕРИЕМ ИСПОЛНИТЕЛЮ: каждому номеру плана — ровно один исход, исхода
+# вне плана нет, исход разборчив (`cover` ниже); неполное покрытие — код 1, даже если каждый
+# прочитанный исход зелен. Судья покрытия доказан до прогона синтетикой в обе стороны.
 set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -130,8 +180,10 @@ trap 'rm -rf "$tmp"' EXIT
 . "$ws/scripts/lib/proofs.sh"
 proof_own_environment
 
-ok=0
-bad=0
+n_cpu="$(nproc 2>/dev/null || echo 4)"
+[ "$n_cpu" -le 8 ] 2>/dev/null || n_cpu=8
+jobs="${RITUALS_INJECT_JOBS:-$n_cpu}"
+[[ "$jobs" =~ ^[1-9][0-9]*$ ]] || { echo "[VOID] rituals/inject — RITUALS_INJECT_JOBS «$jobs» не число" >&2; exit 2; }
 
 copy() {
     local d="$tmp/$1"
@@ -146,11 +198,14 @@ copy() {
     printf '%s' "$d/scripts/rituals"
 }
 
-# mutate <файл> <якорь> <замена> — ровно одно вхождение якоря, иначе отказ.
+# mutate <файл> <файл якоря> <файл замены> — ровно одно вхождение якоря, иначе отказ.
+# Якорь и замена читаются файлами плана байт в байт: подстановка `$(…)` сняла бы хвост.
 mutate() {
     python3 - "$1" "$2" "$3" <<'PY'
 import sys
-path, old, new = sys.argv[1:4]
+path, oldf, newf = sys.argv[1:4]
+old = open(oldf, encoding="utf-8").read()
+new = open(newf, encoding="utf-8").read()
 text = open(path, encoding="utf-8").read()
 n = text.count(old)
 if n != 1:
@@ -164,50 +219,113 @@ run_check() {
     (cd "$tmp" && RITUALS_WS="$ws" python3 "$1/$2" 2>&1)
 }
 
-expect() {
-    local label="$1" want="$2" got="$3" out="$4"
-    if [ "$got" = "$want" ]; then
-        echo "[inject OK]   $label (ожидали код $want, получили $got)"
-        ok=$((ok + 1))
-    else
-        echo "[inject FAIL] $label (ожидали код $want, получили $got)" >&2
-        printf '%s\n' "$out" | tail -n 15 | sed 's/^/    /' >&2
-        bad=$((bad + 1))
-    fi
+# План: plan_case <вид control|inject|twin> <метка> <самопроба> [<якорь> <замена> [<файл>]].
+mkdir -p "$tmp/plan" "$tmp/res" || { echo "[VOID] rituals/inject — не завёлся каталог плана" >&2; exit 2; }
+planned=0
+plan_case() {
+    local p="$tmp/plan/$planned"
+    mkdir -p "$p" || { echo "[VOID] rituals/inject — не завёлся случай плана $planned" >&2; exit 2; }
+    printf '%s' "$1" > "$p/kind"; printf '%s' "$2" > "$p/label"; printf '%s' "$3" > "$p/check"
+    printf '%s' "${4-}" > "$p/old"; printf '%s' "${5-}" > "$p/new"; printf '%s' "${6:-rituals.py}" > "$p/file"
+    planned=$((planned + 1))
 }
 
+# cell <номер> — исполнитель одного случая плана; исход — файл res/<номер>:
+# первая строка «код TAB ожидаемый TAB мс TAB метка», дальше хвост вывода самопробы.
+cell() {
+    local i="$1" p="$tmp/plan/$1" kind label check file want d out rc t0 t1
+    kind="$(cat "$p/kind")"; label="$(cat "$p/label")"; check="$(cat "$p/check")"; file="$(cat "$p/file")"
+    case "$kind" in inject) want=1 ;; *) want=0 ;; esac
+    t0="$(date +%s%N)"
+    if ! d="$(copy "c$i")"; then
+        rc=2; out=""; label="$label: копия"
+    elif [ "$kind" != control ] && ! out="$(mutate "$d/$file" "$p/old" "$p/new" 2>&1)"; then
+        rc=2
+        if [ "$kind" = twin ]; then label="$label: близнец не применён"; else label="$label: мутант не применён"; fi
+    else
+        out="$(run_check "$d" "$check")"; rc=$?
+    fi
+    t1="$(date +%s%N)"
+    rm -rf "$tmp/c$i"
+    { printf '%s\t%s\t%s\t%s\n' "$rc" "$want" "$(( (t1 - t0) / 1000000 ))" "$label"
+      printf '%s\n' "$out" | tail -n 15; } > "$tmp/res/$i.part" && mv "$tmp/res/$i.part" "$tmp/res/$i"
+    # Ход — строкой по завершении случая, не в конце: задание, снятое пределом, оставляет
+    # в журнале исполненное (одна строка короче PIPE_BUF пишется целиком).
+    local v="OK]  "; [ "$rc" = "$want" ] || v="FAIL]"
+    printf '[inject %s №%d %s (ожидали код %s, получили %s; %d с)\n' "$v" "$i" "$label" \
+        "$want" "$rc" "$(( (t1 - t0) / 1000000000 ))"
+}
+
+# cover <каталог плана> <каталог исходов> — каждому номеру плана ровно один разборчивый
+# исход, исходов вне плана нет. Печатает строку покрытия; код 0 — полное, 1 — нет.
+cover() {
+    local pl="$1" rs="$2" n=0 got=0 miss=() extra=() junk=() f k line
+    for f in "$pl"/*; do [ -d "$f" ] && n=$((n + 1)); done
+    for ((k = 0; k < n; k++)); do
+        [ -d "$pl/$k" ] || { miss+=("план:$k"); continue; }
+        if [ -f "$rs/$k" ]; then
+            got=$((got + 1))
+            # первая строка — в переменную: `head | grep -q` под pipefail дал бы 141 писателю
+            IFS= read -r line < "$rs/$k" || line=""
+            [[ "$line" =~ ^[0-9]+$'\t'[01]$'\t'[0-9]+$'\t' ]] || junk+=("$k")
+        else
+            miss+=("$k")
+        fi
+    done
+    for f in "$rs"/*; do
+        [ -e "$f" ] || continue
+        k="${f##*/}"
+        { [[ "$k" =~ ^[0-9]+$ ]] && [ "$k" -lt "$n" ] && [ -d "$pl/$k" ]; } || extra+=("$k")
+    done
+    echo "покрытие: исходов $got из $n случаев плана · без исхода ${#miss[@]} · вне плана ${#extra[@]} · неразборчивых ${#junk[@]}"
+    [ "${#miss[@]}" -eq 0 ] || echo "    без исхода: ${miss[*]}"
+    [ "${#extra[@]}" -eq 0 ] || echo "    вне плана: ${extra[*]}"
+    [ "${#junk[@]}" -eq 0 ] || echo "    неразборчивы: ${junk[*]}"
+    [ "$n" -gt 0 ] && [ "$got" -eq "$n" ] && [ "${#miss[@]}" -eq 0 ] && [ "${#extra[@]}" -eq 0 ] && [ "${#junk[@]}" -eq 0 ]
+}
+
+# Доказательство судьи покрытия — синтетикой, до прогона (обе стороны): полное покрытие
+# молчит, пропуск, исход вне плана, неразборчивый исход и пустой план краснеют.
+cover_case() {
+    local label="$1" want="$2" n="$3" s="$tmp/cover-$4" k out rc
+    mkdir -p "$s/plan" "$s/res"
+    for ((k = 0; k < n; k++)); do mkdir -p "$s/plan/$k"; printf '0\t0\t1\tx\n' > "$s/res/$k"; done
+    case "$4" in
+        miss) rm -f "$s/res/1" ;;
+        extra) printf '0\t0\t1\tx\n' > "$s/res/$n" ;;
+        junk) printf 'не исход\n' > "$s/res/0" ;;
+    esac
+    out="$(cover "$s/plan" "$s/res")"; rc=$?
+    if [ "$rc" = "$want" ]; then
+        echo "[cover OK]    $label (ожидали код $want, получили $rc)"
+    else
+        echo "[cover FAIL]  $label (ожидали код $want, получили $rc): $out" >&2
+        cover_bad=$((cover_bad + 1))
+    fi
+}
+cover_bad=0
+cover_case "покрытие полное — молчит" 0 3 full
+cover_case "случай без исхода — красное" 1 3 miss
+cover_case "исход вне плана — красное" 1 3 extra
+cover_case "неразборчивый исход — красное" 1 3 junk
+cover_case "пустой план — красное" 1 0 empty
+
+# Предпосылка: копия заводится — иначе каждый случай краснел бы чужой причиной.
+copy probe >/dev/null || { echo "[VOID] rituals/inject — копия не заведена" >&2; exit 2; }
+rm -rf "$tmp/probe"
+
 # контроль: копия без мутации зелена по всем самопробам
-d="$(copy control)" || { echo "[VOID] rituals/inject — копия не заведена" >&2; exit 2; }
 for c in check-01-pr-body.py check-02-close-wave.py check-03-approval-event.py check-04-vault-trails.py \
-         check-05-dod-judges-agree.py; do
-    out="$(run_check "$d" "$c")"; rc=$?
-    expect "контроль $c" 0 "$rc" "$out"
+         check-05-dod-judges-agree.py check-06-dod-unmet-forms.py; do
+    plan_case control "контроль $c" "$c"
 done
 
 # inject <метка> <самопроба> <якорь> <замена> [<файл относительно копии scripts/rituals>]
-inject() {
-    local label="$1" check="$2" d out rc
-    d="$(copy "m$((ok + bad))")" || { expect "$label: копия" 1 2 ""; return; }
-    if ! mutate "$d/${5:-rituals.py}" "$3" "$4"; then
-        expect "$label: мутант не применён" 1 2 ""
-        return
-    fi
-    out="$(run_check "$d" "$check")"; rc=$?
-    expect "$label" 1 "$rc" "$out"
-}
+inject() { plan_case inject "$@"; }
 
 # twin <метка> <самопроба> <якорь> <замена> [<файл>] — то же решение другой записью:
 # самопроба обязана остаться зелёной (код 0), иначе она судит запись, а не решение.
-twin() {
-    local label="$1" check="$2" d out rc
-    d="$(copy "t$((ok + bad))")" || { expect "$label: копия" 0 2 ""; return; }
-    if ! mutate "$d/${5:-rituals.py}" "$3" "$4"; then
-        expect "$label: близнец не применён" 0 2 ""
-        return
-    fi
-    out="$(run_check "$d" "$check")"; rc=$?
-    expect "$label" 0 "$rc" "$out"
-}
+twin() { plan_case twin "$@"; }
 
 inject "M1 pr-body: Closes без доказательства" check-01-pr-body.py \
     '        inside = [(u, r) for u, r, bound in proofs if bound]' \
@@ -279,8 +397,7 @@ inject "M21 dod_proof.jq: ревизия любого вида" check-01-pr-body
     '[0-9A-Za-z]{1,40}' \
     ../lib/dod_proof.jq
 inject "M22 dod_proof: первое доказательство вместо последнего" check-04-vault-trails.py \
-    "' | last | if . == null" \
-    "' | first | if . == null"
+    'dod_proof_marks[] | .+{url: $u}] | last;' 'dod_proof_marks[] | .+{url: $u}] | first;' ../lib/dod_proof.jq
 inject "M23 gh_list: только первая страница (pr-body)" check-01-pr-body.py \
     '        if len(chunk) < 100:' '        if True:'
 inject "M24 gh_list: только первая страница (close-wave)" check-02-close-wave.py \
@@ -421,8 +538,8 @@ inject "M69 dod_proof.jq: привязка снята (генератор)" chec
     'def dod_proof_bound($range): . as $rev | any($range[]; startswith($rev));' \
     'def dod_proof_bound($range): true;' ../lib/dod_proof.jq
 inject "M70 merge-readiness: распознанное вместо привязанного" check-05-dod-judges-agree.py \
-    "(.body // \"\") | dod_proof_revisions_in(\$range) | length > 0)'" \
-    "(.body // \"\") | dod_proof)'" ../merge-readiness.sh
+    "add // [] | dod_proof_closes_in(\$range)'" \
+    "add // [] | any(.[]; (.body // \"\") | dod_proof)'" ../merge-readiness.sh
 inject "M71 landing-precheck (ж): привязка не спрошена" check-05-dod-judges-agree.py \
     '(dod_proof_bound($range) | tostring)' '("true")' ../landing-precheck.sh
 inject "M72 pr-body: флаг привязки не читается" check-05-dod-judges-agree.py \
@@ -431,6 +548,68 @@ inject "M72 pr-body: флаг привязки не читается" check-05-d
 inject "M73 dod_proof.jq: привязка по голове" check-05-dod-judges-agree.py \
     'def dod_proof_bound($range): . as $rev | any($range[]; startswith($rev));' \
     'def dod_proof_bound($range): . as $rev | ($range | last // "") | startswith($rev);' ../lib/dod_proof.jq
+inject "M74 pr-body: откат не судится" check-01-pr-body.py \
+    '            undone = reverts.undone(full)' '            undone = None'
+inject "M75 Reverts: patch-id снят" check-01-pr-body.py \
+    '            cands = set(by_fwd.get(rev.get(c, ""), []))' '            cands = set()'
+inject "M76 Reverts: строка git не читается" check-01-pr-body.py \
+    '            for m in REVERTS_RE.finditer(self.msgs[c]):' '            for m in []:'
+inject "M77 Reverts: откат отката не снимает отката" check-01-pr-body.py \
+    '            if self._stands(c) and not again:' '            if not again:'
+inject "M78 Reverts: внесение заново не снимает отката" check-01-pr-body.py \
+    '            if self._stands(c) and not again:' '            if self._stands(c):'
+inject "M81 Reverts: внесённое заново не судится на откат" check-01-pr-body.py \
+    'if d not in (x, c) and is_ancestor(c, d) and self._stands(d)]' 'if d not in (x, c) and is_ancestor(c, d)]'
+inject "M79 Reverts: единица — лишь коммит доказательства" check-01-pr-body.py \
+    '            if x == rev or (len(parents) > 1' '            if x == rev or (False'
+for c in check-01-pr-body.py check-05-dod-judges-agree.py; do
+    inject "M82 pr-body: последнее частичное не судится ($c)" "$c" \
+        '        if inside and last and last.get("partial"):' '        if False:'
+    inject "M83 dod_proof.jq: последнее — лишь из полных ($c)" "$c" \
+        'dod_proof_marks[] | select(.rev | dod_proof_bound($range))] | last;' \
+        'dod_proof_marks[] | select(.partial | not) | select(.rev | dod_proof_bound($range))] | last;' ../lib/dod_proof.jq
+done
+inject "M84 merge-readiness: любое привязанное полное" check-05-dod-judges-agree.py \
+    "add // [] | dod_proof_closes_in(\$range)'" \
+    "add // [] | any(.[]; (.body // \"\") | dod_proof_revisions_in(\$range) | length > 0)'" ../merge-readiness.sh
+inject "M85 landing-precheck (ж): любое привязанное полное" check-05-dod-judges-agree.py \
+    '    if bound and bound[-1][2] == "false":' \
+    '    if any(m[1] == "true" for m in full):' ../landing-precheck.sh
+inject "M86 close-wave: последнее — лишь из полных (прежнее «любое полное»)" check-02-close-wave.py \
+    "head='include \"dod_proof\"; dod_proof_last'" \
+    "head='include \"dod_proof\"; [.[] | (.html_url // \"\") as \$u | (.body // \"\") | dod_proof_marks[] | select(.partial | not) | .+{url: \$u}] | last'"
+inject "M87 dod_proof.jq: последнее без диапазона — лишь из полных" check-02-close-wave.py \
+    'dod_proof_marks[] | .+{url: $u}] | last;' 'dod_proof_marks[] | select(.partial | not) | .+{url: $u}] | last;' ../lib/dod_proof.jq
+for c in check-01-pr-body.py check-05-dod-judges-agree.py; do
+    inject "M80 dod_proof.jq: раздел неисполненного не судится ($c)" "$c" \
+        '  | any($l[]; _dod_unmet_line) as $unmet' '  | false as $unmet' ../lib/dod_proof.jq
+done
+U='../lib/dod_proof.jq'
+for c in check-06-dod-unmet-forms.py check-01-pr-body.py; do
+    inject "M88 dod_proof.jq: нумерованный «N.» не допущен ($c)" "$c" '[.)]' '[)]' "$U"
+done
+inject "M89 dod_proof.jq: нумерованный «N)» не допущен" check-06-dod-unmet-forms.py '[.)]' '[.]' "$U"
+inject "M90 dod_proof.jq: флажок задачи не допущен" check-06-dod-unmet-forms.py '(?:\\[[ x]\\][ \t]+)?' '' "$U"
+inject "M91 dod_proof.jq: отступ перед маркером не допущен" check-06-dod-unmet-forms.py \
+    '"^[ \t]*(?:(?:' '"^(?:(?:' "$U"
+inject "M92 dod_proof.jq: перед словом лишь **" check-06-dod-unmet-forms.py \
+    '[^\\p{L}\\p{N}\\s`|>\\\\]{1,6}' '[*]{2}' "$U"
+inject "M93 dod_proof.jq: выделение после «Не» не допущено" check-06-dod-unmet-forms.py \
+    'не(?:[*_]{1,2})?[ \t]+' 'не[ \t]+' "$U"
+inject "M94 dod_proof.jq: регистр не сводится" check-06-dod-unmet-forms.py \
+    '(_dod_unmet_stems | join("|")) + ")"; "i")' '(_dod_unmet_stems | join("|")) + ")")' "$U"
+for s in сошл исполн выполн сдела доказа пройд покры закры почин; do
+    inject "M95 dod_proof.jq: слово-исход «$s» снято" check-06-dod-unmet-forms.py "\"$s\"" '"(?!)"' "$U"
+done
+inject "M96 dod_proof.jq: цитата — раздел" check-06-dod-unmet-forms.py '`|>' '`|' "$U"
+inject "M97 dod_proof.jq: ячейка таблицы — раздел" check-06-dod-unmet-forms.py '`|>' '`>' "$U"
+inject "M98 dod_proof.jq: фрагмент кода в начале — раздел" check-06-dod-unmet-forms.py '`|>' '|>' "$U"
+inject "M99 dod_proof.jq: любое слово — исход" check-06-dod-unmet-forms.py \
+    '(_dod_unmet_stems | join("|"))' '"\\p{L}"' "$U"
+inject "M100 dod_proof.jq: «не требуется» не снимает раздела" check-06-dod-unmet-forms.py \
+    '  and (test("не требуется"; "i") | not);' '  ;' "$U"
+twin "T4 dod_proof.jq: перечень слов одной строкой" check-06-dod-unmet-forms.py \
+    '(_dod_unmet_stems | join("|"))' '"сошл|исполн|выполн|сдела|доказа|пройд|покры|закры|почин"' "$U"
 for c in check-05-dod-judges-agree.py check-01-pr-body.py; do
     twin "T2 dod_proof.jq: привязка срезом ($c)" "$c" \
         'any($range[]; startswith($rev))' 'any($range[]; .[0:($rev | length)] == $rev)' ../lib/dod_proof.jq
@@ -442,6 +621,36 @@ for c in check-01-pr-body.py check-02-close-wave.py; do
         'DoD-proof @(?<rev>' 'DoD-proof ?@?(?<rev>' ../lib/dod_proof.jq
 done
 
+export -f copy mutate run_check cell
+export here ws tmp
+t_run0="$(date +%s)"
+# Очередь — долгие первыми (check-01 — 18,2 с случай против 0,1–7,5 с прочих, прогон
+# 39777966207): короткие добирают хвост, последний исполнитель не стоит один на долгом.
+for ((i = 0; i < planned; i++)); do
+    if [ "$(cat "$tmp/plan/$i/check")" = check-01-pr-body.py ]; then echo "$i"; fi
+done > "$tmp/queue"
+for ((i = 0; i < planned; i++)); do
+    if [ "$(cat "$tmp/plan/$i/check")" != check-01-pr-body.py ]; then echo "$i"; fi
+done >> "$tmp/queue"
+xargs -P "$jobs" -I{} bash -c 'cell "$1"' _ {} < "$tmp/queue"
+t_run1="$(date +%s)"
+
+# Итог — по плану, в его порядке: строки хода выше идут в порядке завершения; провал
+# повторяется здесь с хвостом вывода самопробы.
+ok=0; bad=0
+for ((i = 0; i < planned; i++)); do
+    [ -f "$tmp/res/$i" ] || continue
+    IFS=$'\t' read -r got want ms label < "$tmp/res/$i"
+    if [ "$got" = "$want" ]; then
+        ok=$((ok + 1))
+    else
+        echo "[inject FAIL] №$i $label (ожидали код $want, получили $got; $((ms / 1000)) с)" >&2
+        tail -n +2 "$tmp/res/$i" | sed 's/^/    /' >&2
+        bad=$((bad + 1))
+    fi
+done
+covered=0; cover_out="$(cover "$tmp/plan" "$tmp/res")" && covered=1
 echo
-echo "rituals/inject: доказательств $((ok + bad)), прошло $ok, провалено $bad"
-[ "$bad" -eq 0 ]
+echo "$cover_out"
+echo "rituals/inject: доказательств $planned, прошло $ok, провалено $bad; исполнителей $jobs, $((t_run1 - t_run0)) с; судья покрытия: провалено $cover_bad из 5"
+[ "$bad" -eq 0 ] && [ "$covered" -eq 1 ] && [ "$cover_bad" -eq 0 ]
