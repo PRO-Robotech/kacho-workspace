@@ -182,7 +182,10 @@
 # когда правка её трогает (ws#1115, ЗАВИСИМОСТИ КОНСОЛИ в шапке run.sh). Прочие
 # хуки клона переходник берёт ссылками. Отправка не головы копии (иная вершина, их
 # несколько) переходник отклоняет кодом 78, и слот гонит ту же команду локально с
-# причиной; Job не состоялся (69, 75) — тот код, «не выполнилось».
+# причиной; Job не состоялся (69, 75) — тот код, «не выполнилось». Тег (ws#1303):
+# аннотированный, чья цель достижима из origin/main клона, — Job судит ЦЕЛЬ тега (не голову
+# копии); лёгкий тег и цель вне origin/main — 64 до Job. ГРАНИЦА: при недоступном кластере
+# тег идёт локальным хуком, а тот судит рабочее дерево копии, а не цель тега.
 #
 # ЗАПИСЬ ПРОВЕРЕННОГО — НА МАШИНЕ, А НЕ В ПОДЕ (ws#1288, kacho#3336). Хук пишет вершину,
 # судившуюся зелёным, в `<общий каталог git>/kacho-prepush-verified` и по ней не гонит
@@ -841,7 +844,7 @@ push_homes() {
 }
 # local_push_untracked <команда…> — ci-local, `git push` с хуком из клона продукта (kacho, kaname,
 # corelib) идёт ЛОКАЛЬНО (флаг --local, кластер недоступен, переходник Job-а ответил 78 — отправка
-# несёт не голову копии, как у аннотированного тега): локальный хук судит РАБОЧЕЕ ДЕРЕВО, а не
+# несёт не голову копии; тег — лишь при недоступном кластере, ws#1303): локальный хук судит РАБОЧЕЕ ДЕРЕВО, а не
 # отправляемую ревизию. Неотслеживаемое в копии (не игнорируемое git) — отказ 64 до запуска с
 # путями и формой чистой копии: урок 2026-10-19 (ws#1280) — отправка тега из общего клона kaname
 # краснела хуком от чужой неотслеживаемой папки с Go-кодом. Тот же класс — правка отслеживаемого
@@ -2065,9 +2068,36 @@ push_remote() {
 #!/usr/bin/env bash
 set -uo pipefail
 lines="$(cat)"
-tips="$(printf '%s\n' "$lines" | awk 'NF >= 4 && $2 !~ /^0+$/ { print $2 }' | sort -u)"
+# ТЕГ ВЫПУСКА (ws#1303): строка refs/tags/* — лишь аннотированный тег, чья цель (коммит
+# объекта тега) достижима из refs/remotes/origin/main; Job судит эту цель. Лёгкий тег, цель
+# вне origin/main, нет origin/main — отказ 64 до Job и до отправки.
+tips=""; tagged=""
+while read -r lr ls _rr rs; do
+    [ -n "${rs:-}" ] || continue
+    case "$ls" in *[!0]*) ;; *) continue ;; esac
+    case "$lr" in
+        refs/tags/*)
+            t="$(git cat-file -t "$ls" 2> /dev/null)"
+            if [ "$t" != tag ]; then
+                echo 64 > "$HS_RC"
+                echo "heavy-slot: тег «${lr#refs/tags/}» лёгкий (объект ${ls:0:12} — ${t:-нет}, не аннотированный): отправляется лишь аннотированный тег (git tag -a) — отправка не запускалась" >&2
+                exit 1
+            fi
+            c="$(git rev-parse --verify --quiet "$ls^{commit}")"
+            if [ -z "$c" ] || ! git rev-parse --verify --quiet refs/remotes/origin/main > /dev/null || ! git merge-base --is-ancestor "$c" refs/remotes/origin/main 2> /dev/null; then
+                echo 64 > "$HS_RC"
+                echo "heavy-slot: цель тега «${lr#refs/tags/}» (${c:0:12}) не достижима из origin/main этого клона (git merge-base --is-ancestor; ссылку обновляет git fetch origin): тег ставится лишь на влитое в main — отправка не запускалась" >&2
+                exit 1
+            fi
+            tagged="${tagged:+$tagged }${lr#refs/tags/}→${c:0:12}"; ls="$c" ;;
+    esac
+    tips="$tips$ls"$'\n'
+done <<< "$lines"
+tips="$(printf '%s' "$tips" | sort -u)"
 if [ -z "$tips" ]; then printf '%s\n' "$lines" | exec "$HS_ORIG" "$@"; fi
-if [ "$tips" != "$HS_HEAD" ]; then
+if [ -n "$tagged" ] && [[ "$tips" != *$'\n'* ]]; then
+    echo "heavy-slot: тег $tagged — цель достижима из origin/main; Job судит цель тега" >&2
+elif [ "$tips" != "$HS_HEAD" ]; then
     echo 78 > "$HS_RC"
     echo "heavy-slot: отправка несёт не голову копии ($(printf '%s' "$tips" | cut -c1-8 | tr '\n' ' ')) — Job судит голову; слот повторит отправку локально" >&2
     exit 1
@@ -2106,6 +2136,7 @@ ADAPTER
     journal_early "remote-done class=$CLASS route=push rc=$rc hook_rc=${hrc:-—} verified=${how:-—} dur=$(( $(now) - t0 ))s profile=$PUSH_PROFILE repo=$PUSH_REPO"
     case "$hrc" in
         78) WHY_LOCAL="отправка несёт не голову копии — Job судит голову"; return 0 ;;
+        64) say "отправка тега отклонена до Job (причина — строкой heavy-slot выше; ws#1303): не выполнилось"; exit 64 ;;
         69|74|75|124|125)
             say "Job хука отправки не состоялся (код $hrc) — отправка остановлена; не выполнилось, не красное: вердикта по хуку нет"
             exit "$( [ "$hrc" = 69 ] && echo 69 || echo 75 )" ;;

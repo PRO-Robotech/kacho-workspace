@@ -269,7 +269,7 @@ kecase "expect kacho: правка вне коммита в копии — VOID"
 ecase "expect kacho: задания ведомости нет в workflow головы — VOID" PRO-Robotech/kacho
 printf 'jobs:\n  shard-renamed: {}\n' > "$C/co/.github/workflows/e2e-newman.yml"; ecommit; printf -- '--base\norigin/main\n--draft\nfalse\n' > "$C/args"; want 2 -
 # Kaname staged inventory is exercised through the canonical CLI in
-# kaname-stand-inject.py with source-derived workflows (6 logical; 8 executions, 9 with the chart-own matrix).
+# kaname-stand-inject.py with source-derived workflows (6 logical; 8 executions, 9 with the chart-own matrix, 14 with the unit shard matrix — ws#1259).
 # Legacy own/ghjob route cases are retired because Kaname no longer dispatches here.
 kecase "expect kacho: checkout head differs — VOID" false 1266 tests/newman/x.json "$LEDGER"; echo "$H2" > "$C/head"; want 2 -
 kecase "expect kacho: checkout head lawful twin" false 1266 tests/newman/x.json "$LEDGER"
