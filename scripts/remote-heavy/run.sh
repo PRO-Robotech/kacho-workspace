@@ -3095,7 +3095,7 @@ fi
 # python3 -m venv, branch-audit-inject.sh AE — LANG=ru_RU.UTF-8; ранер конвейера несёт их образом).
 # Пакеты Debian trixie — версия и sha256 в тексте; пул архива, затем пул безопасности. ФОНОМ, под
 # прочую подготовку (сеть pod медленна: живой прогон 2026-10-24 — 3,8 МБ locales дольше 5 мин при
-# девяти Job), ждётся шагом wsclonewait не дольше 240 с. НЕ ФАТАЛЬНО: не легло либо не дождались —
+# девяти Job), ждётся шагом wsclonewait не дольше 90 с (здоровая сеть — секунды: подготовка 28 с целиком). НЕ ФАТАЛЬНО: не легло либо не дождались —
 # строка «среда: …», и пробы дают «не выполнилось», как без шага (не 69 всему профилю).
 mkdir -p /work/dl/wsenv
 (
@@ -3149,13 +3149,13 @@ for r in kacho kaname corelib; do
   wcs="$wcs $r@${h:0:12}"
 done
 echo "remote-heavy: клоны продуктов —$wcs, $(( $(date +%s) - wc0 )) с от начала клонирования" >&2
-# venv и локали (фон шага wstools) — не дольше 240 с; не дождались — снят, строка «среда:», не 69.
+# venv и локали (фон шага wstools) — не дольше 90 с; не дождались — снят, строка «среда:», не 69.
 if [ -n "${wsenv_pid:-}" ]; then
   we0=$(date +%s)
-  while kill -0 "$wsenv_pid" 2> /dev/null && [ $(( $(date +%s) - we0 )) -lt 240 ]; do sleep 1; done
+  while kill -0 "$wsenv_pid" 2> /dev/null && [ $(( $(date +%s) - we0 )) -lt 90 ]; do sleep 1; done
   if kill -0 "$wsenv_pid" 2> /dev/null; then
     pkill -P "$wsenv_pid" 2> /dev/null; kill "$wsenv_pid" 2> /dev/null
-    echo "remote-heavy: среда: venv и локали не доставлены за 240 с — пробы с ними дадут «не выполнилось»" >&2
+    echo "remote-heavy: среда: venv и локали не доставлены за 90 с — пробы с ними дадут «не выполнилось»" >&2
   fi
   wait "$wsenv_pid" 2> /dev/null; cat /work/wsenv.log >&2 2> /dev/null
 fi
