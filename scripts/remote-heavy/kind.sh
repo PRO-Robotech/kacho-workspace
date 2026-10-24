@@ -17,10 +17,10 @@
 #
 # ПУТЬ ВЫБРАН ПО ФАКТУ ПОЛИТИКИ КЛАСТЕРА (перепись 2026-10-24, ws#1385):
 #   • допуск — PodSecurity по метке ns (t<N>-heavy-* с dind ставят enforce=privileged и без
-#     этого профиля); ValidatingAdmissionPolicy host-access-allowlist и psa-level-ceiling
-#     судят лишь ns beget-*; политик Kyverno (Cluster)Policy, ValidatingPolicy и прочих ноль.
+#     этого профиля); ValidatingAdmissionPolicy кластера судят лишь ns платформы, а не ns
+#     задач; политик Kyverno ноль.
 #     Под privileged от имени job-controller (`--dry-run=server --as`) в ns t1385-* принят; тот
-#     же в beget-cilium — отказ host-access-allowlist (контроль: проба умеет увидеть отказ);
+#     же в ns платформы — отказ политики допуска (контроль: проба умеет увидеть отказ);
 #   • исполнение — одноразовые pod docker:29-dind в ns t1385-kindprobe-* (сняты, перепись ns
 #     до/после — новых 0):
 #       privileged + hostUsers: false, runc — `runc create failed: … unable to apply cgroup
