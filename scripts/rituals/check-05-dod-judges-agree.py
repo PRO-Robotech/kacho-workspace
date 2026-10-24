@@ -83,6 +83,8 @@ elif path == "repos/%s/issues/41" % R:
     out = w["issue"]
 elif path == "repos/%s/issues/41/comments" % R:
     out = sl(w["comments"])
+elif path == "repos/%s/pulls" % R and "state=open" in q:
+    out = sl([dict(w["pull"], number=w["pr"])])  # открыт лишь этот запрос: его голова — голова диапазона
 else:
     print("judges gh: незнакомый путь %s" % a[0], file=sys.stderr); sys.exit(99)
 print(json.dumps(out))
