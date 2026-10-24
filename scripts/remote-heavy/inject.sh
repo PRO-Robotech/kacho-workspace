@@ -1362,6 +1362,16 @@ jobs: {}
 '
 ws_rev scnone 'jobs: {}
 '
+ws_rev scjob 'jobs:
+  t:
+    env:
+      SHELLCHECK_VERSION: "0.11.0"
+    runs-on: ubuntu-latest
+'
+ws_rev scsq "env:
+  SHELLCHECK_VERSION: '0.11.0'  # пин
+jobs: {}
+"
 mapfile -t PPROFS < <(sed -n "/^PROFILES='/,/'\$/p" "$RUN" | sed -e "s/^PROFILES='//" | cut -d'|' -f1 | grep -E '^[a-z][a-z0-9-]*$')
 if [ "${#PPROFS[@]}" -ge 4 ]; then ok; else bad P8 "профилей в таблице run.sh прочитано ${#PPROFS[@]} (ждали не меньше 4) — судить нечем"; fi
 for prof in "${PPROFS[@]}"; do
@@ -3895,6 +3905,19 @@ if grep -q 'пин shellcheck на .* — 0.10.0' "$OUT"; then ok; else bad WS3-
 fresh; go_run ws3-none env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kacho-workspace --ref scnone --src "$SRCW" --profile ws --short ws3 -- true
 expect_rc WS3-none 69; no_cluster_call WS3-none
 if grep -q 'env.SHELLCHECK_VERSION конвейера нет' "$OUT"; then ok; else bad WS3-none "причина не названа (пина нет)"; fi
+# env ЗАДАНИЯ — не пин конвейера: верхнеуровневого нет → 69 «пина нет» (законный близнец — scsq)
+fresh; go_run ws3-jobenv env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kacho-workspace --ref scjob --src "$SRCW" --profile ws --short ws3 -- true
+expect_rc WS3-jobenv 69; no_cluster_call WS3-jobenv
+if grep -q 'env.SHELLCHECK_VERSION конвейера нет' "$OUT"; then ok; else bad WS3-jobenv "env задания прочитан пином конвейера"; fi
+# Пин в одинарных кавычках с комментарием строки — тот же 0.11.0, и python3 машины драйвер профиля
+# ws не зовёт (ws#1365: страж демона вливания отказывает python3 маршруту читателей) — ловушка
+# python3/python первой в PATH, путь до Job тот же, что у WS1.
+mkdir -p "$BOX/pytrap"; : > "$BOX/pytrap.log"
+# shellcheck disable=SC2016  # текст ловушки: $0 и $* раскрывает она сама при запуске, не здесь
+for p in python3 python; do printf '#!/usr/bin/env bash\necho "$0 $*" >> %q\nexit 97\n' "$BOX/pytrap.log" > "$BOX/pytrap/$p"; chmod +x "$BOX/pytrap/$p"; done
+fresh; go_run ws3-nopy env PATH="$BOX/pytrap:$BOX/bin:$PATH" FAKE_EXIT=0 bash "$RUN" --task 1 --repo kacho-workspace --ref scsq --src "$SRCW" --profile ws --short ws3 -- true
+expect_rc WS3-nopy 0
+if [ ! -s "$BOX/pytrap.log" ]; then ok; else bad WS3-nopy "драйвер профиля ws исполнил python3 на машине: $(head -n 2 "$BOX/pytrap.log" | tr '\n' ' ')"; fi
 # WS4 — сверка среды исполнением над поддельным PATH образа
 sed -n '/^# wscheck-begin$/,/^# wscheck-end$/p' "$BOX/ws1.cmd" | sed "s#/dev/termination-log#$BOX/wtl#g" > "$BOX/wscheck.sh"
 if grep -q '^# wscheck-end$' "$BOX/wscheck.sh"; then ok; else OUT="$BOX/ws1.cmd"; bad WS4 "текста сверки среды воркспейса в Job нет — исполнять нечего"; fi

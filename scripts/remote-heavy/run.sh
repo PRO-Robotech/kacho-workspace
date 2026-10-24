@@ -1297,12 +1297,20 @@ GO_IMAGE="$REGISTRY/golang:$GOVER"; IMG_NAME="golang:$GOVER"
 [ "$PROFILE" != ws ] || { GO_IMAGE="$WS_IMAGE"; IMG_NAME="${WS_IMAGE##*/}"; LINT_PIN=""; GOSEC_PIN=""; }
 # Пин shellcheck профиля ws — пин конвейера ревизии (env.SHELLCHECK_VERSION, как его ставит ci.yaml
 # воркспейса) обязан совпасть с WS_SHELLCHECK: суммы под иную версию в шаге WSTOOLS_SH нет.
+# Читается awk, а не python3: драйвер идёт на машине владельца, а она не для прогонов (2026-10-22;
+# ws#1365 — страж демона вливания отказывает python3 и маршруту читателей). Предмет — блочный
+# верхнеуровневый `env:` и его ключ одной строкой (так пишет ci.yaml); env задания, поточная форма
+# `env: {…}` пином не считаются — «пина нет», а якорь и тег значения — «пин не тот»: 69 с причиной.
 WS_SC=""
 if [ "$PROFILE" = ws ]; then
-    WS_SC="$(python3 -c 'import sys, yaml
-d = yaml.safe_load(sys.stdin)
-v = ((d or {}).get("env") or {}).get("SHELLCHECK_VERSION") if isinstance(d, dict) else None
-print(v if isinstance(v, str) else "")' <<< "$WF" 2>&1)" || { say "пин shellcheck на $SHA: конвейер не разобран (python3 с yaml): $(head -n 1 <<< "$WS_SC") — версию не выбрать"; exit 69; }
+    WS_SC="$(awk '
+        /^env:[[:space:]]*(#.*)?$/ { e = 1; next }
+        e && /^[^[:space:]#]/ { e = 0 }
+        e && match($0, /^[[:space:]]+SHELLCHECK_VERSION:[[:space:]]*/) {
+            v = substr($0, RLENGTH + 1); sub(/[[:space:]]+#.*$/, "", v); sub(/[[:space:]]+$/, "", v)
+            if (v ~ /^".*"$/ || v ~ /^'\''.*'\''$/) v = substr(v, 2, length(v) - 2)
+            print v; exit
+        }' <<< "$WF")"
     [ -n "$WS_SC" ] || { say "пин shellcheck на $SHA: env.SHELLCHECK_VERSION конвейера нет — версию не выбрать"; exit 69; }
     [ "$WS_SC" = "$WS_SHELLCHECK" ] || { say "пин shellcheck на $SHA — $WS_SC, а шаг WSTOOLS_SH несёт сумму лишь $WS_SHELLCHECK — обнови WS_SHELLCHECK и сумму в run.sh (не выполнилось, Job не создавался)"; exit 69; }
 fi

@@ -135,6 +135,13 @@
 # Гейты — рецептом «ЗАПУСК» шапки landing-precheck.sh, вырезанным по меткам из
 # origin/main воркспейса (тем же способом, что у шаблона волны): каталог scripts/ —
 # целиком из origin/main, не из рабочей копии; сбой подготовки — код 2.
+# СТРАЖ PYTHON3 (ws#1365). Машина владельца не для прогонов (2026-10-22): python-части
+# читателей идут Job-ом внешнего кластера (scripts/remote-reader.sh). Гейт исполняется с
+# двойниками-отказами всего семейства python* первыми в PATH и с трассой каждой оболочки bash
+# гейта (BASH_ENV): командой в трассе python* — абсолютным путём, после сброса PATH, через
+# обёртку — тот же отказ. Вызов — исход void «страж python3: <гейт> исполнил …» сразу, вердикт
+# гейта не читается; у переписи снятия (branch-audit после вливания) — строкой «страж python3: …»
+# в исходе merged. Доказательство — inject.sh, py-guard*.
 #
 # ИСХОД — первая строка .state, первое слово — исход:
 #   running <фаза> — идёт;
@@ -426,10 +433,85 @@ log "старт: $REPO#$PR голова $HEAD; предел ${TIMEOUT} с, па�
 join() { awk 'NR > 1 { printf " | " } { printf "%s", $0 } END { print "" }'; }
 
 GATE_RC=0
+# Страж python3 (ws#1365; владелец 2026-10-22: «использовать только в одном случае если доступа к
+# кластеру нету»): гейт идёт с PATH, где python3 и python — двойник-отказ; читатели уводят python
+# во внешний кластер (scripts/remote-reader.sh), и вызов python3 на машине из гейта — дефект
+# оснастки, а не вердикт: двойник пишет метку, и исход гейта не судится — void сразу, с вызовом.
+# Пропуск — лишь локальный слот (HEAVY_SLOT_P: heavy-slot.sh идёт на машине при недоступном
+# кластере, это доказывает он сам). Два слоя, каждый ловит то, к чему слеп другой:
+#   двойники — всё семейство имён (python, python2, python3, pythonX.Y и всякий python* каталогов
+#     PATH и интерпретаторов машины): поиск по PATH из любой программы, и не bash (sh -c, make);
+#   трасса — BASH_ENV включает xtrace каждой оболочки bash гейта в файл трассы (fd 83), PS4 несёт
+#     метку слота: командой (после присваиваний и обёрток env, exec, timeout, xargs …) стоит
+#     python* — абсолютный путь, сброс PATH, имя из переменной; трасса снимается после разбора.
+# ГРАНИЦА: абсолютный путь либо сброшенный PATH в программе не на bash (sh -c '/usr/bin/python3',
+# make, awk system()) не виден ни одному слою; оболочка, запущенная с `env -i` либо без BASH_ENV,
+# не трассируется — видна лишь её строка запуска. Отправка догона (heavy-slot.sh ci-local) идёт
+# вне гейта.
+PYG="$W/no-python"; PY_TRIP="$W/python-trip"; PY_ENV="$W/python-xtrace.env"; mkdir -p "$PYG" || exit 2
+PY_NAMES=(python python2 python3)
+for _v in 0 1 2 3 4 5 6 7; do PY_NAMES+=("python2.$_v"); done
+for _v in $(seq 0 40); do PY_NAMES+=("python3.$_v"); done
+IFS=: read -ra _dirs <<< "$PATH"
+for _d in "${_dirs[@]}" /usr/bin /usr/local/bin /bin; do
+    for _f in "$_d"/python*; do [ -f "$_f" ] && [ -x "$_f" ] && PY_NAMES+=("${_f##*/}"); done
+done
+# shellcheck disable=SC2016  # PS4 раскрывается при трассе, не здесь
+printf '%s\n' '# BASH_ENV гейта демона вливания (ws#1365): xtrace оболочки — в fd 83, метка слота — в PS4.' \
+    'if { : >&83; } 2> /dev/null; then PS4='\''+XT${HEAVY_SLOT_P:+=SLOT} '\''; BASH_XTRACEFD=83; set -x; fi' > "$PY_ENV" || exit 2
+# Разбор трассы: строка, где командой (после присваиваний и обёрток с их опциями) стоит python*;
+# метка слота и присваивание HEAVY_SLOT_P — законно; `command -v|-V` — поиск, не вызов.
+read -r -d '' PY_SCAN <<'AWK' || :
+function bn(w) { gsub("^" q "|" q "$", "", w); sub(/.*\//, "", w); return w }
+function val(w, o) {
+    if (w == "env") return o ~ /^-[uCS]$/
+    if (w == "exec") return o == "-a"
+    if (w == "nice") return o == "-n"
+    if (w == "timeout") return o ~ /^-[sk]$/
+    if (w == "stdbuf") return o ~ /^-[ioe]$/
+    if (w == "xargs") return o ~ /^-[adEILnPs]$/
+    if (w == "sudo" || w == "doas") return o ~ /^-[ugCDhprtU]$/
+    if (w == "ionice") return o ~ /^-[cnp]$/
+    if (w == "flock") return o ~ /^-[wE]$/
+    return 0
+}
+/^\++XT(=SLOT)? / {
+    if ($1 ~ /=SLOT$/) next
+    n = split($0, t, /[ \t]+/); i = 2
+    while (i <= n) {
+        while (i <= n && t[i] ~ /^[A-Za-z_][A-Za-z0-9_]*=/) { if (t[i] ~ /^HEAVY_SLOT_P=./) next; i++ }
+        w = bn(t[i])
+        if (w !~ /^(env|exec|command|nohup|nice|setsid|stdbuf|timeout|xargs|sudo|doas|ionice|chrt|flock|unbuffer)$/) break
+        i++
+        while (i <= n && t[i] ~ /^-/) {
+            if (t[i] == "--") { i++; break }
+            if (w == "command" && t[i] ~ /^-[a-zA-Z]*[vV]/) next
+            if (val(w, t[i])) i++
+            i++
+        }
+        if ((w == "timeout" || w == "chrt") && i <= n && t[i] ~ /^[0-9.]+[smhd]?$/) i++
+        if (w == "flock" && i <= n) i++
+    }
+    if (i <= n && bn(t[i]) ~ /^python[0-9.]*$/) { line = $0; sub(/^[^ ]+ /, "", line); print substr(line, 1, 300) }
+}
+AWK
+for _p in "${PY_NAMES[@]}"; do
+    # shellcheck disable=SC2016  # тело двойника — текст скрипта, подстановка — в нём
+    printf '%s\n' '#!/usr/bin/env bash' \
+        '[ -z "${HEAVY_SLOT_P:-}" ] || PATH="$AUTOLAND_PATH" exec "${0##*/}" "$@"' \
+        'printf "%s %s\n" "${0##*/}" "$*" | head -c 300 >> "$AUTOLAND_PY_TRIP"; echo >> "$AUTOLAND_PY_TRIP"' \
+        'echo "AUTOLAND-GUARD: отказ — ${0##*/} на машине владельца из гейта демона вливания (ws#1365): читатель обязан идти внешним маршрутом scripts/remote-reader.sh" >&2' \
+        'exit 126' > "$PYG/$_p" && chmod +x "$PYG/$_p" || exit 2
+done
 gate() {  # <скрипт> <доводы…> → $W/<скрипт>.out, код в GATE_RC
     local s="$1" out="$W/$1.out" recipe; shift
+    : > "$PY_TRIP"
+    local xt="$W/$s.xtrace"; ( umask 077; : > "$xt" ) || exit 2
+    local AUTOLAND_PATH="$PATH" AUTOLAND_PY_TRIP="$PY_TRIP"
+    local PATH="$PYG:$AUTOLAND_PATH" BASH_ENV="$PY_ENV"
+    export PATH AUTOLAND_PATH AUTOLAND_PY_TRIP BASH_ENV
     if [ -n "${AUTOLAND_GATES:-}" ]; then
-        timeout "$GATE_TIMEOUT" bash "$AUTOLAND_GATES/$s" "$@" > "$out" 2>&1; GATE_RC=$?
+        timeout "$GATE_TIMEOUT" bash "$AUTOLAND_GATES/$s" "$@" > "$out" 2>&1 83> "$xt"; GATE_RC=$?
     else
         recipe="$(git -C "$WS" fetch -q origin main 2>/dev/null \
             && git -C "$WS" show origin/main:scripts/landing-precheck.sh 2>/dev/null \
@@ -438,12 +520,24 @@ gate() {  # <скрипт> <доводы…> → $W/<скрипт>.out, код �
             printf 'VOID\tЗАПУСК: рецепт не вырезан из шапки origin/main:scripts/landing-precheck.sh «%s»\n' "$WS" > "$out"
             GATE_RC=2
         else
-            WS="$WS" S="$s" TMPDIR="$W" timeout "$GATE_TIMEOUT" bash -c "$recipe" _ "$@" > "$out" 2>&1; GATE_RC=$?
+            WS="$WS" S="$s" TMPDIR="$W" timeout "$GATE_TIMEOUT" bash -c "$recipe" _ "$@" > "$out" 2>&1 83> "$xt"; GATE_RC=$?
         fi
     fi
     [ "$GATE_RC" -ne 124 ] || { printf 'VOID\t%s: предел %s с исчерпан\n' "$s" "$GATE_TIMEOUT" >> "$out"; GATE_RC=2; }
     log "гейт $s $*: код $GATE_RC; $(grep -m1 '^VERDICT' "$out" || tail -n1 "$out")"
+    # Трасса — разбор и снятие сразу: в ней раскрытые доводы команд гейта.
+    # Разбор не исполнился — страж слеп: тот же void (закрыто на отказе), а не молчание.
+    awk -v q="'" "$PY_SCAN" "$xt" >> "$PY_TRIP" 2> /dev/null || echo "разбор трассы гейта не исполнился (awk код $?) — страж слеп" >> "$PY_TRIP"
+    rm -f -- "$xt"
+    if [ -s "$PY_TRIP" ]; then  # страж python3: исход гейта не судится (шапка gate)
+        local trip; trip="$(grep -v '^$' "$PY_TRIP" | head -n 3 | join)"
+        log "СТРАЖ: python3 на машине владельца из гейта $s: $trip"
+        # Перепись снятия идёт после вливания: исход merged остаётся, отказ — в его строке.
+        [ "$s" != branch-audit.sh ] || { PY_NOTE="страж python3: $s — $trip"; return; }
+        finish void "страж python3: $s исполнил на машине владельца «$trip» — читатель обязан идти внешним маршрутом (scripts/remote-reader.sh, ws#1365); исход гейта не судится"
+    fi
 }
+PY_NOTE=""
 reasons() {  # строки REASON вывода гейта дословно; строки о снимке демона — не о голове
     grep -P '^REASON\t' "$W/$1.out" | grep -vP '^REASON\t(STATE-STALE|STATE-KEY-MISMATCH)\t' | join
 }
@@ -634,7 +728,7 @@ landed() {  # запрос влит — проверка родителя, сн�
         log "коммит слияния $PR_MSHA: родитель $HEAD не подтверждён площадкой"
     fi
     prune "$PR_REF" "$PR_BASE"; sync_main_clone
-    finish merged "$PR_MSHA${note:+ $note}${CU_NOTE:+; догон базы: $CU_NOTE}; $PRUNE${SYNC:+; $SYNC}"
+    finish merged "$PR_MSHA${note:+ $note}${CU_NOTE:+; догон базы: $CU_NOTE}; $PRUNE${SYNC:+; $SYNC}${PY_NOTE:+; $PY_NOTE}"
 }
 
 # ── очередь: билет, черёд, ожидание (ws#1263) ──────────────────────────────────
