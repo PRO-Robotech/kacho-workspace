@@ -326,6 +326,32 @@ def body(pr):
         comment(41, 2, "DoD-proof @%s — полностью, пункты 0–5\nкод 0" % sha["41b"][:9])])), extra=extra)
     pr.ok("близнец: частичное, затем полное — Closes #41 по полному",
           rc == 0 and "Closes #41" in closes(out) and ("`DoD-proof @%s`, коммит диапазона" % sha["41b"][:9]) in out, out + err)
+    # Урок 2026-10-24 (ws#1382/#1383 → «Closes #1365» дважды): задачу несёт и другой открытый
+    # запрос — Refs; близнецы — запрос этой головы, её предка, закрытый, упоминание прозой — Closes.
+    def with_pulls(**pulls):
+        w = world(sha)
+        w["pulls"] = {"%s#%s" % (R, k[1:]): v for k, v in pulls.items()}
+        return w
+    other = "f" * 40
+    for label_, pulls, want_closes in (
+            ("заголовок «#41 …» другого запроса", {"p60": {"head": {"ref": "41-x", "sha": other}, "title": "#41 вторая часть"}}, False),
+            ("строка «Closes #41» тела другого запроса", {"p61": {"head": {"ref": "x", "sha": other}, "title": "сборка", "body": "текст\nCloses #41\n"}}, False),
+            ("близнец: запрос этой головы", {"p62": {"head": {"ref": "50", "sha": sha["50"]}, "title": "#41 сборка"}}, True),
+            ("близнец: запрос предка головы", {"p63": {"head": {"ref": "41-a", "sha": sha["41b"]}, "title": "#41 полоса"}}, True),
+            ("близнец: закрытый запрос", {"p64": {"head": {"ref": "x", "sha": other}, "title": "#41 прежний", "state": "closed"}}, True),
+            ("близнец: #41 прозой тела, не строкой закрытия", {"p65": {"head": {"ref": "x", "sha": other}, "title": "сборка", "body": "см. #41 рядом"}}, True)):
+        rc, out, err, _ = pr.run("pr-body", args, pr.state(with_pulls(**pulls)), extra=extra)
+        if want_closes:
+            pr.ok("%s: Closes #41" % label_, rc == 0 and "Closes #41" in closes(out), out + err)
+        else:
+            pr.ok("%s: Refs #41, запрос назван; Closes kaname#52 цел" % label_,
+                  rc == 0 and "Refs #41" in tail_of(out) and "Closes #41" not in closes(out)
+                  and re.search(r"задачу несёт и открытый запрос #6[01] — работа не вся здесь", out) is not None
+                  and ("Closes %s#52" % R) in closes(out), out + err)
+    w = with_pulls()
+    w["fail"] = ["GET repos/%s/pulls" % R]
+    rc, out, err, _ = pr.run("pr-body", args, pr.state(w), extra=extra)
+    pr.refused("список открытых запросов не прочитан", rc, err, "pulls", want=2)
     two = [comment(41, 1, "DoD-proof @%s\nпервое" % sha["41a"][:9]), comment(41, 2, "обсуждение"),
            comment(41, 3, "DoD-proof @%s\nпоследнее" % sha["41b"][:9]), comment(41, 4, "DoD-proof @%s\nбаза" % sha["base42"][:9])]
     rc, out, err, _ = pr.run("pr-body", args, pr.state(world(sha, c41=two)), extra=extra)

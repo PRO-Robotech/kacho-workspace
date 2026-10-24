@@ -442,6 +442,29 @@ for c in check-01-pr-body.py check-02-close-wave.py; do
         'DoD-proof @(?<rev>' 'DoD-proof ?@?(?<rev>' ../lib/dod_proof.jq
 done
 
+# Урок 2026-10-24 (ws#1382/#1383 → «Closes #1365» дважды; ws#1390 → «Closes #1303»): задачу несёт
+# и другой открытый запрос — `Refs` (`sibling_pulls`); близнецы проб — запрос этой головы, её
+# предка, закрытый, номер прозой тела.
+inject "M90 pr-body: другой открытый запрос не судится" check-01-pr-body.py \
+    '            if sib:' '            if False:'
+inject "M91 pr-body: запрос этой головы — другой" check-01-pr-body.py \
+    '        if h == head_sha:
+            continue' '        pass'
+inject "M92 pr-body: запрос предка головы — другой" check-01-pr-body.py \
+    'h + "^{commit}"], capture_output=True).returncode == 0 and is_ancestor(h, head_sha):' \
+    'h + "^{commit}"], capture_output=True).returncode == 0 and False:'
+inject "M93 pr-body: номер прозой тела — закрытие" check-01-pr-body.py \
+    'NAMED_RE = re.compile(r"^\s*(?:closes|fixes|resolves|refs)\s+(.+)$", re.I | re.M)' \
+    'NAMED_RE = re.compile(r"^(.+)$", re.I | re.M)'
+inject "M94 pr-body: закрытые запросы в счёте" check-01-pr-body.py \
+    'gh_list("repos/%s/pulls?state=open" % repo)' 'gh_list("repos/%s/pulls?state=all" % repo)'
+inject "M95 pr-body: отказ чтения списка — пусто" check-01-pr-body.py \
+    '        opened = gh_list("repos/%s/pulls?state=open" % repo)' \
+    '        try:
+            opened = gh_list("repos/%s/pulls?state=open" % repo)
+        except Unmet:
+            opened = []'
+
 echo
 echo "rituals/inject: доказательств $((ok + bad)), прошло $ok, провалено $bad"
 [ "$bad" -eq 0 ]

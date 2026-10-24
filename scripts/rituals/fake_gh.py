@@ -9,7 +9,8 @@
                created_at, closed_at, pull_request?}}
   comments    {"<вл>/<имя>#N": [{id, body, html_url, ...}]}
   parent      {"<вл>/<имя>#N": W} — родитель подзадачи (отношение sub-issue)
-  pulls       {"<вл>/<имя>#P": {head: {ref}, base: {ref}}}
+  pulls       {"<вл>/<имя>#P": {head: {ref, sha?}, base: {ref}, title?, body?, state?}} — и список
+              `repos/<вл>/<имя>/pulls?state=…` (state по умолчанию open)
   pull_commits {"<вл>/<имя>#P": [{sha, commit: {message}}]}
   commits     {"<вл>/<имя>@<sha-префикс>": {sha}}
   timeline    {"<вл>/<имя>#N": [событие]}
@@ -75,6 +76,16 @@ def main(argv):
 
     if path == "user":
         return done(st.get("user", {"login": "pointpu"}))
+
+    # Список запросов репозитория (`pulls?state=open`): записи `pulls` этого репозитория с
+    # `state` open (по умолчанию open), номер — из ключа, по номеру, страницами.
+    m = re.match(r"^repos/([\w.-]+/[\w.-]+)/pulls$", path)
+    if m and method == "GET":
+        want = (re.search(r"(?:^|&)state=(\w+)", query) or [None, "open"])[1]
+        got = [dict(v, number=int(k.split("#", 1)[1])) for k, v in st.get("pulls", {}).items()
+               if k.split("#", 1)[0] == m.group(1) and (want == "all" or v.get("state", "open") == want)]
+        got.sort(key=lambda v: v["number"])
+        return done(got[(page - 1) * per_page:page * per_page])
 
     m = re.match(r"^repos/([\w.-]+/[\w.-]+)/(issues|pulls|commits)/([\w]+)(?:/(\w+))?$", path)
     if not m:

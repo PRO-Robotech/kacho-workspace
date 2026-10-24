@@ -242,7 +242,9 @@ def need_repo(repo: str) -> str:
 #     номера — без `#`;
 #   * `Closes` — задаче с доказательством DoD, чья ревизия — коммит диапазона (предок
 #     головы, не предок базы; CLOSES-WITHOUT-PROOF), и не держателю записи долга;
-#   * закрывающие строки — последними (`git-issues.md#gi-closes-last-line`).
+#   * закрывающие строки — последними (`git-issues.md#gi-closes-last-line`);
+#   * задача, которую несёт и другой открытый запрос репозитория (не этой головы и не её
+#     предка), — `Refs`, не `Closes`: работа не вся в диапазоне (`sibling_pulls`, урок 2026-10-24).
 
 # Номер задачи так, как его судит landing-precheck (пункт (в), `NUM`): `#N` не после
 # буквы, цифры, `_`, `/` и `#`. Одно выражение на обе стороны — иначе тело, собранное
@@ -392,6 +394,27 @@ def is_ancestor(a: str, b: str) -> bool:
     if p.returncode not in (0, 1):
         raise Unmet("git merge-base --is-ancestor %s %s: %s" % (a[:12], b[:12], p.stderr.strip()[:200]))
     return p.returncode == 0
+
+
+NAMED_RE = re.compile(r"^\s*(?:closes|fixes|resolves|refs)\s+(.+)$", re.I | re.M)
+
+
+def sibling_pulls(opened: list, repo: str, n: int, head_sha: str) -> list[int]:
+    """Номера открытых запросов `opened`, несущих задачу `repo#n` (заголовок либо строка
+    Closes/Fixes/Resolves/Refs тела), кроме запроса этой головы и её предков (их работа — в диапазоне).
+    Голова запроса, которой в клоне нет, предком не считается: такой запрос — другой."""
+    ref = re.compile(task_ref_pattern(repo, n))
+    out = []
+    for p in opened:
+        h = (p.get("head") or {}).get("sha") or ""
+        if h == head_sha:
+            continue
+        if h and subprocess.run(["git", "-C", os.environ.get("RITUAL_REPO_DIR") or os.getcwd(), "cat-file", "-e",
+                                 h + "^{commit}"], capture_output=True).returncode == 0 and is_ancestor(h, head_sha):
+            continue
+        if ref.search(p.get("title") or "") or any(ref.search(x) for x in NAMED_RE.findall(p.get("body") or "")):
+            out.append(int(p["number"]))
+    return sorted(out)
 
 
 def catch_up(parents: list[str], base: str) -> bool:
@@ -591,6 +614,23 @@ def pr_body(argv: list[str]) -> int:
         else:
             refs.append(n)
             rows.append("- %s «%s» — доказательства DoD нет: `Refs`, не `Closes`" % (label(n), title))
+
+    # ДРУГОЙ ОТКРЫТЫЙ ЗАПРОС ЗАДАЧИ (урок 2026-10-24: ws#1382 и ws#1383 — оба «Closes #1365»;
+    # ws#1390 — «Closes #1303» при соседнем запросе задачи): работа задачи идёт и вне диапазона,
+    # закрытие отдал бы первый влитый. Открытый запрос репозитория, чей заголовок или строка
+    # Closes/Fixes/Resolves/Refs тела называет задачу и чья голова не равна голове диапазона и не
+    # её предок (свой запрос до отправки, стопка под этим), — `Refs`, не `Closes`. Читается лишь
+    # при кандидатах на Closes, одним списком.
+    if closes:
+        opened = gh_list("repos/%s/pulls?state=open" % repo)
+        for n in list(closes):
+            sib = sibling_pulls(opened, repo, n, head_sha)
+            if sib:
+                closes.remove(n)
+                refs.append(n)
+                k = next(i for i, r in enumerate(rows) if r.startswith("- %s «" % label(n)))
+                rows[k] += "; задачу несёт и открытый запрос %s — работа не вся здесь: `Refs`, не `Closes`" % ", ".join(
+                    "#%d" % p for p in sib)
 
     lines += ["Задачи первых строк (%d):" % len(rows), ""]
     lines += rows or ["- в первых строках коммитов номеров задач нет"]
