@@ -109,6 +109,8 @@
 #      `gh pr merge <N> -R <репо> --merge --match-head-commit <sha> --subject <…>
 #      --body "" --delete-branch` (способ — с сервера, сквош и rebase там выключены);
 #      хостинг отказал, а голова ушла — head-moved;
+#   5а. метки: с задач closingIssuesReferences, закрытых вливанием, снимается `status:*`
+#      (ws#1386; `git-issues.md#gi-label-same-action`); сбой — строкой «метки:» в исход merged;
 #   6. снятие влитой ветки коммитным предикатом (git-operator.md §«Вливание и снятие»,
 #      `git-issues.md#gi-prune-commit-predicate`): во всех клонах репозитория запроса
 #      (воркспейс и project/*, чей origin — этот репозиторий) — fetch --prune; ветка
@@ -625,8 +627,36 @@ sync_main_clone() {  # запрос в main репозитория основн�
     log "$SYNC"; return 0  # отказ ff — не ошибка вливания: исход остаётся merged
 }
 
+# Метки состояния закрытых вливанием задач (ws#1386, урок ws#1381): `Closes` закрывает задачу,
+# а `status:*` на ней остаётся — `git-issues.md#gi-label-same-action` красна. Снимается
+# `status:*` лишь с задач `closingIssuesReferences`, которые после вливания ЗАКРЫТЫ (вливание
+# в ветку эпика задач не закрывает — их метки не трогаются); прочие метки не трогаются. Сбой
+# чтения или правки — строкой в исход, вливанием он не отменяется.
+LABELS=""
+drop_status_labels() {
+    local refs r n st ls l done_=() kept=()
+    if ! "$GH" pr view "$PR" -R "$REPO" --json closingIssuesReferences > "$W/closing.json" 2> "$W/closing.err" \
+        || ! refs="$(jq -r '.closingIssuesReferences[]? | .url // "" | capture("github\\.com/(?<r>[^/]+/[^/]+)/issues/(?<n>[0-9]+)") | "\(.r) \(.n)"' "$W/closing.json" 2>> "$W/closing.err")"; then
+        LABELS="метки: закрываемые задачи не прочитаны — $(head -c 200 "$W/closing.err" | tr '\n' ' ')"; log "$LABELS"; return 0
+    fi
+    while read -r r n; do
+        [ -n "$n" ] || continue
+        if ! "$GH" api "repos/$r/issues/$n" > "$W/issue.json" 2> "$W/issue.err"; then kept+=("$r#$n не прочитана"); continue; fi
+        st="$(jq -r '.state // ""' "$W/issue.json")"
+        ls="$(jq -r '[.labels[]?.name | select(startswith("status:"))] | join(" ")' "$W/issue.json")"
+        [ "$st" = closed ] && [ -n "$ls" ] || continue
+        for l in $ls; do
+            if "$GH" issue edit "$n" -R "$r" --remove-label "$l" > /dev/null 2> "$W/label.err"; then done_+=("$r#$n −$l")
+            else kept+=("$r#$n $l: $(head -c 120 "$W/label.err" | tr '\n' ' ')"); fi
+        done
+    done <<< "$refs"
+    LABELS="метки: снято ${#done_[@]}${done_[*]:+ (${done_[*]})}${kept[*]:+; не снято: ${kept[*]}}"
+    log "$LABELS"
+}
+
 landed() {  # запрос влит — проверка родителя, снятие, догон основного клона, исход
     local note="${1:-}"
+    drop_status_labels; note="${note:+$note; }$LABELS"
     if "$GH" api "repos/$REPO/commits/$PR_MSHA" > "$W/mc.json" 2>/dev/null \
         && jq -e --arg h "$HEAD" '[.parents[].sha] | index($h) != null' "$W/mc.json" > /dev/null 2>&1; then
         log "коммит слияния $PR_MSHA — родитель $HEAD есть"

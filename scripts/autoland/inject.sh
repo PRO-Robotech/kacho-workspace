@@ -28,6 +28,8 @@
 #   draft        — ci-read 5 (черновик), затем 0 → merged;
 #   closed       — запрос закрыт без вливания → red PR-NOT-OPEN, гейтов нет;
 #   already      — запрос уже влит этой головой → merged, повторного вливания нет;
+#   labels       — после вливания `status:*` снят лишь с ЗАКРЫТОЙ задачи closingIssuesReferences,
+#                  прочие её метки и открытая задача нетронуты (ws#1386);
 #   fifo         — пауза 20 с, строка демона состояния в FIFO будит раньше: исход < 10 с;
 #   fifo-nowriter — демона состояния нет, FIFO без писателя: каждое ожидание кончается
 #                  паузой (timeout), исход merged с кодом 0; пауза БЫЛА — прошло не меньше
@@ -258,9 +260,14 @@ case "$1" in
         fi
         cat "$FX/pull.json" ;;
       repos/*/commits/*) printf '{"parents":[{"sha":"%s"},{"sha":"%s"}]}\n' "$BASE" "$(jq -r .head.sha "$FX/pull.json")" ;;
+      repos/*/issues/*) cat "$FX/issue.${2##*/}.json" 2>/dev/null || { echo "двойник: задачи ${2##*/} нет" >&2; exit 1; } ;;
       *) echo "двойник: путь $2 не моделируется" >&2; exit 1 ;;
     esac ;;
+  issue)  # issue edit <N> -R <репо> --remove-label <метка> — снятие метки (ws#1386)
+    [ "$2" = edit ] || { echo "двойник: gh issue $2 не моделируется" >&2; exit 1; }
+    printf '%s %s\n' "$3" "${7:-}" >> "$FX/labels.removed" ;;
   pr)
+    if [ "$2" = view ]; then cat "$FX/closing.json" 2>/dev/null || echo '{"closingIssuesReferences":[]}'; exit 0; fi
     [ "$2" = merge ] || { echo "двойник: gh pr $2 не моделируется" >&2; exit 1; }
     printf '%s\n' "$@" > "$FX/merge.args"
     [ ! -f "$FX/merge.hook" ] || bash "$FX/merge.hook"
@@ -449,6 +456,18 @@ s_already() {
     new_fx already; pull "$HEAD_A" closed true; run_al
     ok already "влит этой головой — merged <sha>" eval '[ "$RC" -eq 0 ] && st_is merged && st_has "$MSHA"'
     ok already "повторного вливания нет" not_merge_called
+}
+# labels (ws#1386, урок ws#1381) — после вливания `status:*` снят ТОЛЬКО с закрытой задачи
+# closingIssuesReferences; прочие её метки и открытая задача (вливание в ветку эпика) — нетронуты.
+s_labels() {
+    new_fx labels
+    jq -n --arg r "$REPO" '{closingIssuesReferences: [{number: 41, url: "https://github.com/\($r)/issues/41"},
+        {number: 42, url: "https://github.com/\($r)/issues/42"}]}' > "$FX/closing.json"
+    echo '{"state":"closed","labels":[{"name":"status:test"},{"name":"P2"}]}' > "$FX/issue.41.json"
+    echo '{"state":"open","labels":[{"name":"status:in-progress"}]}' > "$FX/issue.42.json"
+    run_al
+    ok labels "merged и строка «метки: снято 1» в исходе" eval '[ "$RC" -eq 0 ] && st_is merged && st_has "метки: снято 1"'
+    ok labels "снят ровно status:test с #41" eval '[ "$(cat "$FX/labels.removed" 2>/dev/null)" = "41 status:test" ]'
 }
 s_fifo() {
     new_fx fifo; printf '3\n0\n' > "$FX/ci-read.sh.seq"
@@ -1354,7 +1373,7 @@ s_real_replica() {
 ALL=(s_green s_red s_moved_start s_moved_gates s_moved_merge s_allow_ok s_allow_bad s_stale s_mr_red s_timeout
      s_void s_void_twin s_ratelimit s_pr_unread s_draft s_closed s_already s_fifo s_fifo_nowriter s_args s_detach s_recipe
      s_prune s_prune_dirty s_prune_ahead s_prune_remote s_prune_origin_ahead s_prune_not_in_base s_prune_busy s_prune_busy_glob
-     s_prune_no_clone s_prune_readonly
+     s_prune_no_clone s_prune_readonly s_labels
      s_ff s_ff_overlap s_ff_worktree s_ff_foreign s_ff_hang s_ff_epic s_lag s_lag_own s_lag_nofetch s_lag_hang
      s_start_stale s_head_sync
      s_status s_empty_code s_lp_head s_census s_guard s_static
@@ -1417,7 +1436,9 @@ mutant prune-busy-glob-unescaped s_prune_busy_glob "e=\"\$(printf '%s' \"\$d\" |
 mutant prune-no-clone-silent s_prune_no_clone 'if [ "$n_cl" -eq 0 ]; then' 'if false; then'
 mutant prune-readonly-chmod-dropped s_prune_readonly '{ chmod -R u+w -- "$wt" 2>/dev/null; true; } \
                 && ' ''
-mutant prune-base-ancestor-dropped s_prune_not_in_base 'if ! git -C "$c" merge-base --is-ancestor "$HEAD" "origin/$base" 2>/dev/null; then' 'if false; then'
+mutant labels-not-dropped s_labels 'drop_status_labels; note=' 'note='
+mutant labels-open-issue-too s_labels '[ "$st" = closed ] && [ -n "$ls" ] || continue' '[ -n "$ls" ] || continue'
+mutant prune-base-ancestor-dropped s_prune_not_in_base'if ! git -C "$c" merge-base --is-ancestor "$HEAD" "origin/$base" 2>/dev/null; then' 'if false; then'
 mutant status-alive-by-kill0 s_detach '[[ "$1" =~ ^[0-9]+$ ]] || return 1
     { mapfile' '[[ "$1" =~ ^[0-9]+$ ]] || return 1
     kill -0 "$1" 2>/dev/null && return 0
