@@ -4189,7 +4189,7 @@ no_cluster_call KF2-down
 KDOLD="$BOX/kindlib-old"; mkdir -p "$KDOLD"
 # shellcheck disable=SC2016  # $ в образцах sed — буквы текста kind.sh, не подстановка
 sed -e 's#heads="$(kind_ls_remote "$canon")"#heads="$(git -C "$src" ls-remote "$canon" '"'"'refs/heads/*'"'"' 2>/dev/null)"#' \
-    -e 's#GIT_NO_REPLACE_OBJECTS=1 \\$#GIT_NO_REPLACE_OBJECTS=0 \\#' \
+    -e 's# GIT_NO_REPLACE_OBJECTS=1 \\$# \\#' \
     -e 's#if kind_history_forged "$src"; then#if false; then#' "$KDLIB/kind.sh" > "$KDOLD/kind.sh"
 if [ "$(diff "$KDLIB/kind.sh" "$KDOLD/kind.sh" | grep -c '^<')" = 3 ]; then ok; else OUT="$KDOLD/kind.sh"; bad KF-old-premise "прежняя сверка не собрана ровно тремя заменами"; fi
 kf3_sha="$(git -C "$SRC" checkout -q -b kf3 && echo kf3 > "$SRC/kf3.txt" && git -C "$SRC" add kf3.txt && sandbox_git -C "$SRC" commit -q -m kf3 && git -C "$SRC" rev-parse HEAD; git -C "$SRC" checkout -q -)"
