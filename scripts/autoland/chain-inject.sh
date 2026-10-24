@@ -15,7 +15,9 @@
 #   C5 срок службы короче строк × (демон + гейт + 600) — 64 до первого вызова; C6 срок не задан — 64;
 #   C7 --after: предшественник с кодом 1 — 3, вызовов ноль; близнец — код 0, цепочка идёт;
 #   C8 правка тела не прошла — демона нет; C9 отправка догона «прошла», а голова на origin прежняя —
-#      тела и демона нет.
+#      тела и демона нет;
+#   C11 --after: предшественник идёт (status 3), затем 0 — цепочка дождалась и пошла, status
+#      спрошен дважды (приёмка check-verifier @e91dbdb60: мутант «идёт — стоп» сцены C7 не ловила).
 # Затем мутанты chain.sh — каждый обязан покрасить свою сцену.
 # Коды: 0 — всё прошло; 1 — провал; 2 — предпосылки нет (git).
 # shellcheck disable=SC2317,SC2329  # сцены зовутся косвенно ("$c"), мутанты — через CH
@@ -68,6 +70,11 @@ cat > "$T/bin/detach" <<'EOF'
 #!/usr/bin/env bash
 exit "$(cat "$2")"
 EOF
+# detach-then-0: первый вызов status — 3 (предшественник идёт), следующие — 0; счёт — в <.rc>.n
+cat > "$T/bin/detach-then-0" <<'EOF'
+#!/usr/bin/env bash
+n="$(cat "$2.n" 2> /dev/null || echo 0)"; echo $((n + 1)) > "$2.n"; [ "$n" -ge 1 ] && exit 0; exit 3
+EOF
 chmod +x "$T/bin/"*
 
 # fixture <имя> <отставание да|нет> — origin, клон, ветка PR 5-x (PR 1)
@@ -107,9 +114,11 @@ c7() { fixture c7 нет; echo 1 > "$FX/pred.rc"; AFTER="$FX/pred.rc" run; local
     fixture c7b нет; echo 0 > "$FX/pred.rc"; AFTER="$FX/pred.rc" run; rc=$?; [ "$rc" = 0 ] && grep -q '^daemon' "$FX/calls"; }
 c8() { fixture c8 нет; run env GH_EDIT_RC=1; grep -q '^gh pr edit' "$FX/calls" && ! grep -q '^daemon' "$FX/calls"; }
 c9() { fixture c9 да; run env PUSH_NOOP=1; ! grep -q "^body" "$FX/calls" && ! grep -q "^daemon" "$FX/calls" && grep -q "голова не на origin" "$FX/out"; }
+c11() { fixture c11 нет; echo x > "$FX/pred.rc"; AFTER="$FX/pred.rc" run env CHAIN_DETACH="$T/bin/detach-then-0"; local rc=$?
+    [ "$rc" = 0 ] && grep -q '^daemon' "$FX/calls" && [ "$(cat "$FX/pred.rc.n" 2> /dev/null)" = 2 ]; }
 
 echo "== сцены chain.sh"
-for c in c1 c2 c3 c4 c5 c6 c7 c8 c9; do "$c"; ok "$c" "$?" "$(tail -n3 "$FX/out" 2> /dev/null | tr '\n' ' ')"; done
+for c in c1 c2 c3 c4 c5 c6 c7 c8 c9 c11; do "$c"; ok "$c" "$?" "$(tail -n3 "$FX/out" 2> /dev/null | tr '\n' ' ')"; done
 
 echo "== мутанты chain.sh (каждый обязан покрасить свою сцену)"
 mutant() {  # <имя> <сцена> <было> <стало>
@@ -127,6 +136,7 @@ mutant cleanup-dropped c4 'trap cleanup EXIT' ':'
 mutant after-ignored c7 '[ "$arc" -eq 0 ] || {' 'true || {'
 mutant edit-rc-ignored c8 '> /dev/null 2>&1 || { log "PR#$pr: gh pr edit не прошёл' '> /dev/null 2>&1; true || { log "PR#$pr: gh pr edit не прошёл'
 mutant body-before-origin c9 '    on_origin "$br" "$head" || {' '    true || {'
+mutant after-no-wait c11 '[ "$arc" -eq 3 ] || break' 'break'
 
 echo "chain-inject: проверок $((pass + fail)), прошло $pass, провалено $fail"
 [ "$fail" -eq 0 ]

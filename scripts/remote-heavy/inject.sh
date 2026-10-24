@@ -272,7 +272,8 @@
 #      go.mod ревизии; QR-op — их запрос по строке «*» профиля; --repo иной → 64 (QR-badrepo)
 #   WS1–WS6 профиль ws клона воркспейса (ws#1304): Job — образ продуктов, клоны продуктов, среда
 #      наборов, её сверка и команда от runner; пара профиля и репозитория; пин shellcheck; сверка
-#      среды, читатель трекера и установка с пином суммы исполнением (подробно — у случаев)
+#      среды, читатель трекера и установка с пином суммы исполнением; фон venv и локалей —
+#      фоном, вне /work/dl, ожидание не дольше 90 с по часам шага (WS6-bg, -dir, -wait; подробно — у случаев)
 #   KD1–KD9 профиль kind (ws#1385, kind.sh): пара профиля — лишь клоны внешних операторов
 #      (kind + kacho → 64); Job — hostUsers узла и privileged лишь у dind, проба допуска от
 #      имени job-controller до Job, проба исполнимости kind в pod (исполнением шага над
@@ -3993,7 +3994,7 @@ if [ "$c5" = 4 ]; then ok; else bad WS5 "иная форма вызова → к
 #     анализатор, bats и читатель трекера в bin; архив подменён (yq, shellcheck, bats) либо сеть
 #     мертва → 125 и «… не поставлен» в termination-log
 WC="$BOX/wsc"; WK="$WC/work"; rm -rf "$WC"; mkdir -p "$WC/bin" "$WC/src/shellcheck-v0.11.0" "$WC/src/bats-core-1.10.0"
-for t in bash sh cp mkdir install ln chmod cat rm tar gzip xz python3 sha256sum sed uname printf head mktemp; do
+for t in bash sh cp mkdir install ln chmod cat rm tar gzip xz python3 sha256sum sed uname printf head mktemp sleep; do
     p_="$(command -v "$t" 2>/dev/null)" && [ -n "$p_" ] && ln -sf "$p_" "$WC/bin/$t"
 done
 printf '#!/bin/sh\necho "yq (https://github.com/mikefarah/yq/) version v4.45.4"\n' > "$WC/yq"
@@ -4013,6 +4014,13 @@ case "$u" in
   */mikefarah/yq/releases/download/v4.45.4/yq_linux_*) cp "$WSC_DIR/yq" "$o"; [ "${WSC_BAD:-}" != yq ] || echo x >> "$o" ;;
   */koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.*.tar.xz) cp "$WSC_DIR/sc.tar.xz" "$o"; [ "${WSC_BAD:-}" != sc ] || echo x >> "$o" ;;
   */bats-core/bats-core/archive/refs/tags/v1.10.0.tar.gz) cp "$WSC_DIR/bats.tgz" "$o"; [ "${WSC_BAD:-}" != bats ] || echo x >> "$o" ;;
+  # пакеты Debian (фон venv и локалей): куда пишет — в deb-o; WSC_HOLD — первый вызов держится до
+  # файла release (не дольше 15 с), прочие отказывают сразу
+  *.debian.org/*.deb) echo "$o" >> "$WSC_DIR/deb-o"
+    if [ -n "${WSC_HOLD:-}" ] && [ ! -e "$WSC_DIR/held" ]; then
+      : > "$WSC_DIR/held"; for ((i = 0; i < 150; i++)); do [ -e "$WSC_DIR/release" ] && break; sleep 0.1; done
+    fi
+    exit 22 ;;
   *) echo "двойник curl: адрес не знаком: $u" >&2; exit 22 ;;
 esac
 WSC
@@ -4048,6 +4056,45 @@ venv_ok=1; env -i PATH="$WC/bin" python3 -c 'import ensurepip' > /dev/null 2>&1 
 if [ "$venv_ok" = 1 ] && grep -q 'среда: локали ru_RU.UTF-8, en_US.UTF-8 не поставлены' "$WK/wsenv.log" && ! grep -q 'среда:' "$BOX/WS6.out" \
    && [ "$(grep -cE 'b079db533ff9d9d1|e65351935aa4af2b|ffc5578d5c2c30ca' "$WC/raw.sh")" = 3 ]; then ok
 else OUT="$WK/wsenv.log"; bad WS6-venv-locale "фон venv и локалей не назвал недоставленное строкой «среда:» в wsenv.log, шаг ждал его либо суммы пакетов не по разу"; fi
+# WS6-bg / WS6-dir (приёмка check-verifier @e91dbdb60, мутанты RM1, RM3): загрузка Debian ДЕРЖИТСЯ
+#     двойником до файла release — шаг wstools обязан выйти, пока фон держится (фон, а не передний
+#     план), а пишет фон вне /work/dl (его снимает шаг install, урок curl 23)
+rm -rf "$WK"; mkdir -p "$WK"; rm -f "$WC/held" "$WC/release" "$WC/deb-o"
+env -i PATH="$WC/bin" HOME="$WC" WSC_DIR="$WC" WSC_HOLD=1 HEAVY_SHELLCHECK=0.11.0 bash "$WC/wstools.sh" > "$BOX/WS6-bg.out" 2>&1; RC=$?
+for _ in $(seq 1 40); do [ -e "$WC/held" ] && break; sleep 0.25; done
+bg_held=0; [ -e "$WC/held" ] && ! grep -q 'среда: локали' "$WK/wsenv.log" 2> /dev/null && bg_held=1
+: > "$WC/release"
+for _ in $(seq 1 40); do grep -q 'среда: локали' "$WK/wsenv.log" 2> /dev/null && break; sleep 0.5; done
+if [ "$RC" = 0 ] && [ "$bg_held" = 1 ] && grep -q 'среда: локали' "$WK/wsenv.log"; then ok
+else OUT="$BOX/WS6-bg.out"; bad WS6-bg "шаг wstools (код $RC) не вышел, пока загрузка Debian держалась (держалась: $bg_held) — venv и локали не фоном"; fi
+if [ -s "$WC/deb-o" ] && ! grep -q "^$WK/dl/" "$WC/deb-o"; then ok
+else OUT="$WC/deb-o"; bad WS6-dir "фон venv и локалей пишет под /work/dl (снимает шаг install) либо не писал вовсе"; fi
+# WS6-wait / WS6-wait-quick (мутант RM2): ожидание фона шагом wsclonewait — не дольше 90 с по часам
+#     шага. Часы — двойник date (+10 с на вызов), sleep — пустой; фон — настоящий долгий процесс:
+#     вызовов date не больше 11 (90 с), фон снят, строка «за 90 с»; близнец — фон уже вышел: ни строки, ни снятия.
+WW="$BOX/wsw"; rm -rf "$WW"; mkdir -p "$WW/bin" "$WW/work"
+# shellcheck disable=SC2016  # текст двойника часов раскрывает он сам
+printf '#!/bin/sh\nn=$(cat "%s/n" 2>/dev/null || echo 0); echo $((n + 1)) > "%s/n"; echo $((1000 + 10 * n))\n' "$WW" "$WW" > "$WW/bin/date"
+printf '#!/bin/sh\n:\n' > "$WW/bin/sleep"; chmod +x "$WW/bin/date" "$WW/bin/sleep"
+for t in cat kill pkill; do p_="$(command -v "$t" 2>/dev/null)" && [ -n "$p_" ] && [ -x "$p_" ] && ln -sf "$p_" "$WW/bin/$t"; done
+sed -n '/^if \[ -n "\${wsenv_pid:-}" \]; then$/,/^# wsclonewait-end$/p' "$BOX/ws1.cmd" | sed "s#/work/#$WW/work/#g" > "$WW/wait.sh"
+real_sleep="$(command -v sleep)"
+# shellcheck disable=SC2016  # текст скрипта ожидания раскрывает он сам
+ws6_wait() {  # <случай> <фон: долгий|вышел>
+    rm -f "$WW/n"; echo 'фон: строка журнала' > "$WW/work/wsenv.log"
+    { if [ "$2" = долгий ]; then printf '"%s" 600 & wsenv_pid=$!\n' "$real_sleep"; else printf 'true & wsenv_pid=$!; wait "$wsenv_pid"\n'; fi
+      cat "$WW/wait.sh"; printf 'if kill -0 "$wsenv_pid" 2> /dev/null; then kill "$wsenv_pid"; echo ФОН-ЖИВ; fi\n'; } > "$WW/run.sh"
+    timeout 60 env -i PATH="$WW/bin" bash "$WW/run.sh" > "$BOX/$1.out" 2>&1; RC=$?
+}
+if grep -q '^# wsclonewait-end$' "$WW/wait.sh" && grep -q 'kill -0 "\$wsenv_pid"' "$WW/wait.sh"; then
+    ws6_wait WS6-wait долгий; n_=$(cat "$WW/n" 2> /dev/null || echo 0)
+    if [ "$RC" = 0 ] && [ "$n_" -le 11 ] && grep -q 'venv и локали не доставлены за 90 с' "$BOX/WS6-wait.out" \
+       && ! grep -q 'ФОН-ЖИВ' "$BOX/WS6-wait.out" && grep -q 'фон: строка журнала' "$BOX/WS6-wait.out"; then ok
+    else OUT="$BOX/WS6-wait.out"; bad WS6-wait "ожидание фона — код $RC, вызовов часов $n_ (90 с — не больше 11), фон не снят либо строки «за 90 с» нет"; fi
+    ws6_wait WS6-wait-quick вышел
+    if [ "$RC" = 0 ] && ! grep -q 'не доставлены за' "$BOX/WS6-wait-quick.out" && grep -q 'фон: строка журнала' "$BOX/WS6-wait-quick.out"; then ok
+    else OUT="$BOX/WS6-wait-quick.out"; bad WS6-wait-quick "фон уже вышел, а ожидание назвало недоставку либо журнал фона не напечатан (код $RC)"; fi
+else OUT="$BOX/ws1.cmd"; bad WS6-wait "участка ожидания фона (wsenv_pid) в тексте wsclonewait Job нет — исполнять нечего"; fi
 ws6_case WS6-yqsum 125 "yq v4.45.4 не поставлен" WSC_BAD=yq
 ws6_case WS6-scsum 125 "shellcheck 0.11.0 не поставлен" WSC_BAD=sc
 ws6_case WS6-batssum 125 "bats-core 1.10.0 не поставлен" WSC_BAD=bats

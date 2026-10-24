@@ -113,6 +113,13 @@
 #   M73 dod_proof.jq: привязка — по началу sha ГОЛОВЫ, а не диапазона     → check-05
 #   близнец T2: привязка записана иначе (срез вместо startswith) — check-05 и check-01 зелены
 #
+# ws#1387: задачу несёт другой открытый запрос — Refs (`sibling_pulls`, `named_in_body`).
+#   M90 другой запрос не судится · M92 запрос головы/предка — другой · M93 номер прозой —
+#   закрытие · M94 закрытые в счёте · M95 отказ чтения списка — пусто · M96 слова закрытия —
+#   лишь closes/fixes/resolves · M97 лишь в начале строки · M98 код — строка закрытия ·
+#   M99 перечень ссылок — лишь первая                                  → check-01
+#   близнец T3: девять слов закрытия перечислены поимённо — check-01 зелен
+#
 # Хранилище для check-04 берётся из HEAD настоящего воркспейса (`RITUALS_WS`):
 # копия несёт только код ритуалов и их общие зависимости.
 # Коды: 0 — все доказательства прошли; 1 — хоть одно нет; 2 — копию не завести.
@@ -450,9 +457,21 @@ inject "M90 pr-body: другой открытый запрос не судит�
 inject "M92 pr-body: запрос этой головы либо её предка — другой" check-01-pr-body.py \
     'h + "^{commit}"], capture_output=True).returncode == 0 and is_ancestor(h, head_sha):' \
     'h + "^{commit}"], capture_output=True).returncode == 0 and False:'
-inject "M93 pr-body: номер прозой тела — закрытие" check-01-pr-body.py \
-    'NAMED_RE = re.compile(r"^\s*(?:closes|fixes|resolves|refs)\s+(.+)$", re.I | re.M)' \
-    'NAMED_RE = re.compile(r"^(.+)$", re.I | re.M)'
+kw='NAMED_KW = r"(?<![\w-])(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|refs)(?![\w-]):?\s+"'
+inject "M93 pr-body: номер прозой тела — закрытие" check-01-pr-body.py "$kw" 'NAMED_KW = r"(?:)"'
+# Приёмка check-verifier @e91dbdb60 (CV-X1–X7): слово закрытия GitHub — девять форм в любом
+# месте строки; код строкой закрытия не является.
+inject "M96 pr-body: слова закрытия — лишь closes/fixes/resolves" check-01-pr-body.py \
+    '(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|refs)' '(?:closes|fixes|resolves|refs)'
+inject "M97 pr-body: слово закрытия — лишь в начале строки" check-01-pr-body.py \
+    'NAMED_KW = r"(?<![\w-])' 'NAMED_KW = r"(?m:^)\s*'
+inject "M98 pr-body: код тела — строка закрытия" check-01-pr-body.py \
+    'CODE_RE.sub(" ", body or "")' '(body or "")'
+inject "M99 pr-body: перечень ссылок за словом — лишь первая" check-01-pr-body.py \
+    'pat = r"%s(?:%s\s*(?:,|\band\b|\bи\b)\s*)*(?:%s)" % (NAMED_KW, NAMED_ANY, ref)' \
+    'pat = r"%s(?:%s)" % (NAMED_KW, ref)'
+twin "T3 pr-body: слово закрытия другой записью (перечень форм)" check-01-pr-body.py \
+    '(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|refs)' '(?:closes|closed|close|fixes|fixed|fix|resolves|resolved|resolve|refs)'
 inject "M94 pr-body: закрытые запросы в счёте" check-01-pr-body.py \
     'gh_list("repos/%s/pulls?state=open" % repo)' 'gh_list("repos/%s/pulls?state=all" % repo)'
 inject "M95 pr-body: отказ чтения списка — пусто" check-01-pr-body.py \

@@ -396,12 +396,25 @@ def is_ancestor(a: str, b: str) -> bool:
     return p.returncode == 0
 
 
-NAMED_RE = re.compile(r"^\s*(?:closes|fixes|resolves|refs)\s+(.+)$", re.I | re.M)
+# Слово закрытия GitHub — все девять форм (close/closes/closed, fix/fixes/fixed,
+# resolve/resolves/resolved) и `refs`, регистр любой, место в строке любое (пункт перечня
+# «- Closes #N», середина фразы), двоеточие после слова допустимо; за словом — ссылка либо перечень
+# ссылок через «,», «and», «и» (ws#1387, приёмка check-verifier CV-X1–X3). Код (```…```, ~~~…~~~,
+# `…`) строкой закрытия не является: GitHub его не читает.
+NAMED_KW = r"(?<![\w-])(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|refs)(?![\w-]):?\s+"
+NAMED_ANY = r"(?:[\w.-]+/[\w.-]+#[0-9]+|#[0-9]+|[\w.-]+#[0-9]+|https?://github\.com/[\w.-]+/[\w.-]+/issues/[0-9]+)"
+CODE_RE = re.compile(r"```.*?(?:```|\Z)|~~~.*?(?:~~~|\Z)|`[^`\n]*`", re.S)
+
+
+def named_in_body(body: str, ref: str) -> bool:
+    """Тело называет задачу `ref` (выражение `task_ref_pattern`) строкой закрытия вне кода."""
+    pat = r"%s(?:%s\s*(?:,|\band\b|\bи\b)\s*)*(?:%s)" % (NAMED_KW, NAMED_ANY, ref)
+    return re.search(pat, CODE_RE.sub(" ", body or ""), re.I) is not None
 
 
 def sibling_pulls(opened: list, repo: str, n: int, head_sha: str) -> list[int]:
-    """Номера открытых запросов `opened`, несущих задачу `repo#n` (заголовок либо строка
-    Closes/Fixes/Resolves/Refs тела), кроме запроса этой головы и её предков (их работа — в диапазоне).
+    """Номера открытых запросов `opened`, несущих задачу `repo#n` (заголовок либо слово закрытия
+    тела, `named_in_body`), кроме запроса этой головы и её предков (их работа — в диапазоне).
     Голова запроса, которой в клоне нет, предком не считается: такой запрос — другой."""
     ref = re.compile(task_ref_pattern(repo, n))
     out = []
@@ -410,7 +423,7 @@ def sibling_pulls(opened: list, repo: str, n: int, head_sha: str) -> list[int]:
         if h and subprocess.run(["git", "-C", os.environ.get("RITUAL_REPO_DIR") or os.getcwd(), "cat-file", "-e",
                                  h + "^{commit}"], capture_output=True).returncode == 0 and is_ancestor(h, head_sha):
             continue
-        if ref.search(p.get("title") or "") or any(ref.search(x) for x in NAMED_RE.findall(p.get("body") or "")):
+        if ref.search(p.get("title") or "") or named_in_body(p.get("body") or "", ref.pattern):
             out.append(int(p["number"]))
     return sorted(out)
 
@@ -616,7 +629,7 @@ def pr_body(argv: list[str]) -> int:
     # ДРУГОЙ ОТКРЫТЫЙ ЗАПРОС ЗАДАЧИ (урок 2026-10-24: ws#1382 и ws#1383 — оба «Closes #1365»;
     # ws#1390 — «Closes #1303» при соседнем запросе задачи): работа задачи идёт и вне диапазона,
     # закрытие отдал бы первый влитый. Открытый запрос репозитория, чей заголовок или строка
-    # Closes/Fixes/Resolves/Refs тела называет задачу и чья голова не равна голове диапазона и не
+    # слово закрытия тела (`named_in_body`) называет задачу и чья голова не равна голове диапазона и не
     # её предок (свой запрос до отправки, стопка под этим), — `Refs`, не `Closes`. Читается лишь
     # при кандидатах на Closes, одним списком.
     if closes:

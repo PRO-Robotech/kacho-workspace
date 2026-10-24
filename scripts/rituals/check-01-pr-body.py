@@ -339,7 +339,25 @@ def body(pr):
             ("близнец: запрос этой головы", {"p62": {"head": {"ref": "50", "sha": sha["50"]}, "title": "#41 сборка"}}, True),
             ("близнец: запрос предка головы", {"p63": {"head": {"ref": "41-a", "sha": sha["41b"]}, "title": "#41 полоса"}}, True),
             ("близнец: закрытый запрос", {"p64": {"head": {"ref": "x", "sha": other}, "title": "#41 прежний", "state": "closed"}}, True),
-            ("близнец: #41 прозой тела, не строкой закрытия", {"p65": {"head": {"ref": "x", "sha": other}, "title": "сборка", "body": "см. #41 рядом"}}, True)):
+            ("близнец: #41 прозой тела, не строкой закрытия", {"p65": {"head": {"ref": "x", "sha": other}, "title": "сборка", "body": "см. #41 рядом"}}, True),
+            # Приёмка check-verifier @e91dbdb60 (CV-X1–X7): слово закрытия GitHub — девять форм,
+            # любой регистр, любое место строки, полная форма ссылки; код — не строка закрытия.
+            ("CV-X1 «- Closes #41» (пункт перечня) другого запроса", {"p60": {"head": {"ref": "x", "sha": other}, "title": "сборка", "body": "Состав\n\n- Refs #9\n- Closes #41\n"}}, False),
+            ("CV-X2 «Fix #41» другого запроса", {"p60": {"head": {"ref": "x", "sha": other}, "title": "сборка", "body": "Fix #41\n"}}, False),
+            ("CV-X3 «Closed #41» другого запроса", {"p60": {"head": {"ref": "x", "sha": other}, "title": "сборка", "body": "Closed #41\n"}}, False),
+            ("CV-X5 «Closes PRO-Robotech/kaname#41» другого запроса", {"p61": {"head": {"ref": "x", "sha": other}, "title": "сборка", "body": "Closes %s#41\n" % R}}, False),
+            ("«close #41» строчными", {"p60": {"head": {"ref": "x", "sha": other}, "title": "сборка", "body": "close #41"}}, False),
+            ("«FIXED #41» прописными", {"p60": {"head": {"ref": "x", "sha": other}, "title": "сборка", "body": "FIXED #41"}}, False),
+            ("«resolve #41» посреди фразы", {"p60": {"head": {"ref": "x", "sha": other}, "title": "сборка", "body": "эта сборка resolve #41 тоже"}}, False),
+            ("«Resolved: #41» с двоеточием", {"p60": {"head": {"ref": "x", "sha": other}, "title": "сборка", "body": "Resolved: #41"}}, False),
+            ("«Resolves #9, #41» перечнем", {"p60": {"head": {"ref": "x", "sha": other}, "title": "сборка", "body": "Resolves #9, #41"}}, False),
+            ("«Fixes https://github.com/…/issues/41» адресом", {"p61": {"head": {"ref": "x", "sha": other}, "title": "сборка", "body": "Fixes https://github.com/%s/issues/41" % R}}, False),
+            ("CV-X4 близнец: заголовок «#410 …» другого запроса", {"p66": {"head": {"ref": "x", "sha": other}, "title": "#410 другая", "body": ""}}, True),
+            ("CV-X6 близнец: «Closes otherorg/kaname#41» чужого владельца", {"p66": {"head": {"ref": "x", "sha": other}, "title": "сборка", "body": "Closes otherorg/kaname#41\n"}}, True),
+            ("CV-X7 близнец: «Closes #41» в коде строки", {"p66": {"head": {"ref": "x", "sha": other}, "title": "сборка", "body": "пример: `Closes #41` — так не пишут\n"}}, True),
+            ("близнец: «Fixes #41» в блоке кода", {"p66": {"head": {"ref": "x", "sha": other}, "title": "сборка", "body": "пример:\n```\nFixes #41\n```\nвсё"}}, True),
+            ("близнец: «prefixes #41» — не слово закрытия", {"p66": {"head": {"ref": "x", "sha": other}, "title": "сборка", "body": "prefixes #41"}}, True),
+            ("близнец: «Closes #9», #41 прозой дальше", {"p66": {"head": {"ref": "x", "sha": other}, "title": "сборка", "body": "Closes #9 после #41"}}, True)):
         rc, out, err, _ = pr.run("pr-body", args, pr.state(with_pulls(**pulls)), extra=extra)
         if want_closes:
             pr.ok("%s: Closes #41" % label_, rc == 0 and "Closes #41" in closes(out), out + err)
