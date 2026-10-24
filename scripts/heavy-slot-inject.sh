@@ -1006,7 +1006,9 @@ echo "── клон воркспейса: хук отправки, набор�
 # несёт profile= и why=; прочая нагрузка клона и прочие классы — без внешнего пути. Законный
 # близнец — клон kacho тем же механизмом уходит профилем своего класса.
 RW="$W/rclone-ws"; git init -q -b 1304-w "$RW"; git -C "$RW" remote add origin https://github.com/PRO-Robotech/kacho-workspace.git
-mkdir -p "$RW/scripts/tg" "$RW/scripts/hooks" "$RW/.claude/hooks/hg"
+mkdir -p "$RW/scripts/tg" "$RW/scripts/hooks" "$RW/.claude/hooks/hg" "$RW/scripts/lane-schedule" "$RW/scripts/lessons"
+for f in scripts/lane-tier.sh scripts/lessons/collect.sh; do printf '#!/usr/bin/env bash\necho %s\n' "$f" > "$RW/$f"; done
+printf 'print(1)\n' > "$RW/scripts/lane-schedule/lane-schedule.py"
 for f in scripts/tg/run-all.sh scripts/tg/inject.sh scripts/tg-inject.sh scripts/other.sh .claude/hooks/hg/prove.sh; do printf '#!/usr/bin/env bash\necho %s\n' "$f" > "$RW/$f"; done
 printf 'print(1)\n' > "$RW/scripts/tg/mutants.py"
 # shellcheck disable=SC2016  # текст хука раскрывает он сам
@@ -1075,6 +1077,26 @@ git init -q --bare "$W/bare-ws.git"; HLW="$W/hook-ws.log"; rm -f "$HLW" "$W/argv
 assert "0 1 ws kacho-workspace $((bp + 1)) 1" "$(RDIR="$RW" rslot env FAKE_EXEC=1 HOOK_LOG="$HLW" bash "$SLOT" ci-local -- git push -q "$W/bare-ws.git" HEAD:refs/heads/1304-w) $(grep -c '^job=1 ' "$HLW" 2>/dev/null) $(argv_of profile) $(argv_of repo) $(jn ' remote class=ci-local route=push profile=ws ') $(grep -F ' remote class=ci-local route=push profile=ws ' "$JL" | tail -n 1 | grep -c 'why=клон воркспейса, хук отправки — Job профиля ws who=')" "хук отправки воркспейса: Job профиля ws, хук исполнен там, строка remote с причиной"
 assert "0 external да" "$(route "$RW" ci-local -- git push origin HEAD) $(has "$W/out" 'профиль ws, репозиторий kacho-workspace')" "--route: отправка из клона воркспейса → external, профиль ws"
 assert "0 external да" "$(route "$RW" suite -- bash scripts/tg/run-all.sh) $(has "$W/out" 'профиль ws')" "--route: набор воркспейса классом suite → external, профиль ws"
+# Урок 2026-10-24 (ROUTE none, два случая): инструменты планирования — Job-ом профиля ws; сборщик
+# уроков — запись MACHINE (данные машины), в слоте машины; проба хука kaname — профилем ci-local
+# своего клона (урок dd5bdb48); gofmt клона продукта — Job (прежде нагрузка «не опознана», 77).
+assert "0 external да" "$(route "$RW" suite -- bash scripts/lane-tier.sh . origin/main HEAD) $(has "$W/out" 'ведомости PORTABLE scripts/lane-tier.sh')" "--route: lane-tier.sh в клоне воркспейса → external (запись PORTABLE)"
+assert "0 external да" "$(route "$RW" suite -- python3 scripts/lane-schedule/lane-schedule.py x.md) $(has "$W/out" 'ведомости PORTABLE scripts/lane-schedule/lane-schedule.py')" "--route: lane-schedule.py (python3) → external (запись PORTABLE)"
+assert "0 local да" "$(route "$RW" suite -- bash scripts/lessons/collect.sh status) $(has "$W/out" 'предмет — машина (scripts/lessons/collect.sh')" "--route: collect.sh → local, предмет — машина (запись MACHINE)"
+assert "0 none" "$(route "$RW" ci-local -- bash scripts/lessons/collect.sh status)" "близнец: collect.sh классом ci-local — вне записи (её класс suite) → none"
+R5="$W/rclone-kh"; git init -q -b 984-h "$R5"; git -C "$R5" remote add origin https://github.com/PRO-Robotech/kaname.git
+mkdir -p "$R5/scripts/hooks"; printf '#!/usr/bin/env bash\necho ok\n' > "$R5/scripts/hooks/branch-rule-inject.sh"; : > "$R5/scripts/hooks/pre-push"
+git -C "$R5" add -A; sandbox_git -C "$R5" commit -q -m kh
+assert "0 external да" "$(route "$R5" ci-local -- bash scripts/hooks/branch-rule-inject.sh) $(has "$W/out" 'профиль ci-local, репозиторий kaname')" "--route: проба хука kaname классом ci-local → external, профиль ci-local"
+assert "0 none" "$(route "$R5" ci-local -- bash scripts/hooks/pre-push)" "близнец: сам хук kaname — не проба (*-inject.sh) → none"
+assert "0 external" "$(route "$R" go-unit -- gofmt -l .)" "--route: gofmt -l классом go-unit в клоне kaname → external"
+assert "0 none" "$(route "$RW" go-unit -- gofmt -l .)" "близнец: gofmt в клоне воркспейса — класс go-unit без пути профиля ws → none"
+sed '\#^kacho-workspace|scripts/lane-tier.sh|ci-local,suite$#d' "$SLOT" > "$W/slot-mut-lt.sh"
+assert "1 0 none" "$(diff "$SLOT" "$W/slot-mut-lt.sh" | grep -c '^<') $(RSLOT="$W/slot-mut-lt.sh" route "$RW" suite -- bash scripts/lane-tier.sh)" "мутант «запись lane-tier.sh снята»: → none — утверждение external выше его ловит"
+sed "s#^scripts/lessons/collect.sh'\$#'#" "$SLOT" > "$W/slot-mut-lm.sh"
+assert "1 0 external" "$(diff "$SLOT" "$W/slot-mut-lm.sh" | grep -c '^<') $(RSLOT="$W/slot-mut-lm.sh" route "$RW" suite -- bash scripts/lessons/collect.sh status)" "мутант «collect.sh вне MACHINE»: → external (Job без журналов машины) — утверждение local выше его ловит"
+sed 's#^        go|gofmt|make|#        go|make|#' "$SLOT" > "$W/slot-mut-gf.sh"
+assert "1 0 none" "$(diff "$SLOT" "$W/slot-mut-gf.sh" | grep -c '^<') $(RSLOT="$W/slot-mut-gf.sh" route "$R" go-unit -- gofmt -l .)" "мутант «gofmt не опознан»: → none — утверждение external выше его ловит"
 sed 's#^        \*PRO-Robotech/kacho-workspace|\*PRO-Robotech/kacho-workspace\.git)$#        *PRO-Robotech/kacho-workspace-OFF)#' "$SLOT" > "$W/slot-mut-ws.sh"
 assert "1 0 none" "$(diff "$SLOT" "$W/slot-mut-ws.sh" | grep -c '^<') $(RSLOT="$W/slot-mut-ws.sh" route "$RW" suite -- bash scripts/tg/run-all.sh)" "мутант «маршрут воркспейса снят»: набор → none — утверждения выше (external, Job профиля ws) его ловят"
 # shellcheck disable=SC2016  # образец sed, раскрывать нечего

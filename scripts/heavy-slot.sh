@@ -1846,6 +1846,10 @@ ext_run() {
 # набором, здесь переносим, — перепись heavy-slot-inject (SUITE_NAME импортом guard.py, файлы — git
 # ls-files). Скрипт с python3 первым словом — слово после ключей интерпретатора. Сторона pod
 # читателей (scripts/remote-reader/pod.sh, ws#1365) — классом suite: её зовёт scripts/remote-reader.sh.
+# Инструменты планирования (урок 2026-10-24, два случая ROUTE none): lane-tier.sh и lane-schedule.py
+# читают лишь git и файлы дерева — Job их исполняет на коммите (вход — путь в дереве, не файл машины);
+# collect.sh — запись MACHINE ниже; проба хука kaname (scripts/hooks/*-inject.sh, урок dd5bdb48:
+# прежде — лишь обёрткой `make --eval`) — профилем ci-local его клона.
 PORTABLE='kaname|.github/scripts/run-integration.sh|integration
 kacho-workspace|scripts/*/run-all.sh|ci-local,suite
 kacho-workspace|scripts/*/run-suites.sh|ci-local,suite
@@ -1861,7 +1865,11 @@ kacho-workspace|scripts/*/check-*|ci-local,suite
 kacho-workspace|.claude/hooks/*/prove.sh|ci-local,suite
 kacho-workspace|.claude/hooks/*-inject.sh|ci-local,suite
 kacho-workspace|.claude/hooks/*/mutants.py|ci-local,suite
-kacho-workspace|scripts/remote-reader/pod.sh|suite'
+kacho-workspace|scripts/remote-reader/pod.sh|suite
+kacho-workspace|scripts/lane-tier.sh|ci-local,suite
+kacho-workspace|scripts/lane-schedule/lane-schedule.py|ci-local,suite
+kacho-workspace|scripts/lessons/collect.sh|suite
+kaname|scripts/hooks/*-inject.sh|ci-local'
 # MACHINE — пробы воркспейса, чей предмет — САМА машина (systemd --user и scope, cgroup памяти
 # машины, docker, память машины), а не дерево: Job их не воспроизводит, и в pod они дают не
 # вердикт, а чужое красное (живой прогон heavy-slot-inject.sh Job-ом ws 2026-10-22: «все слоты
@@ -1869,9 +1877,12 @@ kacho-workspace|scripts/remote-reader/pod.sh|suite'
 # устарела, и перепись heavy-slot-inject это называет. Внешнего пути у них нет по построению, и
 # перечень — ЗАКРЫТЫЙ законный локальный маршрут (решение диспетчера 2026-10-22, ws#1314): запись
 # идёт в слоте машины с доказательством «предмет — машина» (журнал: local … proof=машина: <путь>) и
-# лимитом памяти класса; прочее без внешнего пути — 77 (NO_ROUTE_TASK, ws#1301).
+# лимитом памяти класса; прочее без внешнего пути — 77 (NO_ROUTE_TASK, ws#1301). Предмет-машина — и
+# ДАННЫЕ машины: collect.sh (mark, rekey, status) читает журналы сессий ~/.claude/projects и пишет
+# ведомость уроков tmp/reports — в pod их нет (урок 2026-10-24: маршрута слота у сборщика не было).
 MACHINE='scripts/heavy-slot-inject.sh
-scripts/session-memcap-inject.sh'
+scripts/session-memcap-inject.sh
+scripts/lessons/collect.sh'
 # portable_script — 0, если слово нагрузки (PAY_I) — скрипт ведомости PORTABLE этого клона и класса;
 # PORT_REL — его путь в дереве клона.
 portable_script() {
@@ -1937,7 +1948,7 @@ route_static() {
     esac
     payload
     case "$PAY" in
-        go|make|golangci-lint|gosec|govulncheck|ci-local.sh) RS_KNOWN=1 ;;
+        go|gofmt|make|golangci-lint|gosec|govulncheck|ci-local.sh) RS_KNOWN=1 ;;
         git)
             if [ "$CLASS" != ci-local ] || ! git_push_form; then
                 WHY_LOCAL="команда «git» без push (не хук отправки) внешнего пути не имеет"; return 1
