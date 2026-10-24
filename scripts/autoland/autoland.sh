@@ -639,7 +639,7 @@ sync_main_clone() {  # запрос в main репозитория основн�
 # чтения или правки — строкой в исход, вливанием он не отменяется.
 LABELS=""
 drop_status_labels() {
-    local refs r n st ls l done_=() kept=()
+    local refs r n st l done_=() kept=()
     if ! "$GH" pr view "$PR" -R "$REPO" --json closingIssuesReferences > "$W/closing.json" 2> "$W/closing.err" \
         || ! refs="$(jq -r '.closingIssuesReferences[]? | .url // "" | capture("github\\.com/(?<r>[^/]+/[^/]+)/issues/(?<n>[0-9]+)") | "\(.r) \(.n)"' "$W/closing.json" 2>> "$W/closing.err")"; then
         LABELS="метки: закрываемые задачи не прочитаны — $(head -c 200 "$W/closing.err" | tr '\n' ' ')"; log "$LABELS"; return 0
@@ -650,17 +650,20 @@ drop_status_labels() {
         # открыта. Перечитывается до LABEL_TRIES раз через LABEL_WAIT с — лишь при базе-стволе.
         local try=1
         while :; do
-            if ! "$GH" api "repos/$r/issues/$n" > "$W/issue.json" 2> "$W/issue.err"; then st=unread; break; fi
+            if ! "$GH" api "repos/$r/issues/$n" < /dev/null > "$W/issue.json" 2> "$W/issue.err"; then st=unread; break; fi
             st="$(jq -r '.state // ""' "$W/issue.json")"
             [ "$st" = open ] && { [ "$PR_BASE" = main ] || [ "$PR_BASE" = master ]; } && [ "$try" -lt "$LABEL_TRIES" ] || break
             try=$((try + 1)); sleep "$LABEL_WAIT" & BG=$!; wait "$BG"; BG=""
         done
         [ "$st" != unread ] || { kept+=("$r#$n не прочитана"); continue; }
-        ls="$(jq -r '[.labels[]?.name | select(startswith("status:"))] | join(" ")' "$W/issue.json")"
-        [ "$st" = closed ] && [ -n "$ls" ] || continue
-        for l in $ls; do
-            if "$GH" issue edit "$n" -R "$r" --remove-label "$l" > /dev/null 2> "$W/label.err"; then done_+=("$r#$n −$l")
-            else kept+=("$r#$n $l: $(head -c 120 "$W/label.err" | tr '\n' ' ')"); fi
+        # Метки — построчно, а не словами: «status:needs review» иначе рассыпалась бы на две, и
+        # вторая («review») снялась бы чужой (возврат check-verifier к ws#1386).
+        local lbls=()
+        mapfile -t lbls < <(jq -r '.labels[]?.name | select(startswith("status:"))' "$W/issue.json")
+        [ "$st" = closed ] && [ "${#lbls[@]}" -gt 0 ] || continue
+        for l in "${lbls[@]}"; do
+            if "$GH" issue edit "$n" -R "$r" --remove-label "$l" < /dev/null > /dev/null 2> "$W/label.err"; then done_+=("$r#$n −«$l»")
+            else kept+=("$r#$n «$l»: $(head -c 120 "$W/label.err" | tr '\n' ' ')"); fi
         done
     done <<< "$refs"
     # Снимать нечего и сбоев нет — исход без строки (её «снято 0» читалось бы как итог снятия ветки).

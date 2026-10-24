@@ -30,7 +30,8 @@
 #   already      — запрос уже влит этой головой → merged, повторного вливания нет;
 #   labels       — после вливания `status:*` снят лишь с ЗАКРЫТОЙ задачи closingIssuesReferences,
 #                  прочие её метки и открытая задача нетронуты (ws#1386); labels-late: хостинг
-#                  закрыл задачу не сразу — метка снята перечтением;
+#                  закрыл задачу не сразу — метка снята перечтением; labels-space: метка с пробелом
+#                  снята целиком, «review» и «needs-status» на месте; labels-fail: отказ снятия — в исходе;
 #   fifo         — пауза 20 с, строка демона состояния в FIFO будит раньше: исход < 10 с;
 #   fifo-nowriter — демона состояния нет, FIFO без писателя: каждое ожидание кончается
 #                  паузой (timeout), исход merged с кодом 0; пауза БЫЛА — прошло не меньше
@@ -272,6 +273,7 @@ case "$1" in
     esac ;;
   issue)  # issue edit <N> -R <репо> --remove-label <метка> — снятие метки (ws#1386)
     [ "$2" = edit ] || { echo "двойник: gh issue $2 не моделируется" >&2; exit 1; }
+    if [ -f "$FX/label.fail" ] && grep -qxF -- "${7:-}" "$FX/label.fail"; then echo "двойник: метку «${7:-}» снять не удалось (HTTP 403)" >&2; exit 1; fi
     printf '%s %s\n' "$3" "${7:-}" >> "$FX/labels.removed" ;;
   pr)
     if [ "$2" = view ]; then cat "$FX/closing.json" 2>/dev/null || echo '{"closingIssuesReferences":[]}'; exit 0; fi
@@ -484,6 +486,23 @@ s_labels_late() {
     echo '{"state":"closed","labels":[{"name":"status:test"}]}' > "$FX/issue.41.json"; printf 'open\nclosed\n' > "$FX/issue.41.seq"
     AUTOLAND_LABEL_WAIT=0 run_al
     ok labels-late "закрытая со второго чтения задача — status:test снят" eval '[ "$RC" -eq 0 ] && [ "$(cat "$FX/labels.removed" 2>/dev/null)" = "41 status:test" ]'
+}
+# labels-space — метка с пробелом снимается целиком, соседняя «review» и метка со словом status
+# без префикса «status:» остаются (возврат check-verifier к ws#1386: перебор словами рассыпал метку).
+s_labels_space() {
+    new_fx labels-space
+    jq -n --arg r "$REPO" '{closingIssuesReferences: [{number: 41, url: "https://github.com/\($r)/issues/41"}]}' > "$FX/closing.json"
+    echo '{"state":"closed","labels":[{"name":"status:needs review"},{"name":"review"},{"name":"needs-status"}]}' > "$FX/issue.41.json"
+    AUTOLAND_LABEL_WAIT=0 run_al
+    ok labels-space "снята ровно «status:needs review», «review» и «needs-status» на месте" eval '[ "$RC" -eq 0 ] && [ "$(cat "$FX/labels.removed" 2>/dev/null)" = "41 status:needs review" ]'
+}
+# labels-fail — хостинг отказал в снятии: merged остаётся, отказ назван в исходе с меткой и текстом.
+s_labels_fail() {
+    new_fx labels-fail
+    jq -n --arg r "$REPO" '{closingIssuesReferences: [{number: 41, url: "https://github.com/\($r)/issues/41"}]}' > "$FX/closing.json"
+    echo '{"state":"closed","labels":[{"name":"status:test"}]}' > "$FX/issue.41.json"; echo 'status:test' > "$FX/label.fail"
+    AUTOLAND_LABEL_WAIT=0 run_al
+    ok labels-fail "merged, в исходе «не сняты» с меткой и текстом отказа" eval '[ "$RC" -eq 0 ] && st_is merged && st_has "не сняты: $REPO#41 «status:test»" && st_has "HTTP 403"'
 }
 s_fifo() {
     new_fx fifo; printf '3\n0\n' > "$FX/ci-read.sh.seq"
@@ -1389,7 +1408,7 @@ s_real_replica() {
 ALL=(s_green s_red s_moved_start s_moved_gates s_moved_merge s_allow_ok s_allow_bad s_stale s_mr_red s_timeout
      s_void s_void_twin s_ratelimit s_pr_unread s_draft s_closed s_already s_fifo s_fifo_nowriter s_args s_detach s_recipe
      s_prune s_prune_dirty s_prune_ahead s_prune_remote s_prune_origin_ahead s_prune_not_in_base s_prune_busy s_prune_busy_glob
-     s_prune_no_clone s_prune_readonly s_labels s_labels_late
+     s_prune_no_clone s_prune_readonly s_labels s_labels_late s_labels_space s_labels_fail
      s_ff s_ff_overlap s_ff_worktree s_ff_foreign s_ff_hang s_ff_epic s_lag s_lag_own s_lag_nofetch s_lag_hang
      s_start_stale s_head_sync
      s_status s_empty_code s_lp_head s_census s_guard s_static
@@ -1453,7 +1472,10 @@ mutant prune-no-clone-silent s_prune_no_clone 'if [ "$n_cl" -eq 0 ]; then' 'if f
 mutant prune-readonly-chmod-dropped s_prune_readonly '{ chmod -R u+w -- "$wt" 2>/dev/null; true; } \
                 && ' ''
 mutant labels-not-dropped s_labels 'drop_status_labels; [ -z "$LABELS" ]' 'LABELS=""; [ -z "$LABELS" ]'
-mutant labels-open-issue-too s_labels '[ "$st" = closed ] && [ -n "$ls" ] || continue' '[ -n "$ls" ] || continue'
+mutant labels-open-issue-too s_labels '[ "$st" = closed ] && [ "${#lbls[@]}" -gt 0 ] || continue' '[ "${#lbls[@]}" -gt 0 ] || continue'
+mutant labels-split-by-words s_labels_space 'mapfile -t lbls < <(jq -r '"'"'.labels[]?.name | select(startswith("status:"))'"'"' "$W/issue.json")' 'read -ra lbls <<< "$(jq -r '"'"'[.labels[]?.name | select(startswith("status:"))] | join(" ")'"'"' "$W/issue.json")"'
+mutant labels-prefix-as-substring s_labels_space 'select(startswith("status:"))' 'select(test("status"))'
+mutant labels-fail-not-in-outcome s_labels_fail '${kept[*]:+; не сняты: ${kept[*]}}' ''
 mutant labels-no-reread s_labels_late '&& [ "$try" -lt "$LABEL_TRIES" ] || break' '&& false || break'
 mutant prune-base-ancestor-dropped s_prune_not_in_base 'if ! git -C "$c" merge-base --is-ancestor "$HEAD" "origin/$base" 2>/dev/null; then' 'if false; then'
 mutant status-alive-by-kill0 s_detach '[[ "$1" =~ ^[0-9]+$ ]] || return 1
