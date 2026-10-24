@@ -196,9 +196,18 @@
 #                                        merge-readiness и scripts/lib (песочница
 #                                        пробы настоящего пути (д)); по умолчанию —
 #                                        этот воркспейс.
+#
+# На машине владельца — Job-ом внешнего кластера (ws#1365, scripts/remote-reader.sh: разбор — python3,
+# а машина не для прогонов, владелец 2026-10-22); здесь — в pod, на ранере конвейера, на стороне
+# pod драйвера и в локальном слоте. Из архива рецепта «ЗАПУСК» драйвер исполняет origin/main
+# LANDING_PRECHECK_WS, сверив архив с ним; ответы GitHub снимает машина, коды и вывод — читателя.
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -z "${KUBERNETES_SERVICE_HOST:-}" ] && [ "${GITHUB_ACTIONS:-}" != true ] && [ "${KACHO_REMOTE_READER_POD:-}" != 1 ] &&
+   [ -z "${HEAVY_SLOT_P:-}" ]; then
+    exec bash "$HERE/remote-reader.sh" scripts/landing-precheck.sh "$@"
+fi
 WS="${LANDING_PRECHECK_WS:-$(cd "$HERE/.." && pwd)}"
 GH="${LANDING_PRECHECK_GH:-gh}"
 

@@ -221,6 +221,7 @@
 #   GI1 ci-local отправкой при корневой учётке копии → имя и адрес в окружении run,
 #      шаг записи до exec, адрес не напечатан (ws#1115, отправка 853)
 #      GI1-env — имена окружения всех контейнеров Job из разрешённого списка;
+#      GI1-origin — адрес origin клона pod публичный, из имени репозитория (ws#1301);
 #      GI1-decoy — signingkey, credential.helper, http.extraHeader, insteadOf,
 #      include.path корневого gitconfig до Job и вывода не доходят
 #   NC2-update обновление опубликованной ветки: удалённый sha ненулевой, ветка влила
@@ -272,6 +273,11 @@
 #   WS1–WS6 профиль ws клона воркспейса (ws#1304): Job — образ продуктов, клоны продуктов, среда
 #      наборов, её сверка и команда от runner; пара профиля и репозитория; пин shellcheck; сверка
 #      среды, читатель трекера и установка с пином суммы исполнением (подробно — у случаев)
+#   KD1–KD9 профиль kind (ws#1385, kind.sh): пара профиля — лишь клоны внешних операторов
+#      (kind + kacho → 64); Job — hostUsers узла и privileged лишь у dind, проба допуска от
+#      имени job-controller до Job, проба исполнимости kind в pod (исполнением шага над
+#      двойником docker); исполненная команда — её код (0 и 1), отказ допуска и «kind не
+#      исполним» — 77, допуск не проверен и образ пробы не скачан — 69; близнецы go-race
 #   L0 двойник сам печатает адрес и IPv4   → да (контроль пробы утечки)
 #   L0b двойник печатает адреса pod в stdout лога → да (контроль F4)
 #   L1 вывод всех случаев без адреса сервера, IPv4/IPv6 узлов и pod, токена,
@@ -303,6 +309,9 @@ export LC_ALL=C
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # REMOTE_HEAVY_RUN — испорченная копия run.sh от mutants.sh; иначе run.sh рядом.
 RUN="${REMOTE_HEAVY_RUN:-$SELF_DIR/run.sh}"
+# Профиль kind run.sh подключает рядом с собой; копия run.sh (mutants.py, QE) лежит вне
+# каталога — каталог kind.sh ей даётся явно.
+export REMOTE_HEAVY_KIND_DIR="${REMOTE_HEAVY_KIND_DIR:-$SELF_DIR}"
 BOX="$(mktemp -d)" || { echo "inject: каталог пробы не создан" >&2; exit 2; }
 trap 'rm -rf -- "$BOX"' EXIT
 
@@ -349,13 +358,15 @@ mkdir -p "$S/ns" "$S/jobs"
 mkdir -p "$S/ns" "$S/jobs"
 echo "$*" >> "$S/calls"
 echo "Warning: cluster https://$FAKE_HOST:6443 ($FAKE_IP) answered slowly" >&2
-ns=""; sel=""; all=0; ctx=""; kcfg=""
+ns=""; sel=""; all=0; ctx=""; kcfg=""; dry=""; as=""
 args=()
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --kubeconfig) kcfg="$2"; shift 2 ;;
         --context) ctx="$2"; shift 2 ;;
         --request-timeout=*|--field-selector=*|--wait=*|--timeout=*) shift ;;
+        --dry-run=*) dry="${1#--dry-run=}"; shift ;;
+        --as=*) as="${1#--as=}"; shift ;;
         -n) ns="$2"; shift 2 ;;
         -l) sel="$2"; shift 2 ;;
         -o) shift 2 ;;
@@ -392,6 +403,19 @@ case "$1" in
             echo "Error from server (Forbidden): admission webhook denied the request: policy host-access-allowlist (context $ctx)" >&2; exit 1 ;;
         esac ;;
 esac
+# Пробный create (профиль kind, ws#1385): допуск pod от имени --as; FAKE_ADMISSION — deny
+# (политика отказала), down (сервер не ответил).
+if [ "$1" = create ] && [ -n "$dry" ]; then
+    printf '%s %s %s\n' "$dry" "$as" "$(jq -r '.kind + " " + ((.spec.containers // []) | map(.name) | join(","))' "$3")" >> "$S/dryrun"
+    case "${FAKE_ADMISSION:-}" in
+        deny) echo "Error from server (Forbidden): error when creating \"$3\": pods \"run-x\" is forbidden: ValidatingAdmissionPolicy 'host-access-allowlist' with binding 'host-access-allowlist' denied request: host access for pod requested by $as" >&2; exit 1 ;;
+        down) echo "Unable to connect to the server: dial tcp $FAKE_IP:6443: i/o timeout" >&2; exit 1 ;;
+        noimp) echo "Error from server (Forbidden): serviceaccounts \"job-controller\" is forbidden: User \"probe\" cannot impersonate resource \"serviceaccounts\" in API group \"\" in the namespace \"kube-system\"" >&2; exit 1 ;;
+        warn) echo "Warning: would violate PodSecurity \"restricted:latest\": privileged (container \"dind\" must not set securityContext.privileged=true)" >&2
+              echo "Error from server (Forbidden): error when creating \"$3\": pods \"run-x\" is forbidden: violates PodSecurity \"baseline:latest\": privileged (container \"dind\" must not set securityContext.privileged=true)" >&2; exit 1 ;;
+    esac
+    echo "pod/run-x"; exit 0
+fi
 case "$1 ${2:-}" in
     "config get-contexts") jq -r '.contexts[].name' "$kcfg" ;;
     "config view") printf 'https://%s:6443' "$FAKE_HOST" ;;
@@ -427,6 +451,9 @@ case "$1 ${2:-}" in
             cp "$3" "$S/netpol.json"
         else
             cp "$3" "$S/job.json"
+            # FAKE_MOVE_REF «клон|ссылка|sha» — ссылку клона перевели между сверкой и сборкой
+            # bundle (профиль kind, ws#1385): run.sh обязан отказать, а не унести иное.
+            if [ -n "${FAKE_MOVE_REF:-}" ]; then IFS='|' read -r mv_d mv_r mv_s <<< "$FAKE_MOVE_REF"; git -C "$mv_d" update-ref "$mv_r" "$mv_s"; fi
             # FAKE_SWAP_AFTER_JOB — файл кубконфига сменился после создания Job: следующая
             # фаза записи переписывает узлы заново (AL5w).
             if [ -n "${FAKE_SWAP_AFTER_JOB:-}" ]; then echo ' ' >> "$FAKE_SWAP_AFTER_JOB"; fi
@@ -1338,6 +1365,16 @@ jobs: {}
 '
 ws_rev scnone 'jobs: {}
 '
+ws_rev scjob 'jobs:
+  t:
+    env:
+      SHELLCHECK_VERSION: "0.11.0"
+    runs-on: ubuntu-latest
+'
+ws_rev scsq "env:
+  SHELLCHECK_VERSION: '0.11.0'  # пин
+jobs: {}
+"
 mapfile -t PPROFS < <(sed -n "/^PROFILES='/,/'\$/p" "$RUN" | sed -e "s/^PROFILES='//" | cut -d'|' -f1 | grep -E '^[a-z][a-z0-9-]*$')
 if [ "${#PPROFS[@]}" -ge 4 ]; then ok; else bad P8 "профилей в таблице run.sh прочитано ${#PPROFS[@]} (ждали не меньше 4) — судить нечем"; fi
 for prof in "${PPROFS[@]}"; do
@@ -1834,6 +1871,8 @@ else ok; fi
 GI_NAME="Probe Signer"; GI_EMAIL="probe-signer@example.invalid"
 printf '[user]\n\tname = %s\n\temail = %s\n' "$GI_NAME" "$GI_EMAIL" > "$BOX/gi.cfg"; : > "$BOX/gi-empty.cfg"
 gi_in() { awk '/^# gitid-begin$/ { b = NR } /^# gitid-end$/ { m = NR } /^heavy_cmd "\$@"$/ { e = NR } END { exit !(b && m && e && b < m && m < e) }' "$1"; }
+# origin копии несёт учётку в URL: GI1-origin ниже судит, что адрес pod собран из имени, а не скопирован
+git -C "$SRC" remote add origin "https://tok:secret@github.com/PRO-Robotech/kaname.git"
 fresh
 go_run gi1 env FAKE_EXIT=0 GIT_CONFIG_GLOBAL="$BOX/gi.cfg" bash "$RUN" --task 1 --repo kaname --ref HEAD --src "$SRC" --profile ci-local --short gi1 --push-input "$PUSH_LINE" -- true
 expect_rc GI1 0
@@ -1843,8 +1882,15 @@ else OUT="$BOX/state/job.json"; bad GI1 "учётка не дошла до ок�
 if gi_in "$BOX/gi1.cmd"; then ok; else OUT="$BOX/gi1.cmd"; bad GI1 "шага записи учётки перед командой в Job ci-local нет"; fi
 if grep -qF "$GI_EMAIL" "$BOX/gi1.out"; then bad GI1 "адрес учётки напечатан в выводе run.sh"; else ok; fi
 # GI1-env: состав окружения КАЖДОГО контейнера Job — только разрешённые имена (до
-#     правки учётки и вход pre-push плюс HEAVY_GIT_NAME/EMAIL); envFrom нет
-GI_ALLOW="CI DOCKER_HOST GOCACHE GOLANGCI_LINT_CACHE GOMODCACHE GOTOOLCHAIN HEAVY_BUF HEAVY_DENY_PROBE HEAVY_GIT_EMAIL HEAVY_GIT_NAME HEAVY_HELM HEAVY_MAIN HEAVY_NODE HEAVY_PULL HEAVY_PUSH_INPUT HEAVY_SHA HEAVY_WORKDIR HEAVY_YQ TESTCONTAINERS_RYUK_DISABLED"
+#     правки учётки и вход pre-push плюс HEAVY_GIT_NAME/EMAIL, адрес origin клона pod —
+#     HEAVY_ORIGIN, ws#1301); envFrom нет
+GI_ALLOW="CI DOCKER_HOST GOCACHE GOLANGCI_LINT_CACHE GOMODCACHE GOTOOLCHAIN HEAVY_BUF HEAVY_DENY_PROBE HEAVY_GIT_EMAIL HEAVY_GIT_NAME HEAVY_HELM HEAVY_MAIN HEAVY_NODE HEAVY_ORIGIN HEAVY_PULL HEAVY_PUSH_INPUT HEAVY_SHA HEAVY_WORKDIR HEAVY_YQ TESTCONTAINERS_RYUK_DISABLED"
+# GI1-origin: адрес origin клона pod — публичный адрес репозитория, собранный из его имени, а
+#     не взятый из origin копии (тот может нести учётку в URL): как у checkout конвейера.
+gi_origin="$(kx env "$BOX/state/job.json" fetch HEAVY_ORIGIN)"
+if [ "$gi_origin" = "https://github.com/PRO-Robotech/kaname.git" ]; then ok
+else bad GI1-origin "адрес origin клона pod не публичный адрес kaname без учётки (пуст: $([ -z "$gi_origin" ] && echo да || echo нет), учётка в нём: $(case "$gi_origin" in *@*) echo да ;; *) echo нет ;; esac))"; fi
+git -C "$SRC" remote remove origin
 gi_extra="$(jq -r --arg a "$GI_ALLOW" '($a | split(" ")) as $al | [.spec.template.spec | (.containers[]?, .initContainers[]?) | (.env[]?.name), (if .envFrom then "envFrom" else empty end)] | unique | map(select(IN($al[]) | not)) | join(" ")' "$BOX/state/job.json" 2>/dev/null)" || gi_extra="(spec не разобран)"
 if [ -z "$gi_extra" ]; then ok; else bad GI1-env "в окружении Job имена вне разрешённого списка: $gi_extra"; fi
 # GI1-decoy: корневой gitconfig копии несёт приманки — ключ подписи, помощник
@@ -3862,6 +3908,19 @@ if grep -q 'пин shellcheck на .* — 0.10.0' "$OUT"; then ok; else bad WS3-
 fresh; go_run ws3-none env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kacho-workspace --ref scnone --src "$SRCW" --profile ws --short ws3 -- true
 expect_rc WS3-none 69; no_cluster_call WS3-none
 if grep -q 'env.SHELLCHECK_VERSION конвейера нет' "$OUT"; then ok; else bad WS3-none "причина не названа (пина нет)"; fi
+# env ЗАДАНИЯ — не пин конвейера: верхнеуровневого нет → 69 «пина нет» (законный близнец — scsq)
+fresh; go_run ws3-jobenv env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kacho-workspace --ref scjob --src "$SRCW" --profile ws --short ws3 -- true
+expect_rc WS3-jobenv 69; no_cluster_call WS3-jobenv
+if grep -q 'env.SHELLCHECK_VERSION конвейера нет' "$OUT"; then ok; else bad WS3-jobenv "env задания прочитан пином конвейера"; fi
+# Пин в одинарных кавычках с комментарием строки — тот же 0.11.0, и python3 машины драйвер профиля
+# ws не зовёт (ws#1365: страж демона вливания отказывает python3 маршруту читателей) — ловушка
+# python3/python первой в PATH, путь до Job тот же, что у WS1.
+mkdir -p "$BOX/pytrap"; : > "$BOX/pytrap.log"
+# shellcheck disable=SC2016  # текст ловушки: $0 и $* раскрывает она сама при запуске, не здесь
+for p in python3 python; do printf '#!/usr/bin/env bash\necho "$0 $*" >> %q\nexit 97\n' "$BOX/pytrap.log" > "$BOX/pytrap/$p"; chmod +x "$BOX/pytrap/$p"; done
+fresh; go_run ws3-nopy env PATH="$BOX/pytrap:$BOX/bin:$PATH" FAKE_EXIT=0 bash "$RUN" --task 1 --repo kacho-workspace --ref scsq --src "$SRCW" --profile ws --short ws3 -- true
+expect_rc WS3-nopy 0
+if [ ! -s "$BOX/pytrap.log" ]; then ok; else bad WS3-nopy "драйвер профиля ws исполнил python3 на машине: $(head -n 2 "$BOX/pytrap.log" | tr '\n' ' ')"; fi
 # WS4 — сверка среды исполнением над поддельным PATH образа
 sed -n '/^# wscheck-begin$/,/^# wscheck-end$/p' "$BOX/ws1.cmd" | sed "s#/dev/termination-log#$BOX/wtl#g" > "$BOX/wscheck.sh"
 if grep -q '^# wscheck-end$' "$BOX/wscheck.sh"; then ok; else OUT="$BOX/ws1.cmd"; bad WS4 "текста сверки среды воркспейса в Job нет — исполнять нечего"; fi
@@ -3985,6 +4044,252 @@ ws6_case WS6-yqsum 125 "yq v4.45.4 не поставлен" WSC_BAD=yq
 ws6_case WS6-scsum 125 "shellcheck 0.11.0 не поставлен" WSC_BAD=sc
 ws6_case WS6-batssum 125 "bats-core 1.10.0 не поставлен" WSC_BAD=bats
 ws6_case WS6-down 125 "yq v4.45.4 не поставлен" WSC_DOWN=1
+
+# ── KD: профиль kind (ws#1385, kind.sh) ──────────────────────────────────────
+# Личность оператора (Ф1, Ф2) у клона пробы своя: таблица KIND_OPERATORS kind.sh подменяется
+# фикстурой — модуль и корень клона пробы, канонический — голый репозиторий в каталоге пробы
+# с ветками клона. Прочее в kind.sh — дословно, как в дереве.
+KDLIB="$BOX/kindlib"; KDDOWN="$BOX/kindlib-down"; mkdir -p "$KDLIB" "$KDDOWN"
+git init -q --bare "$BOX/canon.git"
+git -C "$SRC" push -q "$BOX/canon.git" 'refs/heads/*:refs/heads/*'
+kd_root="$(git -C "$SRC" rev-list --max-parents=0 HEAD | head -n 1)"
+kd_lib() {  # kd_lib <каталог> <канонический>
+    awk -v row="registry-operator|example.com/x|$kd_root|$2" '
+      /^# kind-operators-begin$/ { print; print "KIND_OPERATORS=\x27" row "\x27"; skip = 1; next }
+      /^# kind-operators-end$/ { skip = 0 } !skip' "$SELF_DIR/kind.sh" > "$1/kind.sh"
+}
+kd_lib "$KDLIB" "$BOX/canon.git"; kd_lib "$KDDOWN" "$BOX/no-such-canon.git"
+if grep -q "^KIND_OPERATORS='registry-operator|example.com/x|$kd_root|" "$KDLIB/kind.sh" && ! grep -q '39f27cd75c3c' "$KDLIB/kind.sh" \
+   && [ "$(grep -c '^kind_identity()' "$KDLIB/kind.sh")" = 1 ]; then ok; else OUT="$KDLIB/kind.sh"; bad KD-premise "фикстура таблицы личности не собрана"; fi
+# Таблица дерева — три оператора KIND_REPOS, у каждого модуль github.com/PRO-Robotech/<имя>,
+# корень — 40 знаков, канонический назван.
+kd_tab="$(sed -n '/^# kind-operators-begin$/,/^# kind-operators-end$/p' "$SELF_DIR/kind.sh" | grep -cE '^(KIND_OPERATORS=.)?(vault-operator|kaname-iam-operator|registry-operator)\|github\.com/PRO-Robotech/(vault-operator|kaname-iam-operator|registry-operator)\|[0-9a-f]{40}\|[^|]+$')"
+if [ "$kd_tab" = 3 ]; then ok; else bad KD-table "строк таблицы личности дерева годной формы $kd_tab, ждали 3"; fi
+export REMOTE_HEAVY_KIND_DIR="$KDLIB"
+# KD1 — пара профиля: kind лишь клонам внешних операторов; продукт — 64 с причиной (ПОВЕРХНОСТЬ)
+fresh; go_run kd1 bash "$RUN" --request --profile kind --repo kacho
+expect_rc KD1 64
+if grep -q 'профиль kind — лишь для клонов внешних операторов' "$OUT"; then ok; else bad KD1 "причина отказа пары kind + kacho не названа"; fi
+fresh; go_run kd1b bash "$RUN" --request --profile kind --repo registry-operator
+expect_rc KD1b 0
+if grep -qE '^[1-9][0-9]* [1-9][0-9]*$' "$OUT"; then ok; else bad KD1b "запрос профиля kind не «mCPU МиБ»"; fi
+fresh; go_run kd1c bash "$RUN" --task 1 --repo kaname --ref HEAD --src "$SRC" --profile kind --short kd1c -- true
+expect_rc KD1c 64
+no_cluster_call KD1c
+# KD2 — Job профиля kind: hostUsers узла, privileged лишь у dind, dind — runc без проверки userns,
+# run — проба исполнимости kind вместо проверки userns; допуск — пробным pod от имени
+# job-controller ДО Job. Исполненная команда — её код (0 — зелёное).
+fresh; go_run kd2 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$SRC" --profile kind --short kd2 -- make test-e2e
+expect_rc KD2 0
+J="$BOX/state/job.json"; cp "$J" "$BOX/kd2.job.json" 2>/dev/null
+if [ "$(jq -r '.spec.template.spec.hostUsers' "$J" 2>/dev/null)" = true ]; then ok; else bad KD2 "hostUsers Job профиля kind — не true"; fi
+if [ "$(jq -c '[.spec.template.spec.initContainers[], .spec.template.spec.containers[]] | map(select(.securityContext.privileged == true) | .name)' "$J" 2>/dev/null)" = '["dind"]' ]; then ok
+else bad KD2 "privileged — не ровно у dind: $(jq -c '[.spec.template.spec.initContainers[], .spec.template.spec.containers[]] | map(select(.securityContext.privileged == true) | .name)' "$J" 2>/dev/null)"; fi
+kd_dind="$(kx cmd "$J" dind 2)"; kd_prep="$(kx cmd "$J" run 2)"
+if grep -q 'exec dockerd' <<< "$kd_dind" && ! grep -q 'crun' <<< "$kd_dind" && ! grep -q 'remote-heavy-userns' <<< "$kd_dind"; then ok; else bad KD2 "dind профиля kind — не dockerd на runc без проверки userns"; fi
+if grep -q '^# kind-begin$' <<< "$kd_prep" && ! grep -q 'remote-heavy-userns' <<< "$kd_prep"; then ok; else bad KD2 "run профиля kind — без пробы kind либо с проверкой userns"; fi
+if [ "$(kx env "$J" run HEAVY_KIND_PROBE)" = alpine:3 ]; then ok; else bad KD2 "образ пробы kind не дан run по имени docker.io (HEAVY_KIND_PROBE)"; fi
+if grep -q '^server system:serviceaccount:kube-system:job-controller Pod .*run' "$BOX/state/dryrun" 2>/dev/null; then ok
+else bad KD2 "пробного pod от имени job-controller (--dry-run=server) не было: $(cat "$BOX/state/dryrun" 2>/dev/null)"; fi
+if grep -n -- '--dry-run=server' "$BOX/state/calls" | head -n 1 | cut -d: -f1 | { read -r d; j="$(grep -n 'create -f .*job.json' "$BOX/state/calls" | grep -v -- '--dry-run' | head -n 1 | cut -d: -f1)"; [ -n "$d" ] && [ -n "$j" ] && [ "$d" -lt "$j" ]; }; then ok
+else bad KD2 "проба допуска — не раньше создания Job"; fi
+if grep -q 'допуск pod профиля kind: принят от имени job-controller' "$OUT"; then ok; else bad KD2 "строки допуска нет"; fi
+if [ "$(jq -r '.spec.template.spec.initContainers[] | select(.name == "dind") | .resources.limits.memory' "$J" 2>/dev/null)" = 12Gi ]; then ok; else bad KD2 "предел памяти dind профиля kind — не KIND_DIND_RES (12Gi)"; fi
+# KD2-sha — ревизия, которую fetch сверяет с HEAD дерева в pod, — та, что прошла сверку личности
+if [ "$(kx env "$J" fetch HEAVY_SHA)" = "$(git -C "$SRC" rev-parse HEAD)" ]; then ok; else bad KD2-sha "HEAVY_SHA fetch не равен проверенной ревизии"; fi
+# KD2-deadline — срок Job профиля kind: --timeout по умолчанию (5400) + WAIT_START_S (1800)
+if [ "$(jq -r '.spec.activeDeadlineSeconds // empty' "$J" 2>/dev/null)" = 7200 ] && [ "$(jq -r '.spec.backoffLimit' "$J" 2>/dev/null)" = 0 ]; then ok
+else bad KD2-deadline "срок Job профиля kind — не 7200 с либо backoffLimit не 0: $(jq -c '{d: .spec.activeDeadlineSeconds, b: .spec.backoffLimit}' "$J" 2>/dev/null)"; fi
+# KD2-quota — квота ns профиля kind: один Job, два pod, пределы памяти — run (17408) + dind
+# KIND_DIND_RES (12288) + 2048 запаса = 31744 МиБ; LimitRange с умолчаниями контейнера
+A="$BOX/state/applied.json"
+if [ "$(jq -r '.items[] | select(.kind == "ResourceQuota") | [.spec.hard.pods, .spec.hard["count/jobs.batch"], .spec.hard["limits.memory"]] | join(" ")' "$A" 2>/dev/null)" = "2 1 31744Mi" ]; then ok
+else bad KD2-quota "квота ns профиля kind не та: $(jq -c '.items[] | select(.kind == "ResourceQuota") | .spec.hard' "$A" 2>/dev/null)"; fi
+if [ "$(jq -r '.items[] | select(.kind == "LimitRange") | .spec.limits[] | select(.type == "Container") | [.default.memory, .defaultRequest.memory] | join(" ")' "$A" 2>/dev/null)" = "1Gi 128Mi" ]; then ok
+else bad KD2-limitrange "LimitRange ns профиля kind не поставлен либо не тот: $(jq -c '.items[] | select(.kind == "LimitRange")' "$A" 2>/dev/null)"; fi
+# KD2-twin — тот же клон профилем go-race: hostUsers false, dind без privileged, проверка userns,
+# пробы kind и пробного pod нет
+fresh; go_run kd2t env FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$SRC" --profile go-race --short kd2t -- make test
+expect_rc KD2-twin 0
+J="$BOX/state/job.json"
+if [ "$(jq -r '.spec.template.spec.hostUsers' "$J" 2>/dev/null)" = false ] \
+   && [ "$(jq -c '[.spec.template.spec.initContainers[], .spec.template.spec.containers[]] | map(select(.securityContext.privileged == true)) | length' "$J" 2>/dev/null)" = 0 ]; then ok
+else bad KD2-twin "go-race: hostUsers не false либо есть privileged"; fi
+if grep -q 'remote-heavy-userns' <<< "$(kx cmd "$J" run 2)" && ! grep -q '^# kind-begin$' <<< "$(kx cmd "$J" run 2)"; then ok; else bad KD2-twin "go-race: нет проверки userns либо есть проба kind"; fi
+if [ ! -s "$BOX/state/dryrun" ]; then ok; else bad KD2-twin "go-race звал пробный pod допуска"; fi
+# KD3 — kind исполнен, команда красная: код команды проходит как есть (вердикт, не 77)
+fresh; go_run kd3 env FAKE_EXIT=1 bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$SRC" --profile kind --short kd3 -- make test-e2e
+expect_rc KD3 1
+expect_ns_gone KD3 t1-heavy-kd3
+# KD4 — kind в pod не исполним (строка «remote-heavy-kind:» в termination-log run) → 77, не красное
+fresh; go_run kd4 env FAKE_EXIT=125 FAKE_MSG="remote-heavy-kind: вложенный privileged-контейнер не исполним, узел kind не встанет (код 126): OCI runtime create failed: mount sysfs to sys: Operation not permitted" \
+    bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$SRC" --profile kind --short kd4 -- make test-e2e
+expect_rc KD4 77
+if grep -q 'kind в pod не исполним — вложенный privileged-контейнер' "$OUT" && grep -q 'не выполнилось' "$OUT"; then ok; else bad KD4 "отказ kind не назван «не выполнилось» с причиной"; fi
+expect_ns_gone KD4 t1-heavy-kd4
+# KD5 — допуск отказан (политика кластера) → 77 ДО Job, ns снято; близнец KD5-down — допуск не
+# проверен (сервер не ответил) → 69, не 77
+fresh; go_run kd5 env FAKE_ADMISSION=deny FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$SRC" --profile kind --short kd5 -- make test-e2e
+expect_rc KD5 77
+if [ ! -e "$BOX/state/job.json" ]; then ok; else bad KD5 "Job создан после отказа допуска"; fi
+if grep -q 'допуск pod профиля kind отказан кластером: .*host-access-allowlist' "$OUT"; then ok; else bad KD5 "текст отказа допуска не процитирован"; fi
+expect_ns_gone KD5 t1-heavy-kd5
+fresh; go_run kd5d env FAKE_ADMISSION=down FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$SRC" --profile kind --short kd5d -- make test-e2e
+expect_rc KD5-down 69
+if [ ! -e "$BOX/state/job.json" ]; then ok; else bad KD5-down "Job создан при непроверенном допуске"; fi
+# KD5-noimp — нет права выдать себя за job-controller (Forbidden о самозванстве) → 69, не 77
+fresh; go_run kd5i env FAKE_ADMISSION=noimp FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$SRC" --profile kind --short kd5i -- make test-e2e
+expect_rc KD5-noimp 69
+if grep -q 'допуск pod профиля kind не проверен: .*cannot impersonate' "$OUT"; then ok; else bad KD5-noimp "отказ самозванства не назван «не проверен»"; fi
+# KD5-warn — перед отказом PodSecurity сервер печатает предупреждение: цитируется строка отказа
+fresh; go_run kd5w env FAKE_ADMISSION=warn FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$SRC" --profile kind --short kd5w -- make test-e2e
+expect_rc KD5-warn 77
+if grep -q 'отказан кластером: Error from server (Forbidden): .*violates PodSecurity' "$OUT"; then ok; else bad KD5-warn "процитировано предупреждение, а не отказ"; fi
+# KD6 — сервер снял privileged у fetch (вебхук правит pod): privileged сверх запроса — 69 и в kind
+fresh; go_run kd6 env FAKE_EXIT=0 FAKE_POD_MUT=privileged bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$SRC" --profile kind --short kd6 -- make test-e2e
+expect_rc KD6 69
+if grep -q 'контейнер fetch: privileged без запроса' "$OUT"; then ok; else bad KD6 "privileged у fetch не назван расхождением"; fi
+# KF1 — Ф1: подмена --src — клон kacho (модуль github.com/PRO-Robotech/kacho) при разрешённом
+# --repo registry-operator и таблице ДЕРЕВА → 64 до кластера, причина — модуль
+KC="$BOX/kf-kacho"; git init -q "$KC"; printf 'module github.com/PRO-Robotech/kacho\n\ngo 1.26.0\n' > "$KC/go.mod"
+git -C "$KC" add -A; sandbox_git -C "$KC" commit -q -m kacho
+fresh; go_run kf1 env REMOTE_HEAVY_KIND_DIR="$SELF_DIR" FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$KC" --profile kind --short kf1 -- make test-e2e
+expect_rc KF1 64
+if grep -q 'клон --src не registry-operator — модуль go.mod ревизии «github.com/PRO-Robotech/kacho»' "$OUT"; then ok; else bad KF1 "причина отказа (модуль) не названа"; fi
+no_cluster_call KF1
+# KF1-root — модуль совпал, история чужая (свой корень) → 64, причина — корень
+K2="$BOX/kf-alien"; git init -q "$K2"; cp "$SRC/go.mod" "$K2/go.mod"; git -C "$K2" add -A; sandbox_git -C "$K2" commit -q -m alien
+fresh; go_run kf1r env FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$K2" --profile kind --short kf1r -- make test-e2e
+expect_rc KF1-root 64
+if grep -q 'история ревизии не начинается корнем registry-operator' "$OUT"; then ok; else bad KF1-root "причина отказа (корень) не названа"; fi
+no_cluster_call KF1-root
+# KF1-twin — свой клон и своя таблица: личность сверена (строка Ф1, Ф2) — уже в KD2
+if grep -q 'профиль kind: исходники — registry-operator (модуль и корень сверены)' "$BOX/kd2.out"; then ok; else OUT="$BOX/kd2.out"; bad KF1-twin "строки сверки личности в законном прогоне нет"; fi
+# KF2 — Ф2: локальный коммит, не отправленный в канонический → 64 до кластера; он же под
+# refs/pull/* канонического → 64; он же в ветке канонического → прогон идёт (0)
+git -C "$SRC" checkout -q -b kf2; echo kf2 > "$SRC/kf2.txt"; git -C "$SRC" add kf2.txt; sandbox_git -C "$SRC" commit -q -m kf2; git -C "$SRC" checkout -q -
+fresh; go_run kf2 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref kf2 --src "$SRC" --profile kind --short kf2 -- make test-e2e
+expect_rc KF2 64
+if grep -q 'не достижима ни из одной ветки канонического registry-operator' "$OUT"; then ok; else bad KF2 "причина отказа (ветка канонического) не названа"; fi
+no_cluster_call KF2
+git -C "$SRC" push -q "$BOX/canon.git" kf2:refs/pull/1/head
+fresh; go_run kf2p env FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref kf2 --src "$SRC" --profile kind --short kf2p -- make test-e2e
+expect_rc KF2-pull 64
+no_cluster_call KF2-pull
+git -C "$SRC" push -q "$BOX/canon.git" kf2:refs/heads/kf2
+fresh; go_run kf2t env FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref kf2 --src "$SRC" --profile kind --short kf2t -- make test-e2e
+expect_rc KF2-twin 0
+# KF2-down — канонический не ответил → 69 («не проверено»), не 64 и не 0
+fresh; go_run kf2d env REMOTE_HEAVY_KIND_DIR="$KDDOWN" FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$SRC" --profile kind --short kf2d -- make test-e2e
+expect_rc KF2-down 69
+no_cluster_call KF2-down
+# Прежняя сверка (ls-remote из клона, замены объектов в силе, состояние клона не судится) —
+# библиотека KDOLD: на ней сцены KF3 и KF4 обязаны ПРОЙТИ, иначе их красное новой сверки ничего
+# не доказывает (проба не пуста).
+KDOLD="$BOX/kindlib-old"; mkdir -p "$KDOLD"
+# shellcheck disable=SC2016  # $ в образцах sed — буквы текста kind.sh, не подстановка
+sed -e 's#heads="$(kind_ls_remote "$canon")"#heads="$(git -C "$src" ls-remote "$canon" '"'"'refs/heads/*'"'"' 2>/dev/null)"#' \
+    -e 's# GIT_NO_REPLACE_OBJECTS=1 \\$# \\#' \
+    -e 's#if kind_history_forged "$src"; then#if false; then#' "$KDLIB/kind.sh" > "$KDOLD/kind.sh"
+if [ "$(diff "$KDLIB/kind.sh" "$KDOLD/kind.sh" | grep -c '^<')" = 3 ]; then ok; else OUT="$KDOLD/kind.sh"; bad KF-old-premise "прежняя сверка не собрана ровно тремя заменами"; fi
+kf3_sha="$(git -C "$SRC" checkout -q -b kf3 && echo kf3 > "$SRC/kf3.txt" && git -C "$SRC" add kf3.txt && sandbox_git -C "$SRC" commit -q -m kf3 && git -C "$SRC" rev-parse HEAD; git -C "$SRC" checkout -q -)"
+# KF3 — insteadOf клона подменяет канонический своим голым репозиторием с локальным коммитом → 64
+git init -q --bare "$BOX/evil.git"; git -C "$SRC" push -q "$BOX/evil.git" 'refs/heads/*:refs/heads/*'
+git -C "$SRC" config "url.$BOX/evil.git.insteadOf" "$BOX/canon.git"
+fresh; go_run kf3 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref kf3 --src "$SRC" --profile kind --short kf3 -- make test-e2e
+expect_rc KF3 64
+if grep -q 'не достижима ни из одной ветки канонического' "$OUT"; then ok; else bad KF3 "insteadOf клона не отказан причиной Ф2"; fi
+no_cluster_call KF3
+fresh; go_run kf3o env REMOTE_HEAVY_KIND_DIR="$KDOLD" FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref kf3 --src "$SRC" --profile kind --short kf3o -- make test-e2e
+expect_rc KF3-old 0
+git -C "$SRC" config --unset "url.$BOX/evil.git.insteadOf"
+# KF4 — replace --graft делает локальный коммит предком верхушки ветки канонического → 64
+kf4_head="$(git -C "$SRC" rev-parse kf2)"
+git -C "$SRC" replace --graft "$kf4_head" "$kf3_sha"
+fresh; go_run kf4 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref kf3 --src "$SRC" --profile kind --short kf4 -- make test-e2e
+expect_rc KF4 64
+if grep -q 'клон --src подменяет историю (refs/replace)' "$OUT"; then ok; else bad KF4 "replace --graft не отказан причиной подмены истории"; fi
+no_cluster_call KF4
+fresh; go_run kf4o env REMOTE_HEAVY_KIND_DIR="$KDOLD" FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref kf3 --src "$SRC" --profile kind --short kf4o -- make test-e2e
+expect_rc KF4-old 0
+git -C "$SRC" replace -d "$kf4_head" >/dev/null
+# KF5 — shallow-клон → 64, причина — shallow
+git clone -q --depth 1 "file://$SRC" "$BOX/kf-shallow"
+fresh; go_run kf5 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$BOX/kf-shallow" --profile kind --short kf5 -- make test-e2e
+expect_rc KF5 64
+if grep -q 'клон --src подменяет историю (shallow-клон)' "$OUT"; then ok; else bad KF5 "shallow-клон не отказан причиной подмены истории"; fi
+no_cluster_call KF5
+# KF6 — ссылку клона перевели на локальный коммит между сверкой и сборкой bundle → 64, bundle
+# не собран и не доставлен, ns снято
+kf6_was="$(git -C "$SRC" rev-parse kf2)"
+fresh; go_run kf6 env FAKE_EXIT=0 FAKE_MOVE_REF="$SRC|refs/heads/kf2|$kf3_sha" bash "$RUN" --task 1 --repo registry-operator --ref kf2 --src "$SRC" --profile kind --short kf6 -- make test-e2e
+expect_rc KF6 64
+if grep -q 'сменилась после сверки личности' "$OUT" && [ ! -e "$BOX/state/bundle" ]; then ok; else bad KF6 "смена ссылки после сверки не отказана либо bundle доставлен"; fi
+expect_ns_gone KF6 t1-heavy-kf6
+git -C "$SRC" update-ref refs/heads/kf2 "$kf6_was"
+# KF7 — клон с objects/info/alternates (чужое хранилище объектов) → 64 до сети и кластера
+git clone -q --shared "$SRC" "$BOX/kf-alt"
+fresh; go_run kf7 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$BOX/kf-alt" --profile kind --short kf7 -- make test-e2e
+expect_rc KF7 64
+if grep -q 'клон --src подменяет историю (objects/info/alternates)' "$OUT"; then ok; else bad KF7 "alternates не отказаны причиной подмены истории"; fi
+no_cluster_call KF7
+fresh; go_run kf7o env REMOTE_HEAVY_KIND_DIR="$KDOLD" FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$BOX/kf-alt" --profile kind --short kf7o -- make test-e2e
+expect_rc KF7-old 0
+# KF8 — хуки и fsmonitor клона не исполняются ни сверкой, ни ссылкой, ни сборкой bundle:
+# core.hooksPath клона ведёт в каталог с reference-transaction-маркером, core.fsmonitor — на
+# команду-маркер. Предпосылка: обычный git по тому же клону маркер хука создаёт (сцена не пуста).
+KH="$BOX/kf-hooks"; mkdir -p "$KH"
+printf '#!/bin/sh\ntouch "%s/hook-ran"\n' "$KH" > "$KH/reference-transaction"
+printf '#!/bin/sh\ntouch "%s/fsm-ran"\nexit 1\n' "$KH" > "$KH/fsmonitor"; chmod +x "$KH/reference-transaction" "$KH/fsmonitor"
+git -C "$SRC" config core.hooksPath "$KH"; git -C "$SRC" config core.fsmonitor "$KH/fsmonitor"
+git -C "$SRC" update-ref refs/kf8-premise HEAD; git -C "$SRC" update-ref -d refs/kf8-premise
+if [ -e "$KH/hook-ran" ]; then ok; else bad KF8-premise "обычный git не исполнил reference-transaction клона — сцена KF8 пуста"; fi
+rm -f "$KH/hook-ran" "$KH/fsm-ran"
+fresh; go_run kf8 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$SRC" --profile kind --short kf8 -- make test-e2e
+expect_rc KF8 0
+if [ ! -e "$KH/hook-ran" ] && [ ! -e "$KH/fsm-ran" ] && [ -s "$BOX/state/bundle" ]; then ok
+else bad KF8 "хук либо fsmonitor клона исполнился при профиле kind (hook-ran: $([ -e "$KH/hook-ran" ] && echo да || echo нет), fsm-ran: $([ -e "$KH/fsm-ran" ] && echo да || echo нет)) либо bundle не доставлен"; fi
+git -C "$SRC" config --unset core.hooksPath; git -C "$SRC" config --unset core.fsmonitor
+# KD7–KD9 — проба исполнимости kind ИСПОЛНЕНИЕМ шага из Job над двойником docker: исполним → 0,
+# строки в termination-log нет; sysfs не монтируется (опыт 85ae95b) либо cgroup закрыт (опыт
+# hostUsers: false) → 125 и «remote-heavy-kind:»; образ пробы не скачан → «remote-heavy-prep:» (69)
+KK="$BOX/kd-pod"; mkdir -p "$KK/bin"
+cat > "$KK/bin/docker" <<'KDD'
+#!/bin/sh
+case "$1" in
+  pull) [ "${KD_DOCKER:-}" = pull ] && { echo "Error response from daemon: Get \"https://mirror.gcr.io/v2/\": dial tcp: i/o timeout" >&2; exit 1; }; exit 0 ;;
+  run)
+    case "${KD_DOCKER:-}" in
+      sysfs) echo 'docker: Error response from daemon: failed to create task for container: failed to create shim task: OCI runtime create failed: mount `sysfs` to `sys`: Operation not permitted' >&2; exit 126 ;;
+      cgroup) echo 'docker: Error response from daemon: failed to create task for container: failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: unable to apply cgroup configuration: mkdir /sys/fs/cgroup/docker: permission denied' >&2; exit 126 ;;
+      silent) echo 'mkdir: can'"'"'t create directory '"'"'/sys/fs/cgroup/kind-probe'"'"': Read-only file system'; exit 0 ;;
+    esac
+    echo ok; exit 0 ;;
+esac
+exit 9
+KDD
+chmod +x "$KK/bin/docker"
+sed -n '/^# kind-begin$/,/^# kind-end$/p' <<< "$kd_prep" | sed "s#/dev/termination-log#$KK/tl#g" > "$KK/raw.sh"
+if [ "$(grep -c . "$KK/raw.sh")" -ge 5 ] && grep -q 'docker run --rm --privileged' "$KK/raw.sh"; then ok; else OUT="$KK/raw.sh"; bad KD7-premise "шаг пробы kind не извлечён из Job"; fi
+# shellcheck disable=SC2016  # текст функции раскрывает исполняемый шаг
+{ printf 'pf() { echo "remote-heavy-prep: $1" > "%s/tl"; exit 125; }\n' "$KK"; cat "$KK/raw.sh"; } > "$KK/kind.sh"
+kd_case() {
+    local c="$1" want="$2" word="$3" mode="$4"
+    rm -f "$KK/tl"; OUT="$BOX/$c.out"
+    env -i PATH="$KK/bin:/usr/bin:/bin" HEAVY_KIND_PROBE=alpine:3 KD_DOCKER="$mode" bash "$KK/kind.sh" > "$OUT" 2>&1; RC=$?
+    expect_rc "$c" "$want"
+    if [ "$want" -eq 0 ]; then
+        if [ ! -e "$KK/tl" ] && grep -q 'kind исполним' "$OUT"; then ok; else bad "$c" "исполнимый kind: строка в termination-log либо нет строки «kind исполним»"; fi
+    elif grep -q "^$word" "$KK/tl" 2>/dev/null; then ok
+    else bad "$c" "в termination-log не «$word…»: $(cat "$KK/tl" 2>/dev/null)"; fi
+}
+kd_case KD7 0 - ok
+# shellcheck disable=SC2016  # обратные кавычки — буквы отказа crun, не подстановка
+kd_case KD8-sysfs 125 'remote-heavy-kind: .*mount `sysfs`' sysfs
+kd_case KD8-cgroup 125 'remote-heavy-kind: .*cgroup' cgroup
+kd_case KD8-silent 125 'remote-heavy-kind: ' silent
+kd_case KD9-pull 125 "remote-heavy-prep: образ пробы kind alpine:3 не скачан в dind: .*i/o timeout" pull
+export REMOTE_HEAVY_KIND_DIR="$SELF_DIR"
 
 # L0 — двойник печатает адрес и IPv4 (иначе L1 пуста)
 OUT="$BOX/l0.out"

@@ -354,6 +354,10 @@ def import_candidate(exp, packet, common, remote_log, go_json, integration_union
         workflow_digests[filename] = common.digest(raw)
     n = len([d for d in exp['definitions'].values() if d['matrix_index'] is not None])
     require(n == 3, 'PRECI producer supports exactly three integration shards')
+    # Шарды юнитов (kaname#873) производитель PRECI не воспроизводит: шардовую голову
+    # принимает лишь импорт core/platform с группами шардов и свода (kaname-stand.py).
+    require(not any('unit_shard' in d for d in exp['definitions'].values()),
+            'PRECI producer does not support unit shards')
     runs = packet.get('runs')
     require(isinstance(runs, dict) and runs, 'missing imported runs')
     groups, artifacts, cleanup, producers = {}, {}, {}, set()

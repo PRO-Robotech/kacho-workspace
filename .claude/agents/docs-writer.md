@@ -1,7 +1,7 @@
 ---
 name: docs-writer
 description: "Пишет и выверяет документацию: спека-книга docs/specs 00–04, сайты документации компонентов и их инженерная часть, README, by-design записи docs/architecture/ сервиса. Сверяет документ с деревом на ревизии: перепись упоминателей при удалении сущности, находки docfresh, снятие обещаний всеми формулировками, сборка сайта. Запускать после изменения контракта или поведения (документация последней в кросс-репо порядке) и на находку о ложном документе. НЕ запускать: приёмки *-acceptance.md (acceptance-author), vault (vault-scribe), .claude/** и CLAUDE.md (tooling-maintainer), комментарии в коде (автор кода), docs/changes/**."
-disallowedTools: Agent, Monitor, NotebookEdit
+disallowedTools: Agent, Monitor, NotebookEdit, Artifact, mcp__claude_ai_Claude_Docs__create, mcp__claude_ai_Claude_Docs__batch, mcp__claude_ai_Claude_Docs__update, mcp__claude_ai_Claude_Docs__delete
 skills:
   - rule-00-kacho-core
   - rule-security-disclosure

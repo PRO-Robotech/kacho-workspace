@@ -109,6 +109,8 @@
 #      `gh pr merge <N> -R <репо> --merge --match-head-commit <sha> --subject <…>
 #      --body "" --delete-branch` (способ — с сервера, сквош и rebase там выключены);
 #      хостинг отказал, а голова ушла — head-moved;
+#   5а. метки: с задач closingIssuesReferences, закрытых вливанием, снимается `status:*`
+#      (ws#1386; `git-issues.md#gi-label-same-action`); сбой — строкой «метки:» в исход merged;
 #   6. снятие влитой ветки коммитным предикатом (git-operator.md §«Вливание и снятие»,
 #      `git-issues.md#gi-prune-commit-predicate`): во всех клонах репозитория запроса
 #      (воркспейс и project/*, чей origin — этот репозиторий) — fetch --prune; ветка
@@ -135,6 +137,13 @@
 # Гейты — рецептом «ЗАПУСК» шапки landing-precheck.sh, вырезанным по меткам из
 # origin/main воркспейса (тем же способом, что у шаблона волны): каталог scripts/ —
 # целиком из origin/main, не из рабочей копии; сбой подготовки — код 2.
+# СТРАЖ PYTHON3 (ws#1365). Машина владельца не для прогонов (2026-10-22): python-части
+# читателей идут Job-ом внешнего кластера (scripts/remote-reader.sh). Гейт исполняется с
+# двойниками-отказами всего семейства python* первыми в PATH и с трассой каждой оболочки bash
+# гейта (BASH_ENV): командой в трассе python* — абсолютным путём, после сброса PATH, через
+# обёртку — тот же отказ. Вызов — исход void «страж python3: <гейт> исполнил …» сразу, вердикт
+# гейта не читается; у переписи снятия (branch-audit после вливания) — строкой «страж python3: …»
+# в исходе merged. Доказательство — inject.sh, py-guard*.
 #
 # ИСХОД — первая строка .state, первое слово — исход:
 #   running <фаза> — идёт;
@@ -166,6 +175,8 @@
 #   AUTOLAND_CLONES  — клоны для снятия и догона через «:» (заданная пустой — ни одного);
 #   AUTOLAND_PUSH    — вместо `heavy-slot.sh --wait 300 ci-local --` перед `git push` догона;
 #   AUTOLAND_PUSH_TIMEOUT — предел отправки догона, с (по умолчанию 3600);
+#   AUTOLAND_LABEL_TRIES, AUTOLAND_LABEL_WAIT — перечтений открытой задачи после вливания в ствол и
+#                      пауза между ними, с (по умолчанию 4 и 5): закрытие по Closes асинхронно;
 #   AUTOLAND_QUEUE_POLL — пауза локальной сверки очереди, с (по умолчанию 5);
 #   AUTOLAND_CATCHUP_LIMIT — догонов базы за жизнь демона (по умолчанию 2);
 #   AUTOLAND_GATE_TIMEOUT — предел одного гейта, с (по умолчанию 900);
@@ -182,6 +193,7 @@ FF_FETCH_TIMEOUT="${AUTOLAND_FF_FETCH_TIMEOUT:-8}"
 INTERIM_LOCK="${AUTOLAND_INTERIM_LOCK:-$HOME/.cache/heavy-slots/interim.lock}"
 QUEUE_POLL="${AUTOLAND_QUEUE_POLL:-5}"; CATCHUP_LIMIT="${AUTOLAND_CATCHUP_LIMIT:-2}"
 PUSH_TIMEOUT="${AUTOLAND_PUSH_TIMEOUT:-3600}"
+LABEL_TRIES="${AUTOLAND_LABEL_TRIES:-4}"; LABEL_WAIT="${AUTOLAND_LABEL_WAIT:-5}"
 
 die() { printf 'autoland: ОТКАЗ — %s\n' "$1" >&2; exit "${2:-2}"; }
 
@@ -254,6 +266,8 @@ parse_args() {
         || die "AUTOLAND_HEAD_SYNC «$HEAD_SYNC» / AUTOLAND_HEAD_SYNC_POLL «$HEAD_SYNC_POLL» не секунды"
     [[ "$QUEUE_POLL" =~ ^[1-9][0-9]*$ ]] && [[ "$CATCHUP_LIMIT" =~ ^[0-9]+$ ]] && [[ "$PUSH_TIMEOUT" =~ ^[1-9][0-9]*$ ]] \
         || die "AUTOLAND_QUEUE_POLL «$QUEUE_POLL», AUTOLAND_CATCHUP_LIMIT «$CATCHUP_LIMIT», AUTOLAND_PUSH_TIMEOUT «$PUSH_TIMEOUT» не числа"
+    [[ "$LABEL_TRIES" =~ ^[1-9][0-9]*$ ]] && [[ "$LABEL_WAIT" =~ ^[0-9]+$ ]] \
+        || die "AUTOLAND_LABEL_TRIES «$LABEL_TRIES» / AUTOLAND_LABEL_WAIT «$LABEL_WAIT» не числа"
 }
 
 paths() {
@@ -426,10 +440,85 @@ log "старт: $REPO#$PR голова $HEAD; предел ${TIMEOUT} с, па�
 join() { awk 'NR > 1 { printf " | " } { printf "%s", $0 } END { print "" }'; }
 
 GATE_RC=0
+# Страж python3 (ws#1365; владелец 2026-10-22: «использовать только в одном случае если доступа к
+# кластеру нету»): гейт идёт с PATH, где python3 и python — двойник-отказ; читатели уводят python
+# во внешний кластер (scripts/remote-reader.sh), и вызов python3 на машине из гейта — дефект
+# оснастки, а не вердикт: двойник пишет метку, и исход гейта не судится — void сразу, с вызовом.
+# Пропуск — лишь локальный слот (HEAVY_SLOT_P: heavy-slot.sh идёт на машине при недоступном
+# кластере, это доказывает он сам). Два слоя, каждый ловит то, к чему слеп другой:
+#   двойники — всё семейство имён (python, python2, python3, pythonX.Y и всякий python* каталогов
+#     PATH и интерпретаторов машины): поиск по PATH из любой программы, и не bash (sh -c, make);
+#   трасса — BASH_ENV включает xtrace каждой оболочки bash гейта в файл трассы (fd 83), PS4 несёт
+#     метку слота: командой (после присваиваний и обёрток env, exec, timeout, xargs …) стоит
+#     python* — абсолютный путь, сброс PATH, имя из переменной; трасса снимается после разбора.
+# ГРАНИЦА: абсолютный путь либо сброшенный PATH в программе не на bash (sh -c '/usr/bin/python3',
+# make, awk system()) не виден ни одному слою; оболочка, запущенная с `env -i` либо без BASH_ENV,
+# не трассируется — видна лишь её строка запуска. Отправка догона (heavy-slot.sh ci-local) идёт
+# вне гейта.
+PYG="$W/no-python"; PY_TRIP="$W/python-trip"; PY_ENV="$W/python-xtrace.env"; mkdir -p "$PYG" || exit 2
+PY_NAMES=(python python2 python3)
+for _v in 0 1 2 3 4 5 6 7; do PY_NAMES+=("python2.$_v"); done
+for _v in $(seq 0 40); do PY_NAMES+=("python3.$_v"); done
+IFS=: read -ra _dirs <<< "$PATH"
+for _d in "${_dirs[@]}" /usr/bin /usr/local/bin /bin; do
+    for _f in "$_d"/python*; do [ -f "$_f" ] && [ -x "$_f" ] && PY_NAMES+=("${_f##*/}"); done
+done
+# shellcheck disable=SC2016  # PS4 раскрывается при трассе, не здесь
+printf '%s\n' '# BASH_ENV гейта демона вливания (ws#1365): xtrace оболочки — в fd 83, метка слота — в PS4.' \
+    'if { : >&83; } 2> /dev/null; then PS4='\''+XT${HEAVY_SLOT_P:+=SLOT} '\''; BASH_XTRACEFD=83; set -x; fi' > "$PY_ENV" || exit 2
+# Разбор трассы: строка, где командой (после присваиваний и обёрток с их опциями) стоит python*;
+# метка слота и присваивание HEAVY_SLOT_P — законно; `command -v|-V` — поиск, не вызов.
+read -r -d '' PY_SCAN <<'AWK' || :
+function bn(w) { gsub("^" q "|" q "$", "", w); sub(/.*\//, "", w); return w }
+function val(w, o) {
+    if (w == "env") return o ~ /^-[uCS]$/
+    if (w == "exec") return o == "-a"
+    if (w == "nice") return o == "-n"
+    if (w == "timeout") return o ~ /^-[sk]$/
+    if (w == "stdbuf") return o ~ /^-[ioe]$/
+    if (w == "xargs") return o ~ /^-[adEILnPs]$/
+    if (w == "sudo" || w == "doas") return o ~ /^-[ugCDhprtU]$/
+    if (w == "ionice") return o ~ /^-[cnp]$/
+    if (w == "flock") return o ~ /^-[wE]$/
+    return 0
+}
+/^\++XT(=SLOT)? / {
+    if ($1 ~ /=SLOT$/) next
+    n = split($0, t, /[ \t]+/); i = 2
+    while (i <= n) {
+        while (i <= n && t[i] ~ /^[A-Za-z_][A-Za-z0-9_]*=/) { if (t[i] ~ /^HEAVY_SLOT_P=./) next; i++ }
+        w = bn(t[i])
+        if (w !~ /^(env|exec|command|nohup|nice|setsid|stdbuf|timeout|xargs|sudo|doas|ionice|chrt|flock|unbuffer)$/) break
+        i++
+        while (i <= n && t[i] ~ /^-/) {
+            if (t[i] == "--") { i++; break }
+            if (w == "command" && t[i] ~ /^-[a-zA-Z]*[vV]/) next
+            if (val(w, t[i])) i++
+            i++
+        }
+        if ((w == "timeout" || w == "chrt") && i <= n && t[i] ~ /^[0-9.]+[smhd]?$/) i++
+        if (w == "flock" && i <= n) i++
+    }
+    if (i <= n && bn(t[i]) ~ /^python[0-9.]*$/) { line = $0; sub(/^[^ ]+ /, "", line); print substr(line, 1, 300) }
+}
+AWK
+for _p in "${PY_NAMES[@]}"; do
+    # shellcheck disable=SC2016  # тело двойника — текст скрипта, подстановка — в нём
+    printf '%s\n' '#!/usr/bin/env bash' \
+        '[ -z "${HEAVY_SLOT_P:-}" ] || PATH="$AUTOLAND_PATH" exec "${0##*/}" "$@"' \
+        'printf "%s %s\n" "${0##*/}" "$*" | head -c 300 >> "$AUTOLAND_PY_TRIP"; echo >> "$AUTOLAND_PY_TRIP"' \
+        'echo "AUTOLAND-GUARD: отказ — ${0##*/} на машине владельца из гейта демона вливания (ws#1365): читатель обязан идти внешним маршрутом scripts/remote-reader.sh" >&2' \
+        'exit 126' > "$PYG/$_p" && chmod +x "$PYG/$_p" || exit 2
+done
 gate() {  # <скрипт> <доводы…> → $W/<скрипт>.out, код в GATE_RC
     local s="$1" out="$W/$1.out" recipe; shift
+    : > "$PY_TRIP"
+    local xt="$W/$s.xtrace"; ( umask 077; : > "$xt" ) || exit 2
+    local AUTOLAND_PATH="$PATH" AUTOLAND_PY_TRIP="$PY_TRIP"
+    local PATH="$PYG:$AUTOLAND_PATH" BASH_ENV="$PY_ENV"
+    export PATH AUTOLAND_PATH AUTOLAND_PY_TRIP BASH_ENV
     if [ -n "${AUTOLAND_GATES:-}" ]; then
-        timeout "$GATE_TIMEOUT" bash "$AUTOLAND_GATES/$s" "$@" > "$out" 2>&1; GATE_RC=$?
+        timeout "$GATE_TIMEOUT" bash "$AUTOLAND_GATES/$s" "$@" > "$out" 2>&1 83> "$xt"; GATE_RC=$?
     else
         recipe="$(git -C "$WS" fetch -q origin main 2>/dev/null \
             && git -C "$WS" show origin/main:scripts/landing-precheck.sh 2>/dev/null \
@@ -438,12 +527,24 @@ gate() {  # <скрипт> <доводы…> → $W/<скрипт>.out, код �
             printf 'VOID\tЗАПУСК: рецепт не вырезан из шапки origin/main:scripts/landing-precheck.sh «%s»\n' "$WS" > "$out"
             GATE_RC=2
         else
-            WS="$WS" S="$s" TMPDIR="$W" timeout "$GATE_TIMEOUT" bash -c "$recipe" _ "$@" > "$out" 2>&1; GATE_RC=$?
+            WS="$WS" S="$s" TMPDIR="$W" timeout "$GATE_TIMEOUT" bash -c "$recipe" _ "$@" > "$out" 2>&1 83> "$xt"; GATE_RC=$?
         fi
     fi
     [ "$GATE_RC" -ne 124 ] || { printf 'VOID\t%s: предел %s с исчерпан\n' "$s" "$GATE_TIMEOUT" >> "$out"; GATE_RC=2; }
     log "гейт $s $*: код $GATE_RC; $(grep -m1 '^VERDICT' "$out" || tail -n1 "$out")"
+    # Трасса — разбор и снятие сразу: в ней раскрытые доводы команд гейта.
+    # Разбор не исполнился — страж слеп: тот же void (закрыто на отказе), а не молчание.
+    awk -v q="'" "$PY_SCAN" "$xt" >> "$PY_TRIP" 2> /dev/null || echo "разбор трассы гейта не исполнился (awk код $?) — страж слеп" >> "$PY_TRIP"
+    rm -f -- "$xt"
+    if [ -s "$PY_TRIP" ]; then  # страж python3: исход гейта не судится (шапка gate)
+        local trip; trip="$(grep -v '^$' "$PY_TRIP" | head -n 3 | join)"
+        log "СТРАЖ: python3 на машине владельца из гейта $s: $trip"
+        # Перепись снятия идёт после вливания: исход merged остаётся, отказ — в его строке.
+        [ "$s" != branch-audit.sh ] || { PY_NOTE="страж python3: $s — $trip"; return; }
+        finish void "страж python3: $s исполнил на машине владельца «$trip» — читатель обязан идти внешним маршрутом (scripts/remote-reader.sh, ws#1365); исход гейта не судится"
+    fi
 }
+PY_NOTE=""
 reasons() {  # строки REASON вывода гейта дословно; строки о снимке демона — не о голове
     grep -P '^REASON\t' "$W/$1.out" | grep -vP '^REASON\t(STATE-STALE|STATE-KEY-MISMATCH)\t' | join
 }
@@ -625,8 +726,49 @@ sync_main_clone() {  # запрос в main репозитория основн�
     log "$SYNC"; return 0  # отказ ff — не ошибка вливания: исход остаётся merged
 }
 
+# Метки состояния закрытых вливанием задач (ws#1386, урок ws#1381): `Closes` закрывает задачу,
+# а `status:*` на ней остаётся — `git-issues.md#gi-label-same-action` красна. Снимается
+# `status:*` лишь с задач `closingIssuesReferences`, которые после вливания ЗАКРЫТЫ (вливание
+# в ветку эпика задач не закрывает — их метки не трогаются); прочие метки не трогаются. Сбой
+# чтения или правки — строкой в исход, вливанием он не отменяется.
+LABELS=""
+drop_status_labels() {
+    local refs r n st l done_=() kept=()
+    if ! "$GH" pr view "$PR" -R "$REPO" --json closingIssuesReferences > "$W/closing.json" 2> "$W/closing.err" \
+        || ! refs="$(jq -r '.closingIssuesReferences[]? | .url // "" | capture("github\\.com/(?<r>[^/]+/[^/]+)/issues/(?<n>[0-9]+)") | "\(.r) \(.n)"' "$W/closing.json" 2>> "$W/closing.err")"; then
+        LABELS="метки: закрываемые задачи не прочитаны — $(head -c 200 "$W/closing.err" | tr '\n' ' ')"; log "$LABELS"; return 0
+    fi
+    while read -r r n; do
+        [ -n "$n" ] || continue
+        # Хостинг закрывает задачи по Closes асинхронно: сразу после вливания в ствол задача ещё
+        # открыта. Перечитывается до LABEL_TRIES раз через LABEL_WAIT с — лишь при базе-стволе.
+        local try=1
+        while :; do
+            if ! "$GH" api "repos/$r/issues/$n" < /dev/null > "$W/issue.json" 2> "$W/issue.err"; then st=unread; break; fi
+            st="$(jq -r '.state // ""' "$W/issue.json")"
+            [ "$st" = open ] && { [ "$PR_BASE" = main ] || [ "$PR_BASE" = master ]; } && [ "$try" -lt "$LABEL_TRIES" ] || break
+            try=$((try + 1)); sleep "$LABEL_WAIT" & BG=$!; wait "$BG"; BG=""
+        done
+        [ "$st" != unread ] || { kept+=("$r#$n не прочитана"); continue; }
+        # Метки — построчно, а не словами: «status:needs review» иначе рассыпалась бы на две, и
+        # вторая («review») снялась бы чужой (возврат check-verifier к ws#1386).
+        local lbls=()
+        mapfile -t lbls < <(jq -r '.labels[]?.name | select(startswith("status:"))' "$W/issue.json")
+        [ "$st" = closed ] && [ "${#lbls[@]}" -gt 0 ] || continue
+        for l in "${lbls[@]}"; do
+            if "$GH" issue edit "$n" -R "$r" --remove-label "$l" < /dev/null > /dev/null 2> "$W/label.err"; then done_+=("$r#$n −«$l»")
+            else kept+=("$r#$n «$l»: $(head -c 120 "$W/label.err" | tr '\n' ' ')"); fi
+        done
+    done <<< "$refs"
+    # Снимать нечего и сбоев нет — исход без строки (её «снято 0» читалось бы как итог снятия ветки).
+    [ "${#done_[@]}" -gt 0 ] || [ "${#kept[@]}" -gt 0 ] || { LABELS=""; return 0; }
+    LABELS="метки: сняты ${#done_[@]}${done_[*]:+ (${done_[*]})}${kept[*]:+; не сняты: ${kept[*]}}"
+    log "$LABELS"
+}
+
 landed() {  # запрос влит — проверка родителя, снятие, догон основного клона, исход
     local note="${1:-}"
+    drop_status_labels; [ -z "$LABELS" ] || note="${note:+$note; }$LABELS"
     if "$GH" api "repos/$REPO/commits/$PR_MSHA" > "$W/mc.json" 2>/dev/null \
         && jq -e --arg h "$HEAD" '[.parents[].sha] | index($h) != null' "$W/mc.json" > /dev/null 2>&1; then
         log "коммит слияния $PR_MSHA — родитель $HEAD есть"
@@ -634,7 +776,7 @@ landed() {  # запрос влит — проверка родителя, сн�
         log "коммит слияния $PR_MSHA: родитель $HEAD не подтверждён площадкой"
     fi
     prune "$PR_REF" "$PR_BASE"; sync_main_clone
-    finish merged "$PR_MSHA${note:+ $note}${CU_NOTE:+; догон базы: $CU_NOTE}; $PRUNE${SYNC:+; $SYNC}"
+    finish merged "$PR_MSHA${note:+ $note}${CU_NOTE:+; догон базы: $CU_NOTE}; $PRUNE${SYNC:+; $SYNC}${PY_NOTE:+; $PY_NOTE}"
 }
 
 # ── очередь: билет, черёд, ожидание (ws#1263) ──────────────────────────────────

@@ -1,0 +1,29 @@
+ПЕРЕПИСЬ ПЛАНА (единица — пакет `go list ./...`; часть — выборка проб верхнего уровня по sha256(имя) mod N)
+  пакетов в дереве:      193
+  роздано целиком:       189
+  распилено по пробам:   4
+  шардов:                5 (порог разреза 249 с веса)
+  без замеренного веса:  6 (вес по умолчанию 10)
+    u01  вес   995  пакетов 29 · internal/check[3/7] internal/check[4/7] internal/supplyhygiene[1/3]
+    u02  вес   995  пакетов 29 · internal/apps/kaname/api/humansession[4/4] internal/check[7/7] internal/supplyhygiene[2/3]
+    u03  вес   995  пакетов 29 · deploy[2/2] internal/apps/kaname/api/humansession[3/4] internal/check[5/7] internal/check[6/7]
+    u04  вес   995  пакетов 29 · deploy[1/2] internal/apps/kaname/api/humansession[2/4] internal/check[1/7] internal/supplyhygiene[3/3]
+    u05  вес   994  пакетов 73 · internal/apps/kaname/api/humansession[1/4] internal/check[2/7]
+роздано = дерево: ни одного пакета вне шардов, ни одного дважды, части распиленных — 0..N-1 ровно по разу
+задание матрицы №0 из 5 → шард u01
+пакет internal/check: проб в перечне 1006, части [3, 4] из 7 — в этом шарде 275
+пакет internal/supplyhygiene: проб в перечне 330, части [1] из 3 — в этом шарде 109
++ go test -race -short -count=1 -timeout 25m -json github.com/PRO-Robotech/kaname/internal/admission github.com/PRO-Robotech/kaname/internal/apps/kaname/api/bootstrap_token github.com/PRO-Robotech/kaname/internal/apps/kaname/api/interactive_client github.com/PRO-Robotech/kaname/internal/apps/kaname/api/oauth_ceremony github.com/PRO-Robotech/kaname/internal/apps/kaname/api/secondfactorwrap github.com/PRO-Robotech/kaname/internal/apps/kaname/modulecatalog github.com/PRO-Robotech/kaname/internal/apps/kaname/secretsweep github.com/PRO-Robotech/kaname/internal/apps/kaname/seed github.com/PRO-Robotech/kaname/internal/authzfilter github.com/PRO-Robotech/kaname/internal/authzplan github.com/PRO-Robotech/kaname/internal/ceremonyport github.com/PRO-Robotech/kaname/internal/clienttokenwire github.com/PRO-Robotech/kaname/internal/exchangepace github.com/PRO-Robotech/kaname/internal/failurewindow github.com/PRO-Robotech/kaname/internal/handler/clienttokenhttp github.com/PRO-Robotech/kaname/internal/handler/loginlanehttp github.com/PRO-Robotech/kaname/internal/handler/tokenintrospecthttp github.com/PRO-Robotech/kaname/internal/manifest github.com/PRO-Robotech/kaname/internal/manifestoracle github.com/PRO-Robotech/kaname/internal/publishedkey github.com/PRO-Robotech/kaname/internal/repo/kaname/pg/planrows github.com/PRO-Robotech/kaname/internal/repo/kaname/pg/scalegrid github.com/PRO-Robotech/kaname/internal/scopesourcecensus github.com/PRO-Robotech/kaname/internal/testsupport/execstub github.com/PRO-Robotech/kaname/internal/testsupport/logbuf github.com/PRO-Robotech/kaname/internal/treeposture github.com/PRO-Robotech/kaname/tests/newman/scripts/storedvaluemint github.com/PRO-Robotech/kaname/tools/authzformbench github.com/PRO-Robotech/kaname/tools/clagate
++ go test -race -short -count=1 -timeout 25m -json -run ^(TestAccessKeyAssertionSurfacesTableMatchesTheProducers|TestAccessKey_F7_32_ProbeSeesThePromise|TestAdmissionScannerIsSilentOnTheReaper|TestAuditGate…(12898 симв.) github.com/PRO-Robotech/kaname/internal/check
++ go test -race -short -count=1 -timeout 25m -json -run ^(TestAlertOutcomeSelectorsNameValuesTheTreeProduces|TestAlertRulesSingleProducerInjection_SilentOnLegitimateTwins|TestAlertSelectorInjection_ExactMat…(5592 симв.) github.com/PRO-Robotech/kaname/internal/supplyhygiene
+  go test #1 завершился с кодом 0 (вердикт выносит прогонщик ниже)
+  go test #2 завершился с кодом 0 (вердикт выносит прогонщик ниже)
+  go test #3 завершился с кодом 0 (вердикт выносит прогонщик ниже)
+
+=== ВЕРДИКТ ПРОГОНА (единица: событие пробы; подпробы считаются) ===
+пакетов осмотрено : 31  (прошло 31 · упало 0 · без проб 0)
+проб исполнено    : 2109
+отказов           : 0
+ПРОПУЩЕНО         : 318  (в зачёт прохода НЕ идёт)
+
+ЗЕЛЁНЫЙ: отказов нет.

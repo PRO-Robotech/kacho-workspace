@@ -13,7 +13,7 @@
 #
 # ФОРМА
 #   run.sh --task <N> --repo <kacho|kaname|corelib|kacho-workspace|<оператор>> --ref <ревизия>
-#          [--profile go-race|integration|lint|ci-local|ws] [--src <клон>]
+#          [--profile go-race|integration|lint|ci-local|ws|kind] [--src <клон>]
 #          [--workdir <путь в дереве>] [--short <слово>] [--ns <имя>]
 #          [--timeout <с>] [--keep <часы ≤ 12>] [--push-input <вход pre-push>]
 #          -- <команда> [аргументы…]
@@ -146,7 +146,9 @@
 # ИЗОЛЯЦИЯ. pod — в своём пространстве пользователей (hostUsers: false): root
 # контейнера — непривилегированный uid узла, возможности SYS_ADMIN, NET_ADMIN и
 # SYS_PTRACE dind действуют только внутри него. privileged нет ни у одного
-# контейнера (ревью ws#984, F1). NetworkPolicy ns (F2): входящие запрещены;
+# контейнера (ревью ws#984, F1). Исключение — профиль kind (kind.sh, ws#1385): его dind
+# privileged в пространстве пользователей узла, лишь клонам внешних операторов, — поверхность
+# и доказательство политики кластера названы в шапке kind.sh. NetworkPolicy ns (F2): входящие запрещены;
 # исходящие — к DNS кластера (служба с портом 53/UDP, выводится из кластера) и в
 # мир, кроме частных диапазонов, адресов узлов, диапазонов служб и адресов
 # управления кластера (конечные точки default/kubernetes и адреса имени сервера
@@ -232,7 +234,10 @@
 # (тот же канал, что kubectl cp). Токена нет вовсе: ни git, ни реестра — в
 # кластер не уходит ни одного секрета, а неотправленная ревизия доставляется так
 # же, как отправленная. Bundle несёт историю, поэтому проверки, читающие git
-# (`git ls-files`, предок ли ствол), видят дерево как в клоне конвейера.
+# (`git ls-files`, предок ли ствол), видят дерево как в клоне конвейера. Адрес
+# `origin` — тот же, что у checkout конвейера (`https://github.com/PRO-Robotech/<репозиторий>.git`,
+# без токена): по нему проверки узнают собственное имя клона (docfresh `_origin_repo`), и без
+# него проба «координата по имени СВОЕГО репозитория» краснела в pod при зелёном конвейере (ws#1301).
 #
 # ВЕРСИИ — из дерева ревизии, а не из машины: go — строка toolchain (иначе go)
 # в go.mod, golangci-lint и gosec — пин `go install …@vX` в .github/workflows/ci.y*ml.
@@ -470,7 +475,8 @@
 # недоступен (кластер, узлы не того кластера — СТРАЖ, образ, доставка, пин, СРЕДА, МОДУЛИ, ЗАВИСИМОСТИ КОНСОЛИ, УЧЁТКА GIT, сеть
 # pod, открытого узла нет — РАЗМЕЩЕНИЕ); 75 — кластер занят (ПРЕДЕЛ либо места под профиль нет), pod не начал
 # команду в срок, Job снят по сроку либо образ testcontainers не загружен в предел (ОБРАЗЫ TESTCONTAINERS); 76 — команда оборвана
-# пределом памяти. 69, 75, 76 —
+# пределом памяти; 77 — профиль kind: кластер отказал pod в допуске либо kind в pod не исполним
+# (kind.sh, ИСХОДЫ). 69, 75, 76, 77 —
 # «не выполнилось», а не красное: вердикта по предмету команды нет. Своё слово —
 # строкой «remote-heavy: …» в stderr.
 #
@@ -607,6 +613,10 @@ DIND_RES='100m|2|256Mi|6Gi'
 # запрос тоже входит в запрос pod и вычитается из run.
 PG_REQ_M=10
 PG_REQ_MIB=32
+# Профиль kind (ws#1385) — строки PROFILES и PEAKS, dind privileged, проба допуска и
+# исполнимости — отдельным файлом рядом; без него прогон не идёт ни одним профилем.
+# shellcheck source=scripts/remote-heavy/kind.sh
+. "${REMOTE_HEAVY_KIND_DIR:-$SELF_DIR}/kind.sh" || { say "профиль kind не подключён: ${REMOTE_HEAVY_KIND_DIR:-$SELF_DIR}/kind.sh (не выполнилось)"; exit 69; }
 
 profile_row() {
     local line
@@ -624,13 +634,15 @@ to_mib() { case "$1" in *Gi) printf '%s\n' "$(( ${1%Gi} * 1024 ))" ;; *Mi) print
 # ревизии, исходники — bundle клона (--src), модули — сетью, как у продуктов. Своих строк PEAKS
 # нет — запрос по строке «*» профиля; в profile_repos и table_max они не входят: их запрос — «*»,
 # не выше наибольшего по продуктам. Профиль lint им не дан: пин линтера — лишь из ci.yaml, ci.yml.
-# profile_repos <профиль> — репозитории профиля: ws — лишь kacho-workspace, прочие — три продукта.
-profile_repos() { if [ "$1" = ws ]; then echo kacho-workspace; else echo kacho kaname corelib; fi; }
+# profile_repos <профиль> — репозитории профиля: ws — лишь kacho-workspace, kind — внешние операторы
+# (KIND_REPOS, kind.sh), прочие — три продукта.
+profile_repos() { if [ "$1" = ws ]; then echo kacho-workspace; elif [ "$1" = kind ]; then echo "$KIND_REPOS"; else echo kacho kaname corelib; fi; }
 # pair_ok <профиль> <репозиторий> — профиль ws и клон воркспейса — только друг с другом
 # (СРЕДА ВОРКСПЕЙСА): образ ws без go, а в образе golang нет среды наборов воркспейса.
 pair_ok() {
     if [ "$1" = ws ] && [ "$2" != kacho-workspace ]; then say "профиль ws — лишь для --repo kacho-workspace (образ без go), получено «$2»"; return 1; fi
     if [ "$1" != ws ] && [ "$2" = kacho-workspace ]; then say "--repo kacho-workspace — лишь профиль ws (среда наборов воркспейса), получено «$1»"; return 1; fi
+    kind_pair_ok "$1" "$2" || return 1
     return 0
 }
 
@@ -1241,6 +1253,8 @@ SRC="${SRC:-$WS/project/$REPO}"
 git -C "$SRC" rev-parse --git-dir >/dev/null 2>&1 || { say "клон $REPO не найден: $SRC (--src)"; exit 69; }
 SHA="$(git -C "$SRC" rev-parse --verify --quiet "$REF^{commit}")" || { say "ревизии «$REF» в клоне $REPO нет"; exit 69; }
 MAIN_SHA="$(git -C "$SRC" rev-parse --verify --quiet 'refs/remotes/origin/main^{commit}')" || MAIN_SHA=""
+# Профиль kind — личность исходников bundle и достижимость ревизии (kind.sh, Ф1 и Ф2) до кластера.
+if kind_on; then kind_identity "$REPO" "$SRC" "$SHA" || exit $?; fi
 # Корневая учётка вызывающей копии (УЧЁТКА GIT в шапке) — до первого обращения к кластеру.
 GIT_NAME=""; GIT_EMAIL=""
 if [ "$PROFILE" = ci-local ] || [ "$PROFILE" = ws ]; then
@@ -1283,12 +1297,20 @@ GO_IMAGE="$REGISTRY/golang:$GOVER"; IMG_NAME="golang:$GOVER"
 [ "$PROFILE" != ws ] || { GO_IMAGE="$WS_IMAGE"; IMG_NAME="${WS_IMAGE##*/}"; LINT_PIN=""; GOSEC_PIN=""; }
 # Пин shellcheck профиля ws — пин конвейера ревизии (env.SHELLCHECK_VERSION, как его ставит ci.yaml
 # воркспейса) обязан совпасть с WS_SHELLCHECK: суммы под иную версию в шаге WSTOOLS_SH нет.
+# Читается awk, а не python3: драйвер идёт на машине владельца, а она не для прогонов (2026-10-22;
+# ws#1365 — страж демона вливания отказывает python3 и маршруту читателей). Предмет — блочный
+# верхнеуровневый `env:` и его ключ одной строкой (так пишет ci.yaml); env задания, поточная форма
+# `env: {…}` пином не считаются — «пина нет», а якорь и тег значения — «пин не тот»: 69 с причиной.
 WS_SC=""
 if [ "$PROFILE" = ws ]; then
-    WS_SC="$(python3 -c 'import sys, yaml
-d = yaml.safe_load(sys.stdin)
-v = ((d or {}).get("env") or {}).get("SHELLCHECK_VERSION") if isinstance(d, dict) else None
-print(v if isinstance(v, str) else "")' <<< "$WF" 2>&1)" || { say "пин shellcheck на $SHA: конвейер не разобран (python3 с yaml): $(head -n 1 <<< "$WS_SC") — версию не выбрать"; exit 69; }
+    WS_SC="$(awk '
+        /^env:[[:space:]]*(#.*)?$/ { e = 1; next }
+        e && /^[^[:space:]#]/ { e = 0 }
+        e && match($0, /^[[:space:]]+SHELLCHECK_VERSION:[[:space:]]*/) {
+            v = substr($0, RLENGTH + 1); sub(/[[:space:]]+#.*$/, "", v); sub(/[[:space:]]+$/, "", v)
+            if (v ~ /^".*"$/ || v ~ /^'\''.*'\''$/) v = substr(v, 2, length(v) - 2)
+            print v; exit
+        }' <<< "$WF")"
     [ -n "$WS_SC" ] || { say "пин shellcheck на $SHA: env.SHELLCHECK_VERSION конвейера нет — версию не выбрать"; exit 69; }
     [ "$WS_SC" = "$WS_SHELLCHECK" ] || { say "пин shellcheck на $SHA — $WS_SC, а шаг WSTOOLS_SH несёт сумму лишь $WS_SHELLCHECK — обнови WS_SHELLCHECK и сумму в run.sh (не выполнилось, Job не создавался)"; exit 69; }
 fi
@@ -1584,7 +1606,7 @@ cleanup() {
     [ "$DONE" = 1 ] && return 0
     DONE=1
     [ -n "$BG" ] && kill "$BG" 2>/dev/null
-    [ -n "$TMPREF" ] && git -C "$SRC" update-ref -d "$TMPREF" 2>/dev/null
+    if [ -n "$TMPREF" ]; then if kind_on; then kind_git "$SRC" update-ref -d "$TMPREF" 2>/dev/null; else git -C "$SRC" update-ref -d "$TMPREF" 2>/dev/null; fi; fi
     rm -rf -- "$BOX"
     [ "$CREATED" = 1 ] || return 0
     if [ -n "$KEEP_H" ]; then
@@ -1725,7 +1747,7 @@ DENY_PROBE="$(jq -nr --slurpfile SV <(kc get svc -n kacho -o json 2>/dev/null ||
 
 # Квота — сумма запросов профиля с запасом на init: ns не способно занять больше
 # одного прогона, даже если в нём появится второй pod.
-IFS='|' read -r DCR DCL DMR DML <<< "$DIND_RES"
+IFS='|' read -r DCR DCL DMR DML <<< "$(if kind_on; then echo "$KIND_DIND_RES"; else echo "$DIND_RES"; fi)"
 [ "$DIND" = 1 ] || { DCR=0m; DCL=0; DMR=0Mi; DML=0Mi; }
 jq -n --arg ns "$NSNAME" \
     --arg rc "$(( RUN_CPU_REQ + $(to_m "$DCR") + 1000 ))m" --arg lc "$(( CPU_LIM + DCL + 2 ))" \
@@ -1756,7 +1778,8 @@ spec_drift() {
       def caps($s): (($s.capabilities // {}).add // []);
       def wide($s): ($s.privileged == true) or (caps($s) | length > 0) or (($s.procMount // "Default") != "Default");
       (ctrs($q) | map({key: .name, value: sc(.)}) | from_entries) as $qs
-      | (if $a.hostUsers == false then empty else "hostUsers \($a.hostUsers // "снято") при запрошенном false" end),
+      | def hu($s): if $s.hostUsers == null then true else $s.hostUsers end;
+        (if hu($a) == hu($q) then empty else "hostUsers \(if $a.hostUsers == null then "снято" else $a.hostUsers end) при запрошенном \(hu($q))" end),
         (["hostNetwork", "hostPID", "hostIPC"][] as $k | select($a[$k] == true) | "\($k) true без запроса"),
         ($qs | keys[] as $n | select([ctrs($a)[] | select(.name == $n)] | length != 1) | "контейнер \($n): в pod не ровно один"),
         (ctrs($a)[] as $c | sc($c) as $s | $qs[$c.name] as $r
@@ -1775,7 +1798,7 @@ verify_spec() {
     local d l
     if [ -z "$2" ]; then KEEP_H=""; say "$1: фактический spec не прочитан — изоляцию не сверить (не выполнилось)"; exit 69; fi
     d="$(spec_drift "$REQ_SPEC" "$2")" || { KEEP_H=""; say "$1: сверка spec не исполнилась (не выполнилось)"; exit 69; }
-    if [ -z "$d" ]; then say "$1: spec сверен с запрошенным — hostUsers false, securityContext как запрошен"; return 0; fi
+    if [ -z "$d" ]; then say "$1: spec сверен с запрошенным — hostUsers $(jq -r 'if .hostUsers == null then true else .hostUsers end' <<< "$REQ_SPEC"), securityContext как запрошен"; return 0; fi
     KEEP_H=""
     while IFS= read -r l; do say "$1: $l"; done <<< "$d"
     say "$1: сервер исполнил не то, что запрошено, — изоляции нет; команда не запускается, ns снимается (не выполнилось)"; exit 69
@@ -3291,7 +3314,9 @@ REDLOG
 # Команда — своей строкой: последняя строка сверки среды — комментарий-маркер, и
 # «; команда» после неё не исполнилась бы никогда. Код контейнера — код команды
 # (heavy_cmd возвращает его, шаг красных групп кода не меняет).
-PREP="$USERNS_SH
+kind_on && PREP="$PREP
+$KIND_PREFLIGHT_SH"
+PREP="$(if kind_on; then echo "$KIND_NOTE_SH"; else echo "$USERNS_SH"; fi)
 $PREP
 $REDLOG_SH
 echo \"remote-heavy: подготовка pod до команды — \$(( \$(date +%s) - PT0 )) с\" >&2
@@ -3338,24 +3363,27 @@ DIND_SH="$USERNS_SH
 mkdir -p /etc/docker
 printf "%s" "{\"runtimes\":{\"crun\":{\"path\":\"/usr/bin/crun\",\"runtimeArgs\":[\"--cgroup-manager=disabled\"]}},\"default-runtime\":\"crun\"}" > /etc/docker/daemon.json
 exec dockerd --host=unix:///run/dind/docker.sock --registry-mirror=https://mirror.gcr.io'
+kind_on && DIND_SH="$KIND_DIND_SH"
 
 # shellcheck disable=SC2016  # раскрывается в pod, не здесь
 FETCH='set -e; i=0; while [ ! -f /work/in.done ]; do i=$((i+1)); [ "$i" -le 600 ] || { echo "remote-heavy: исходники не доставлены за 600 с" >&2; exit 3; }; sleep 1; done
 git init -q /work/src; cd /work/src; git bundle unbundle /work/in.bundle >/dev/null
 git bundle list-heads /work/in.bundle | while read -r h r; do case "$r" in refs/remotes/*|refs/tags/*) git update-ref "$r" "$h" ;; esac; done
 git update-ref refs/heads/heavy-run "$HEAVY_SHA"
+[ -z "$HEAVY_ORIGIN" ] || git remote add origin "$HEAVY_ORIGIN"
 [ -z "$HEAVY_MAIN" ] || git update-ref refs/remotes/origin/main "$HEAVY_MAIN"
 git -c advice.detachedHead=false checkout -q --detach "$HEAVY_SHA"
 [ "$(git rev-parse HEAD)" = "$HEAVY_SHA" ]; rm -f /work/in.bundle /work/in.done
 mkdir -p /work/bin; echo "remote-heavy: дерево $HEAVY_SHA" >&2'
 
 jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg goimg "$GO_IMAGE" --arg dimg "$DIND_IMAGE" --arg cimg "$CLI_IMAGE" \
-    --arg sha "$SHA" --arg main "$MAIN_SHA" --arg wd "$WORKDIR" --arg prep "$PREP" --arg fetch "$FETCH" \
+    --arg sha "$SHA" --arg main "$MAIN_SHA" --arg origin "https://github.com/PRO-Robotech/$REPO.git" --arg wd "$WORKDIR" --arg prep "$PREP" --arg fetch "$FETCH" \
     --argjson deadline "$(( TIMEOUT_S + WAIT_START_S ))" --argjson dind "$DIND" \
     --arg cr "${RUN_CPU_REQ}m" --arg cl "$CPU_LIM" --arg mr "${RUN_MEM_REQ}Mi" --arg ml "${RUN_MEM_LIM}Mi" --arg eph "$EPH" \
     --arg dcr "$DCR" --arg dcl "$DCL" --arg dmr "$DMR" --arg dml "$DML" \
     --arg pgimg "$PG_IMAGE" --arg pgsh "$PG_SH" --argjson pg "$PG" --arg pgcr "${PG_REQ_M}m" --arg pgmr "${PG_REQ_MIB}Mi" --arg dindsh "$DIND_SH" --arg deny "$DENY_PROBE" --arg helm "$HELM_PIN" --arg node "$NODE_PIN" --arg buf "$BUF_PIN" --arg yq "$YQ_PIN" \
-    --arg pull "$PULL_IMG" --arg pushin "$PUSH_INPUT" --arg gname "$GIT_NAME" --arg gemail "$GIT_EMAIL" --arg wssc "$WS_SC" --slurpfile cmdv <(printf '%s' "$CMD_JSON") '
+    --arg pull "$PULL_IMG" --arg pushin "$PUSH_INPUT" --arg gname "$GIT_NAME" --arg gemail "$GIT_EMAIL" --arg wssc "$WS_SC" --slurpfile cmdv <(printf '%s' "$CMD_JSON") \
+    --argjson kind "$(if kind_on; then echo 1; else echo 0; fi)" --arg kprobe "$KIND_PROBE_IMAGE" '
 # kubelet раскрывает в command, args и value env контейнера $(ИМЯ) значением env и
 # сворачивает $$ в $ (ws#1142: составной Job потерял переменные и коды осей). Каждый
 # $ удваивается: kubelet свернёт его обратно, и байты дойдут до контейнера как есть.
@@ -3368,21 +3396,21 @@ def kesc_c: (if .command then .command |= map(kesc) else (.) end)
   metadata: {name: "run", namespace: $ns, labels: {"kacho.io/task": $task, "kacho.io/kind": "heavy"}},
   spec: {backoffLimit: 0, activeDeadlineSeconds: $deadline, ttlSecondsAfterFinished: 3600,
    template: {metadata: {labels: {"kacho.io/task": $task, "kacho.io/kind": "heavy"}},
-    spec: ({restartPolicy: "Never", enableServiceLinks: false, automountServiceAccountToken: false, hostUsers: false,
+    spec: ({restartPolicy: "Never", enableServiceLinks: false, automountServiceAccountToken: false, hostUsers: ($kind == 1),
      initContainers: ((if $dind == 1 then [
        {name: "tools", image: $cimg, command: ["cp", "/usr/local/bin/docker", "/tools/docker"],
         volumeMounts: [{name: "tools", mountPath: "/tools"}]},
        {name: "dind", image: $dimg, restartPolicy: "Always",
-        securityContext: {privileged: false,
+        securityContext: (if $kind == 1 then {privileged: true} else {privileged: false,
                           capabilities: {add: ["SYS_ADMIN", "NET_ADMIN", "SYS_PTRACE"]},
-                          seccompProfile: {type: "Unconfined"}, appArmorProfile: {type: "Unconfined"}, procMount: "Unmasked"},
+                          seccompProfile: {type: "Unconfined"}, appArmorProfile: {type: "Unconfined"}, procMount: "Unmasked"} end),
         command: ["sh", "-c", $dindsh],
         startupProbe: {exec: {command: ["docker", "-H", "unix:///run/dind/docker.sock", "info"]}, periodSeconds: 2, failureThreshold: 150},
         resources: {requests: {cpu: $dcr, memory: $dmr}, limits: {cpu: $dcl, memory: $dml}},
         volumeMounts: [{name: "dind-lib", mountPath: "/var/lib/docker"}, {name: "dind-sock", mountPath: "/run/dind"}]}]
       else [] end) + [
        {name: "fetch", image: $goimg, command: ["sh", "-c", $fetch],
-        env: [{name: "HEAVY_SHA", value: $sha}, {name: "HEAVY_MAIN", value: $main}],
+        env: [{name: "HEAVY_SHA", value: $sha}, {name: "HEAVY_MAIN", value: $main}, {name: "HEAVY_ORIGIN", value: $origin}],
         resources: {requests: {cpu: "100m", memory: "256Mi"}, limits: {cpu: "2", memory: "2Gi"}},
         volumeMounts: [{name: "work", mountPath: "/work"}]}]),
      containers: ([{name: "run", image: $goimg, command: (["bash", "-c", $prep, "run"] + $cmdv[0]),
@@ -3392,7 +3420,8 @@ def kesc_c: (if .command then .command |= map(kesc) else (.) end)
              + (if $wssc != "" then [{name: "HEAVY_SHELLCHECK", value: $wssc},
                                     {name: "PREPUSH_GH", value: "/work/bin/gh-issue-public"}] else [] end)
              + (if $dind == 1 then [{name: "DOCKER_HOST", value: "unix:///run/dind/docker.sock"},
-                                    {name: "TESTCONTAINERS_RYUK_DISABLED", value: "true"}] else [] end)),
+                                    {name: "TESTCONTAINERS_RYUK_DISABLED", value: "true"}] else [] end)
+             + (if $kind == 1 then [{name: "HEAVY_KIND_PROBE", value: $kprobe}] else [] end)),
        resources: {requests: {cpu: $cr, memory: $mr, "ephemeral-storage": "1Gi"}, limits: {cpu: $cl, memory: $ml, "ephemeral-storage": $eph}},
        volumeMounts: ([{name: "work", mountPath: "/work"}, {name: "cache", mountPath: "/cache"}]
                       + (if $dind == 1 then [{name: "dind-sock", mountPath: "/run/dind"}] else [] end)
@@ -3408,11 +3437,12 @@ def kesc_c: (if .command then .command |= map(kesc) else (.) end)
   | .spec.template.spec |= ((.initContainers, .containers) |= map(kesc_c))' \
     > "$BOX/job.json"
 guard_write "Job" || guard_exit $?
+if kind_on; then kind_admission "$BOX/job.json" || exit $?; fi
 kc create -f "$BOX/job.json" >/dev/null || { say "Job не создан (не выполнилось)"; exit 69; }
 T0="$(now)"
 REQ_SPEC="$(jq -c '.spec.template.spec' "$BOX/job.json")"
 verify_spec Job "$(kc -n "$NSNAME" get job run -o json 2>/dev/null | jq -c '.spec.template.spec // empty' 2>/dev/null)"
-say "Job создан: образ $IMG_NAME$([ -n "$LINT_PIN" ] && [ "$PROFILE" != go-race ] && [ "$PROFILE" != integration ] && echo ", golangci-lint $LINT_PIN"), cpu ${RUN_CPU_REQ}m/$CPU_LIM, память $RUN_MEM_REQ/$RUN_MEM_LIM МиБ$([ "$DIND" = 1 ] && echo ', dind')$([ -n "$HELM_PIN$NODE_PIN$BUF_PIN$YQ_PIN" ] && echo ", helm ${HELM_PIN:-нет пина}${HELM_SRC:+ ($HELM_SRC)}, node ${NODE_PIN:-нет пина}, buf ${BUF_PIN:-нет пина}, yq ${YQ_PIN:-нет пина}")"
+say "Job создан: образ $IMG_NAME$([ -n "$LINT_PIN" ] && [ "$PROFILE" != go-race ] && [ "$PROFILE" != integration ] && echo ", golangci-lint $LINT_PIN"), cpu ${RUN_CPU_REQ}m/$CPU_LIM, память $RUN_MEM_REQ/$RUN_MEM_LIM МиБ$([ "$DIND" = 1 ] && echo ', dind')$(kind_on && echo ' privileged в пространстве пользователей узла (профиль kind)')$([ -n "$HELM_PIN$NODE_PIN$BUF_PIN$YQ_PIN" ] && echo ", helm ${HELM_PIN:-нет пина}${HELM_SRC:+ ($HELM_SRC)}, node ${NODE_PIN:-нет пина}, buf ${BUF_PIN:-нет пина}, yq ${YQ_PIN:-нет пина}")"
 
 # pod_state — «имя|фаза|fetch|run|код run|причина run|сообщение run|ожидание|
 # планирование|отказ userns». Отказ userns — строка «remote-heavy-userns: …» в
@@ -3442,12 +3472,21 @@ wait_bg() { BG="$1"; wait "$1"; local rc=$?; BG=""; return "$rc"; }
 # Bundle без ссылки git не собирает, а ревизия бывает голым sha: временная ссылка
 # в своём пространстве имён живёт до конца сборки bundle.
 TMPREF="refs/remote-heavy/$OWNER"
-git -C "$SRC" update-ref "$TMPREF" "$SHA" || { say "временная ссылка на $SHA не создана"; exit 69; }
+# Профиль kind: в bundle уходит ровно ревизия, прошедшая kind_identity (SHA выведен один раз,
+# до сверки); ссылка, сменившая цель между сверкой и сборкой, — отказ (ревью ws#1385).
+# Ссылка, bundle и снятие ссылки у профиля kind — kind_git (очищенное окружение, без конфига
+# учётки и системы, хуки и fsmonitor клона не исполняются), как и сверка личности.
+src_git() { if kind_on; then kind_git "$SRC" "$@"; else git -C "$SRC" "$@"; fi; }
+if kind_on; then
+    KSHA="$(src_git rev-parse --verify --quiet "$REF^{commit}")"
+    [ "$KSHA" = "$SHA" ] || { KEEP_H=""; say "профиль kind: ревизия «$REF» сменилась после сверки личности (${SHA:0:12} → ${KSHA:0:12}) — bundle не собирается"; exit 64; }
+fi
+src_git update-ref "$TMPREF" "$SHA" || { say "временная ссылка на $SHA не создана"; exit 69; }
 # История — как у checkout конвейера с fetch-depth: 0: все ветки origin и метки, а
 # не только ствол (ws#996: гейты дерева читают ревизию, достижимую лишь из боковой
 # ветки, — `git show <sha>:<путь>`, — и без неё отвечали «не выполнилось»).
-git -C "$SRC" bundle create "$BOX/src.bundle" "$TMPREF" --remotes=origin --tags >/dev/null 2>&1; brc=$?
-git -C "$SRC" update-ref -d "$TMPREF"; TMPREF=""
+src_git bundle create "$BOX/src.bundle" "$TMPREF" --remotes=origin --tags >/dev/null 2>&1; brc=$?
+src_git update-ref -d "$TMPREF"; TMPREF=""
 [ "$brc" -eq 0 ] || { say "bundle ревизии $SHA не собран"; exit 69; }
 POD=""; PLACED_AT=0
 while :; do
@@ -3541,6 +3580,9 @@ fi
 [ -z "$USERNS" ] || userns_refused "$USERNS"
 if [[ "$RUN_MSG" == remote-heavy-pull:* ]]; then
     say "образ testcontainers не загружен в dind до команды — ${RUN_MSG#remote-heavy-pull: } — команда не запускалась (не выполнилось)"; exit 75
+fi
+if [[ "$RUN_MSG" == remote-heavy-kind:* ]]; then
+    say "kind в pod не исполним — ${RUN_MSG#remote-heavy-kind: } — команда не запускалась (не выполнилось)"; exit 77
 fi
 if [[ "$RUN_MSG" == "remote-heavy-prep: среда: "* ]]; then
     say "команда не запускалась — не выполнилось — среда: ${RUN_MSG#remote-heavy-prep: среда: }"; exit 69

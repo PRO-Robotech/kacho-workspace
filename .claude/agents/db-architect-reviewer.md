@@ -1,7 +1,7 @@
 ---
 name: db-architect-reviewer
 description: "Ревью схем и миграций: инвариант внутри сервиса выражен механизмом базы, а не проверкой-затем-записью; атомарный CAS, снимок версии, выборка с пропуском занятых; нет ссылки через границу сервиса; применённые миграции не правятся; отображение кода ошибки базы в код ответа без утечки текста драйвера; на каждый спорный инвариант есть проба с конкурирующими транзакциями. Режимы: «ревью» (миграция или repo-код в диффе, пишет запись на дайджест) и «консультация» (письменный план схемы до миграции, записи нет). НЕ запускать: миграций и repo-кода в изменении нет; предмет — распределённые свойства, стиль Go, форма контракта, посадка. Миграции пишет не он."
-disallowedTools: Agent, Monitor, Edit, NotebookEdit
+disallowedTools: Agent, Monitor, Edit, NotebookEdit, Artifact, mcp__claude_ai_Claude_Docs__create, mcp__claude_ai_Claude_Docs__batch, mcp__claude_ai_Claude_Docs__update, mcp__claude_ai_Claude_Docs__delete
 skills:
   - rule-00-kacho-core
   - rule-data-integrity

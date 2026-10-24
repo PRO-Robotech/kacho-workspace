@@ -15,7 +15,9 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOPP="$(cd "$HERE/../.." && pwd)"
 RR="$PWD"
-# Bundle transport restores commits, not .git/config. Bind only the validated public workspace origin.
+# Клон Job (remote-heavy/run.sh: init + bundle) несёт коммиты, а не .git/config: origin у него нет,
+# а судья реестра (operator-stand.py registry()) сверяет адрес origin воркспейса. Заводится он лишь
+# каноническим публичным адресом из rr/workspace-origin; иной адрес либо иной уже заведённый — 70.
 reader_fail() { printf 'remote-reader-rc 70\n'; exit 70; }
 [ "$(git -C "$TOPP" rev-parse --show-toplevel)" = "$TOPP" ] || reader_fail
 [ -f "$RR/workspace-origin" ] && [ ! -L "$RR/workspace-origin" ] || reader_fail
@@ -32,7 +34,10 @@ else
     git -C "$TOPP" remote add origin "$workspace_origin" || reader_fail
 fi
 entry="${1:-}"; [ $# -gt 0 ] && shift
-case "$entry" in scripts/stand-report.sh|scripts/pr-body.sh) ;; *) echo "remote-reader-rc 64"; exit 64 ;; esac
+case "$entry" in
+    scripts/stand-report.sh|scripts/pr-body.sh|scripts/landing-precheck.sh|scripts/ci-read.sh|scripts/branch-audit.sh) ;;
+    *) echo "remote-reader-rc 64"; exit 64 ;;
+esac
 export KACHO_REMOTE_READER_POD=1 STAND_REPORT_GH="$HERE/replay-gh.sh" RITUAL_GH="$HERE/replay-gh.sh"
 export REMOTE_READER_GH="$RR/gh"
 unset LANDING_PRECHECK_WS RITUAL_LEDGER_CLONES RITUAL_REPO_DIR
@@ -41,6 +46,11 @@ reg="$TOPP/tmp/operator-stand-registry"
 box="$(mktemp -d)"
 trap 'rm -rf -- "$box"' EXIT
 if [ -d "$reg" ]; then (cd "$reg" && find . -type f | sort) > "$box/before" || reader_fail; else : > "$box/before"; fi
+# gh первым в PATH — снятый машиной: предпроверка зовёт gh сама и через merge-readiness и ci-read;
+# ci-read — без условного чтения (`-i`), его ключи машина снимает простой формой.
+mkdir -p "$box/bin" && ln -s "$HERE/replay-gh.sh" "$box/bin/gh" || { echo "remote-reader-rc 69"; exit 69; }
+export PATH="$box/bin:$PATH" CI_READ_GH="$HERE/replay-gh.sh"
+unset LANDING_PRECHECK_GH LANDING_PRECHECK_MERGE_READINESS CI_READ_GH_CONDITIONAL
 : > "$RR/gh/misses"
 # Копия expect (@checkout:<bundle>) — клон bundle: голова отсоединена, ветки и origin/* — как
 # у копии машины, origin — её адрес; правок вне коммита у клона нет по построению.
