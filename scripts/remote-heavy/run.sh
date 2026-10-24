@@ -3472,6 +3472,12 @@ wait_bg() { BG="$1"; wait "$1"; local rc=$?; BG=""; return "$rc"; }
 # Bundle без ссылки git не собирает, а ревизия бывает голым sha: временная ссылка
 # в своём пространстве имён живёт до конца сборки bundle.
 TMPREF="refs/remote-heavy/$OWNER"
+# Профиль kind: в bundle уходит ровно ревизия, прошедшая kind_identity (SHA выведен один раз,
+# до сверки); ссылка, сменившая цель между сверкой и сборкой, — отказ (ревью ws#1385).
+if kind_on; then
+    KSHA="$(git -C "$SRC" rev-parse --verify --quiet "$REF^{commit}")"
+    [ "$KSHA" = "$SHA" ] || { KEEP_H=""; say "профиль kind: ревизия «$REF» сменилась после сверки личности (${SHA:0:12} → ${KSHA:0:12}) — bundle не собирается"; exit 64; }
+fi
 git -C "$SRC" update-ref "$TMPREF" "$SHA" || { say "временная ссылка на $SHA не создана"; exit 69; }
 # История — как у checkout конвейера с fetch-depth: 0: все ветки origin и метки, а
 # не только ствол (ws#996: гейты дерева читают ревизию, достижимую лишь из боковой

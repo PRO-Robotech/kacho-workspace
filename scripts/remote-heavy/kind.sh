@@ -104,25 +104,61 @@ kind_pair_ok() {
 # kind_identity <репозиторий> <клон> <ревизия> — Ф1 и Ф2 (ПОВЕРХНОСТЬ). 0 — исходники того
 # оператора и ревизия достижима из ветки канонического; 64 — нет (причина — строкой);
 # 69 — канонический не ответил.
+# Состояние клона и окружение вызова не должны подменять то, что судится (ревью ws#1385:
+# insteadOf клона подменял канонический, replace --graft — историю, а bundle уносил
+# настоящий коммит). Поэтому:
+# kind_git <клон> <доводы git> — git по клону без подмен: замены объектов выключены
+# (GIT_NO_REPLACE_OBJECTS), переменные, перенаправляющие хранилище, граф и пространство
+# замен, сняты.
+kind_git() {
+    local s="$1"; shift
+    env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -u GIT_OBJECT_DIRECTORY -u GIT_ALTERNATE_OBJECT_DIRECTORIES \
+        -u GIT_GRAFT_FILE -u GIT_REPLACE_REF_BASE -u GIT_INDEX_FILE GIT_NO_REPLACE_OBJECTS=1 git -C "$s" "$@"
+}
+# kind_ls_remote <адрес> — ветки канонического из нейтрального пустого каталога с пустым
+# окружением git: ни insteadOf клона и учётки, ни GIT_CONFIG_*, ни include адрес не подменят.
+# ssh берёт ключи и known_hosts из каталога учётки по passwd, а не из HOME.
+kind_ls_remote() {
+    local nb out rc
+    nb="$(mktemp -d)" || return 1
+    out="$(cd "$nb" && env -i PATH="$PATH" HOME="$nb" GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_TERMINAL_PROMPT=0 \
+        ${SSH_AUTH_SOCK:+SSH_AUTH_SOCK="$SSH_AUTH_SOCK"} timeout 60 git ls-remote "$1" 'refs/heads/*' 2>/dev/null)"; rc=$?
+    rm -rf -- "$nb"
+    [ "$rc" = 0 ] || return "$rc"
+    printf '%s\n' "$out"
+}
+# kind_history_forged <клон> — 0, если клон подменяет историю для сверки (info/grafts,
+# refs/replace, shallow): сверка видела бы не то, что уходит в bundle; что именно — KIND_FORGED.
+kind_history_forged() {
+    local gd
+    gd="$(kind_git "$1" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || { KIND_FORGED="каталог git клона не выведен"; return 0; }
+    [ ! -e "$gd/info/grafts" ] || { KIND_FORGED="info/grafts"; return 0; }
+    [ -z "$(kind_git "$1" for-each-ref refs/replace 2>/dev/null)" ] || { KIND_FORGED="refs/replace"; return 0; }
+    [ "$(kind_git "$1" rev-parse --is-shallow-repository 2>/dev/null)" = false ] || { KIND_FORGED="shallow-клон"; return 0; }
+    return 1
+}
 kind_identity() {
     local repo="$1" src="$2" sha="$3" row mod root roots canon have heads h ok=""
     row="$(awk -F'|' -v r="$repo" '$1 == r' <<< "$KIND_OPERATORS")"
     [ -n "$row" ] || { say "профиль kind: оператора «$repo» нет в таблице личности (KIND_OPERATORS) — Job не создаётся"; return 64; }
     IFS='|' read -r _ mod root canon <<< "$row"
-    have="$(git -C "$src" show "$sha:go.mod" 2>/dev/null | awk '$1 == "module" { print $2; exit }')"
+    if kind_history_forged "$src"; then
+        say "профиль kind: клон --src подменяет историю ($KIND_FORGED) — сверка судила бы не то, что уходит в bundle; нужен полный клон без замен и прививок (Ф2)"; return 64
+    fi
+    have="$(kind_git "$src" show "$sha:go.mod" 2>/dev/null | awk '$1 == "module" { print $2; exit }')"
     if [ "$have" != "$mod" ]; then
         say "профиль kind: клон --src не $repo — модуль go.mod ревизии «${have:-нет}», ждали «$mod» (Ф1: судятся исходники bundle, а не строка --repo)"; return 64
     fi
-    roots="$(git -C "$src" rev-list --max-parents=0 "$sha" 2>/dev/null)"
+    roots="$(kind_git "$src" rev-list --max-parents=0 "$sha" 2>/dev/null)"
     if ! grep -qxF -- "$root" <<< "$roots"; then
         say "профиль kind: история ревизии не начинается корнем $repo (${root:0:12}) — клон --src не этот репозиторий (Ф1)"; return 64
     fi
-    heads="$(GIT_TERMINAL_PROMPT=0 timeout 60 git -C "$src" ls-remote "$canon" 'refs/heads/*' 2>/dev/null)" \
+    heads="$(kind_ls_remote "$canon")" \
         || { say "профиль kind: канонический репозиторий $repo не ответил (git ls-remote) — достижимость ревизии не проверена (не выполнилось)"; return 69; }
     while read -r h _; do
         [ -n "$h" ] || continue
-        git -C "$src" cat-file -e "$h^{commit}" 2>/dev/null || continue
-        if git -C "$src" merge-base --is-ancestor "$sha" "$h" 2>/dev/null; then ok=1; break; fi
+        kind_git "$src" cat-file -e "$h^{commit}" 2>/dev/null || continue
+        if kind_git "$src" merge-base --is-ancestor "$sha" "$h" 2>/dev/null; then ok=1; break; fi
     done <<< "$heads"
     if [ -z "$ok" ]; then
         say "профиль kind: ревизия ${sha:0:12} не достижима ни из одной ветки канонического $repo, чьи верхушки есть в клоне (веток $(grep -c . <<< "$heads")) — отправь ветку в канонический и обнови клон (git fetch); refs/pull и форки не в счёт (Ф2)"; return 64

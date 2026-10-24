@@ -451,6 +451,9 @@ case "$1 ${2:-}" in
             cp "$3" "$S/netpol.json"
         else
             cp "$3" "$S/job.json"
+            # FAKE_MOVE_REF «клон|ссылка|sha» — ссылку клона перевели между сверкой и сборкой
+            # bundle (профиль kind, ws#1385): run.sh обязан отказать, а не унести иное.
+            if [ -n "${FAKE_MOVE_REF:-}" ]; then IFS='|' read -r mv_d mv_r mv_s <<< "$FAKE_MOVE_REF"; git -C "$mv_d" update-ref "$mv_r" "$mv_s"; fi
             # FAKE_SWAP_AFTER_JOB — файл кубконфига сменился после создания Job: следующая
             # фаза записи переписывает узлы заново (AL5w).
             if [ -n "${FAKE_SWAP_AFTER_JOB:-}" ]; then echo ' ' >> "$FAKE_SWAP_AFTER_JOB"; fi
@@ -4092,6 +4095,8 @@ if grep -n -- '--dry-run=server' "$BOX/state/calls" | head -n 1 | cut -d: -f1 | 
 else bad KD2 "проба допуска — не раньше создания Job"; fi
 if grep -q 'допуск pod профиля kind: принят от имени job-controller' "$OUT"; then ok; else bad KD2 "строки допуска нет"; fi
 if [ "$(jq -r '.spec.template.spec.initContainers[] | select(.name == "dind") | .resources.limits.memory' "$J" 2>/dev/null)" = 12Gi ]; then ok; else bad KD2 "предел памяти dind профиля kind — не KIND_DIND_RES (12Gi)"; fi
+# KD2-sha — ревизия, которую fetch сверяет с HEAD дерева в pod, — та, что прошла сверку личности
+if [ "$(kx env "$J" fetch HEAVY_SHA)" = "$(git -C "$SRC" rev-parse HEAD)" ]; then ok; else bad KD2-sha "HEAVY_SHA fetch не равен проверенной ревизии"; fi
 # KD2-deadline — срок Job профиля kind: --timeout по умолчанию (5400) + WAIT_START_S (1800)
 if [ "$(jq -r '.spec.activeDeadlineSeconds // empty' "$J" 2>/dev/null)" = 7200 ] && [ "$(jq -r '.spec.backoffLimit' "$J" 2>/dev/null)" = 0 ]; then ok
 else bad KD2-deadline "срок Job профиля kind — не 7200 с либо backoffLimit не 0: $(jq -c '{d: .spec.activeDeadlineSeconds, b: .spec.backoffLimit}' "$J" 2>/dev/null)"; fi
@@ -4178,6 +4183,49 @@ expect_rc KF2-twin 0
 fresh; go_run kf2d env REMOTE_HEAVY_KIND_DIR="$KDDOWN" FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$SRC" --profile kind --short kf2d -- make test-e2e
 expect_rc KF2-down 69
 no_cluster_call KF2-down
+# Прежняя сверка (ls-remote из клона, замены объектов в силе, состояние клона не судится) —
+# библиотека KDOLD: на ней сцены KF3 и KF4 обязаны ПРОЙТИ, иначе их красное новой сверки ничего
+# не доказывает (проба не пуста).
+KDOLD="$BOX/kindlib-old"; mkdir -p "$KDOLD"
+sed -e 's#heads="$(kind_ls_remote "$canon")"#heads="$(git -C "$src" ls-remote "$canon" '"'"'refs/heads/*'"'"' 2>/dev/null)"#' \
+    -e 's#GIT_NO_REPLACE_OBJECTS=1 git -C "$s" "$@"#git -C "$s" "$@"#' \
+    -e 's#if kind_history_forged "$src"; then#if false; then#' "$KDLIB/kind.sh" > "$KDOLD/kind.sh"
+if [ "$(diff "$KDLIB/kind.sh" "$KDOLD/kind.sh" | grep -c '^<')" = 3 ]; then ok; else OUT="$KDOLD/kind.sh"; bad KF-old-premise "прежняя сверка не собрана ровно тремя заменами"; fi
+kf3_sha="$(git -C "$SRC" checkout -q -b kf3 && echo kf3 > "$SRC/kf3.txt" && git -C "$SRC" add kf3.txt && sandbox_git -C "$SRC" commit -q -m kf3 && git -C "$SRC" rev-parse HEAD; git -C "$SRC" checkout -q -)"
+# KF3 — insteadOf клона подменяет канонический своим голым репозиторием с локальным коммитом → 64
+git init -q --bare "$BOX/evil.git"; git -C "$SRC" push -q "$BOX/evil.git" 'refs/heads/*:refs/heads/*'
+git -C "$SRC" config "url.$BOX/evil.git.insteadOf" "$BOX/canon.git"
+fresh; go_run kf3 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref kf3 --src "$SRC" --profile kind --short kf3 -- make test-e2e
+expect_rc KF3 64
+if grep -q 'не достижима ни из одной ветки канонического' "$OUT"; then ok; else bad KF3 "insteadOf клона не отказан причиной Ф2"; fi
+no_cluster_call KF3
+fresh; go_run kf3o env REMOTE_HEAVY_KIND_DIR="$KDOLD" FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref kf3 --src "$SRC" --profile kind --short kf3o -- make test-e2e
+expect_rc KF3-old 0
+git -C "$SRC" config --unset "url.$BOX/evil.git.insteadOf"
+# KF4 — replace --graft делает локальный коммит предком верхушки ветки канонического → 64
+kf4_head="$(git -C "$SRC" rev-parse kf2)"
+git -C "$SRC" replace --graft "$kf4_head" "$kf3_sha"
+fresh; go_run kf4 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref kf3 --src "$SRC" --profile kind --short kf4 -- make test-e2e
+expect_rc KF4 64
+if grep -q 'клон --src подменяет историю (refs/replace)' "$OUT"; then ok; else bad KF4 "replace --graft не отказан причиной подмены истории"; fi
+no_cluster_call KF4
+fresh; go_run kf4o env REMOTE_HEAVY_KIND_DIR="$KDOLD" FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref kf3 --src "$SRC" --profile kind --short kf4o -- make test-e2e
+expect_rc KF4-old 0
+git -C "$SRC" replace -d "$kf4_head" >/dev/null
+# KF5 — shallow-клон → 64, причина — shallow
+git clone -q --depth 1 "file://$SRC" "$BOX/kf-shallow"
+fresh; go_run kf5 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$BOX/kf-shallow" --profile kind --short kf5 -- make test-e2e
+expect_rc KF5 64
+if grep -q 'клон --src подменяет историю (shallow-клон)' "$OUT"; then ok; else bad KF5 "shallow-клон не отказан причиной подмены истории"; fi
+no_cluster_call KF5
+# KF6 — ссылку клона перевели на локальный коммит между сверкой и сборкой bundle → 64, bundle
+# не собран и не доставлен, ns снято
+kf6_was="$(git -C "$SRC" rev-parse kf2)"
+fresh; go_run kf6 env FAKE_EXIT=0 FAKE_MOVE_REF="$SRC|refs/heads/kf2|$kf3_sha" bash "$RUN" --task 1 --repo registry-operator --ref kf2 --src "$SRC" --profile kind --short kf6 -- make test-e2e
+expect_rc KF6 64
+if grep -q 'сменилась после сверки личности' "$OUT" && [ ! -e "$BOX/state/bundle" ]; then ok; else bad KF6 "смена ссылки после сверки не отказана либо bundle доставлен"; fi
+expect_ns_gone KF6 t1-heavy-kf6
+git -C "$SRC" update-ref refs/heads/kf2 "$kf6_was"
 # KD7–KD9 — проба исполнимости kind ИСПОЛНЕНИЕМ шага из Job над двойником docker: исполним → 0,
 # строки в termination-log нет; sysfs не монтируется (опыт 85ae95b) либо cgroup закрыт (опыт
 # hostUsers: false) → 125 и «remote-heavy-kind:»; образ пробы не скачан → «remote-heavy-prep:» (69)
