@@ -107,13 +107,14 @@ kind_pair_ok() {
 # Состояние клона и окружение вызова не должны подменять то, что судится (ревью ws#1385:
 # insteadOf клона подменял канонический, replace --graft — историю, а bundle уносил
 # настоящий коммит). Поэтому:
-# kind_git <клон> <доводы git> — git по клону без подмен: замены объектов выключены
-# (GIT_NO_REPLACE_OBJECTS), переменные, перенаправляющие хранилище, граф и пространство
-# замен, сняты.
+# kind_git <клон> <доводы git> — git по клону без подмен и без исполнения чужого: окружение
+# пустое (ни GIT_* процесса, ни GIT_CONFIG_COUNT/KEY/VALUE), конфигурации учётки и системы нет,
+# замены объектов выключены, хуки (reference-transaction и прочие) и fsmonitor клона не
+# исполняются. Им идут и сверка личности, и временная ссылка, и сборка bundle (ревью ws#1385).
 kind_git() {
     local s="$1"; shift
-    env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -u GIT_OBJECT_DIRECTORY -u GIT_ALTERNATE_OBJECT_DIRECTORIES \
-        -u GIT_GRAFT_FILE -u GIT_REPLACE_REF_BASE -u GIT_INDEX_FILE GIT_NO_REPLACE_OBJECTS=1 git -C "$s" "$@"
+    env -i PATH="$PATH" LC_ALL=C GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_NO_REPLACE_OBJECTS=1 \
+        git -c core.hooksPath=/dev/null -c core.fsmonitor=false -C "$s" "$@"
 }
 # kind_ls_remote <адрес> — ветки канонического из нейтрального пустого каталога с пустым
 # окружением git: ни insteadOf клона и учётки, ни GIT_CONFIG_*, ни include адрес не подменят.
@@ -128,11 +129,12 @@ kind_ls_remote() {
     printf '%s\n' "$out"
 }
 # kind_history_forged <клон> — 0, если клон подменяет историю для сверки (info/grafts,
-# refs/replace, shallow): сверка видела бы не то, что уходит в bundle; что именно — KIND_FORGED.
+# refs/replace, shallow, objects/info/alternates — чужое хранилище объектов): сверка видела бы не то, что уходит в bundle; что именно — KIND_FORGED.
 kind_history_forged() {
     local gd
     gd="$(kind_git "$1" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || { KIND_FORGED="каталог git клона не выведен"; return 0; }
     [ ! -e "$gd/info/grafts" ] || { KIND_FORGED="info/grafts"; return 0; }
+    [ ! -s "$gd/objects/info/alternates" ] || { KIND_FORGED="objects/info/alternates"; return 0; }
     [ -z "$(kind_git "$1" for-each-ref refs/replace 2>/dev/null)" ] || { KIND_FORGED="refs/replace"; return 0; }
     [ "$(kind_git "$1" rev-parse --is-shallow-repository 2>/dev/null)" = false ] || { KIND_FORGED="shallow-клон"; return 0; }
     return 1

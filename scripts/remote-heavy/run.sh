@@ -1606,7 +1606,7 @@ cleanup() {
     [ "$DONE" = 1 ] && return 0
     DONE=1
     [ -n "$BG" ] && kill "$BG" 2>/dev/null
-    [ -n "$TMPREF" ] && git -C "$SRC" update-ref -d "$TMPREF" 2>/dev/null
+    if [ -n "$TMPREF" ]; then if kind_on; then kind_git "$SRC" update-ref -d "$TMPREF" 2>/dev/null; else git -C "$SRC" update-ref -d "$TMPREF" 2>/dev/null; fi; fi
     rm -rf -- "$BOX"
     [ "$CREATED" = 1 ] || return 0
     if [ -n "$KEEP_H" ]; then
@@ -3474,16 +3474,19 @@ wait_bg() { BG="$1"; wait "$1"; local rc=$?; BG=""; return "$rc"; }
 TMPREF="refs/remote-heavy/$OWNER"
 # Профиль kind: в bundle уходит ровно ревизия, прошедшая kind_identity (SHA выведен один раз,
 # до сверки); ссылка, сменившая цель между сверкой и сборкой, — отказ (ревью ws#1385).
+# Ссылка, bundle и снятие ссылки у профиля kind — kind_git (очищенное окружение, без конфига
+# учётки и системы, хуки и fsmonitor клона не исполняются), как и сверка личности.
+src_git() { if kind_on; then kind_git "$SRC" "$@"; else git -C "$SRC" "$@"; fi; }
 if kind_on; then
-    KSHA="$(git -C "$SRC" rev-parse --verify --quiet "$REF^{commit}")"
+    KSHA="$(src_git rev-parse --verify --quiet "$REF^{commit}")"
     [ "$KSHA" = "$SHA" ] || { KEEP_H=""; say "профиль kind: ревизия «$REF» сменилась после сверки личности (${SHA:0:12} → ${KSHA:0:12}) — bundle не собирается"; exit 64; }
 fi
-git -C "$SRC" update-ref "$TMPREF" "$SHA" || { say "временная ссылка на $SHA не создана"; exit 69; }
+src_git update-ref "$TMPREF" "$SHA" || { say "временная ссылка на $SHA не создана"; exit 69; }
 # История — как у checkout конвейера с fetch-depth: 0: все ветки origin и метки, а
 # не только ствол (ws#996: гейты дерева читают ревизию, достижимую лишь из боковой
 # ветки, — `git show <sha>:<путь>`, — и без неё отвечали «не выполнилось»).
-git -C "$SRC" bundle create "$BOX/src.bundle" "$TMPREF" --remotes=origin --tags >/dev/null 2>&1; brc=$?
-git -C "$SRC" update-ref -d "$TMPREF"; TMPREF=""
+src_git bundle create "$BOX/src.bundle" "$TMPREF" --remotes=origin --tags >/dev/null 2>&1; brc=$?
+src_git update-ref -d "$TMPREF"; TMPREF=""
 [ "$brc" -eq 0 ] || { say "bundle ревизии $SHA не собран"; exit 69; }
 POD=""; PLACED_AT=0
 while :; do

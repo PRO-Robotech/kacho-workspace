@@ -4189,7 +4189,7 @@ no_cluster_call KF2-down
 KDOLD="$BOX/kindlib-old"; mkdir -p "$KDOLD"
 # shellcheck disable=SC2016  # $ в образцах sed — буквы текста kind.sh, не подстановка
 sed -e 's#heads="$(kind_ls_remote "$canon")"#heads="$(git -C "$src" ls-remote "$canon" '"'"'refs/heads/*'"'"' 2>/dev/null)"#' \
-    -e 's#GIT_NO_REPLACE_OBJECTS=1 git -C "$s" "$@"#git -C "$s" "$@"#' \
+    -e 's#GIT_NO_REPLACE_OBJECTS=1 \\$#GIT_NO_REPLACE_OBJECTS=0 \\#' \
     -e 's#if kind_history_forged "$src"; then#if false; then#' "$KDLIB/kind.sh" > "$KDOLD/kind.sh"
 if [ "$(diff "$KDLIB/kind.sh" "$KDOLD/kind.sh" | grep -c '^<')" = 3 ]; then ok; else OUT="$KDOLD/kind.sh"; bad KF-old-premise "прежняя сверка не собрана ровно тремя заменами"; fi
 kf3_sha="$(git -C "$SRC" checkout -q -b kf3 && echo kf3 > "$SRC/kf3.txt" && git -C "$SRC" add kf3.txt && sandbox_git -C "$SRC" commit -q -m kf3 && git -C "$SRC" rev-parse HEAD; git -C "$SRC" checkout -q -)"
@@ -4227,6 +4227,27 @@ expect_rc KF6 64
 if grep -q 'сменилась после сверки личности' "$OUT" && [ ! -e "$BOX/state/bundle" ]; then ok; else bad KF6 "смена ссылки после сверки не отказана либо bundle доставлен"; fi
 expect_ns_gone KF6 t1-heavy-kf6
 git -C "$SRC" update-ref refs/heads/kf2 "$kf6_was"
+# KF7 — клон с objects/info/alternates (чужое хранилище объектов) → 64 до сети и кластера
+git clone -q --shared "$SRC" "$BOX/kf-alt"
+fresh; go_run kf7 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$BOX/kf-alt" --profile kind --short kf7 -- make test-e2e
+expect_rc KF7 64
+if grep -q 'клон --src подменяет историю (objects/info/alternates)' "$OUT"; then ok; else bad KF7 "alternates не отказаны причиной подмены истории"; fi
+no_cluster_call KF7
+# KF8 — хуки и fsmonitor клона не исполняются ни сверкой, ни ссылкой, ни сборкой bundle:
+# core.hooksPath клона ведёт в каталог с reference-transaction-маркером, core.fsmonitor — на
+# команду-маркер. Предпосылка: обычный git по тому же клону маркер хука создаёт (сцена не пуста).
+KH="$BOX/kf-hooks"; mkdir -p "$KH"
+printf '#!/bin/sh\ntouch "%s/hook-ran"\n' "$KH" > "$KH/reference-transaction"
+printf '#!/bin/sh\ntouch "%s/fsm-ran"\nexit 1\n' "$KH" > "$KH/fsmonitor"; chmod +x "$KH/reference-transaction" "$KH/fsmonitor"
+git -C "$SRC" config core.hooksPath "$KH"; git -C "$SRC" config core.fsmonitor "$KH/fsmonitor"
+git -C "$SRC" update-ref refs/kf8-premise HEAD; git -C "$SRC" update-ref -d refs/kf8-premise
+if [ -e "$KH/hook-ran" ]; then ok; else bad KF8-premise "обычный git не исполнил reference-transaction клона — сцена KF8 пуста"; fi
+rm -f "$KH/hook-ran" "$KH/fsm-ran"
+fresh; go_run kf8 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo registry-operator --ref HEAD --src "$SRC" --profile kind --short kf8 -- make test-e2e
+expect_rc KF8 0
+if [ ! -e "$KH/hook-ran" ] && [ ! -e "$KH/fsm-ran" ] && [ -s "$BOX/state/bundle" ]; then ok
+else bad KF8 "хук либо fsmonitor клона исполнился при профиле kind (hook-ran: $([ -e "$KH/hook-ran" ] && echo да || echo нет), fsm-ran: $([ -e "$KH/fsm-ran" ] && echo да || echo нет)) либо bundle не доставлен"; fi
+git -C "$SRC" config --unset core.hooksPath; git -C "$SRC" config --unset core.fsmonitor
 # KD7–KD9 — проба исполнимости kind ИСПОЛНЕНИЕМ шага из Job над двойником docker: исполним → 0,
 # строки в termination-log нет; sysfs не монтируется (опыт 85ae95b) либо cgroup закрыт (опыт
 # hostUsers: false) → 125 и «remote-heavy-kind:»; образ пробы не скачан → «remote-heavy-prep:» (69)
