@@ -407,8 +407,6 @@ def sibling_pulls(opened: list, repo: str, n: int, head_sha: str) -> list[int]:
     out = []
     for p in opened:
         h = (p.get("head") or {}).get("sha") or ""
-        if h == head_sha:
-            continue
         if h and subprocess.run(["git", "-C", os.environ.get("RITUAL_REPO_DIR") or os.getcwd(), "cat-file", "-e",
                                  h + "^{commit}"], capture_output=True).returncode == 0 and is_ancestor(h, head_sha):
             continue

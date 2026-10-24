@@ -447,10 +447,7 @@ done
 # предка, закрытый, номер прозой тела.
 inject "M90 pr-body: другой открытый запрос не судится" check-01-pr-body.py \
     '            if sib:' '            if False:'
-inject "M91 pr-body: запрос этой головы — другой" check-01-pr-body.py \
-    '        if h == head_sha:
-            continue' '        pass'
-inject "M92 pr-body: запрос предка головы — другой" check-01-pr-body.py \
+inject "M92 pr-body: запрос этой головы либо её предка — другой" check-01-pr-body.py \
     'h + "^{commit}"], capture_output=True).returncode == 0 and is_ancestor(h, head_sha):' \
     'h + "^{commit}"], capture_output=True).returncode == 0 and False:'
 inject "M93 pr-body: номер прозой тела — закрытие" check-01-pr-body.py \
