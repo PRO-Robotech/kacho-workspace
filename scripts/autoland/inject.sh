@@ -138,11 +138,12 @@
 #                  заданный KACHO_TASK сильнее темы; в args — «#0» темы и KACHO_TASK не номер —
 #                  отказ start кодом 2; в detach — номер темы в окружении демона.
 #   q-subject    — заголовок коммита догона (ws#1393, kaname#970 вышел void: «#955 merge 955: …»
-#                  трижды отвергнут хуком коммита kaname): голова-номер `4310` на базе-номере
-#                  `4300` — «#4310 merge #4300: догон базы перед вливанием #4310» (номер — ветки,
-#                  не темы «#4000», база — с `#`); голова `4311-x` на main — «#4311 merge main: …»;
-#                  голова `4312` на `4300-epic` — «#4312 merge #4300: …»; коммит догона — первый
-#                  родитель головы, влитой в базу.
+#                  трижды отвергнут хуком коммита kaname); номер PR (432x) отличен от номера
+#                  ветки (431x) и темы: PR 4320, голова-номер `4310` на базе-номере `4300` —
+#                  «#4310 merge #4300: догон базы перед вливанием #4320» (номер — ветки, не темы
+#                  и не PR, база — с `#`); `4311-x` на main — «#4311 merge main: …»; `4312` на
+#                  `4300-epic` — «#4312 merge #4300: …»; голова без номера `feat-x` — номер темы
+#                  «#4000 merge main: …»; коммит догона — первый родитель головы, влитой в базу.
 #
 # МУТАНТЫ — копия autoland.sh с одним дефектом обязана уронить свою сцену: без
 # --match-head-commit, с --admin, без --delete-branch, допуск всех причин, без сверки
@@ -1348,19 +1349,25 @@ s_q_task() {  # номер задачи слота отправки догона
         eval '[ "$RC" = 0 ] && st_is merged && grep -q "^push .* task=4301$" "$Q/push.calls"'
 }
 s_q_subject() {  # заголовок коммита догона — форма слияния правила ветки (ws#1393)
-    new_fx q-subject-bare; mk_qr 4310 4310 4300; base_push 4300 b.txt b
-    run_q 4310; wait_q 4310; ST_Q 4310
-    ok q-subject "голова-номер 4310, база-номер 4300 — «#4310 merge #4300: догон базы перед вливанием #4310», merged" \
-        eval '[ "$RC" = 0 ] && st_is merged && [ "$(cu_subj 4300 4310)" = "#4310 merge #4300: догон базы перед вливанием #4310" ]'
-    ok q-subject "коммит догона — первый родитель влитой головы 4310 (несёт номер ветки-номера)" cu_owned 4300 4310
-    new_fx q-subject-dash; mk_qr 4311 4311-x main; base_push main b.txt b
-    run_q 4311; wait_q 4311; ST_Q 4311
-    ok q-subject "голова 4311-x, база main — «#4311 merge main: догон базы перед вливанием #4311», merged" \
-        eval '[ "$RC" = 0 ] && st_is merged && [ "$(cu_subj main 4311)" = "#4311 merge main: догон базы перед вливанием #4311" ]'
-    new_fx q-subject-epic; mk_qr 4312 4312 4300-epic; base_push 4300-epic b.txt b
-    run_q 4312; wait_q 4312; ST_Q 4312
-    ok q-subject "голова 4312, база 4300-epic — «#4312 merge #4300: догон базы перед вливанием #4312», merged" \
-        eval '[ "$RC" = 0 ] && st_is merged && [ "$(cu_subj 4300-epic 4312)" = "#4312 merge #4300: догон базы перед вливанием #4312" ]'
+    # Номер PR (432x) всюду отличен от номера ветки (431x) и темы (#4000): иначе «номер из $PR»
+    # неотличим от верного, а «#<PR> merge …» хук kaname отвергает (класс kaname#970).
+    new_fx q-subject-bare; mk_qr 4320 4310 4300; base_push 4300 b.txt b
+    run_q 4320; wait_q 4320; ST_Q 4320
+    ok q-subject "PR 4320, голова-номер 4310, база-номер 4300 — «#4310 merge #4300: догон базы перед вливанием #4320», merged" \
+        eval '[ "$RC" = 0 ] && st_is merged && [ "$(cu_subj 4300 4320)" = "#4310 merge #4300: догон базы перед вливанием #4320" ]'
+    ok q-subject "коммит догона — первый родитель влитой головы 4310 (несёт номер ветки-номера)" cu_owned 4300 4320
+    new_fx q-subject-dash; mk_qr 4321 4311-x main; base_push main b.txt b
+    run_q 4321; wait_q 4321; ST_Q 4321
+    ok q-subject "PR 4321, голова 4311-x, база main — «#4311 merge main: догон базы перед вливанием #4321», merged" \
+        eval '[ "$RC" = 0 ] && st_is merged && [ "$(cu_subj main 4321)" = "#4311 merge main: догон базы перед вливанием #4321" ]'
+    new_fx q-subject-epic; mk_qr 4322 4312 4300-epic; base_push 4300-epic b.txt b
+    run_q 4322; wait_q 4322; ST_Q 4322
+    ok q-subject "PR 4322, голова 4312, база 4300-epic — «#4312 merge #4300: догон базы перед вливанием #4322», merged" \
+        eval '[ "$RC" = 0 ] && st_is merged && [ "$(cu_subj 4300-epic 4322)" = "#4312 merge #4300: догон базы перед вливанием #4322" ]'
+    new_fx q-subject-plain; mk_qr 4323 feat-x main; base_push main b.txt b
+    run_q 4323; wait_q 4323; ST_Q 4323
+    ok q-subject "PR 4323, голова без номера feat-x — номер из темы: «#4000 merge main: догон базы перед вливанием #4323», merged" \
+        eval '[ "$RC" = 0 ] && st_is merged && [ "$(cu_subj main 4323)" = "#4000 merge main: догон базы перед вливанием #4323" ]'
 }
 s_q_limit() {  # предел догонов
     new_fx q-limit; mk_q 4301; base_push main b.txt b
@@ -1667,6 +1674,9 @@ mutant subject-bare-head-from-subject s_q_subject 'if [[ "$PR_REF" =~ ^[0-9]+$ ]
 mutant subject-dash-head-from-subject s_q_subject 'elif [[ "$PR_REF" =~ ^([0-9]+)- ]]; then task=' 'elif false; then task='
 mutant subject-dash-base-as-is s_q_subject 'elif [[ "$base" =~ ^([0-9]+)- ]]; then bref=' 'elif false; then bref='
 mutant subject-main-hashed s_q_subject '    bref="$base"' '    bref="#$base"'
+mutant subject-bare-head-task-from-pr s_q_subject 'then task="#$PR_REF"; elif' 'then task="#$PR"; elif'
+mutant subject-dash-head-task-from-pr s_q_subject '=~ ^([0-9]+)- ]]; then task="#${BASH_REMATCH[1]}"' '=~ ^([0-9]+)- ]]; then task="#$PR"'
+mutant subject-fallback-task-from-pr s_q_subject '    task="${SUBJECT%% *}"' '    task="#$PR"'
 mutant catchup-fetch-unchecked s_q_fetch 'if ! GIT_TERMINAL_PROMPT=0 git -C "$c" fetch' 'if false && git -C "$c" fetch'
 # страж python3 гейтов (ws#1365)
 mutant py-guard-not-in-path s_py_guard_sh '    local PATH="$PYG:$AUTOLAND_PATH" BASH_ENV="$PY_ENV"' '    local PATH="$AUTOLAND_PATH" BASH_ENV="$PY_ENV"'
