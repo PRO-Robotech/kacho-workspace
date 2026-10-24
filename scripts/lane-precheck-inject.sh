@@ -503,6 +503,10 @@ assert "1 да" "$(tt 'Отправь и не жди дольше трёх па�
 assert "1 да" "$(tt 'Каждый Bash ≤ 60 с.' 'Хук: вызов до 270 с.') $(has 'TASK-LIMITS пределы одного вызова разные: 60 270 с')" "два предела вызова (60 и 270 с) → TASK-LIMITS"
 assert "1 да" "$(tt 'Отправка полным хуком: heavy-slot.sh ci-local -- git push origin HEAD:refs/heads/1-x.') $(has 'TASK-RETURN строка 1')" "долгий шаг без возврата «идёт» → TASK-RETURN (урок 525a21f5)"
 assert "0 да" "$(tt 'Каждый Bash ≤ 60 с; Не жди.' 'Отправка полным хуком: heavy-slot.sh ci-local -- git push origin HEAD:refs/heads/1-x.' 'Долгое — scripts/detach.sh start <каталог> -- …; верни «идёт: pid, журнал, срок», исход — detach.sh status.') $(has 'строк 3; причин 0')" "близнец: один предел, «Не жди» как норма, возврат «идёт» назван → 0"
+# Урок 2026-10-24 (67e5a4fe, 1769248c, fae8d5da): задание полосе, правящей хук отправки, называет пробы хука.
+assert "1 да" "$(tt 'Правка scripts/hooks/pre-push: новый шаг до обхода.') $(has 'REASON TASK-HOOK-PROBES строка 1')" "правка хука без проб хука → TASK-HOOK-PROBES"
+assert "0 да" "$(tt 'Правка scripts/hooks/pre-push: новый шаг до обхода.' 'До «готово» — все `scripts/hooks/*-inject.sh` слотом.') $(has 'причин 0')" "близнец: форма проб хука названа → 0"
+assert "0 да" "$(tt 'Сдача — полным хуком отправки, верни «идёт».') $(has 'причин 0')" "близнец: хук отправки как сдача (не путь хука) — не судится"
 : > "$W/task.txt"
 assert "2" "$(bash "$P" --task-text "$W/task.txt" > "$W/out" 2>&1; echo $?)" "пустой текст — ноль строк, не «причин нет» → 2"
 # Класс «заказ ожидания или паузы числом внутри вызова» (возврат check-verifier по #1225):
@@ -699,6 +703,7 @@ assert "1" "$(mut merge-lawful '(#[0-9]+|main)([^0-9A-Za-z_]|$)' '(#[0-9]+)([^0-
 
 # ws#1307 — Vault mount и кластер стенда.
 assert "0" "$(mut vault-census '|| reasons+=("TASK-VAULT-MOUNT' '|| : || reasons+=("TASK-VAULT-MOUNT' --task-text 'Разведай роли mount begetk8s-system-1 в Vault.')" "мутант «mount без пары не судится»: голый mount проходит — проба выше его ловит"
+assert "0" "$(mut hook-probes '|| reasons+=("TASK-HOOK-PROBES' '|| : || reasons+=("TASK-HOOK-PROBES' --task-text 'Правка scripts/hooks/pre-push: новый шаг до обхода.')" "мутант «правка хука без проб не судится»: проходит — проба выше его ловит"
 assert "0" "$(mut vault-kv '(^|[^[:alpha:]])mount|mountpath ]]' '(^|[^[:alpha:]])mount ]]' --task-text 'Сверь kvMountPath секрета Vault.')" "мутант «mount лишь отдельным словом» (перечень форм): kvMountPath проходит — проба выше его ловит"
 assert "0" "$(mut vault-ru '[[ "$line" =~ (^|[^[:alpha:]])[Мм][Аа][Уу][Нн][Тт] ]]' 'false' --task-text 'Vault арендатора.' 'Маунт тот же, что в корне.')" "мутант «маунт кириллицей не узнан»: проходит — проба выше его ловит"
 assert "1" "$(mut vault-edge '(^|[^[:alpha:]])mount|mountpath ]]' 'mount|mountpath ]]' --task-text 'Vault agent: проверь volumeMounts пода и FailedMount в событиях.')" "мутант «граница слова снята»: volumeMounts краснеет — близнец выше его ловит"

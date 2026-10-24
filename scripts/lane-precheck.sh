@@ -122,6 +122,10 @@
 #                      считаются; ПРИВЕДЁННАЯ строка не по форме (образец отказа) — тоже отказ.
 #                      Шаблон — не строка: `#<N> merge #<PR>: …`, `#808 merge #<M>`, `#808 merge #M`;
 #                      `PR #<N> merge …` — проза о запросе («PR #898 merge commit'ом»), не тема.
+#   TASK-HOOK-PROBES   текст называет scripts/hooks/pre-push (правка хука), а формы
+#                      `scripts/hooks/*-inject.sh` в нём нет (уроки 2026-10-24: 67e5a4fe, 1769248c,
+#                      fae8d5da — пробы, зовущие сам хук, полный хук не исполняет; сдача без них).
+#                      Граница: путь хука иначе («хук отправки», `.git/hooks`) не узнаётся.
 # Задание АВТОРУ ПРИЁМКИ (`--agent acceptance-author`, ws#1271; уроки 18–19.10 — дом, номер,
 # ветка, чужая координата по памяти: 28 случаев) несёт ПЕРЕПИСЬ координат — строки словаря
 # предусловий в тексте (ведущие `-`, `*` и обратные кавычки снимаются), сверяемые тем же судом
@@ -265,7 +269,7 @@ knorm() {
 if [ -n "$task_text" ]; then
     [ "${#pos[@]}" -eq 0 ] && [ -z "$premise" ] || usage
     [ -r "$task_text" ] || { echo "lane-precheck: текста задания $task_text нет; вердикта нет" >&2; exit 2; }
-    reasons=() n=0 limits=() longstep="" ret="" cen=() cenk="" coords=() void="" kpaths=() vaultseen="" mountline="" vmention="" vfield=""
+    reasons=() n=0 limits=() longstep="" ret="" cen=() cenk="" coords=() void="" kpaths=() vaultseen="" mountline="" vmention="" vfield="" hookline="" hprobes=""
     kre='(~|\$\{HOME\}|\$HOME)?[A-Za-z0-9_./-]*/\.kube/[A-Za-z0-9_.@/-]*'
     num='[0-9]+([.,][0-9]+)?'; sec='(с|сек[[:alpha:]]*|s|мин(ут[[:alpha:]]*)?|m)([^[:alnum:]]|$)'
     cmp='(дольше|больше|более|свыше)'
@@ -346,10 +350,15 @@ if [ -n "$task_text" ]; then
         done
         [[ "${line,,}" =~ heavy-slot|git[[:space:]]+push|--enqueue|autoland\.sh[[:space:]]+start|полн[[:alpha:]]*[[:space:]]+хук ]] && longstep="${longstep:-$n}"
         [[ "${line,,}" =~ detach\.sh|«идёт|идёт:|отсоедин ]] && ret=1
+        # Хук отправки (урок 2026-10-24, три случая: 67e5a4fe, 1769248c, fae8d5da) — правка хука
+        # обязана гнать пробы, которые зовут сам хук: форма `scripts/hooks/*-inject.sh` в тексте.
+        [[ "$line" == *scripts/hooks/pre-push* ]] && hookline="${hookline:-$n}"
+        [[ "$line" == *"scripts/hooks/*-inject.sh"* ]] && hprobes=1
     done < "$task_text"
     distinct="$(printf '%s\n' "${limits[@]+"${limits[@]}"}" | sed '/^$/d' | sort -un | tr '\n' ' ')"
     [ "$(wc -w <<< "$distinct")" -le 1 ] || reasons+=("TASK-LIMITS пределы одного вызова разные: ${distinct% } с — предел вызова задаётся одним числом")
     [ -z "$longstep" ] || [ -n "$ret" ] || reasons+=("TASK-RETURN строка $longstep: долгий шаг без возврата «идёт» — задание называет форму: scripts/detach.sh start …, возврат «идёт: pid, журнал, срок», исход отдельным шагом")
+    [ -z "$hookline" ] || [ -n "$hprobes" ] || reasons+=("TASK-HOOK-PROBES строка $hookline: задание о scripts/hooks/pre-push не называет пробы хука — до «готово» прогнать все scripts/hooks/*-inject.sh клона слотом (heavy-slot.sh ci-local -- bash scripts/hooks/<имя>-inject.sh): они зовут сам хук, а полный хук их не исполняет")
     if [ "$agent" = acceptance-author ]; then
         miss=""
         [[ "$cenk " == *" path "* ]] || miss+=" дом (path <клон> <ревизия> <путь>);"
