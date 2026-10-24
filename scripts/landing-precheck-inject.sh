@@ -239,8 +239,37 @@ expect 1 $'REASON\tCI-NOT-SUCCESS\tсводный вердикт юнитов (�
 # kaname#629, привитый к случаю (шапка, «УСЛОВИЕ IF»).
 TRUNKJOB='вердикт ствола — красное не остаётся без читателя'
 # ws#1397: набора нет — skipped по невыполнимому if не судим и идёт причиной (д), а не CI-NOT-SUCCESS.
-UNJS="набор обязательных не получен — skipped по невыполнимому if не судимы: $TRUNKJOB ×4"
-UNJ=$'REASON\tMERGE-READINESS\tкод 0 без набора (MERGE_READINESS_REQUIRED_OUT не записан либо пуст без основания): '"$UNJS"
+# Код свой (SKIPPED-UNJUDGED), не MERGE-READINESS: допуск merge-readiness его не снимает.
+UNJS=" не получен — skipped по невыполнимому if не судимы: $TRUNKJOB ×4"
+UNJ=$'REASON\tSKIPPED-UNJUDGED\tнабор обязательных от merge-readiness (код 0)'"$UNJS"
+UNJ2=$'REASON\tSKIPPED-UNJUDGED\tнабор обязательных от merge-readiness (код 2)'"$UNJS"
+# reason_codes — коды строк REASON последнего прогона, различные, по алфавиту, через запятую.
+reason_codes() { grep '^REASON' "$W/out" | cut -f2 | LC_ALL=C sort -u | paste -sd, -; }
+# expect_codes <код выхода> <коды через запятую> <строка, которая обязана быть> <имя пробы> —
+# сцена с двумя фактами (merge-readiness ≠ 0 и набора нет): ровно эти коды, CI-NOT-SUCCESS нет.
+expect_codes() {
+    local code got; code="$(cat "$W/code")"; got="$(reason_codes)"
+    if [ "$code" = "$1" ] && [ "$got" = "$2" ] && grep -qF -- "$3" "$W/out"; then
+        echo "  [OK]   $4"; pass=$((pass + 1))
+    else
+        echo "  [FAIL] $4 — код $code (ждали $1), коды причин «$got» (ждали «$2»)" >&2; sed 's/^/           /' "$W/out" >&2; fail=$((fail + 1))
+    fi
+}
+# Допуск демона вливания — ДОСЛОВНЫЙ фильтр awk из scripts/autoland/autoland.sh (строки REASON
+# вне --allow); своей копии выражения здесь нет. Не найден — проба не судит: FAIL.
+ALLOW_PAT='-v allow=",\$ALLOW," '\''\K[^'\'']+'
+ALLOW_AWK="$(grep -m1 -oP -e "$ALLOW_PAT" "$HERE/autoland/autoland.sh")"
+# expect_allow <допуск> <red|land> <имя пробы> — исход фильтра допуска на выводе последнего прогона
+expect_allow() {
+    local bad
+    if [ -z "$ALLOW_AWK" ]; then echo "  [FAIL] $3: фильтр --allow в autoland.sh не найден образцом" >&2; fail=$((fail + 1)); return; fi
+    bad="$(grep -P '^REASON\t' "$W/out" | awk -F'\t' -v allow=",$1," "$ALLOW_AWK" | cut -f2 | LC_ALL=C sort -u | paste -sd, -)"
+    if { [ "$2" = red ] && [ -n "$bad" ]; } || { [ "$2" = land ] && [ -z "$bad" ] && [ "$(cat "$W/code")" = 1 ]; }; then
+        echo "  [OK]   $3 (вне допуска: «${bad:-—}»)"; pass=$((pass + 1))
+    else
+        echo "  [FAIL] $3 — ждали $2, вне допуска «${bad:-—}», код $(cat "$W/code")" >&2; sed 's/^/           /' "$W/out" >&2; fail=$((fail + 1))
+    fi
+}
 K629="$FIX/kaname-629"
 # shellcheck disable=SC2016  # $h, $b, $s — переменные jq
 addskip() {
@@ -362,14 +391,24 @@ mutant any-skipped 'return True, "мутант: любой skipped законе�
 mutant name-list 'return r.get("name") in {"вердикт ствола — красное не остаётся без читателя"}, "мутант: список имён"'
 twin; addskip; echo "$TRUNKJOB" >> "$W/case/required"; run 0
 expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (контекст обязательный)' "близнец: то же задание в наборе обязательных — skipped не зелёный и при невыполнимом if"
+# B2 (ws#1397): набор известен, задание в нём — допуск обоих кодов CI-NOT-SUCCESS не снимает.
+expect_allow MERGE-READINESS,SKIPPED-UNJUDGED red "(ws#1397) B2: набор известен, skipped обязательного — --allow MERGE-READINESS,SKIPPED-UNJUDGED не вливает"
 twin; addskip; rm "$W/case/required"; run 0
-expect 1 "$UNJ" "набор от merge-readiness не получен — skipped не снимается, причина — (д), не CI-NOT-SUCCESS (ws#1397)"
+expect 1 "$UNJ" "набор от merge-readiness не получен — skipped не снимается, причина SKIPPED-UNJUDGED, не CI-NOT-SUCCESS (ws#1397)"
+# B1 (ws#1397): набор неизвестен — допуск MERGE-READINESS, выданный по иной причине, не снимает
+# не судимый skipped; снимает лишь явный допуск SKIPPED-UNJUDGED.
+expect_allow MERGE-READINESS red "(ws#1397) B1: набора нет, skipped по if ×4 — --allow MERGE-READINESS не вливает"
+expect_allow MERGE-READINESS,SKIPPED-UNJUDGED land "(ws#1397) B1: тот же вывод — --allow MERGE-READINESS,SKIPPED-UNJUDGED вливает (явное решение)"
 twin; addskip; : > "$W/case/required"; run 0
-expect 1 "$UNJ" "пустой набор — не «всё необязательно»: причина (д), не CI-NOT-SUCCESS (ws#1397)"
+expect 1 "$UNJ" "пустой набор — не «всё необязательно»: причина SKIPPED-UNJUDGED, не CI-NOT-SUCCESS (ws#1397)"
 # ws#1397 (kaname#978 @062a3449, запрос в ветку 955): merge-readiness вышел кодом 2 без набора —
-# отказ остаётся, но причиной (д) с поимённым «не судимы», а не ложным CI-NOT-SUCCESS ×4.
+# отказ остаётся двумя своими причинами (вердикт merge-readiness и «не судимы» поимённо), а не
+# ложным CI-NOT-SUCCESS ×4; допуск одного из двух фактов второй не снимает.
 twin; addskip; rm "$W/case/required"; run 2
-expect 1 $'REASON\tMERGE-READINESS\tкод 2: merge-readiness stub: код 2; '"$UNJS" "(ws#1397) merge-readiness код 2, набора нет, skipped по if ×4 — одна причина (д), CI-NOT-SUCCESS нет"
+expect_codes 1 MERGE-READINESS,SKIPPED-UNJUDGED "$UNJ2" "(ws#1397) merge-readiness код 2, набора нет, skipped по if ×4 — MERGE-READINESS и SKIPPED-UNJUDGED, CI-NOT-SUCCESS нет"
+expect_allow MERGE-READINESS red "(ws#1397) merge-readiness код 2 и skipped по if — --allow MERGE-READINESS не вливает"
+expect_allow SKIPPED-UNJUDGED red "(ws#1397) merge-readiness код 2 и skipped по if — --allow SKIPPED-UNJUDGED не вливает"
+expect_allow MERGE-READINESS,SKIPPED-UNJUDGED land "(ws#1397) merge-readiness код 2 и skipped по if — допуск обоих кодов вливает"
 # Близнецы: набор не получен — красное и skipped не невыполнимым if остаются неуспехом CI.
 twin; addskip; rm "$W/case/required"
 # shellcheck disable=SC2016  # $n — переменная jq
@@ -379,6 +418,7 @@ twin; addskip; rm "$W/case/required"
 # shellcheck disable=SC2016  # $n — переменная jq
 edit check-runs.json --arg n "$TRUNKJOB" '(.check_runs[] | select(.name == $n) | .conclusion) |= "failure"'; run 2
 expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — failure' "(ws#1397) близнец: merge-readiness код 2 и failure — красное CI названо" many
+expect_allow MERGE-READINESS,SKIPPED-UNJUDGED red "(ws#1397) близнец: merge-readiness код 2 и failure — допуск обоих кодов красное CI не снимает"
 twin; addskip; rm "$W/case/required"; setif del; run 0
 expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (.github/workflows/' "(ws#1397) близнец: набора нет, skipped без условия if — CI-NOT-SUCCESS, не «не судимо»"
 # Мутант предпроверки: «не судим» читается законным — набора нет, а посадка зелёная.
@@ -698,7 +738,7 @@ if cmp -s "$HERE/merge-readiness.sh" "$W/ws/scripts/merge-readiness.sh"; then
 else
     sandbox_git -C "$W/ws" commit -qam mutant; sandbox_git -C "$W/ws" update-ref refs/remotes/origin/main HEAD
     runreal
-    expect 1 "$UNJ" "инъекция: merge-readiness не отдаёт набор — skipped не снят, причина (д) (ws#1397)"
+    expect 1 "$UNJ" "инъекция: merge-readiness не отдаёт набор — skipped не снят, причина SKIPPED-UNJUDGED (ws#1397)"
 fi
 # ws#1215 — путь базы без контекстов (kaname#900): защиты нет (404), строка ведомости
 # kacho/1266 есть, вердикт выносит ci-read. Здесь ci-read песочницы — заглушка кода 0,
@@ -732,7 +772,7 @@ if cmp -s "$HERE/merge-readiness.sh" "$W/ws/scripts/merge-readiness.sh"; then
 else
     sandbox_git -C "$W/ws" commit -qam mutant-ledger; sandbox_git -C "$W/ws" update-ref refs/remotes/origin/main HEAD
     runreal
-    expect 1 "$UNJ" "(ws#1215) инъекция: путь ci-read не передаёт набор — skipped не снят, причина (д) (ws#1397)"
+    expect 1 "$UNJ" "(ws#1215) инъекция: путь ci-read не передаёт набор — skipped не снят, причина SKIPPED-UNJUDGED (ws#1397)"
 fi
 # ws#1397 (kaname#978 @062a3449, запрос в ветку волны 955 без защиты): НАСТОЯЩИЕ merge-readiness и
 # ci-read песочницы, ci-read — двойником gh-twin.sh на фикстуре kacho-3140 (база 1266, проверок 68 —
@@ -763,7 +803,9 @@ else echo "  [FAIL] (ws#1397) перепись не называет код 0 me
 mrwave "$P404" 'gh: Branch not protected (HTTP 404)'; runwave
 expect 0 - "(ws#1397) близнец: отказ 404 и в stderr (живой gh) — тот же код 0"
 mrwave '{"message":"Server Error","status":"502"}'; runwave
-expect 1 $'REASON\tMERGE-READINESS\tкод 2: merge-readiness: ci-read вердикта не вынес (код 2); это НЕ «сливать нельзя»; '"$UNJS" "(ws#1397) близнец: защита ci-read не прочитана (502 в теле) — merge-readiness код 2, причина одна (д), CI-NOT-SUCCESS нет"
+expect_codes 1 MERGE-READINESS,SKIPPED-UNJUDGED $'REASON\tMERGE-READINESS\tкод 2: merge-readiness: ci-read вердикта не вынес (код 2); это НЕ «сливать нельзя»' "(ws#1397) близнец: защита ci-read не прочитана (502 в теле) — MERGE-READINESS код 2 и SKIPPED-UNJUDGED, CI-NOT-SUCCESS нет"
+grep -qF -- "$UNJ2" "$W/out" && { echo "  [OK]   (ws#1397) тот же близнец: не судимые названы поимённо с кодом merge-readiness 2"; pass=$((pass + 1)); } \
+    || { echo "  [FAIL] (ws#1397) тот же близнец: нет строки «$UNJ2»" >&2; fail=$((fail + 1)); }
 rm -f "$W/case/protection-404"
 mrcase 1; rm "$W/case/comments-2690.json"; runreal
 expect 1 $'REASON\tMERGE-READINESS\tкод 1' "Closes #2690 без DoD-proof — merge-readiness судит по существу (код 1)" many

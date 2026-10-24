@@ -108,8 +108,8 @@
 #                             судит ЭТОТ PR `merge-readiness.sh` (набор он отдаёт
 #                             файлом MERGE_READINESS_REQUIRED_OUT; набор не получен
 #                             или пуст без основания `<файл>.basis` — skipped не снят:
-#                             при условиях 2 и 3 он не судим и идёт причиной (д)
-#                             MERGE-READINESS поимённо, иначе — CI-NOT-SUCCESS (ws#1397,
+#                             при условиях 2 и 3 он не судим и идёт причиной
+#                             SKIPPED-UNJUDGED поимённо, иначе — CI-NOT-SUCCESS (ws#1397,
 #                             kaname#978: VOID ci-read не красит CI); пуст С основанием —
 #                             установленный ноль: база без контекстов судится ci-read
 #                             по ведомости, ws#1215);
@@ -147,8 +147,14 @@
 #                             код 2). Ведомость не читается — VOID;
 #   (д) MERGE-READINESS     — `scripts/merge-readiness.sh` из origin/main
 #                             воркспейса дал не 0 (1 — нельзя; 2 — вердикта нет;
-#                             оба — не «можно») либо не отдал набор обязательных,
-#                             а skipped с невыполнимым if им не судим (ws#1397).
+#                             оба — не «можно»);
+#       SKIPPED-UNJUDGED    — набора обязательных от merge-readiness нет (или пуст
+#                             без основания), а skipped выполнил условия 2 и 3:
+#                             обязательность не установлена (ws#1397). Код свой, не
+#                             MERGE-READINESS: допуск диспетчера `--allow` демона
+#                             вливания на MERGE-READINESS этот факт не снимает — при
+#                             известном наборе тот же skipped обязательного был бы
+#                             CI-NOT-SUCCESS, и снимает его лишь явный допуск кода.
 #   (е) ATTRIBUTION         — строка атрибуции в сообщении коммита диапазона
 #                             либо в теле. Предикат — ОДИН на дерево:
 #                             `scripts/hooks/attribution-rule.sh`
@@ -725,7 +731,7 @@ def skip_lawful(r):
     """(True законен | False причина CI | None — if невыполним, набора обязательных нет; почему | где условие)."""
     # Набора нет — условия 2 и 3 судятся всё равно (ws#1397): skipped, пропущенный не
     # невыполнимым if, — неуспех CI при любом наборе; с невыполнимым — не судим без
-    # набора, и это причина пункта (д), а не CI-NOT-SUCCESS (kaname#978 @062a3449: ci-read
+    # набора, и это причина SKIPPED-UNJUDGED, а не CI-NOT-SUCCESS (kaname#978 @062a3449: ci-read
     # в pod вышел VOID, «вердикт ствола» ×4 на запросе в ветку 955 читался красным CI).
     if required is not None and r.get("name") in required:
         return False, "контекст обязательный"
@@ -848,21 +854,20 @@ else:
            + " — ci-read.sh демона вливания ответит VOID «ожидаемое не известно»; строка заводится замером предикатом шапки ведомости")
 
 # (д) merge-readiness
-# skipped с невыполнимым if при НЕ полученном наборе обязательных — не неуспех CI, а
-# недосуженный пункт (д): обязательность не установлена, посадка стоит на нём (ws#1397).
 mr = int(os.environ["MR_CODE"])
-unjudged = ""
+if mr != 0:
+    tail = [l for l in open(f"{W}/mr.out").read().splitlines() if l.strip()][-1:] or ["(вывода нет)"]
+    reason("MERGE-READINESS", f"код {mr}: {tail[0]}")
+# skipped с невыполнимым if при НЕ полученном наборе обязательных — не неуспех CI и не вердикт
+# merge-readiness, а свой факт: обязательность не установлена (ws#1397). Код отдельный, чтобы
+# допуск MERGE-READINESS, выданный по иной причине (сбой чтения), его не снимал: при известном
+# наборе тот же skipped обязательного — CI-NOT-SUCCESS, и снять его можно лишь явным допуском.
 if skipped_unjudged:
     nm = {}
     for r in skipped_unjudged:
         nm[r.get("name")] = nm.get(r.get("name"), 0) + 1
-    unjudged = ("набор обязательных не получен — skipped по невыполнимому if не судимы: "
-                + "; ".join(f"{n} ×{k}" for n, k in sorted(nm.items())))
-if mr != 0:
-    tail = [l for l in open(f"{W}/mr.out").read().splitlines() if l.strip()][-1:] or ["(вывода нет)"]
-    reason("MERGE-READINESS", f"код {mr}: {tail[0]}" + (f"; {unjudged}" if unjudged else ""))
-elif unjudged:
-    reason("MERGE-READINESS", f"код 0 без набора (MERGE_READINESS_REQUIRED_OUT не записан либо пуст без основания): {unjudged}")
+    reason("SKIPPED-UNJUDGED", f"набор обязательных от merge-readiness (код {mr}) не получен — skipped по невыполнимому if не судимы: "
+           + "; ".join(f"{n} ×{k}" for n, k in sorted(nm.items())))
 census.append(f"merge-readiness: код {mr}, источник {os.environ['MR_SRC']}")
 
 # (е) атрибуция — строки собраны предикатом дерева до этого места

@@ -470,8 +470,10 @@ displaced_names() {  # <path> — имена заданий, не появивш
     jq -r '.[].name' "$W/all.json" > "$W/present.txt"
     # Разбор YAML — python3: на машине владельца — Job-ом внешнего кластера (ws#1365, форма
     # --job-names ниже); имена — лишь пояснение причины, вердикт от них не зависит.
+    # Себя — своим путём, а не «$HERE/ci-read.sh»: копия под другим именем или в другом каталоге
+    # (мутант ci-read-inject) иначе теряла форму и умирала этим случаем, а не своим (ws#1397).
     local jn jrc
-    jn="$(bash "$HERE/ci-read.sh" --job-names "$W/wf.yml" "$W/present.txt" 2>/dev/null)"; jrc=$?
+    jn="$(bash "$HERE/$(basename "${BASH_SOURCE[0]}")" --job-names "$W/wf.yml" "$W/present.txt" 2>/dev/null)"; jrc=$?
     if [ "$jrc" -eq 0 ]; then printf '%s' "$jn"
     else printf 'не выведены: файл %s не разобран (разбор вышел кодом %s: python3-yaml либо внешний маршрут)' "$path" "$jrc"; fi
 }
