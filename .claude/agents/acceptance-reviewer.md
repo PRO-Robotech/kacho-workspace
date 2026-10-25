@@ -117,6 +117,7 @@ Given-When-Then-редакцию — ты решаешь: контракт го�
 - [ ] Именование — `.claude/rules/00-kacho-core.md` §«Naming convention (обязательно)»; здесь оно не переписывается.
 - [ ] Запреты `.claude/rules/00-kacho-core.md` §«Non-negotiables» пп. 3–10 не нарушены ни одним сценарием (без ORM; без каскада через границу сервиса; без правки применённой миграции; без синхронного возврата ресурса из мутации; без брокера; без общих БД; within-service инварианты — на DB-уровне, не software-TOCTOU).
 - [ ] `Internal.*` не маршрутизируется на external TLS-endpoint; инфра-чувствительные данные — только internal-проекция (`.claude/rules/security.md` §«Internal-vs-external (ban #6)», §«Инфра-чувствительные данные — ТОЛЬКО в Internal*-API»).
+- [ ] Слушатель публикуется за пределы своего кластера — раздел «Публикация слушателя …» есть и полон (УЦ клиентских листов · SAN · Методы · Источник; полноту судит docs-gate check-11); публикации без раздела — ⛔ с координатой (ws#1401).
 - [ ] Пробы следуют слоям: unit `service/` через mock-port; integration через testcontainers; e2e через край.
 - [ ] Фундамент — внешний `corelib` пином, своё — в `pkg/` платформы (`.claude/rules/architecture.md` §«Переиспользование: фундамент в `corelib`, своё — в `pkg/` платформы»); все `.proto` — в `proto/kacho/cloud/<domain>/v1/` монорепо продукта (`.claude/rules/polyrepo.md` §«Раскладка `kacho`»).
 

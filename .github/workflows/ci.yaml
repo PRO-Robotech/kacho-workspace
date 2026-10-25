@@ -49,10 +49,11 @@ name: ci
 # ДО ОТПРАВКИ ВЕТКУ СУДИТ ХУК ОТПРАВКИ ВОРКСПЕЙСА. Перечень наборов он выводит из
 # дерева (`git ls-files 'scripts/*/run-all.sh'`), рукописного списка нет; число
 # здесь не выписано, потому что меняется при каждом заведённом наборе — предикат
-# тот же. Он гоняет МЕНЬШЕ, чем задания ниже: у гейтовых наборов не зовутся
-# `inject.sh`, не идут `shellcheck` внутри job'ов и не идут job'ы целиком (линт
-# оболочек и `bats`, доказательства хуков, проба фикстур). Их гонит конвейер PR в
-# `main` либо ручной прогон. Гейт цитируемых команд хук исполняет с ws#816 —
+# тот же. Он гоняет МЕНЬШЕ, чем задания ниже: `inject.sh` зовётся лишь у наборов,
+# чью пробу, проверку или `_lib*` отправка правит (ws#1402); шаги `shellcheck` этого
+# файла исполняет skills-gate check-08 (ws#1402); не идут `bats`, доказательства
+# хуков, проба фикстур и прочие шаги заданий. Их гонит конвейер PR в `main` либо
+# ручной прогон. Гейт цитируемых команд хук исполняет с ws#816 —
 # проверкой набора docs-gate `scripts/docs-gate/check-09-quoted-make-commands-resolve.sh`.
 #
 # Версия анализатора объявлена ОДИН РАЗ на весь процесс. Прежде её выбирал образ
@@ -410,13 +411,28 @@ jobs:
     name: оснастка не утверждает о дереве того, чего в нём нет
     runs-on: ubuntu-latest
     # замер на машине разработки: 188 с — с набором rules-gate, перенесённым сюда из
-    # `tooling-gate` (ws#1021); в конвейере rules-gate шёл 124 с (прогон 38173621245)
-    timeout-minutes: 10
+    # `tooling-gate` (ws#1021); в конвейере rules-gate шёл 124 с (прогон 38173621245).
+    # Задание — 162 с на `main` (прогон 40145902554); check-08 набора (шаги shellcheck этого
+    # файла, ws#1402) поселён здесь, а не в tooling-gate: там 1914 из 2100 с запаса нет.
+    # С check-08, check-09 и их пробами задание шло в pod внешнего кластера 505 с (ws#1402,
+    # тот же `run-suites.sh --proofs --void-is-failure --job skills-gate`): при пределе 10 мин
+    # это 84 % — выше 70 % шапки; 15 мин = 900 с — 56 %. Предел приводится к замеру
+    # конвейера тем же изменением, что следующий замер.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: ./.github/actions/suite-prerequisites
+      # check-08 исполняет шаги `shellcheck …` этого файла пином env.SHELLCHECK_VERSION: без пина
+      # здесь он ответил бы VOID, а VOID в этом задании — поломка (--void-is-failure).
+      - name: shellcheck пиннутой версии для check-08 (local == CI)
+        run: |
+          curl -sSfL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" \
+            | tar -xJf - -C /tmp
+          sudo install "/tmp/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/shellcheck
+          shellcheck --version | sed -n 's/^version: /установлен shellcheck /p'
+          yq --version
       - name: наборы задания и их доказательства — разметка выведена из дерева
         run: KACHO_MONOREPO="$PWD/project/kacho" bash scripts/lib/run-suites.sh --proofs --void-is-failure --job "$GITHUB_JOB"
 

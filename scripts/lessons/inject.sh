@@ -7,6 +7,8 @@
 # видит и не трогает: всё — во временном каталоге, пути — переменными LESSONS_*.
 #
 # Пробы (контроль — каждая сходится):
+#   справка     — `--help`, `-h`, `help` печатают перечень команд шапки collect.sh кодом 0 без ядра
+#                 и ведомости (ws#1402); близнец `--helpx` — не справка;
 #   сбор        — урок из журнала агента, итога workflow, главного потока (строка «урок
 #                 диспетчера:», упоминание в прозе — не урок), lessons.md и errors.md волны;
 #                 «—» — не урок; берётся ПОСЛЕДНИЙ блок ВОЗВРАТ сообщения;
@@ -174,6 +176,16 @@ for l in open(sys.argv[1]):
     H() { local d="$1" inp="${2:-}"; [ -n "$inp" ] || inp='{}'; printf '%s' "$inp" | LESSONS_COLLECT="${HC:-$HERE/collect.sh}" LESSONS_PY="$py" LESSONS_DIR="$d/led" \
         LESSONS_PROJECTS_DIR="$d/proj" LESSONS_WAVES_DIR="$d/waves" LESSONS_ALIASES="$d/aliases.tsv" \
         LESSONS_SINCE=2000-01-01 LESSONS_NOW="${HN:-$now}" CLAUDE_PROJECT_DIR="$WSR" bash "$hook" 2>&1; }
+
+    # Справка (ws#1402, урок e77dd564): --help, -h, help — шапка, код 0, без ведомости и python3.
+    for h in --help -h help; do
+        out="$(LESSONS_PY=/nonexistent LESSONS_DIR= bash "$HERE/collect.sh" "$h" 2>&1)"; rc=$?
+        chk 0 "$rc" "справка $h: код 0"
+        has 'collect.sh rekey ?<id> <ключ>' "справка $h: перечень команд шапки"
+        hasnt 'VOID' "справка $h: не VOID"
+    done
+    out="$(LESSONS_PY=/nonexistent bash "$HERE/collect.sh" --helpx 2>&1)"; rc=$?
+    hasnt 'collect.sh rekey ?<id> <ключ>' "близнец --helpx: не справка (довод ядру)"
 
     mkfix "$D/w" work
     out="$(L "$D/w" scan)"; rc=$?

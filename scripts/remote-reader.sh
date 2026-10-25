@@ -170,7 +170,17 @@ TASK="${KACHO_TASK:-}"
 [ -n "$TASK" ] || TASK="$(branch_task "$PWD")" || TASK=""
 [ -n "$TASK" ] || TASK="$(branch_task "$TOP")" || TASK=""
 [ -n "$TASK" ] || TASK="$(branch_task "${RITUAL_REPO_DIR:-/nonexistent}")" || TASK=""
-[[ "$TASK" =~ ^[1-9][0-9]*$ ]] || die 64 "номер задачи для ns Job не установить: KACHO_TASK=<N> либо ветка <N>-… (каталог, копия входа, RITUAL_REPO_DIR)"
+# Голова pr-body — ВЕТКА копии (refs/heads либо refs/remotes/origin) с номером: голой `<N>` (правило
+# веток kaname) либо `<N>-…` — тоже номер задачи (ws#1402, урок d3555257: ветка kaname «997» при копии
+# не на ней — 64). Номер берётся лишь у имени, которое резолвится веткой: короткий sha из одних цифр
+# веткой не является.
+head_task() {
+    local d="$1" b="${2#refs/heads/}"; b="${b#refs/remotes/}"; b="${b#origin/}"
+    git -C "$d" show-ref -q --verify "refs/heads/$b" 2>/dev/null || git -C "$d" show-ref -q --verify "refs/remotes/origin/$b" 2>/dev/null || return 1
+    [[ "$b" =~ ^([1-9][0-9]*)(-|$) ]] && printf '%s' "${BASH_REMATCH[1]}"
+}
+if [ -z "$TASK" ] && [ "$ENTRY" = scripts/pr-body.sh ]; then TASK="$(head_task "${RITUAL_REPO_DIR:-$PWD}" "${3:-}")" || TASK=""; fi
+[[ "$TASK" =~ ^[1-9][0-9]*$ ]] || die 64 "номер задачи для ns Job не установить: KACHO_TASK=<N> либо ветка <N>-… (каталог, копия входа, RITUAL_REPO_DIR; у pr-body — и ветка-голова <N> либо <N>-…)"
 
 COMMON="$(git -C "$TOP" rev-parse --path-format=absolute --git-common-dir)"
 WSROOT="$(dirname "$COMMON")"

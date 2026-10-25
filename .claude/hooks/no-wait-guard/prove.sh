@@ -42,7 +42,8 @@ assert() {
 run() {
     python3 -c 'import json,sys; d={"tool_name":"Bash","tool_input":{"command":sys.argv[1]},"cwd":"/tmp"}
 if sys.argv[2]: d["agent_type"]=sys.argv[2]
-print(json.dumps(d))' "$1" "$AGENT" > "$WORK/in.json"
+if sys.argv[3]: d["tool_input"]["run_in_background"]=True
+print(json.dumps(d))' "$1" "$AGENT" "${BG:-}" > "$WORK/in.json"
     CLAUDE_PROJECT_DIR=/ws bash "${2:-$HOOK}" < "$WORK/in.json" > "$WORK/out" 2>&1
     echo $?
 }
@@ -116,7 +117,10 @@ denies "$FLOCK" 'flock ~/.cache/heavy-slots/slot1.lock go test ./...'
 denies "$FOR"   'for i in $(seq 60); do sleep 10; done'
 denies "$FOR"   'for i in {1..30}; do gh pr checks 7; sleep 10; done'
 denies "$FOR"   'for i in a b c d e f g h i j; do sleep 30; done'
-denies "$FOR"   'for i in a b c; do for j in 1 2 3 4 5 6 7 8 9 10; do sleep 10; done; done'
+denies "$FOR"   'for i in a b c d; do for j in 1 2; do sleep 5; done; done'
+denies "$FOR"   'for i in 1 2 3 4 5 6 7 8 9; do sleep 33; done'
+denies "$FOR"   'for i in 1 2 3 4; do sleep 10; done'
+denies "$FOR"   'for i in 1 2 3; do sleep 10; done'
 denies "$FOR"   'for ((i=0; i<100; i++)); do sleep 5; done'
 denies "$FOR"   'for f in *.log; do sleep 1; done'
 denies "$FOR"   'for i in 1 2; do sleep "$d"; done'
@@ -167,11 +171,21 @@ passes 'yes | apt-get install x'
 passes 'grep -c /dev/zero f; echo "read -t 5 < /dev/zero"'
 passes 'for i in 1 2 3; do gh pr checks 7; done'
 passes 'for i in 1 2 3; do gh pr checks 7; sleep 5; done'
-passes 'for i in 1 2 3 4 5 6 7 8 9; do sleep 33; done'
+passes 'for i in 1 2 3; do sleep 9; done'
 passes 'for i in $(seq 60); do echo "$i"; done'
 passes 'for i in $(seq 60); do sleep 10; done > l 2>&1 &'
 passes 'for i in 1 2 3; do sleep 200 & done'
-passes 'timeout 60 bash -c "for i in \$(seq 9); do sleep 5; done"'
+passes 'timeout 25 bash -c "for i in \$(seq 9); do sleep 5; done"'
+# ws#1402 (урок a273f28a): вызов с run_in_background — харнесс ждёт его выхода за агента; sleep ≥ 30
+# в нём — опрос фона; тот же sleep без флага — передний план, его судит прежний порог.
+BGS='sleep ≥ 30 с в вызове run_in_background'
+BG=1 denies "$BGS" 'sleep 60; cat /tmp/x.rc'
+BG=1 denies "$BGS" 'sleep 30 && tail -n 5 /tmp/run.log'
+BG=1 denies "$FOR" 'for i in 1 2 3 4 5 6; do test -f x.rc && break; sleep 10; done'
+BG=1 passes 'sleep 29; cat /tmp/x.rc'
+BG=1 passes 'bash scripts/detach.sh status /tmp/x.rc'
+BG=1 passes 'sleep 60 > /dev/null 2>&1 &'
+passes 'sleep 60; cat /tmp/x.rc'
 passes 'setsid nohup make test > l 2>&1 & echo $! > p'
 passes "setsid env --default-signal=PIPE sh -c 'go test ./...; echo \$? > l.rc' > l 2>&1 & echo \$! > p"
 passes 'bash -c "make a & make b & wait" > l 2>&1 &'
@@ -405,11 +419,12 @@ mutant "цикл не судится"            'loop=ctx["loop"] or (n.loop in
 mutant "& не отсоединяет"           'bg = ctx["bg"] or n.bg' 'bg = ctx["bg"]' 'setsid nohup timeout 3600 go test ./... > l 2>&1 &'
 mutant "for не судится"             'if n.loop in ("for", "select") and not bg' 'if False and not bg' 'for i in $(seq 60); do sleep 10; done'
 mutant "for: невычислимое — ноль"   'return None if per is None or cnt is None else cnt * per' 'return 0.0 if per is None or cnt is None else cnt * per' 'for i in $(seq 60); do sleep 10; done'
-mutant "for: порог 600"             'FOR_MAX = 300 ' 'FOR_MAX = 600 ' 'for i in a b c d e f g h i j; do sleep 30; done'
-mutant "for: итерации не множатся"  'else cnt * per' 'else per' 'for i in a b c d e f g h i j; do sleep 30; done'
+mutant "for: порог 300"             $'\nFOR_MAX = 30\n' $'\nFOR_MAX = 300\n' 'for i in 1 2 3 4; do sleep 10; done'
+mutant "for: итерации не множатся"  'else cnt * per' 'else per' 'for i in 1 2 3 4; do sleep 10; done'
+mutant "for: граница 30 — строго больше" 'if total is None or total >= FOR_MAX:' 'if total is None or total > FOR_MAX:' 'for i in 1 2 3; do sleep 10; done'
 mutant "for: \$ в заголовке считан"  '|__SUBST__", hdr):' '|__SUBST__", ""):' 'for i in $X; do sleep 1; done'
-mutant "for: вложенный не множится" 'd = self.for_total(k)' 'd = 0.0' 'for i in a b c; do for j in 1 2 3 4 5 6 7 8 9 10; do sleep 10; done; done'
-mutant "for: timeout не ограничивает" 'bounded = ctx["tmo"] is not None and ctx["tmo"] < FOR_MAX' 'bounded = False' 'timeout 60 bash -c "for i in \$(seq 9); do sleep 5; done"'
+mutant "for: вложенный не множится" 'd = self.for_total(k)' 'd = 0.0' 'for i in a b c d; do for j in 1 2; do sleep 5; done; done'
+mutant "for: timeout не ограничивает" 'bounded = ctx["tmo"] is not None and ctx["tmo"] < FOR_MAX' 'bounded = False' 'timeout 25 bash -c "for i in \$(seq 9); do sleep 5; done"'
 mutant "тело bash -c с меткой \$"   'text = text.replace(hg.SQ, "$").replace(hg.DQ, "$")' 'pass' 'bash -c "for i in \$(seq 60); do sleep 10; done"'
 mutant "wait после & пропущен"      'if base == "wait" and not bg and ctx.get("launched"):' 'if False:' 'make test > l 2>&1 & wait'
 mutant "wait без & — отказ"         'and not bg and ctx.get("launched"):' 'and not bg:' 'wait 4242'
@@ -467,6 +482,9 @@ mutant "command -p съедает команду" '"command": ()' '"command": ("
 mutant "nohup отсоединяет"          '        if base in ("nohup", "nice",' '        if base == "nohup":
             detached = True
         if base in ("nohup", "nice",' 'nohup timeout 3600 go test ./... > l 2>&1'
+BG=1 mutant "фоновый sleep: порог 3000"  'BG_SLEEP_MAX = 30' 'BG_SLEEP_MAX = 3000' 'sleep 60; cat /tmp/x.rc'
+BG=1 mutant "флаг run_in_background не читается" 'bool((data.get("tool_input") or {}).get("run_in_background"))' 'False' 'sleep 60; cat /tmp/x.rc'
+BG=1 mutant "фоновый sleep судится и с &" 'elif d >= BG_SLEEP_MAX and not bg and self.bg_call:' 'elif d >= BG_SLEEP_MAX and self.bg_call:' 'sleep 60 > /dev/null 2>&1 &'
 
 echo "[CENSUS] no-wait-guard: утверждений $((pass + fail)), сошлось $pass, разошлось $fail; отказов проверено $denied, пропусков $passed, мутантов $muts; граница (не ловится, заявлено в шапке) $bound; снятий по шаблону проверено $kdenied"
 [ "$fail" -eq 0 ]

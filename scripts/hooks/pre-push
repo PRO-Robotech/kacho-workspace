@@ -573,6 +573,36 @@ for t in "${targets[@]}"; do
         esac
         [ "$rc" != 2 ] || [ "$trunk" = 0 ] || void_trunk+=("$rref: $g")
     done
+
+    # ── ДОКАЗАТЕЛЬСТВА ТРОНУТЫХ НАБОРОВ (ws#1402) ─────────────────────────────
+    #
+    # Набор с правленой пробой (`inject*.sh`), проверкой (`check-*`) либо общей частью
+    # (`_lib*`) против `origin/main` гонит здесь и своё доказательство `scripts/<набор>/
+    # inject.sh`: PR #1407 ушёл со сломанной пробой inject-12 (доказательство docs-gate не
+    # сошлось лишь в конвейере). Наборы без правки доказательство не гоняют — цену несёт
+    # только тот, кто их тронул. Ссылки origin/main в клоне нет — блок не судит и говорит это
+    # строкой (граница: клон без удалённого ствола; копия воркспейса его несёт всегда).
+    # Держит skills-gate check-09 (сломанная проба тронутого набора — отказ отправки).
+    pbase="$(git -C "$wt" merge-base HEAD refs/remotes/origin/main 2>/dev/null)" || pbase=""
+    if [ -z "$pbase" ]; then
+        echo "pre-push: «$rref»: доказательства тронутых наборов НЕ судились — merge-base с origin/main не выведен" >&2
+    else
+        touched="$(git -C "$wt" diff --name-only "$pbase" HEAD -- 'scripts/*/inject*.sh' 'scripts/*/check-*' 'scripts/*/_lib*')"
+        for g in "${gates[@]}"; do
+            pd="${g%/run-all.sh}"
+            [ -f "$wt/$pd/inject.sh" ] || continue
+            grep -q "^$pd/" <<< "$touched" || continue
+            printf '── %s @ %s: %s/inject.sh (доказательство тронутого набора)\n' "$rref" "${c:0:12}" "$pd" >&2
+            ran=$((ran + 1))
+            (cd "$wt" && bash "$pd/inject.sh" </dev/null) >&2
+            rc=$?
+            case $rc in
+                0) ;;
+                2) void+=("$rref: $pd/inject.sh") ;;
+                *) failed+=("$rref: $pd/inject.sh") ;;
+            esac
+        done
+    fi
 done
 
 echo "pre-push: судились вершины ${judged[*]}; исполнено наборов $ran, провалено ${#failed[@]}, без предмета ${#void[@]} (стволов ${#void_trunk[@]}, прочих $((${#void[@]} - ${#void_trunk[@]}))), не исполнено ${#notrun[@]}${trunk_state:+; стволы ${trunks[*]:-—}, fetch $fetched_at}" >&2
@@ -621,6 +651,8 @@ fi
 
 # ЧТО ЭТОТ ПРОГОН НЕ ПРОВЕРЯЕТ — названо, чтобы «локально зелено» не читалось
 # шире исполненного:
+#   · доказательства `inject.sh` наборов, которые отправка НЕ трогает (тронутые — гонятся,
+#     блок «доказательства тронутых наборов» выше, ws#1402);
 #   · доказательства инъекцией у хуков (`scripts/hook-proofs.sh`) — набор красный
 #     на стволе на 2026-08-16 (разошлись оба: class-guard и docfresh), и красный
 #     гейт в отправке остановил бы всех. Он войдёт сюда, когда позеленеет;

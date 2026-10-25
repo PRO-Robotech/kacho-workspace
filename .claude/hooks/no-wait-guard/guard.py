@@ -11,9 +11,11 @@
 
 ОТКАЗ (класс — пример):
   loop-sleep    — `until …; do sleep …; done`, `while …; do …; sleep N; done` — любой N;
-  for-sleep     — `for …; do …; sleep N; done`, если итераций × sleep ≥ 300 с либо число
-                  итераций не вычислимо по тексту (`$(seq N)`, `{1..N}`, `$x`, `*`, `for i;`,
+  for-sleep     — `for …; do …; sleep N; done`, если итераций × sleep ≥ 30 с (ws#1402; было 300)
+                  либо число итераций не вычислимо по тексту (`$(seq N)`, `{1..N}`, `$x`, `*`, `for i;`,
                   `for ((…))`) или sleep не вычислим; `for i in 1 2 3; do …; sleep 5; done` — законно;
+  bg-sleep      — `sleep N`, N ≥ 30 с, в вызове с run_in_background (ws#1402): харнесс ждёт выхода
+                  фона за агента — это опрос, а не отсоединение;
   bg-wait       — `wait` / `wait <pid>` в переднем плане той же оболочки, где был фоновый
                   запуск `… &`: это ожидание фона, а не отсоединение;
   tail-pid      — `tail --pid …`, `tail -f/-F` без timeout < 600;
@@ -51,7 +53,7 @@ run_in_background отсоединением не считается: живой
 `kill -0 …` и `pkill -0 …` (сигнал 0 ничего не шлёт), `pkill -F <pid-файл>`, `pkill -P <pid>` (кроме 1),
 `pkill -g <pgid>`, `pkill -s <sid>`, `pgrep`, `pidof`, `ps` без снятия.
 РАЗРЕШЕНО: `read` из файла (`read -r l < f`, `while read …; done < f`), `head -c N
-/dev/urandom`, `yes | <не read>`; `sleep` < 300 вне цикла, `timeout` < 600, `flock -n`, `flock -w` < 300,
+/dev/urandom`, `yes | <не read>`; `sleep` < 300 вне цикла (в вызове run_in_background — < 30), `timeout` < 600, `flock -n`, `flock -w` < 300,
 одно чтение CI (`gh pr checks` без --watch, `gh run view`), `heavy-slot.sh` (без
 `--wait` он не ждёт; `--wait` ≤ 300 судит сам слот).
 
@@ -106,7 +108,10 @@ import guard as hg  # noqa: E402 — общий лексер слов с heavy-g
 SLEEP_MAX = 300      # с: sleep от этого — ожидание
 TIMEOUT_MAX = 600    # с: timeout от этого — ожидание
 FLOCK_MAX = 300      # с: flock -w от этого — ожидание
-FOR_MAX = 300        # с: итераций × sleep в цикле for от этого — ожидание
+# с: итераций × sleep в цикле for от этого — ожидание; sleep от этого в вызове run_in_background —
+# ожидание фона (ws#1402, урок a273f28a: 25 фоновых опросов слота за 20 мин у одной полосы)
+FOR_MAX = 30
+BG_SLEEP_MAX = 30
 EXEMPT_MAX_MIN = 9   # мин: потолок метки ci-watcher
 EXEMPT = re.compile(r"#\s*no-wait-exempt\s+([A-Za-z0-9_-]+)\s+(\d+)m\b")
 SHELLS = {"bash", "sh", "zsh", "dash", "ksh"}
@@ -157,6 +162,7 @@ CLASS_TEXT = {
     "ci-watch": "ожидание CI (gh run watch / gh pr checks --watch)",
     "watch": "watch — бесконечный повтор в переднем плане",
     "long-sleep": "sleep ≥ %d с" % SLEEP_MAX,
+    "bg-sleep": "sleep ≥ %d с в вызове run_in_background — опрос фона" % BG_SLEEP_MAX,
     "long-timeout": "timeout ≥ %d с без отсоединения" % TIMEOUT_MAX,
     "flock-wait": "flock ждёт замка ≥ %d с или без предела" % FLOCK_MAX,
     "busy-read": "read из /dev/zero, /dev/urandom или после yes | — ожидание на 100 % ядра",
@@ -710,8 +716,9 @@ def kill_parse(args):
 
 
 class Judge:
-    def __init__(self):
+    def __init__(self, bg_call=False):
         self.found = []
+        self.bg_call = bg_call  # вызов с run_in_background (ws#1402): харнесс ждёт его выхода за агента
 
     def add(self, cls, text, bound):
         self.found.append(Finding(cls, text, bound))
@@ -891,6 +898,8 @@ class Judge:
                 self.add("loop-sleep", shown, bound)
             elif d >= SLEEP_MAX and not bg:
                 self.add("long-sleep", shown, bound)
+            elif d >= BG_SLEEP_MAX and not bg and self.bg_call:
+                self.add("bg-sleep", shown, bound)
             return
         if base == "tail" and not bg:
             pid = any(a == "--pid" or a.startswith("--pid=") for a in args)
@@ -962,9 +971,9 @@ def exemption(raw, agent_type):
     return mins, None
 
 
-def judge(cmd, agent_type=None):
+def judge(cmd, agent_type=None, bg_call=False):
     """(находки, ошибка метки). Пустые находки — пропуск."""
-    j = Judge()
+    j = Judge(bg_call)
     j.text(cmd, {"bg": False, "loop": False, "tmo": None})
     if not j.found:
         return [], None
@@ -1064,7 +1073,9 @@ def deny(found, err, ws, cmd=None):
         "    ожидание только явным --wait N ≤ 300; дольше — ОДИН раз --enqueue <каталог> (билет",
         "    держится до 2 ч; перезапуск на 74/75 ставит в конец очереди — запрещён);",
         "  · разрешено: sleep < %d вне цикла, timeout < %d, flock -n / -w < %d," % (SLEEP_MAX, TIMEOUT_MAX, FLOCK_MAX),
-        "    цикл for с перечнем в тексте и итераций × sleep < %d; `&` без wait." % FOR_MAX,
+        "    цикл for с перечнем в тексте и итераций × sleep < %d; `&` без wait;" % FOR_MAX,
+        "    в вызове run_in_background — sleep < %d: исход фона — один шаг `detach.sh status <.rc>`" % BG_SLEEP_MAX,
+        "    либо `heavy-slot.sh --resume <билет>`, а не опрос.",
         "Исключение — только ci-watcher: метка `# no-wait-exempt ci-watcher <N>m`, N ≤ %d, форма" % EXEMPT_MAX_MIN,
         "под timeout ≤ N·60 с. Флаг run_in_background отсоединением не считается.",
     ]
@@ -1099,7 +1110,7 @@ def main():
     if not isinstance(cmd, str):
         broken("у вызова Bash нет tool_input.command")
     ws = os.environ.get("CLAUDE_PROJECT_DIR") or os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
-    found, err = judge(cmd, data.get("agent_type"))
+    found, err = judge(cmd, data.get("agent_type"), bool((data.get("tool_input") or {}).get("run_in_background")))
     if found or err:
         deny(found, err, ws, cmd)
 

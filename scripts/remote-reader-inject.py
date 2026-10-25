@@ -622,6 +622,57 @@ class RemoteReader(unittest.TestCase):
         self.assertEqual(unpublished.returncode, 64, unpublished.stderr)
         self.assertIn('не на origin', unpublished.stderr)
 
+    def test_pr_body_task_from_the_head_branch(self):
+        # ws#1402 (урок d3555257): копия не на ветке задачи, KACHO_TASK нет — номер берётся у ветки-головы:
+        # голой «<N>» (правило веток kaname) и «<N>-…»; голова sha — 64, номера нет.
+        g = self.box.gh
+        (g / 'issue.json').write_text(json.dumps({'number': 5, 'state': 'open', 'title': 'задача песочницы'}))
+        (self.box.ws / 'lane.txt').write_text('правка\n')
+        head = self.box.commit('#5 правка песочницы')
+        self.box.git('checkout', '-q', '-b', 'sandbox-no-task')
+        for ref in ('5', '5-lane'):
+            self.box.git('update-ref', 'refs/remotes/origin/' + ref, head)
+            got = self.box.run('pr-body.sh', 'PRO-Robotech/kacho-workspace', 'origin/main', 'origin/' + ref,
+                               RITUAL_REPO_DIR=str(self.box.ws))
+            self.assertEqual(got.returncode, 0, ref + ': ' + got.stdout + got.stderr)
+            self.assertIn('#5', got.stdout)
+            self.box.git('update-ref', '-d', 'refs/remotes/origin/' + ref)
+        self.box.git('update-ref', 'refs/remotes/origin/5-lane', head)
+        bare_sha = self.box.run('pr-body.sh', 'PRO-Robotech/kacho-workspace', 'origin/main', head,
+                                RITUAL_REPO_DIR=str(self.box.ws))
+        self.assertEqual(bare_sha.returncode, 64, bare_sha.stdout + bare_sha.stderr)
+        self.assertIn('номер задачи', bare_sha.stderr)
+        self.box.git('update-ref', '-d', 'refs/remotes/origin/5-lane')
+
+    HEAD_TASK_GUARD = ('    git -C "$d" show-ref -q --verify "refs/heads/$b" 2>/dev/null || git -C "$d" show-ref -q --verify '
+                       '"refs/remotes/origin/$b" 2>/dev/null || return 1')
+
+    def _digit_short_sha(self):
+        """Копия не на ветке задачи и голова — короткий sha из одних цифр (⛔ check-verifier на 77fa57cec)."""
+        g = self.box.gh
+        (g / 'issue.json').write_text(json.dumps({'number': 5, 'state': 'open', 'title': 'задача песочницы'}))
+        self.box.git('checkout', '-q', '-b', 'sandbox-no-task')
+        for i in range(400):
+            (self.box.ws / 'lane.txt').write_text('правка %d\n' % i)
+            h = self.box.commit('#5 правка %d' % i)
+            if h[:6].isdigit():
+                self.box.git('update-ref', 'refs/remotes/origin/5-lane', 'HEAD')
+                return h[:6]
+        self.fail('цифрового префикса sha за 400 коммитов не нашлось')
+
+    def test_pr_body_digit_short_sha_is_not_a_task(self):
+        sha = self._digit_short_sha()
+        got = self.box.run('pr-body.sh', 'PRO-Robotech/kacho-workspace', 'origin/main', sha, RITUAL_REPO_DIR=str(self.box.ws))
+        self.assertEqual(got.returncode, 64, got.stdout + got.stderr)
+        self.assertIn('номер задачи', got.stderr)
+
+    def test_pr_body_digit_short_sha_probe_needs_the_branch_check(self):
+        # Мутант «снята сверка show-ref»: короткий sha из цифр принят номером задачи — проба выше обязана это различить.
+        sha = self._digit_short_sha()
+        self.box.mutate('remote-reader.sh', self.HEAD_TASK_GUARD, '    :')
+        got = self.box.run('pr-body.sh', 'PRO-Robotech/kacho-workspace', 'origin/main', sha, RITUAL_REPO_DIR=str(self.box.ws))
+        self.assertNotIn('номер задачи для ns Job не установить', got.stderr, got.stdout + got.stderr)
+
     def test_pod_named_calls_outside_the_read_list_are_refused(self):
         # Промах называет pod — значит, его текст пишет то, что исполнилось в Job. Машина исполняет
         # своим токеном лишь закрытый перечень чтений: прочее — строка отказа, вызова gh нет.
