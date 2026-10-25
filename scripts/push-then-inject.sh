@@ -45,6 +45,19 @@ OLD="$(sandbox_git -C "$C" rev-parse HEAD)"
 echo b > "$C/b.md"; sandbox_git -C "$C" add . && sandbox_git -C "$C" commit -qm two
 NEW="$(sandbox_git -C "$C" rev-parse HEAD)"   # на origin ещё нет — «непредъявленная голова»
 export LANE_PRECHECK_GIT_BASE="$W/gb"
+# Копия kaname (ws#1413): ветка 8 правит приёмку, ветка 9 — нет; на origin — лишь база.
+sandbox_git init -q --bare -b main "$W/gb/o/kaname.git"
+K="$W/kn"
+sandbox_git init -q -b main "$K"
+sandbox_git -C "$K" remote add origin https://github.com/o/kaname.git
+sandbox_git -C "$K" config url."$W/gb/".insteadOf https://github.com/
+echo a > "$K/README.md"; sandbox_git -C "$K" add . && sandbox_git -C "$K" commit -qm base
+sandbox_git -C "$K" push -q origin HEAD:refs/heads/main 2> /dev/null; sandbox_git -C "$K" fetch -q origin
+KBASE="$(sandbox_git -C "$K" rev-parse HEAD)"
+sandbox_git -C "$K" checkout -q -b 9; echo b >> "$K/README.md"; sandbox_git -C "$K" commit -qam other; K9="$(sandbox_git -C "$K" rev-parse HEAD)"
+sandbox_git -C "$K" checkout -q -b 8 "$KBASE"; mkdir -p "$K/docs/engineering/acceptance"; echo x > "$K/docs/engineering/acceptance/x.md"
+sandbox_git -C "$K" add . && sandbox_git -C "$K" commit -qm acc; K8="$(sandbox_git -C "$K" rev-parse HEAD)"
+PASS3='--- PASS: TestAcceptancePathCoordinateResolves (0.1s)\n--- PASS: TestAcceptanceEditedAfterItsVerdictSaysSo (0.1s)\n--- PASS: TestAcceptanceProbeCoordinateResolves (0.1s)\nok  x 0.3s\n'
 
 # Двойник scripts/: заглушка слота; прочее — ссылки на настоящее.
 mkscripts() {  # <каталог> <push-then.sh>
@@ -58,6 +71,8 @@ printf '%s\n' "$*" >> "${STUB_ARGV:-/dev/null}"
 [ -n "${STUB_SLOT:-}" ] && exit "$STUB_SLOT"
 [ "$1" = --wait ] && shift 2
 shift; [ "$1" = -- ] && shift
+# Статика приёмок (ws#1413): «go …» — вывод STUB_GO_OUT, код STUB_GO_RC.
+if [ "$1" = go ]; then printf "%b" "${STUB_GO_OUT:-}"; exit "${STUB_GO_RC:-0}"; fi
 [ -n "${STUB_PUSH_RC:-}" ] && exit "$STUB_PUSH_RC"
 exec "$@"
 SLOT
@@ -118,6 +133,23 @@ run_cases() {
     # Голова копии сдвинулась между start и отправкой — не отправлять и шаг не выдавать.
     rm -f "$M" "$W/argv"; local o7; o7="$(sandbox_git -C "$W/gb/o/r.git" rev-parse 7-lane)"
     assert "64 нет нет $o7" "$(STUB_ARGV="$W/argv" bash "$PT" _run "$C" o/r 7-lane "$OLD" -- "${step[@]}" > "$W/out" 2>&1; echo $?) $([ -s "$M" ] && echo выдан || echo нет) $([ -s "$W/argv" ] && echo отправлено || echo нет) $(sandbox_git -C "$W/gb/o/r.git" rev-parse 7-lane)" "голова копии не та, что при start, — 64: отправки нет, шаг НЕ выдан, origin прежний"
+
+    echo "== голова уже на origin — отправка не повторяется (ws#1413)"
+    sandbox_git -C "$C" checkout -q --detach "$o7"; rm -f "$M" "$W/argv"
+    assert "0 выдан нет" "$(STUB_ARGV="$W/argv" bash "$PT" _run "$C" o/r 7-lane "$o7" -- "${step[@]}" > "$W/out" 2>&1; echo $?) $([ -s "$M" ] && echo выдан || echo нет) $(grep -q 'git push' "$W/argv" 2>/dev/null && echo отправлено || echo нет)" "голова на origin = копии — шаг выдан по факту, второй отправки нет (уроки 90ba32bc, 09c2da35)"
+
+    echo "== статика приёмок kaname до полного хука (ws#1413)"
+    kn() {  # <ветка> <sha> — код _run, «выдан|нет», «go|-», «push|-»
+        sandbox_git -C "$K" checkout -q "$1"; rm -f "$M" "$W/argv"
+        sandbox_git -C "$W/gb/o/kaname.git" update-ref -d "refs/heads/$1" 2> /dev/null
+        sandbox_git -C "$K" update-ref -d "refs/remotes/origin/$1" 2> /dev/null
+        STUB_ARGV="$W/argv" bash "$PT" _run "$K" o/kaname "$1" "$2" -- "${step[@]}" > "$W/out" 2>&1; local rc=$?
+        echo "$rc $([ -s "$M" ] && echo выдан || echo нет) $(grep -q 'go test ./internal/check' "$W/argv" 2>/dev/null && echo go || echo -) $(grep -q 'git push' "$W/argv" 2>/dev/null && echo push || echo -)"
+    }
+    assert "15 нет go -" "$(STUB_GO_RC=1 STUB_GO_OUT='--- FAIL: TestAcceptancePathCoordinateResolves (0.1s)\nFAIL\n' kn 8 "$K8")" "правка приёмки, проба красная — 15: отправки нет, шаг НЕ выдан (уроки ea998b24, 67c9bf72)"
+    assert "16 нет go -" "$(STUB_GO_OUT='ok  x 0.1s [no tests to run]\n' kn 8 "$K8")" "проб исполнено не три («no tests to run») — 16, не зелёное: отправки нет"
+    assert "0 выдан go push" "$(STUB_GO_OUT="$PASS3" kn 8 "$K8")" "близнец: три пробы прошли — отправка и шаг"
+    assert "0 выдан - push" "$(kn 9 "$K9")" "близнец: приёмка не тронута — статики нет, отправка и шаг"
 }
 
 run_cases
@@ -148,6 +180,11 @@ mutant running-issues '        0) ;;
 mutant head-unchecked '        1) say "голова $br на origin не $sha — шаг НЕ выдан"; return 12 ;;' '        1) ;;'
 mutant head-moved-ignored '    [ "$(git rev-parse HEAD)" = "$sha" ] || { say' '    true || { say'
 mutant push-rc-ignored '0) st=0 ;; *) st=1 ;; esac' '*) st=0 ;; esac'
+mutant already-pushed-ignored 'if [ "$(git ls-remote origin "refs/heads/$br" 2>/dev/null | cut -f1)" = "$sha" ]; then' 'if false; then'
+mutant acc-static-skipped 'if [ "${repo##*/}" = kaname ]; then' 'if false; then'
+mutant acc-diff-unchecked '[ -z "$ob" ] || [ -n "$(git diff --name-only "$ob" HEAD -- docs/engineering/acceptance/ 2>/dev/null)" ]' 'true'
+mutant acc-red-ignored '[ "$arc" = 0 ] || [ "$nf" = 0 ] || {' 'true || {'
+mutant acc-count-unchecked '[ "$arc" = 0 ] && [ "$np" = 3 ] ||' 'true ||'
 
 reap_steps
 total=$((pass + fail))

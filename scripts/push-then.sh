@@ -31,7 +31,9 @@
 #   3 — отправка идёт (status 3): шаг НЕ выдан, повтор after — следующим шагом;
 #   10 — отправка вышла не 0 (код и хвост журнала названы), 11 — отправка «не выполнилось»
 #        (status 2), 12 — голова на origin не та (`PREMISE-FALSE`), 13 — origin не судим
-#        (`VOID`), 14 — внешняя отправка не судима как идущая (status 4): во всех — шаг НЕ выдан; 74/75 — слот не выдан за 300 с, шаг не выдан;
+#        (`VOID`), 14 — внешняя отправка не судима как идущая (status 4), 15 — статика приёмок
+#        kaname красная, 16 — она не выполнилась (ws#1413): во всех — шаг НЕ выдан; 74/75 — слот не выдан за 300 с, шаг не выдан;
+#   голова уже на origin — отправка не повторяется, шаг — по факту (start).
 #   64 — вызов неверен; 69 — detach.sh не запустил.
 # Коды шага 3, 10–13 читаются как исход шага лишь по строке «шаг выдан» журнала.
 #
@@ -95,6 +97,28 @@ _run)
     top="$2" repo="$3" br="$4" sha="$5"; shift 6
     cd "$top" || exit 64
     [ "$(git rev-parse HEAD)" = "$sha" ] || { say "голова копии сдвинулась после start — не отправляю"; exit 64; }
+    # Голова уже на origin — отправку не повторять, шаг — по факту (ws#1413, уроки 90ba32bc, 09c2da35).
+    if [ "$(git ls-remote origin "refs/heads/$br" 2>/dev/null | cut -f1)" = "$sha" ]; then
+        say "голова $sha уже на origin $br — отправка не повторяется"; gate 0 "$repo" "$br" "$sha" "$@"; exit $?
+    fi
+    # Статика приёмок kaname до полного хука (ws#1413, уроки ea998b24, 67c9bf72: три пробы ловил лишь
+    # хук за 12 мин). Правка docs/engineering/acceptance/ в исходящем — пробы слотом ci-local (дома
+    # проб — лишь там, #1411); красное — 15, исполнено не три — 16: отправки нет.
+    if [ "${repo##*/}" = kaname ]; then
+        ob="$(git rev-parse -q --verify "refs/remotes/origin/$br" || git merge-base HEAD refs/remotes/origin/main 2>/dev/null)"
+        if [ -z "$ob" ] || [ -n "$(git diff --name-only "$ob" HEAD -- docs/engineering/acceptance/ 2>/dev/null)" ]; then
+            acc='^TestAcceptance(PathCoordinateResolves|EditedAfterItsVerdictSaysSo|ProbeCoordinateResolves)$'
+            af="$(mktemp)" || { say "временный файл статики не создан — шаг НЕ выдан"; exit 16; }
+            say "статика приёмок: go test ./internal/check -run '$acc'"
+            bash "$HERE/heavy-slot.sh" --wait 300 ci-local -- go test ./internal/check -run "$acc" -count=1 -v > "$af" 2>&1; arc=$?
+            np="$(grep -cE '^--- PASS: TestAcceptance' "$af")"; nf="$(grep -cE '^--- FAIL: ' "$af")"
+            grep -E '^(--- (FAIL|PASS)|ok|FAIL|[[:space:]]+[^[:space:]]+_test\.go:[0-9]+:)' "$af" | head -n 40 | sed 's/^/  | /'
+            rm -f "$af"
+            case "$arc" in 74 | 75) say "слот статики не выдан — отправки нет, шаг НЕ выдан"; exit "$arc" ;; esac
+            [ "$arc" = 0 ] || [ "$nf" = 0 ] || { say "статика приёмок красная (код $arc, упало $nf) — отправки нет, шаг НЕ выдан"; exit 15; }
+            [ "$arc" = 0 ] && [ "$np" = 3 ] || { say "статика приёмок не выполнилась (код $arc): прошло $np из 3 — отправки нет, шаг НЕ выдан"; exit 16; }
+        fi
+    fi
     say "отправка $repo $br @$sha"
     bash "$HERE/heavy-slot.sh" --wait 300 ci-local -- git push origin "HEAD:refs/heads/$br"
     prc=$?; say "отправка вышла кодом $prc"
