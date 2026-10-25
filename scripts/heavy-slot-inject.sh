@@ -1111,6 +1111,19 @@ be="$(jn ' enter id=')"; rm -f "$HL"
 assert "0 1 да $((be + 1))" "$(rslot env FAKE_AVAIL=1 FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- git push -q "$W/bare.git" HEAD:refs/heads/1115-w) $(grep -c '^job=нет ' "$HL" 2>/dev/null) $(has_ref 1115-w) $(jn ' enter id=')" "близнец: кластер недоступен → хук локально слотом (enter в журнале)"
 be="$(jn ' enter id=')"; b78="$(jn 'route=push rc=1 hook_rc=78 ')"; rm -f "$HL"
 assert "77   нет $be $((b78 + 1))" "$(rslot env FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- git push -q "$W/bare.git" HEAD~1:refs/heads/1115-v) $(grep -c '^job=1 ' "$HL" 2>/dev/null) $(grep -c '^job=нет ' "$HL" 2>/dev/null) $(has_ref 1115-v) $(jn ' enter id=') $(jn 'route=push rc=1 hook_rc=78 ')" "отправка не головы копии: переходник — 78, Job не звался, та же отправка локально слотом с хуком"
+echo "── клон без хука отправки вовсе: отправка как есть, без слота, а не 77 (ws#1409)"
+# Уроки acc09a2f, 6f16d48f, 0c5d064f: registry-operator и vault-operator без хука — слот отвечал 77.
+nh_clone() { git init -q -b "$2" "$1"; git -C "$1" remote add origin https://github.com/PRO-Robotech/registry-operator.git; echo x > "$1/f"; git -C "$1" add f; sandbox_git -C "$1" commit -q -m x; }
+nh_ref() { git -C "$W/bare-nh.git" rev-parse --verify --quiet "refs/heads/$1" > /dev/null && echo да || echo нет; }
+RN="$W/rclone-nohook"; nh_clone "$RN" 45-x; git init -q --bare "$W/bare-nh.git"
+assert "0 local да" "$(route "$RN" ci-local -- git push -q "$W/bare-nh.git" HEAD:refs/heads/45-x) $(has "$W/out" 'хука отправки нет')" "--route: отправка из клона без хука → local"
+bn="$(jn ' nohook-push ')"; be="$(jn ' enter id=')"
+assert "0 да $((bn + 1)) $be да" "$(RDIR="$RN" rslot env FAKE_EXEC=1 bash "$SLOT" ci-local -- git push -q "$W/bare-nh.git" HEAD:refs/heads/45-x) $(nh_ref 45-x) $(jn ' nohook-push ') $(jn ' enter id=') $(has "$W/err" 'исход «хука нет»')" "клон без хука: отправка как есть (ссылка есть), строка nohook-push, слот машины не взят, исход «хука нет»"
+mkdir -p "$RN/scripts/hooks"; printf '#!/usr/bin/env bash\nexit 0\n' > "$RN/scripts/hooks/pre-push"; chmod +x "$RN/scripts/hooks/pre-push"; git -C "$RN" add scripts; sandbox_git -C "$RN" commit -q -m hook
+assert "77 нет да" "$(RDIR="$RN" rslot env FAKE_EXEC=1 bash "$SLOT" ci-local -- git push -q "$W/bare-nh.git" HEAD:refs/heads/45-y) $(nh_ref 45-y) $(has "$W/err" 'make install-hooks')" "близнец: хук в дереве не поставлен → 77 с формой установки, отправки нет"
+RN2="$W/rclone-nohook2"; nh_clone "$RN2" 45-z
+sed 's#^    if push_hookless; then NOHOOK_PUSH="\$RS_REPO"; return 1; fi$#    :#' "$SLOT" > "$W/slot-mut-nohook.sh"
+assert "1 77 нет" "$(diff "$SLOT" "$W/slot-mut-nohook.sh" | grep -c '^<') $(RDIR="$RN2" rslot env FAKE_EXEC=1 bash "$W/slot-mut-nohook.sh" ci-local -- git push -q "$W/bare-nh.git" HEAD:refs/heads/45-z) $(nh_ref 45-z)" "мутант «клон без хука не опознан»: прежние 77 — проба выше его ловит"
 echo "── тег выпуска (ws#1303): аннотированный с целью из origin/main — Job судит цель; лёгкий и цель вне main — 64 до Job"
 # Урок 2026-10-23: kaname v0.6.0 (аннотированный, цель — коммит слияния в main) слот дважды
 # отказал 77: переходник сравнивал объект тега с головой копии — совпасть они не могут.

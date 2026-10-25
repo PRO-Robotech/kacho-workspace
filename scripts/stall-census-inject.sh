@@ -134,6 +134,21 @@ s="$(session poll-young)"; a="$s/subagents/workflows/wf_live-1/agent-a1.jsonl"
 rec "$a" 8 tool "until grep -q rc= run.log; do sleep 60; done"; rec "$a" 2 tool "gh pr checks 7"
 probe 0 "близнец: два ожидания, первое 8 мин назад (порог 20) — молчит" - --session "$s" --ps "$T/ps"
 
+echo "== ожидание ci-watcher под меткой no-wait-exempt в своём сроке — не застой (ws#1409)"
+cw_cases() {
+    local s a lab="timeout 540 gh run watch 7 # no-wait-exempt ci-watcher 9m"
+    s="$(session cw)"; a="$s/subagents/workflows/wf_live-1/agent-a1.jsonl"
+    rec "$a" 30 tool "$lab"; rec "$a" 20 tool "$lab"; rec "$a" 3 tool "$lab"; printf '{"agentType":"ci-watcher"}\n' > "${a%.jsonl}.meta.json"
+    absent="STALL-POLL" probe 0 "ci-watcher: три ожидания под меткой, последнее 3 мин назад (срок 9) — не STALL-POLL, счёт в переписи" "ожиданий ci-watcher под меткой в сроке (не судятся) 1" --session "$s" --ps "$T/ps"
+    s="$(session cw-other)"; a="$s/subagents/workflows/wf_live-1/agent-a1.jsonl"
+    rec "$a" 30 tool "$lab"; rec "$a" 20 tool "$lab"; rec "$a" 3 tool "$lab"; printf '{"agentType":"go-implementer"}\n' > "${a%.jsonl}.meta.json"
+    probe 1 "близнец: та же метка у другого агента — STALL-POLL" "STALL-POLL wf_live-1/a1" --session "$s" --ps "$T/ps"
+    s="$(session cw-late)"; a="$s/subagents/workflows/wf_live-1/agent-a1.jsonl"
+    rec "$a" 30 tool "gh run view 7 --json status"; rec "$a" 25 tool "gh run view 7 --json status"; rec "$a" 12 tool "$lab"; printf '{"agentType":"ci-watcher"}\n' > "${a%.jsonl}.meta.json"
+    probe 1 "близнец: ci-watcher, вызов под меткой 12 мин без следующего (срок 9) и ожидания без метки до него — STALL-POLL" "STALL-POLL wf_live-1/a1" --session "$s" --ps "$T/ps"
+}
+cw_cases
+
 echo "== завершённый агент не судится (ws#1110: agent-ad76971c71962c092 вернул итог, перепись звала его STALL-POLL)"
 # finish_cases — пробы завершения; их же гонят мутанты ниже.
 finish_cases() {
@@ -205,6 +220,9 @@ MUTPY
 }
 fmutant "прерывание — вхождение, а не начало текста" "str(x).lstrip().startswith('[Request interrupted')" "'[Request interrupted' in str(x)" intr_cases
 fmutant "прерывание — общая подпись (до ws#1242)" "        return t, 'result', 'прервано пользователем'" "        return t, 'result', 'ответ модели на сообщение'" intr_cases
+fmutant "метка ci-watcher не исключает (до ws#1409)" "        if ex and (i > 0 or t is None or now - t <= int(ex.group(1)) * 60):" "        if False:" cw_cases
+fmutant "срок метки не судится" "(i > 0 or t is None or now - t <= int(ex.group(1)) * 60)" "True" cw_cases
+fmutant "метка исключает любого агента" "    watcher = agent_type(path) == 'ci-watcher'" "    watcher = True" cw_cases
 fmutant "не проверять завершение" "FINAL_STOP = ('end_turn', 'stop_sequence', 'refusal')" "FINAL_STOP = ()"
 fmutant "завершение — любой ответ без вызова" "('final' if fin else 'done')" "'final'"
 fmutant "итог без stop_reason не узнаётся (до ws#1130)" " or (sr is None and now - os.path.getmtime(path) >= AGENT_MIN * 60)" ""

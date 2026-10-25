@@ -1035,6 +1035,7 @@ console.log('== предусловия раздачи — до исполнит�
   const pd = prm(q.calls, 'mech:dispatch-premise'), iD = idx(q.calls, 'mech:dispatch-premise')
   ok(q.res.ok === true && by(q.calls, c => c.label === 'mech:dispatch-premise') === 1 && iD >= 0 && iD < idx(q.calls, 'preflight') && iD < idx(q.calls, 'impl:A') && iD < idx(q.calls, 'impl:B'), 'один шаг предусловий на волну — до предполёта и до любого исполнителя, волна идёт', JSON.stringify(q.calls.map(c => c.label)).slice(0, 300))
   ok(pd.includes("'branch PRO-Robotech/kacho-workspace main'") && pd.includes('scripts/lane-precheck.sh --premise /ws/tmp/wave-9/reports/A/dispatch-premise.txt') && pd.includes('scripts/lane-precheck.sh --premise /ws/tmp/wave-9/reports/B/dispatch-premise.txt'), 'у каждой полосы — строка базы на origin, судит lane-precheck --premise', pd.slice(-500))
+  ok(pd.includes("'branchname /ws 9-a'") && pd.includes("'branchname /ws 9-b'"), 'у полосы с веткой — строка branchname клона её репозитория: имя судит правило репозитория (ws#1409)', pd.slice(-500))
   ok(!/--task-text/.test(pd), 'близнец: полоса без приёмки — текст задания автору приёмки не судится')
   const lA = { ...lanes2[0], issues: ['PRO-Robotech/kacho-workspace#5', 'kacho#7', '#9'], premise: ["alive /ws main 'quoted' фраза"] }
   q = await run({ args: { ...args, lanes: [lA, lanes2[1]] }, plan: [P('r0.json')] })
@@ -1525,6 +1526,7 @@ mutant "предусловия раздачи не судятся (ws#1272)" "if
 mutant "нераздаваемая полоса раздаётся (ws#1272)" "  if (gateBlock[k]) return (done[k] =" "  if (false) return (done[k] ="
 mutant "строка базы не порождается (ws#1272)" "const premLines = l => ['branch ' + ghRepo(l.repo) + ' ' + (l.base || A.base)]" "const premLines = l => []"
 mutant "задачи полосы не в предусловии (ws#1272)" ".concat((l.issues || []).map(i => issueLine(l, i)), l.premise || [])" ".concat(l.premise || [])"
+mutant "имя ветки полосы не судится правилом репозитория (ws#1409)" ".concat(l.branch ? ['branchname ' + cloneOf(l.repo) + ' ' + l.branch] : [])" ""
 mutant "кавычки строки не экранированы (ws#1272)" "const shq = s => \"'\" + String(s).replace(/'/g, \"'\\\\''\") + \"'\"" "const shq = s => \"'\" + String(s) + \"'\""
 mutant "зависимая от нераздаваемой в предполёте (ws#1272)" "{ held.add(l.key); more = true }" "{ }"
 mutant "текст автору приёмки не судится (ws#1271)" "  if (tierOf[l.key].steps.includes('acceptance(<=2)')) gateItems.push(" "  if (false) gateItems.push("

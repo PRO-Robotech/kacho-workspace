@@ -643,6 +643,27 @@ assert "1 да" "$(tt 'Прогон отсоединённо (detach.sh): heavy-
 assert "0 да" "$(tt 'Сверь версию: python3 --version') $(has 'причин 0')" "близнец: версия (PY_VERSION heavy-guard) — пропуск"
 assert "2 да" "$(printf '%s\n' 'x' > "$W/task.txt"; LANE_PRECHECK_HEAVY_GUARD=/nonexistent bash "$P" --task-text "$W/task.txt" > "$W/out" 2>&1; echo $?) $(has 'распознаватель python3 не выведен из heavy-guard')" "предпосылка: источника heavy-guard нет — VOID, а не «python3 не найден»"
 
+echo "== ветка kaname в тексте задания — голый номер (TASK-BRANCH-FORM, ws#1409)"
+mkdir -p "$W/kr"; printf '%s\n' 'branch_rule_is_number() { [[ "$1" =~ ^[0-9]+$ ]]; }' > "$W/kr/branch-rule.sh"
+printf '%s\n' 'branch_rule_is_number() { [[ "$1" =~ ^[0-9]+(-[a-z0-9-]+)?$ ]]; }' > "$W/kr/branch-rule-suffix.sh"
+ttb() { printf '%s\n' "$@" > "$W/task.txt"; LANE_PRECHECK_KANAME_RULE="${KR:-$W/kr/branch-rule.sh}" bash "$P" --task-text "$W/task.txt" > "$W/out" 2>&1; echo $?; }
+assert "1 да" "$(ttb 'Клон project/kaname; ветка 986-acceptance от main.') $(has 'REASON TASK-BRANCH-FORM строка 1: «986-acceptance»')" "ветка <N>-<суть> при клоне kaname левее в строке → TASK-BRANCH-FORM (урок 33a0a9ae)"
+assert "1 да" "$(ttb 'Клон — project/kaname.' 'Заведи ветку «1006-cea» от origin/main.') $(has 'TASK-BRANCH-FORM строка 2: «1006-cea»')" "репозиторий из прежней строки → TASK-BRANCH-FORM на строке ветки"
+assert "1 да" "$(ttb 'git -C project/kaname worktree add -b 986-x tmp/986 origin/main') $(has 'TASK-BRANCH-FORM строка 1: «986-x»')" "форма -b → TASK-BRANCH-FORM"
+assert "1 да" "$(ttb 'Сдача: ветка kaname 986-cea.') $(has 'TASK-BRANCH-FORM строка 1: «986-cea»')" "«ветка kaname X» → TASK-BRANCH-FORM (урок db9c3c66)"
+assert "1 да" "$(ttb 'git push origin HEAD:refs/heads/986-x из клона project/kaname') $(has 'TASK-BRANCH-FORM строка 1: «986-x»')" "refs/heads/ и репозиторий правее в строке → TASK-BRANCH-FORM"
+assert "0 да" "$(ttb 'Клон project/kaname; ветка 986 от main.') $(has 'причин 0')" "близнец: голый номер kaname → 0"
+assert "0 да" "$(ttb 'Клон project/kacho; ветка 3180-fix.') $(has 'причин 0')" "близнец: ветка <N>-<суть> в kacho → 0"
+assert "0 да" "$(ttb 'Задача kaname#986 закрыта; в ws ветка 1409-lessons-batch-2.') $(has 'причин 0')" "близнец: «kaname#986» и «ws» без пути — не контекст → 0"
+assert "0 да" "$(ttb 'Ветка kaname — <N>, не <N>-<суть>.') $(has 'причин 0')" "близнец: шаблон <N>-<суть> не судится → 0"
+assert "0 да" "$(ttb 'Задача PRO-Robotech/kacho-workspace, копия под kacho-workspace/tmp/.' 'Урок: ветка kaname — голый номер, задания называли <N>-slug (986-acceptance) — механизм для kaname.' 'Сдача: ветка 1409-lessons-batch-2.') $(has 'причин 0')" "близнец: «kaname» прозой в прежней строке — не контекст; репозиторий путём — воркспейс → 0 (ложный исход задания ws#1409)"
+assert "1 да" "$(ttb 'Клон project/kaname.' 'Сверь посылку командой.' 'Ветка 986-x от main.') $(has 'TASK-BRANCH-FORM строка 3: «986-x»')" "репозиторий путём двумя строками выше → TASK-BRANCH-FORM"
+assert "0 да" "$(KR="$W/kr/branch-rule-suffix.sh" ttb 'Клон project/kaname; ветка 986-acceptance.') $(has 'причин 0')" "близнец: правило клона допускает суффикс — суд по правилу клона, не по своей копии → 0"
+assert "2 да" "$(KR=/nonexistent ttb 'Сдача: ветка kaname 986-cea.') $(has 'VOID правило ветки kaname не исполнилось')" "правила клона нет → не судимо, код 2"
+for f in "$HERE/../CLAUDE.md" "$HERE"/../.claude/agents/*.md; do
+    assert "нет" "$(LANE_PRECHECK_KANAME_RULE="$W/kr/branch-rule.sh" bash "$P" --task-text "$f" > "$W/out" 2>&1; has 'TASK-BRANCH-FORM')" "близнец: настоящий текст ${f##*/} — TASK-BRANCH-FORM молчит"
+done
+
 echo "== задание git-operator: вердикт полем; настройки вливания репозитория (пачка уроков ws#1314)"
 ttg() { printf '%s\n' "$@" > "$W/task.txt"; bash "$P" --task-text "$W/task.txt" --agent git-operator > "$W/out" 2>&1; echo $?; }
 assert "1 да" "$(ttg 'Роль: git-operator. Если вердикт check-verifier ниже — не ✅, стоп. Иначе: ветку 468 включи в сборку.' 'check-verifier: ; мо') $(has 'REASON TASK-VERDICT строка 1')" "задание git-operator с условием на вердикт, а поля вердикта нет (уроки 09b14c00, f0f94389) → TASK-VERDICT"
@@ -697,6 +718,7 @@ assert "1" "$(mut limit 'while [[ "$w" =~ (bash|вызов[[:alpha:]]*)' 'while 
 assert "1" "$(mut thresh 'while [[ "$w" =~ (^|[^[:alpha:]_])${cmp}' 'while false && [[ "$w" =~ (^|[^[:alpha:]_])${cmp}' --task-text 'Ни один вызов не держит ожидание дольше 10 минут')" "мутант «порог-запрет не снят»: норма CLAUDE.md краснеет"
 assert "0" "$(mut ne 'while [[ "$w" =~ (^|[^[:alpha:]])не[[:space:]]+$cmp ]]' 'while false' --task-text 'жди не дольше 10 мин')" "мутант «не дольше» прочитан порогом: разрешённый срок проходит"
 assert "1" "$(mut forecast 'w="${l//ожидаем/_}"' 'w="$l"' --task-text 'ожидаемое окончание через 20 мин')" "мутант «прогноз не снят»: «ожидаемое окончание» краснеет"
+assert "0" "$(mut branch-form '[ "$bw" != kaname ] || kbr+=' 'true || kbr+=' --task-text 'Клон project/kaname; ветка 986-acceptance от main.')" "мутант «ветка kaname не судится»: 986-acceptance проходит — проба выше его ловит"
 mut_a() {  # <имя> <было> <стало> <строки задания…> — код мутанта на задании автору приёмки
     local nm="$1" a="$2" b="$3"; shift 3
     mut "$nm" "$a" "$b" --task-text "$@" > /dev/null

@@ -25,6 +25,9 @@
 #                sleep, sleep ≥ 100 с, tail --pid, gh run watch|view, gh pr checks,
 #                flock -w ≥ 100. Класс 1–3 замера (429 агент-ч из 605): каждый
 #                вызов ≤ 10 мин, поэтому «нет нового вызова» его не видит.
+#                Не ожидание — вызов агента `ci-watcher` (agentType в .meta.json) с меткой
+#                `# no-wait-exempt ci-watcher Nm` в своём сроке: за ним следующий вызов либо
+#                с начала не больше N мин (ws#1409; ждать ему разрешено) — счёт в переписи.
 #   Завершённый агент — последняя запись user/assistant журнала есть ответ модели
 #                без вызова инструмента с stop_reason end_turn | stop_sequence |
 #                refusal либо без stop_reason при журнале, молчащем STALL_AGENT_MIN
@@ -299,10 +302,26 @@ findings = []
 
 
 WAIT = re.compile(r'\b(until|while)\b.*\bsleep\b|\bsleep\s+[0-9]{3,}|\btail\b.*--pid|\bgh\s+(run\s+(watch|view)|pr\s+checks)\b|\bflock\b.*-w\s*[0-9]{3,}', re.S)
+# Ожидание `ci-watcher` под меткой no-wait-guard (ws#1409): ему ждать разрешено, срок вызова — N мин
+# метки (хук держит timeout ≤ N·60). Не ожидание-застой, пока вызов в своём сроке: за ним есть
+# следующий вызов либо с начала прошло не больше N мин; вне срока — снова судится.
+EXEMPT = re.compile(r'#\s*no-wait-exempt\s+ci-watcher\s+([0-9]+)m\b')
+exempt_seen = 0
+
+
+def agent_type(apath):
+    try:
+        m = json.load(open(apath[:-len('.jsonl')] + '.meta.json'))
+        return (m.get('agentType') or '') if isinstance(m, dict) else ''
+    except Exception:
+        return ''
 
 
 def poll_run(path, size=262144):
-    """Хвост вызовов агента, каждый из которых — ожидание: (число, минут с первого, последний)."""
+    """Хвост вызовов агента, каждый из которых — ожидание: (число, минут с первого, последний).
+    Вызов `ci-watcher` под меткой исключения в своём сроке ожиданием не считается (EXEMPT)."""
+    global exempt_seen
+    watcher = agent_type(path) == 'ci-watcher'
     calls = []
     for r in records(tail_lines(path, size)):
         if r.get('type') != 'assistant' or not isinstance(r.get('message'), dict):
@@ -312,7 +331,11 @@ def poll_run(path, size=262144):
                 cmd = str((c.get('input') or {}).get('command') or '')
                 calls.append((ts(r.get('timestamp', '')), c.get('name', ''), cmd))
     n, first = 0, None
-    for t, name, cmd in reversed(calls):
+    for i, (t, name, cmd) in enumerate(reversed(calls)):
+        ex = EXEMPT.search(cmd) if watcher else None
+        if ex and (i > 0 or t is None or now - t <= int(ex.group(1)) * 60):
+            exempt_seen += 1
+            break
         if name in ('Bash', 'Monitor') and WAIT.search(cmd):
             n, first = n + 1, t
         else:
@@ -761,8 +784,8 @@ if verbose:
     for x in implausible:
         proc_notes.append('STALL-PROC: возраст неправдоподобен — не судится: %s' % x)
 
-print('CENSUS stall-census: сессия %s%s; workflow живых %d, завершённых в окне %d; агентов осмотрено %d, из них без единой разобранной записи %d; завершённых (не судятся) %d, остановленных харнессом (не судятся) %d, оборванных перезапуском claude (не судятся) %d; своя сессия %s (claude %s); фоновых оболочек агентов %d из процессов %d: своих %d, чужих %d, не судимо %d, неправдоподобного возраста %d; отсоединённых (окружение прочитано у %d процессов, меченых %d): корней %d — своих %d (claude жив %d, в объявленном сроке %d), чужих %d, неправдоподобного возраста %d; пороги агент %d мин, опрос %d мин, завершённый %d мин, процесс %d мин, реакция %d мин, окно %d мин'
-      % (os.path.basename(session), sess_note, wf_live, wf_done, agents_seen, len(unread), done_seen, stopped_seen, restart_seen, own_sid or 'не определена', own_pid or '?', shells, len(procs), mine, foreign, len(unjudged), len(implausible) - det_implausible, env_read, len(marked), det_roots, det_mine, det_live, det_term, det_foreign, det_implausible, AGENT_MIN, POLL_MIN, DONE_MIN, PROC_MIN, REACT_MIN, HORIZON_MIN))
+print('CENSUS stall-census: сессия %s%s; workflow живых %d, завершённых в окне %d; агентов осмотрено %d, из них без единой разобранной записи %d; завершённых (не судятся) %d, остановленных харнессом (не судятся) %d, оборванных перезапуском claude (не судятся) %d, ожиданий ci-watcher под меткой в сроке (не судятся) %d; своя сессия %s (claude %s); фоновых оболочек агентов %d из процессов %d: своих %d, чужих %d, не судимо %d, неправдоподобного возраста %d; отсоединённых (окружение прочитано у %d процессов, меченых %d): корней %d — своих %d (claude жив %d, в объявленном сроке %d), чужих %d, неправдоподобного возраста %d; пороги агент %d мин, опрос %d мин, завершённый %d мин, процесс %d мин, реакция %d мин, окно %d мин'
+      % (os.path.basename(session), sess_note, wf_live, wf_done, agents_seen, len(unread), done_seen, stopped_seen, restart_seen, exempt_seen, own_sid or 'не определена', own_pid or '?', shells, len(procs), mine, foreign, len(unjudged), len(implausible) - det_implausible, env_read, len(marked), det_roots, det_mine, det_live, det_term, det_foreign, det_implausible, AGENT_MIN, POLL_MIN, DONE_MIN, PROC_MIN, REACT_MIN, HORIZON_MIN))
 for f in findings:
     print(f)
 for n in proc_notes:

@@ -272,7 +272,9 @@ for (const l of lanes) {
 const ghRepo = r => /\//.test(String(r || '')) ? String(r) : (String(A.repo || '').split('/')[0] || 'PRO-Robotech') + '/' + (r || String(A.repo || '').split('/').pop())
 const shq = s => "'" + String(s).replace(/'/g, "'\\''") + "'"
 const issueLine = (l, i) => { const [r, n] = String(i).split('#'); return 'task ' + ghRepo(r === 'ws' ? 'kacho-workspace' : r || l.repo) + '#' + n + ' open' }
-const premLines = l => ['branch ' + ghRepo(l.repo) + ' ' + (l.base || A.base)].concat((l.issues || []).map(i => issueLine(l, i)), l.premise || [])
+// Имя ветки полосы — правилом репозитория её клона (ws#1409, «имя-ветки» — 17 случаев: kaname — голый номер).
+const cloneOf = r => { const n = String(r || A.repo || '').split('/').pop(); return n === 'kacho-workspace' ? ROOT : ROOT + '/project/' + n }
+const premLines = l => ['branch ' + ghRepo(l.repo) + ' ' + (l.base || A.base)].concat((l.issues || []).map(i => issueLine(l, i)), l.premise || []).concat(l.branch ? ['branchname ' + cloneOf(l.repo) + ' ' + l.branch] : [])
 const S_GATE = { type: 'object', properties: { items: { type: 'array', items: { type: 'object', properties: { n: { type: 'integer' }, code: { type: 'number' }, out: { type: 'string' } }, required: ['n', 'code', 'out'] } } }, required: ['items'] }
 const gateItems = []
 for (const l of lanes) {
