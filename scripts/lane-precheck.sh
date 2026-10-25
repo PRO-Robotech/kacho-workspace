@@ -376,6 +376,7 @@ if [ -n "$task_text" ]; then
         r="$l"
         while [[ "$r" =~ $brx ]]; do
             bc="${BASH_REMATCH[0]}" bv="${BASH_REMATCH[5]}" bw="${BASH_REMATCH[3]}"
+            while [[ "$bv" == *[./] ]]; do bv="${bv%?}"; done   # точка конца фразы: имя ветки ею не кончается (git check-ref-format)
             [ -n "$bw" ] || { bw="$(repo_last "${r%%"$bc"*}")"; bw="${bw:-$brepo}"; bw="${bw:-$(repo_last "$l")}"; }
             [ "$bw" != kaname ] || kbr+=("$n $bv")
             r="${r/"$bc"/ }"
