@@ -36,6 +36,7 @@ done
 [ -f "$WS/scripts/lib/product_clone.py" ] || { skills_gate_void "$NAME" "в дереве нет scripts/lib/product_clone.py"; exit 2; }
 
 TMP="$(mktemp -d)"
+# shellcheck disable=SC2154  # _rc присваивает сама ловушка первой командой
 trap '_rc=$?; rm -rf "$TMP" 2>/dev/null || rm -rf "$TMP" || echo "ПРЕДУПРЕЖДЕНИЕ: временный каталог $TMP не снят; код проверки $_rc сохранён" >&2; exit $_rc' EXIT
 sandbox_git_home "$TMP/home" || { skills_gate_void "$NAME" "корневой подписи нет — вершина песочницы не родится"; exit 2; }
 pgit() { sandbox_git -c core.hooksPath=/dev/null "$@"; }

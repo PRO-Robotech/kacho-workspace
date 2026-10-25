@@ -3,8 +3,8 @@
 # исполняет ранер: той же строкой, в том же каталоге, с тем же окружением и версией (ws#1402).
 #
 # ПРИЗНАК. PR #1407 @9e4f3d4f0: хук отправки зелёный, задание bats-and-shellcheck красное на
-# «shellcheck docs-gate (strict)» (SC2016). Хук гоняет лишь `scripts/*/run-all.sh`, а шаги
-# shellcheck жили только в .github/workflows/ci.yaml — цель конвейера хук не покрывал вовсе.
+# «shellcheck docs-gate (strict)» (SC2016). Хук гоняет лишь `scripts/*/run-all.sh`, а
+# шаги анализатора жили только в .github/workflows/ci.yaml — цель конвейера хук не покрывал вовсе.
 # Набор skills-gate хук исполняет целиком: красный здесь — отказ отправки. В конвейере набор
 # идёт в задании skills-gate (запас по времени — у него; у tooling-gate его нет).
 #
@@ -43,6 +43,7 @@ for t in yq jq shellcheck; do
     command -v "$t" > /dev/null 2>&1 || { skills_gate_void "$NAME" "нет $t — шаги конвейера не разобрать и не исполнить"; exit 2; }
 done
 TMP="$(mktemp -d)"
+# shellcheck disable=SC2154  # _rc присваивает сама ловушка первой командой
 trap '_rc=$?; rm -rf "$TMP" 2>/dev/null || rm -rf "$TMP" || echo "ПРЕДУПРЕЖДЕНИЕ: временный каталог $TMP не снят; код проверки $_rc сохранён" >&2; exit $_rc' EXIT
 yq -o=json '.' "$WF" > "$TMP/wf.json" 2> "$TMP/yq.err" || { skills_gate_void "$NAME" "ci.yaml не разобран: $(head -c 200 "$TMP/yq.err")"; exit 2; }
 pin="$(jq -r '.env.SHELLCHECK_VERSION // ""' "$TMP/wf.json")"
