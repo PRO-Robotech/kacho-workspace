@@ -1368,7 +1368,7 @@ s_q_stale_ext() {  # база ушла МИМО очереди после чер
     ok q-stale-ext "ci-read 4 от посадки мимо очереди — догон и merged" eval '[ "$RC" = 0 ] && st_is merged && st_has "догон базы: " && [ "$(stale_events)" -eq 1 ]'
     ok q-stale-ext "main несёт и чужую посадку, и предмет" eval 'git -C "$Q/origin.git" cat-file -e main:ext.txt && git -C "$Q/origin.git" cat-file -e main:p4301.txt'
     # ws#1402 (урок 14797bed): тело запроса — заново на голове догона, копия — клон, база — origin/<база>
-    local mh; read -r mh _ < "$Q/pr/4301/merged"
+    local mh=""; read -r mh _ < "$Q/pr/4301/merged" 2> /dev/null
     ok q-stale-ext "тело переписано pr-body на голове догона (влитой), копия — клон запроса" \
         eval 'grep -qxF "$REPO origin/main $mh rrd=$Q/clone task=4000" "$Q/body.calls" && grep -qF "тело на $mh" "$Q/pr/4301/body" && st_has "тело переписано на ${mh:0:12}"'
 }
@@ -1644,7 +1644,7 @@ mutant prune-busy-exe-unchecked s_prune_busy 'find /proc/[0-9]*/cwd /proc/[0-9]*
 mutant prune-busy-glob-unescaped s_prune_busy_glob "e=\"\$(printf '%s' \"\$d\" | sed 's/[][*?\\\\]/\\\\&/g')\"" 'e="$d"'
 mutant prune-no-clone-silent s_prune_no_clone 'if [ "$n_cl" -eq 0 ]; then' 'if false; then'
 mutant prune-readonly-chmod-dropped s_prune_readonly '{ chmod -R u+w -- "$wt" 2>/dev/null; true; } \
-                && ' ''
+            && ' ''
 mutant labels-not-dropped s_labels 'drop_status_labels; [ -z "$LABELS" ]' 'LABELS=""; [ -z "$LABELS" ]'
 mutant labels-open-issue-too s_labels '[ "$st" = closed ] && [ "${#lbls[@]}" -gt 0 ] || continue' '[ "${#lbls[@]}" -gt 0 ] || continue'
 mutant labels-split-by-words s_labels_space 'mapfile -t lbls < <(jq -r '"'"'.labels[]?.name | select(startswith("status:"))'"'"' "$W/issue.json")' 'read -ra lbls <<< "$(jq -r '"'"'[.labels[]?.name | select(startswith("status:"))] | join(" ")'"'"' "$W/issue.json")"'
