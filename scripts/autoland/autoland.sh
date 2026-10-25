@@ -443,8 +443,10 @@ state() {
     printf '%s\n' "$*" > "$tmp" && mv -f "$tmp" "$STATE"
 }
 finish() {  # <исход> <подробность> — пишет .state и выходит кодом исхода
-    local outcome="$1" rc; shift
-    state "$outcome${*:+ $*}"; log "ИСХОД: $outcome${*:+ $*}"
+    local outcome="$1" rc note=""; shift
+    # Тело не переписано после догона — названо и в red, и в timeout, не только в merged (ws#1402).
+    case "$outcome" in red | timeout) [[ "${BODY_NOTE:-}" != "тело не переписано"* ]] || note=" ($BODY_NOTE)" ;; esac
+    state "$outcome${*:+ $*}$note"; log "ИСХОД: $outcome${*:+ $*}$note"
     case "$outcome" in merged) rc=0 ;; red) rc=1 ;; stale-base) rc=4 ;; head-moved) rc=5 ;; timeout) rc=6 ;; *) rc=2 ;; esac
     DONE=1; exit "$rc"
 }

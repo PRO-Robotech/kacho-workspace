@@ -632,6 +632,16 @@ assert "1 да" "$(tt 'Разбери ответ: gh api x | python3 -c "import 
 assert "1 да" "$(tt 'Сверь: python3 scripts/x.py --check') $(has 'REASON TASK-LOCAL-PYTHON строка 1')" "python3 <скрипт>.py → TASK-LOCAL-PYTHON"
 assert "0 да" "$(tt 'Прогон отсоединённо (detach.sh): heavy-slot.sh suite -- python3 scripts/x.py; JSON — jq.') $(has 'причин 0')" "близнец: python3 через слот → 0"
 assert "0 да" "$(tt 'python3 на машине закрыт стражем; правь rituals.py инструментом.') $(has 'причин 0')" "близнец: python3 в прозе и имя .py без вызова → 0"
+# ⛔ check-verifier на 77fa57cec: форма ${HOME}/, распознаватель из источника heavy-guard, освобождение — лишь довод за `heavy-slot.sh … --`.
+mkdir -p "$W/hh"; : > "$W/hh/.cv-present"
+assert "0 да" "$(HOME="$W/hh" tt 'Ключ — из ${HOME}/.cv-present.') $(has 'причин 0')" "близнец: \${HOME}/ существующего файла — не ложный TASK-PATH-MISSING"
+assert "1 да" "$(HOME="$W/hh" tt 'Ключ — из ${HOME}/.cv-absent-x.') $(has 'REASON TASK-PATH-MISSING строка 1: «${HOME}/.cv-absent-x»')" "\${HOME}/ несуществующего файла → TASK-PATH-MISSING"
+assert "1 да" "$(tt 'Разбери: cat out.json | python3 -m json.tool') $(has 'REASON TASK-LOCAL-PYTHON строка 1')" "python3 -m после трубы → TASK-LOCAL-PYTHON"
+assert "1 да" "$(tt "Сверь: /usr/bin/python3 -c 'print(1)'") $(has 'REASON TASK-LOCAL-PYTHON строка 1')" "абсолютный путь python3 (имя — PYTHONS heavy-guard) → TASK-LOCAL-PYTHON"
+assert "1 да" "$(tt 'heavy-slot занят — пока разбери вывод на машине: python3 -c "import json"') $(has 'REASON TASK-LOCAL-PYTHON строка 1')" "упоминание heavy-slot без «--» python3 не освобождает → TASK-LOCAL-PYTHON"
+assert "1 да" "$(tt 'Прогон отсоединённо (detach.sh): heavy-slot.sh suite -- go test ./...; потом python3 -c "x"') $(has 'REASON TASK-LOCAL-PYTHON строка 1')" "освобождение кончается разделителем команды → TASK-LOCAL-PYTHON"
+assert "0 да" "$(tt 'Сверь версию: python3 --version') $(has 'причин 0')" "близнец: версия (PY_VERSION heavy-guard) — пропуск"
+assert "2 да" "$(printf '%s\n' 'x' > "$W/task.txt"; LANE_PRECHECK_HEAVY_GUARD=/nonexistent bash "$P" --task-text "$W/task.txt" > "$W/out" 2>&1; echo $?) $(has 'распознаватель python3 не выведен из heavy-guard')" "предпосылка: источника heavy-guard нет — VOID, а не «python3 не найден»"
 
 echo "== задание git-operator: вердикт полем; настройки вливания репозитория (пачка уроков ws#1314)"
 ttg() { printf '%s\n' "$@" > "$W/task.txt"; bash "$P" --task-text "$W/task.txt" --agent git-operator > "$W/out" 2>&1; echo $?; }
@@ -673,7 +683,7 @@ if t.count(a) != 1:
 open(d, "w", encoding="utf-8").write(t.replace(a, b))
 PYM
     # Мутант — в своём каталоге рядом со ссылками на lib/, hooks/ и remote-heavy/: HERE мутанта находит их, дерево не тронуто.
-    mkdir -p "$W/ms"; ln -sfn "$(dirname "$P")/lib" "$W/ms/lib"; ln -sfn "$(dirname "$P")/hooks" "$W/ms/hooks"; ln -sfn "$(dirname "$P")/remote-heavy" "$W/ms/remote-heavy"
+    mkdir -p "$W/ms"; ln -sfn "$(dirname "$P")/lib" "$W/ms/lib"; ln -sfn "$(dirname "$P")/hooks" "$W/ms/hooks"; ln -sfn "$(dirname "$P")/remote-heavy" "$W/ms/remote-heavy"; ln -sfn "$(dirname "$P")/../.claude" "$W/.claude"
     mv "$m" "$W/ms/lane-precheck.sh"; m="$W/ms/lane-precheck.sh"
     if [ "$4" = --task-text ]; then shift 4; printf '%s\n' "$@" > "$W/task.txt"; bash "$m" --task-text "$W/task.txt" > "$W/out" 2>&1; echo $?
     else shift 3; printf '%s\n' "$@" > "$W/premise.txt"; bash "$m" --premise "$W/premise.txt" > "$W/out" 2>&1; echo $?; fi
@@ -719,8 +729,12 @@ assert "1 нет" "$(PATH="$W/kb:$PATH" mut vault-key 'test("mountpath$"; "i")' 
 assert "0" "$(KUBE_NODES="$W/nodes-infra.json" PATH="$W/kb:$PATH" mut cl-false '64 | 69) reasons+=' '64 | 69) heads+=' "cluster $KC")" "мутант «отказ стража не ложь»: узел -infra- проходит — проба выше его ловит"
 # ws#1402 — путь настроек и python3 командой.
 assert "0" "$(mut path-missing '[ -e "$(knorm "$pp")" ] || reasons+=' 'true || reasons+=' --task-text "Токен — из $W/cfg/.env.dev.")" "мутант «путь не сверяется»: несуществующий .env проходит — проба выше его ловит"
-assert "0" "$(mut local-python '! [[ "$l" =~ heavy-slot|remote-reader ]]; then' 'false; then' --task-text 'Сверь: python3 scripts/x.py --check')" "мутант «python3 не судится»: проходит — проба выше его ловит"
-assert "1" "$(mut local-python-slot '! [[ "$l" =~ heavy-slot|remote-reader ]]; then' 'true; then' --task-text 'Прогон отсоединённо (detach.sh): heavy-slot.sh suite -- python3 scripts/x.py; JSON — jq.')" "мутант «слот не снимает»: близнец через слот краснеет — проба выше его ловит"
+assert "0" "$(mut local-python '            reasons+=("TASK-LOCAL-PYTHON' '            : || reasons+=("TASK-LOCAL-PYTHON' --task-text 'Сверь: python3 scripts/x.py --check')" "мутант «python3 не судится»: проходит — проба выше его ловит"
+assert "1" "$(mut local-python-slot '            [ "$pay" = 1 ] && continue' '            :' --task-text 'Прогон отсоединённо (detach.sh): heavy-slot.sh suite -- python3 scripts/x.py; JSON — jq.')" "мутант «довод за heavy-slot -- не освобождён»: близнец через слот краснеет — проба выше его ловит"
+assert "0" "$(mut local-python-segment "            case \"\$pword\" in ';' | '|' | '&&' | '||' | *';') slot=0 pay=0; continue ;; esac" '' --task-text 'Прогон отсоединённо (detach.sh): heavy-slot.sh suite -- go test ./...; потом python3 -c "x"')" "мутант «освобождение переживает разделитель команды»: проходит — проба выше его ловит"
+assert "0" "$(mut local-python-basename '[[ "${pword##*/}" =~ $pyname ]] || continue' '[[ "$pword" =~ $pyname ]] || continue' --task-text "Сверь: /usr/bin/python3 -c 'print(1)'")" "мутант «имя без снятия пути»: /usr/bin/python3 проходит — проба выше его ловит"
+assert "1" "$(mut local-python-prose '[[ "$pa" =~ ^(-|<<|.*/|.*\.py$) ]] || continue' ':' --task-text 'В образе python3 3.12; JSON разбирай jq.')" "мутант «любой довод — вызов»: проза краснеет — близнец выше его ловит"
+assert "0" "$(mut home-brace '|\$HOME/|\$\{HOME\}/)' '|\$HOME/)' --task-text 'Ключ — из ${HOME}/.cv-absent-x.')" "мутант «\${HOME}/ не узнан»: путь проходит молча — проба выше его ловит"
 # ws#1314 — вердикт полем, настройки вливания.
 assert "0" "$(mut verdict '|| reasons+=("TASK-VERDICT' '|| : || reasons+=("TASK-VERDICT' --task-text 'x' > /dev/null; printf '%s\n' 'Если вердикт check-verifier ниже — не ✅, стоп.' 'check-verifier: ; мо' > "$W/task.txt"; bash "$W/ms/lane-precheck.sh" --task-text "$W/task.txt" --agent git-operator > "$W/out" 2>&1; echo $?)" "мутант «вердикт не судится»: задание без поля проходит — проба выше его ловит"
 assert "1" "$(mut vfield '[^:]*:.*(✅|⛔|accept|return) ]]; then vfield=1' '[^:]*:.*(never) ]]; then vfield=1' --task-text 'x' > /dev/null; printf '%s\n' 'Если вердикт — не ✅, стоп.' '- вердикт check-verifier: ✅ принято' > "$W/task.txt"; bash "$W/ms/lane-precheck.sh" --task-text "$W/task.txt" --agent git-operator > "$W/out" 2>&1; echo $?)" "мутант «поле вердикта не узнаётся»: близнец с полем краснеет — проба выше его ловит"

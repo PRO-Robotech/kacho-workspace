@@ -644,6 +644,35 @@ class RemoteReader(unittest.TestCase):
         self.assertIn('номер задачи', bare_sha.stderr)
         self.box.git('update-ref', '-d', 'refs/remotes/origin/5-lane')
 
+    HEAD_TASK_GUARD = ('    git -C "$d" show-ref -q --verify "refs/heads/$b" 2>/dev/null || git -C "$d" show-ref -q --verify '
+                       '"refs/remotes/origin/$b" 2>/dev/null || return 1')
+
+    def _digit_short_sha(self):
+        """Копия не на ветке задачи и голова — короткий sha из одних цифр (⛔ check-verifier на 77fa57cec)."""
+        g = self.box.gh
+        (g / 'issue.json').write_text(json.dumps({'number': 5, 'state': 'open', 'title': 'задача песочницы'}))
+        self.box.git('checkout', '-q', '-b', 'sandbox-no-task')
+        for i in range(400):
+            (self.box.ws / 'lane.txt').write_text('правка %d\n' % i)
+            h = self.box.commit('#5 правка %d' % i)
+            if h[:6].isdigit():
+                self.box.git('update-ref', 'refs/remotes/origin/5-lane', 'HEAD')
+                return h[:6]
+        self.fail('цифрового префикса sha за 400 коммитов не нашлось')
+
+    def test_pr_body_digit_short_sha_is_not_a_task(self):
+        sha = self._digit_short_sha()
+        got = self.box.run('pr-body.sh', 'PRO-Robotech/kacho-workspace', 'origin/main', sha, RITUAL_REPO_DIR=str(self.box.ws))
+        self.assertEqual(got.returncode, 64, got.stdout + got.stderr)
+        self.assertIn('номер задачи', got.stderr)
+
+    def test_pr_body_digit_short_sha_probe_needs_the_branch_check(self):
+        # Мутант «снята сверка show-ref»: короткий sha из цифр принят номером задачи — проба выше обязана это различить.
+        sha = self._digit_short_sha()
+        self.box.mutate('remote-reader.sh', self.HEAD_TASK_GUARD, '    :')
+        got = self.box.run('pr-body.sh', 'PRO-Robotech/kacho-workspace', 'origin/main', sha, RITUAL_REPO_DIR=str(self.box.ws))
+        self.assertNotIn('номер задачи для ns Job не установить', got.stderr, got.stdout + got.stderr)
+
     def test_pod_named_calls_outside_the_read_list_are_refused(self):
         # Промах называет pod — значит, его текст пишет то, что исполнилось в Job. Машина исполняет
         # своим токеном лишь закрытый перечень чтений: прочее — строка отказа, вызова gh нет.

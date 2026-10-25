@@ -140,13 +140,16 @@
 #   TASK-CLUSTER-UNCENSUSED путь кубконфига (`…/.kube/<файл>`; каталог со «/» на конце — не кластер)
 #                         вне строк `cluster`/`vault-mount` переписи: кластер назван без проверки.
 #   TASK-PATH-MISSING     (ws#1402; «.env.dev, которого нет» — 5 случаев) путь от корня, `~/` либо
-#                         `$HOME/`, чей последний элемент — скрытый файл (`…/.env.dev`), на машине не
-#                         существует: назван по памяти. Граница: относительный путь и файл без
-#                         ведущей точки не судятся; каталог со «/» на конце — тоже;
-#   TASK-LOCAL-PYTHON     (ws#1402; «python3 для JSON отказан heavy-guard» — 4 случая) строка
-#                         заказывает python3 командой (`-c`, `-I`, `-`, `<<`, `<файл>.py`) не через
-#                         heavy-slot.sh либо remote-reader: на машине его отказывает heavy-guard;
-#                         python3 в прозе и имя `.py` без вызова — не судятся.
+#                         `$HOME/` либо `${HOME}/`, чей последний элемент — скрытый файл (`…/.env.dev`),
+#                         на машине не существует: назван по памяти. Граница: относительный путь и
+#                         файл без ведущей точки не судятся; каталог со «/» на конце — тоже;
+#   TASK-LOCAL-PYTHON     (ws#1402; «python3 для JSON отказан heavy-guard» — 4 случая) python3 командой
+#                         на машине: имя — `PYTHONS` guard.py heavy-guard (без пути), довод не из его
+#                         `PY_VERSION`; командой слово считается, когда первый довод — синтаксис вызова
+#                         (ключ, `-`, `<<`, путь, `*.py`), иначе это проза («python3 3.12»). Освобождён
+#                         лишь довод за `heavy-slot.sh … --` той же команды (до `;`, `|`, `&&`, `||`).
+#                         Источник heavy-guard не прочитан — VOID (код 2). Граница: `python3 <модуль>`
+#                         без пути и расширения не узнаётся.
 # Задание `--agent git-operator` (ws#1314, уроки 09b14c00, f0f94389 — задание побочного workflow
 # склеило возврат check-verifier текстом, поле вердикта ушло пустым):
 #   TASK-VERDICT          предложение ставит условие на ЗНАЧЕНИЕ вердикта («вердикт», ✅ ⛔ accept
@@ -275,6 +278,14 @@ if [ -n "$task_text" ]; then
     [ -r "$task_text" ] || { echo "lane-precheck: текста задания $task_text нет; вердикта нет" >&2; exit 2; }
     reasons=() n=0 limits=() longstep="" ret="" cen=() cenk="" coords=() void="" kpaths=() vaultseen="" mountline="" vmention="" vfield=""
     kre='(~|\$\{HOME\}|\$HOME)?[A-Za-z0-9_./-]*/\.kube/[A-Za-z0-9_.@/-]*'
+    # Распознаватель python3 (TASK-LOCAL-PYTHON) — из ТОГО ЖЕ источника, что heavy-guard: `PYTHONS` и
+    # `PY_VERSION` его guard.py; не выведен — суда нет (VOID), а не «python3 не найден».
+    hgsrc="${LANE_PRECHECK_HEAVY_GUARD:-$HERE/../.claude/hooks/heavy-guard/guard.py}"
+    pyname="$(sed -n 's/^PYTHONS = re\.compile(r"\(.*\)")$/\1/p' "$hgsrc" 2> /dev/null | sed 's/\\d/[0-9]/g')"
+    pyver="$(sed -n 's/^PY_VERSION = {\(.*\)}.*$/\1/p' "$hgsrc" 2> /dev/null | tr -d '",')"
+    if [ -z "$pyname" ] || [ -z "$pyver" ]; then
+        echo "lane-precheck: VOID — распознаватель python3 не выведен из heavy-guard ($hgsrc: PYTHONS, PY_VERSION); вердикта нет" >&2; exit 2
+    fi
     num='[0-9]+([.,][0-9]+)?'; sec='(с|сек[[:alpha:]]*|s|мин(ут[[:alpha:]]*)?|m)([^[:alnum:]]|$)'
     cmp='(дольше|больше|более|свыше)'
     mrg='(^|[^0-9A-Za-z_#/])(#[0-9]+[[:space:]]+[Mm][Ee][Rr][Gg][Ee]([[:space:]]+[^[:space:]]*|[^0-9A-Za-z_[:space:]][^[:space:]]*([[:space:]]+[^[:space:]]*)?|$))'
@@ -319,14 +330,29 @@ if [ -n "$task_text" ]; then
         # Файл настроек (ws#1402; «.env.dev, которого нет» — 5 случаев 2026-10-24): путь от корня,
         # `~/` либо `$HOME/`, последний элемент — скрытый файл; на машине его нет — причина.
         r="$line"
-        while [[ "$r" =~ (^|[^A-Za-z0-9_.~/$-])((/|~/|\$HOME/)([A-Za-z0-9_.-]+/)*\.[A-Za-z0-9_.-]*[A-Za-z0-9_-])([^A-Za-z0-9_./-]|[.,:;]([^A-Za-z0-9_/-]|$)|$) ]]; do
+        while [[ "$r" =~ (^|[^A-Za-z0-9_.~/$\{\}-])((/|~/|\$HOME/|\$\{HOME\}/)([A-Za-z0-9_.-]+/)*\.[A-Za-z0-9_.-]*[A-Za-z0-9_-])([^A-Za-z0-9_./-]|[.,:;]([^A-Za-z0-9_/-]|$)|$) ]]; do
             pp="${BASH_REMATCH[2]}"; r="${r/"$pp"/ }"
             [ -e "$(knorm "$pp")" ] || reasons+=("TASK-PATH-MISSING строка $n: «$pp» — файла нет на машине: путь по памяти; сверь \`ls -l\` до раздачи и назови существующий")
         done
-        # python3 командой на машине (ws#1402; уроки «python3 для JSON отказан heavy-guard» — 4 случая).
-        if [[ "$l" =~ (^|[^[:alnum:]_/.-])python3?[[:space:]]+(-c|-i|-[[:space:]]|-$|<<|[^[:space:]]*\.py) ]] && ! [[ "$l" =~ heavy-slot|remote-reader ]]; then
+        # python3 командой на машине (ws#1402; уроки «python3 для JSON отказан heavy-guard» — 4 случая):
+        # имя — `PYTHONS` heavy-guard (basename, путь любой), доводы не одни `PY_VERSION` (его local_form);
+        # слово — команда, если первый довод — синтаксис вызова (ключ, `-`, `<<`, путь либо `*.py`), а не
+        # проза («python3 3.12»). Освобождён лишь python3 — доводом за `heavy-slot.sh … --` в той же
+        # команде (разделители `;`, `|`, `&&`, `||` её кончают).
+        read -r -a pw <<< "${line//[\`\"\'\(\)]/ }"; slot=0 pay=0
+        for ((pi = 0; pi < ${#pw[@]}; pi++)); do
+            pword="${pw[pi]}"
+            case "$pword" in ';' | '|' | '&&' | '||' | *';') slot=0 pay=0; continue ;; esac
+            [[ "${pword##*/}" == heavy-slot.sh || "${pword##*/}" == heavy-slot ]] && { slot=1; continue; }
+            [ "$slot" = 1 ] && [ "$pword" = -- ] && { pay=1; continue; }
+            [[ "${pword##*/}" =~ $pyname ]] || continue
+            pa="${pw[pi + 1]:-}"
+            [[ "$pa" =~ ^(-|<<|.*/|.*\.py$) ]] || continue
+            [[ " $pyver " == *" $pa "* ]] && continue
+            [ "$pay" = 1 ] && continue
             reasons+=("TASK-LOCAL-PYTHON строка $n: «$(cut -c1-120 <<< "$line")» — python3 на машине отказывает heavy-guard: JSON — jq, правка файла — инструментом правки, исполнение — heavy-slot.sh suite -- python3 …")
-        fi
+            break
+        done
         # Строка слияния (ws#1278): класс (а) — `#<N>`+пробелы+merge любого регистра, судится
         # формой хука; класс (б) — тема с merge в начале строки или за кавычкой, без `#<N> `.
         r="$line"
