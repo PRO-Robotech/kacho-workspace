@@ -153,8 +153,9 @@
 #   TASK-BRANCH-FORM      (ws#1409; «имя-ветки» — 17 случаев, задание называло ветку kaname `<N>-<суть>`)
 #                         ветка `<цифры>-<суть>` за словом «ветк…» (и «ветка kaname X»), `branch`,
 #                         `-b|-B|-c`, `refs/heads/`, `origin/`, чей репозиторий — kaname: последнее имя
-#                         репозитория (kaname · kacho · kacho-workspace · ws · corelib · воркспейс) левее
-#                         в строке, иначе из прежних строк. Суд — правило клона kaname
+#                         репозитория ПУТЁМ (`project/<репо>`, `PRO-Robotech/<репо>`, `kacho-workspace` где угодно;
+#                         слово «kaname» в прозе — не контекст) левее в строке, иначе из прежних строк,
+#                         иначе правее в строке. Суд — правило клона kaname
 #                         (`scripts/hooks/branch-rule.sh`, `branch_rule_is_number`; путь —
 #                         `LANE_PRECHECK_KANAME_RULE`), не прочитано — VOID. Граница: шаблон `<N>-…` и
 #                         ветка без слова-признака не судятся.
@@ -300,12 +301,12 @@ if [ -n "$task_text" ]; then
     mrb='(^[[:space:]*-]*|«|"|'"'"'|`)([Mm]erge[[:space:]]+(#[0-9]+[^[:space:]]*|(branch|remote-tracking|tag|commit|pull)[[:space:]]+[^[:space:]]*|[^-[:space:]][^[:space:]]*[[:space:]]+into([[:space:]]|$)))'
     mok='^#[0-9]+ merge (#[0-9]+|main)([^0-9A-Za-z_]|$)' mtpl='^#[0-9]+ merge (#?<|#[A-Z][A-Za-z]*([^0-9A-Za-z_]|$))'
     # Ветка kaname (TASK-BRANCH-FORM, ws#1409): имя репозитория и кандидат ветки — по строке в нижнем регистре.
-    rre='(^|[^a-z0-9_-])(kacho-workspace|kaname|kacho|corelib|ws|воркспейс)([^a-z0-9_.-]|\.([^a-z0-9]|$)|$)'
+    rre='(project/|pro-robotech/)(kaname|kacho|corelib)([^a-z0-9_-]|$)|(^|[^a-z0-9_-])(kacho-workspace)([^a-z0-9_-]|$)'
     brx='(ветк[[:alpha:]]*([[:space:]]+(kaname|kacho|corelib))?|branch|refs/heads/|origin/|(^|[[:space:]])-[bBc])[[:space:]«"'"'"'`:]*([0-9]+-[a-z0-9][a-z0-9._/-]*)'
     brepo="" kbr=()
-    repo_last() {  # <текст> — последнее имя репозитория в тексте либо пусто
+    repo_last() {  # <текст> — последнее имя репозитория путём в тексте либо пусто
         local t="$1" got=""
-        while [[ "$t" =~ $rre ]]; do got="${BASH_REMATCH[2]}"; t="${t#*"${BASH_REMATCH[0]}"}"; done
+        while [[ "$t" =~ $rre ]]; do got="${BASH_REMATCH[2]}${BASH_REMATCH[5]}"; t="${t#*"${BASH_REMATCH[0]}"}"; done
         printf '%s' "$got"
     }
     while IFS= read -r line || [ -n "$line" ]; do
