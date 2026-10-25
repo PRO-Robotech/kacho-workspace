@@ -13,6 +13,11 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WS="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# check-09 набора читает KACHO_HOME_* — окружение доказательства своё (suites-gate check-08):
+# унаследованный указатель вызывающего иначе решал бы вердикт пробы.
+# shellcheck source=../lib/proofs.sh
+. "$SCRIPT_DIR/../lib/proofs.sh"
+proof_own_environment
 
 TMP="$(mktemp -d)"
 # Корень синтетических деревьев продукта — ОТДЕЛЬНЫЙ: `$TMP` ниже становится

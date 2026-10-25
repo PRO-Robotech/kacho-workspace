@@ -414,7 +414,11 @@ jobs:
     # `tooling-gate` (ws#1021); в конвейере rules-gate шёл 124 с (прогон 38173621245).
     # Задание — 162 с на `main` (прогон 40145902554); check-08 набора (шаги shellcheck этого
     # файла, ws#1402) поселён здесь, а не в tooling-gate: там 1914 из 2100 с запаса нет.
-    timeout-minutes: 10
+    # С check-08, check-09 и их пробами задание шло в pod внешнего кластера 505 с (ws#1402,
+    # тот же `run-suites.sh --proofs --void-is-failure --job skills-gate`): при пределе 10 мин
+    # это 84 % — выше 70 % шапки; 15 мин = 900 с — 56 %. Предел приводится к замеру
+    # конвейера тем же изменением, что следующий замер.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
         with:
