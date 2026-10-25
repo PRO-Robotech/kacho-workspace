@@ -150,6 +150,14 @@
 #                         лишь довод за `heavy-slot.sh … --` той же команды (до `;`, `|`, `&&`, `||`).
 #                         Источник heavy-guard не прочитан — VOID (код 2). Граница: `python3 <модуль>`
 #                         без пути и расширения не узнаётся.
+#   TASK-BRANCH-FORM      (ws#1409; «имя-ветки» — 17 случаев, задание называло ветку kaname `<N>-<суть>`)
+#                         ветка `<цифры>-<суть>` за словом «ветк…» (и «ветка kaname X»), `branch`,
+#                         `-b|-B|-c`, `refs/heads/`, `origin/`, чей репозиторий — kaname: последнее имя
+#                         репозитория (kaname · kacho · kacho-workspace · ws · corelib · воркспейс) левее
+#                         в строке, иначе из прежних строк. Суд — правило клона kaname
+#                         (`scripts/hooks/branch-rule.sh`, `branch_rule_is_number`; путь —
+#                         `LANE_PRECHECK_KANAME_RULE`), не прочитано — VOID. Граница: шаблон `<N>-…` и
+#                         ветка без слова-признака не судятся.
 # Задание `--agent git-operator` (ws#1314, уроки 09b14c00, f0f94389 — задание побочного workflow
 # склеило возврат check-verifier текстом, поле вердикта ушло пустым):
 #   TASK-VERDICT          предложение ставит условие на ЗНАЧЕНИЕ вердикта («вердикт», ✅ ⛔ accept
@@ -291,6 +299,15 @@ if [ -n "$task_text" ]; then
     mrg='(^|[^0-9A-Za-z_#/])(#[0-9]+[[:space:]]+[Mm][Ee][Rr][Gg][Ee]([[:space:]]+[^[:space:]]*|[^0-9A-Za-z_[:space:]][^[:space:]]*([[:space:]]+[^[:space:]]*)?|$))'
     mrb='(^[[:space:]*-]*|«|"|'"'"'|`)([Mm]erge[[:space:]]+(#[0-9]+[^[:space:]]*|(branch|remote-tracking|tag|commit|pull)[[:space:]]+[^[:space:]]*|[^-[:space:]][^[:space:]]*[[:space:]]+into([[:space:]]|$)))'
     mok='^#[0-9]+ merge (#[0-9]+|main)([^0-9A-Za-z_]|$)' mtpl='^#[0-9]+ merge (#?<|#[A-Z][A-Za-z]*([^0-9A-Za-z_]|$))'
+    # Ветка kaname (TASK-BRANCH-FORM, ws#1409): имя репозитория и кандидат ветки — по строке в нижнем регистре.
+    rre='(^|[^a-z0-9_-])(kacho-workspace|kaname|kacho|corelib|ws|воркспейс)([^a-z0-9_.-]|\.([^a-z0-9]|$)|$)'
+    brx='(ветк[[:alpha:]]*([[:space:]]+(kaname|kacho|corelib))?|branch|refs/heads/|origin/|(^|[[:space:]])-[bBc])[[:space:]«"'"'"'`:]*([0-9]+-[a-z0-9][a-z0-9._/-]*)'
+    brepo="" kbr=()
+    repo_last() {  # <текст> — последнее имя репозитория в тексте либо пусто
+        local t="$1" got=""
+        while [[ "$t" =~ $rre ]]; do got="${BASH_REMATCH[2]}"; t="${t#*"${BASH_REMATCH[0]}"}"; done
+        printf '%s' "$got"
+    }
     while IFS= read -r line || [ -n "$line" ]; do
         n=$((n + 1)); l="${line,,}"
         # Перепись координат (ws#1271): строка словаря предусловий — данные, а не заказ: не
@@ -353,6 +370,16 @@ if [ -n "$task_text" ]; then
             reasons+=("TASK-LOCAL-PYTHON строка $n: «$(cut -c1-120 <<< "$line")» — python3 на машине отказывает heavy-guard: JSON — jq, правка файла — инструментом правки, исполнение — heavy-slot.sh suite -- python3 …")
             break
         done
+        # Ветка kaname (TASK-BRANCH-FORM, ws#1409): кандидат судится по последнему имени репозитория
+        # левее него в строке, иначе по последнему из прежних строк; суд — после текста, правилом клона.
+        r="$l"
+        while [[ "$r" =~ $brx ]]; do
+            bc="${BASH_REMATCH[0]}" bv="${BASH_REMATCH[5]}" bw="${BASH_REMATCH[3]}"
+            [ -n "$bw" ] || { bw="$(repo_last "${r%%"$bc"*}")"; bw="${bw:-$brepo}"; bw="${bw:-$(repo_last "$l")}"; }
+            [ "$bw" != kaname ] || kbr+=("$n $bv")
+            r="${r/"$bc"/ }"
+        done
+        brr="$(repo_last "$l")"; [ -z "$brr" ] || brepo="$brr"
         # Строка слияния (ws#1278): класс (а) — `#<N>`+пробелы+merge любого регистра, судится
         # формой хука; класс (б) — тема с merge в начале строки или за кавычкой, без `#<N> `.
         r="$line"
@@ -440,6 +467,22 @@ if [ -n "$task_text" ]; then
         po="$(bash "${BASH_SOURCE[0]}" --premise "$pf" 2>&1)"; prc=$?; rm -f "$pf"
         if [ "$prc" = 1 ]; then reasons+=("TASK-COORD-FALSE перепись не сошлась: $(sed -n 's/^REASON //p' <<< "$po" | paste -sd ';' -)")
         elif [ "$prc" != 0 ]; then void="перепись не судима (код $prc): $(sed -n 's/^VOID //p' <<< "$po" | paste -sd ';' -)"; fi
+    fi
+    if [ "${#kbr[@]}" -gt 0 ]; then
+        if [ -n "${LANE_PRECHECK_KANAME_RULE:-}" ]; then krule="$LANE_PRECHECK_KANAME_RULE"
+        elif [ -n "${LANE_PRECHECK_WS:-}" ]; then krule="$LANE_PRECHECK_WS/project/kaname/scripts/hooks/branch-rule.sh"
+        else
+            # shellcheck source=lib/ws-home.sh
+            . "$HERE/lib/ws-home.sh"; krule="$(ws_home "$HERE")/project/kaname/scripts/hooks/branch-rule.sh"
+        fi
+        for x in "${kbr[@]}"; do
+            read -r bn bv <<< "$x"
+            # shellcheck disable=SC2016
+            if ! why="$(bash -c '. "$1" > /dev/null 2>&1 || exit 9; branch_rule_is_number "$2" || [ "$2" = main ] || echo no' _ "$krule" "$bv" 2> /dev/null)"; then
+                void="${void:+$void; }правило ветки kaname не исполнилось ($krule) — TASK-BRANCH-FORM не судима"; break
+            fi
+            [ -z "$why" ] || reasons+=("TASK-BRANCH-FORM строка $bn: «$bv» — ветка kaname: хук отправки kaname принимает лишь номер задачи (^[0-9]+$, scripts/hooks/branch-rule.sh клона) — ветка «${bv%%-*}», а не «<N>-<суть>»; сверка до раздачи — строка branchname <клон kaname> <ветка> в --premise")
+        done
     fi
     echo "lane-precheck --task-text: файл $task_text; строк $n; причин ${#reasons[@]}; агент ${agent:-не назван}; строк переписи ${#cen[@]}"
     for x in "${reasons[@]+"${reasons[@]}"}"; do echo "REASON $x"; done
