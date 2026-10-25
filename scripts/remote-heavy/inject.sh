@@ -1863,6 +1863,68 @@ sed 's/&& npm ci/\&\& true/g' "$BOX/npmci.sh" > "$BOX/npmci-gone.sh"
 if cmp -s "$BOX/npmci.sh" "$BOX/npmci-gone.sh"; then bad NC3 "порча не легла: «&& npm ci» в шаге не найден"
 elif nc_console_holds "$BOX/npmci-gone.sh"; then OUT="$BOX/nc-ui.out"; bad NC3 "шаг без npm ci прошёл как поставивший зависимости — проба NC2-console слепа"
 else ok; fi
+# HM дома проб kaname в Job ci-local kaname (ws#1196). Отправка 983 2026-10-25: проба приёмок
+#    (internal/check probe_home.go) — [VOID] на 164 из 164 чужих координат: копий kacho и corelib
+#    в pod нет ни по KACHO_HOME_<ИМЯ>, ни в <предок корня>/project/<имя>.
+# HM1 ci-local kaname: шаги клонов домов и их ожидания — в подготовке, клоны до ожидания,
+#     ожидание до видимости и команды; близнецы — go-race и lint kaname, ci-local kacho — без них
+hm_in() { awk '/^# homes-begin$/ { a = NR } /^# homeswait-begin$/ { b = NR } /^# expose-begin$/ { c = NR } /^heavy_cmd "\$@"$/ { e = NR }
+        END { exit !(a && b && c && e && a < b && b < c && c < e) }' "$1"; }
+if hm_in "$BOX/d1-ci-local.cmd"; then ok; else OUT="$BOX/d1-ci-local.cmd"; bad HM1 "в Job ci-local kaname нет шагов домов проб в порядке клоны → ожидание → видимость → команда"; fi
+for tw in d1-go-race d1-lint nc1; do
+    if grep -qx '# homes-begin' "$BOX/$tw.cmd" || grep -qx '# homeswait-begin' "$BOX/$tw.cmd"; then OUT="$BOX/$tw.cmd"; bad "HM1-$tw" "шаг домов проб в Job $tw — он лишь у ci-local kaname"; else ok; fi
+done
+# HM2 шаг ИСПОЛНЕНИЕМ: текст из Job (корень /work — каталогом песочницы), GitHub — локальными
+#     голыми origin через url.insteadOf. Предикат пробы — её же командами (probe_home.go):
+#     .git в /work/project/<имя> и KACHO_HOME_<ИМЯ> на нём, origin — публичный адрес дома
+#     (идентичность PRO-Robotech/<имя>), ствол origin/main есть, `git grep` объявления пробы по
+#     origin/main находит её — то есть координата ИСПОЛНЯЕТСЯ, а не уходит в [VOID].
+#     HM2-void близнец: origin kacho нет — код 0, KACHO_HOME_KACHO не выставлена, каталога нет,
+#     строка называет «[VOID]»; corelib при этом поставлен.
+#     HM3 инъекция «переменная не выставлена»: тот же шаг без export — предикат обязан НЕ держаться.
+HM="$BOX/hm"; rm -rf "$HM"; mkdir -p "$HM/origins"
+for r in kacho corelib; do
+    git init -q "$HM/seed-$r"; printf 'package p\n\nfunc TestHomeProbe%s(t *testing.T) {}\n' "$r" > "$HM/seed-$r/x_test.go"
+    git -C "$HM/seed-$r" add x_test.go; sandbox_git -C "$HM/seed-$r" commit -q -m seed
+    git -C "$HM/seed-$r" branch -q -M main; git clone -q --bare "$HM/seed-$r" "$HM/origins/$r.git"
+done
+printf '[url "file://%s/origins/"]\n\tinsteadOf = https://github.com/PRO-Robotech/\n' "$HM" > "$HM/gitcfg"
+sed -n '/^# homes-begin$/,/^# homes-end$/p; /^# homeswait-begin$/,/^# homeswait-end$/p' "$BOX/d1-ci-local.cmd" | sed "s#/work/#$HM/work/#g; s#/work #$HM/work #g" > "$HM/step.sh"
+if grep -q '^# homeswait-end$' "$HM/step.sh"; then ok; else OUT="$BOX/d1-ci-local.cmd"; bad HM2 "текста шага домов проб в Job нет — исполнять нечего"; fi
+# hm_run <случай> <шаг> — исполнить шаг в чистом /work песочницы; печатает переменные домов
+hm_run() {
+    rm -rf "$HM/work"; mkdir -p "$HM/work/src"; OUT="$BOX/$1.out"
+    # shellcheck disable=SC2016  # переменные раскрывает исполняемый шаг
+    { echo 'set -uo pipefail'; cat "$2"; echo 'echo "HM kacho=${KACHO_HOME_KACHO:-} corelib=${KACHO_HOME_CORELIB:-}"'; } > "$HM/run-step.sh"
+    ( cd "$HM/work/src" && env -u KACHO_HOME_KACHO -u KACHO_HOME_CORELIB GIT_CONFIG_GLOBAL="$HM/gitcfg" GIT_CONFIG_NOSYSTEM=1 \
+        bash "$HM/run-step.sh" ) > "$OUT" 2>&1; RC=$?
+}
+# hm_probe_runs <имя> — координата дома исполнима предикатом пробы
+hm_probe_runs() {
+    local d="$HM/work/project/$1"
+    grep -qx "HM .*$1=$d.*" "$OUT" && [ -d "$d/.git" ] \
+        && [ "$(git -C "$d" config remote.origin.url)" = "https://github.com/PRO-Robotech/$1.git" ] \
+        && git -C "$d" rev-parse --verify --quiet origin/main > /dev/null \
+        && [ -n "$(git -C "$d" grep -l -E "^func TestHomeProbe$1[[:space:]]*\(" origin/main -- '*_test.go' 2>/dev/null)" ]
+}
+hm_run HM2 "$HM/step.sh"; expect_rc HM2 0
+for r in kacho corelib; do
+    if hm_probe_runs "$r"; then ok; else bad "HM2-$r" "дом $r не исполним пробой: переменная, origin, ствол либо объявление пробы по origin/main"; fi
+done
+if [ -z "$(git -C "$HM/work/project/kacho" ls-files 2>/dev/null)" ] && [ ! -e "$HM/work/project/kacho/x_test.go" ]; then ok
+else bad HM2-nocheckout "клон дома несёт рабочее дерево — проба читает refs, файлы лишь занимают место pod"; fi
+mv "$HM/origins/kacho.git" "$HM/origins/kacho.gone"
+hm_run HM2-void "$HM/step.sh"; expect_rc HM2-void 0
+if grep -qx "HM kacho= corelib=$HM/work/project/corelib" "$OUT" && [ ! -e "$HM/work/project/kacho" ] \
+    && grep -q 'НЕ поставлены: kacho (git clone не исполнился.*\[VOID\]' "$OUT"; then ok
+else bad HM2-void "без origin kacho: ждали код 0, KACHO_HOME_KACHO пустой, каталога нет, строку о [VOID]; corelib поставлен"; fi
+mv "$HM/origins/kacho.gone" "$HM/origins/kacho.git"
+sed '/export "\$v=\$d"/d' "$HM/step.sh" > "$HM/step-noexport.sh"
+if cmp -s "$HM/step.sh" "$HM/step-noexport.sh"; then bad HM3 "порча не легла: export переменной дома в шаге не найден"
+else
+    hm_run HM3 "$HM/step-noexport.sh"
+    if hm_probe_runs kacho; then bad HM3 "шаг без export прошёл как поставивший дом — проба HM2 слепа"; else ok; fi
+fi
 # GI корневая учётка git в Job ci-local (ws#1115). Отправка 853 2026-10-16: страж
 #    подписи хука kaname — «подпись НЕ сверена… корневая учётная запись не задана»:
 #    в pod корневого gitconfig нет. Учётка вызывающей копии (--global) уходит в Job.
