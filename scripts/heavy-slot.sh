@@ -173,6 +173,8 @@
 # перепись run.sh (младший по времени создания ns снимает его и выходит 75; run.sh inject CPR).
 # --status показывает билеты и внешний вход.
 #
+# Клон без хука вовсе (ни scripts/hooks/pre-push в голове, ни pre-push в каталоге хуков; ws#1409):
+# исполнять нечего — отправка идёт как есть, без слота, строка журнала «nohook-push» (push_hookless).
 # ХУК ОТПРАВКИ (ws#1106, ws#1115): `git push` классом ci-local в клоне продукта при
 # принимающем кластере идёт без слота машины: git звано с core.hooksPath на переходник,
 # чей pre-push отдаёт вход git (строки отправки) настоящему хуку клона
@@ -1982,10 +1984,23 @@ route_static() {
     [ -n "$RS_KNOWN" ] || ! portable_script || RS_KNOWN=1
     return 0
 }
+# push_hookless — отправка из клона, у которого хука нет ВОВСЕ: ни scripts/hooks/pre-push в голове,
+# ни исполнимого pre-push в каталоге хуков git (ws#1409, класс «клон-без-хука-отправки» — 3 случая:
+# registry-operator, vault-operator — слот отвечал 77, и отправка стояла). Исполнять Job-у нечего,
+# отправка — лишь сеть: идёт как есть, без слота и без Job (heavy-guard такую отправку не судит),
+# строкой журнала «nohook-push»; хук в дереве без установки — не этот случай (77 с формой установки).
+push_hookless() {
+    local h
+    [ "$PAY" = git ] && [ -n "$GIT_IDX" ] && [ -n "$RS_TOP" ] || return 1
+    h="$(cd "$GDIR" && cd "$(git rev-parse --git-path hooks 2>/dev/null)" 2>/dev/null && pwd -P)"
+    [ ! -x "${h:-/nonexistent}/pre-push" ] && ! git -C "$RS_TOP" cat-file -e HEAD:scripts/hooks/pre-push 2>/dev/null
+}
+NOHOOK_PUSH=""
 remote_route() {
     local top repo rel fix="" known=""
     [ "$CLASS" != stand ] || { stand_route; return 1; }
     route_static || return 1
+    if push_hookless; then NOHOOK_PUSH="$RS_REPO"; return 1; fi
     top="$RS_TOP"; repo="$RS_REPO"; known="$RS_KNOWN"
     [ -n "$(git -C "$top" status --porcelain --untracked-files=no 2>/dev/null)" ] &&
         fix="закоммить правки отслеживаемых файлов (кластер судит коммит) и повтори ту же команду — слот уведёт её Job-ом"
@@ -2005,7 +2020,7 @@ remote_route() {
     if [ -n "$GIT_IDX" ]; then
         HOOKS_ORIG="$(cd "$GDIR" && cd "$(git rev-parse --git-path hooks 2>/dev/null)" 2>/dev/null && pwd -P)"
         if [ ! -x "$HOOKS_ORIG/pre-push" ] || ! git -C "$top" cat-file -e HEAD:scripts/hooks/pre-push 2>/dev/null; then
-            WHY_LOCAL="у клона нет хука отправки scripts/hooks/pre-push за .git/hooks/pre-push — Job-у нечего исполнять"; return 1
+            WHY_LOCAL="у клона нет хука отправки scripts/hooks/pre-push за .git/hooks/pre-push — Job-у нечего исполнять$(git -C "$top" cat-file -e HEAD:scripts/hooks/pre-push 2>/dev/null && echo '; хук в дереве не поставлен — make install-hooks клона (ссылка .git/hooks/pre-push на scripts/hooks/pre-push) и повтори')"; return 1
         fi
         PUSH_TOP="$top"; PUSH_REPO="$repo"; PUSH_PROFILE="$RS_PROFILE"; PUSH_HEAD="$(git -C "$top" rev-parse HEAD)"
         return 0
@@ -2044,6 +2059,8 @@ route_print() {
         fi
     elif { route_static; [ -n "$RS_MACHINE" ]; }; then   # MACHINE: route_static — 1 (внешнего пути нет), RS_MACHINE — запись
         kind=local; why="предмет — машина ($RS_MACHINE, запись MACHINE): доступа к предмету из кластера нет по построению — локально в слоте, лимит памяти слота"
+    elif route_static && push_hookless; then
+        kind=local; why="у клона $RS_REPO хука отправки нет — исполнять нечего: отправка идёт как есть, без слота (ws#1409)"
     elif route_static; then
         if [ -n "$RS_KNOWN" ]; then kind=external; why="Job внешнего кластера: профиль $RS_PROFILE, репозиторий $RS_REPO — $RS_WHY (при недоступном кластере — локально с доказательством)"
         else kind=none; why="нагрузка «${PAY_SH:-$PAY}» не опознана как переносимая (go, make, линтеры, ci-local.sh; скрипт ведомости PORTABLE относительным путём) — при доступном кластере 77"; fi
@@ -2381,6 +2398,11 @@ elif [ "$REMOTE_ON" = 1 ]; then
         fi
     fi
     ext_leave
+    if [ -n "$NOHOOK_PUSH" ]; then
+        journal_early "nohook-push class=$CLASS repo=$NOHOOK_PUSH slot=нет why=у клона нет хука отправки (ни scripts/hooks/pre-push в голове, ни pre-push в каталоге хуков) who=$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD cmd=$(printf '%q ' "${CMD_R[@]}")"
+        say "у клона $NOHOOK_PUSH хука отправки нет (ни scripts/hooks/pre-push в голове, ни pre-push в каталоге хуков git) — исполнять нечего: отправка идёт как есть, без слота; проверок не было — исход «хука нет», не «отказов 0» (маршрут хука — $NO_ROUTE_TASK)"
+        exec "$@"
+    fi
     # MACHINE (решение диспетчера 2026-10-22 по правилу владельца «использовать только в одном случае
     # если доступа к кластеру нету»): предмет — сама машина, из кластера к нему доступа нет по
     # построению — запись закрытого перечня идёт в слоте машины с доказательством; прочее без
