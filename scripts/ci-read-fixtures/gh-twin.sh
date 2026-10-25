@@ -83,7 +83,12 @@ core() {
         fi ;;
       *) f=none ;;
     esac
-    if [ -f "$CI_READ_FX/$f.err" ]; then cat "$CI_READ_FX/$f.err" >&2; return 1; fi
+    # <файл>.errbody — тело отказа в stdout, как печатает gh (404 «Branch not protected» — JSON
+    # площадки); пустой <файл>.err при нём — снятый ответ без stderr (ws#1397)
+    if [ -f "$CI_READ_FX/$f.err" ]; then
+        [ ! -f "$CI_READ_FX/$f.errbody" ] || cat "$CI_READ_FX/$f.errbody"
+        cat "$CI_READ_FX/$f.err" >&2; return 1
+    fi
     if [ "$f" = rules.json ] && [ ! -f "$CI_READ_FX/$f" ]; then echo '[]'; return 0; fi
     [ -f "$CI_READ_FX/$f" ] || { echo "gh: Not Found (HTTP 404) $p" >&2; return 1; }
     cat "$CI_READ_FX/$f"
@@ -92,7 +97,8 @@ core() {
 core > "$body" 2> "$err"; rc=$?
 [ "$inc" = 1 ] || { cat "$body"; cat "$err" >&2; exit "$rc"; }
 if [ "$rc" -ne 0 ]; then
-    printf 'HTTP/2.0 404 Not Found\r\nContent-Type: application/json\r\n\r\n{"message":"Not Found"}\n'
+    printf 'HTTP/2.0 404 Not Found\r\nContent-Type: application/json\r\n\r\n'
+    if [ -s "$body" ]; then cat "$body"; else echo '{"message":"Not Found"}'; fi
     cat "$err" >&2; exit "$rc"
 fi
 etag="\"$(md5sum < "$body" | cut -c1-32)\""

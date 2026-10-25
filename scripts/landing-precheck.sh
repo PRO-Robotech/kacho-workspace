@@ -107,9 +107,12 @@
 #                             1) имени нет в наборе обязательных контекстов, которым
 #                             судит ЭТОТ PR `merge-readiness.sh` (набор он отдаёт
 #                             файлом MERGE_READINESS_REQUIRED_OUT; набор не получен
-#                             или пуст без основания `<файл>.basis` — любой skipped
-#                             причина; пуст С основанием — установленный ноль: база
-#                             без контекстов судится ci-read по ведомости, ws#1215);
+#                             или пуст без основания `<файл>.basis` — skipped не снят:
+#                             при условиях 2 и 3 (либо признаках 2–5 двойника push ниже) не судим, причина
+#                             SKIPPED-UNJUDGED поимённо, иначе — CI-NOT-SUCCESS (ws#1397,
+#                             kaname#978: VOID ci-read не красит CI); пуст С основанием —
+#                             установленный ноль: база без контекстов судится ci-read
+#                             по ведомости, ws#1215);
 #                             2) прогон workflow этого check-run найден
 #                             (`actions/runs?head_sha=`, ключ — check_suite.id), его
 #                             событие — pull_request в базу запроса либо push ветки
@@ -166,7 +169,14 @@
 #                             код 2). Ведомость не читается — VOID;
 #   (д) MERGE-READINESS     — `scripts/merge-readiness.sh` из origin/main
 #                             воркспейса дал не 0 (1 — нельзя; 2 — вердикта нет;
-#                             оба — не «можно»).
+#                             оба — не «можно»);
+#       SKIPPED-UNJUDGED    — набора обязательных от merge-readiness нет (или пуст
+#                             без основания), а skipped выполнил условия 2 и 3 первого исключения либо признаки 2–5 второго (двойник push):
+#                             обязательность не установлена (ws#1397). Код свой, не
+#                             MERGE-READINESS: допуск диспетчера `--allow` демона
+#                             вливания на MERGE-READINESS этот факт не снимает — при
+#                             известном наборе тот же skipped обязательного был бы
+#                             CI-NOT-SUCCESS, и снимает его лишь явный допуск кода.
 #   (е) ATTRIBUTION         — строка атрибуции в сообщении коммита диапазона
 #                             либо в теле. Предикат — ОДИН на дерево:
 #                             `scripts/hooks/attribution-rule.sh`
@@ -744,10 +754,12 @@ def workflow_jobs(path):
     return wf_files[path]
 
 def skip_lawful(r):
-    """(законен ли skipped, почему нет | где условие)."""
-    if required is None:
-        return False, "набор обязательных от merge-readiness не получен — необязательность не установлена"
-    if r.get("name") in required:
+    """(True законен | False причина CI | None — законен лишь при наборе, а его нет; почему | где условие)."""
+    # Набора нет — прочие признаки судятся всё равно (ws#1397): skipped, пропущенный не
+    # невыполнимым if и не двойником push, — неуспех CI при любом наборе; иной — не судим без
+    # набора, и это причина SKIPPED-UNJUDGED, а не CI-NOT-SUCCESS (kaname#978 @062a3449: ci-read
+    # в pod вышел VOID, «вердикт ствола» ×4 на запросе в ветку 955 читался красным CI).
+    if required is not None and r.get("name") in required:
         return False, "контекст обязательный"
     suite = (r.get("check_suite") or {}).get("id")
     runs_map = runs_by_suite()
@@ -787,12 +799,16 @@ def skip_lawful(r):
         if not ok:
             live.append((j, why))
     if not live:
-        return True, f"{path} на {ev}"
+        # if невыполним: законен, но лишь при известном наборе (признак 1) — без набора не судим.
+        return (True if required is not None else None), f"{path} на {ev}"
     if ev != "pull_request":
         return False, f"{path}: {live[0][1]}"
     ok, twin_why = push_twin(r, [j for j, _ in live], ctx, path)
     if ok:
-        return True, twin_why
+        # Двойник push (ws#1365) несёт тот же признак 1 — имени нет в наборе обязательных: при
+        # известном наборе законен и в SKIPPED-UNJUDGED не попадает; без набора — не судим, как и
+        # невыполнимый if (ws#1397), и его допуск — явным кодом.
+        return (True if required is not None else None), twin_why
     return False, f"{path}: {live[0][1]}; двойник прогона push не установлен: {twin_why}"
 
 def push_twin(r, jobs, ctx, path):
@@ -873,23 +889,25 @@ if collided and wf_err:
 pending = [r for r in judged if r.get("status") != "completed"]
 bad = [r for r in judged if r.get("status") == "completed" and r.get("conclusion") != "success"]
 
-skipped_lawful, skip_why = [], {}
+skipped_lawful, skipped_unjudged, skip_why = [], [], {}
 for r in bad:
     if r.get("conclusion") != "skipped":
         continue
     ok, why = skip_lawful(r)
     if ok:
         skipped_lawful.append(r)
+    elif ok is None:
+        skipped_unjudged.append(r)
     skip_why[id(r)] = why
 n_twin = sum(1 for r in skipped_lawful if skip_why[id(r)].startswith("двойник: "))
 for r in pending:
     reason("CI-PENDING", f"{r.get('name')} — {r.get('status')}")
 for r in bad:
-    if r in skipped_lawful:
+    if r in skipped_lawful or r in skipped_unjudged:
         continue
     why = f" ({skip_why[id(r)]})" if id(r) in skip_why else ""
     reason("CI-NOT-SUCCESS", f"{r.get('name')} — {r.get('conclusion')}{why}")
-census.append(f"ci: check-runs на голове {len(own_runs)}, судится последних {len(judged)}, вытеснено поздним прогоном той же проверки {len(superseded)}, success {len(judged) - len(pending) - len(bad)}, идут {len(pending)}, не-success {len(bad) - len(skipped_lawful)}, skipped двойником push {n_twin}, skipped по невыполнимому if {len(skipped_lawful) - n_twin}; набор обязательных {len(required) if required is not None else 'НЕ ПОЛУЧЕН'}{f' — установленный ноль ({req_basis})' if required == set() else ''}")
+census.append(f"ci: check-runs на голове {len(own_runs)}, судится последних {len(judged)}, вытеснено поздним прогоном той же проверки {len(superseded)}, success {len(judged) - len(pending) - len(bad)}, идут {len(pending)}, не-success {len(bad) - len(skipped_lawful) - len(skipped_unjudged)}, skipped не судимых без набора {len(skipped_unjudged)}, skipped двойником push {n_twin}, skipped по невыполнимому if {len(skipped_lawful) - n_twin}; набор обязательных {len(required) if required is not None else 'НЕ ПОЛУЧЕН'}{f' — установленный ноль ({req_basis})' if required == set() else ''}")
 for name in sorted({r.get("name") for r in superseded}):
     gone = [r for r in superseded if r.get("name") == name]
     gone = sorted(gone, key=lambda r: r.get("started_at") or "")
@@ -912,6 +930,17 @@ mr = int(os.environ["MR_CODE"])
 if mr != 0:
     tail = [l for l in open(f"{W}/mr.out").read().splitlines() if l.strip()][-1:] or ["(вывода нет)"]
     reason("MERGE-READINESS", f"код {mr}: {tail[0]}")
+# skipped с невыполнимым if при НЕ полученном наборе обязательных — не неуспех CI и не вердикт
+# merge-readiness, а свой факт: обязательность не установлена (ws#1397). Код отдельный, чтобы
+# допуск MERGE-READINESS, выданный по иной причине (сбой чтения), его не снимал: при известном
+# наборе тот же skipped обязательного — CI-NOT-SUCCESS, и снять его можно лишь явным допуском.
+if skipped_unjudged:
+    nm = {}
+    for r in skipped_unjudged:
+        nm[r.get("name")] = nm.get(r.get("name"), 0) + 1
+    tw = {r.get("name") for r in skipped_unjudged if skip_why[id(r)].startswith("двойник: ")}
+    reason("SKIPPED-UNJUDGED", f"набор обязательных от merge-readiness (код {mr}) не получен — skipped, законный лишь при известном наборе, не судим: "
+           + "; ".join(f"{n} ×{k}" + (" (двойник push)" if n in tw else "") for n, k in sorted(nm.items())))
 census.append(f"merge-readiness: код {mr}, источник {os.environ['MR_SRC']}")
 
 # (е) атрибуция — строки собраны предикатом дерева до этого места
