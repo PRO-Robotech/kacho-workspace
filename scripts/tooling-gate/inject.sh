@@ -3882,6 +3882,43 @@ else
     premise_broken "check-28: корневой подписи нет — синтетический клон kacho не родится"
 fi
 
+# ── check-29: шаги shellcheck конвейера на дереве (ws#1402, паритет хука с CI) ──
+# Дерево — синтетическое и маленькое: ci.yaml с пином и одним шагом «shellcheck docs-gate
+# (strict)» и scripts/docs-gate/; предмет пробы — гейт, а не тяжесть настоящего дерева.
+# Тексты скриптов собираются printf с \x24 и \x27: буквальный `$` в одинарных кавычках здесь
+# сам краснел бы SC2016 у шага «shellcheck tooling-gate scripts (strict)».
+C29=check-29-ci-shellcheck-steps-pass-on-the-tree.sh
+SC_HAVE="$(shellcheck --version 2> /dev/null | sed -n 's/^version: //p')"
+mk29() {  # mk29 <имя> <пин|-> [без-шагов] — каталог мини-дерева
+    local d="$TMP/c29-$1"
+    mkdir -p "$d/.github/workflows" "$d/scripts/docs-gate" && git -C "$d" init -q
+    printf '#!/usr/bin/env bash\necho ok\n' > "$d/scripts/docs-gate/ok.sh"
+    { [ "$2" = - ] || printf 'env:\n  SHELLCHECK_VERSION: "%s"\n' "$2"
+      printf 'jobs:\n  bats-and-shellcheck:\n    steps:\n'
+      if [ "${3:-}" = без-шагов ]; then printf '      - name: bats\n        run: bats tests\n'
+      else printf '      - name: shellcheck docs-gate (strict)\n        run: shellcheck -x -- scripts/docs-gate/*.sh\n'; fi
+    } > "$d/.github/workflows/ci.yaml"
+    printf '%s' "$d"
+}
+if [ -n "$SC_HAVE" ] && command -v yq > /dev/null 2>&1; then
+    d="$(mk29 green "$SC_HAVE")"
+    run_says 0 "$d" "check-29: шаг shellcheck конвейера зелёный — 0, шаги сосчитаны" "$C29" "шагов shellcheck в ci.yaml 1, прошло 1"
+    d="$(mk29 sc2016 "$SC_HAVE")"
+    printf '#!/usr/bin/env bash\necho \x27\x24HOME/x\x27\n' > "$d/scripts/docs-gate/new.sh"
+    run_says 1 "$d" "check-29: новый файл scripts/docs-gate с SC2016 — красный шаг назван (урок PR #1407)" "$C29" "SC2016"
+    d="$(mk29 sc2016-twin "$SC_HAVE")"
+    printf '#!/usr/bin/env bash\n# shellcheck disable=SC2016  # текст для sed, не оболочки\necho \x27\x24HOME/x\x27\n' > "$d/scripts/docs-gate/new.sh"
+    run 0 "$d" "check-29 близнец: тот же текст под адресной директивой — 0" "$C29"
+    d="$(mk29 pin "0.0.1")"
+    run_says 2 "$d" "check-29: пин конвейера не равен установленному — VOID, вердикта нет" "$C29" "при пине конвейера 0.0.1"
+    d="$(mk29 nopin -)"
+    run_says 2 "$d" "check-29: пина в ci.yaml нет — VOID" "$C29" "нет env.SHELLCHECK_VERSION"
+    d="$(mk29 nosteps "$SC_HAVE" без-шагов)"
+    run_says 2 "$d" "check-29: шагов shellcheck ноль — VOID, а не «прошло все»" "$C29" "шагов «shellcheck …» ноль"
+else
+    premise_broken "check-29: нет shellcheck либо yq — пробы паритета не исполнить"
+fi
+
 echo
 # Мутация образца последней пробой вердиктов уже не меняет, но это запись вне
 # своей песочницы — та же поломка, что у любой предыдущей пробы.
