@@ -106,6 +106,9 @@ expected() {  # expected [jq-правка] — ожидаемое контрол
       routes: ($l | map({key: ., value: {route: "external", why: "проба"}}) | from_entries)}' | jq "${1:-.}"
 }
 NC=0; pass=0; fail=0
+# Сверки паритета с детектором CI (kecase) — свой счёт: случаем они не являются, и в «сошлось»
+# случаев не входят (иначе «сошлось» больше «случаев», ws#1402, урок ?6a680662).
+NP=0; ppass=0; pfail=0
 # kase <имя> <jq-правка контроля | -> [довод --of: jq-правка прежнего] — отчёт случая
 kase() {
     NC=$((NC + 1)); C="$W/c$NC"; mkdir -p "$C"; printf '%s' "$1" > "$C/name"
@@ -155,8 +158,8 @@ kecase() {
     mkdir -p "$C/co/$(dirname "$4")"; echo x > "$C/co/$4"; ecommit
     printf -- '--base\norigin/%s\n--draft\n%s\n' "$3" "$2" > "$C/args"
     local det; det="$(detected "$C/co" "$2" "$3" "$(jq -c '[.[]]' <<< "$LEDGER")")"
-    if [ "$det" = "$5" ]; then pass=$((pass + 1)); echo "  [OK]   паритет с --github-output: $1 — CI исполнит $det"
-    else fail=$((fail + 1)); echo "  [FAIL] паритет с --github-output: $1 — детектор CI даёт «$det», а случай ждёт «$5»" >&2; fi
+    NP=$((NP + 1)); if [ "$det" = "$5" ]; then ppass=$((ppass + 1)); echo "  [OK]   паритет с --github-output: $1 — CI исполнит $det"
+    else pfail=$((pfail + 1)); echo "  [FAIL] паритет с --github-output: $1 — детектор CI даёт «$det», а случай ждёт «$5»" >&2; fi
     kc_want "$det"
 }
 ecommit() { sandbox_run git -C "$C/co" add -A && sandbox_run git -C "$C/co" commit -qm c && git -C "$C/co" rev-parse HEAD > "$C/head"; }
@@ -360,7 +363,7 @@ for c in "$W"/c*; do
     if judge "$TOOL" "$c"; then pass=$((pass + 1)); echo "  [OK]   $(cat "$c/name")"
     else fail=$((fail + 1)); echo "  [FAIL] $(cat "$c/name") — ждали код $(cat "$c/code") и «$(cat "$c/want")»:" >&2; sed 's/^/         /' "$c/out.stand-report.sh" >&2 2>/dev/null; fi
 done
-echo "stand-report-inject: случаев $NC, сошлось $pass, разошлось $fail"
+echo "stand-report-inject: случаев $NC, сошлось $pass, разошлось $fail; сверок паритета $NP, сошлось $ppass, разошлось $pfail"
 
 echo "== мутанты — каждый обязан покраснеть"
 # Снятые вместе с опросом механизма стенда (ws#1321): route-mech-* — их предмета нет; route-local-ok
@@ -445,7 +448,7 @@ expect-route-unjudged	s/        if not (isinstance(r, dict) and r.get('route') =
 MUT
 echo "stand-report-inject: мутантов $((killed + survived + void)), убито $killed, выжило $survived, не легло $void; нестабильных повторов случаев $unstable"
 legacy_rc=0
-[ "$fail" -eq 0 ] && [ "$pass" -gt 0 ] && [ "$survived" -eq 0 ] && [ "$void" -eq 0 ] && [ "$killed" -gt 0 ] && [ "$unstable" -eq 0 ] || legacy_rc=1
+[ "$fail" -eq 0 ] && [ "$pass" -gt 0 ] && [ "$pfail" -eq 0 ] && [ "$ppass" -eq "$NP" ] && [ "$survived" -eq 0 ] && [ "$void" -eq 0 ] && [ "$killed" -gt 0 ] && [ "$unstable" -eq 0 ] || legacy_rc=1
 bash "$HERE/operator-stand-focused-inject.sh"; operator_rc=$?
 bash "$HERE/kaname-stand-inject.sh"; kaname_rc=$?
 # Внешний маршрут читателей (ws#1365): судья kaname и pr-body с машины — Job-ом.
