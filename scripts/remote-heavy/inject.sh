@@ -1895,8 +1895,9 @@ if grep -q '^# homeswait-end$' "$HM/step.sh"; then ok; else OUT="$BOX/d1-ci-loca
 hm_run() {
     rm -rf "$HM/work"; mkdir -p "$HM/work/src"; OUT="$BOX/$1.out"
     # shellcheck disable=SC2016  # переменные раскрывает исполняемый шаг
+    { echo 'set -uo pipefail'; cat "$2"; echo 'echo "HM kacho=${KACHO_HOME_KACHO:-} corelib=${KACHO_HOME_CORELIB:-}"'; } > "$HM/run-step.sh"
     ( cd "$HM/work/src" && env -u KACHO_HOME_KACHO -u KACHO_HOME_CORELIB GIT_CONFIG_GLOBAL="$HM/gitcfg" GIT_CONFIG_NOSYSTEM=1 \
-        bash -c 'set -uo pipefail; . "$1"; echo "HM kacho=${KACHO_HOME_KACHO:-} corelib=${KACHO_HOME_CORELIB:-}"' hm "$2" ) > "$OUT" 2>&1; RC=$?
+        bash "$HM/run-step.sh" ) > "$OUT" 2>&1; RC=$?
 }
 # hm_probe_runs <имя> — координата дома исполнима предикатом пробы
 hm_probe_runs() {
