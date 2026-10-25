@@ -643,24 +643,134 @@ EOF" 2 'if shell_interactive(argv[1:]) or not (' 'if not ('
 nx_mut interactive-flag-n "bash -ni -c '@H@'" 2 \
     '        if noexec and shell_noexec(args):' '        if shell_noexec(args):'
 
-echo "── git push: тяжёл там, где pre-push клона зовёт ci-local (признак — дерево)"
-mkdir -p "$WORK/prod/.git" "$WORK/prod/scripts/hooks" "$WORK/ws/.git" "$WORK/ws/scripts/hooks"
-: > "$WORK/prod/scripts/ci-local.sh"
-echo 'bash "$subject_root/scripts/ci-local.sh" $groups' > "$WORK/prod/scripts/hooks/pre-push"
-echo 'bash scripts/rules-gate/run-all.sh' > "$WORK/ws/scripts/hooks/pre-push"
-denies ci-local 'git push origin x' "$WORK/prod"
-denies ci-local "git -C $WORK/prod push"
-passes 'git push origin x' "$WORK/ws"
-passes "cd $WORK/prod && git push --no-verify"
-: > "$WORK/ws/scripts/ci-local.sh"
-passes 'git push origin x' "$WORK/ws"
-# Воркспейс (в корне — scripts/heavy-slot.sh): его pre-push гонит наборы run-all.sh — отправка
-# тяжела классом ci-local (ws#1291); близнец — хук воркспейса без наборов.
-: > "$WORK/ws/scripts/heavy-slot.sh"
-denies ci-local 'git push origin x' "$WORK/ws"
-echo 'echo без наборов' > "$WORK/ws/scripts/hooks/pre-push"
-passes 'git push origin x' "$WORK/ws"
-passes 'git -C "$X" push origin x' "$WORK/ws"
+echo "── git push: тяжёл там, где git исполнит хук отправки (признак — scripts/push-hook.sh, ws#1335)"
+# Настоящие репозитории git: признак спрашивает git (общий каталог, core.hooksPath, корень дерева).
+# Клон без хука — лёгкая отправка (решение диспетчера 2026-10-22, вариант б); у каждого вида хука
+# — отказ и законный близнец, отличный одним фактом.
+# Подпись песочницы — из корневого gitconfig (scripts/lib/sandbox-git-home.sh, tooling-gate check-16).
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../../../scripts/lib/sandbox-git-home.sh
+. "$ROOT/scripts/lib/sandbox-git-home.sh"
+if ! sandbox_git_home "$WORK/ghome"; then
+    echo "  [VOID] git push: корневой подписи нет — синтетические клоны не построены" >&2; void=$((void + 1))
+else
+gx() { sandbox_git -c init.defaultBranch=main "$@" >/dev/null 2>&1; }
+for r in none tree inst noexec hpath; do gx init -q "$WORK/push-$r"; git -C "$WORK/push-$r" config --unset core.hooksPath 2>/dev/null; done
+PN="$WORK/push-none"
+mkdir -p "$WORK/push-tree/scripts/hooks"; echo 'echo хук без наборов' > "$WORK/push-tree/scripts/hooks/pre-push"
+printf '#!/bin/sh\nexit 0\n' > "$WORK/push-inst/.git/hooks/pre-push"; chmod +x "$WORK/push-inst/.git/hooks/pre-push"
+printf '#!/bin/sh\nexit 0\n' > "$WORK/push-noexec/.git/hooks/pre-push"; chmod -x "$WORK/push-noexec/.git/hooks/pre-push"
+mkdir -p "$WORK/hookdir"; printf '#!/bin/sh\nexit 0\n' > "$WORK/hookdir/pre-push"; chmod +x "$WORK/hookdir/pre-push"
+git -C "$WORK/push-hpath" config core.hooksPath "$WORK/hookdir"
+gx -C "$PN" commit -q --allow-empty -m x; gx -C "$PN" worktree add -q "$WORK/push-none-wt"
+gx -C "$WORK/push-inst" commit -q --allow-empty -m x; gx -C "$WORK/push-inst" worktree add -q "$WORK/push-inst-wt"
+mkdir -p "$WORK/push-plain"
+assert "1" "$(cd "$PN" && bash "$ROOT/scripts/push-hook.sh" >/dev/null; echo $?)" "предпосылка: в синтетическом клоне без хука push-hook.sh отвечает «нет хука» (только образцы git init)"
+passes 'git push origin HEAD:refs/heads/x' "$PN"
+passes "cd $PN && git push origin HEAD"
+passes "git -C $PN push origin HEAD"
+passes "git -C $WORK/push-none-wt push origin HEAD"
+passes "git -c color.ui=never push origin HEAD" "$PN"
+passes 'git push origin HEAD' "$WORK/push-noexec"
+passes "git --git-dir=$PN/.git push origin HEAD" "$WORK/push-inst"
+passes "git --git-dir $PN/.git --work-tree $PN push origin HEAD" "$WORK/push-inst"
+passes "git --git-dir=$PN/.git push origin HEAD" "$WORK/push-tree"
+passes 'git push origin HEAD' "$WORK/push-plain"
+denies ci-local 'git push origin HEAD:refs/heads/x' "$WORK/push-tree"
+denies ci-local 'git push origin HEAD' "$WORK/push-inst"
+denies ci-local "git -C $WORK/push-inst-wt push origin HEAD"
+denies ci-local 'git push origin HEAD' "$WORK/push-hpath"
+denies ci-local "git -c core.hooksPath=$WORK/hookdir push origin HEAD" "$PN"
+denies ci-local "git -c Core.HooksPath=$WORK/hookdir push origin HEAD" "$PN"
+denies ci-local "git --git-dir=$WORK/push-inst/.git push origin HEAD" "$PN"
+denies ci-local "git -C $WORK/push-inst push" "$PN"
+denies ci-local "git --git-dir=$WORK/push-tree/.git push origin HEAD" "$PN"
+passes "cd $WORK/push-inst && git push --no-verify"
+passes 'git -C "$X" push origin x' "$WORK/push-inst"
+# Признака нет (scripts/push-hook.sh снят) — отправка тяжела: молча лёгкой она не становится.
+md="$WORK/mut-nohook"; mkdir -p "$md/.claude/hooks/heavy-guard"; cp "$HOOK" "$md/.claude/hooks/heavy-guard.sh"; cp "$GUARD" "$md/.claude/hooks/heavy-guard/guard.py"
+assert "2" "$(HOOK_RUN="$md/.claude/hooks/heavy-guard.sh" run 'git push origin HEAD' "$PN")" "без scripts/push-hook.sh отправка клона без хука — отказ ci-local (признак не судим — не «лёгкая»)"
+# Мутанты признака: снятая ветвь — её отказ становится пропуском (каждая ветвь читается).
+ph_mut() {
+    local id="$1" cwd="$2" form="$3" md="$WORK/mut-ph-$1" rc
+    mkdir -p "$md/.claude/hooks/heavy-guard" "$md/scripts"; cp "$HOOK" "$md/.claude/hooks/heavy-guard.sh"; cp "$GUARD" "$md/.claude/hooks/heavy-guard/guard.py"
+    if ! python3 -c '
+import sys
+s = open(sys.argv[1], encoding="utf-8").read()
+if s.count(sys.argv[3]) != 1:
+    sys.exit(1)
+open(sys.argv[2], "w", encoding="utf-8").write(s.replace(sys.argv[3], sys.argv[4]))' "$ROOT/scripts/push-hook.sh" "$md/scripts/push-hook.sh" "$4" "$5"; then
+        assert "построен" "не построен" "мутант признака $id: фрагмент порчи в push-hook.sh не единствен"; return
+    fi
+    rc="$(HOOK_RUN="$md/.claude/hooks/heavy-guard.sh" run "$form" "$cwd")"
+    assert "убит" "$([ "$rc" != 2 ] && echo убит || echo выжил)" "мутант признака $id ($form): с порчей код $rc, без неё 2"
+}
+ph_mut hookspath "$WORK/push-hpath" 'git push origin HEAD' 'if [ -n "$hp" ]; then' 'if false; then'
+ph_mut hookspath-cli "$PN" "git -c core.hooksPath=$WORK/hookdir push origin HEAD" 'then opts+=(-c "$2"); return 0; fi' 'then return 0; fi'
+ph_mut installed "$WORK/push-inst" 'git push origin HEAD' 'if [ -x "$gd/hooks/pre-push" ]' 'if false'
+ph_mut tree "$WORK/push-tree" 'git push origin HEAD' 'if [ -n "$top" ] && [ -e "$top/scripts/hooks/pre-push" ]; then' 'if false; then'
+ph_mut git-dir "$PN" "git --git-dir=$WORK/push-inst/.git push origin HEAD" '            opts+=("$1"); shift ;;' '            shift ;;'
+
+echo "── git push: окружение и смена каталога перед git — признак целевого клона (возврат приёмки ws#1335)"
+# GIT_DIR, GIT_WORK_TREE, GIT_CONFIG_*, HOME, XDG_CONFIG_HOME меняют то, что исполнит git: такая
+# отправка тяжела (признак значения не исполняет — страж судит команду до её разрешения); законный
+# близнец — переменная закрытого перечня (GIT_TERMINAL_PROMPT, GIT_SSH_COMMAND, GIT_SSH, GIT_ASKPASS).
+printf '[core]\n\thooksPath = %s\n' "$WORK/hookdir" > "$WORK/gcfg"
+denies ci-local "GIT_DIR=$WORK/push-inst/.git git push origin HEAD" "$PN"
+denies ci-local "env GIT_DIR=$WORK/push-inst/.git git push origin HEAD" "$PN"
+denies ci-local "export GIT_DIR=$WORK/push-inst/.git; git push origin HEAD" "$PN"
+denies ci-local "GIT_WORK_TREE=$WORK/push-tree git push origin HEAD" "$PN"
+denies ci-local "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=$WORK/hookdir git push origin HEAD" "$PN"
+denies ci-local "GIT_CONFIG_PARAMETERS=x git push origin HEAD" "$PN"
+denies ci-local "GIT_CONFIG_GLOBAL=$WORK/gcfg git push origin HEAD" "$PN"
+denies ci-local "HOME=$WORK/ghome git push origin HEAD" "$PN"
+denies ci-local "XDG_CONFIG_HOME=$WORK/ghome git push origin HEAD" "$PN"
+denies ci-local "env -C $WORK/push-inst git push origin HEAD" "$PN"
+denies ci-local "env --chdir=$WORK/push-inst git push origin HEAD" "$PN"
+denies ci-local "env -C $WORK git -C push-inst push origin HEAD" "$PN"
+run "env -C $WORK/push-inst git push origin HEAD" "$PN" > /dev/null
+assert "да" "$(grep -qF -- "cd $WORK/push-inst && /ws/scripts/heavy-slot.sh ci-local -- git push origin HEAD" "$WORK/out" && echo да || echo нет)" "отказ env -C: «как запустить» — из каталога env -C (cd <каталог> && слот), а не из каталога вызова"
+passes "GIT_TERMINAL_PROMPT=0 git push origin HEAD" "$PN"
+passes "env GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND=ssh git push origin HEAD" "$PN"
+passes "env -C $PN git push origin HEAD" "$WORK/push-inst"
+passes "GIT_DIR=$WORK/push-inst/.git; git push origin HEAD" "$PN"
+# Глобальный слой core.hooksPath (окружение самого вызова: GIT_CONFIG_GLOBAL стража) — отказ;
+# близнец — глобальный файл без hooksPath.
+HOOKENV=(GIT_CONFIG_GLOBAL="$WORK/gcfg"); denies ci-local 'git push origin HEAD' "$PN"
+printf '[color]\n\tui = never\n' > "$WORK/gcfg-none"
+HOOKENV=(GIT_CONFIG_GLOBAL="$WORK/gcfg-none"); passes 'git push origin HEAD' "$PN"
+HOOKENV=(GIT_CONFIG_GLOBAL="$WORK/gcfg")
+ph_mut global-layer "$PN" 'git push origin HEAD' 'hp="$(git "${opts[@]}" config core.hooksPath 2>/dev/null)"' 'hp="$(git "${opts[@]}" config --local core.hooksPath 2>/dev/null)"'
+HOOKENV=()
+# Настройки на команду (ws#1335, второй круг приёмки): include.*, includeIf.* и --config-env
+# подключают core.hooksPath мимо слова «-c core.hooksPath=». Решение диспетчера: -c/--config-env
+# вне закрытого перечня безвредных ключей (color.*, core.sshCommand, credential.*, http.*,
+# protocol.*, user.*, advice.*) — отправка с хуком; include.* и includeIf.* — всегда.
+denies ci-local "git -c include.path=$WORK/gcfg push origin HEAD" "$PN"
+denies ci-local "git -c includeIf.gitdir:$WORK/.path=$WORK/gcfg push origin HEAD" "$PN"
+denies ci-local "HP=$WORK/hookdir git --config-env=core.hooksPath=HP push origin HEAD" "$PN"
+denies ci-local "git --config-env core.hooksPath=HP push origin HEAD" "$PN"
+denies ci-local "git -c include.path=$WORK/gcfg-none push origin HEAD" "$PN"
+denies ci-local "git -c core.fsmonitor=true push origin HEAD" "$PN"
+denies ci-local "git --config-env=color.ui=CU -c core.editor=x push origin HEAD" "$PN"
+passes "git -c advice.pushUpdateRejected=false -c http.lowSpeedLimit=1 -c Color.UI=never push origin HEAD" "$PN"
+passes "git -c core.sshCommand=ssh -c protocol.version=2 -c credential.helper= push origin HEAD" "$PN"
+passes "git --config-env=color.ui=CU push origin HEAD" "$PN"
+ph_mut unknown-key-safe "$PN" "git -c core.fsmonitor=true push origin HEAD" '    heavy_cfg "$1" "$key"
+}' '    return 0
+}'
+ph_mut config-env-skip "$PN" "git --config-env=core.hooksPath=HP push origin HEAD" '        --config-env=*) cfg_key' '        --config-env_none=*) cfg_key'
+ph_mut config-env-2-skip "$PN" "git --config-env core.hooksPath=HP push origin HEAD" '        -c|--config-env)' '        -c)'
+ph_mut env-git-dir "$PN" "env GIT_DIR=$WORK/push-inst/.git git push origin HEAD" '    GIT_*) printf' '    GIT_NONE_*) printf'
+# Сломанный признак (код 2 без строки, код 1 без строки «absent», синтаксическая ошибка) —
+# отказ и клону с хуком, и клону без хука: «не репозиторий» — только строка PUSH-HOOK none.
+for brk in 'exit 2' 'exit 1' 'if then'; do
+    md="$WORK/mut-brk-${brk// /_}"; mkdir -p "$md/.claude/hooks/heavy-guard" "$md/scripts"
+    cp "$HOOK" "$md/.claude/hooks/heavy-guard.sh"; cp "$GUARD" "$md/.claude/hooks/heavy-guard/guard.py"
+    printf '%s\n' "$brk" > "$md/scripts/push-hook.sh"
+    assert "2 2" "$(HOOK_RUN="$md/.claude/hooks/heavy-guard.sh" run 'git push origin HEAD' "$WORK/push-inst") $(HOOK_RUN="$md/.claude/hooks/heavy-guard.sh" run 'git push origin HEAD' "$PN")" "сломанный признак («$brk») — отказ ci-local клону с хуком и без: признак не ответил строкой — отправка не лёгкая"
+done
+fi
 
 echo "── наборы и пробы воркспейса — класс suite: голый запуск отказан, слот и чтение — пропуск (ws#1291)"
 # Синтетический воркспейс: корень с scripts/heavy-slot.sh, набор с прогонщиком, доказательством
