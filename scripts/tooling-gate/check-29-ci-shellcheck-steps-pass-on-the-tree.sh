@@ -22,7 +22,7 @@
 # Доказательство — inject.sh рядом (проба check-29).
 set -uo pipefail
 
-# shellcheck source=scripts/tooling-gate/_lib.sh
+# shellcheck source=_lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
 WS="$(tooling_gate_workspace_root)" || exit 2
