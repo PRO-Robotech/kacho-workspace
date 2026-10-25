@@ -80,7 +80,9 @@
 # `git push origin HEAD:refs/heads/<ветка>` через `heavy-slot.sh --wait 300 ci-local --` — полный
 # хук отправки, без форсирующих флагов; удалась — когда голова ветки на origin стала новой
 # (код отправки — лишь при отказе: 141 после хука и есть снятый простоем ssh). Новая голова —
-# --head дальше: окно головы заново, CI ждётся на ней. Не более AUTOLAND_CATCHUP_LIMIT (2)
+# --head дальше: окно головы заново, CI ждётся на ней; тело запроса — заново `pr-body.sh <репо>
+# origin/<база> <новая голова>` воркспейса и `gh pr edit --body-file` (тело не старше головы, ws#1402;
+# сбой — строкой «тело не переписано» в исходе). Не более AUTOLAND_CATCHUP_LIMIT (2)
 # догонов. Исходы: конфликт слияния — stale-base «конфликт: <файлы>» (слияние снято, копия
 # снята); клона нет — stale-base с причиной ci-read и «клона нет»; ветка ушла во время
 # догона — head-moved; хук отказал — red; слот занят (74, 75) — ожидание без счёта VOID;
@@ -121,7 +123,11 @@
 #      origin/<база>; копия (worktree) — `git worktree remove` (после `chmod -R u+w`) лишь при пустом
 #      `status --porcelain` и без процессов в ней: cwd, исполняемый файл (ws#1250) либо открытый файл внутри копии (/proc,
 #      свои процессы учётки) — копия и ветка остаются, в .state «оставлено: процессы <pid…>»
-#      (ws#1244: снята копия, где шли 6 процессов integration); origin — `--delete-branch`, оставшуюся — `git push origin
+#      (ws#1244: снята копия, где шли 6 процессов integration); ПО КОММИТУ (ws#1402) — тем же
+#      порядком местные ветки ДРУГОГО имени с их копиями, чья голова — влитая либо её предок и НЕ
+#      предок базы до вливания (первый родитель коммита слияния головы): копия «993-sakey-zero-ttl»
+#      при голове запроса «993»; ветка от ствола без коммита запроса не трогается; копия с
+#      отделённой головой не судится (граница); origin — `--delete-branch`, оставшуюся — `git push origin
 #      --delete` под замком interim; перепись `branch-audit.sh` до и после — в журнал;
 #   7. догон основного клона (ws#1200): запрос в `main` репозитория, чей origin у
 #      основного клона воркспейса (каталог, чей `.git` = `git rev-parse --git-common-dir`),
@@ -149,7 +155,8 @@
 # в исходе merged. Доказательство — inject.sh, py-guard*.
 #
 # ИСХОД — первая строка .state, первое слово — исход:
-#   running <фаза> — идёт;
+#   running <фаза> — идёт; у входа в каждый гейт (кроме переписи снятия) — «running гейт
+#        <скрипт> — голова <12>; последнее: …» (ws#1402);
 #   merged <sha коммита слияния> снятие: …[; основной клон: <было> → <стало> | ff отказ — …];
 #   red <гейт> код <n>: <строки REASON дословно через « | »>;
 #   stale-base <строки REASON ci-read дословно либо причина догона> — базу догнать не вышло
@@ -170,7 +177,15 @@
 # ВХОД ПОДМЕНЯЕМ — ради доказательства (scripts/autoland/inject.sh):
 #   AUTOLAND_GH      — вместо `gh`;
 #   AUTOLAND_GATES   — каталог с ci-read.sh, merge-readiness.sh, landing-precheck.sh,
-#                      branch-audit.sh вместо рецепта «ЗАПУСК» из origin/main;
+#                      branch-audit.sh вместо рецепта «ЗАПУСК» из origin/main. С настоящими
+#                      гейтами (рядом remote-reader.sh) — ТОЛЬКО scripts/ копии git воркспейса
+#                      (worktree нужной ревизии) и БЕЗ LANDING_PRECHECK_WS: архив scripts/ и
+#                      привязка LANDING_PRECHECK_WS включают у remote-reader сверку архива с
+#                      origin/main — 64 на каждом гейте; start и run отказывают такой форме кодом 2
+#                      (gates_form; проба — inject.sh, gates-form). Копия снята вливанием — перепись
+#                      после снятия идёт рецептом ствола;
+#   AUTOLAND_PR_BODY — вместо `bash $WS/scripts/pr-body.sh` после догона базы;
+#   AUTOLAND_BODY_TIMEOUT — предел генератора тела после догона, с (по умолчанию 900);
 #   AUTOLAND_WS      — воркспейс (по умолчанию — основной клон того, где лежит скрипт);
 #   AUTOLAND_TOOLING_TREE — дерево, чья выписка сверяется со стволом при start (по
 #                      умолчанию — каталог скрипта); AUTOLAND_LAG — main-clone-lag.sh;
@@ -197,6 +212,7 @@ INTERIM_LOCK="${AUTOLAND_INTERIM_LOCK:-$HOME/.cache/heavy-slots/interim.lock}"
 QUEUE_POLL="${AUTOLAND_QUEUE_POLL:-5}"; CATCHUP_LIMIT="${AUTOLAND_CATCHUP_LIMIT:-2}"
 PUSH_TIMEOUT="${AUTOLAND_PUSH_TIMEOUT:-3600}"
 LABEL_TRIES="${AUTOLAND_LABEL_TRIES:-4}"; LABEL_WAIT="${AUTOLAND_LABEL_WAIT:-5}"
+BODY_TIMEOUT="${AUTOLAND_BODY_TIMEOUT:-900}"
 
 die() { printf 'autoland: ОТКАЗ — %s\n' "$1" >&2; exit "${2:-2}"; }
 
@@ -281,6 +297,16 @@ paths() {
     STATE="$RUN_DIR/$NAME.state"; LOG="$RUN_DIR/$NAME.log"; PIDF="$RUN_DIR/$NAME.pid"; UNITF="$RUN_DIR/$NAME.unit"
     LOCK="$RUN_DIR/$key.lock"; FIFO_NAME="$key.fifo"
 }
+# Форма AUTOLAND_GATES с настоящими гейтами (рядом remote-reader.sh): каталог scripts/ КОПИИ git
+# воркспейса и без LANDING_PRECHECK_WS — иначе remote-reader судит его архивом рецепта «ЗАПУСК»
+# и отказывает 64 на каждом гейте (уроки 40345e40, b6d29d6e: три и два запуска впустую, ws#1402).
+gates_form() {
+    local g="${AUTOLAND_GATES:-}" top
+    [ -n "$g" ] && [ -e "$g/remote-reader.sh" ] || return 0
+    [ -z "${LANDING_PRECHECK_WS:-}" ] || die "AUTOLAND_GATES с LANDING_PRECHECK_WS «$LANDING_PRECHECK_WS»: remote-reader судил бы каталог архивом рецепта и сверял бы с origin/main (64) — сними LANDING_PRECHECK_WS"
+    top="$(git -C "$g" rev-parse --show-toplevel 2>/dev/null)" && [ "$top/scripts" -ef "$g" ] \
+        || die "AUTOLAND_GATES «$g» — не каталог scripts/ копии git воркспейса (архив remote-reader отвергает кодом 64): worktree нужной ревизии, его scripts/"
+}
 
 # ── очередь на базу (ws#1263) ──────────────────────────────────────────────────
 norm_base() { printf '%s' "${1#refs/heads/}"; }
@@ -364,7 +390,7 @@ fi
 
 # ── start ──────────────────────────────────────────────────────────────────────
 if [ "${1:-}" = start ]; then
-    shift; parse_args "$@"; paths
+    shift; parse_args "$@"; paths; gates_form
     # shellcheck source=scripts/detach-launch.sh
     . "$(dirname "$SELF")/../detach-launch.sh" || die "нет scripts/detach-launch.sh рядом с autoland"
     command -v flock >/dev/null 2>&1 || die "нет flock"
@@ -401,7 +427,7 @@ if [ "${1:-}" = start ]; then
 fi
 
 [ "${1:-}" = run ] || die "подкоманда — start, status или run"
-shift; parse_args "$@"; paths
+shift; parse_args "$@"; paths; gates_form
 
 # ── run: тело демона ───────────────────────────────────────────────────────────
 mkdir -p "$RUN_DIR" || exit 2
@@ -515,6 +541,9 @@ for _p in "${PY_NAMES[@]}"; do
 done
 gate() {  # <скрипт> <доводы…> → $W/<скрипт>.out, код в GATE_RC
     local s="$1" out="$W/$1.out" recipe; shift
+    # Первая строка .state — у входа в КАЖДЫЙ гейт: status видит идущий гейт, а не прежнюю фазу
+    # (урок ws#1395: гейты после ci-read первая строка не отражала, видно было лишь в журнале).
+    [ "$s" = branch-audit.sh ] || state "running гейт $s — голова ${HEAD:0:12}; последнее: $LAST"
     : > "$PY_TRIP"
     local xt="$W/$s.xtrace"; ( umask 077; : > "$xt" ) || exit 2
     local AUTOLAND_PATH="$PATH" AUTOLAND_PY_TRIP="$PY_TRIP"
@@ -620,8 +649,40 @@ clones() {
     return 0
 }
 PRUNE=""
+# drop_local <клон> <ветка> <голова> — снятие местной ветки и её копий (worktree): копия — лишь
+# чистая и без процессов; копия осталась — ветка остаётся. Итог — в removed/kept вызывающего.
+drop_local() {
+    local c="$1" b="$2" lh="$3" wt busy dirty=0
+    while IFS= read -r wt; do
+        [ -n "$wt" ] || continue
+        if [ "$wt" = "$(git -C "$c" rev-parse --show-toplevel 2>/dev/null)" ]; then
+            kept+=("$c: ветка $b выписана в основной копии клона"); dirty=1; continue
+        fi
+        busy="$(wt_procs "$wt")"
+        if [ -n "$busy" ]; then kept+=("копия $wt: оставлено: процессы $busy"); dirty=1; continue; fi
+        # Право записи владельцу — до снятия: пробы оставляют в игнорируемом (status его не
+        # видит) каталоги без права записи — envtest в bin/, — и `worktree remove` чистой копии
+        # на них падает (урок f253b1ee). Бит записи git не отслеживает: содержимое и индекс те же.
+        if [ -z "$(git -C "$wt" status --porcelain 2>/dev/null)" ] && { chmod -R u+w -- "$wt" 2>/dev/null; true; } \
+            && git -C "$c" worktree remove "$wt" 2> "$W/wt.err"; then
+            removed+=("копия $wt")
+        else kept+=("копия $wt: не пуста либо не снята — $(head -c 200 "$W/wt.err" 2>/dev/null | tr '\n' ' ')"); dirty=1; fi
+    done < <(git -C "$c" worktree list --porcelain | awk -v b="branch refs/heads/$b" '/^worktree /{w=substr($0, 10)} $0 == b {print w}')
+    [ "$dirty" -eq 0 ] || return 0
+    if git -C "$c" branch -D "$b" > /dev/null 2> "$W/br.err"; then removed+=("$c $b")
+    else kept+=("$c $b: $(head -c 200 "$W/br.err" | tr '\n' ' ')"); fi
+}
+# own_commits_base <клон> <база> — первый родитель коммита слияния, чей второй родитель — влитая
+# голова, в истории origin/<база>: база ДО вливания. Ветка, чья голова — предок влитой и НЕ предок
+# этой базы, несёт коммит запроса — её снимают и под другим именем (ws#1402: копия ставилась на
+# «993-sakey-zero-ttl», голова запроса — «993»; kaname#996, #998, #1000 — снято 0). Предок базы
+# (ветка, только что заведённая от ствола) коммита запроса не несёт и не снимается.
+own_commits_base() {
+    git -C "$1" log --format='%H %P' --merges -n 2000 "origin/$2" 2>/dev/null \
+        | awk -v h="$HEAD" '{ for (i = 3; i <= NF; i++) if ($i == h) { print $2; exit } }'
+}
 prune() {  # <ветка головы> <база>
-    local br="$1" base="$2" c rh lh wt dirty n_cl=0 removed=() kept=()
+    local br="$1" base="$2" c rh lh m1 b n_cl=0 removed=() kept=()
     if [ -z "$br" ] || [ "$br" = "$base" ] || [ "$br" = main ] || [ "$br" = master ]; then
         PRUNE="снятие: ветка «$br» не снимается (ствол либо база)"; return
     fi
@@ -645,29 +706,29 @@ prune() {  # <ветка головы> <база>
             else kept+=("origin/$br сдвинулась после вливания: ${rh:0:12} не равна и не предок ${HEAD:0:12}"); fi
         fi
         lh="$(git -C "$c" rev-parse -q --verify "refs/heads/$br" 2>/dev/null)" || lh=""
-        [ -n "$lh" ] || continue
-        if ! { [ "$lh" = "$HEAD" ] || git -C "$c" merge-base --is-ancestor "$lh" "$HEAD" 2>/dev/null; }; then
-            kept+=("$c $br: местная голова ${lh:0:12} не равна и не предок влитой ${HEAD:0:12}"); continue
+        if [ -n "$lh" ]; then
+            if [ "$lh" = "$HEAD" ] || git -C "$c" merge-base --is-ancestor "$lh" "$HEAD" 2>/dev/null; then
+                drop_local "$c" "$br" "$lh"
+            else kept+=("$c $br: местная голова ${lh:0:12} не равна и не предок влитой ${HEAD:0:12}"); fi
         fi
-        dirty=0
-        while IFS= read -r wt; do
-            [ -n "$wt" ] || continue
-            if [ "$wt" = "$(git -C "$c" rev-parse --show-toplevel 2>/dev/null)" ]; then
-                kept+=("$c: ветка $br выписана в основной копии клона"); dirty=1; continue
-            fi
-            busy="$(wt_procs "$wt")"
-            if [ -n "$busy" ]; then kept+=("копия $wt: оставлено: процессы $busy"); dirty=1; continue; fi
-            # Право записи владельцу — до снятия: пробы оставляют в игнорируемом (status его не
-            # видит) каталоги без права записи — envtest в bin/, — и `worktree remove` чистой копии
-            # на них падает (урок f253b1ee). Бит записи git не отслеживает: содержимое и индекс те же.
-            if [ -z "$(git -C "$wt" status --porcelain 2>/dev/null)" ] && { chmod -R u+w -- "$wt" 2>/dev/null; true; } \
-                && git -C "$c" worktree remove "$wt" 2> "$W/wt.err"; then
-                removed+=("копия $wt")
-            else kept+=("копия $wt: не пуста либо не снята — $(head -c 200 "$W/wt.err" 2>/dev/null | tr '\n' ' ')"); dirty=1; fi
-        done < <(git -C "$c" worktree list --porcelain | awk -v b="branch refs/heads/$br" '/^worktree /{w=substr($0, 10)} $0 == b {print w}')
-        [ "$dirty" -eq 0 ] || continue
-        if git -C "$c" branch -D "$br" > /dev/null 2> "$W/br.err"; then removed+=("$c $br")
-        else kept+=("$c $br: $(head -c 200 "$W/br.err" | tr '\n' ' ')"); fi
+        # По коммиту — местные ветки ДРУГОГО имени с коммитом запроса (own_commits_base).
+        m1="$(own_commits_base "$c" "$base")"
+        if [ -z "$m1" ]; then
+            kept+=("$c: коммит слияния ${HEAD:0:12} в origin/$base не найден — ветки другого имени не судились")
+        else
+            while read -r b lh; do
+                case "$b" in "$br" | "$base" | main | master) continue ;; esac
+                { [ "$lh" = "$HEAD" ] || git -C "$c" merge-base --is-ancestor "$lh" "$HEAD" 2>/dev/null; } || continue
+                ! git -C "$c" merge-base --is-ancestor "$lh" "$m1" 2>/dev/null || continue
+                drop_local "$c" "$b" "$lh"
+            done < <(git -C "$c" for-each-ref --format='%(refname:short) %(objectname)' refs/heads/)
+        fi
+        # Каталог AUTOLAND_GATES лежал в снятой копии — перепись после снятия идёт гейтами ствола
+        # (рецепт «ЗАПУСК»), а не 127 «команда не найдена» (урок fbe2783d, ws#1402).
+        if [ -n "${AUTOLAND_GATES:-}" ] && [ ! -d "$AUTOLAND_GATES" ]; then
+            log "снятие: каталога гейтов $AUTOLAND_GATES больше нет (снят с копией) — перепись после снятия гейтами ствола"
+            AUTOLAND_GATES=""
+        fi
         BRANCH_AUDIT_FRESH_MIN=0 BRANCH_AUDIT_KEEP="$base" gate branch-audit.sh "$c" "$br"
     done < <(clones)
     # Клона нет — снятие не судилось, и «снято 0, оставлено 0» читалось бы исполненным (урок
@@ -779,7 +840,7 @@ landed() {  # запрос влит — проверка родителя, сн�
         log "коммит слияния $PR_MSHA: родитель $HEAD не подтверждён площадкой"
     fi
     prune "$PR_REF" "$PR_BASE"; sync_main_clone
-    finish merged "$PR_MSHA${note:+ $note}${CU_NOTE:+; догон базы: $CU_NOTE}; $PRUNE${SYNC:+; $SYNC}${PY_NOTE:+; $PY_NOTE}"
+    finish merged "$PR_MSHA${note:+ $note}${CU_NOTE:+; догон базы: $CU_NOTE}${BODY_NOTE:+ ($BODY_NOTE)}; $PRUNE${SYNC:+; $SYNC}${PY_NOTE:+; $PY_NOTE}"
 }
 
 # ── очередь: билет, черёд, ожидание (ws#1263) ──────────────────────────────────
@@ -835,6 +896,25 @@ queue_turn() {  # ждёт черёда: очередь — раз в QUEUE_POLL
 
 # ── догон базы (ws#1263) ───────────────────────────────────────────────────────
 CATCHUPS=0; CU_NOTE=""; CU_RC=0
+# body_regen <клон> <база> — тело запроса заново из git на новой голове догона (ws#1402: тело
+# старше головы выходило на каждом вливании с догоном — урок 14797bed; шаблон цепочки звал
+# pr-body.sh из копии продукта, у kaname его нет — урок 5b3e9559). pr-body.sh — воркспейса
+# ($WS), копия git — клон запроса (RITUAL_REPO_DIR), номер задачи — KACHO_TASK демона.
+# Сбой — строкой в журнал и в исход; тело дальше судит landing-precheck.
+BODY_NOTE=""
+body_regen() {
+    local c="$1" base="$2" rc
+    local -a cmd=(bash "$WS/scripts/pr-body.sh")
+    [ -z "${AUTOLAND_PR_BODY:-}" ] || cmd=("$AUTOLAND_PR_BODY")
+    state "running догон базы: тело запроса из git на ${HEAD:0:12}"
+    ( cd "$c" && RITUAL_REPO_DIR="$c" timeout "$BODY_TIMEOUT" "${cmd[@]}" "$REPO" "origin/$base" "$HEAD" ) > "$W/body.md" 2> "$W/body.err"; rc=$?
+    if [ "$rc" -ne 0 ] || [ ! -s "$W/body.md" ]; then
+        BODY_NOTE="тело не переписано: pr-body.sh код $rc — $(grep -v '^[[:space:]]*$' "$W/body.err" | tail -n2 | join)"
+    elif "$GH" pr edit "$PR" -R "$REPO" --body-file "$W/body.md" > "$W/edit.out" 2>&1; then
+        BODY_NOTE="тело переписано на ${HEAD:0:12}"
+    else BODY_NOTE="тело не переписано: gh pr edit — $(grep -v '^[[:space:]]*$' "$W/edit.out" | tail -n2 | join)"; fi
+    log "догон базы: $BODY_NOTE"
+}
 cu_drop() {  # <клон> <копия> — копия догона снимается (после слияния или его снятия она чиста)
     git -C "$1" worktree remove "$2" 2> "$W/cu-wt.err" || log "догон базы: копия $2 не снята — $(head -c 200 "$W/cu-wt.err" | tr '\n' ' ')"
 }
@@ -893,6 +973,7 @@ catchup() {  # <turn|stale> → CU_RC: 0 — отставания нет, дал
         CU_NOTE="${CU_NOTE:+$CU_NOTE, }${HEAD:0:12} → ${new:0:12}"
         log "догон базы: ${HEAD:0:12} → ${new:0:12} (origin/$base была впереди на $n)"
         HEAD="$new"; HEAD_SEEN=0; RUN_T0="$(date +%s)"
+        body_regen "$c" "$base"
         state "running догон базы: $CU_NOTE — ожидание CI новой головы"
         CU_RC=1; return
     fi

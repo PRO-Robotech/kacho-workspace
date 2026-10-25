@@ -56,6 +56,12 @@
 #                  prune-no-clone: клона репозитория запроса нет — снятие названо невыполненным,
 #                  а не «снято 0» (урок 14e625cf); prune-readonly: в игнорируемом bin/ чистой
 #                  копии файлы без права записи (envtest) — копия и ветка сняты (урок f253b1ee);
+#                  prune-other (ws#1402): копия на ветке ДРУГОГО имени с влитой головой снята по
+#                  коммиту, ветка от ствола с копией (предок базы до вливания) на месте;
+#   state-gate   — у входа в каждый гейт первая строка .state — «running гейт <скрипт> — голова …»;
+#   gates-form   — AUTOLAND_GATES с remote-reader.sh: архив (не копия git) — отказ 2; копия git с
+#                  LANDING_PRECHECK_WS — отказ 2; близнец — scripts/ копии git без неё — merged;
+#   gates-gone   — каталог гейтов снят вместе с копией — перепись после снятия рецептом ствола, не 127;
 #   empty-code   — landing-precheck 1 с причиной БЕЗ кода (REASON<TAB><TAB>текст) — red и без
 #                  --allow, и с непустым --allow;
 #   lp-head      — landing-precheck судил другую голову (его CENSUS) → head-moved; строки
@@ -105,7 +111,9 @@
 #                  предел — timeout «в очереди», свой билет снят, чужой на месте;
 #   q-queued     — в очереди исход сразу: красный CI — red, голова ушла — head-moved, запрос
 #                  закрыт — red PR-NOT-OPEN, TERM — void и билет снят; вливаний нет;
-#   q-stale-ext  — база ушла мимо очереди после черёда: ci-read 4 → догон → merged;
+#   q-stale-ext  — база ушла мимо очереди после черёда: ci-read 4 → догон → merged; тело запроса
+#                  переписано pr-body на голове догона (копия — клон, номер — темы; ws#1402);
+#                  близнец q-body-fail: генератор отказал — merged, «тело не переписано» с причиной;
 #   q-conflict   — конфликт слияния базы: stale-base «конфликт: <файл>», ветка не тронута,
 #                  копии догона нет, отправки нет;
 #   q-push       — отправка догона: 74 — ожидание без счёта VOID; хук отказал — red; код 0 без
@@ -801,6 +809,45 @@ s_prune_not_in_base() {
     ok prune-not-in-base "merged по хостингу, коммита в базе нет — ничего не снято" eval 'st_is merged && st_has "снято 0" && st_has "не предок origin/main"'
     ok prune-not-in-base "ветка, копия и origin-ветка на месте" eval 'has_branch && [ -d "$G/wt" ] && ! remote_empty'
 }
+s_prune_other() {  # ws#1402: копия на ветке другого имени (kaname#996, #998, #1000 — снято 0) снимается по коммиту
+    new_fx prune-other; mk_git
+    git -C "$G/clone" worktree add -q -b 4000-probe-copy "$G/wt2" 4000-probe
+    git -C "$G/clone" worktree add -q -b 4001-fresh "$G/wt3" main   # от ствола: коммита запроса нет
+    run_al
+    ok prune-other "merged; копия и ветка другого имени с влитой головой сняты" \
+        eval 'st_is merged && [ ! -d "$G/wt2" ] && ! git -C "$G/clone" rev-parse -q --verify refs/heads/4000-probe-copy >/dev/null && st_has "4000-probe-copy"'
+    ok prune-other "ветка от ствола (предок базы до вливания) и её копия на месте" \
+        eval '[ -d "$G/wt3" ] && git -C "$G/clone" rev-parse -q --verify refs/heads/4001-fresh >/dev/null && ! st_has "4001-fresh"'
+    ok prune-other "ветка имени головы снята, как прежде" eval '! has_branch && [ ! -d "$G/wt" ]'
+}
+s_state_gate() {  # ws#1402 (урок ws#1395): первая строка .state у входа в каждый гейт
+    new_fx state-gate
+    for g in ci-read.sh merge-readiness.sh landing-precheck.sh; do printf 'head -n1 "$AL_FX"/run/*.state >> "$AL_FX/state.at"\n' > "$FX/$g.hook"; done
+    run_al
+    ok state-gate "merged" eval '[ "$RC" -eq 0 ] && st_is merged'
+    for g in ci-read.sh merge-readiness.sh landing-precheck.sh; do
+        ok state-gate "в гейте $g первая строка .state называет его и голову" grep -qF "running гейт $g — голова ${HEAD_A:0:12}" "$FX/state.at"
+    done
+}
+s_gates_form() {  # ws#1402 (уроки 40345e40, b6d29d6e): форма AUTOLAND_GATES с настоящими гейтами
+    new_fx gates-form; mkdir -p "$FX/arch"; cp "$T"/gates/*.sh "$FX/arch/"; : > "$FX/arch/remote-reader.sh"
+    GATES="$FX/arch" run_al
+    ok gates-form "архив scripts/ (не копия git) — отказ 2, форма названа, демона нет" \
+        eval '[ "$RC" -eq 2 ] && grep -qF "не каталог scripts/ копии git" "$FX/out" && [ -z "$ST" ] && no_gates'
+    git init -q "$FX/gw"; mkdir -p "$FX/gw/scripts"; cp "$FX/arch"/* "$FX/gw/scripts/"
+    export LANDING_PRECHECK_WS="$FX/gw"; GATES="$FX/gw/scripts" run_al; unset LANDING_PRECHECK_WS
+    ok gates-form "копия git с LANDING_PRECHECK_WS — отказ 2 с причиной" \
+        eval '[ "$RC" -eq 2 ] && grep -qF "LANDING_PRECHECK_WS" "$FX/out" && no_gates'
+    GATES="$FX/gw/scripts" run_al
+    ok gates-form "близнец: scripts/ копии git без LANDING_PRECHECK_WS — merged" eval '[ "$RC" -eq 0 ] && st_is merged'
+}
+s_gates_gone() {  # урок fbe2783d: каталог гейтов снят вместе с копией — перепись после снятия рецептом ствола
+    new_fx gates-gone; mk_git; mkdir -p "$FX/g2"; cp "$T"/gates/*.sh "$FX/g2/"
+    printf '[ -e "$AL_FX/ba.once" ] || { : > "$AL_FX/ba.once"; mv %q %q; }\n' "$FX/g2" "$FX/g2.gone" > "$FX/branch-audit.sh.hook"
+    GATES="$FX/g2" run_al
+    ok gates-gone "merged; каталога гейтов нет — сказано, перепись после снятия не 127" \
+        eval 'st_is merged && grep -qF "каталога гейтов $FX/g2 больше нет" "$FX/out" && ! grep -q "гейт branch-audit.sh .*: код 127" "$FX/out"'
+}
 s_prune_remote() {
     new_fx prune-remote; mk_git keep-remote; run_al
     ok prune-remote "ветку на origin демон снял сам" eval 'st_is merged && remote_empty && st_has "origin/4000-probe"'
@@ -1078,6 +1125,9 @@ case "$1" in
       *) exit 1 ;;
     esac ;;
   pr)
+    if [ "$2" = edit ]; then  # pr edit <N> -R <репо> --body-file <файл> — тело запроса (ws#1402)
+      cp "${7:?}" "$Q/pr/$3/body" && echo "https://github.com/x/pull/$3"; exit $?
+    fi
     [ "$2" = merge ] || exit 1
     n="$3"; d="$Q/pr/$n"; read -r ref base < "$d/meta"; base="${base#refs/heads/}"
     want=""; prev=""; for a in "$@"; do [ "$prev" != --match-head-commit ] || want="$a"; prev="$a"; done
@@ -1146,7 +1196,14 @@ case "$mode" in
 esac
 exec "$@"
 PUSH
-chmod +x "$T/ghq" "$T/pushq" "$T/gates-q"/*.sh
+# Двойник генератора тела (ws#1402): «тело <репо> <база> <голова>» и вызов с копией и номером задачи.
+cat > "$T/prbodyq" <<'BODY'
+#!/usr/bin/env bash
+printf '%s %s %s rrd=%s task=%s\n' "$1" "$2" "$3" "${RITUAL_REPO_DIR:-—}" "${KACHO_TASK:-—}" >> "$AL_Q/body.calls"
+printf '## Состав\n\nтело на %s\n' "$3"
+BODY
+printf '#!/usr/bin/env bash\necho "pr-body: отказ пробы" >&2\nexit 3\n' > "$T/prbody-fail"
+chmod +x "$T/ghq" "$T/pushq" "$T/prbodyq" "$T/prbody-fail" "$T/gates-q"/*.sh
 
 declare -A QP=() QRC=()
 mk_q() {  # <N>… — origin с main, ветка p<N> на PR, свой файл каждой; клон догона и клон площадки
@@ -1202,7 +1259,7 @@ run_q() {  # <N> [доводы…] — демон N в фоне; QREPO_<N> — �
     # инструментов в ~/.local, резолвящие себя от HOME, видны и оттуда (ссылкой, не копией).
     [ -e "$SANDBOX_GIT_HOME/.local" ] || [ ! -d "$HOME/.local" ] || ln -s "$HOME/.local" "$SANDBOX_GIT_HOME/.local"
     sandbox_run env -u KACHO_TASK ${QTASK:+KACHO_TASK="$QTASK"} AL_Q="$Q" AUTOLAND_GH="$T/ghq" AUTOLAND_GATES="$T/gates-q" AUTOLAND_DIR="$Q/run" AUTOLAND_WS="$T/ws0" \
-        AUTOLAND_CLONES="${QCLONE-$Q/clone}" CI_STATE_DIR="$Q/cs" AUTOLAND_INTERIM_LOCK="$T/interim.lock" AUTOLAND_PUSH="$T/pushq" \
+        AUTOLAND_CLONES="${QCLONE-$Q/clone}" CI_STATE_DIR="$Q/cs" AUTOLAND_INTERIM_LOCK="$T/interim.lock" AUTOLAND_PUSH="$T/pushq" AUTOLAND_PR_BODY="${QBODY-$T/prbodyq}" \
         AUTOLAND_HEAD_SYNC=0 AUTOLAND_HEAD_SYNC_POLL=1 AUTOLAND_QUEUE_POLL=1 AUTOLAND_CATCHUP_LIMIT="${QLIMIT:-2}" \
         AUTOLAND_TAG="${r%%/*}__${r#*/}__${n}__${h:0:12}" \
         timeout "${RUN_LIMIT:-90}" bash "$AL" run --repo "$r" --pr "$n" --head "$h" --subject "#4000 merge #$n: проба" --poll 1 "$@" \
@@ -1310,6 +1367,18 @@ s_q_stale_ext() {  # база ушла МИМО очереди после чер
     run_q 4301; wait_q 4301; ST_Q 4301
     ok q-stale-ext "ci-read 4 от посадки мимо очереди — догон и merged" eval '[ "$RC" = 0 ] && st_is merged && st_has "догон базы: " && [ "$(stale_events)" -eq 1 ]'
     ok q-stale-ext "main несёт и чужую посадку, и предмет" eval 'git -C "$Q/origin.git" cat-file -e main:ext.txt && git -C "$Q/origin.git" cat-file -e main:p4301.txt'
+    # ws#1402 (урок 14797bed): тело запроса — заново на голове догона, копия — клон, база — origin/<база>
+    local mh; read -r mh _ < "$Q/pr/4301/merged"
+    ok q-stale-ext "тело переписано pr-body на голове догона (влитой), копия — клон запроса" \
+        eval 'grep -qxF "$REPO origin/main $mh rrd=$Q/clone task=4000" "$Q/body.calls" && grep -qF "тело на $mh" "$Q/pr/4301/body" && st_has "тело переписано на ${mh:0:12}"'
+}
+s_q_body_fail() {  # близнец: генератор тела отказал — вливание идёт, отказ назван в исходе
+    new_fx q-body-fail; mk_q 4301
+    printf 'f=%q; s=%q; [ -f "$f" ] && exit 0; : > "$f"\n{ git -C "$s" fetch -q origin; git -C "$s" checkout -q -B main origin/main; echo ext > "$s/ext.txt"; git -C "$s" add ext.txt; git -C "$s" commit -qm "#4000 база мимо очереди"; git -C "$s" push -q origin HEAD:refs/heads/main; } > /dev/null 2>&1\n' \
+        "$Q/pr/4301/hooked" "$Q/seed" > "$Q/pr/4301/ci.hook"
+    QBODY="$T/prbody-fail" run_q 4301; wait_q 4301; ST_Q 4301
+    ok q-body-fail "pr-body отказал — merged, «тело не переписано: pr-body.sh код 3» с причиной" \
+        eval '[ "$RC" = 0 ] && st_is merged && st_has "тело не переписано: pr-body.sh код 3 — pr-body: отказ пробы" && [ ! -e "$Q/pr/4301/body" ]'
 }
 s_q_conflict() {  # конфликт слияния базы — stale-base «конфликт: <файл>», слияние снято, копия снята
     local h0
@@ -1513,11 +1582,11 @@ s_real_replica() {
 ALL=(s_green s_red s_moved_start s_moved_gates s_moved_merge s_allow_ok s_allow_bad s_stale s_mr_red s_timeout
      s_void s_void_twin s_ratelimit s_pr_unread s_draft s_closed s_already s_fifo s_fifo_nowriter s_args s_detach s_recipe
      s_prune s_prune_dirty s_prune_ahead s_prune_remote s_prune_origin_ahead s_prune_not_in_base s_prune_busy s_prune_busy_glob
-     s_prune_no_clone s_prune_readonly s_labels s_labels_late s_labels_space s_labels_fail
+     s_prune_no_clone s_prune_readonly s_prune_other s_state_gate s_gates_form s_gates_gone s_labels s_labels_late s_labels_space s_labels_fail
      s_ff s_ff_overlap s_ff_worktree s_ff_foreign s_ff_hang s_ff_epic s_lag s_lag_own s_lag_nofetch s_lag_hang
      s_start_stale s_head_sync
      s_status s_empty_code s_lp_head s_census s_guard s_static s_py_guard s_py_guard_bypass s_py_guard_sh s_py_guard_prune
-     s_q3 s_q_spelling s_q_diff_base s_q_dead s_q_live s_q_queued s_q_stale_ext s_q_conflict s_q_push s_q_task s_q_subject s_q_limit s_q_stale_lag s_q_fetch s_q_lock
+     s_q3 s_q_spelling s_q_diff_base s_q_dead s_q_live s_q_queued s_q_stale_ext s_q_body_fail s_q_conflict s_q_push s_q_task s_q_subject s_q_limit s_q_stale_lag s_q_fetch s_q_lock
      s_q_pinned s_q_pin_twins s_real_states s_real_replica)
 
 AL="$AL_REAL"
@@ -1561,7 +1630,7 @@ mutant stale-as-wait s_stale '4) if [ "$PINNED" = 1 ]; then finish' '4) wait_cha
 mutant red-as-wait s_red '1) finish red "ci-read код 1:' '1) wait_change; continue ;; 11) finish red "ci-read код 1:'
 mutant void-limit-dropped s_void,s_pr_unread '[ "${VOIDS[$k]}" -lt "$VOID_LIMIT" ] ||' 'true ||'
 mutant ci-read-without-head s_green $'--head "$HEAD" --from-state\n    case "$GATE_RC" in\n        0)' $'--from-state\n    case "$GATE_RC" in\n        0)'
-mutant prune-ahead-predicate-dropped s_prune_ahead 'if ! { [ "$lh" = "$HEAD" ] || git -C "$c" merge-base --is-ancestor "$lh" "$HEAD" 2>/dev/null; }; then' 'if false; then'
+mutant prune-ahead-predicate-dropped s_prune_ahead 'if [ "$lh" = "$HEAD" ] || git -C "$c" merge-base --is-ancestor "$lh" "$HEAD" 2>/dev/null; then' 'if true; then'
 mutant closed-as-open s_closed '[ "$PR_STATE" = open ] ||' 'true ||'
 mutant subject-unchecked s_args '[[ "$SUBJECT" =~ ^#[0-9]+\ merge\ #${PR}:\ [^[:space:]] ]]' 'true'
 mutant fifo-dropped s_fifo 'if [ -d "$CI_STATE/wait" ]' 'if false'
@@ -1692,6 +1761,16 @@ mutant py-guard-scan-timeout-opts s_py_guard_bypass '    if (w == "timeout") ret
 mutant py-guard-slot-marker-ignored s_py_guard_bypass '    if ($1 ~ /=SLOT$/) next' '    if (0) next'
 mutant py-guard-prune-voids s_py_guard_prune '[ "$s" != branch-audit.sh ] || { PY_NOTE=' 'false && { PY_NOTE='
 mutant py-guard-note-dropped s_py_guard_prune '${SYNC:+; $SYNC}${PY_NOTE:+; $PY_NOTE}"' '${SYNC:+; $SYNC}"'
+# ws#1402: снятие по коммиту, .state у входа в гейт, форма AUTOLAND_GATES, тело после догона
+mutant prune-other-name-dropped s_prune_other '                drop_local "$c" "$b" "$lh"' '                :'
+mutant prune-other-base-guard-dropped s_prune_other '! git -C "$c" merge-base --is-ancestor "$lh" "$m1" 2>/dev/null || continue' ':'
+mutant gate-state-dropped s_state_gate '[ "$s" = branch-audit.sh ] || state "running гейт' '[ "$s" = branch-audit.sh ] || : "running гейт'
+mutant gates-form-dropped s_gates_form '[ -n "$g" ] && [ -e "$g/remote-reader.sh" ] || return 0' 'return 0'
+mutant gates-form-lpws-dropped s_gates_form '[ -z "${LANDING_PRECHECK_WS:-}" ] || die' 'true || die'
+mutant gates-gone-dropped s_gates_gone 'if [ -n "${AUTOLAND_GATES:-}" ] && [ ! -d "$AUTOLAND_GATES" ]; then' 'if false; then'
+mutant body-regen-dropped s_q_stale_ext '        body_regen "$c" "$base"' '        :'
+mutant body-edit-dropped s_q_stale_ext '"$GH" pr edit "$PR" -R "$REPO" --body-file "$W/body.md"' 'true'
+mutant body-fail-silent s_q_body_fail '${BODY_NOTE:+ ($BODY_NOTE)}' ''
 
 reap
 for _ in 1 2 3 4 5 6 7 8 9 10; do [ "$(probe_procs)" -eq 0 ] && break; sleep 0.3; done
