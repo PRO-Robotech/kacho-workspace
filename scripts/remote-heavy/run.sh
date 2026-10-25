@@ -3125,6 +3125,48 @@ echo "remote-heavy: клоны продуктов —$wcs, $(( $(date +%s) - wc0
 # wsclonewait-end
 WSCW
 )"
+# ДОМА ПРОБ KANAME (ws#1196) — ci-local kaname: проба приёмок (internal/check probe_home.go)
+# резолвит координаты `PRO-Robotech/<дом>[@ревизия]:Имя` в копии дома — `KACHO_HOME_<ИМЯ>`
+# либо `<предок корня>/project/<имя>` — по origin/main или названной ревизии. Без копии —
+# [VOID] на всех чужих координатах (отправка 983 2026-10-25: 164 из 164). Шаг кладёт клоны
+# kacho и corelib в /work/project/<имя> (предок /work/src), полной историей (координаты,
+# связанные ревизией, судятся на ней) и без рабочего дерева: проба читает refs, не файлы.
+# Фоном рядом с прочей подготовкой, ждутся перед видимостью. Не склонировался — строка
+# с причиной, переменная не выставляется, и проба даёт свой VOID «условие не создано»
+# (не 69: дом — предпосылка одной пробы, а не прогона; её третья категория в проход не идёт).
+# shellcheck disable=SC2016  # раскрывается в pod, не здесь
+HOMES_SH="$(cat <<'HOMES'
+# homes-begin
+hm0=$(date +%s); hmp=""
+mkdir -p /work/project || echo "remote-heavy: дома проб: каталог /work/project не создан — клонов не будет" >&2
+for r in kacho corelib; do
+  if [ -e "/work/project/$r" ]; then echo "remote-heavy: дом $r уже в /work/project — не клонирую" >&2; continue; fi
+  ( GIT_TERMINAL_PROMPT=0 git clone -q --no-checkout "https://github.com/PRO-Robotech/$r.git" "/work/project/$r" > "/work/home-$r.log" 2>&1 \
+      || echo "код $?" > "/work/home-$r.fail" ) &
+  hmp="$hmp $!"
+done
+echo "remote-heavy: дома проб kaname (kacho, corelib) — клоны с GitHub фоном, полной историей, без рабочего дерева" >&2
+# homes-end
+HOMES
+)"
+# shellcheck disable=SC2016  # раскрывается в pod, не здесь
+HOMESWAIT_SH="$(cat <<'HOMESW'
+# homeswait-begin
+for x in $hmp; do wait "$x"; done
+hms=""; hmv=""
+for r in kacho corelib; do
+  d="/work/project/$r"; v="KACHO_HOME_$(printf '%s' "$r" | tr '[:lower:]' '[:upper:]')"
+  if [ -f "/work/home-$r.fail" ]; then
+    rm -rf "$d"; hmv="$hmv $r (git clone не исполнился: $(cat "/work/home-$r.fail") — $(tail -n 1 "/work/home-$r.log" 2>/dev/null))"; continue
+  fi
+  h="$(git -C "$d" rev-parse -q --verify 'refs/remotes/origin/main^{commit}' 2>/dev/null)" || { hmv="$hmv $r (ствола origin/main в клоне нет)"; continue; }
+  export "$v=$d"; hms="$hms $v=$d@${h:0:12}"
+done
+echo "remote-heavy: дома проб kaname —${hms:- ни одного}, $(( $(date +%s) - hm0 )) с от начала клонирования" >&2
+[ -z "$hmv" ] || echo "remote-heavy: дома проб kaname НЕ поставлены:$hmv — координаты этих домов проба даст [VOID] «условие не создано», а не вердиктом" >&2
+# homeswait-end
+HOMESW
+)"
 # Сверка среды воркспейса — ПОСЛЕ видимости: подпроцессом с пустым окружением и PATH образа
 # golang (HEAVY_STD_PATH — его подмена в пробах), как наборы и хук зовут инструменты.
 # shellcheck disable=SC2016  # раскрывается в pod, не здесь
@@ -3167,6 +3209,8 @@ WSUSER
 [ "$PROFILE" = ws ] && PREP="$PREP
 $WSCLONE_SH
 $WSTOOLS_SH"
+[ "$PROFILE" = ci-local ] && [ "$REPO" = kaname ] && PREP="$PREP
+$HOMES_SH"
 [ "$PROFILE" = ws ] || PREP="$PREP
 $MODDL_SH"
 [ "$DIND" = 1 ] && PREP="$PREP
@@ -3187,6 +3231,8 @@ $FILEWAIT_SH"
 $PULLWAIT_SH"
 [ "$PROFILE" = ws ] && PREP="$PREP
 $WSCLONEWAIT_SH"
+[ "$PROFILE" = ci-local ] && [ "$REPO" = kaname ] && PREP="$PREP
+$HOMESWAIT_SH"
 PREP="$PREP
 $EXPOSE_SH"
 [ "$PROFILE" = ws ] && PREP="$PREP
