@@ -700,6 +700,99 @@ grep -qF -- "ствол дерева продукта" <<<"${LAST_OUT:-}" \
     || { printf '  [БЕДА] код 2 верен, но текст не называет ствол\n'; fail=$((fail + 1)); }
 
 restore
+
+# ── check-08 и check-09 (ws#1402): своё дерево у пробы, а не копия .claude ─────────────
+# runr <код> <имя> <корень> <скрипт> [<обязательная строка вывода>]
+runr() {
+    local want="$1" label="$2" root="$3" script="$4" frag="${5:-}" out got
+    out="$(env SKILLS_GATE_ROOT="$root" bash "$SCRIPT_DIR/$script" 2>&1)"; got=$?
+    if [ "$got" -eq "$want" ] && { [ -z "$frag" ] || grep -qF -- "$frag" <<< "$out"; }; then
+        pass=$((pass + 1)); printf '  [ok]   %-58s код %s\n' "$label" "$got"
+    else
+        fail=$((fail + 1)); printf '  [БЕДА] %-58s ждали %s%s, получили %s\n' "$label" "$want" "${frag:+ и «$frag»}" "$got"
+        printf '%s\n' "$out" | sed 's/^/         /'
+    fi
+}
+# Мини-дерево check-08: ci.yaml из файла-шаблона и scripts/cvx/ с исправным скриптом; тексты
+# скриптов — printf с \x24 и \x27 (буквальный `$` в одинарных кавычках краснел бы сам).
+SCV="$(shellcheck --version 2> /dev/null | sed -n 's/^version: //p')"
+mk08() {  # mk08 <имя> <ci.yaml: тело заданий после «jobs:»> [<пин>] — печатает корень
+    local d="$PROD_ROOT/c08-$1"
+    mkdir -p "$d/.github/workflows" "$d/scripts/cvx" "$d/sub dir" && git -C "$d" init -q
+    printf '#!/usr/bin/env bash\necho ok\n' > "$d/scripts/cvx/ok.sh"
+    printf '#!/usr/bin/env bash\necho ok\n' > "$d/sub dir/ok.sh"
+    { printf 'env:\n  SHELLCHECK_VERSION: "%s"\njobs:\n' "${3:-$SCV}"; printf '%s\n' "$2"; } > "$d/.github/workflows/ci.yaml"
+    printf '%s' "$d"
+}
+bad08() { printf '#!/usr/bin/env bash\necho \x27\x24HOME/x\x27\n' > "$1/scripts/cvx/bad.sh"; }
+if [ -n "$SCV" ] && command -v yq > /dev/null 2>&1 && command -v jq > /dev/null 2>&1; then
+    J='  j:
+    steps:'
+    d="$(mk08 multi "$J
+      - name: многострочный
+        run: |
+          shellcheck -x -- \"sub dir/ok.sh\"
+          shellcheck -x -- scripts/cvx/ok.sh")"
+    runr 0 "08 T-I1a: многострочный run чист — один шаг, прошёл" "$d" check-08-ci-shellcheck-steps-pass-on-the-tree.sh "шагов shellcheck в ci.yaml 1, прошло 1"
+    bad08 "$d"; sed -i 's|scripts/cvx/ok.sh|scripts/cvx/bad.sh|' "$d/.github/workflows/ci.yaml"
+    runr 1 "08 I1a: дефект во второй строке многострочного run — SC2016" "$d" check-08-ci-shellcheck-steps-pass-on-the-tree.sh "SC2016"
+    d="$(mk08 cont "$J
+      - name: перенос
+        run: |
+          shellcheck -x \\
+            -- scripts/cvx/*.sh")"
+    runr 0 "08 T-I1a-continuation: перенос через \\ чист — прошёл" "$d" check-08-ci-shellcheck-steps-pass-on-the-tree.sh "прошло 1"
+    bad08 "$d"
+    runr 1 "08 I1a-continuation: тот же перенос с дефектом — SC2016" "$d" check-08-ci-shellcheck-steps-pass-on-the-tree.sh "SC2016"
+    d="$(mk08 quoted "$J
+      - name: путь в кавычках
+        run: shellcheck -x -- \"sub dir/ok.sh\"")"
+    runr 0 "08 T-I1h: путь в кавычках — прошёл (кавычки не удвоены)" "$d" check-08-ci-shellcheck-steps-pass-on-the-tree.sh "прошло 1"
+    d="$(mk08 opts "$J
+      - name: опции окружением
+        env:
+          SHELLCHECK_OPTS: -e SC2016
+        run: shellcheck -x -- scripts/cvx/*.sh")"
+    bad08 "$d"
+    runr 0 "08 T-I1f: env шага SHELLCHECK_OPTS снимает SC2016 — прошёл" "$d" check-08-ci-shellcheck-steps-pass-on-the-tree.sh "прошло 1"
+    d="$(mk08 coe "$J
+      - name: справочно
+        continue-on-error: true
+        run: shellcheck -x -- scripts/cvx/*.sh")"
+    bad08 "$d"
+    runr 0 "08 T-I1g: continue-on-error — красный не роняет задание" "$d" check-08-ci-shellcheck-steps-pass-on-the-tree.sh "красных при continue-on-error 1"
+    d="$(mk08 defdir "  j:
+    defaults:
+      run:
+        working-directory: scripts/cvx
+    steps:
+      - name: каталог задания
+        run: shellcheck -x -- *.sh")"
+    bad08 "$d"
+    runr 1 "08: defaults.run.working-directory задания — шаг судится в нём" "$d" check-08-ci-shellcheck-steps-pass-on-the-tree.sh "SC2016"
+    d="$(mk08 pin "$J
+      - name: один
+        run: shellcheck -x -- scripts/cvx/*.sh" 0.0.1)"
+    runr 2 "08: пин не равен установленному — VOID" "$d" check-08-ci-shellcheck-steps-pass-on-the-tree.sh "при пине конвейера 0.0.1"
+    d="$(mk08 none "$J
+      - name: bats
+        run: bats tests")"
+    runr 2 "08: судимых шагов ноль — VOID, а не «прошло все»" "$d" check-08-ci-shellcheck-steps-pass-on-the-tree.sh "ноль"
+else
+    void=$((void + 1)); echo "  [void] check-08: нет shellcheck, yq либо jq — пробы не исполнены"
+fi
+# check-09: корень — копии хука, его стражей и product_clone.py; мутант хука без суда тронутых
+# наборов обязан уронить проверку.
+R9="$PROD_ROOT/c09"; mkdir -p "$R9/scripts/hooks" "$R9/scripts/lib"
+cp "$WS"/scripts/hooks/* "$R9/scripts/hooks/"; cp "$WS/scripts/lib/product_clone.py" "$R9/scripts/lib/"
+runr 0 "09: хук гонит доказательство тронутого набора" "$R9" check-09-push-hook-runs-proofs-of-touched-suites.sh "проб 3, находок 0"
+sed -i 's/^            grep -q "^$pd\/" <<< "$touched" || continue$/            continue/' "$R9/scripts/hooks/pre-push"
+if grep -q '^            continue$' "$R9/scripts/hooks/pre-push"; then
+    runr 1 "09 мутант: хук не гонит доказательства тронутых — красное" "$R9" check-09-push-hook-runs-proofs-of-touched-suites.sh "правка inject.sh набора"
+else
+    void=$((void + 1)); echo "  [void] check-09: мутант хука не лёг в текст"
+fi
+
 echo
 echo "итог инъекций: проб пройдено $pass, провалено $fail, не выполнялось $void"
 [ "$fail" -eq 0 ] && [ "$void" -eq 0 ]
