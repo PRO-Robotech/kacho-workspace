@@ -97,7 +97,8 @@ agent('a1', ret('Код 77 в цепочке · heavy-slot'))
 agent('a2', ret('«код 77» при отправке · задание полосе'))
 agent('a3', ret('—'))
 agent('a4', ret('без места вообще'))
-agent('a5', '### ВОЗВРАТ\n- урок: первый-блок · не берётся\n\nдоводка\n\n' + ret('второй-блок · берётся'))
+# последний блок — имена полей в жирном (`- **урок:**`, ws#1418): урок берётся
+agent('a5', '### ВОЗВРАТ\n- урок: первый-блок · не берётся\n\nдоводка\n\nитог\n\n### ВОЗВРАТ\n- **статус:** готово\n- **урок:** второй-блок · берётся\n')
 # последний блок без строки «урок:» — урока нет, прежний блок не подставляется
 agent('a6', '### ВОЗВРАТ\n- урок: прежний-блок · не берётся\n\nдоводка\n\n### ВОЗВРАТ\n- статус: готово\n')
 # B3: одна строка у двух разных агентов — два случая; повтор одного агента — один
@@ -637,6 +638,7 @@ mutant repeat-after-landed-blind py '            if late:' '            if False
 mutant first-return-block py "i = text.rfind('### ВОЗВРАТ')" "i = text.find('### ВОЗВРАТ')"
 mutant void-as-zero py '        if not ok and not store.lessons:' '        if False:'
 mutant dispatcher-prose py "DISP_RE = re.compile(r'^\\s*[-*]?\\s*урок диспетчера:" "DISP_RE = re.compile(r'урок диспетчера:"
+mutant bold-field-blind py "|[;·])\\s*(?:\\*\\*)?урок:(?:\\*\\*)?\\s*" "|[;·])\\s*урок:\\s*"
 # B1 — итог-объект: только поле lesson; без «· урок:»; без поля контракта; урок без блока
 mutant b1-lesson-field-only py "else lessons_in(res, [])" "else ([res.get('lesson')] if isinstance(res, dict) and res.get('lesson') not in (None, '—') else [])"
 mutant b1-no-inline py "RET_RE = re.compile(r'(?:^\\s*[-*]?|[;·])" "RET_RE = re.compile(r'(?:^\\s*[-*]?)"
