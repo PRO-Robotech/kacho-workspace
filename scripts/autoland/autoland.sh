@@ -760,7 +760,7 @@ wt_procs() {
 # ── догон основного клона воркспейса (ws#1200) ─────────────────────────────────
 SYNC=""
 sync_main_clone() {  # запрос в main репозитория основного клона влит — ff основного клона
-    local top common old new both
+    local top common old new both slotpids
     SYNC=""
     [ "$PR_BASE" = main ] && origin_is_repo "$WS" || return 0
     top="$(cd "$WS" && pwd -P)"
@@ -781,6 +781,13 @@ sync_main_clone() {  # запрос в main репозитория основн�
     if [ "$old" = "$new" ]; then SYNC="основной клон: на origin/main ${new:0:12}"; log "$SYNC"; return 0; fi
     if ! git -C "$WS" merge-base --is-ancestor "$old" "$new"; then
         SYNC="основной клон: ff отказ — main несёт $(git -C "$WS" rev-list --count "$new..$old") своих коммитов вне origin/main; голова ${old:0:12}"
+        log "$SYNC"; return 0
+    fi
+    # Обёртка слота из основного клона читает соседей на ходу (lib, remote-heavy): перемотка под ней
+    # даёт ⟳ (ws#1413, урок 95d8f055). Держит открытым heavy-slot.sh либо remote-heavy/ — ff отложен.
+    slotpids="$(find /proc/[0-9]*/fd -maxdepth 1 -mindepth 1 \( -lname "$top/scripts/heavy-slot.sh" -o -lname "$top/scripts/remote-heavy/*" \) 2>/dev/null | cut -d/ -f3 | sort -un | tr '\n' ' ' | sed 's/ $//')"
+    if [ -n "$slotpids" ]; then
+        SYNC="основной клон: ff отложен — слот из основного клона идёт (pid $slotpids), перемотка под ним дала бы ⟳; голова ${old:0:12}, origin/main ${new:0:12}"
         log "$SYNC"; return 0
     fi
     if git -C "$WS" merge --ff-only -q origin/main > "$W/sync.out" 2>&1; then

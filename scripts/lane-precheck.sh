@@ -108,7 +108,10 @@
 #   TASK-LIMITS        два разных предела одного вызова («Bash ≤ 60 с» и «вызов до 270 с»);
 #   TASK-RETURN        задание с долгим шагом (полный хук отправки, слот, --enqueue, autoland)
 #                      не называет возврат «идёт» (detach.sh, «идёт: pid, журнал, срок»,
-#                      «отсоединённо»): исполнитель стал бы дежурить.
+#                      «отсоединённо»): исполнитель стал бы дежурить; pr-body.sh (Job-ом 3–8 мин,
+#                      ws#1413) — без «timeout 600000» и без возврата «идёт».
+#   TASK-PUSH-DETACHED строка с detach.sh и git push без push-then (ws#1413, уроки a4de34f3,
+#                      0177aaeb, 17a166a3): дочитка отправки без меток журнала не судима.
 #   TASK-MERGE-FORM    строка слияния не по форме хука ветки (ws#1278, урок «#808 merge 746: …» —
 #                      хук kaname отверг коммит исполнителя; форма — его branch_rule_merge_form,
 #                      `^#<N> merge (#<M>|main)`, регистр и пробел — его). Класс, а не перечень:
@@ -285,7 +288,7 @@ knorm() {
 if [ -n "$task_text" ]; then
     [ "${#pos[@]}" -eq 0 ] && [ -z "$premise" ] || usage
     [ -r "$task_text" ] || { echo "lane-precheck: текста задания $task_text нет; вердикта нет" >&2; exit 2; }
-    reasons=() n=0 limits=() longstep="" ret="" cen=() cenk="" coords=() void="" kpaths=() vaultseen="" mountline="" vmention="" vfield=""
+    reasons=() n=0 limits=() longstep="" ret="" prb="" p6="" cen=() cenk="" coords=() void="" kpaths=() vaultseen="" mountline="" vmention="" vfield=""
     kre='(~|\$\{HOME\}|\$HOME)?[A-Za-z0-9_./-]*/\.kube/[A-Za-z0-9_.@/-]*'
     # Распознаватель python3 (TASK-LOCAL-PYTHON) — из ТОГО ЖЕ источника, что heavy-guard: `PYTHONS` и
     # `PY_VERSION` его guard.py; не выведен — суда нет (VOID), а не «python3 не найден».
@@ -302,7 +305,8 @@ if [ -n "$task_text" ]; then
     mok='^#[0-9]+ merge (#[0-9]+|main)([^0-9A-Za-z_]|$)' mtpl='^#[0-9]+ merge (#?<|#[A-Z][A-Za-z]*([^0-9A-Za-z_]|$))'
     # Ветка kaname (TASK-BRANCH-FORM, ws#1409): имя репозитория и кандидат ветки — по строке в нижнем регистре.
     rre='(project/|pro-robotech/)(kaname|kacho|corelib)([^a-z0-9_-]|$)|(^|[^a-z0-9_-])(kacho-workspace)([^a-z0-9_-]|$)'
-    brx='(ветк[[:alpha:]]*([[:space:]]+(kaname|kacho|corelib))?|branch|refs/heads/|origin/|(^|[[:space:]])-[bBc])[[:space:]«"'"'"'`:]*([0-9]+-[a-z0-9][a-z0-9._/-]*)'
+    # Разделитель — и тире («ветка — 986-x», ws#1413: ⛔ приёмки ws#1409).
+    brx='(ветк[[:alpha:]]*([[:space:]]+(kaname|kacho|corelib))?|branch|refs/heads/|origin/|(^|[[:space:]])-[bBc])[[:space:]«"'"'"'`:—–]*([0-9]+-[a-z0-9][a-z0-9._/-]*)'
     brepo="" kbr=()
     repo_last() {  # <текст> — последнее имя репозитория путём в тексте либо пусто
         local t="$1" got=""
@@ -420,10 +424,15 @@ if [ -n "$task_text" ]; then
         done
         [[ "${line,,}" =~ heavy-slot|git[[:space:]]+push|--enqueue|autoland\.sh[[:space:]]+start|полн[[:alpha:]]*[[:space:]]+хук ]] && longstep="${longstep:-$n}"
         [[ "${line,,}" =~ detach\.sh|«идёт|идёт:|отсоедин ]] && ret=1
+        [[ "${line,,}" =~ pr-body\.sh ]] && prb="${prb:-$n}"
+        [[ "${line,,}" =~ timeout[[:space:]]+600000 ]] && p6=1
+        [[ "${line,,}" =~ detach\.sh ]] && [[ "${line,,}" =~ git[[:space:]]+push ]] && [[ "${line,,}" != *push-then* ]] \
+            && reasons+=("TASK-PUSH-DETACHED строка $n: отправка голым detach.sh — журнал без меток lane-push head=/rc= (lane-precheck: HOOK-HEAD-MISMATCH, HOOK-RC), дочитать нечем; форма — scripts/push-then.sh start <каталог> <копия> <ветка> -- <шаг>, исход — detach.sh status <.rc>")
     done < "$task_text"
     distinct="$(printf '%s\n' "${limits[@]+"${limits[@]}"}" | sed '/^$/d' | sort -un | tr '\n' ' ')"
     [ "$(wc -w <<< "$distinct")" -le 1 ] || reasons+=("TASK-LIMITS пределы одного вызова разные: ${distinct% } с — предел вызова задаётся одним числом")
     [ -z "$longstep" ] || [ -n "$ret" ] || reasons+=("TASK-RETURN строка $longstep: долгий шаг без возврата «идёт» — задание называет форму: scripts/detach.sh start …, возврат «идёт: pid, журнал, срок», исход отдельным шагом")
+    [ -z "$prb" ] || [ -n "$ret" ] || [ -n "$p6" ] || reasons+=("TASK-RETURN строка $prb: pr-body.sh — Job-ом 3–8 мин: вызов Bash с timeout 600000 (форма wave.js и git-operator) либо detach.sh, иначе 120 с по умолчанию обрывают вызов")
     if [ "$agent" = acceptance-author ]; then
         miss=""
         [[ "$cenk " == *" path "* ]] || miss+=" дом (path <клон> <ревизия> <путь>);"
