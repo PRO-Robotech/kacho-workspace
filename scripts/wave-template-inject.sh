@@ -1290,7 +1290,7 @@ mutant "после снятия — второй полный круг без д
 mutant "landing-reviewer зовётся всегда" "  if (gap.length) {" "  if (true) {"
 mutant "исход демона без цитаты" " + ': ' + alOut, autoland: AL_STATE" ", autoland: AL_STATE"
 mutant "остаток закрывается каскадом" "закрой задачи влитых полос ' + order.join(', ')" "закрой задачи волны ' + Object.keys(done).join(', ')"
-mutant "правило вливания не в задании git-operator" "строка. ' + landRule + '. 1) Тело" "строка. 1) Тело"
+mutant "правило вливания не в задании git-operator" "выполнить. ' + landRule + '. 1) Тело" "выполнить. 1) Тело"
 # Приёмка check-verifier ws#1000 r1: дефекты, выжившие на 31616601, и законные близнецы.
 mutant "CV-M2 publicText — любое заданное значение" "publicText === true)" "publicText !== undefined)"
 mutant "CV-M3 sha посадочного не судится" "lr.verdict !== 'accept' || lr.sha !== asm.head)" "lr.verdict !== 'accept')"
