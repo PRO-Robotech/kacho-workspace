@@ -47,7 +47,8 @@
 #         дописывает .rc, когда ловушка команды доведёт уборку. `systemctl --user stop` шлёт
 #         TERM всей cgroup разом и KILL через TimeoutStopSec 90 с — ловушка remote-heavy и её
 #         kubectl гибнут, ns остаются. Ждёт .rc до --grace (по умолчанию 300, предел 540 — норма
-#         «Не жди»), KILL не шлёт никогда. Коды: 0 — .rc записан (код команды назван); 3 — TERM
+#         «Не жди») и выхода потомков с меткой шага (DETACH_TAG окружения), KILL не шлёт никогда.
+#         Коды: 0 — .rc записан, потомков нет (код команды назван); 3 — TERM
 #         послан, уборка дольше срока, шаг жив — исход status позже; 4 — шаг не идёт (уже вышел
 #         либо оборван — сказано, что именно); 2 — файлов шага нет; 64 — вызов неверен.
 # Срок (--deadline, с; по умолчанию 3600) — KACHO_DETACHED_UNTIL окружения шага: перепись
@@ -220,8 +221,17 @@ stop)
     fi
     end=$(( $(date +%s) + grace ))
     while [ ! -f "$base.rc" ] && [ "$(date +%s)" -lt "$end" ] && alive "$pid" "$tag"; do sleep 1; done
+    # Потомки команды несут метку шага в окружении: .rc пишется при выходе команды, а её внук
+    # (git push под push-then.sh, kubectl ловушки) может доживать дольше — ждать и их (ws#1432:
+    # «отправка уже идёт» после stop).
+    tagged() { grep -lzx "DETACH_TAG=$tag" /proc/[0-9]*/environ 2> /dev/null | cut -d/ -f3 | grep -vx "$$" | paste -sd ' ' -; }
+    while [ -f "$base.rc" ] && [ -n "$(tagged)" ] && [ "$(date +%s)" -lt "$end" ]; do sleep 1; done
+    if [ -f "$base.rc" ] && [ -n "$(tagged)" ]; then
+        echo "идёт: команда вышла кодом $(head -n 1 "$base.rc"), но потомки шага живы дольше $grace с (pid $(tagged)) — KILL не послан; исход — bash $(readlink -f -- "${BASH_SOURCE[0]}") stop $base.rc позже"
+        exit 3
+    fi
     if [ -f "$base.rc" ]; then
-        echo "остановлен: команда вышла кодом $(head -n 1 "$base.rc") после TERM, уборка её ловушки дошла до конца; журнал $base.log"
+        echo "остановлен: команда вышла кодом $(head -n 1 "$base.rc") после TERM, потомков с меткой шага 0 — уборка дошла до конца; журнал $base.log"
         tail -n 5 "$base.log" 2>/dev/null | sed 's/^/  | /'
         exit 0
     fi
