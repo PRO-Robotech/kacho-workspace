@@ -901,11 +901,41 @@ class TrustBoundaries(unittest.TestCase):
             ('verdict-without-shards', 'e2e-newman.yml', lambda d: d['jobs'].update({'chart-own-verdict': {
                 'needs': ['chart-own'], 'runs-on': 'ubuntu-latest', 'steps': [{'run': 'true'}]}}),
              'chart-own verdict without shard matrix')]
+        # ws#1404: chart.yml kaname be652b042 (kaname#964) — `render` и `publish` только по метке
+        # версии. Класс ведомости RELEASE_ONLY: строки поимённо, запуск лишь `on: push: tags`;
+        # в ожидаемое стенда и в ci_read они не входят. ci/e2e/docker/pr-rule — снимки matrix:
+        # их наборы заданий те же на be652b042.
+        release = dict(matrix, **{'chart.yml': fixture('chart-workflow-native.yml')})
+        render = lambda d: d['jobs']['render']
+        cases += [
+            ('release-lawful', None, None, None),
+            ('release-tag-pattern-twin', 'chart.yml', lambda d: d['on']['push'].update(tags=['v*']), None),
+            ('release-step-twin', 'chart.yml', lambda d: render(d)['steps'].append({'run': 'true'}), None),
+            ('release-workflow-absent-twin', 'chart.yml', 'unlink', None),
+            ('release-pull-request', 'chart.yml', lambda d: d['on'].update(pull_request={'branches': ['main']}),
+             'release-only job runs outside a version tag: chart.yml:publish, chart.yml:render (on: pull_request)'),
+            ('release-push-branch', 'chart.yml', lambda d: d['on']['push'].update(branches=['main']),
+             'release-only job runs outside a version tag: chart.yml:publish, chart.yml:render (on: push.branches)'),
+            ('release-push-bare', 'chart.yml', lambda d: d.update({'on': 'push'}),
+             'release-only job runs outside a version tag: chart.yml:publish, chart.yml:render (on: push)'),
+            ('release-push-list', 'chart.yml', lambda d: d.update({'on': ['push']}),
+             'release-only job runs outside a version tag: chart.yml:publish, chart.yml:render (on: push)'),
+            ('release-dispatch', 'chart.yml', lambda d: d['on'].update(workflow_dispatch=None),
+             'release-only job runs outside a version tag: chart.yml:publish, chart.yml:render (on: workflow_dispatch)'),
+            ('release-tags-empty', 'chart.yml', lambda d: d['on']['push'].update(tags=[]),
+             'release-only job runs outside a version tag: chart.yml:publish, chart.yml:render (on: push.tags)'),
+            ('release-extra-job', 'chart.yml', lambda d: d['jobs'].update(lint=copy.deepcopy(render(d))),
+             'CI job outside the Kaname ledger: chart.yml:lint'),
+            ('release-row-without-job', 'chart.yml', lambda d: d['jobs'].pop('render'),
+             'Kaname ledger row without CI job: chart.yml:render'),
+            ('release-job-elsewhere', 'ci.yml', lambda d: d['jobs'].update(render=copy.deepcopy(lint)),
+             'CI job outside the Kaname ledger: ci.yml:render')]
         def where(co, name):
             return co / (name if '/' in name else '.github/workflows/' + name)
         for mutation, target, change, refused in cases:
             sources = (plain if mutation == 'lawful-plain' else shards if mutation.startswith('shards-')
-                       else chart if mutation.startswith('chart-') else matrix)
+                       else chart if mutation.startswith('chart-') else release if mutation.startswith('release-')
+                       else matrix)
             with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory); co = root / 'checkout'; co.mkdir()
                 wf = co / '.github/workflows'; wf.mkdir(parents=True)
@@ -957,9 +987,12 @@ class TrustBoundaries(unittest.TestCase):
                 self.assertEqual(actual.get('unit_shards'), width or None)
                 self.assertEqual(sum('unit_shard' in x for x in actual['definitions'].values()), width)
                 self.assertEqual(sum(x['executor'] == 'external' for x in actual['definitions'].values()), 4 + width)
+                released = 2 * (sources is release)
                 self.assertEqual(actual['ledger'], {'workflows': sorted(n for n in sources if '/' not in n),
-                                                    'jobs': 27 + bool(width) + planned,
-                                                    'staged': 6 + bool(width), 'ci_read': 21 + planned})
+                                                    'jobs': 27 + bool(width) + planned + released,
+                                                    'staged': 6 + bool(width), 'ci_read': 21 + planned,
+                                                    'release_only': released})
+                self.assertFalse([n for n in actual['jobs'] if n.startswith('chart.yml:')])
                 if target is None: continue
                 if change == 'unlink': where(co, target).unlink()
                 elif target.endswith('.txt'):
