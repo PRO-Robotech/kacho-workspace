@@ -69,7 +69,7 @@ census() { sed -n 's/.*SA \([0-9]*\), вопросов \([0-9]*\), «да» \([0
 echo "== сцены"
 scene control
 assert "0 2 10 0" "$(run "$SUBJ" n1) $(census)" "контроль: «да» нет — 0; SA 2 (у двух подов одна), вопросов 10"
-assert "нет" "$(grep -qE -- '-o (json|yaml)|-ojson|-oyaml' "$SCENE/log" && echo да || echo нет)" "под ни разу не снят целиком: env не читается"
+assert "нет" "$(grep -qE -- '-o ?(json|yaml)( |$)' "$SCENE/log" && echo да || echo нет)" "под ни разу не снят целиком: env не читается"
 
 scene proxy
 echo 'system:serviceaccount:ci:runner|get nodes --subresource=proxy' > "$SCENE/yes"
