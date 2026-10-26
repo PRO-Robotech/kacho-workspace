@@ -355,6 +355,20 @@ denies_pod 'kubectl get --raw /api/v1/namespaces/x/pods/y'
 denies_pod 'kubectl exec x -- env'
 denies_pod 'kubectl exec -n k x -c c -- printenv'
 denies_pod 'kubectl exec x -- cat /proc/1/environ'
+denies_pod 'kubectl exec x -- head /proc/1/environ'
+# круг 2 ⛔ check-verifier: формат — перечнем; kyaml, jsonpath с корнем объекта, любой jsonpath
+denies_pod 'kubectl get pod x -o kyaml'
+denies_pod 'kubectl get pod x -okyaml'
+denies_pod 'kubectl get pods -A --output=kyaml'
+denies_pod "kubectl get pod x -o jsonpath='{.metadata.name}{@}'"
+denies_pod "kubectl get pod x -o jsonpath='{.metadata.name}{\$}'"
+denies_pod "kubectl get pods -o jsonpath='{range .items[*]}{.metadata.name}{@}{end}'"
+denies_pod "kubectl get pod x -o jsonpath=\"{.metadata.name}{'\\\"'}{.spec}{'\\\"'}\""
+denies_pod "kubectl get pod x -o jsonpath='{.spec.nodeName}'"
+denies_pod "kubectl get pods -A --field-selector spec.nodeName=n1 -o jsonpath='{range .items[*]}{.metadata.namespace}{\"\\t\"}{.spec.serviceAccountName}{\"\\n\"}{end}'"
+denies_pod 'kubectl get pod x -o custom-columns=NAME:.metadata.name,SC:.spec.securityContext'
+denies_pod 'kubectl get pod x -o somefuture'
+denies_pod 'kubectl label pod x a=b --overwrite -o yaml'
 # законные близнецы той же формы: путь из списка, иной род, /log, иная команда
 passes "kubectl get pod x -o json | jq '{sc: .spec.securityContext, node: .spec.nodeName}'"
 passes "kubectl get pod x -o json | jq -r --arg n x '.spec.nodeName'"
@@ -364,9 +378,6 @@ passes "kubectl get pods -A -o json | jq '.items[] | .spec.nodeName'"
 passes "kubectl get pods -A -o json | jq '.items[].spec.nodeName'"
 passes "kubectl get deploy d -o json | jq '.spec.template.spec.securityContext'"
 passes "kubectl get pod x -o json 2>&1 | jq '.spec.nodeName'"
-passes "kubectl get pod x -o jsonpath='{.spec.nodeName}'"
-passes "kubectl get pods -A --field-selector spec.nodeName=n1 -o jsonpath='{range .items[*]}{.metadata.namespace}{\"\\t\"}{.spec.serviceAccountName}{\"\\n\"}{end}'"
-passes 'kubectl get pod x -o custom-columns=NAME:.metadata.name,SC:.spec.securityContext'
 passes 'kubectl get pod x -o name'
 passes 'kubectl get pods -A -o wide'
 passes 'kubectl get svc x -o yaml'
@@ -376,6 +387,9 @@ passes 'kubectl get --raw /api/v1/namespaces/x/pods/y/log'
 passes 'kubectl exec x -- ls /'
 boundary "describe — env текстом, форма чтения событий" 'kubectl describe pod x'
 boundary "команда в строке оболочки пода" "kubectl exec x -- sh -c 'env'"
+boundary "шаблон пода без -o: view-last-applied" 'kubectl apply view-last-applied deploy/x'
+boundary "шаблон пода без -o: rollout history" 'kubectl rollout history deploy/x --revision=1'
+boundary "kubectl внутри обёртки слота" 'scripts/heavy-slot.sh suite -- kubectl get pod x -o json'
 AGENT=""
 
 echo "== граница (ГРАНИЦА шапки guard.py) — известно, не ловится"
@@ -466,13 +480,17 @@ mutant "pod: spec.template. не снимается"   '    if n.startswith("spe
 mutant "pod: род all снят"                  ' "cronjobs", "all", "rc",' ' "cronjobs", "rc",' 'kubectl get all -n ns -o yaml' deploy-engineer
 mutant "pod: род rc снят"                   ' "all", "rc", "replicationcontroller",' ' "all", "replicationcontroller",' 'kubectl get rc x -o yaml' deploy-engineer
 mutant "pod: род podtemplates снят"         ' "podtemplate", "podtemplates"}' '}' 'kubectl get podtemplates -o yaml' deploy-engineer
-mutant "pod: jsonpath не судится"           '        if safe_jsonpath(expr or tmpl or ""):' '        if True:' "kubectl get pod x -o jsonpath='{.spec}'" deploy-engineer
-mutant "pod: .items — путь, а не источник range" '!= ".items"]' '!= ".none"]' "kubectl get pods -A -o jsonpath='{range .items[*]}{.metadata.name}{end}'" deploy-engineer
-mutant "pod: go-template пропущен"          '    elif fmt in ("go-template", "go-template-file",' '    elif fmt in ("go-template-file",' "kubectl get pod x -o go-template='{{.}}'" deploy-engineer
-mutant "pod: --raw не судится"              '        if set(segs) & RAW_KINDS and' '        if False and' 'kubectl get --raw /api/v1/namespaces/x/pods/y' deploy-engineer
+mutant "pod: формат вне перечня пропущен"   'SAFE_FORMATS = {"", "name", "wide"}' 'SAFE_FORMATS = {"", "name", "wide", "kyaml"}' 'kubectl get pod x -o kyaml' deploy-engineer
+mutant "pod: wide снят из перечня"          'SAFE_FORMATS = {"", "name", "wide"}' 'SAFE_FORMATS = {"", "name"}' 'kubectl get pods -A -o wide' deploy-engineer
+mutant "pod: jsonpath — как пустой формат"  '    if fmt in SAFE_FORMATS:' '    if fmt in SAFE_FORMATS or fmt == "jsonpath":' "kubectl get pod x -o jsonpath='{.spec.nodeName}'" deploy-engineer
+mutant "pod: подкоманда не get не судится"  '    # Любая подкоманда с родом пода' '    if words[:1] != ["get"]:
+        return None
+    # Любая подкоманда с родом пода' 'kubectl label pod x a=b --overwrite -o yaml' deploy-engineer
+mutant "pod: --template без -o пропущен"   '("template" if tmpl is not None else "")' '""' "kubectl get pod x --template='{{.}}'" deploy-engineer
+mutant "pod: --raw не судится"              'if words[:1] == ["get"] and set(segs) & RAW_KINDS and' 'if False and' 'kubectl get --raw /api/v1/namespaces/x/pods/y' deploy-engineer
 mutant "pod: --raw …/log — отказ"           ' and segs[-1:] != ["log"] and' ' and' 'kubectl get --raw /api/v1/namespaces/x/pods/y/log' deploy-engineer
 mutant "pod: exec env пропущен"             '        if base in ("env", "printenv") or' '        if base in ("printenv",) or' 'kubectl exec x -- env' deploy-engineer
-mutant "pod: exec environ пропущен"         '(base == "cat" and any(' '(False and any(' 'kubectl exec x -- cat /proc/1/environ' deploy-engineer
+mutant "pod: exec environ пропущен"         'or any(re.search(r"/proc/[^/\s]+/environ", c) for c in cmd[1:])' 'or False' 'kubectl exec x -- head /proc/1/environ' deploy-engineer
 mutant "pod: команда после -- не читается"  '            cmd = args[i + 1:]' '            cmd = None' 'kubectl exec -n k x -c c -- printenv' deploy-engineer
 mutant "pod: -ojson слитно не разобран"     '        if a.startswith("-o") and len(a) > 2:' '        if False:' 'kubectl get pod/x -ojson' deploy-engineer
 mutant "pod: род с группой не узнан"       'p.split("/", 1)[0].split(".", 1)[0].lower()' 'p.split("/", 1)[0].lower()' 'kubectl get job.batch/x --output=yaml' deploy-engineer

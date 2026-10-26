@@ -55,13 +55,14 @@ Bash был корнем воркспейса, и коммит лёг в main в
 
 Четвёртый предмет — вывод, несущий значения переменных CI (ws#1418, уроки 5da59f1b и диспетчера
 2026-10-26: `kubectl get pod -o json` пода задачи раннера напечатал env с переменными CI):
-  pod-env-dump    — снимок рода с шаблоном пода (pod, job, deploy, sts, ds, rs, rc, cronjob,
-                    podtemplate, all) у любого агента вне БЕЛОГО СПИСКА полей (SAFE_PATHS): `get
-                    -o json|yaml`, если следующее звено — не jq/yq, чей фильтр — путь, `{ключ: путь}`
-                    или `[путь]` (с `.items[] |` для списка) и каждый путь в списке; `-o jsonpath|
-                    custom-columns` с путём вне списка; `-o go-template|template` (не разбирается);
-                    `get --raw …/<род>/…` кроме `/log`; `exec … -- env|printenv|cat /proc/*/environ`.
-                    Пропуск — по списку, а не «всё, кроме `.` и env» (⛔ check-verifier на 9ca63883c).
+  pod-env-dump    — род с шаблоном пода (pod, job, deploy, sts, ds, rs, rc, cronjob, podtemplate,
+                    all) в любой подкоманде kubectl у любого агента: формат вывода — ПЕРЕЧНЕМ
+                    (SAFE_FORMATS: пусто, name, wide); json|yaml — лишь если следующее звено —
+                    jq/yq, чей фильтр — путь, `{ключ: путь}` или `[путь]` (с `.items[] |` для
+                    списка) и каждый путь в белом списке SAFE_PATHS; любой иной формат (jsonpath,
+                    custom-columns, kyaml, go-template, неизвестный) — отказ без разбора; `get --raw
+                    …/<род>/…` кроме `/log`; `exec … -- env|printenv` и /proc/*/environ в доводах.
+                    Форма — перечень форматов (круг 2 ⛔ check-verifier: путь внутри jsonpath и kyaml).
 
 РАЗРЕШЕНО: `gh api <путь>` без тела и метода (GET), `gh api --method GET … -f q=…`
 (поля уходят строкой запроса), `gh api graphql -f query='query{…}'`, `compare`,
@@ -87,7 +88,9 @@ https://api.github.com/…` и интерпретатор (`python3 -c …`); `g
 `$(…)` и из переменной без присваивания в строке; `cd` внутри подоболочки `( … )`
 считается действующим и после неё; снимок пода — `kubectl describe pod` (env в тексте:
 форма для чтения событий, отказ в ней краснил бы разбор падений), `exec … -- sh -c 'env'`
-(команда внутри строки оболочки пода не разбирается), потребитель-группа (`… | { jq …; }`).
+(команда внутри строки оболочки пода не разбирается), подкоманды, печатающие шаблон пода без
+`-o` (`apply view-last-applied`, `rollout history --revision`), kubectl внутри обёртки
+(`heavy-slot.sh … -- kubectl …`: argv обёртки не разбирается), потребитель-группа (`… | { jq …; }`).
 """
 
 import importlib.util
@@ -174,12 +177,8 @@ def safe_path(p):
     return n in SAFE_PATHS
 
 
-def safe_jsonpath(expr):
-    """`-o jsonpath=…`/`custom-columns=…`: каждый путь вне строковых литералов — в белом списке;
-    `.items[*]` — лишь источник `range`. Путей ноль — не проекция."""
-    body = re.sub(r'"[^"]*"', "", expr)
-    paths = [p for p in PATH_RE.findall(body) if re.sub(r"\[[0-9*]*\]", "", p) != ".items"]
-    return bool(paths) and all(safe_path(p) for p in paths)
+# Форматы вывода рода пода без env (ws#1418, круг 2): прочие — отказ, json|yaml — лишь с проекцией.
+SAFE_FORMATS = {"", "name", "wide"}
 SHORT_SHA = re.compile(r"[0-9a-fA-F]{4,39}")
 TRUNKS = {"main", "master"}
 COMMIT_SUBS = {"add", "commit"}
@@ -335,9 +334,9 @@ def projects(sink):
 
 
 def judge_kubectl(args, shown, sink):
-    """Снимок рода с шаблоном пода, несущий env контейнеров (ws#1418): `get <род> -o json|yaml` без
-    проекции следующим звеном; `-o jsonpath|custom-columns` с путём вне белого списка; `-o go-template|
-    template` (шаблон не разбирается); `get --raw …/<род>/…` (кроме `/log`); `exec … -- env|printenv`."""
+    """Род с шаблоном пода, несущий env контейнеров (ws#1418): формат вывода любой подкоманды — перечнем
+    SAFE_FORMATS; `-o json|yaml` — лишь с проекцией jq/yq по белому списку следующим звеном; прочие
+    форматы — отказ без разбора; `get --raw …/<род>/…` (кроме `/log`); `exec … -- env|printenv|…environ`."""
     words, out, raw, tmpl, cmd, i = [], None, None, None, None, 0
     while i < len(args):
         a = args[i]
@@ -373,35 +372,30 @@ def judge_kubectl(args, shown, sink):
         i += 1
     if words[:1] == ["exec"] and cmd:
         base = os.path.basename(cmd[0])
-        if base in ("env", "printenv") or (base == "cat" and any(re.search(r"/proc/[^/\s]+/environ", c) for c in cmd[1:])):
+        if base in ("env", "printenv") or any(re.search(r"/proc/[^/\s]+/environ", c) for c in cmd[1:]):
             return Finding("pod-env-dump", shown, "exec … -- %s печатает env контейнера — значения переменных CI" % base)
-        return None
-    if words[:1] != ["get"]:
         return None
     if raw is not None:
         segs = [s for s in raw.split("?", 1)[0].split("/") if s]
-        if set(segs) & RAW_KINDS and segs[-1:] != ["log"] and not projects(sink):
+        if words[:1] == ["get"] and set(segs) & RAW_KINDS and segs[-1:] != ["log"] and not projects(sink):
             return Finding("pod-env-dump", shown, "get --raw %s отдаёт объект пода целиком — env с переменными CI" % raw)
         return None
+    # Любая подкоманда с родом пода (get, label, patch, set, …): формат — ПЕРЕЧНЕМ (ws#1418, круг 2
+    # ⛔ check-verifier: белый список путей внутри jsonpath и неизвестные форматы вроде kyaml
+    # пропускали env). Пропуск — пустой, name, wide; json|yaml — лишь с проекцией по белому списку.
     kinds = {p.split("/", 1)[0].split(".", 1)[0].lower() for w in words[1:] for p in w.split(",")}
     hit = ",".join(sorted(kinds & POD_KINDS))
     if not hit:
         return None
-    fmt, _, expr = (out or "").partition("=")
-    fmt = fmt.lower()
+    fmt = (out if out is not None else ("template" if tmpl is not None else "")).partition("=")[0].lower()
+    if fmt in SAFE_FORMATS:
+        return None
     if fmt in ("json", "yaml"):
         if projects(sink):
             return None
         why = "-o %s у %s без проекции по белому списку полей следующим звеном (jq/yq)" % (fmt, hit)
-    elif fmt in ("jsonpath", "jsonpath-as-json", "custom-columns"):
-        if safe_jsonpath(expr or tmpl or ""):
-            return None
-        why = "-o %s у %s с путём вне белого списка полей" % (fmt, hit)
-    elif fmt in ("go-template", "go-template-file", "template", "templatefile", "jsonpath-file",
-                 "custom-columns-file"):
-        why = "-o %s у %s — шаблон не разбирается, env не исключён" % (fmt, hit)
     else:
-        return None
+        why = "-o %s у %s — формат вне перечня (пусто, name, wide; json|yaml с проекцией jq)" % (fmt, hit)
     return Finding("pod-env-dump", shown, why + " — env контейнеров несёт значения переменных CI")
 
 
@@ -673,13 +667,14 @@ def deny(found):
             "GH-API-GUARD: отказ — снимок пода несёт значения переменных CI в env (ws#1418).",
             "  форма: %s — %s" % (CLASS_TEXT[f.cls], hg.clip(f.text, 200)),
             "  почему: %s" % f.why,
-            "Пропуск — только проекция, где КАЖДЫЙ путь из белого списка (guard.py SAFE_PATHS):",
-            "metadata.name|namespace|labels|uid|ownerReferences, spec.nodeName|nodeSelector|",
-            "securityContext|serviceAccountName|host*|tolerations|affinity, spec.containers[].name|image|",
-            "securityContext, status.phase|podIP|hostIP|conditions (и то же под spec.template.).",
-            "Формы: `-o jsonpath='{.spec.securityContext}'`; список — `-o json | jq '.items[] |",
-            "{name: .metadata.name, sc: .spec.securityContext}'`. `.spec`, `.items[]`, `.spec.containers`,",
-            "`del(…)`, go-template, `get --raw …/pods/…`, `exec -- env` — отказ.",
+            "Формат вывода рода пода — перечнем: пусто, `-o name`, `-o wide`. json|yaml — лишь с",
+            "проекцией jq/yq, где КАЖДЫЙ путь из белого списка (guard.py SAFE_PATHS): metadata.name|",
+            "namespace|labels|uid|ownerReferences, spec.nodeName|nodeSelector|securityContext|",
+            "serviceAccountName|host*|tolerations|affinity, spec.containers[].name|image|securityContext,",
+            "status.phase|podIP|hostIP|conditions (и то же под spec.template.). Вместо jsonpath и",
+            "custom-columns — `-o json | jq '<путь из списка>'`; список — `-o json | jq '.items[] |",
+            "{name: .metadata.name, sc: .spec.securityContext}'`. Прочие форматы (jsonpath, kyaml,",
+            "go-template, …), `.spec`, `.items[]`, `get --raw …/pods/…`, `exec -- env` — отказ.",
         ]) + "\n")
         sys.exit(2)
     lines = [
