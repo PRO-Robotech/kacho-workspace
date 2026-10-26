@@ -309,6 +309,40 @@ passes 'gh run list -R PRO-Robotech/kacho --branch 1288-x --json status'
 passes 'gh run view 123 --json status'
 AGENT=""
 
+echo "== снимок пода целиком — env несёт переменные CI (ws#1418)"
+# denies_pod <команда> — отказ 2, класс назван, проекция jq в тексте отказа.
+denies_pod() {
+    local rc named fix
+    rc="$(run "$1")"
+    named="нет"; grep -qF -- 'без проекции' "$WORK/out" && named="да"
+    fix="нет"; grep -qF ".spec.securityContext" "$WORK/out" && fix="да"
+    assert "2 да да" "$rc $named $fix" "отказ${AGENT:+ [$AGENT]} (снимок пода): $1"
+    denied=$((denied + 1))
+}
+for ag in deploy-engineer scout; do
+    AGENT=$ag
+    # НАСТОЯЩИЙ ВХОД — форма урока 5da59f1b: снимок пода задачи раннера целиком.
+    denies_pod 'kubectl -n gitlab-runner get pod runner-abc-project-1-concurrent-0 -o json'
+done
+AGENT=deploy-engineer
+denies_pod 'kubectl get pods -A -o yaml'
+denies_pod 'kubectl get pod/x -ojson'
+denies_pod 'kubectl get job.batch/x --output=yaml'
+denies_pod 'kubectl get po x -o json | jq .'
+denies_pod "kubectl get po x -o json | jq '.spec.containers[].env'"
+denies_pod 'kubectl get deploy,svc -n k -o yaml > snap.yaml'
+denies_pod 'kubectl get pod x -o json | jq -f filter.jq'
+denies_pod 'X=$(kubectl get sts y -o json); echo $X'
+passes "kubectl get pod x -o json | jq '{sc: .spec.securityContext, node: .spec.nodeName}'"
+passes "kubectl get pod x -o json | jq -r --arg n x '.spec.nodeName'"
+passes "kubectl get pod x -o yaml | yq e '.spec.securityContext'"
+passes "kubectl get pod x -o jsonpath='{.spec.nodeName}'"
+passes 'kubectl get pods -A -o wide'
+passes 'kubectl get svc x -o yaml'
+passes 'kubectl get nodes -o json'
+passes 'kubectl logs pod/x'
+AGENT=""
+
 echo "== граница (ГРАНИЦА шапки guard.py) — известно, не ловится"
 boundary "вызов внутри скрипта"        'bash ./merge-base.sh'
 boundary "eval: строка не разбирается" 'eval "gh api -X POST repos/x/y/merges"'
@@ -386,6 +420,18 @@ mutant "--disable-auto — вливание"       '    if "--disable-auto" in f
 mutant "подстановка не судится"          '            self.text(s)' '            pass' 'x=$(gh api -X POST repos/x/y/merges)' ci-watcher
 mutant "bash -c не разбирается"          '                self.text(cmd)' '                pass' 'bash -c "gh api -X POST repos/x/y/merges"' ci-watcher
 mutant "heredoc в оболочку не судится"  '                    self.text(hbody)' '                    pass' $'bash '"$LT"$'EOF\ngh api -X POST repos/x/y/merges\nEOF' ci-watcher
+mutant "pod: kubectl не судится"          '        if base == "kubectl":' '        if False:' 'kubectl get pods -A -o yaml' deploy-engineer
+mutant "pod: потребитель конвейера не виден" '                self.node(k, nxt)' '                self.node(k, None)' "kubectl get pod x -o json | jq '.spec.nodeName'" deploy-engineer
+mutant "pod: фильтр «.» — проекция"        '    return f not in ("", ".") and "env" not in f' '    return f != ""' 'kubectl get po x -o json | jq .' deploy-engineer
+mutant "pod: фильтр с env — проекция"      '    return f not in ("", ".") and "env" not in f' '    return f not in ("", ".")' "kubectl get po x -o json | jq '.spec.containers[].env'" deploy-engineer
+mutant "pod: -ojson слитно не разобран"     '        if a.startswith("-o") and len(a) > 2:' '        if False:' 'kubectl get pod/x -ojson' deploy-engineer
+mutant "pod: род с группой не узнан"       'p.split("/", 1)[0].split(".", 1)[0].lower()' 'p.split("/", 1)[0].lower()' 'kubectl get job.batch/x --output=yaml' deploy-engineer
+mutant "pod: значение -n — род"            '        if a in KUBE_VALUED:
+            i += 2' '        if a in KUBE_VALUED:
+            i += 1' 'kubectl get svc -n pod -o yaml' deploy-engineer
+mutant "pod: фильтр из файла — проекция"    '        if a in ("-f", "--from-file"):
+            return False' '        if a in ("-f", "--from-file"):
+            return True' 'kubectl get pod x -o json | jq -f filter.jq' deploy-engineer
 mutant "без agent_type — git-operator"  '    w = Walker(agent_type or None, cwd)' '    w = Walker(agent_type or OPERATOR, cwd)' 'gh api -X POST repos/x/y/issues/1/comments -f body=hi'
 CWD="$S/ws"
 mutant "ствол не судится"                '        trunk = trunk_clone(d)' '        trunk = None' 'git add -A && git commit -m x'

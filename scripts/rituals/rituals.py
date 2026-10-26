@@ -223,9 +223,20 @@ def sibling_repos(repo: str) -> list[str]:
 
 
 def need_repo(repo: str) -> str:
-    if not REPO_RE.match(repo or ""):
-        raise Unmet("репозиторий «%s» не в форме <владелец>/<имя>" % repo)
-    return repo
+    """`<владелец>/<имя>` как есть; голое `<имя>` (ws#1418, уроки 9b8c89a1 и диспетчера: «kaname» в
+    задании стоил попытки Job) — полное имя из ведомости стволов, если оно там ровно одно."""
+    if REPO_RE.match(repo or ""):
+        return repo
+    if re.fullmatch(r"[\w.-]+", repo or ""):
+        try:
+            rows = open(os.path.normpath(TRUNKS), encoding="utf-8").read().splitlines()
+        except OSError as e:
+            raise Unmet("репозиторий «%s» без владельца, а ведомость стволов %s не читается (%s)" % (repo, os.path.normpath(TRUNKS), e))
+        hits = sorted({r.split("\t", 1)[0].strip() for r in rows if r.strip() and not r.lstrip().startswith("#")
+                       and r.split("\t", 1)[0].strip().split("/")[-1].lower() == repo.lower()})
+        if len(hits) == 1 and REPO_RE.match(hits[0]):
+            return hits[0]
+    raise Unmet("репозиторий «%s» не в форме <владелец>/<имя> и не одно имя ведомости стволов %s" % (repo, os.path.normpath(TRUNKS)))
 
 
 # ── pr-body ─────────────────────────────────────────────────────────────────

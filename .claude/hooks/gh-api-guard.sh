@@ -8,7 +8,8 @@
 # (не git-operator; без --match-head-commit; --auto, --admin) получают отказ с
 # правильным чтением: merge-base — `gh api …/compare/<base>...<head>` (GET) или
 # `git merge-base`. Коммит не в ту копию — `git add|commit` после относительного
-# `cd`/`-C` либо в стволе основного клона — тоже отказ (ws#1237).
+# `cd`/`-C` либо в стволе основного клона — тоже отказ (ws#1237); снимок пода целиком
+# (`kubectl get pod -o json|yaml` без проекции jq/yq) — отказ: env несёт переменные CI (ws#1418).
 # Разбор — gh-api-guard/guard.py (лексер — no-wait-guard);
 # доказательство — gh-api-guard/prove.sh (его зовёт scripts/hook-proofs.sh).
 #

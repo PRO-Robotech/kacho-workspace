@@ -53,6 +53,13 @@ Bash был корнем воркспейса, и коммит лёг в main в
                     читается как факт (измерено: 40 знаков — 1 прогон, 12 знаков — 0, одна
                     ревизия). Значение из переменной (`$SHA`) не судится: текст его не знает.
 
+Четвёртый предмет — вывод, несущий значения переменных CI (ws#1418, уроки 5da59f1b и диспетчера
+2026-10-26: `kubectl get pod -o json` пода задачи раннера напечатал env с переменными CI):
+  pod-env-dump    — `kubectl get <род с шаблоном пода: pod, job, deploy, sts, ds, rs, cronjob>
+                    -o json|yaml` (любой агент), если следующее звено конвейера — не jq/yq с
+                    фильтром-проекцией (фильтр `.`, пустой, из файла `-f` или называющий env —
+                    не проекция). `-o jsonpath=…`, `custom-columns`, `name`, `wide` — пропуск.
+
 РАЗРЕШЕНО: `gh api <путь>` без тела и метода (GET), `gh api --method GET … -f q=…`
 (поля уходят строкой запроса), `gh api graphql -f query='query{…}'`, `compare`,
 `git merge-base`; у git-operator — изменяющие вызовы, кроме путей вливания;
@@ -75,7 +82,9 @@ https://api.github.com/…` и интерпретатор (`python3 -c …`); `g
 (другой класс: его держат хук отправки и защита ветки); коммит — иные записи истории
 (`merge`, `cherry-pick`, `am`, `revert`), `--git-dir`/`--work-tree`, каталог из
 `$(…)` и из переменной без присваивания в строке; `cd` внутри подоболочки `( … )`
-считается действующим и после неё.
+считается действующим и после неё; снимок пода — `kubectl describe pod` (env в тексте),
+`-o jsonpath='{.spec}'` (проекция целиком), потребитель-группа
+(`… | { jq …; }`).
 """
 
 import importlib.util
@@ -111,7 +120,21 @@ CLASS_TEXT = {
     "commit-unanchored": "git add/commit после относительного cd или -C",
     "commit-trunk": "git add/commit в стволе основного клона",
     "run-list-short-sha": "gh run list --commit с неполной sha",
+    "pod-env-dump": "kubectl get рода с шаблоном пода -o json|yaml без проекции",
 }
+# Роды, чей вывод несёт env контейнеров (pod и шаблон пода); значения флагов kubectl.
+POD_KINDS = {"po", "pod", "pods", "job", "jobs", "deploy", "deployment", "deployments", "sts",
+             "statefulset", "statefulsets", "ds", "daemonset", "daemonsets", "rs", "replicaset",
+             "replicasets", "cj", "cronjob", "cronjobs"}
+KUBE_VALUED = {"-n", "--namespace", "--context", "--kubeconfig", "--cluster", "--user", "-l",
+               "--selector", "--field-selector", "-c", "--container", "--sort-by", "--template",
+               "-s", "--server", "--token", "--as", "--as-group", "--request-timeout",
+               "--chunk-size", "-L", "--label-columns"}
+DUMP = {"json", "yaml"}
+PROJECTORS = {"jq", "gojq", "yq"}
+# флаги jq/yq со значением: имя и число слов значения
+PROJ_VALUED = {"--arg": 2, "--argjson": 2, "--slurpfile": 2, "--rawfile": 2, "--indent": 1,
+               "-L": 1, "--from-file": 1, "-f": 1, "-I": 1, "-p": 1, "-o": 1}
 SHORT_SHA = re.compile(r"[0-9a-fA-F]{4,39}")
 TRUNKS = {"main", "master"}
 COMMIT_SUBS = {"add", "commit"}
@@ -233,6 +256,69 @@ def judge_run_list(args, shown):
                            % len(val.strip("'\"")))
         i += 1
     return None
+
+
+def projects(sink):
+    """Следующее звено конвейера — jq/yq с фильтром, который не печатает объект целиком и не
+    называет env: `.`, пустой фильтр, фильтр из файла (`-f`) — не проекция."""
+    if sink is None or sink.kind != "simple":
+        return False
+    argv, _, _ = nwg.head(hg.words(sink.text))
+    if not argv or os.path.basename(argv[0]) not in PROJECTORS:
+        return False
+    args, i, filt = argv[1:], 0, None
+    while i < len(args):
+        a = args[i]
+        if a in ("-f", "--from-file"):
+            return False
+        if a in PROJ_VALUED:
+            i += 1 + PROJ_VALUED[a]
+            continue
+        if a.startswith("-"):
+            i += 1
+            continue
+        if os.path.basename(argv[0]) == "yq" and filt is None and a in ("e", "eval", "ea", "eval-all"):
+            i += 1
+            continue
+        filt = a
+        break
+    f = (filt or "").strip()
+    return f not in ("", ".") and "env" not in f
+
+
+def judge_kubectl(args, shown, sink):
+    """`kubectl get <род с шаблоном пода> -o json|yaml` без проекции следующим звеном (ws#1418)."""
+    words, out, i = [], None, 0
+    while i < len(args):
+        a = args[i]
+        if a.startswith("--") and "=" in a:
+            name, val = a.split("=", 1)
+            if name == "--output":
+                out = val
+            i += 1
+            continue
+        if a in ("-o", "--output"):
+            out = args[i + 1] if i + 1 < len(args) else ""
+            i += 2
+            continue
+        if a.startswith("-o") and len(a) > 2:
+            out = a[2:].lstrip("=")
+            i += 1
+            continue
+        if a in KUBE_VALUED:
+            i += 2
+            continue
+        if not a.startswith("-"):
+            words.append(a)
+        i += 1
+    if words[:1] != ["get"] or (out or "").lower() not in DUMP:
+        return None
+    kinds = {p.split("/", 1)[0].split(".", 1)[0].lower() for w in words[1:] for p in w.split(",")}
+    hit = sorted(kinds & POD_KINDS)
+    if not hit or projects(sink):
+        return None
+    return Finding("pod-env-dump", shown, "-o %s у %s печатает env контейнеров — значения переменных CI"
+                   % (out.lower(), ",".join(hit)))
 
 
 def judge_pr_merge(args, agent, shown):
@@ -390,16 +476,18 @@ class Walker:
                     self.text(hbody)
                     break
 
-    def node(self, n):
+    def node(self, n, sink=None):
         for s in n.substs:
             self.text(s)
         if n.kind == "group":
-            for k in n.kids:
-                self.node(k)
+            # звено конвейера знает своего потребителя: `a | b` — b.feed is a (ws#1418)
+            for i, k in enumerate(n.kids):
+                nxt = n.kids[i + 1] if i + 1 < len(n.kids) and n.kids[i + 1].feed is k else None
+                self.node(k, nxt)
             return
-        self.simple(n.text)
+        self.simple(n.text, sink)
 
-    def simple(self, seg):
+    def simple(self, seg, sink=None):
         ws = hg.words(seg)
         if self.assign(ws):
             return
@@ -424,7 +512,12 @@ class Walker:
                 self.found.append(f)
             return
         if base == "timeout":  # head вернул timeout ≥ 600 вместе с командой
-            self.simple(" ".join(nwg.shlex.quote(w) for w in argv[2:]))
+            self.simple(" ".join(nwg.shlex.quote(w) for w in argv[2:]), sink)
+            return
+        if base == "kubectl":
+            f = judge_kubectl(args, seg.strip(), sink)
+            if f:
+                self.found.append(f)
             return
         if base in nwg.SHELLS:
             cmd, _, _, _ = hg.shell_args(args)
@@ -439,7 +532,7 @@ class Walker:
             if rest[:1] in (["-c"], ["--command"]) and len(rest) > 1:
                 self.text(rest[1])
             elif rest:
-                self.simple(" ".join(nwg.shlex.quote(x) for x in rest))
+                self.simple(" ".join(nwg.shlex.quote(x) for x in rest), sink)
             return
         if base != "gh":
             return
@@ -489,6 +582,16 @@ def deny(found):
             "  почему: %s" % f.why,
             "Полная sha: `git rev-parse <ревизия>` либо `gh pr view <N> --json headRefOid -q .headRefOid`;",
             "`scripts/ci-read.sh` печатает её сам. Пустой ответ при короткой sha — не «прогонов нет».",
+        ]) + "\n")
+        sys.exit(2)
+    if f.cls == "pod-env-dump":
+        sys.stderr.write("\n".join([
+            "GH-API-GUARD: отказ — снимок пода целиком несёт значения переменных CI в env (ws#1418).",
+            "  форма: %s — %s" % (CLASS_TEXT[f.cls], hg.clip(f.text, 200)),
+            "  почему: %s" % f.why,
+            "Снимай только нужные поля: `-o jsonpath='{.spec.securityContext}'` либо",
+            "`-o json | jq '{sc: .spec.securityContext, node: .spec.nodeName, sel: .spec.nodeSelector}'`",
+            "(`.items[] | …` для списка). Фильтр `.` и фильтр с env — не проекция.",
         ]) + "\n")
         sys.exit(2)
     lines = [

@@ -113,6 +113,10 @@
 #   M73 dod_proof.jq: привязка — по началу sha ГОЛОВЫ, а не диапазона     → check-05
 #   близнец T2: привязка записана иначе (срез вместо startswith) — check-05 и check-01 зелены
 #
+# ws#1418: голое имя репозитория — полное из ведомости стволов, если оно там одно.
+#   M74 need_repo: голое имя снова отказ                               → check-01
+#   близнец T4: сверка регистра записана casefold — check-01 зелен
+#
 # Хранилище для check-04 берётся из HEAD настоящего воркспейса (`RITUALS_WS`):
 # копия несёт только код ритуалов и их общие зависимости.
 # Коды: 0 — все доказательства прошли; 1 — хоть одно нет; 2 — копию не завести.
@@ -431,6 +435,12 @@ inject "M72 pr-body: флаг привязки не читается" check-05-d
 inject "M73 dod_proof.jq: привязка по голове" check-05-dod-judges-agree.py \
     'def dod_proof_bound($range): . as $rev | any($range[]; startswith($rev));' \
     'def dod_proof_bound($range): . as $rev | ($range | last // "") | startswith($rev);' ../lib/dod_proof.jq
+inject "M74 need_repo: голое имя снова отказ (ws#1418)" check-01-pr-body.py \
+    '        if len(hits) == 1 and REPO_RE.match(hits[0]):' \
+    '        if False:'
+twin "T4 need_repo: сверка имени без учёта регистра записана casefold (ws#1418)" check-01-pr-body.py \
+    'r.split("\t", 1)[0].strip().split("/")[-1].lower() == repo.lower()' \
+    'r.split("\t", 1)[0].strip().split("/")[-1].casefold() == repo.casefold()'
 for c in check-05-dod-judges-agree.py check-01-pr-body.py; do
     twin "T2 dod_proof.jq: привязка срезом ($c)" "$c" \
         'any($range[]; startswith($rev))' 'any($range[]; .[0:($rev | length)] == $rev)' ../lib/dod_proof.jq

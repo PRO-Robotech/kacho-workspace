@@ -119,7 +119,9 @@
 #   кода; метрики — последним шагом на любом исходе; каскад щадит держателя ведомости.
 #   перепись гейтов (ws#1071): один шаг до старта демона вливания, все шесть гейтов,
 #   ничего не чинит, итог несёт таблицу; текстовый шаг без «### ВОЗВРАТ» — один повтор
-#   дочитыванием, снова без — полоса стоит, фраза ожидания в задания не уходит.
+#   дочитыванием, снова без — полоса стоит, фраза ожидания в задания не уходит;
+#   статус ПОСЛЕДНЕГО блока не «готово» (ws#1418) — стоп со статусом в stage, следующий
+#   шаг не зван; процитированное выше «готово» не пропускает; близнец «готово · …» — идёт.
 #   уроки ws#1078: диапазон коммитов рецензента волны исполняется на настоящем репозитории
 #   (с коммитом — 0, пустой — 2); стволы — по каждому из kacho, kaname, corelib; задание
 #   файлом — во всех шагах с заданием; итог режется и внутри массивов.
@@ -953,6 +955,16 @@ console.log('== перепись гейтов посадки разом; отв�
   ok(q.res.ok === true && by(q.calls, c => c.label.startsWith('census:')) === 2 && idx(q.calls, 'census:M:reread') < idx(q.calls, 'impl:M'), 'перепись поверхности — ВОЗВРАТ после дочитывания: полоса идёт, исполнитель после него', JSON.stringify(q.res).slice(0, 200))
   q = await run({ args: { ...args, lanes: laneM }, plan: [P('r2.json')] })
   ok(q.res.ok === true && !q.calls.some(c => c.label.endsWith(':reread')), 'близнец: ответы с ВОЗВРАТ — повторов дочитывания нет', JSON.stringify(q.calls.map(c => c.label)).slice(0, 200))
+  // ws#1418 (уроки 564da7e6, e052d6e8, c947fbd3): следующий шаг — только при «статус: готово» ПОСЛЕДНЕГО блока.
+  const BLK = 'перекатка вернула блокер\n### ВОЗВРАТ\n- статус: блокер\n- вердикт: —'
+  q = await run({ args: { ...args, lanes: laneM }, plan: [P('r2.json')], 'text:sim': [BLK] })
+  const stB = ((q.res.lanes || {}).M || (q.res.remainder || []).find(x => x.key === 'M') || {}).stage || q.res.stage || ''
+  ok(q.res.ok === false && /статус «блокер», не «готово» — следующий шаг не зван/.test(JSON.stringify(q.res)) && by(q.calls, c => c.label.startsWith('impl:')) === 0 && !q.calls.some(c => c.label.endsWith(':reread')), 'шаг со статусом «блокер» — стоп с ним в stage: исполнитель не зван, дочитывания нет', stB + ' ' + JSON.stringify(q.res).slice(0, 200))
+  const QUOTED = 'цитата прошлого шага:\n### ВОЗВРАТ\n- статус: готово\nмой итог:\n### ВОЗВРАТ\n- статус: вопрос-владельцу'
+  q = await run({ args: { ...args, lanes: laneM }, plan: [P('r2.json')], 'text:acc': [QUOTED] })
+  ok(q.res.ok === false && /статус «вопрос-владельцу»/.test(JSON.stringify(q.res)) && by(q.calls, c => c.label.startsWith('impl:')) === 0, 'статус — из ПОСЛЕДНЕГО блока: процитированное «готово» выше не пропускает', JSON.stringify(q.res).slice(0, 200))
+  q = await run({ args: { ...args, lanes: laneM }, plan: [P('r2.json')], 'text:census': ['итог\n### ВОЗВРАТ\n- статус: готово · перепись в отчёте'] })
+  ok(q.res.ok === true && by(q.calls, c => c.label.startsWith('impl:')) >= 1, 'близнец: «статус: готово · пояснение» — полоса идёт', JSON.stringify(q.res).slice(0, 200))
 }
 
 console.log('== уроки посадки 2026-10-14 (ws#1078): кэш дочитывания, итог без простыней, задание файлом, коммиты у рецензента, стволы продуктов')
@@ -1521,8 +1533,12 @@ mutant "перепись гейтов без branch-audit (ws#1071)" ", 'branch-
 mutant "перепись гейтов чинит по одному (ws#1071)" "прогони КАЖДЫЙ гейт по разу, ничего не чини" "прогони первый красный гейт и почини его"
 mutant "таблица гейтов не в итоге посадки (ws#1071)" "const gatesOf = () => ({ gates:" "const gatesOf = () => ({ gatesX:"
 mutant "ответ без ВОЗВРАТ принят (ws#1071)" "const hasRet = t => typeof t === 'string' && t.includes(RET_MARK)" "const hasRet = t => typeof t === 'string'"
-mutant "без ВОЗВРАТ — повтора дочитыванием нет (ws#1071)" "  return hasRet(b) ? b : null" "  return a"
-mutant "не-выполнилось подставлено дальше (ws#1071)" "    if (!s1) return noRet(out, l, 'client-sim')" "    if (false) return noRet(out, l, 'client-sim')"
+mutant "без ВОЗВРАТ — повтора дочитыванием нет (ws#1071)" "  if (!hasRet(a)) a = await agent(prompt + " "  if (false) a = await agent(prompt + "
+mutant "не-выполнилось подставлено дальше (ws#1071)" "    if (!s1) return noRet(out, l, 'client-sim', 'sim:' + l.key)" "    if (false) return noRet(out, l, 'client-sim', 'sim:' + l.key)"
+mutant "статус ВОЗВРАТ не судится — шаг после блокера (ws#1418)" "  if (retStatus(a) === 'готово') return a" "  return a"
+mutant "статус — из первого блока, а не последнего (ws#1418)" "t.slice(t.lastIndexOf(RET_MARK)).match(" "t.match("
+mutant "стоп без статуса в stage (ws#1418)" "(notReady[label] ? 'статус «' + notReady[label]" "(false ? 'статус «' + notReady[label]"
+twin "статус: класс разделителей иным порядком (ws#1418)" "статус:\\s*([^\\s|·,;]+)/m" "статус:\\s*([^|·,;\\s]+)/m"
 twin "дочитывание: формулировка (ws#1071)" "дочитай .rc и журнал своего прогона и верни" "дочитай .rc и журнал своего прогона, затем верни"
 twin "схождение: формулировка запрета правки (ws#1063)" "Ничего не правь. Запись — ' + R + '/trial-convergence.md" "Ничего не правь в дереве. Запись — ' + R + '/trial-convergence.md"
 mutant "строка head не порождается (ws#1191)" "const headLines = (l, ds, stack) => (ds && ds.length ?" "const headLines = (l, ds, stack) => (false ?"

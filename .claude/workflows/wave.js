@@ -217,13 +217,20 @@ const hasRet = t => typeof t === 'string' && t.includes(RET_MARK)
 // Кэш возобновления (ws#1078, L4): шаг без ВОЗВРАТ, взятый из кэша, — снова null; args.rerun
 // входит в текст дочитывания, и возобновление с новым rerun исполняет его вживую, а не из кэша.
 const REREAD = 'Прошлый ответ без блока «### ВОЗВРАТ» — это «не-выполнилось». Не жди: дочитай .rc и журнал своего прогона и верни блок ВОЗВРАТ с фактом. Попытка ' + (A.rerun || 0) + '.'
+// Следующий шаг цепочки — только при «- статус: готово» блока ВОЗВРАТ (ws#1418, уроки 564da7e6,
+// e052d6e8, c947fbd3: повтор и прогон ушли следом за шагом, вернувшим блокер): иной статус —
+// стоп с ним в stage, следующий не зовётся. Статус — первое слово поля ПОСЛЕДНЕГО блока.
+const retStatus = t => { const m = t.slice(t.lastIndexOf(RET_MARK)).match(/^\s*-\s*статус:\s*([^\s|·,;]+)/m); return m ? m[1] : '' }
+const notReady = {}
 const textStep = async (prompt, opts) => {
-  const a = await agent(prompt, opts)
-  if (hasRet(a)) return a
-  const b = await agent(prompt + '\n\n' + REREAD, { ...opts, label: opts.label + ':reread' })
-  return hasRet(b) ? b : null
+  let a = await agent(prompt, opts)
+  if (!hasRet(a)) a = await agent(prompt + '\n\n' + REREAD, { ...opts, label: opts.label + ':reread' })
+  if (!hasRet(a)) return null
+  if (retStatus(a) === 'готово') return a
+  notReady[opts.label] = retStatus(a) || 'поля «статус» нет'
+  return null
 }
-const noRet = (out, l, step) => ({ ...out, stage: step + ': ответ без «### ВОЗВРАТ» и после дочитывания — не-выполнилось', report: rep(l.key, step) })
+const noRet = (out, l, step, label) => ({ ...out, stage: step + ': ' + (notReady[label] ? 'статус «' + notReady[label] + '», не «готово» — следующий шаг не зван' : 'ответ без «### ВОЗВРАТ» и после дочитывания — не-выполнилось'), report: rep(l.key, step) })
 // Тело волны — внутри: итог любого исхода проходит через запись метрик (ниже).
 const res = await (async () => {
 // ── План ────────────────────────────────────────────────────────────────
@@ -390,18 +397,18 @@ const runLane = async (l, stack) => {
     let acc = null
     for (let r = 1; r <= 2; r++) {
       const a1 = await textStep(C + '\n\nПриёмка полосы ' + l.key + ' (смена публичного контракта либо миграция): ' + taskOf(l) + (acc ? '\nВозврат круга ' + (r - 1) + ': ' + rep(l.key, 'acceptance-review-' + (r - 1)) : '') + '. Отчёт — ' + rep(l.key, 'acceptance-' + r) + '.', { agentType: 'acceptance-author', label: 'acc:' + l.key + ':' + r, phase: 'Полосы' })
-      if (!a1) return noRet(out, l, 'acceptance-' + r)
+      if (!a1) return noRet(out, l, 'acceptance-' + r, 'acc:' + l.key + ':' + r)
       acc = await review('acceptance-reviewer', l, '', '', 'acceptance-review-' + r)
       if (acc && acc.verdict === 'accept') break
     }
     if (!acc || acc.verdict !== 'accept') return { ...out, stage: 'приёмка: 2 круга исчерпаны — спор решает диспетчер', report: rep(l.key, 'acceptance-review-2') }
     // Имитация клиента — по замыслу ДО кода, а не только перед MR эпика (ws#1053).
     const s1 = await textStep(C + '\n\nИмитация клиента ДО кода, полоса ' + l.key + ': по одобренной приёмке (' + R + '/' + l.key + '/acceptance-*.md) пройди сценарии клиента меняемого контракта; блокеры — пунктами условий к коду. Контракт не меняется — так и запиши. Запись — ' + rep(l.key, 'client-sim') + ' (её путь получит исполнитель). ' + due('review'), { agentType: 'client-simulator', label: 'sim:' + l.key, phase: 'Полосы' })
-    if (!s1) return noRet(out, l, 'client-sim')
+    if (!s1) return noRet(out, l, 'client-sim', 'sim:' + l.key)
   }
   if (has('surface-census')) {
     const c1 = await textStep(C + '\n\nПерепись поверхности ДО кода, полоса ' + l.key + ': ' + taskOf(l) + '. Слушатели, RPC, каталог прав, секреты, профили. Запись — ' + rep(l.key, 'surface-census') + ' (её путь получит исполнитель).', { agentType: 'security-auditor', label: 'census:' + l.key, phase: 'Полосы' })
-    if (!c1) return noRet(out, l, 'surface-census')
+    if (!c1) return noRet(out, l, 'surface-census', 'census:' + l.key)
   }
   const tdd = has('implementer-tdd')
   let impl = await implement(l, tdd, [has('surface-census') ? 'перепись поверхности — ' + rep(l.key, 'surface-census') : '', has('acceptance(<=2)') ? 'имитация клиента до кода — ' + rep(l.key, 'client-sim') : ''].filter(Boolean).join('; '), stack)
