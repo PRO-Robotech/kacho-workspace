@@ -479,7 +479,7 @@ ok(/открой ЧЕРНОВИКОМ \(`gh pr create --draft`\)/.test(prm(r.cal
 ok(/`RITUAL_REPO_DIR=\/ws\/tmp\/wave-9\/assemble bash \/ws\/scripts\/pr-body\.sh PRO-Robotech\/kacho-workspace origin\/main HEAD > \/ws\/tmp\/wave-9\/reports\/pr-body-1\.md`/.test(prm(r.calls, 'mech:assemble:1')) && /gh pr create --draft --body-file/.test(prm(r.calls, 'mech:assemble:1')) && /руками не пишется/.test(prm(r.calls, 'mech:assemble:1')), 'сборка: тело PR — только вывод pr-body.sh (ws#1146), руками не пишется', prm(r.calls, 'mech:assemble:1').slice(-600))
 const alS = prm(r.calls, 'mech:autoland')
 ok(/`RITUAL_REPO_DIR=\/ws\/tmp\/wave-9\/assemble bash \/ws\/scripts\/pr-body\.sh PRO-Robotech\/kacho-workspace origin\/main f{40} > \/ws\/tmp\/wave-9\/reports\/pr-body-land\.md && gh pr edit 7 -R PRO-Robotech\/kacho-workspace --body-file /.test(alS) && alS.indexOf('pr-body.sh') < alS.indexOf(' start --repo'), 'посадка: тело PR заново генератором до старта демона', alS.slice(-700))
-ok(/0\) Сперва состояние[^`]*`ls \/ws\/tmp\/autoland\/PRO-Robotech__kacho-workspace__7__f{12}\.state`[^.]*шаги 1–2 НЕ выполнять, code 3/.test(alS) && alS.indexOf('0) Сперва состояние') < alS.indexOf('pr-body.sh') && /timeout 600000/.test(alS) && /timeout 600000/.test(prm(r.calls, 'mech:assemble:1')), 'посадка: состояние демона читается ДО тела PR и старта (урок 09c2da35), pr-body — с timeout 600000 (ws#1413)', alS.slice(0, 600))
+ok(/0\) Сперва состояние[^`]*`bash \/ws\/scripts\/autoland\/autoland\.sh status \/ws\/tmp\/autoland\/PRO-Robotech__kacho-workspace__7__f{12}\.state` — код 3 \(демон жив и ведёт PR\) либо 0 \(влит\): шаги 1–2 НЕ выполнять, code 3[^;]*; иной код \(файла нет, демон мёртв\) — шаги 1–2 выполнить/.test(alS) && !/`ls [^`]*\.state`/.test(alS) && alS.indexOf('0) Сперва состояние') < alS.indexOf('pr-body.sh') && /timeout 600000/.test(alS) && /timeout 600000/.test(prm(r.calls, 'mech:assemble:1')), 'посадка: состояние демона читается ДО тела PR и старта (урок 09c2da35), pr-body — с timeout 600000 (ws#1413)', alS.slice(0, 600))
 ok(by(r.calls, c => c.label.startsWith('mech:err:')) === 0, 'ожидание CI ошибкой не записано')
 r = await run({ args, plan: [P('r0.json')], 'impl:A': [{ status: 'already-done', head: H('A', 9) }] })
 ok(r.res.ok === true, '«уже сделано» исполнителя — полоса идёт дальше')
@@ -1040,6 +1040,9 @@ console.log('== предусловия раздачи — до исполнит�
   q = await run({ args: { ...args, lanes: [{ ...lanes2[0], repo: 'PRO-Robotech/vault-operator' }, { ...lanes2[1], repo: 'registry-operator' }] }, plan: [P('r0.json')] })
   const po = prm(q.calls, 'mech:dispatch-premise')
   ok(po !== '' && !/branchname/.test(po) && po.includes("'branch PRO-Robotech/vault-operator main'"), 'близнец: клон оператора вне project/ и без правила имени — строки branchname нет, строка базы есть (ws#1413, ⛔ приёмки ws#1409)', po.slice(-400))
+  q = await run({ args: { ...args, lanes: [{ ...lanes2[0], repo: 'kaname', branch: '986' }, { ...lanes2[1], repo: 'PRO-Robotech/corelib', branch: '9-c' }] }, plan: [P('r0.json')] })
+  const pk = prm(q.calls, 'mech:dispatch-premise')
+  ok(pk.includes("'branchname /ws/project/kaname 986'") && pk.includes("'branchname /ws/project/corelib 9-c'"), 'полосы kaname и corelib — строка branchname клона /ws/project/<имя>: имя судит правило клона (ws#1409; ⛔ check-verifier ws#1413, CV-W1, CV-W2)', pk.slice(-400))
   ok(!/--task-text/.test(pd), 'близнец: полоса без приёмки — текст задания автору приёмки не судится')
   const lA = { ...lanes2[0], issues: ['PRO-Robotech/kacho-workspace#5', 'kacho#7', '#9'], premise: ["alive /ws main 'quoted' фраза"] }
   q = await run({ args: { ...args, lanes: [lA, lanes2[1]] }, plan: [P('r0.json')] })
@@ -1532,7 +1535,12 @@ mutant "строка базы не порождается (ws#1272)" "const prem
 mutant "задачи полосы не в предусловии (ws#1272)" ".concat((l.issues || []).map(i => issueLine(l, i)), l.premise || [])" ".concat(l.premise || [])"
 mutant "имя ветки полосы не судится правилом репозитория (ws#1409)" ".concat(l.branch && cloneOf(l.repo) ? ['branchname ' + cloneOf(l.repo) + ' ' + l.branch] : [])" ""
 mutant "клон оператора назван под project/ (ws#1413)" "['kacho', 'kaname', 'corelib'].includes(n) ? ROOT + '/project/' + n : ''" "ROOT + '/project/' + n"
-mutant "состояние демона не читается до старта (ws#1413)" "0) Сперва состояние (ws#1413, урок 09c2da35): \`ls " "0) (ws#1413, урок 09c2da35): \`ls "
+mutant "состояние демона не читается до старта (ws#1413)" "0) Сперва состояние (ws#1413, урок 09c2da35): \`bash " "0) (ws#1413, урок 09c2da35): \`bash "
+mutant "CV-ls: state судится наличием файла, мёртвый демон не перезапускается (ws#1413)" "\`bash ' + AUTOLAND + ' status ' + AL_STATE + '\` — код 3" "\`ls ' + AL_STATE + '\` — код 3"
+mutant "CV-dead: мёртвый демон — шаги 1–2 не выполняются (ws#1413)" "иной код (файла нет, демон мёртв) — шаги 1–2 выполнить" "иной код — шаги 1–2 не выполнять"
+twin "CV-twin: иной порядок слов условия перезапуска (ws#1413)" "иной код (файла нет, демон мёртв) — шаги 1–2 выполнить. " "иной код (файла нет, демон мёртв) — шаги 1–2 выполнить; так и запиши. "
+mutant "CV-W1: строка branchname всегда пуста (ws#1413)" "['kacho', 'kaname', 'corelib'].includes(n) ? ROOT + '/project/' + n : ''" "''"
+mutant "CV-W2: kaname вне перечня клонов (ws#1413)" "['kacho', 'kaname', 'corelib'].includes(n)" "['kacho', 'corelib'].includes(n)"
 mutant "кавычки строки не экранированы (ws#1272)" "const shq = s => \"'\" + String(s).replace(/'/g, \"'\\\\''\") + \"'\"" "const shq = s => \"'\" + String(s) + \"'\""
 mutant "зависимая от нераздаваемой в предполёте (ws#1272)" "{ held.add(l.key); more = true }" "{ }"
 mutant "текст автору приёмки не судится (ws#1271)" "  if (tierOf[l.key].steps.includes('acceptance(<=2)')) gateItems.push(" "  if (false) gateItems.push("

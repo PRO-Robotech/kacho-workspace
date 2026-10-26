@@ -963,6 +963,27 @@ s_ff_slot() {  # ws#1413, урок 95d8f055: обёртка слота из ос
     ok ff-slot "merged, код 0; исход называет отложенный ff и pid слота" eval '[ "$RC" -eq 0 ] && st_is merged && st_has "основной клон: ff отложен — слот из основного клона идёт (pid $hp)"'
     ok ff-slot "голова основного клона не сдвинута" eval '[ "$(head_of "$G/ws")" = "$OLD_MAIN" ]'
 }
+# ⛔ check-verifier ws#1413 (CV-A1…A3): ветка remote-heavy несущая — heavy-slot.sh делает exec
+# маршрута, и дальше держится лишь remote-heavy/run.sh; слот другого клона и иной файл scripts/ — не слот.
+ff_hold() {  # <сцена> <держимый файл> — сцена с процессом, держащим файл; HP — его pid
+    new_fx "$1"; mk_ws_main; mkdir -p "$G/ws/scripts/remote-heavy" "$G/other/scripts"
+    mkdir -p "$(dirname "$2")"; echo '# держимый' > "$2"
+    ( exec 9< "$2"; exec sleep 120 ) & HP=$!
+    WS0="$G/ws" run_al; unset WS0
+    kill "$HP" 2> /dev/null; wait "$HP" 2> /dev/null
+}
+s_ff_slot_rh() {
+    ff_hold ff-slot-rh "$G/ws/scripts/remote-heavy/run.sh"
+    ok ff-slot-rh "держится лишь remote-heavy/run.sh основного клона — ff отложен, pid назван" eval '[ "$RC" -eq 0 ] && st_is merged && st_has "основной клон: ff отложен — слот из основного клона идёт (pid $HP)" && [ "$(head_of "$G/ws")" = "$OLD_MAIN" ]'
+}
+s_ff_slot_other() {
+    ff_hold ff-slot-other "$G/other/scripts/heavy-slot.sh"
+    ok ff-slot-other "близнец: слот другого клона — ff идёт" eval '[ "$RC" -eq 0 ] && st_is merged && ! st_has "ff отложен" && [ "$(head_of "$G/ws")" = "$(origin_main)" ]'
+}
+s_ff_slot_file() {
+    ff_hold ff-slot-file "$G/ws/scripts/other.sh"
+    ok ff-slot-file "близнец: иной файл scripts/ основного клона — ff идёт" eval '[ "$RC" -eq 0 ] && st_is merged && ! st_has "ff отложен" && [ "$(head_of "$G/ws")" = "$(origin_main)" ]'
+}
 hook_copy() {  # копия хука SessionStart рядом с ТЕКУЩЕЙ (возможно мутантом) main-clone-lag.sh → путь session-memcap.sh
     local d="$FX/hook/scripts"; mkdir -p "$d"
     cp "$MEMCAP" "$d/session-memcap.sh"; cp "$HERE/../heavy-slot.sh" "$d/heavy-slot.sh"; cp "$LAG" "$d/main-clone-lag.sh"
@@ -1657,7 +1678,7 @@ ALL=(s_green s_red s_moved_start s_moved_gates s_moved_merge s_allow_ok s_allow_
      s_void s_void_twin s_ratelimit s_pr_unread s_draft s_closed s_already s_fifo s_fifo_nowriter s_args s_detach s_recipe
      s_prune s_prune_dirty s_prune_ahead s_prune_remote s_prune_origin_ahead s_prune_not_in_base s_prune_busy s_prune_busy_glob
      s_prune_no_clone s_prune_readonly s_prune_other s_prune_unmerged s_state_gate s_gates_form s_gates_inrepo s_gates_start s_gates_gone s_labels s_labels_late s_labels_space s_labels_fail
-     s_ff s_ff_overlap s_ff_worktree s_ff_foreign s_ff_hang s_ff_epic s_ff_slot s_lag s_lag_own s_lag_nofetch s_lag_hang
+     s_ff s_ff_overlap s_ff_worktree s_ff_foreign s_ff_hang s_ff_epic s_ff_slot s_ff_slot_rh s_ff_slot_other s_ff_slot_file s_lag s_lag_own s_lag_nofetch s_lag_hang
      s_start_stale s_head_sync
      s_status s_empty_code s_lp_head s_census s_guard s_static s_py_guard s_py_guard_bypass s_py_guard_sh s_py_guard_prune
      s_q3 s_q_spelling s_q_diff_base s_q_dead s_q_live s_q_queued s_q_stale_ext s_q_body_fail s_q_body_empty s_q_body_hang s_q_body_red s_q_conflict s_q_push s_q_task s_q_subject s_q_limit s_q_stale_lag s_q_fetch s_q_lock
@@ -1712,6 +1733,9 @@ mutant empty-code-allowed s_empty_code '$2 == "" || index(allow' 'index(allow'
 mutant lp-head-unchecked s_lp_head 'elif [ "$lph" != "${HEAD:0:12}" ]; then' 'elif false; then'
 mutant lp-nohead-ignored s_lp_head 'if [ -z "$lph" ]; then' 'if false; then'
 mutant ff-under-slot s_ff_slot 'if [ -n "$slotpids" ]; then' 'if false; then'
+mutant cv-a1-no-remote-heavy s_ff_slot_rh ' -o -lname "$top/scripts/remote-heavy/*" \)' ' \)'
+mutant cv-a2-any-clone-slot s_ff_slot_other '-lname "$top/scripts/heavy-slot.sh"' '-lname "*/scripts/heavy-slot.sh"'
+mutant cv-a3-any-scripts-file s_ff_slot_file '-lname "$top/scripts/heavy-slot.sh"' '-lname "$top/scripts/*"'
 mutant prune-origin-ahead-dropped s_prune_origin_ahead 'if [ "$rh" = "$HEAD" ] || git -C "$c" merge-base --is-ancestor "$rh" "$HEAD" 2>/dev/null; then' 'if true; then'
 mutant prune-busy-unchecked s_prune_busy 'busy="$(wt_procs "$wt")"' 'busy=""'
 mutant prune-busy-fd-unchecked s_prune_busy 'find /proc/[0-9]*/fd -mindepth 1' 'false /proc/[0-9]*/fd -mindepth 1'

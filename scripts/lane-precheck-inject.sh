@@ -504,6 +504,7 @@ assert "1 да" "$(tt 'Каждый Bash ≤ 60 с.' 'Хук: вызов до 27
 assert "1 да" "$(tt 'Отправка полным хуком: heavy-slot.sh ci-local -- git push origin HEAD:refs/heads/1-x.') $(has 'TASK-RETURN строка 1')" "долгий шаг без возврата «идёт» → TASK-RETURN (урок 525a21f5)"
 assert "0 да" "$(tt 'Каждый Bash ≤ 60 с; Не жди.' 'Отправка полным хуком: heavy-slot.sh ci-local -- git push origin HEAD:refs/heads/1-x.' 'Долгое — scripts/detach.sh start <каталог> -- …; верни «идёт: pid, журнал, срок», исход — detach.sh status.') $(has 'строк 3; причин 0')" "близнец: один предел, «Не жди» как норма, возврат «идёт» назван → 0"
 assert "1 да" "$(tt 'Тело PR: RITUAL_REPO_DIR=. scripts/pr-body.sh o/r origin/main HEAD > b.md') $(has 'TASK-RETURN строка 1')" "pr-body.sh (Job-ом 3–8 мин) без возврата «идёт» → TASK-RETURN (уроки e73fdbaa, 09c2da35; ws#1413)"
+assert "0 да" "$(tt 'Тело PR вызовом Bash с timeout 600000: RITUAL_REPO_DIR=. scripts/pr-body.sh o/r origin/main HEAD > b.md') $(has 'причин 0')" "близнец: pr-body.sh с timeout 600000 — форма wave.js и git-operator → 0 (⛔ check-verifier ws#1413: формы сведены)"
 assert "1 да" "$(tt 'Отправь: scripts/detach.sh start d -- heavy-slot.sh ci-local -- git push origin HEAD:refs/heads/1-x; верни «идёт».') $(has 'REASON TASK-PUSH-DETACHED строка 1')" "отправка голым detach.sh → TASK-PUSH-DETACHED (уроки a4de34f3, 0177aaeb; ws#1413)"
 assert "0 да" "$(tt 'Отправь: scripts/push-then.sh start d . 1-x -- true (внутри detach.sh и git push); верни «идёт».') $(has 'причин 0')" "близнец: push-then.sh с detach.sh и git push в строке → 0"
 : > "$W/task.txt"
@@ -725,6 +726,8 @@ assert "1" "$(mut forecast 'w="${l//ожидаем/_}"' 'w="$l"' --task-text 'о
 assert "0" "$(mut branch-form '[ "$bw" != kaname ] || kbr+=' 'true || kbr+=' --task-text 'Клон project/kaname; ветка 986-acceptance от main.')" "мутант «ветка kaname не судится»: 986-acceptance проходит — проба выше его ловит"
 assert "0" "$(mut push-detached '[[ "${line,,}" =~ detach\.sh ]] && [[ "${line,,}" =~ git[[:space:]]+push ]]' 'false && [[ "${line,,}" =~ git[[:space:]]+push ]]' --task-text 'scripts/detach.sh start d -- heavy-slot.sh ci-local -- git push origin HEAD:refs/heads/1-x; «идёт».')" "мутант «голый detach отправки не судится»: проходит — проба выше его ловит (ws#1413)"
 assert "0" "$(mut branch-dash ':—–]*' ':]*' --task-text 'Клон project/kaname, ветка — 986-x.')" "мутант «тире не разделитель»: «ветка — 986-x» проходит — проба выше его ловит (ws#1413)"
+assert "1" "$(mut prbody-timeout '|| [ -n "$p6" ] ||' '||' --task-text 'Тело PR вызовом Bash с timeout 600000: scripts/pr-body.sh o/r origin/main HEAD > b.md')" "мутант «timeout 600000 не принимается»: форма wave.js краснеет — проба выше его ловит (ws#1413)"
+assert "0" "$(mut prbody-unjudged '[ -z "$prb" ] || [ -n "$ret" ]' 'true || [ -n "$ret" ]' --task-text 'Тело PR: scripts/pr-body.sh o/r origin/main HEAD > b.md')" "мутант «pr-body не судится»: голый вызов проходит — проба выше его ловит (ws#1413)"
 mut_a() {  # <имя> <было> <стало> <строки задания…> — код мутанта на задании автору приёмки
     local nm="$1" a="$2" b="$3"; shift 3
     mut "$nm" "$a" "$b" --task-text "$@" > /dev/null

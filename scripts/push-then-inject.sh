@@ -57,7 +57,19 @@ KBASE="$(sandbox_git -C "$K" rev-parse HEAD)"
 sandbox_git -C "$K" checkout -q -b 9; echo b >> "$K/README.md"; sandbox_git -C "$K" commit -qam other; K9="$(sandbox_git -C "$K" rev-parse HEAD)"
 sandbox_git -C "$K" checkout -q -b 8 "$KBASE"; mkdir -p "$K/docs/engineering/acceptance"; echo x > "$K/docs/engineering/acceptance/x.md"
 sandbox_git -C "$K" add . && sandbox_git -C "$K" commit -qm acc; K8="$(sandbox_git -C "$K" rev-parse HEAD)"
+sandbox_git -C "$K" checkout -q -b 8c; echo c >> "$K/README.md"; sandbox_git -C "$K" commit -qam on-acc; K8C="$(sandbox_git -C "$K" rev-parse HEAD)"   # приёмка ниже, на origin/8c
 PASS3='--- PASS: TestAcceptancePathCoordinateResolves (0.1s)\n--- PASS: TestAcceptanceEditedAfterItsVerdictSaysSo (0.1s)\n--- PASS: TestAcceptanceProbeCoordinateResolves (0.1s)\nok  x 0.3s\n'
+PASS2='--- PASS: TestAcceptancePathCoordinateResolves (0.1s)\n--- PASS: TestAcceptanceEditedAfterItsVerdictSaysSo (0.1s)\nok  x 0.2s\n'
+# Чужой репозиторий с тем же путём приёмки (⛔ check-verifier ws#1413, CV-repo-any): статика — лишь kaname.
+sandbox_git init -q --bare -b main "$W/gb/o/other.git"
+OT="$W/ot"
+sandbox_git init -q -b main "$OT"
+sandbox_git -C "$OT" remote add origin https://github.com/o/other.git
+sandbox_git -C "$OT" config url."$W/gb/".insteadOf https://github.com/
+echo a > "$OT/README.md"; sandbox_git -C "$OT" add . && sandbox_git -C "$OT" commit -qm base
+sandbox_git -C "$OT" push -q origin HEAD:refs/heads/main 2> /dev/null; sandbox_git -C "$OT" fetch -q origin
+sandbox_git -C "$OT" checkout -q -b 5; mkdir -p "$OT/docs/engineering/acceptance"; echo x > "$OT/docs/engineering/acceptance/x.md"
+sandbox_git -C "$OT" add . && sandbox_git -C "$OT" commit -qm acc; OT5="$(sandbox_git -C "$OT" rev-parse HEAD)"
 
 # Двойник scripts/: заглушка слота; прочее — ссылки на настоящее.
 mkscripts() {  # <каталог> <push-then.sh>
@@ -139,17 +151,26 @@ run_cases() {
     assert "0 выдан нет" "$(STUB_ARGV="$W/argv" bash "$PT" _run "$C" o/r 7-lane "$o7" -- "${step[@]}" > "$W/out" 2>&1; echo $?) $([ -s "$M" ] && echo выдан || echo нет) $(grep -q 'git push' "$W/argv" 2>/dev/null && echo отправлено || echo нет)" "голова на origin = копии — шаг выдан по факту, второй отправки нет (уроки 90ba32bc, 09c2da35)"
 
     echo "== статика приёмок kaname до полного хука (ws#1413)"
-    kn() {  # <ветка> <sha> — код _run, «выдан|нет», «go|-», «push|-»
-        sandbox_git -C "$K" checkout -q "$1"; rm -f "$M" "$W/argv"
-        sandbox_git -C "$W/gb/o/kaname.git" update-ref -d "refs/heads/$1" 2> /dev/null
-        sandbox_git -C "$K" update-ref -d "refs/remotes/origin/$1" 2> /dev/null
-        STUB_ARGV="$W/argv" bash "$PT" _run "$K" o/kaname "$1" "$2" -- "${step[@]}" > "$W/out" 2>&1; local rc=$?
+    kn() {  # <ветка> <sha> [<копия> <репо>] — код _run, «выдан|нет», «go|-», «push|-»
+        local cp="${3:-$K}" rp="${4:-o/kaname}"
+        sandbox_git -C "$cp" checkout -q "$1"; rm -f "$M" "$W/argv"
+        sandbox_git -C "$W/gb/$rp.git" update-ref -d "refs/heads/$1" 2> /dev/null
+        sandbox_git -C "$cp" update-ref -d "refs/remotes/origin/$1" 2> /dev/null
+        [ -z "${KN_ORIGIN_AT:-}" ] || { sandbox_git -C "$W/gb/$rp.git" update-ref "refs/heads/$1" "$KN_ORIGIN_AT"; sandbox_git -C "$cp" update-ref "refs/remotes/origin/$1" "$KN_ORIGIN_AT"; }
+        STUB_ARGV="$W/argv" bash "$PT" _run "$cp" "$rp" "$1" "$2" -- "${step[@]}" > "$W/out" 2>&1; local rc=$?
         echo "$rc $([ -s "$M" ] && echo выдан || echo нет) $(grep -q 'go test ./internal/check' "$W/argv" 2>/dev/null && echo go || echo -) $(grep -q 'git push' "$W/argv" 2>/dev/null && echo push || echo -)"
     }
     assert "15 нет go -" "$(STUB_GO_RC=1 STUB_GO_OUT='--- FAIL: TestAcceptancePathCoordinateResolves (0.1s)\nFAIL\n' kn 8 "$K8")" "правка приёмки, проба красная — 15: отправки нет, шаг НЕ выдан (уроки ea998b24, 67c9bf72)"
     assert "16 нет go -" "$(STUB_GO_OUT='ok  x 0.1s [no tests to run]\n' kn 8 "$K8")" "проб исполнено не три («no tests to run») — 16, не зелёное: отправки нет"
     assert "0 выдан go push" "$(STUB_GO_OUT="$PASS3" kn 8 "$K8")" "близнец: три пробы прошли — отправка и шаг"
     assert "0 выдан - push" "$(kn 9 "$K9")" "близнец: приёмка не тронута — статики нет, отправка и шаг"
+    # ⛔ check-verifier ws#1413: CV-np-any, CV-ob-mergebase-only, CV-ob-empty-open, CV-repo-any.
+    assert "16 нет go -" "$(STUB_GO_OUT="$PASS2" kn 8 "$K8")" "прошло 2 из 3 при коде 0 — 16, не зелёное: отправки нет"
+    assert "0 выдан - push" "$(KN_ORIGIN_AT="$K8" kn 8c "$K8C")" "близнец: приёмка уже на origin/8c, новая голова её не трогает — статики нет (база — origin/<ветка>, не merge-base)"
+    sandbox_git -C "$K" update-ref -d refs/remotes/origin/main
+    assert "0 выдан go push" "$(STUB_GO_OUT="$PASS3" kn 8 "$K8")" "базы нет (ни origin/<ветка>, ни merge-base) — статика гонится, а не пропускается"
+    sandbox_git -C "$K" update-ref refs/remotes/origin/main "$KBASE"
+    assert "0 выдан - push" "$(kn 5 "$OT5" "$OT" o/other)" "близнец: тот же путь приёмки не в kaname — статики нет"
 }
 
 run_cases
@@ -185,6 +206,10 @@ mutant acc-static-skipped 'if [ "${repo##*/}" = kaname ]; then' 'if false; then'
 mutant acc-diff-unchecked '[ -z "$ob" ] || [ -n "$(git diff --name-only "$ob" HEAD -- docs/engineering/acceptance/ 2>/dev/null)" ]' 'true'
 mutant acc-red-ignored '[ "$arc" = 0 ] || [ "$nf" = 0 ] || {' 'true || {'
 mutant acc-count-unchecked '[ "$arc" = 0 ] && [ "$np" = 3 ] ||' 'true ||'
+mutant cv-np-any '[ "$arc" = 0 ] && [ "$np" = 3 ] ||' '[ "$arc" = 0 ] && [ "$np" != 0 ] ||'
+mutant cv-ob-mergebase-only 'ob="$(git rev-parse -q --verify "refs/remotes/origin/$br" || git merge-base' 'ob="$(git merge-base'
+mutant cv-ob-empty-open '[ -z "$ob" ] || [ -n "$(git diff' '[ -n "$(git diff'
+mutant cv-repo-any 'if [ "${repo##*/}" = kaname ]; then' 'if true; then'
 
 reap_steps
 total=$((pass + fail))
