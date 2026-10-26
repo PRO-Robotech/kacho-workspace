@@ -254,18 +254,19 @@ cause_cases() {
 
 # stop_cases — остановка с уборкой (класс detach-stop-оставляет-ns): ловушка TERM команды
 # спит <с> и пишет метку уборки, затем exit 9. Шаг ждёт метку «up» в журнале до stop
-# (иначе TERM опередил бы ловушку). Работает и службой, и setsid-путём.
+# (иначе TERM опередил бы ловушку). Метка и срок — окружением (MK, SL): файл-довод, созданный
+# за прогон, сменил бы отпечаток доводов, и status ответил бы 5. Работает и службой, и setsid-путём.
 stop_cases() {
     local R="$W/run.$RANDOM" out rc; mkdir -p "$R"
     # shellcheck disable=SC2016  # тело скрипта шага
-    printf '%s\n' 'trap '\''sleep "$2"; echo cleaned > "$1"; exit 9'\'' TERM' 'echo up' 'sleep 30 & wait $!' > "$R/trap.sh"
+    printf '%s\n' 'trap '\''sleep "$SL"; echo cleaned > "$MK"; exit 9'\'' TERM' 'echo up' 'sleep 30 & wait $!' > "$R/trap.sh"
     up() { local _; for _ in $(seq 1 40); do grep -q '^up$' "${RCF%.rc}.log" 2>/dev/null && return 0; sleep 0.25; done; return 1; }
-    st "$R/t" bash "$R/trap.sh" "$R/m1" 2; up
+    st "$R/t" env MK="$R/m1" SL=2 bash "$R/trap.sh"; up
     out="$(bash "$D" stop "$RCF" --grace 20 2>&1)"; rc=$?
     assert "0 cleaned 9 да" "$rc $(cat "$R/m1" 2>/dev/null || echo нет) $(head -n 1 "$RCF" 2>/dev/null) $(grep -qF 'кодом 9' <<< "$out" && echo да || echo нет)" "stop: TERM команде — ловушка довела уборку (2 с), .rc 9 записан обёрткой, код 0"
     out="$(bash "$D" stop "$RCF" 2>&1)"; rc=$?
     assert "4 да" "$rc $(grep -qF 'уже вышел кодом 9' <<< "$out" && echo да || echo нет)" "stop вышедшего шага — 4, код назван, останавливать нечего"
-    st "$R/t" bash "$R/trap.sh" "$R/m2" 4; up
+    st "$R/t" env MK="$R/m2" SL=4 bash "$R/trap.sh"; up
     out="$(bash "$D" stop "$RCF" --grace 1 2>&1)"; rc=$?
     assert "3 нет" "$rc $([ -e "$R/m2" ] && echo да || echo нет)" "stop --grace 1 при уборке 4 с — 3 «идёт», KILL не послан, уборка не оборвана"
     settle "$RCF"
