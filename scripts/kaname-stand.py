@@ -34,6 +34,13 @@ CI_READ = frozenset((
     'e2e-newman.yml:changes', 'e2e-newman.yml:suite', 'e2e-newman.yml:edgeselftests',
     'e2e-newman.yml:trunkverdict', 'e2e-newman.yml:prverdict',
     'docker-build.yml:changes', 'docker-build.yml:trunkverdict', 'pr-rule.yml:pr-rule'))
+# Задания поставки по метке версии (ws#1404, kaname#964): `render` — полоса рендера чарта перед
+# публикацией, `publish` — публикация в OCI-реестр. На событии PR их нет ни в CI, ни на стенде,
+# поэтому в ожидаемое и в ci_read они не входят: вердикт запроса дают пробы `deploy/` в ci.yml.
+# Строка — поимённо; что задание и правда лишь по метке, судит `release_only_trigger` по `on:`
+# разобранного workflow. Строки — лишь при отслеживаемом workflow: головы линий без kaname#964
+# (942, 822 @2026-10-26) его не несут; снять условие, когда `chart.yml` есть в kaname main.
+RELEASE_ONLY = frozenset(('chart.yml:render', 'chart.yml:publish'))
 LEDGER = frozenset(EXTERNAL + HOSTED) | CI_READ
 # Юниты матрицей шардов (kaname#873, ws#1259): `unitshard` исполняет пробы долей плана,
 # `unit` — свод по описям шардов с разреженной копией `.github`. Строка ведомости — только
@@ -92,6 +99,30 @@ def expand(text, values):
     return out
 
 
+def release_only_trigger(doc):
+    """События `on:` workflow заданий RELEASE_ONLY, которые запускают их вне метки версии.
+
+    Закрытая форма: `on: {push: {tags: [образец, …]}}`. Иное событие, `push` строкой или
+    списком, фильтр ветки или пути рядом с `tags`, пустой `tags` — запуск вне метки.
+    """
+    trigger = doc.get('on')
+    if isinstance(trigger, str):
+        return [trigger]
+    if not isinstance(trigger, dict):
+        return sorted(map(str, trigger)) if isinstance(trigger, list) else ['on']
+    bad = sorted(str(event) for event in trigger if event != 'push')
+    push = trigger.get('push')
+    if 'push' in trigger:
+        if not isinstance(push, dict):
+            bad.append('push')
+        else:
+            bad += sorted('push.' + str(key) for key in push if key != 'tags')
+            tags = push.get('tags')
+            if not (isinstance(tags, list) and tags and all(isinstance(t, str) and t for t in tags)):
+                bad.append('push.tags')
+    return bad
+
+
 def ledger_census(co):
     """Обход ВСЕХ отслеживаемых workflow головы против закрытой ведомости, в обе стороны."""
     files = [p for p in common.git(co, 'ls-files', '--', '.github/workflows').splitlines()
@@ -108,14 +139,22 @@ def ledger_census(co):
         found |= {name + ':' + key for key in doc['jobs']}
     # Шарды юнитов — строка ведомости лишь в топологии «шарды + свод»; её форму судит unit_shards.
     # Свод шардов chart-own — лишь при оси `shard`; её форму судит chart_own_shards.
-    ledger = LEDGER | ({UNIT_SHARD, CHART_OWN_VERDICT} & found)
+    # Строки поставки — по отслеживаемому workflow; их запуск по метке судит release_only_trigger.
+    release = {row for row in RELEASE_ONLY if row.split(':', 1)[0] in workflows}
+    ledger = LEDGER | ({UNIT_SHARD, CHART_OWN_VERDICT} & found) | release
     outside = sorted(found - ledger)
     require(not outside, 'CI job outside the Kaname ledger: ' + ', '.join(outside))
     stale = sorted(ledger - found)
     require(not stale, 'Kaname ledger row without CI job: ' + ', '.join(stale))
+    for name in sorted({row.split(':', 1)[0] for row in release}):
+        events = release_only_trigger(workflows[name][0])
+        rows = sorted(row for row in release if row.startswith(name + ':'))
+        require(not events, 'release-only job runs outside a version tag: %s (on: %s)'
+                % (', '.join(rows), ', '.join(events)))
     return workflows, {'workflows': sorted(workflows), 'jobs': len(found),
                        'staged': len(EXTERNAL) + len(HOSTED) + (UNIT_SHARD in found),
-                       'ci_read': len(CI_READ) + (CHART_OWN_VERDICT in found)}
+                       'ci_read': len(CI_READ) + (CHART_OWN_VERDICT in found),
+                       'release_only': len(release)}
 
 
 def sparse_aggregate_checkout(options):
