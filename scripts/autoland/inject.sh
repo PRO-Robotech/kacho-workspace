@@ -965,23 +965,23 @@ s_ff_slot() {  # ws#1413, урок 95d8f055: обёртка слота из ос
 }
 # ⛔ check-verifier ws#1413 (CV-A1…A3): ветка remote-heavy несущая — heavy-slot.sh делает exec
 # маршрута, и дальше держится лишь remote-heavy/run.sh; слот другого клона и иной файл scripts/ — не слот.
-ff_hold() {  # <сцена> <держимый файл> — сцена с процессом, держащим файл; HP — его pid
+ff_hold() {  # <сцена> <держимый файл от $G> — сцена с процессом, держащим файл; HP — его pid ($G — после mk_ws_main)
     new_fx "$1"; mk_ws_main; mkdir -p "$G/ws/scripts/remote-heavy" "$G/other/scripts"
-    mkdir -p "$(dirname "$2")"; echo '# держимый' > "$2"
-    ( exec 9< "$2"; exec sleep 120 ) & HP=$!
+    local h="$G/$2"; mkdir -p "$(dirname "$h")"; echo "# держимый" > "$h"
+    ( exec 9< "$h"; exec sleep 120 ) & HP=$!
     WS0="$G/ws" run_al; unset WS0
     kill "$HP" 2> /dev/null; wait "$HP" 2> /dev/null
 }
 s_ff_slot_rh() {
-    ff_hold ff-slot-rh "$G/ws/scripts/remote-heavy/run.sh"
+    ff_hold ff-slot-rh ws/scripts/remote-heavy/run.sh
     ok ff-slot-rh "держится лишь remote-heavy/run.sh основного клона — ff отложен, pid назван" eval '[ "$RC" -eq 0 ] && st_is merged && st_has "основной клон: ff отложен — слот из основного клона идёт (pid $HP)" && [ "$(head_of "$G/ws")" = "$OLD_MAIN" ]'
 }
 s_ff_slot_other() {
-    ff_hold ff-slot-other "$G/other/scripts/heavy-slot.sh"
+    ff_hold ff-slot-other other/scripts/heavy-slot.sh
     ok ff-slot-other "близнец: слот другого клона — ff идёт" eval '[ "$RC" -eq 0 ] && st_is merged && ! st_has "ff отложен" && [ "$(head_of "$G/ws")" = "$(origin_main)" ]'
 }
 s_ff_slot_file() {
-    ff_hold ff-slot-file "$G/ws/scripts/other.sh"
+    ff_hold ff-slot-file ws/scripts/other.sh
     ok ff-slot-file "близнец: иной файл scripts/ основного клона — ff идёт" eval '[ "$RC" -eq 0 ] && st_is merged && ! st_has "ff отложен" && [ "$(head_of "$G/ws")" = "$(origin_main)" ]'
 }
 hook_copy() {  # копия хука SessionStart рядом с ТЕКУЩЕЙ (возможно мутантом) main-clone-lag.sh → путь session-memcap.sh
