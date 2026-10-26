@@ -50,6 +50,11 @@
 # доказательство на второй странице комментариев, закрытый дочерний не читается;
 # S — комментарии не прочитаны, код 2.
 #
+# РЕЖИМ ЗАДАЧ СБОРКИ (`--pr`, ws#1428): задачи — ссылки строк Closes/Refs тела PR, ревизия
+# доказательства привязана к диапазону. Проба T — две ссылки одной строкой, ревизия вне
+# диапазона, частичное; близнец U — страницы диапазона и комментариев, ревизия прежнего
+# коммита; V — задач ноль, W — диапазон неполон: оба код 2.
+#
 # КАЖДАЯ ПРОБА СВЕРЯЕТ КОД И ТЕКСТ: код 1 дают и расхождение, и закрытый
 # уровень с открытыми, и проба, читающая только код, зеленела бы на чужой
 # ветке.
@@ -241,6 +246,61 @@ mk_issue "$S" "$R" 1200 open "Волна."
 mk_sub "$S" "$R" 1200 1 "$R:1:open"
 mkdir -p "$S/repos/$R/issues/1"; : > "$S/repos/$R/issues/1/comments.unavailable"
 
+# ── Фикстуры режима --pr (урок диспетчера 2026-10-26, ws#1428) ───────────────
+# Диапазон PR — три коммита: два прежних и голова; доказательство на прежнем
+# коммите (до догона базы демоном) — в диапазоне и засчитывается.
+PB=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+PC1=1111111111111111111111111111111111111111
+PC2=2222222222222222222222222222222222222222
+PH=cccccccccccccccccccccccccccccccccccccccc
+# mk_pr <каталог> <номер> <тело>
+mk_pr() {
+    local d="$1/repos/$R/pulls"; mkdir -p "$d"
+    jq -n --argjson n "$2" --arg b "$3" --arg base "$PB" --arg head "$PH" \
+        '{number:$n, state:"open", title:"сборка", body:$b, base:{sha:$base}, head:{sha:$head}}' > "$d/$2.json"
+}
+# mk_range <каталог> <объявлено> <страница: 1|2…> <sha>...
+mk_range() {
+    local d="$1/repos/$R/compare" total="$2" page="$3" f; shift 3
+    mkdir -p "$d"
+    if [ "$page" = 1 ]; then f="$d/$PB...$PH.json"; else f="$d/$PB...$PH.p$page.json"; fi
+    printf '%s\n' "$@" | jq -R '{sha: .}' | jq -s --argjson t "$total" '{total_commits:$t, commits:.}' > "$f"
+}
+
+# T — тело сборки: «Refs #1, #2» (две ссылки строкой), Closes задачи другого
+# репозитория и закрытая задача. #1 доказана на прежнем коммите диапазона, у #2
+# ревизия вне диапазона, у kaname#3 доказательство частичное, #4 закрыта.
+T="$(mkcase T)"
+mk_pr "$T" 50 $'Сборка волны.\r\n\r\nRefs #1, #2\r\nCloses PRO-Robotech/kaname#3\r\nCloses #4\r\n'
+mk_range "$T" 3 1 "$PC1" "$PC2" "$PH"
+mk_issue "$T" "$R" 1 open "задача"; mk_issue "$T" "$R" 2 open "задача"
+mk_issue "$T" PRO-Robotech/kaname 3 open "задача"; mk_issue "$T" "$R" 4 closed "задача"
+mk_comments "$T" "$R" 1 1 "${PROOF_OK/@0123abcd/@1111111}"
+mk_comments "$T" "$R" 2 1 "${PROOF_OK/@0123abcd/@deadbeef0}"
+mk_comments "$T" PRO-Robotech/kaname 3 1 "${PROOF_OK/@0123abcd/@2222222 — частично: пункт 1}"
+
+# U — законный близнец T: диапазон на двух страницах, доказательство #2 на второй
+# странице комментариев на голове, закрытый #4 не читается комментариями.
+U="$(mkcase U)"
+mk_pr "$U" 51 $'Refs #1, #2\nCloses #4\n'
+mk_range "$U" 3 1 "$PC1" "$PC2"
+mk_range "$U" 3 2 "$PH"
+mk_issue "$U" "$R" 1 open "задача"; mk_issue "$U" "$R" 2 open "задача"; mk_issue "$U" "$R" 4 closed "задача"
+mk_comments "$U" "$R" 1 1 "${PROOF_OK/@0123abcd/@1111111}"
+mk_comments "$U" "$R" 2 1 "PR: https://example.invalid/pr/51"
+mk_comments "$U" "$R" 2 2 "${PROOF_OK/@0123abcd/@ccccccc}"
+
+# V — тело без строк закрытия: задач ноль — вердикта нет.
+V="$(mkcase V)"
+mk_pr "$V" 52 $'Сборка волны: см. #1 и #2.\n'
+
+# W — диапазон неполон: объявлено три коммита, отдано два.
+W="$(mkcase W)"
+mk_pr "$W" 53 $'Refs #1\n'
+mk_range "$W" 3 1 "$PC1" "$PH"
+mk_issue "$W" "$R" 1 open "задача"
+mk_comments "$W" "$R" 1 1 "${PROOF_OK/@0123abcd/@1111111}"
+
 # K — ответ о задаче не разбирается.
 K="$(mkcase K)"
 mkdir -p "$K/repos/$R/issues"
@@ -264,6 +324,7 @@ findings=0
 declare -A by_code=([0]=0 [1]=0 [2]=0)
 flagged=0
 proofed=0
+prmode=0
 # Ключи вызова инструмента для следующей пробы; пусто — вызов без ключа.
 FLAGS=()
 
@@ -275,6 +336,7 @@ probe() {
     by_code[$want]=$(( ${by_code[$want]:-0} + 1 ))
     [ "${FLAGS[*]:-}" = "--children-closed" ] && flagged=$((flagged + 1))
     [ "${FLAGS[*]:-}" = "--proof" ] && proofed=$((proofed + 1))
+    [ "${FLAGS[*]:-}" = "--pr" ] && prmode=$((prmode + 1))
     out="$(PATH="$STUB:$PATH" CC_FIXTURE="$dir" bash "$WS/$TOOL_REL" ${FLAGS[@]+"${FLAGS[@]}"} "$R" "$num" 2>&1)" && rc=0 || rc=$?
     if [ "$rc" -ne "$want" ]; then
         tooling_gate_fail "$NAME" "$title — ждали код $want, получили $rc"
@@ -349,6 +411,19 @@ probe "$Q" 1100 0 "--proof: доказательство на второй ст�
 probe "$S" 1200 2 "--proof: комментарии не прочитаны — вердикта нет, а не «доказано»" \
     "не прочитаны: $R#1" "вердикта НЕТ"
 
+FLAGS=(--pr)
+probe "$T" 50 1 "--pr: ссылки строки «Refs #1, #2», вне диапазона и частичное — находка, названы обе, прежний коммит засчитан" \
+    "режим:      --pr" "total 4 · открытых 3 · закрытых 1" "с доказательством 1 · без: $R#2 PRO-Robotech/kaname#3" "вне диапазона: $R#2" "частичное: PRO-Robotech/kaname#3"
+
+probe "$U" 51 0 "--pr: диапазон и комментарии на двух страницах — законный близнец молчит" \
+    "коммитов 3" "с доказательством 2 · без: —" "ИТОГ: задач 3, открытых 2"
+
+probe "$V" 52 2 "--pr: в теле задач ноль — вердикта нет, а не «доказано»" \
+    "задач ноль" "вердикта НЕТ"
+
+probe "$W" 53 2 "--pr: диапазон неполон — вердикта нет" \
+    "диапазон PR неполон" "вердикта НЕТ"
+
 FLAGS=()
 probe "$P" 1000 0 "без ключа: те же открытые задачи без доказательства законны — доказательство не спрашивается" \
     "ИТОГ: дочерних 3"
@@ -358,11 +433,11 @@ probe "$L" 900 2 "незнакомый ключ — отказ разбора в
     "usage:"
 FLAGS=()
 
-tooling_gate_census "$NAME: проб исполнено $probes над $TOOL_REL; исходов покрыто три (0 — ${by_code[0]} проб, 1 — ${by_code[1]} проб, 2 — ${by_code[2]} проб); с ключом --children-closed — $flagged, с ключом --proof — $proofed"
+tooling_gate_census "$NAME: проб исполнено $probes над $TOOL_REL; исходов покрыто три (0 — ${by_code[0]} проб, 1 — ${by_code[1]} проб, 2 — ${by_code[2]} проб); с ключом --children-closed — $flagged, с ключом --proof — $proofed, с ключом --pr — $prmode"
 
 if [ "$findings" -gt 0 ]; then
     tooling_gate_fail "$NAME" "проб с находкой: $findings из $probes"
     exit 1
 fi
 
-tooling_gate_pass "$NAME" "перепись каскада читает оба отношения, печатает total, расхождение — находка, пустой уровень — не зелёное, --children-closed краснеет на открытом дочернем открытого уровня, --proof краснеет на открытом дочернем без доказательства DoD в его собственном репозитории"
+tooling_gate_pass "$NAME" "перепись каскада читает оба отношения, печатает total, расхождение — находка, пустой уровень — не зелёное, --children-closed краснеет на открытом дочернем открытого уровня, --proof краснеет на открытом дочернем без доказательства DoD в его собственном репозитории, --pr краснеет на задаче тела PR без доказательства на коммите диапазона"

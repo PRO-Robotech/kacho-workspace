@@ -889,7 +889,10 @@ def main():
     args = parser.parse_args()
     if args.action == 'expect':
         if not args.ref and args.checkout:
-            args.ref = common.git(args.checkout, 'symbolic-ref', 'HEAD')
+            # Detached checkout: name the cause instead of 'producer command failed: git' (ws#1428).
+            sym = subprocess.run(['git', '-C', str(args.checkout), 'symbolic-ref', '-q', 'HEAD'], text=True, capture_output=True, timeout=120)
+            require(sym.returncode == 0, 'checkout without branch (HEAD detached): pass --ref refs/heads/<branch> or check out the branch')
+            args.ref = sym.stdout.strip()
         require(all((args.checkout, args.head, args.base, args.ref)), 'expect requires exact checkout/head/base/ref')
         result = expected(args.checkout, args.head, args.base, args.ref)
     else:
