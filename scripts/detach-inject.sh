@@ -252,6 +252,28 @@ cause_cases() {
     systemctl --user stop "$UNIT" 2>/dev/null
 }
 
+# stop_cases — остановка с уборкой (класс detach-stop-оставляет-ns): ловушка TERM команды
+# спит <с> и пишет метку уборки, затем exit 9. Шаг ждёт метку «up» в журнале до stop
+# (иначе TERM опередил бы ловушку). Работает и службой, и setsid-путём.
+stop_cases() {
+    local R="$W/run.$RANDOM" out rc; mkdir -p "$R"
+    # shellcheck disable=SC2016  # тело скрипта шага
+    printf '%s\n' 'trap '\''sleep "$2"; echo cleaned > "$1"; exit 9'\'' TERM' 'echo up' 'sleep 30 & wait $!' > "$R/trap.sh"
+    up() { local _; for _ in $(seq 1 40); do grep -q '^up$' "${RCF%.rc}.log" 2>/dev/null && return 0; sleep 0.25; done; return 1; }
+    st "$R/t" bash "$R/trap.sh" "$R/m1" 2; up
+    out="$(bash "$D" stop "$RCF" --grace 20 2>&1)"; rc=$?
+    assert "0 cleaned 9 да" "$rc $(cat "$R/m1" 2>/dev/null || echo нет) $(head -n 1 "$RCF" 2>/dev/null) $(grep -qF 'кодом 9' <<< "$out" && echo да || echo нет)" "stop: TERM команде — ловушка довела уборку (2 с), .rc 9 записан обёрткой, код 0"
+    out="$(bash "$D" stop "$RCF" 2>&1)"; rc=$?
+    assert "4 да" "$rc $(grep -qF 'уже вышел кодом 9' <<< "$out" && echo да || echo нет)" "stop вышедшего шага — 4, код назван, останавливать нечего"
+    st "$R/t" bash "$R/trap.sh" "$R/m2" 4; up
+    out="$(bash "$D" stop "$RCF" --grace 1 2>&1)"; rc=$?
+    assert "3 нет" "$rc $([ -e "$R/m2" ] && echo да || echo нет)" "stop --grace 1 при уборке 4 с — 3 «идёт», KILL не послан, уборка не оборвана"
+    settle "$RCF"
+    assert "1 cleaned" "$(status "$RCF") $(cat "$R/m2" 2>/dev/null || echo нет)" "  …уборка дошла после возврата stop: status 1 (код 9), метка есть"
+    assert "2" "$(bash "$D" stop "$R/t/none.rc" > /dev/null 2>&1; echo $?)" "stop без файлов шага — 2"
+    assert "64 64" "$(bash "$D" stop "$R/t/none.rc" --grace 600 > /dev/null 2>&1; echo $?) $(bash "$D" stop "$R/t/none.rc" --grace x > /dev/null 2>&1; echo $?)" "--grace больше 540 либо не число — 64 (вызов не дольше 10 мин)"
+}
+
 grc() {
     python3 -c 'import json,sys; print(json.dumps({"tool_name":"Bash","tool_input":{"command":sys.argv[1]},"agent_type":"go-implementer"}))' "$1" \
         | python3 "$GUARD" > "$W/g.out" 2>&1
@@ -264,7 +286,12 @@ echo "== перезапуск сессии: scope вызова снят"
 survive_cases
 echo "== причина обрыва службы"
 cause_cases
+echo "== остановка с уборкой (stop)"
+stop_cases
+echo "== остановка с уборкой (stop), путь setsid"
+KACHO_DETACH_NO_SYSTEMD=1 stop_cases
 echo "== страж no-wait-guard"
+assert "0" "$(grc "bash \$WS/scripts/detach.sh stop \$WS/tmp/1225/x.rc --grace 300")" "страж пропускает stop"
 assert "0" "$(grc "bash \$WS/scripts/detach.sh start \$WS/tmp/1225 -- bash \$WS/scripts/heavy-slot.sh ci-local -- env KACHO_TASK=1225 git push origin HEAD:refs/heads/1225-x")" "страж пропускает start"
 assert "0" "$(grc "bash \$WS/scripts/detach.sh status \$WS/tmp/1225/x.rc")" "страж пропускает status"
 assert "2" "$(grc "until bash \$WS/scripts/detach.sh status \$WS/tmp/1225/x.rc; do sleep 30; done")" "страж отказывает циклу дочитки агентом"
@@ -329,6 +356,10 @@ mutant fp-unjudged '[ -f "$base.fp" ] && [ -f "$base.fp-end" ] && ! cmp -s' 'fal
 mutant fp-end-at-status 'if [ -f "$base.fp" ] && [ -f "$base.fp-end" ]' 'if (cd "$(dirname "$base")/.." && detach_fp bash s.sh > "$base.fp-end" 2> /dev/null); [ -f "$base.fp" ] && [ -f "$base.fp-end" ]'
 mutant boot-unread '[ "$mt" -lt "$bt" ]; then' '[ "$mt" -lt 0 ]; then' detach-launch.sh boot_cases
 mutant hup-inherited 'env --default-signal=PIPE,HUP DETACH_TAG' 'env --default-signal=PIPE DETACH_TAG' detach.sh sig_cases
+mutant stop-term-wrapper '        kill -TERM $kids 2>/dev/null' '        kill -TERM "$pid" 2>/dev/null' detach.sh stop_cases
+mutant stop-kill-not-term '        kill -TERM $kids 2>/dev/null' '        kill -KILL $kids 2>/dev/null' detach.sh stop_cases
+mutant stop-no-wait 'while [ ! -f "$base.rc" ] && [ "$(date +%s)" -lt "$end" ]' 'while false && [ "$(date +%s)" -lt "$end" ]' detach.sh stop_cases
+mutant stop-grace-ignored 'while [ ! -f "$base.rc" ] && [ "$(date +%s)" -lt "$end" ]' 'while [ ! -f "$base.rc" ] && true' detach.sh stop_cases
 if [ "$SYSD" = 1 ]; then
     mutant no-unit '[ "${KACHO_DETACH_NO_SYSTEMD:-}" = 1 ]; then' 'true; then' detach-launch.sh survive_cases
     mutant env-expanded ' --expand-environment=no \' ' \' detach-launch.sh survive_cases

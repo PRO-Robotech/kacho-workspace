@@ -578,6 +578,7 @@ case " $* " in
     *" config view "*) echo "https://k.invalid:6443" ;;
     *" get nodes "*) cat "$KUBE_NODES" ;;
     *" get vaultconfigs.vault.in-cloud.io "*) [ -r "${KUBE_VC:-}" ] || { echo "error: the server could not be reached" >&2; exit 1; }; cat "$KUBE_VC" ;;
+    *" get jobs,pods "*) [ -r "${KUBE_STAND:-}" ] || { echo "error: the server could not be reached" >&2; exit 1; }; cat "$KUBE_STAND" ;;
     *) echo "kubectl-двойник: вызов вне словаря: $*" >&2; exit 1 ;;
 esac
 KB
@@ -697,6 +698,61 @@ echo "== локаль C (pod Job): русский текст судится та
 assert "1 да" "$(printf '%s\n' 'Если вердикт check-verifier ниже — не ✅, стоп.' > "$W/task.txt"; env -u LC_ALL -u LC_CTYPE LANG=C bash "$P" --task-text "$W/task.txt" --agent git-operator > "$W/out" 2>&1; echo $?) $(has 'TASK-VERDICT строка 1')" "LANG=C: условие на вердикт кириллицей узнаётся (скрипт сам ставит C.UTF-8)"
 assert "1 да" "$(printf '%s\n' 'Vault арендатора.' 'Маунт тот же.' > "$W/task.txt"; env -u LC_ALL -u LC_CTYPE LANG=C bash "$P" --task-text "$W/task.txt" > "$W/out" 2>&1; echo $?) $(has 'TASK-VAULT-MOUNT строка 2')" "LANG=C: «Маунт» с заглавной узнаётся"
 
+echo "== в копии никто не пишет: idle (пачка уроков 6, урок e70614d4)"
+IC="$W/ws/tmp/idle1"; mkdir -p "$IC" "$W/ws/tmp/idle1b" "$W/pj/s1/subagents"
+export LANE_PRECHECK_PROJECTS_DIR="$W/pj"
+# journal <файл> <текст задания> <последняя запись: tool|text> — журнал агента в форме Claude Code.
+journal() {
+    jq -nc --arg t "$2" '{type: "user", message: {role: "user", content: $t}}' > "$1"
+    if [ "$3" = tool ]; then jq -nc '{type: "assistant", message: {content: [{type: "tool_use", name: "Bash"}]}}' >> "$1"
+    else jq -nc '{type: "assistant", message: {content: [{type: "text", text: "### ВОЗВРАТ"}]}}' >> "$1"; fi
+}
+prem "idle $IC"
+assert "0 да" "$(runp) $(has "IDLE $IC: процессов осмотрено [0-9]*, журналов агентов за 120 мин 0 — писателей 0")" "контроль: копия без процессов и агентов → 0, объём осмотренного напечатан"
+setsid bash -c 'cd "$1" && exec sleep 30' _ "$IC" < /dev/null > /dev/null 2>&1 & IP1=$!
+for _ in $(seq 1 20); do [ "$(readlink "/proc/$IP1/cwd" 2> /dev/null)" = "$IC" ] && break; sleep 0.1; done
+assert "1 да" "$(runp) $(has "в копии пишут — pid $IP1 (sleep, cwd)")" "процесс с cwd в копии → PREMISE-FALSE, pid и признак названы"
+kill -- "-$IP1" 2> /dev/null
+# Путь копии — $0 обёртки (довод argv), cwd — не копия.
+setsid bash -c 'sleep 30; :' "$IC" < /dev/null > /dev/null 2>&1 & IP2=$!
+for _ in $(seq 1 20); do grep -qzF "$IC" "/proc/$IP2/cmdline" 2> /dev/null && break; sleep 0.1; done
+assert "1 да" "$(runp) $(has "pid $IP2 (bash, довод)")" "процесс с путём копии доводом → PREMISE-FALSE «довод»"
+kill -- "-$IP2" 2> /dev/null; for _ in $(seq 1 20); do kill -0 "$IP2" 2> /dev/null || break; sleep 0.1; done
+assert "0" "$(cd "$IC" && bash "$P" --premise "$W/premise.txt" > "$W/out" 2>&1; echo $?)" "близнец: сама проверка, запущенная из копии (её цепочка), — не писатель → 0"
+journal "$W/pj/s1/subagents/agent-alive.jsonl" "Правь в копии tmp/idle1 редакцию 4." tool
+assert "1 да" "$(runp) $(has 'агент alive.jsonl — задание называет копию, итога нет')" "агент сессии с копией в задании без итога (урок e70614d4) → PREMISE-FALSE"
+journal "$W/pj/s1/subagents/agent-alive.jsonl" "Правь в копии tmp/idle1 редакцию 4." text
+assert "0" "$(runp)" "близнец: тот же агент вернул итог → 0"
+journal "$W/pj/s1/subagents/agent-alive.jsonl" "Правь в копии tmp/idle1b." tool
+assert "0" "$(runp)" "близнец: задание называет соседнюю копию tmp/idle1b — граница имени → 0"
+journal "$W/pj/s1/subagents/agent-alive.jsonl" "Проверь предусловия:
+- idle $IC" tool
+assert "0" "$(runp)" "близнец: агент-проверяющий (строка idle в задании) — не писатель → 0"
+touch -d '-3 hours' "$W/pj/s1/subagents/agent-alive.jsonl"; journal "$W/pj/s1/subagents/agent-old.jsonl" "Правь tmp/idle1." tool; touch -d '-3 hours' "$W/pj/s1/subagents/agent-old.jsonl"
+assert "0 да" "$(runp) $(has 'журналов агентов за 120 мин 0')" "близнец: журнал старше окна (3 ч) — вне осмотра → 0"
+prem "idle $W/ws/tmp/none"
+assert "2 да" "$(runp) $(has 'VOID PREMISE-FORM idle')" "копии нет → не судимо, код 2"
+unset LANE_PRECHECK_PROJECTS_DIR
+
+echo "== стенд не занят: stand-free (пачка уроков 6, урок 40da5ea0)"
+stand() { jq -n "{items: [$1]}" > "$W/stand.json"; }
+runs() { prem "stand-free $KC t1-x"; KUBE_STAND="$W/stand.json" runk; }
+stand '{kind: "Job", metadata: {name: "newman-run"}, status: {active: 1}}'
+assert "1 да" "$(runs) $(has 'стенд занят прогоном — Job/newman-run')" "Job с active 1 → PREMISE-FALSE, задание названо"
+stand '{kind: "Pod", metadata: {name: "runner-x"}, status: {phase: "Running"}}'
+assert "1 да" "$(runs) $(has 'Pod/runner-x')" "под прогона без владельца в Running → PREMISE-FALSE"
+stand '{kind: "Pod", metadata: {name: "api-7f", ownerReferences: [{kind: "ReplicaSet"}]}, status: {phase: "Running"}}, {kind: "Job", metadata: {name: "seed"}, status: {succeeded: 1}}, {kind: "Pod", metadata: {name: "seed-a", ownerReferences: [{kind: "Job"}]}, status: {phase: "Succeeded"}}'
+assert "0 да" "$(runs) $(has 'STAND-FREE t1-x: объектов осмотрено 3, прогонов 0')" "близнец: под службы (ReplicaSet), завершённый Job и его под → 0"
+stand ''
+assert "0 да" "$(runs) $(has 'объектов осмотрено 0')" "близнец: ns пуст либо его нет → свободен, 0"
+assert "2 да" "$(prem "stand-free $KC t1-x"; KUBE_STAND=/nonexistent runk) $(has 'VOID KUBE-UNREADABLE stand-free')" "кластер не ответил → VOID, не «свободен»"
+assert "2 да" "$(prem "stand-free $KC"; runk) $(has 'VOID PREMISE-FORM stand-free')" "ns не назван → не судимо, код 2"
+
+echo "== дайджест содержимого машиной (пачка уроков 6, уроки 99e22a80, 43d20f29)"
+DH="$(git -C "$L" rev-parse 1-lane)" DB="$(git -C "$L" rev-parse main)"
+DG="$(git -C "$L" diff --full-index "$DB...$DH" | sha256sum | cut -c1-64)"
+assert "да нет" "$(run "${ok_args[@]}" > /dev/null; has "^DIGEST $DG $DB...$DH — перемер: git diff --full-index") $(has '^DIGEST e3b0c442')" "строка DIGEST — тот же дайджест, что даёт команда ролей, база и голова целиком; не дайджест пустого диффа"
+
 echo "== мутанты lane-precheck (по одной правке; проба выше обязана покраснеть)"
 mut() {  # <имя> <было> <стало> <файл предусловий|--task-text строки…> — печатает код мутанта
     local m="$W/mut-lp.sh"
@@ -775,6 +831,15 @@ assert "0" "$(LANE_PRECHECK_GIT_BASE="$W/gb" mut pushed '[ "$kind" = pushed ] &&
 [ -z "${CHERRY_GV:-}" ] || assert "1" "$(mut tags-cut 'if [ "${nf:-0}" -gt 0 ]; then keep=' 'if true; then keep=' "cherry-vet $CHERRY_GV 774")" "мутант «теги не отсекаются»: tools.go даёт ложь vet — проба выше его ловит"
 [ -z "${CHERRY_GV:-}" ] || assert "1" "$(mut testdata '*/testdata/*) ctd=$((ctd + 1)); continue ;;' '*/testdata-never/*) ;;' "cherry-vet $CHERRY_GV 774")" "мутант «testdata судится»: битый файл testdata даёт ложь — проба выше его ловит"
 [ -z "${CHERRY_GV:-}" ] || assert "0" "$(mut cherry 'elif [ -n "$cerr" ]; then reasons+=' 'elif false; then reasons+=' "cherry-vet $CHERRY_GV 771")" "мутант «отказ vet не судится»: вишня без зависимости проходит — проба выше его ловит"
+
+# Пачка уроков 6 — idle и stand-free.
+assert "1" "$(cd "$IC" && LANE_PRECHECK_PROJECTS_DIR="$W/pj" mut idle-own '[[ "$own" == *" $p "* ]] && continue' ':' "idle $IC")" "мутант «цепочка проверки не исключена»: запуск из копии краснеет — близнец выше его ловит"
+journal "$W/pj/s1/subagents/agent-alive.jsonl" "Правь в копии tmp/idle1 редакцию 4." tool
+assert "0" "$(LANE_PRECHECK_PROJECTS_DIR="$W/pj" mut idle-live '[ "$v" = live ] && busy+=' '[ "$v" = never ] && busy+=' "idle $IC")" "мутант «живой агент не судится»: второй писатель проходит — проба выше его ловит"
+stand '{kind: "Pod", metadata: {name: "api-7f", ownerReferences: [{kind: "ReplicaSet"}]}, status: {phase: "Running"}}'
+assert "1" "$(KUBE_STAND="$W/stand.json" PATH="$W/kb:$PATH" mut stand-rs 'or any(.metadata.ownerReferences[]; .kind == "Job")' 'or true' "stand-free $KC t1-x")" "мутант «под службы — прогон»: стенд с одними службами краснеет — близнец выше его ловит"
+stand '{kind: "Job", metadata: {name: "newman-run"}, status: {active: 1}}'
+assert "0" "$(KUBE_STAND="$W/stand.json" PATH="$W/kb:$PATH" mut stand-active '((.status.active // 0) > 0)' 'false' "stand-free $KC t1-x")" "мутант «активный Job не судится»: занятый стенд проходит — проба выше его ловит"
 
 echo "== вход"
 assert "2" "$(run "$W/srv" 1-lane main --issue o/r#7)" "не рабочая копия → код 2"

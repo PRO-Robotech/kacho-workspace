@@ -41,6 +41,15 @@
 #         или setsid) на живость не влияет. Оборванный шаг (2) назван причиной: перезагрузка
 #         машины (.pid старше загрузки); служба остановлена менеджером служб либо процесс
 #         убит сигналом — разными фразами (запись .exit, нет её — журнал юнита); процесса нет.
+#   detach.sh stop <файл шага> [--grace <с>]
+#       — остановка С УБОРКОЙ (класс detach-stop-оставляет-ns, 7 случаев, урок c719d3fd): TERM
+#         лишь прямым детям обёртки шага (команде), не обёртке и не группе; обёртка жива и
+#         дописывает .rc, когда ловушка команды доведёт уборку. `systemctl --user stop` шлёт
+#         TERM всей cgroup разом и KILL через TimeoutStopSec 90 с — ловушка remote-heavy и её
+#         kubectl гибнут, ns остаются. Ждёт .rc до --grace (по умолчанию 300, предел 540 — норма
+#         «Не жди»), KILL не шлёт никогда. Коды: 0 — .rc записан (код команды назван); 3 — TERM
+#         послан, уборка дольше срока, шаг жив — исход status позже; 4 — шаг не идёт (уже вышел
+#         либо оборван — сказано, что именно); 2 — файлов шага нет; 64 — вызов неверен.
 # Срок (--deadline, с; по умолчанию 3600) — KACHO_DETACHED_UNTIL окружения шага: перепись
 # застоя (scripts/stall-census.sh, ws#1154) сироту в сроке застоем не судит.
 #
@@ -48,13 +57,14 @@
 # линтер, -race, стенд) по-прежнему идёт слотом: `detach.sh start <каталог> -- $WS/scripts/
 # heavy-slot.sh <класс> -- …`; очередь слота дольше 300 с — `heavy-slot.sh --enqueue`.
 # Держит scripts/detach-inject.sh (исходы, уникальность, переиспользованный pid, страж,
-# служба переживает снятие scope вызова — близнец setsid убит, перезагрузка названа).
+# служба переживает снятие scope вызова — близнец setsid убит, перезагрузка названа; stop —
+# ловушка команды доводит уборку, срок короче уборки — 3, вышедший шаг — 4).
 set -uo pipefail
 # shellcheck source=scripts/detach-launch.sh
 . "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/detach-launch.sh" || { printf 'detach: нет detach-launch.sh рядом\n' >&2; exit 69; }
 
 say() { printf 'detach: %s\n' "$*" >&2; }
-usage() { say "форма: detach.sh start <каталог> [--deadline <с>] -- <команда…> | detach.sh status <файл шага>"; exit 64; }
+usage() { say "форма: detach.sh start <каталог> [--deadline <с>] -- <команда…> | detach.sh status <файл шага> | detach.sh stop <файл шага> [--grace <с>]"; exit 64; }
 
 # alive <pid> <метка> — процесс жив и несёт метку шага в окружении.
 alive() {
@@ -181,6 +191,45 @@ status)
     else
         echo "не выполнилось: файлов шага $rcf, $logf, $base.pid нет"
     fi
+    exit 2 ;;
+stop)
+    [ $# -eq 2 ] || [ $# -eq 4 ] || usage
+    grace=300
+    if [ $# -eq 4 ]; then
+        [ "$3" = --grace ] || usage
+        [[ "$4" =~ ^[1-9][0-9]*$ ]] && [ "$4" -le 540 ] || { say "--grace «$4» — не секунды 1…540 (норма «Не жди»: вызов не дольше 10 мин)"; exit 64; }
+        grace="$4"
+    fi
+    base="${2%.rc}"; base="${base%.log}"; base="${base%.pid}"; tag="${base##*/}"
+    if [ -f "$base.rc" ]; then echo "не идёт: шаг уже вышел кодом $(head -n 1 "$base.rc") — останавливать нечего; журнал $base.log"; exit 4; fi
+    [ -e "$base.pid" ] || { echo "не выполнилось: файла $base.pid нет — шаг не запускался detach.sh start"; exit 2; }
+    pid="$(cat "$base.pid" 2>/dev/null)"
+    if ! alive "$pid" "$tag"; then
+        echo "не идёт: процесса ${pid:-—} нет, а .rc нет — шаг уже оборван: $(detach_gone_reason "$base.pid" "$base.unit"); уборку его ловушки проверь отдельно (residue-census)"
+        exit 4
+    fi
+    # Дети обёртки — команда шага (`"$@"` её bash -c); обёртку не трогаем: она пишет .rc.
+    kids="$(cat /proc/"$pid"/task/*/children 2>/dev/null | tr -s ' \n' ' ')"
+    kids="${kids# }"; kids="${kids% }"
+    if [ -n "$kids" ]; then
+        # shellcheck disable=SC2086 # перечень pid — словами
+        kill -TERM $kids 2>/dev/null
+        echo "TERM → команда шага (pid $kids), обёртка $pid жива; уборка — до $grace с"
+    else
+        echo "у обёртки $pid детей нет — команда уже вышла, обёртка пишет .rc; ожидание до $grace с"
+    fi
+    end=$(( $(date +%s) + grace ))
+    while [ ! -f "$base.rc" ] && [ "$(date +%s)" -lt "$end" ] && alive "$pid" "$tag"; do sleep 1; done
+    if [ -f "$base.rc" ]; then
+        echo "остановлен: команда вышла кодом $(head -n 1 "$base.rc") после TERM, уборка её ловушки дошла до конца; журнал $base.log"
+        tail -n 5 "$base.log" 2>/dev/null | sed 's/^/  | /'
+        exit 0
+    fi
+    if alive "$pid" "$tag"; then
+        echo "идёт: TERM послан, уборка дольше $grace с — шаг жив, KILL не послан; исход — bash $(readlink -f -- "${BASH_SOURCE[0]}") status $base.rc"
+        exit 3
+    fi
+    echo "не выполнилось: обёртка $pid вышла без .rc — $(detach_gone_reason "$base.pid" "$base.unit"); журнал $base.log"
     exit 2 ;;
 fp)
     # Внутренняя форма обёртки шага: отпечаток предмета при выходе команды (detach_fp).

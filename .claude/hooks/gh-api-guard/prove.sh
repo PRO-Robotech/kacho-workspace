@@ -309,6 +309,80 @@ passes 'gh run list -R PRO-Robotech/kacho --branch 1288-x --json status'
 passes 'gh run view 123 --json status'
 AGENT=""
 
+echo "== вывод gh, обрезанный молча — список без --limit, --json files (пачка уроков 6)"
+# denies_cap <команда> — отказ 2, класс назван, правильная форма (--limit, git diff --name-only) в тексте.
+denies_cap() {
+    local rc named fix
+    rc="$(run "$1")"
+    named="нет"; grep -qF -- 'вывод gh, обрезаемый молча' "$WORK/out" && named="да"
+    fix="нет"; grep -qF -- '--limit 1000' "$WORK/out" && grep -qF 'git diff --name-only' "$WORK/out" && fix="да"
+    assert "2 да да" "$rc $named $fix" "отказ${AGENT:+ [$AGENT]} (обрезка молча): $1"
+    denied=$((denied + 1))
+}
+for ag in git-operator scout; do
+    AGENT=$ag
+    denies_cap 'gh issue list -R PRO-Robotech/kacho --search "epic in:title" --state open --json number'
+done
+AGENT=scout
+denies_cap 'gh pr list -R PRO-Robotech/kacho --state merged --json number'
+denies_cap 'gh search issues "repo:PRO-Robotech/kacho label:P1"'
+denies_cap 'gh search prs --repo PRO-Robotech/kaname --state open'
+denies_cap 'gh pr view 3184 -R PRO-Robotech/kacho --json files --jq ".files | length"'
+denies_cap 'gh pr view 3184 --json=number,files,title'
+denies_cap 'N=$(gh issue list --label P1 --json number --jq length); echo $N'
+passes 'gh issue list -R PRO-Robotech/kacho --search "epic in:title" --state open --limit 1000 --json number'
+passes 'gh issue list -L 5'
+passes 'gh issue list -L5 --state all'
+passes 'gh pr list --limit=200 --json number'
+passes 'gh search issues "repo:a/b" --limit 100'
+passes 'gh pr view 3184 --json number,title,mergeCommit'
+passes 'gh pr view 3184 --json filesChanged'
+passes 'gh issue view 1431 -R PRO-Robotech/kacho-workspace --json title'
+boundary "репозиторий до подкоманды" 'gh -R PRO-Robotech/kacho issue list'
+AGENT=""
+
+echo "== остановка службы шага detach.sh — обрыв уборки (класс detach-stop-оставляет-ns)"
+denies_stop() {
+    local rc named fix
+    rc="$(run "$1")"
+    named="нет"; grep -qF 'systemctl stop|kill|restart службы шага detach.sh' "$WORK/out" && named="да"
+    fix="нет"; grep -qF 'scripts/detach.sh stop <файл .rc шага>' "$WORK/out" && fix="да"
+    assert "2 да да" "$rc $named $fix" "отказ${AGENT:+ [$AGENT]} (обрыв уборки): $1"
+    denied=$((denied + 1))
+}
+AGENT=deploy-engineer
+denies_stop 'systemctl --user stop kacho-detach-20261026T101010Z-123-abcd1234'
+denies_stop 'systemctl --user kill kacho-detach-20261026T101010Z-123-abcd1234.service'
+denies_stop 'systemctl stop --user kacho-detach-x && echo ok'
+denies_stop 'systemctl --user restart kacho-detach-x'
+passes 'systemctl --user status kacho-detach-x'
+passes 'systemctl --user stop detach-inject-1.scope'
+passes 'systemctl --user show -p ActiveState kacho-detach-x'
+boundary "юнит из переменной" 'systemctl --user stop "$(cat x.unit)"'
+AGENT=""
+
+echo "== обход хука --no-verify (уроки 7abe9b9c, c5f6fc09)"
+denies_nv() {
+    local rc named fix
+    rc="$(run "$1")"
+    named="нет"; grep -qF 'git commit|push … --no-verify (обход хука)' "$WORK/out" && named="да"
+    fix="нет"; grep -qF 'no-verify-granted <основание из задания>' "$WORK/out" && fix="да"
+    assert "2 да да" "$rc $named $fix" "отказ${AGENT:+ [$AGENT]} (обход хука): $1"
+    denied=$((denied + 1))
+}
+AGENT=acceptance-author
+denies_nv 'git -C /ws/tmp/kn-1 commit --no-verify -m "#1 x"'
+denies_nv 'git -C /ws/tmp/kn-1 commit -n -m "#1 x"'
+denies_nv 'git -C /ws/tmp/kn-1 commit -anm "#1 x"'
+denies_nv 'git -C /ws/tmp/kn-1 push --no-verify origin HEAD:refs/heads/1'
+denies_nv 'bash -c "git -C /ws/tmp/kn-1 commit --no-verify -m x"'
+passes 'git -C /ws/tmp/kn-1 commit -m "#1 -n это сообщение"'
+passes 'git -C /ws/tmp/kn-1 commit -mn'
+passes 'git -C /ws/tmp/kn-1 commit -am "#1 x"'
+passes 'git -C /ws/tmp/kn-1 log -n 3'
+passes 'git -C /ws/tmp/kn-1 push --no-verify origin HEAD:refs/heads/1  # no-verify-granted задание #1 п.3'
+AGENT=""
+
 echo "== снимок пода целиком — env несёт переменные CI (ws#1418)"
 # denies_pod <команда> — отказ 2, класс назван, проекция jq в тексте отказа.
 denies_pod() {
@@ -409,6 +483,18 @@ mutant "run list: префикс не судится"    '        if val is not 
 mutant "run list: --commit= не разобран" '        elif a.startswith("--commit="):' '        elif False:' 'gh run list --commit=68aa62d' ci-watcher
 mutant "run list: -c не разобран"        '        if a in ("--commit", "-c"):' '        if a in ("--commit",):' 'gh run list -c 68aa62d88a1b' ci-watcher
 mutant "run list: подкоманда не судится" '        elif sub[:2] == ["run", "list"]:' '        elif False:' 'gh run list --commit 68aa62d88a1b' ci-watcher
+mutant "обход хука не судится"           '            f = judge_no_verify(args, seg.strip()) or self.git_commit' '            f = self.git_commit' 'git -C /ws/tmp/kn-1 commit --no-verify -m x' acceptance-author
+mutant "-n в группе не узнан"            '                if ch == "n":' '                if False:' 'git -C /ws/tmp/kn-1 commit -anm x' acceptance-author
+mutant "значение -m — флаги"             '                if ch in "mFCct":
+                    break' '                if False:
+                    break' 'git -C /ws/tmp/kn-1 commit -mn' acceptance-author
+mutant "разрешение не снимает отказ"     '        w.found = [f for f in w.found if f.cls != "hook-bypass"]' '        pass' 'git push --no-verify origin x  # no-verify-granted задание #1' acceptance-author
+mutant "detach: stop не судится"         '            if verbs[:1] and verbs[0] in ("stop", "kill", "restart")' '            if False' 'systemctl --user stop kacho-detach-x' deploy-engineer
+mutant "detach: любой юнит — шаг"        'any(v.startswith("kacho-detach-") for v in verbs[1:])' 'True' 'systemctl --user stop detach-inject-1.scope' deploy-engineer
+mutant "обрезка: список не судится"      '    if sub2 in CAPPED_LISTS:' '    if False:' 'gh issue list --state open --json number' scout
+mutant "обрезка: -L слитно не узнан"     ' or (a.startswith("-L") and not a.startswith("--"))' '' 'gh issue list -L5 --state all' scout
+mutant "обрезка: --json files не судится" '            if val is not None and "files" in' '            if False and "files" in' 'gh pr view 1 --json files' scout
+mutant "обрезка: files — подстрока"      '.split(",")]:' '.split(",")] or (val is not None and "files" in val):' 'gh pr view 3184 --json filesChanged' scout
 mutant "run list: полная sha — находка"  '{4,39}' '{4,40}' "gh run list --commit $FULL" ci-watcher
 mutant "pr merge у любого агента"        '    if agent != OPERATOR:
         return Finding("pr-merge"' '    if False:

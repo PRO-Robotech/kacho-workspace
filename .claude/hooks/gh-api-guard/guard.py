@@ -60,6 +60,26 @@ Bash был корнем воркспейса, и коммит лёг в main в
                     фильтром-проекцией (фильтр `.`, пустой, из файла `-f` или называющий env —
                     не проекция). `-o jsonpath=…`, `custom-columns`, `name`, `wide` — пропуск.
 
+Пятый предмет — вывод gh, обрезанный МОЛЧА (пачка уроков 6, уроки 9432d39d и 97419cc8: эпик
+выбран без `--limit` — 30 задач из большего числа; `--json files` PR — первые 100 файлов):
+  gh-silent-cap   — `gh issue list`, `gh pr list`, `gh search issues|prs` без `-L|--limit`
+                    (gh отдаёт 30 без признака обрезки); `gh pr view … --json …files…` (поле
+                    files — первые 100). Любой агент. `gh run list` не судится (его форма —
+                    run-list-short-sha); значение лимита не судится: `--limit 5` — осознанный срез.
+
+Шестой предмет — остановка шага detach.sh, обрывающая его уборку (класс detach-stop-оставляет-ns,
+7 случаев; урок c719d3fd): `systemctl stop` шлёт TERM всей cgroup и KILL через 90 с, ловушка
+снятия ns гибнет вместе с kubectl:
+  detach-unit-stop — `systemctl [--user] stop|kill|restart <юнит kacho-detach-…>` (любой агент);
+                    форма — `scripts/detach.sh stop <.rc> [--grace <с>]`. Юнит из переменной не судится.
+
+Седьмой предмет — обход хука (уроки 7abe9b9c, c5f6fc09: временный коммит пробы с `--no-verify`
+обошёл commit-msg, копию пересоздавали):
+  hook-bypass     — `git commit|push|merge|am|cherry-pick|revert … --no-verify`, у commit и `-n`
+                    (группа `-an` — да, `-mn` — сообщение «n», не флаг). Любой агент. Дословное
+                    разрешение диспетчера (gi-no-verify-by-request) — меткой той же команды
+                    `# no-verify-granted <основание>`.
+
 РАЗРЕШЕНО: `gh api <путь>` без тела и метода (GET), `gh api --method GET … -f q=…`
 (поля уходят строкой запроса), `gh api graphql -f query='query{…}'`, `compare`,
 `git merge-base`; у git-operator — изменяющие вызовы, кроме путей вливания;
@@ -121,7 +141,12 @@ CLASS_TEXT = {
     "commit-trunk": "git add/commit в стволе основного клона",
     "run-list-short-sha": "gh run list --commit с неполной sha",
     "pod-env-dump": "kubectl get рода с шаблоном пода -o json|yaml без проекции",
+    "gh-silent-cap": "вывод gh, обрезаемый молча (список без --limit либо --json files)",
+    "detach-unit-stop": "systemctl stop|kill|restart службы шага detach.sh",
+    "hook-bypass": "git commit|push … --no-verify (обход хука)",
 }
+# Подкоманды gh, отдающие по умолчанию 30 записей без признака обрезки.
+CAPPED_LISTS = {("issue", "list"), ("pr", "list"), ("search", "issues"), ("search", "prs")}
 # Роды, чей вывод несёт env контейнеров (pod и шаблон пода); значения флагов kubectl.
 POD_KINDS = {"po", "pod", "pods", "job", "jobs", "deploy", "deployment", "deployments", "sts",
              "statefulset", "statefulsets", "ds", "daemonset", "daemonsets", "rs", "replicaset",
@@ -255,6 +280,21 @@ def judge_run_list(args, shown):
                            "sha из %d знаков, gh ждёт 40: префикс даёт [] — «прогонов нет» ложно"
                            % len(val.strip("'\"")))
         i += 1
+    return None
+
+
+def judge_capped(sub2, args, shown):
+    """Молчаливая обрезка: список без -L|--limit (30) либо `pr view --json` с полем files (100)."""
+    if sub2 in CAPPED_LISTS:
+        if any(a in ("-L", "--limit") or a.startswith("--limit=") or (a.startswith("-L") and not a.startswith("--"))
+               for a in args):
+            return None
+        return Finding("gh-silent-cap", shown, "gh %s %s без --limit отдаёт 30 записей и не говорит, что их больше" % sub2)
+    if sub2 == ("pr", "view"):
+        for i, a in enumerate(args):
+            val = args[i + 1] if a == "--json" and i + 1 < len(args) else a.split("=", 1)[1] if a.startswith("--json=") else None
+            if val is not None and "files" in [x.strip() for x in val.strip("'\"").split(",")]:
+                return Finding("gh-silent-cap", shown, "поле files gh pr view отдаёт первыми 100 файлами и не говорит, что их больше")
     return None
 
 
@@ -507,12 +547,18 @@ class Walker:
             self.cwd, self.how = None, "unknown"
             return
         if base == "git":
-            f = self.git_commit(args, seg.strip())
+            f = judge_no_verify(args, seg.strip()) or self.git_commit(args, seg.strip())
             if f:
                 self.found.append(f)
             return
         if base == "timeout":  # head вернул timeout ≥ 600 вместе с командой
             self.simple(" ".join(nwg.shlex.quote(w) for w in argv[2:]), sink)
+            return
+        if base == "systemctl":
+            verbs = [a for a in args if not a.startswith("-")]
+            if verbs[:1] and verbs[0] in ("stop", "kill", "restart") and any(v.startswith("kacho-detach-") for v in verbs[1:]):
+                self.found.append(Finding("detach-unit-stop", seg.strip(),
+                                          "systemctl %s шлёт сигнал всей cgroup шага, KILL через 90 с — ловушка уборки (снятие ns) гибнет" % verbs[0]))
             return
         if base == "kubectl":
             f = judge_kubectl(args, seg.strip(), sink)
@@ -545,13 +591,54 @@ class Walker:
             f = judge_run_list(args[args.index("list") + 1:], shown)
         elif sub[:2] == ["pr", "merge"]:
             f = judge_pr_merge(args[args.index("merge") + 1:], self.agent, shown)
+        elif len(sub) >= 2:
+            f = judge_capped((sub[0], sub[1]), args, shown)
         if f:
             self.found.append(f)
+
+
+def judge_no_verify(args, shown):
+    """`git commit|push|merge|am|cherry-pick|revert … --no-verify` (у commit и `-n`, в том числе
+    в группе до буквы со значением: `-an` — да, `-mn` — сообщение «n»)."""
+    i = 0
+    while i < len(args):
+        a = args[i]
+        if a == "-C" or a in GIT_VALUED:
+            i += 2
+        elif a.startswith("-"):
+            i += 1
+        else:
+            break
+    if i >= len(args) or args[i] not in ("commit", "push", "merge", "am", "cherry-pick", "revert"):
+        return None
+    sub, skip = args[i], False
+    for a in args[i + 1:]:
+        if skip:
+            skip = False
+            continue
+        if a == "--":
+            break
+        if a == "--no-verify":
+            return Finding("hook-bypass", shown, "git %s --no-verify — хук не исполнится" % sub)
+        if sub == "commit" and a in ("-m", "-F", "-C", "-c", "-t", "--message", "--file", "--template", "--author", "--date"):
+            skip = True
+            continue
+        if sub == "commit" and re.fullmatch(r"-[A-Za-z]+", a):
+            for ch in a[1:]:
+                if ch == "n":
+                    return Finding("hook-bypass", shown, "git commit -n — это --no-verify, хук коммита не исполнится")
+                if ch in "mFCct":
+                    break
+    return None
 
 
 def judge(cmd, agent_type=None, cwd=None):
     w = Walker(agent_type or None, cwd)
     w.text(cmd)
+    # Обход хука по ДОСЛОВНОМУ разрешению диспетчера (git-issues.md#gi-no-verify-by-request) —
+    # меткой той же команды, как `# no-wait-exempt` у переписи застоя.
+    if re.search(r"#\s*no-verify-granted\s+\S", cmd):
+        w.found = [f for f in w.found if f.cls != "hook-bypass"]
     return w.found
 
 
@@ -582,6 +669,36 @@ def deny(found):
             "  почему: %s" % f.why,
             "Полная sha: `git rev-parse <ревизия>` либо `gh pr view <N> --json headRefOid -q .headRefOid`;",
             "`scripts/ci-read.sh` печатает её сам. Пустой ответ при короткой sha — не «прогонов нет».",
+        ]) + "\n")
+        sys.exit(2)
+    if f.cls == "hook-bypass":
+        sys.stderr.write("\n".join([
+            "GH-API-GUARD: отказ — хук не обходится (git-issues.md#gi-no-verify-by-request; уроки 7abe9b9c, c5f6fc09).",
+            "  форма: %s — %s" % (CLASS_TEXT[f.cls], hg.clip(f.text, 200)),
+            "  почему: %s" % f.why,
+            "Временный коммит пробы — с хуком: `git -C <абсолютная копия> commit -m '#<N> …'`, своя учётка;",
+            "отказ хука разбирается, а не обходится. Дословное разрешение диспетчера во входе — меткой",
+            "той же команды: `… --no-verify  # no-verify-granted <основание из задания>`.",
+        ]) + "\n")
+        sys.exit(2)
+    if f.cls == "detach-unit-stop":
+        sys.stderr.write("\n".join([
+            "GH-API-GUARD: отказ — остановка службы шага обрывает его уборку (класс detach-stop-оставляет-ns).",
+            "  форма: %s — %s" % (CLASS_TEXT[f.cls], hg.clip(f.text, 200)),
+            "  почему: %s" % f.why,
+            "Остановка с уборкой: `bash $WS/scripts/detach.sh stop <файл .rc шага> [--grace <с>]` — TERM",
+            "команде шага, ожидание её ловушки до срока (≤ 540 с), KILL не шлётся; код 3 — уборка идёт,",
+            "исход — `detach.sh status <.rc>` позже.",
+        ]) + "\n")
+        sys.exit(2)
+    if f.cls == "gh-silent-cap":
+        sys.stderr.write("\n".join([
+            "GH-API-GUARD: отказ — вывод gh будет обрезан молча, число по нему ложно (пачка уроков 6).",
+            "  форма: %s — %s" % (CLASS_TEXT[f.cls], hg.clip(f.text, 200)),
+            "  почему: %s" % f.why,
+            "Перепись — с явным пределом: `gh issue list … --limit 1000` (`gh pr list`, `gh search` — так же);",
+            "файлы PR — `git diff --name-only <база>...<голова>` в копии либо",
+            "`gh api --paginate repos/<o>/<r>/pulls/<N>/files --jq '.[].filename'`.",
         ]) + "\n")
         sys.exit(2)
     if f.cls == "pod-env-dump":

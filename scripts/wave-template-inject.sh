@@ -227,6 +227,7 @@ ok(!/Date\.now\(|Math\.random\(|new Date\(\s*\)/.test(body), 'в теле нет
 
 const H = (k, n) => (k + n).padEnd(40, 'a').replace(/[^0-9a-f]/g, 'b').slice(0, 40)
 const HW = 'f'.repeat(40)
+const DG = 'd'.repeat(64)   // дайджест содержимого подставной предпроверки (строка DIGEST lane-precheck)
 // Объединение вызовов ВСЕХ сценариев пробы: утверждения о модели, усилии и месте
 // отчётов судят его, а не один сценарий по умолчанию (ws#1016, check-verifier ⛔).
 const ALL = []
@@ -248,7 +249,7 @@ async function run(sc) {
     // sc.dispatchCode по «<ключ> <вид>», затем по ключу, иначе 0; sc.dispatchNull — нет ответа.
     if (label === 'mech:dispatch-premise') { if (sc.dispatchNull) return null; const dc = sc.dispatchCode || {}; return { items: [...prompt.matchAll(/\n(\d+)\) \[(\S+) (\S+)\] `/g)].map(x => { const c = dc[x[2] + ' ' + x[3]] ?? dc[x[2]] ?? 0; return { n: +x[1], code: c, out: c === 1 ? 'REASON PREMISE-FALSE task o/r#5: задача closed, задание ждёт open' : c === 2 ? 'VOID GH-UNREADABLE task o/r#5' : '' } }) } }
     if (label.startsWith('mech:premise:')) return { out: '', head: '', reasons: [], ...take('premise:' + lane, () => ({ code: 0 })) }
-    if (label.startsWith('mech:precheck:')) return { out: '', head: heads[lane], reasons: [], ...take('pre:' + lane, () => ({ code: 0 })) }
+    if (label.startsWith('mech:precheck:')) return { out: '', head: heads[lane], reasons: [], digest: DG, ...take('pre:' + lane, () => ({ code: 0 })) }
     if (label.startsWith('review-wave')) return { verdict: 'accept', sha: HW, blocking: [], report: 'r', ...take('wave', () => ({})) }
     if (label.startsWith('review-landing')) return { verdict: 'accept', sha: HW, blocking: [], report: 'r' }
     if (sc.ret && label === 'review-' + sc.ret + ':' + lane) return { verdict: 'return', sha: heads[lane], blocking: ['x'], report: 'r' }
@@ -353,6 +354,9 @@ ok(by(r.calls, c => c.label.startsWith('mech:assemble:')) === 0, 'останов
 r = await run({ args: { ...args, lanes: [{ key: 'M', repo: 'kacho-workspace', agent: 'migration-writer', branch: '9-m', text: 't' }] }, plan: [P('r2.json')], ret: P('r2.json').lanes[0].roles[0] })
 const revOne = ((r.res.lanes || {}).M || {}).reviews || []
 ok(r.res.ok === true && revOne.length === 1 && revOne[0].sha === head2 && atHead(revOne[0].role, head2), 'близнец: единственная роль вернула и приняла дельту — полоса идёт, вердикт на новой голове', JSON.stringify(r.res).slice(0, 200))
+ok(r.calls.filter(c => c.label.startsWith('review-') && c.label.endsWith(':M')).every(c => c.prompt.includes('дайджест содержимого ' + DG)) && by(r.calls, c => c.label.startsWith('review-') && c.label.endsWith(':M')) === 2, 'дайджест предпроверки — в задании роли, оба круга (пачка уроков 6)')
+r = await run({ args: { ...args, lanes: [{ key: 'M', repo: 'kacho-workspace', agent: 'migration-writer', branch: '9-m', text: 't' }] }, plan: [P('r2.json')], 'pre:M': [{ code: 0, digest: '' }] })
+ok(r.res.ok === false && /дайджеста нет/.test(((r.res.lanes || {}).M || {}).stage || '') && by(r.calls, c => c.label.startsWith('review-') && c.label.endsWith(':M')) === 0, 'предпроверка без дайджеста — роль не зовётся (урок 607f7f6e)', JSON.stringify(r.res).slice(0, 300))
 
 console.log('== зависимая полоса — от сводки голов deps (ws#938)')
 // A проходит повтор предпроверки: итоговая голова A — вторая, её и обязана
@@ -1246,7 +1250,10 @@ mutant "sha вердикта подменяется" "const stale = (d.reviews |
 # переписан на новую голову — сверка непросмотренной головы слепнет.
 mutant "принявшим роль переписывается sha новой головы" "      vs = vs.map((v, i) => { const j = back.findIndex(x => x.r === roles[i]); return j < 0 ? v : again[j] })" "      vs = vs.map((v, i) => { const j = back.findIndex(x => x.r === roles[i]); return j < 0 ? { ...v, sha: impl.head } : again[j] })"
 mutant "непросмотренная голова не останавливает полосу" "      if (unseen.length) return" "      if (false) return"
-mutant "повтор — и принявшим" "const again = await Promise.all(back.map(x => review(x.r, l, impl.head, prev, 'review-' + x.r + '-2')))" "const again = await Promise.all(roles.map(r => review(r, l, impl.head, prev, 'review-' + r + '-2')))"
+mutant "повтор — и принявшим" "const again = await Promise.all(back.map(x => review(x.r, l, impl.head, prev, 'review-' + x.r + '-2', undefined, digestOf(pc))))" "const again = await Promise.all(roles.map(r => review(r, l, impl.head, prev, 'review-' + r + '-2', undefined, digestOf(pc))))"
+# Пачка уроков 6: ревью — лишь с дайджестом машиной, и дайджест — в задании роли.
+mutant "ревью без дайджеста" "    if (!digestOf(pc)) return { ...out, stage: 'предпроверка: дайджеста нет" "    if (false) return { ...out, stage: 'предпроверка: дайджеста нет"
+mutant "дайджест не в задании роли" "(digest ? ' — дайджест содержимого '" "(false ? ' — дайджест содержимого '"
 mutant "перепин не заводится" "onlySkew && round === 1)" "onlySkew && round === 0)"
 mutant "рецензент волны на каждую полосу" "if (steps.has('wave-reviewer')) {" "for (const _ of order) if (steps.has('wave-reviewer')) {"
 mutant "номер PR не судится" "if (!Number.isInteger(asm.pr) || asm.pr < 1) return" "if (false) return"

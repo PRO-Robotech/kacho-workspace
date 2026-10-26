@@ -9,7 +9,11 @@
 # правильным чтением: merge-base — `gh api …/compare/<base>...<head>` (GET) или
 # `git merge-base`. Коммит не в ту копию — `git add|commit` после относительного
 # `cd`/`-C` либо в стволе основного клона — тоже отказ (ws#1237); снимок пода целиком
-# (`kubectl get pod -o json|yaml` без проекции jq/yq) — отказ: env несёт переменные CI (ws#1418).
+# (`kubectl get pod -o json|yaml` без проекции jq/yq) — отказ: env несёт переменные CI (ws#1418);
+# вывод gh, обрезаемый молча (`gh issue|pr list`, `gh search issues|prs` без --limit; `gh pr view
+# --json files`) — отказ: число по нему ложно; `systemctl stop` службы шага detach.sh — отказ:
+# обрывает уборку (форма — `detach.sh stop`); `git commit|push --no-verify` без метки разрешения
+# диспетчера `# no-verify-granted <основание>` — отказ (пачка уроков 6).
 # Разбор — gh-api-guard/guard.py (лексер — no-wait-guard);
 # доказательство — gh-api-guard/prove.sh (его зовёт scripts/hook-proofs.sh).
 #

@@ -152,6 +152,10 @@ const C = [
 const S_MECH = { type: 'object', properties: { code: { type: 'number' }, out: { type: 'string' }, reasons: { type: 'array', items: { type: 'string' } }, head: { type: 'string' } }, required: ['code', 'out', 'reasons', 'head'] }
 // Чтение CI — схема механики и slept: реально прошедшие секунды паузы (строка SLEPT).
 const S_CI = { type: 'object', properties: { ...S_MECH.properties, slept: { type: 'number' } }, required: [...S_MECH.required, 'slept'] }
+// Предпроверка несёт дайджест содержимого машиной (строка DIGEST lane-precheck.sh): роль получает
+// его в задании, без него ревью не зовётся (пачка уроков 6: задание ревью без дайджеста — 3 случая).
+const S_PCHK = { type: 'object', properties: { ...S_MECH.properties, digest: { type: 'string' } }, required: [...S_MECH.required, 'digest'] }
+const digestOf = pc => (pc && /^[0-9a-f]{64}$/.test(String(pc.digest || ''))) ? pc.digest : ''
 const S_IMPL = { type: 'object', properties: { status: { type: 'string', enum: ['done', 'already-done', 'nothing-to-push', 'blocked', 'failed'] }, branch: { type: 'string' }, head: { type: 'string' }, copy: { type: 'string' }, hookLog: { type: 'string' }, issues: { type: 'array', items: { type: 'string' } }, impact: { type: 'array', items: { type: 'string' } }, report: { type: 'string' }, lesson: { type: 'string' } }, required: ['status', 'branch', 'head', 'copy', 'hookLog', 'issues', 'impact', 'report', 'lesson'] }
 // Предполёт: карта влияния и критерии рецензентов — по КАЖДОЙ полосе (ws#1053).
 const S_PRE = { type: 'object', properties: { lanes: { type: 'array', items: { type: 'object', properties: { key: { type: 'string' }, impact: { type: 'array', items: { type: 'string' } }, criteria: { type: 'array', items: { type: 'string' } } }, required: ['key', 'impact', 'criteria'] } }, estimate: { type: 'string' }, report: { type: 'string' } }, required: ['lanes', 'estimate', 'report'] }
@@ -343,8 +347,8 @@ for (const l of lanes) {
 
 // ── Полосы ──────────────────────────────────────────────────────────────
 phase('Полосы')
-const review = async (role, l, head, prevHead, label, stack) => agent(C + '\n\nРевью ' + role + ': полоса ' + l.key + ' ветка ' + l.branch + ' @' + head + (prevHead ? ' — только дельта `git diff ' + prevHead + '..' + head + '` (принятое не переоткрывается)' : (stack ? ' — своя дельта `git diff ' + stack.head + '..' + head + '` (сводка deps ' + stack.branch + ' — код принятых полос, не предмет ревью)' : '')) + '. Отчёт задания и исполнителя — ' + rep(l.key, 'implement') + '. Запись — ' + rep(l.key, label) + '. ' + due('review') + ' Верни verdict, sha (голова, которую смотрел), blocking (пусто при accept), report.', { agentType: role, label: label + ':' + l.key, phase: 'Полосы', schema: S_REV })
-const precheck = async (l, impl, stack) => agent(C + '\n\nРежим lane-precheck (LANE_PRECHECK_WS — корень воркспейса ' + ROOT + ', дом копий полос; KACHO_WS скрипт не читает; без неё корень выводится из места скрипта — WS-UNKNOWN или MAIN-COPY, ws#1016): `LANE_PRECHECK_WS=' + ROOT + ' bash ' + WS + '/scripts/lane-precheck.sh ' + impl.copy + ' ' + impl.branch + ' ' + (stack ? stack.head : (l.base || A.base)) + ' ' + (impl.issues || []).map(i => '--issue ' + i).join(' ') + ' --hook-log ' + impl.hookLog + ' > ' + rep(l.key, 'lane-precheck') + ' 2>&1`. Верни code, out (последние строки), reasons (коды из строк REASON), head (голова ветки в копии).', { ...MECH, label: 'mech:precheck:' + l.key, phase: 'Полосы', schema: S_MECH })
+const review = async (role, l, head, prevHead, label, stack, digest) => agent(C + '\n\nРевью ' + role + ': полоса ' + l.key + ' ветка ' + l.branch + ' @' + head + (digest ? ' — дайджест содержимого ' + digest + ' (строка DIGEST ' + rep(l.key, 'lane-precheck') + '; перемерь её командой, расхождение — отказ)' : '') +(prevHead ? ' — только дельта `git diff ' + prevHead + '..' + head + '` (принятое не переоткрывается)' : (stack ? ' — своя дельта `git diff ' + stack.head + '..' + head + '` (сводка deps ' + stack.branch + ' — код принятых полос, не предмет ревью)' : '')) + '. Отчёт задания и исполнителя — ' + rep(l.key, 'implement') + '. Запись — ' + rep(l.key, label) + '. ' + due('review') + ' Верни verdict, sha (голова, которую смотрел), blocking (пусто при accept), report.', { agentType: role, label: label + ':' + l.key, phase: 'Полосы', schema: S_REV })
+const precheck = async (l, impl, stack) => agent(C + '\n\nРежим lane-precheck (LANE_PRECHECK_WS — корень воркспейса ' + ROOT + ', дом копий полос; KACHO_WS скрипт не читает; без неё корень выводится из места скрипта — WS-UNKNOWN или MAIN-COPY, ws#1016): `LANE_PRECHECK_WS=' + ROOT + ' bash ' + WS + '/scripts/lane-precheck.sh ' + impl.copy + ' ' + impl.branch + ' ' + (stack ? stack.head : (l.base || A.base)) + ' ' + (impl.issues || []).map(i => '--issue ' + i).join(' ') + ' --hook-log ' + impl.hookLog + ' > ' + rep(l.key, 'lane-precheck') + ' 2>&1`. Верни code, out (последние строки), reasons (коды из строк REASON), head (голова ветки в копии), digest (64 знака из строки DIGEST отчёта; строки нет — пусто).', { ...MECH, label: 'mech:precheck:' + l.key, phase: 'Полосы', schema: S_PCHK })
 const neighbours = l => lanes.filter(x => x.key !== l.key).map(x => x.key + ': ' + ((x.paths || []).join(', ') || 'перечень не задан')).join('; ')
 // Исполнитель с hookLog не путём — одна доводка тем же заданием; снова не путь —
 // полоса стоит (runLane), предпроверка вслепую не зовётся.
@@ -434,7 +438,10 @@ const runLane = async (l, stack) => {
   if (stack) out.stack = { branch: stack.branch, head: stack.head }
   if (has('roles')) {
     const roles = t.roles.length ? t.roles : ['go-style-reviewer']
-    let vs = await Promise.all(roles.map(r => review(r, l, impl.head, '', 'review-' + r, stack)))
+    // Ревью — лишь на голове с дайджестом машиной: возврат автора без ВОЗВРАТа и отпечатка роли не
+    // уходит (урок 607f7f6e), дайджест пересказом — тоже (уроки 99e22a80, 43d20f29).
+    if (!digestOf(pc)) return { ...out, stage: 'предпроверка: дайджеста нет — ревью не зовётся (строка DIGEST ' + rep(l.key, 'lane-precheck') + ')' }
+    let vs = await Promise.all(roles.map(r => review(r, l, impl.head, '', 'review-' + r, stack, digestOf(pc))))
     const back = vs.map((v, i) => ({ v, r: roles[i] })).filter(x => !x.v || x.v.verdict !== 'accept')
     if (back.length) {
       M.roleReturns += back.length
@@ -443,11 +450,12 @@ const runLane = async (l, stack) => {
       if (!impl || !sha40(impl.head) || impl.head === prev) return { ...out, stage: 'ревью ролей: голова не сменилась — повтора нет' }
       pc = await precheck(l, impl, stack)
       if (!pc || pc.code !== 0) return { ...out, stage: 'предпроверка после ревью', reasons: pc ? pc.reasons : [] }
+      if (!digestOf(pc)) return { ...out, stage: 'предпроверка после ревью: дайджеста нет — второй круг не зовётся' }
       // Второй круг — только вернувшим, по дельте (база диспетчера §8а п.8).
       // Вердикт принявшей роли остаётся на голове, которую она СМОТРЕЛА: sha
       // не переписывается (ws#933). Голову новее её вердикта никто из неё не
       // видел — полоса стоит здесь, до сборки, и решает диспетчер.
-      const again = await Promise.all(back.map(x => review(x.r, l, impl.head, prev, 'review-' + x.r + '-2')))
+      const again = await Promise.all(back.map(x => review(x.r, l, impl.head, prev, 'review-' + x.r + '-2', undefined, digestOf(pc))))
       if (again.some(v => !v || v.verdict !== 'accept')) return { ...out, stage: 'ревью ролей: второй круг — тупик, решает диспетчер' }
       vs = vs.map((v, i) => { const j = back.findIndex(x => x.r === roles[i]); return j < 0 ? v : again[j] })
       const unseen = roles.filter((r, i) => !vs[i] || vs[i].sha !== impl.head)
@@ -693,7 +701,7 @@ const merged = await agent(C + '\n\nРежим каскад: PR #' + asm.pr + ' 
 const landedOk = !!(merged && merged.code === 0 && sha40(merged.head))
 const epicMr = landedOk && !!A.epic && A.epic !== 'main'
 const trialConv = epicMr ? await agent(C + '\n\nРежим пробное схождение после вливания волны ' + N + ' в ' + A.epic + ' @' + merged.head + ' (ai-tooling.md#at-red-ci-one-round): на сведённом состоянии ветки эпика пересчитай отпечатки пакета изменения и дай перечень недостающих записей ролей и событий (опубликованное событие без блока event записи — пункт; записи ролей снимаются по ходу, на сведённом). Ничего не правь. Запись — ' + R + '/trial-convergence.md. ' + due('review') + ' Верни verdict, sha, blocking (недостающее строками), report.', { agentType: 'convergence-reviewer', label: 'trial-convergence', phase: 'Посадка', schema: S_REV }) : null
-const epicCi = epicMr ? await agent(C + '\n\nРежим CI MR эпика после волны ' + N + ': номер — `gh pr list -R ' + (A.repo || '?') + ' --head ' + A.epic + ' --base main --json number -q \'.[0].number\'`; прочти полный прогон MR эпика ОДИН раз командой (НОМЕР — этот номер) `' + recipeRun('ci-read.sh', (A.repo || '?') + ' НОМЕР', R + '/epic-ci.md') + '` — без ожидания: код 3 (идёт) — законный исход, верни его. Красное (код 1) — перепись корней с цитатами в тот же отчёт; порядок круга: ' + RED_ROUND + '. Верни code, out, reasons, head.', { ...MECH, agentType: 'ci-watcher', label: 'mech:ci-epic', phase: 'Посадка', schema: S_MECH }) : null
+const epicCi = epicMr ? await agent(C + '\n\nРежим CI MR эпика после волны ' + N + ': номер — `gh pr list -R ' + (A.repo || '?') + ' --head ' + A.epic + ' --base main --limit 100 --json number -q \'.[0].number\'`; прочти полный прогон MR эпика ОДИН раз командой (НОМЕР — этот номер) `' + recipeRun('ci-read.sh', (A.repo || '?') + ' НОМЕР', R + '/epic-ci.md') + '` — без ожидания: код 3 (идёт) — законный исход, верни его. Красное (код 1) — перепись корней с цитатами в тот же отчёт; порядок круга: ' + RED_ROUND + '. Верни code, out, reasons, head.', { ...MECH, agentType: 'ci-watcher', label: 'mech:ci-epic', phase: 'Посадка', schema: S_MECH }) : null
 return { ok: landedOk, stacks, pr: asm.pr, head: asm.head, landed: order, remainder, merge: merged ? merged.head : '', rate: merged ? merged.out : '', lanes: done, trialConvergence: trialConv, epicCi: epicCi ? { ...epicCi, ...redOf(epicCi) } : null, ...gatesOf(), errors, lessons: lessonsOf() }
 })()
 // Метрики — в reports волны на ЛЮБОМ исходе (ws#1053): время, круги переделки,
