@@ -146,10 +146,10 @@ need(WAVE, w, ["const GATES = ['landing-precheck.sh (рецепт «ЗАПУСК
                "const RET_MARK = '### ВОЗВРАТ'",
                'const hasRet = t => typeof t === \'string\' && t.includes(RET_MARK)',
                'дочитай .rc и журнал своего прогона и верни блок ВОЗВРАТ с фактом',
-               'return hasRet(b) ? b : null',
-               "if (!a1) return noRet(out, l, 'acceptance-' + r)",
-               "if (!s1) return noRet(out, l, 'client-sim')",
-               "if (!c1) return noRet(out, l, 'surface-census')"],
+               'if (!hasRet(a)) return null',
+               "if (!a1) return noRet(out, l, 'acceptance-' + r, 'acc:' + l.key + ':' + r)",
+               "if (!s1) return noRet(out, l, 'client-sim', 'sim:' + l.key)",
+               "if (!c1) return noRet(out, l, 'surface-census', 'census:' + l.key)"],
      'провязка переписи гейтов и ответа без ВОЗВРАТ')
 ig, il = w.find('const gates = await agent('), w.find('const alStart = await agent(')
 if not (0 <= ig < il):
