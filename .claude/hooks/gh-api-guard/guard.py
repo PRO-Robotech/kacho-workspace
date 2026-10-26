@@ -329,7 +329,9 @@ def projects(sink):
         filt = a
         break
     f = (filt or "").strip()
-    return bool(JQ_FILTER.match(f)) and all(safe_path(p) for p in PATH_RE.findall(f))
+    # `.items[] |` — источник перебора списка, не путь проекции: из сверки путей снимается
+    body = re.sub(r"^\.items\[\]\s*\|\s*", "", f)
+    return bool(JQ_FILTER.match(f)) and all(safe_path(p) for p in PATH_RE.findall(body))
 
 
 def judge_kubectl(args, shown, sink):

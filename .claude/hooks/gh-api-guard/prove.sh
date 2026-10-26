@@ -360,6 +360,7 @@ passes "kubectl get pod x -o json | jq '{sc: .spec.securityContext, node: .spec.
 passes "kubectl get pod x -o json | jq -r --arg n x '.spec.nodeName'"
 passes "kubectl get pod x -o yaml | yq e '.spec.securityContext'"
 passes "kubectl get pods -A -o json | jq '.items[] | {name: .metadata.name, sc: .spec.securityContext}'"
+passes "kubectl get pods -A -o json | jq '.items[] | .spec.nodeName'"
 passes "kubectl get pods -A -o json | jq '.items[].spec.nodeName'"
 passes "kubectl get deploy d -o json | jq '.spec.template.spec.securityContext'"
 passes "kubectl get pod x -o json 2>&1 | jq '.spec.nodeName'"
@@ -457,6 +458,7 @@ mutant "heredoc в оболочку не судится"  '                    s
 mutant "pod: kubectl не судится"          '        if base == "kubectl":' '        if False:' 'kubectl get pods -A -o yaml' deploy-engineer
 mutant "pod: потребитель конвейера не виден" '                self.node(k, nxt)' '                self.node(k, None)' "kubectl get pod x -o json | jq '.spec.nodeName'" deploy-engineer
 mutant "pod: форма фильтра не судится"      '    return bool(JQ_FILTER.match(f)) and all(' '    return True and all(' "kubectl get pod x -o json | jq '.|.'" deploy-engineer
+mutant "pod: .items[] | — путь проекции"   '    body = re.sub(r"^\.items\[\]\s*\|\s*", "", f)' '    body = f' "kubectl get pods -A -o json | jq '.items[] | {name: .metadata.name, sc: .spec.securityContext}'" deploy-engineer
 mutant "pod: белый список снят"             '    return n in SAFE_PATHS' '    return True' "kubectl get pod x -o json | jq '.spec'" deploy-engineer
 mutant "pod: env в белом списке"            '"spec.containers.name", "spec.containers.image",' '"spec.containers.name", "spec.containers.env", "spec.containers.image",' "kubectl get po x -o json | jq '.spec.containers[].env'" deploy-engineer
 mutant "pod: .items. не снимается"          '    if n.startswith("items."):' '    if False:' "kubectl get pods -A -o json | jq '.items[].spec.nodeName'" deploy-engineer
