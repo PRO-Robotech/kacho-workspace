@@ -317,7 +317,10 @@
 # пробросом порта — да; без SYS_PTRACE, без procMount Unmasked, с seccomp или
 # AppArmor RuntimeDefault — нет (зависание crun, keyctl, mount). Вложенный
 # `docker run --privileged` в таком dind отказывает (sysfs не монтируется) — это
-# свойство, а не дефект. Профили ns: с dind — pod-security enforce=privileged
+# свойство, а не дефект. Порт контейнера testcontainers публикуется без docker-proxy
+# (`--userland-proxy=false`): соединение пробы с 127.0.0.1:<порт> идёт DNAT ядра в сети
+# pod, а не через процесс-посредник на каждом запросе (замер — ЗАМЕР СЕТИ DIND ниже).
+# Профили ns: с dind — pod-security enforce=privileged
 # (возможности, Unconfined и procMount вне baseline; привилегированных контейнеров
 # Job при этом нет), прочие — baseline. Ryuk выключен: контейнеры живут не дольше
 # pod, а pod — не дольше ns.
@@ -829,7 +832,7 @@ peak_note() {
     [[ "$b" =~ ^[0-9]+$ ]] && mib=$(( (b + 1048575) / 1048576 ))
     [[ "$wb" =~ ^[0-9]+$ ]] && wmib=$(( (wb + 1048575) / 1048576 ))
     [[ "$u" =~ ^[0-9]+$ ]] && [[ "$sec" =~ ^[0-9]+$ ]] && [ "$sec" -gt 0 ] && avg=$(( u / sec / 1000 ))
-    say "пик run: память $mib МиБ (рабочая, без кэша страниц, $wmib МиБ) при запросе $RUN_MEM_REQ и пределе $RUN_MEM_LIM МиБ, CPU в среднем ${avg}m за ${sec} с (запрос ${RUN_CPU_REQ}m)"
+    say "пик run: память $mib МиБ (рабочая, без кэша страниц, $wmib МиБ) при запросе $RUN_MEM_REQ и пределе $RUN_MEM_LIM МиБ, CPU в среднем ${avg}m за ${sec} с (запрос ${RUN_CPU_REQ}m)$([ "${DIND:-0}" = 1 ] && echo '; CPU dind и его контейнеров testcontainers — вне счёта')"
     d="${HEAVY_SLOT_DIR:-$(getent passwd "$(id -u)" | cut -d: -f6)/.cache/heavy-slots}"
     [ -d "$d" ] || return 0
     printf '%s remote-peak class=%s repo=%s rc=%s run_peak=%sMiB ws_peak=%sMiB req=%sMiB lim=%sMiB cpu_avg=%sm cpu_req=%sm dur=%ss ns=%s\n' \
@@ -3404,11 +3407,21 @@ PGSH
 # dind без privileged (DOCKER в шапке): crun с выключенным cgroup-менеджером —
 # средой исполнения по умолчанию; отказ установки — код 1 бокового, и pod не
 # начнёт команду (75 по сроку), а причина — в логе dind.
+#
+# ЗАМЕР СЕТИ DIND (2026-10-27; kaname PR #1007, голова 0abfe8b47: интеграционные шарды
+# Job ci-local сняты сроком задания 30 мин, у раннера GitHub те же — 15–17 мин). Пакет
+# internal/migrations под -race: с docker-proxy — 756 и 840 с, CPU dind 463 и 501 с; без
+# него — 673 с, CPU dind 380 с (раннер — 369 с); internal_iam — 142 → 126 с. Остальной
+# разрыв с раннером — свойство узла, а не Job: системный вызов ≈ 1,1 мкс (dd по байту),
+# отказ анонимной страницы ≈ 3,7 мкс, SHA-256 одним ядром 1,46 ГБ/с; у internal_iam
+# ядро — 179 из 293 с CPU run (21,9 млн отказов страниц). Срок не меняли (замерено):
+# предел CPU dind (троттлинга ≤ 2 с за прогон), GOMAXPROCS=4, GOGC=400,
+# GODEBUG=madvdontneed=0, тома контейнеров на tmpfs; давление ввода-вывода и CPU ≈ 0.
 DIND_SH="$USERNS_SH
 "'apk add -q --no-cache crun >/dev/null 2>&1 || { echo "remote-heavy: crun не поставлен" >&2; exit 1; }
 mkdir -p /etc/docker
 printf "%s" "{\"runtimes\":{\"crun\":{\"path\":\"/usr/bin/crun\",\"runtimeArgs\":[\"--cgroup-manager=disabled\"]}},\"default-runtime\":\"crun\"}" > /etc/docker/daemon.json
-exec dockerd --host=unix:///run/dind/docker.sock --registry-mirror=https://mirror.gcr.io'
+exec dockerd --host=unix:///run/dind/docker.sock --registry-mirror=https://mirror.gcr.io --userland-proxy=false'
 kind_on && DIND_SH="$KIND_DIND_SH"
 
 # shellcheck disable=SC2016  # раскрывается в pod, не здесь
