@@ -30,6 +30,17 @@
     слияние ствола) — Closes, как у merge-readiness и landing-precheck (замер на kaname#876); kaname#52 с доказательством диапазона — Closes полной
     формой, kaname#53 без него — Refs полной формой; закрытой #43 доказательство диапазона Closes не даёт; #51 — запрос, в задачи не идёт;
   * ХВОСТ — закрывающие строки последними, Refs перед ними, хвост сплошной;
+  * ОТКАТ (ws#1320, голова `50-revert`): доказательство — коммит диапазона, но работа откачена
+    тем же диапазоном — Refs с названным откатом: слияние полосы обращено без строки git
+    (patch-id, форма kaname 8e621ca5a) — #70; коммит откачен `git revert` — #71; откат с правкой
+    сверх обращения, строка git — #74; внесена заново и внесённое откачено — #76. Closes: откат
+    отката — #72; полоса внесена заново тем же диффом — #75; откат с правкой (строка git, обращения
+    по patch-id нет), затем внесена заново — #77; близнец, обычная полоса — #73;
+  * ЧАСТИЧНОЕ: ws#1242 — признак в строке маркера или следующей; ws#1320 — раздел неисполненного
+    («Не сошлось», «**Не исполнено …:**», «- не выполнилось …», нумерованный «7. Не сделано
+    здесь …» — форма ws#1225) в начале строки комментария — Refs (прочие формы — check-06); близнецы — слова посреди строки, в ячейке таблицы, в блоке кода, «не требуется» — Closes;
+    ws#1320 (в) — решает ПОСЛЕДНЕЕ доказательство диапазона: полное, затем частичное — Refs (форма
+    ws#1284 @c22fd37ef); близнецы — частичное, затем полное, и частичное вне диапазона после полного — Closes;
   * распознаватель доказательства общий (`dod_proof.jq`): `@main`, `@abc12`, `@develop`,
     `abc1234` без `@` и маркер посреди прозы — не доказательства; полный sha — доказательство;
     из нескольких доказательств диапазона названо последнее; доказательство 101-м
@@ -222,6 +233,93 @@ def ref_rule(pr):
               % (text, own, refs, want, foreign), own is want and refs is want and not foreign)
 
 
+def reverted(pr, d, sha, extra):
+    """ws#1320: доказательство — коммит диапазона, но работа откачена тем же диапазоном.
+
+    Голова `50-revert` от `50`, по полосе на случай (у каждой задачи — доказательство ревизией
+    её коммита):
+      #70 — слияние полосы из ДВУХ коммитов (доказательство — второй) обращено коммитом без
+          строки git (форма kaname 8e621ca5a: `revert -m 1` и своё сообщение) — откат виден лишь
+          по patch-id слияния, не коммита — Refs;
+      #71 — коммит откачен `git revert` (строка `This reverts commit`) — Refs;
+      #74 — откат с правкой сверх обращения (дифф иной), строка git есть — Refs;
+      #72 — откат отката с правкой (дифф иной, строка git) — работа стоит — Closes;
+      #75 — после отката полоса внесена заново тем же диффом (cherry-pick) — Closes;
+      #76 — то же, но внесённое заново откачено (с правкой, строка git) — Refs;
+      #77 — откат с правкой (строка git; его дифф не обращает полосу, и внесённое заново откатом
+          отката по patch-id не видно), затем полоса внесена заново тем же диффом — Closes;
+      #73 — близнец: обычная полоса — Closes.
+    """
+    def lane(n, rel, k=1):
+        pr.git(d, "checkout", "-qb", "%d-x" % n, "main")
+        for i in range(k):
+            c = pr.commit(d, "#%d работа полосы, шаг %d" % (n, i), rel=rel)
+        pr.git(d, "checkout", "-q", "50-revert")
+        pr.git(d, "merge", "-q", "--no-ff", "%d-x" % n, "-m", "#50 merge #%d: сборка" % n)
+        return c, pr.git(d, "rev-parse", "HEAD").strip()
+
+    pr.git(d, "checkout", "-qb", "50-revert", "50")
+    s = {}
+    s[70], m70 = lane(70, "r70.txt", k=2)
+    pr.git(d, "revert", "-m", "1", "--no-commit", m70)
+    pr.git(d, "commit", "-qm", "#50 revert merge 70: ждёт соседнюю посадку")
+    s[71] = pr.commit(d, "#71 правка линии", rel="r71.txt")
+    pr.git(d, "revert", "--no-edit", s[71])
+    s[74] = pr.commit(d, "#74 правка линии", rel="r74.txt")
+    pr.git(d, "revert", "--no-commit", s[74])
+    with open(os.path.join(d, "r74b.txt"), "w", encoding="utf-8") as fh:
+        fh.write("правка сверх отката\n")
+    pr.git(d, "add", "-A")
+    pr.git(d, "commit", "-qm", "#50 откат 74 с правкой\n\nThis reverts commit %s." % s[74])
+    s[72], m72 = lane(72, "r72.txt")
+    pr.git(d, "revert", "-m", "1", "--no-edit", m72)
+    c72 = pr.git(d, "rev-parse", "HEAD").strip()
+    pr.git(d, "revert", "--no-commit", c72)
+    with open(os.path.join(d, "r72b.txt"), "w", encoding="utf-8") as fh:
+        fh.write("правка сверх отката отката\n")
+    pr.git(d, "add", "-A")
+    pr.git(d, "commit", "-qm", "#50 вернуть 72 с правкой\n\nThis reverts commit %s." % c72)
+    s[75], m75 = lane(75, "r75.txt")
+    pr.git(d, "revert", "-m", "1", "--no-edit", m75)
+    pr.git(d, "cherry-pick", s[75])
+    s[76], m76 = lane(76, "r76.txt")
+    pr.git(d, "revert", "-m", "1", "--no-edit", m76)
+    pr.git(d, "cherry-pick", s[76])
+    d76 = pr.git(d, "rev-parse", "HEAD").strip()
+    pr.git(d, "revert", "--no-commit", d76)
+    with open(os.path.join(d, "r76b.txt"), "w", encoding="utf-8") as fh:
+        fh.write("правка сверх второго отката\n")
+    pr.git(d, "add", "-A")
+    pr.git(d, "commit", "-qm", "#50 снова откат 76 с правкой\n\nThis reverts commit %s." % d76)
+    s[77] = pr.commit(d, "#77 правка линии", rel="r77.txt")
+    pr.git(d, "revert", "--no-commit", s[77])
+    with open(os.path.join(d, "r77b.txt"), "w", encoding="utf-8") as fh:
+        fh.write("правка сверх отката 77\n")
+    pr.git(d, "add", "-A")
+    pr.git(d, "commit", "-qm", "#50 откат 77 с правкой\n\nThis reverts commit %s." % s[77])
+    pr.git(d, "cherry-pick", s[77])
+    s[73], _ = lane(73, "r73.txt")
+
+    w = world(sha)
+    for n, c in s.items():
+        w["issues"]["%s#%d" % (R, n)] = issue(n)
+        w["comments"]["%s#%d" % (R, n)] = [comment(n, 900 + n, "DoD-proof @%s\nкод 0" % c[:9])]
+    rc, out, err, st = pr.run("pr-body", [R, "main", "50-revert"], pr.state(w), extra=extra)
+    pr.ok("откат: код 0, трекер не изменён", rc == 0 and not P.writes(st), out + err)
+    for n, why in ((70, "слияние обращено, строки git нет (patch-id)"), (71, "коммит откачен git revert"),
+                   (74, "откат с правкой, строка git"),
+                   (76, "внесена заново, и внесённое откачено строкой git")):
+        pr.ok("#%d — %s: Refs, названо откатом" % (n, why),
+              ("Refs #%d" % n) in tail_of(out) and ("Closes #%d" % n) not in closes(out)
+              and re.search(r"- #%d «[^»]*» — `DoD-proof @%s`, но работа откачена в диапазоне: `[0-9a-f]{9}` обращает"
+                            % (n, s[n][:9]), out) is not None, out)
+    pr.ok("#70: откат назван своим коммитом и слиянием полосы",
+          re.search(r"- #70 .*обращает `%s`" % m70[:9], out) is not None, out)
+    for n, why in ((72, "откат отката"), (75, "внесена заново тем же диффом"),
+                   (77, "откат с правкой, затем внесена заново тем же диффом"), (73, "близнец: обычная полоса")):
+        pr.ok("#%d — %s: Closes" % (n, why), ("Closes #%d" % n) in closes(out), out)
+
+
 def body(pr):
     ref_rule(pr)
     d, sha = seed(pr)
@@ -309,6 +407,24 @@ def body(pr):
         pr.ok("частичное «%s»: Refs #41, названо частичным" % " ".join(text.split())[13:60],
               rc == 0 and "Refs #41" in out and "Closes #41" not in closes(out)
               and ("`DoD-proof @%s` частичный" % sha["41b"][:9]) in out, out + err)
+    # ws#1320: раздел неисполненного (форма kaname#916) — частичное, Refs; близнецы — слова посреди
+    # строки, в ячейке таблицы, в блоке кода и «не требуется» — полное, Closes.
+    for text in ("DoD-proof @%s\nкод 0\n\nНе сошлось (предикат задачи): п.2 — стенд не поднят" % sha["41b"][:9],
+                 "DoD-proof @%s\nкод 0\n\n**Не исполнено здесь:** прогон стенда" % sha["41b"][:9],
+                 "DoD-proof @%s\nкод 0\n- не выполнилось, условие не создано — 2" % sha["41b"][:9],
+                 # форма ws#1225: нумерованный пункт; прочие формы начала строки — check-06.
+                 "DoD-proof @%s\n\n1. проба — код 0\n7. Не сделано здесь: остаток задачи, `Refs`." % sha["41b"][:9]):
+        rc, out, err, _ = pr.run("pr-body", args, pr.state(world(sha, c41=[comment(41, 1, text)])), extra=extra)
+        pr.ok("раздел неисполненного «%s»: Refs #41, названо частичным" % text.splitlines()[-1][:40],
+              rc == 0 and "Refs #41" in out and "Closes #41" not in closes(out)
+              and ("`DoD-proof @%s` частичный" % sha["41b"][:9]) in out, out + err)
+    for text in ("DoD-proof @%s\nкод 0\nвсё сошлось; не исполнено лишнего ничего" % sha["41b"][:9],
+                 "DoD-proof @%s\n\n| п.2 | не исполнялся раньше, теперь код 0 |" % sha["41b"][:9],
+                 "DoD-proof @%s\n```\nНе сошлось: вывод чужого прогона\n```\nкод 0" % sha["41b"][:9],
+                 "DoD-proof @%s\nкод 0\nНе сделано и не требуется предикатом: кнопка" % sha["41b"][:9]):
+        rc, out, err, _ = pr.run("pr-body", args, pr.state(world(sha, c41=[comment(41, 1, text)])), extra=extra)
+        pr.ok("близнец раздела неисполненного «%s»: Closes #41" % " ".join(text.split())[23:63],
+              rc == 0 and "Closes #41" in closes(out), out + err)
     rc, out, err, _ = pr.run("pr-body", args, pr.state(world(sha, c41=[
         comment(41, 1, "DoD-proof @%s\nпроверок 5 из 5, код 0" % sha["41b"][:9])])), extra=extra)
     pr.ok("близнец: «5 из 5» без слова «пункт» — полное, Closes #41",
@@ -326,6 +442,20 @@ def body(pr):
         comment(41, 2, "DoD-proof @%s — полностью, пункты 0–5\nкод 0" % sha["41b"][:9])])), extra=extra)
     pr.ok("близнец: частичное, затем полное — Closes #41 по полному",
           rc == 0 and "Closes #41" in closes(out) and ("`DoD-proof @%s`, коммит диапазона" % sha["41b"][:9]) in out, out + err)
+    # ws#1320 (в): решает последнее доказательство диапазона — полное, затем частичное (форма ws#1284
+    # @c22fd37ef: дополнение догона с разделом «Не выполнилось») — Refs, названо последним частичным.
+    rc, out, err, _ = pr.run("pr-body", args, pr.state(world(sha, c41=[
+        comment(41, 1, "DoD-proof @%s\nкод 0" % sha["41a"][:9]),
+        comment(41, 2, "DoD-proof @%s — дополнение: догон\nкод 0\n\n**Не выполнилось:** проба машины" % sha["41b"][:9])])),
+        extra=extra)
+    pr.ok("полное, затем частичное — Refs #41, названо последним частичным",
+          rc == 0 and "Refs #41" in out and "Closes #41" not in closes(out)
+          and ("последнее доказательство диапазона `DoD-proof @%s` частичное" % sha["41b"][:9]) in out, out + err)
+    rc, out, err, _ = pr.run("pr-body", args, pr.state(world(sha, c41=[
+        comment(41, 1, "DoD-proof @%s\nкод 0" % sha["41a"][:9]),
+        comment(41, 2, "DoD-proof @%s — частично: пункт 0" % sha["base42"][:9])])), extra=extra)
+    pr.ok("близнец: частичное вне диапазона после полного — Closes #41 по полному",
+          rc == 0 and "Closes #41" in closes(out) and ("`DoD-proof @%s`, коммит диапазона" % sha["41a"][:9]) in out, out + err)
     two = [comment(41, 1, "DoD-proof @%s\nпервое" % sha["41a"][:9]), comment(41, 2, "обсуждение"),
            comment(41, 3, "DoD-proof @%s\nпоследнее" % sha["41b"][:9]), comment(41, 4, "DoD-proof @%s\nбаза" % sha["base42"][:9])]
     rc, out, err, _ = pr.run("pr-body", args, pr.state(world(sha, c41=two)), extra=extra)
@@ -363,6 +493,8 @@ def body(pr):
     pr.ok("близнец T7: коммит-не-слияние «merge main» — #67 задача",
           rc == 0 and "- #67 «задача 67»" in out and "Refs #67" in out, out + err)
     pr.ok("близнецы: догоны на той же голове — по-прежнему без #56", "#56" not in out, out)
+
+    reverted(pr, d, sha, extra)
 
     # Номер другого репозитория (ws#1164): kacho-workspace PR приёмки kacho#3274 — генератор
     # отказывал кодом 2 «GET repos/<репо PR>/issues/3274 — код 1: … 404».
