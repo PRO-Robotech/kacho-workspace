@@ -91,12 +91,16 @@ at-executors-dont-launch-executors): корпус сам не грузится (
   без полного задача в PR — `Refs`, не `Closes`, каскад её не закрывает (`cascade-census.sh --proof`; владелец 2026-10-04).
 - **Не жди.** Владелец 2026-10-11 дословно: «И реши проблему раз и навсегда что таски уходят в
   часовые таймауты и ничего не делают а мы ждем». Ни один вызов не держит ожидание дольше 10
-  минут: долгое — отсоединённо (`setsid env --default-signal=PIPE …`, код — в `.rc`), имя журнала
-  и `.rc` уникально ($$, sha), `.rc` снят до старта; шаг возвращает «идёт: pid, журнал, срок»,
-  исход дочитывает короткий шаг; ждёт и читает с паузой лишь `ci-watcher`. Слот занят — 74;
-  дольше 300 с — ОДИН раз `heavy-slot.sh --enqueue <каталог>`; повтор — `--resume <билет>`.
-  Циклы со `sleep`, `wait` после `&`, `tail --pid`, опрос CI отказывает `no-wait-guard`; срок
-  истёк — возврат с остатком; застой — `scripts/stall-census.sh` (`ai-tooling.md#at-agent-does-not-wait`).
+  минут: долгое — отсоединённо (`setsid env --default-signal=PIPE …`), имя журнала и `.rc`
+  уникально, `.rc` снят до старта; шаг возвращает «идёт: pid, журнал, срок», исход дочитывает
+  короткий шаг; ждёт и читает с паузой лишь `ci-watcher`. Слот дольше 300 с — ОДИН раз
+  `heavy-slot.sh --enqueue <каталог>`; повтор — `--resume <билет>`. Ожидание в вызове отказывает
+  `no-wait-guard`; срок истёк — возврат с остатком; застой — `scripts/stall-census.sh`
+  (`ai-tooling.md#at-agent-does-not-wait`).
+- **Запуск под надзором** (владелец 2026-10-28: «нужно следить за тем тчо запускаешь и отрубать
+  если теряет актуальность»): CI, слот, стенд, detach, autoland, Workflow; неактуальное — голова
+  сменилась, PR закрыт, предмет или решение сняты, дубль push+MR одной sha — снимается тем же
+  ходом; находка — STALL-STALE.
 - Свою ветку отправляешь сам, в переднем плане; PR, сборка, вливание, снятие ветки — `git-operator`.
 
 ## Топология
@@ -123,10 +127,7 @@ AI-оснастка — **одна**, в `.claude/` воркспейса: ни �
 
 ## Permissions и хуки
 
-`.claude/settings.json` — `agent`, `claudeMdExcludes` и хуки: `stall-signal` (`UserPromptSubmit`, `Stop`),
-`lessons-signal` (`Stop`), `class-guard`, `docfresh`, `change-graph-reminder` (`PostToolUse`, и в
-сабагентах), `heavy-guard` (`PreToolUse` Bash, Monitor), `no-wait-guard`, `gh-api-guard` (Bash),
-`session-memcap` (`SessionStart`).
+`.claude/settings.json` — `agent`, `claudeMdExcludes` и хуки (перечень и события — сам файл).
 Пути — `$CLAUDE_PROJECT_DIR`; в продукте файла нет. Хранилище ведётся лишь в `lessons/`, `runbooks/`.
 
 Режима без подтверждений из дерева **нет** (`ai-tooling.md#at-bypass-not-from-repo-layer`):

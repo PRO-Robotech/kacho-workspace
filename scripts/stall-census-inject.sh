@@ -18,6 +18,9 @@
 # Отсоединённые процессы (ws#1154) — пробы Д1–Д9 и их мутанты: отбор по метке окружения,
 # живой близнец, законный срок, чужая сессия, переиспользованный pid, «не судимо».
 #
+# Неактуальный запуск (ws#1469) — пробы Н1–Н7 и их мутанты: новый коммит копии, обгон
+# origin, близнецы — идущая отправка, равные головы, ствол, чужая сессия; снятие службы и setsid.
+#
 # Остановленный харнессом агент (ws#1033) — пробы `stop_cases` и их мутанты: уведомление
 # `<task-notification>` главного журнала после последней записи агента, возобновление после
 # него, снятие уведомления из очереди, чужой id в тексте, уведомление глубже хвоста 4 МиБ.
@@ -455,6 +458,52 @@ detached_cases() {
 }
 detached_cases "$C"
 
+echo "== неактуальный запуск (ws#1469): шаг detach.sh на сменившейся голове"
+# Сцена — копия git с тремя коммитами c0←c1←c2 на ветке; .fp шага несёт голову старта,
+# голова копии и origin/<ветка> ставятся update-ref; окружение, строка запуска и cwd шага —
+# в каталоге вида /proc (pid 500 — корень с DETACH_TAG, 501 — его потомок той же метки).
+G() { git -c user.name=p -c user.email=p@p -c commit.gpgsign=false "$@"; }
+# srepo <сцена> <ветка> <голова .fp 0|1|2> <голова копии 0|1|2> <origin -|0|1|2> [сессия] [unit]
+srepo() {
+    local r="$T/st-$1" pr="$T/st-$1-proc" tag="20261028T000000Z-1-$1" i d
+    local -a c=()
+    G init -q -b "$2" "$r" > /dev/null 2>&1 || { echo "  [FAIL] сцена $1: git init отказал" >&2; fail=$((fail + 1)); return; }
+    for i in 0 1 2; do G -C "$r" commit -q --allow-empty -m "c$i"; c[i]="$(git -C "$r" rev-parse HEAD)"; done
+    git -C "$r" update-ref "refs/heads/$2" "${c[$4]}"
+    [ "$5" = - ] || git -C "$r" update-ref "refs/remotes/origin/$2" "${c[$5]}"
+    mkdir -p "$T/st-steps"
+    printf 'голова %s\nправка отслеживаемого e3b0c44298fc1c14\n' "${c[$3]}" > "$T/st-steps/$tag.fp"
+    [ "${7:-unit}" = unit ] && echo "kacho-detach-$tag" > "$T/st-steps/$tag.unit"
+    for d in 500 501; do
+        mkdir -p "$pr/$d"
+        printf 'PATH=/x\0CLAUDE_CODE_SESSION_ID=%s\0CLAUDE_PID=100\0DETACH_TAG=%s\0KACHO_DETACHED_UNTIL=%s\0' "${6:-$OWN}" "$tag" "$((NOW + 3600))" > "$pr/$d/environ"
+        printf 'bash\0-c\0echo $$ > "$0.pid"; "$@"\0%s\0make\0x\0' "$T/st-steps/$tag" > "$pr/$d/cmdline"
+        ln -s "$r" "$pr/$d/cwd"
+    done
+    mkdir -p "$pr/300"; printf 'PATH=/x\0' > "$pr/300/environ"
+}
+{ echo "100 1 90000 claude claude --x"; echo "500 1 600 bash bash -c make x"; echo "501 500 600 make make x"; echo "300 1 99999 sshd sshd"; } > "$T/ps-stale"
+srepo commit 1469-x 1 2 -
+srepo origin 1469-x 1 1 2
+srepo pushing 1469-x 2 2 1
+srepo same 1469-x 1 1 1
+srepo trunk main 1 2 2
+srepo foreign 1469-x 1 2 - "$FOR"
+srepo setsid 1469-x 1 2 - "" nounit
+# stale_cases <прибор> — пробы неактуального запуска; их же гонят мутанты ниже.
+stale_cases() {
+    local C="$1"
+    CLAUDE_CODE_SESSION_ID=$OWN STALL_PROC_ROOT="$T/st-commit-proc" absent="pid 501" probe 1 "Н1 инъекция: в копии новый коммит после старта шага — STALL-STALE корня, потомок не назван" "STALL-STALE pid 500" --session "$DS" --ps "$T/ps-stale"
+    CLAUDE_CODE_SESSION_ID=$OWN STALL_PROC_ROOT="$T/st-commit-proc" probe 1 "  …находка называет новую голову и команду снятия службы" "systemctl --user stop kacho-detach-20261028T000000Z-1-commit" --session "$DS" --ps "$T/ps-stale"
+    CLAUDE_CODE_SESSION_ID=$OWN STALL_PROC_ROOT="$T/st-origin-proc" probe 1 "Н2 инъекция: origin/<ветка> обогнал голову шага — STALL-STALE" "origin/1469-x" --session "$DS" --ps "$T/ps-stale"
+    CLAUDE_CODE_SESSION_ID=$OWN STALL_PROC_ROOT="$T/st-pushing-proc" probe 0 "Н3 близнец: origin позади головы шага (идёт отправка) — молчит, судим" "судимо на актуальность 1" --session "$DS" --ps "$T/ps-stale"
+    CLAUDE_CODE_SESSION_ID=$OWN STALL_PROC_ROOT="$T/st-same-proc" probe 0 "Н4 близнец: голова копии и origin равны голове шага — молчит" "шагов detach своих 1 — судимо на актуальность 1, не судимо 0" --session "$DS" --ps "$T/ps-stale"
+    CLAUDE_CODE_SESSION_ID=$OWN STALL_PROC_ROOT="$T/st-trunk-proc" probe 0 "Н5 близнец: ствол main ушёл — не судится, причина счётом" "не судимо 1 (ветка ствола 1)" --session "$DS" --ps "$T/ps-stale"
+    CLAUDE_CODE_SESSION_ID=$OWN STALL_PROC_ROOT="$T/st-foreign-proc" probe 0 "Н6 близнец: шаг чужой сессии на сменившейся голове — молчит" "шагов detach своих 0" --session "$DS" --ps "$T/ps-stale"
+    CLAUDE_CODE_SESSION_ID=$OWN STALL_PROC_ROOT="$T/st-setsid-proc" probe 1 "Н7 инъекция: шаг setsid-пути (без .unit) — снятие группой процесса" "kill -TERM -- -500" --session "$DS" --ps "$T/ps-stale"
+}
+stale_cases "$C"
+
 echo "== нечитаемое — не «чисто»"
 probe 2 "каталога сессии нет — код 2" "VOID" --session "$T/nope" --ps "$T/ps"
 s="$(session emptyps)"; : > "$T/ps-empty"
@@ -558,6 +607,13 @@ mutant "живой claude не проверяется" "    alive = owner is not
 mutant "любой claude — живой владелец" "    alive = owner is not None and owner[2] == 'claude'" "    alive = True or owner[2] == 'claude'" detached_cases
 mutant "pid владельца не сверен по возрасту" " and owner[1] is not None and owner[1] >= et" "" detached_cases
 mutant "объявленный срок не читается" "    if term.isdigit() and now < int(term):" "    if False:" detached_cases
+echo "== мутанты неактуального запуска (ws#1469) — обязаны покраснеть на пробах Н1–Н7"
+mutant "голова копии не сверяется" "    if local and local != head:" "    if False:" stale_cases
+mutant "origin не сверяется" "    if org and org != head and" "    if False and" stale_cases
+mutant "предок origin не прощён" " and git_out(cwd, 'merge-base', '--is-ancestor', org, head) is None:" ":" stale_cases
+mutant "ствол судится" "else 'ветка ствола' if br in STALE_TRUNK else ''" "else ''" stale_cases
+mutant "чужая сессия судится" "or det_who(e) != 'own':" "or det_who(e) == 'нет':" stale_cases
+mutant "потомок шага судится как корень" "(pe is not None and pe.get('DETACH_TAG') == tag)" "False" stale_cases
 mutant "срок без сверки со временем" "    if term.isdigit() and now < int(term):" "    if term.isdigit():" detached_cases
 mutant "судится каждый меченый, а не корень" "        continue  # не корень: судится корень поддерева" "        pass" detached_cases
 mutant "чужая сессия — своя" "        who = 'own' if sid == own_sid else 'foreign'" "        who = 'own'" detached_cases

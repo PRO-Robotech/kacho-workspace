@@ -82,6 +82,12 @@
 #                (scripts/detach-launch.sh) и отбираются: их родитель — менеджер systemd, не
 #                claude, то есть «отсоединённый». Окружение не прочитано ни у
 #                одного процесса живого снимка — код 2 (не «чисто»).
+#   STALL-STALE  неактуальный запуск (ws#1469; владелец 2026-10-28: «нужно следить за тем тчо
+#                запускаешь и отрубать если теряет актуальность»): корень шага `detach.sh start`
+#                СВОЕЙ сессии (метка DETACH_TAG), чья голова из .fp уже не голова своей ветки —
+#                в копии каталога вызова новый коммит либо origin/<ветка> её обогнал; печатается
+#                с командой снятия (`systemctl --user stop <юнит>` либо kill группы setsid). Ствол
+#                (main, master), отсоединённая голова, шаг без .fp — не судятся, счётом в CENSUS.
 #   UNREACTED-WF workflow завершён дольше STALL_REACT_MIN (10) мин назад, а у
 #                главного потока после этого нет ни одной записи assistant.
 #   Остановленный харнессом (ws#1033) — последнее событие агента в ГЛАВНОМ журнале есть
@@ -186,7 +192,7 @@ cands+=("$PWD")
 projdirs="$(printf '%s\n' "${cands[@]}")"
 
 python3 - "$session" "$psfile" "$now" "$stdin_json" "$projdirs" "$sessdir" "$self" "$live" "$verbose" <<'PY'
-import calendar, glob, json, os, re, sys, time
+import calendar, glob, json, os, re, subprocess, sys, time
 
 
 def _crash(kind, val, tb):
@@ -694,7 +700,7 @@ for pid, (ppid, et, comm, args) in procs.items():
         cmd = args.split("eval '", 1)[-1] if "eval '" in args else args
         findings.append('STALL-PROC pid %s (claude %s) — живёт %d мин: %s' % (pid, ppid, et / 60, ' '.join(cmd.split())[:160]))
 # ── Отсоединённые процессы агентов (ws#1154): по метке окружения ─────────
-MARKS = (b'CLAUDE_CODE_SESSION_ID=', b'CLAUDE_PID=', b'KACHO_DETACHED_UNTIL=')
+MARKS = (b'CLAUDE_CODE_SESSION_ID=', b'CLAUDE_PID=', b'KACHO_DETACHED_UNTIL=', b'DETACH_TAG=')
 
 
 def env_marks(pid):
@@ -722,6 +728,16 @@ def under_claude(pid):
     return False
 
 
+def det_who(e):
+    """Принадлежность меченого: 'own' | 'foreign' | '' (не решить)."""
+    sid, cpid = e.get('CLAUDE_CODE_SESSION_ID', ''), e.get('CLAUDE_PID', '')
+    if own_sid and sid:
+        return 'own' if sid == own_sid else 'foreign'
+    if own_pid and cpid == own_pid:
+        return 'own'
+    return ''
+
+
 env_read = 0
 marked = {}
 for pid in procs:
@@ -745,13 +761,8 @@ for pid, e in marked.items():
         det_implausible += 1
         implausible.append('pid %s (отсоединён): %s' % (pid, et if et is not None else 'не число'))
         continue
-    sid, cpid = e.get('CLAUDE_CODE_SESSION_ID', ''), e.get('CLAUDE_PID', '')
-    if own_sid and sid:
-        who = 'own' if sid == own_sid else 'foreign'
-    elif own_pid and cpid == own_pid:
-        who = 'own'
-    else:
-        who = ''
+    cpid = e.get('CLAUDE_PID', '')
+    who = det_who(e)
     if who == 'foreign':
         det_foreign += 1
         continue
@@ -772,6 +783,87 @@ for pid, e in marked.items():
     if et >= PROC_MIN * 60:
         findings.append('STALL-PROC pid %s (отсоединён, claude %s не жив%s) — живёт %d мин, исход никто не дочитает: %s'
                         % (pid, cpid or '?', '; срок KACHO_DETACHED_UNTIL истёк' if term else '', et / 60, ' '.join(args.split())[:160]))
+# ── Неактуальный запуск (ws#1469): шаг detach.sh на сменившейся голове ─────
+# Корень шага — меченый DETACH_TAG, чей родитель не несёт той же метки; сессия — det_who.
+# Файл шага — довод строки запуска (`<proc>/cmdline`), чьё имя равно метке; голова —
+# строка «голова» его .fp (detach_fp каталога вызова); ветка — копия каталога вызова
+# (`<proc>/cwd`). Неактуален, если голова копии уже не голова .fp (новый коммит) либо
+# `refs/remotes/origin/<ветка>` — не голова .fp и не её предок (ветку обогнали).
+# Не судятся, счётом с причиной: ветка ствола (main, master — её двигают чужие
+# вливания), отсоединённая голова, шаг без .fp или без «головы», каталог вызова не
+# прочитан. ГРАНИЦА: origin — по последнему fetch копии (сети прибор не трогает);
+# закрытый PR не виден — демон autoland снимает себя сам (влит, закрыт, голова ушла).
+STALE_TRUNK = ('main', 'master')
+
+
+def git_out(cwd, *a):
+    try:
+        r = subprocess.run(['git', '-C', cwd] + list(a), capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return r.stdout.strip() if r.returncode == 0 else None
+
+
+def step_base(pid, tag):
+    try:
+        argv = open(os.path.join(proc_root, pid, 'cmdline'), 'rb').read().split(b'\0')
+    except OSError:
+        return ''
+    for a in argv:
+        a = a.decode('utf-8', 'replace')
+        if os.path.basename(a) == tag:
+            return a
+    return ''
+
+
+def fp_head(base):
+    try:
+        for ln in open(base + '.fp', encoding='utf-8', errors='replace'):
+            w = ln.split()
+            if len(w) == 2 and w[0] == 'голова' and re.fullmatch(r'[0-9a-f]{40,64}', w[1]):
+                return w[1]
+    except OSError:
+        pass
+    return ''
+
+
+stale_mine = stale_judged = 0
+stale_skip = {}
+for pid, e in marked.items():
+    tag = e.get('DETACH_TAG', '')
+    pe = marked.get(procs[pid][0])
+    if not tag or (pe is not None and pe.get('DETACH_TAG') == tag) or det_who(e) != 'own':
+        continue
+    stale_mine += 1
+    base = step_base(pid, tag)
+    head = fp_head(base) if base else ''
+    try:
+        cwd = os.readlink(os.path.join(proc_root, pid, 'cwd'))
+    except OSError:
+        cwd = ''
+    br = git_out(cwd, 'symbolic-ref', '-q', '--short', 'HEAD') if cwd else None
+    why = ('файла шага нет в строке запуска' if not base else 'в .fp нет головы' if not head
+           else 'каталог вызова не прочитан' if not cwd else 'голова копии отсоединена' if not br
+           else 'ветка ствола' if br in STALE_TRUNK else '')
+    if why:
+        stale_skip[why] = stale_skip.get(why, 0) + 1
+        continue
+    stale_judged += 1
+    moved = []
+    local = git_out(cwd, 'rev-parse', '-q', '--verify', 'HEAD')
+    if local and local != head:
+        moved.append('голова копии %s' % local[:12])
+    org = git_out(cwd, 'rev-parse', '-q', '--verify', 'refs/remotes/origin/' + br)
+    if org and org != head and git_out(cwd, 'merge-base', '--is-ancestor', org, head) is None:
+        moved.append('origin/%s %s' % (br, org[:12]))
+    if moved:
+        try:
+            unit = open(base + '.unit').read().strip()
+        except OSError:
+            unit = ''
+        findings.append('STALL-STALE pid %s (шаг %s) — запущен на голове %s ветки %s, а она уже не голова: %s; снять тем же ходом: %s'
+                        % (pid, base, head[:12], br, ', '.join(moved), 'systemctl --user stop ' + unit if unit else 'kill -TERM -- -' + pid))
+stale_note = ' (%s)' % ', '.join('%s %d' % kv for kv in sorted(stale_skip.items())) if stale_skip else ''
 env_void = bool(live) and env_read == 0
 proc_notes = []  # принадлежность не решена: не застой (код 1), а «не судимо»
 if env_void:
@@ -784,8 +876,8 @@ if verbose:
     for x in implausible:
         proc_notes.append('STALL-PROC: возраст неправдоподобен — не судится: %s' % x)
 
-print('CENSUS stall-census: сессия %s%s; workflow живых %d, завершённых в окне %d; агентов осмотрено %d, из них без единой разобранной записи %d; завершённых (не судятся) %d, остановленных харнессом (не судятся) %d, оборванных перезапуском claude (не судятся) %d, ожиданий ci-watcher под меткой в сроке (не судятся) %d; своя сессия %s (claude %s); фоновых оболочек агентов %d из процессов %d: своих %d, чужих %d, не судимо %d, неправдоподобного возраста %d; отсоединённых (окружение прочитано у %d процессов, меченых %d): корней %d — своих %d (claude жив %d, в объявленном сроке %d), чужих %d, неправдоподобного возраста %d; пороги агент %d мин, опрос %d мин, завершённый %d мин, процесс %d мин, реакция %d мин, окно %d мин'
-      % (os.path.basename(session), sess_note, wf_live, wf_done, agents_seen, len(unread), done_seen, stopped_seen, restart_seen, exempt_seen, own_sid or 'не определена', own_pid or '?', shells, len(procs), mine, foreign, len(unjudged), len(implausible) - det_implausible, env_read, len(marked), det_roots, det_mine, det_live, det_term, det_foreign, det_implausible, AGENT_MIN, POLL_MIN, DONE_MIN, PROC_MIN, REACT_MIN, HORIZON_MIN))
+print('CENSUS stall-census: сессия %s%s; workflow живых %d, завершённых в окне %d; агентов осмотрено %d, из них без единой разобранной записи %d; завершённых (не судятся) %d, остановленных харнессом (не судятся) %d, оборванных перезапуском claude (не судятся) %d, ожиданий ci-watcher под меткой в сроке (не судятся) %d; своя сессия %s (claude %s); фоновых оболочек агентов %d из процессов %d: своих %d, чужих %d, не судимо %d, неправдоподобного возраста %d; отсоединённых (окружение прочитано у %d процессов, меченых %d): корней %d — своих %d (claude жив %d, в объявленном сроке %d), чужих %d, неправдоподобного возраста %d; шагов detach своих %d — судимо на актуальность %d, не судимо %d%s; пороги агент %d мин, опрос %d мин, завершённый %d мин, процесс %d мин, реакция %d мин, окно %d мин'
+      % (os.path.basename(session), sess_note, wf_live, wf_done, agents_seen, len(unread), done_seen, stopped_seen, restart_seen, exempt_seen, own_sid or 'не определена', own_pid or '?', shells, len(procs), mine, foreign, len(unjudged), len(implausible) - det_implausible, env_read, len(marked), det_roots, det_mine, det_live, det_term, det_foreign, det_implausible, stale_mine, stale_judged, sum(stale_skip.values()), stale_note, AGENT_MIN, POLL_MIN, DONE_MIN, PROC_MIN, REACT_MIN, HORIZON_MIN))
 for f in findings:
     print(f)
 for n in proc_notes:
