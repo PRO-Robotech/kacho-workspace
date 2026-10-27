@@ -924,6 +924,20 @@ class TrustBoundaries(unittest.TestCase):
              'release-only job runs outside a version tag: chart.yml:publish, chart.yml:render (on: workflow_dispatch)'),
             ('release-tags-empty', 'chart.yml', lambda d: d['on']['push'].update(tags=[]),
              'release-only job runs outside a version tag: chart.yml:publish, chart.yml:render (on: push.tags)'),
+            # Приёмка check-verifier (мутанты MA2b, MA5, `on: {}`): пустой элемент рядом с законным
+            # образцом — близнец два образца; фильтр рядом с `tags` любым ключом, не только
+            # `branches`; `on: {}` — событий ноль: запуска по метке нет, это не «вне метки ноль».
+            ('release-two-tag-patterns-twin', 'chart.yml',
+             lambda d: d['on']['push'].update(tags=['v*', 'chart-*']), None),
+            ('release-tag-element-empty', 'chart.yml', lambda d: d['on']['push'].update(tags=['v*', '']),
+             'release-only job runs outside a version tag: chart.yml:publish, chart.yml:render (on: push.tags)'),
+            ('release-push-branches-ignore', 'chart.yml',
+             lambda d: d['on']['push'].update({'branches-ignore': ['main']}),
+             'release-only job runs outside a version tag: chart.yml:publish, chart.yml:render (on: push.branches-ignore)'),
+            ('release-push-paths', 'chart.yml', lambda d: d['on']['push'].update(paths=['deploy/**']),
+             'release-only job runs outside a version tag: chart.yml:publish, chart.yml:render (on: push.paths)'),
+            ('release-on-empty', 'chart.yml', lambda d: d.update({'on': {}}),
+             'release-only job runs outside a version tag: chart.yml:publish, chart.yml:render (on: push)'),
             ('release-extra-job', 'chart.yml', lambda d: d['jobs'].update(lint=copy.deepcopy(render(d))),
              'CI job outside the Kaname ledger: chart.yml:lint'),
             ('release-row-without-job', 'chart.yml', lambda d: d['jobs'].pop('render'),
