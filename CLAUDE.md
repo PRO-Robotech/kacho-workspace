@@ -112,21 +112,21 @@ AI-оснастка — **одна**, в `.claude/` воркспейса: ни �
 
 - Машина владельца не для прогонов (владелец 2026-10-22): «запиши в рул что бы не
   использовал мою локальную тачку. использовать только в одном случае если доступа к кластеру
-  нету». Здесь — git, gh, чтение и правка файлов, короткие одиночные команды; сборки, тесты (и
-  unit), линтеры, наборы, инъекции, хук отправки, docker, стенд, newman, браузер — внешний кластер:
-  `$WS/scripts/heavy-slot.sh <класс> -- <команда>`, без слота — отказ `heavy-guard`. Локально — лишь
-  при недоступном кластере, доказанном слотом; «нет инструмента в образе», «слот занят», «быстрее
-  локально» — не основания; ≤ 70 ГБ — `testing-verdict.md#external-cluster-first`.
+  нету». Здесь — git, gh, чтение и правка файлов, короткие одиночные команды; прогоны (сборка,
+  тесты, линтеры, наборы, инъекции, хук отправки, docker, стенд, браузер) — слотом внешнего кластера
+  `$WS/scripts/heavy-slot.sh <класс> -- <команда>` (иначе отказ `heavy-guard`), локально — лишь при
+  недоступности, доказанной слотом; ≤ 70 ГБ — `testing-verdict.md#external-cluster-first`.
+- Основные прогоны — CI; system-test (`~/.kube/config-system-test`, не кластер слота) — не ворота
+  (владелец 2026-10-27: «Вся дальнейшая разработка никак не должна блокироваться о system-test.
+  Разворачивать надо там только по запросу»): выкатка — по запросу, для передачи и показа
+  заказчику; полоса, DoD, закрытие и вливание её не ждут.
 - Потолок сессии — хук SessionStart (`scripts/session-memcap.sh`); запуск —
   `$WS/scripts/session-memcap.sh --launch -- claude` (scope терминала снял бы).
 - Стенд — `heavy-slot.sh stand -- make stand-ns-up|stand-ns-down NS=t<N>-<коротко>` в `project/kacho/deploy`; копии — `./sync-all.sh`
 
 ## Permissions и хуки
 
-`.claude/settings.json` — `agent`, `claudeMdExcludes` и хуки: `stall-signal` (`UserPromptSubmit`, `Stop`),
-`lessons-signal` (`Stop`), `class-guard`, `docfresh`, `change-graph-reminder` (`PostToolUse`, и в
-сабагентах), `heavy-guard` (`PreToolUse` Bash, Monitor), `no-wait-guard`, `gh-api-guard` (Bash),
-`session-memcap` (`SessionStart`).
+`.claude/settings.json` — `agent`, `claudeMdExcludes` и хуки (перечень — там).
 Пути — `$CLAUDE_PROJECT_DIR`; в продукте файла нет. Хранилище ведётся лишь в `lessons/`, `runbooks/`.
 
 Режима без подтверждений из дерева **нет** (`ai-tooling.md#at-bypass-not-from-repo-layer`):
