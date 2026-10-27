@@ -3358,7 +3358,7 @@ b="$(mksandbox)"
 c21_sub "$b/.claude/workflows/wave.js" "if (!stand || stand.code !== 0) return {" "if (false) return {"
 run_says 1 "$b" "инъекция: отчёт стенда не останавливает CI и ready — краснеет" "$C23" "провязка переписи и стенда"
 b="$(mksandbox)"
-c21_sub "$b/.claude/workflows/wave.js" "' --stand-report ' + STAND + ' --stand-expect ' + STAND_EXP," "'',"
+c21_sub "$b/.claude/workflows/wave.js" " + STAND_ARGS, D + '/landing-precheck-1.md')" " + '', D + '/landing-precheck-1.md')"
 run_says 1 "$b" "инъекция: посадка без --stand-report — краснеет" "$C23" "провязка переписи и стенда"
 b="$(mksandbox)"
 c21_sub "$b/.claude/workflows/wave.js" " + ' --expect ' + STAND_EXP" ""
@@ -3432,6 +3432,29 @@ run 0 "$b" "близнец: та же команда строкой многос
 b="$(mksandbox)"
 c21_sub "$b/scripts/landing-precheck.sh" '"check", sr, "--head", head' '"check", sr, "--head", "0" * 40'
 run_says 1 "$b" "инъекция: посадка судит отчёт не той головы — краснеет" "$C23" "посадка судит отчёт стенда"
+# G. исключение kaname (ws#1460): перечень — ровно kaname в шаблоне и посадке; ветвью, не выключением.
+b="$(mksandbox)"
+c21_sub "$b/.claude/workflows/wave.js" "const STAND_EXEMPT = ['PRO-Robotech/kaname']" "const STAND_EXEMPT = ['PRO-Robotech/kaname', 'PRO-Robotech/kacho']"
+run_says 1 "$b" "инъекция: исключение стенда в шаблоне расширено на kacho — краснеет" "$C23" "перечень исключения стенда"
+b="$(mksandbox)"
+c21_sub "$b/.claude/workflows/wave.js" "const standExempt = STAND_EXEMPT.includes(A.repo)" "const standExempt = true"
+run_says 1 "$b" "инъекция: исключение стенда в шаблоне — на все репозитории — краснеет" "$C23" "исключение стенда kaname — ветвью по перечню"
+b="$(mksandbox)"
+c21_sub "$b/scripts/landing-precheck.sh" 'if os.environ["REPO"] in STAND_EXEMPT:' 'if True:'
+run_says 1 "$b" "инъекция: посадка не судит стенд ни у кого — краснеет" "$C23" "посадка: исключение kaname"
+b="$(mksandbox)"
+c21_sub "$b/scripts/landing-precheck.sh" 'STAND_EXEMPT = ("PRO-Robotech/kaname",)' 'STAND_EXEMPT = ()'
+run_says 1 "$b" "инъекция: исключение kaname в посадке снято — краснеет" "$C23" "перечень исключения стенда"
+b="$(mksandbox)"
+c21_sub "$b/CLAUDE.md" "Исключение — kaname (владелец 2026-10-27:" "Исключение — kaname и kacho (владелец 2026-10-27:"
+run_says 1 "$b" "инъекция: протокол расширил исключение — краснеет" "$C23" "раздел протокола"
+b="$(mksandbox)"
+c21_sub "$b/scripts/wave-template-inject.sh" 'mutant "исключение стенда снято (ws#1460)"' 'twin "исключение стенда снято (ws#1460)"'
+run_says 1 "$b" "инъекция: мутант снятия исключения убран из пробы шаблона — краснеет" "$C23" "исключение kaname доказано"
+b="$(mksandbox)"
+c21_sub "$b/CLAUDE.md" "а мы не можем влить этот код больше суток»): вливается" "а мы не можем влить этот код
+   больше суток»): вливается"
+run 0 "$b" "близнец: перенос строки внутри исключения протокола — молчит" "$C23"
 # Близнецы: перенос строки внутри нормы и правка мимо предмета — молчат.
 b="$(mksandbox)"
 c21_sub "$b/.claude/rules/ai-tooling.md" "все корни — исполнителям классов, одной сборкой" "все корни — исполнителям классов,

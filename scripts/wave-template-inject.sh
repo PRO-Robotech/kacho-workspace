@@ -34,7 +34,9 @@
 #   внешний стенд до CI (ws#1110): шаг mech:stand ci-watcher после рецензента волны и до
 #   первого чтения CI, суд stand-report.sh этой головы; красный — ни CI, ни ready, ни
 #   вливания; не выполнилось — без круга; идёт — чтение с проверенной паузой; посадка —
-#   landing-precheck --stand-report;
+#   landing-precheck --stand-report; исключение — kaname (ws#1460, владелец 2026-10-27): штатная
+#   сборка, mech:stand не зовётся, посадке отчёт не передаётся; kacho и воркспейс — как прежде;
+#   расширение и снятие исключения — мутанты;
 #   влитая волна в ветку эпика — пробное схождение и одно чтение CI MR эпика без
 #   ожидания; близнецы — волна прямо в main и невлитая волна — без них;
 #   предпроверка полосы красная, голова та же — повтора нет, строка счётчика
@@ -250,9 +252,6 @@ async function run(sc) {
     if (label.startsWith('review-landing')) return { verdict: 'accept', sha: HW, blocking: [], report: 'r' }
     if (sc.ret && label === 'review-' + sc.ret + ':' + lane) return { verdict: 'return', sha: heads[lane], blocking: ['x'], report: 'r' }
     if (label.startsWith('review-') || label.startsWith('acceptance-review-')) return { verdict: 'accept', sha: sc.staleRole ? H('old', 0) : heads[lane] || '', blocking: [], report: 'r' }
-    if (label.startsWith('mech:kaname-local:')) return { status: 'done', head: HW, copy: '/ws/tmp/w', pr: 0, conflicts: [], report: 'r', ...take('kanameLocal', () => ({})) }
-    if (label.startsWith('mech:kaname-external:')) return { code: 0, out: '', reasons: [], head: HW, ...take('kanameExternal', () => ({})) }
-    if (label.startsWith('mech:kaname-publish:')) return { status: 'done', head: HW, copy: '/ws/tmp/w', pr: 7, conflicts: [], report: 'r', ...take('kanamePublish', () => ({})) }
     if (label.startsWith('mech:assemble-local:')) return { status: 'done', head: HW, copy: '/ws/tmp/w', pr: 0, conflicts: [], report: 'r', ...take('operatorLocal', () => ({})) }
     if (label.startsWith('mech:operator-cluster:')) return { code: 0, out: '', reasons: [], head: HW, ...take('operatorCluster', () => ({})) }
     if (label.startsWith('mech:operator-publish:')) return { status: 'done', head: HW, copy: '/ws/tmp/w', pr: 7, conflicts: [], report: 'r', ...take('operatorPublish', () => ({})) }
@@ -1093,28 +1092,23 @@ for (const repo of ['PRO-Robotech/kaname-iam-operator', 'PRO-Robotech/registry-o
   ok(q.res.state === 'running' && idx(q.calls, 'mech:operator-cluster:2') >= 0 && idx(q.calls, 'mech:operator-publish:2') < 0, 'operator reassembly pending remains running without second publication', JSON.stringify(q.res))
 }
 
-console.log('== Kaname staged proof: external → publication → real hosted')
+console.log('== Kaname вливается по своему CI: стенда нет, посадке отчёт не передаётся (ws#1460)')
 {
-  const kArgs = { ...args, repo: 'PRO-Robotech/kaname' }
-  let q = await run({ args: kArgs, plan: [P('r0.json')] })
-  ok(q.res.ok === true && idx(q.calls, 'mech:kaname-local:1') < idx(q.calls, 'mech:kaname-external:1') && idx(q.calls, 'mech:kaname-external:1') < idx(q.calls, 'mech:kaname-publish:1') && idx(q.calls, 'mech:kaname-publish:1') < idx(q.calls, 'mech:stand:0'), 'Kaname lawful twin ordered stages')
-  ok(prm(q.calls, 'mech:stand:0').includes('kaname-staged-report-v1') && prm(q.calls, 'mech:stand:0').includes('без external-only'), 'Kaname full reader requires real hosted proof')
-  const extPrompt = prm(q.calls, 'mech:kaname-external:1'), fullPrompt = prm(q.calls, 'mech:stand:0')
-  ok(/`bash \/ws\/scripts\/stand-report\.sh <ступень> … --expect <ожидаемое>`/.test(extPrompt) && /`bash \/ws\/scripts\/stand-report\.sh check <report> --head [0-9a-f]{40} --expect <ожидаемое> --external-only`/.test(extPrompt) && /`bash \/ws\/scripts\/stand-report\.sh report --expect /.test(fullPrompt) && !/python3 \/|kaname-stand\.py/.test(extPrompt + fullPrompt), 'ступени Kaname — входом stand-report.sh, не python3 на машине (ws#1301)')
-  for (const code of [1, 2, 3]) {
-    q = await run({ args: kArgs, plan: [P('r0.json')], kanameExternal: [{ code }] })
-    ok(q.res.ok === false && idx(q.calls, 'mech:kaname-publish:1') < 0 && (code !== 3 || q.res.state === 'running'), 'Kaname external code ' + code + ' forbids premature publication')
+  // Владелец 2026-10-27: «…сама проверка на мастер ci занимают меньше часа а мы не можем влить
+  // этот код больше суток». Близнецы — kacho и воркспейс: красный стенд останавливает, как прежде.
+  const kArgs = { ...args, repo: 'PRO-Robotech/kaname', base: '296', epic: '296', lanes: knLanes }
+  const noStand = p => !/--stand-report|--stand-expect/.test(p)
+  let q = await run({ args: kArgs, plan: [P('kn.json')] })
+  ok(q.res.ok === true && by(q.calls, c => c.label.startsWith('mech:stand:')) === 0 && idx(q.calls, 'mech:assemble:1') >= 0 && idx(q.calls, 'mech:assemble:1') < idx(q.calls, 'mech:ci:0'), 'kaname: штатная сборка, mech:stand не зовётся, сразу CI', JSON.stringify(q.res).slice(0, 200))
+  ok(/autoland\.sh start --repo PRO-Robotech\/kaname /.test(prm(q.calls, 'mech:autoland')) && noStand(prm(q.calls, 'mech:autoland')) && prm(q.calls, 'mech:gates').includes('landing-precheck.sh') && noStand(prm(q.calls, 'mech:gates')), 'kaname: демону вливания и переписи гейтов отчёт стенда не передаётся')
+  q = await run({ args: kArgs, plan: [P('kn.json')], stand: [{ code: 1, reasons: ['STAND-REPORT-RED'] }] })
+  ok(q.res.ok === true && by(q.calls, c => c.label.startsWith('mech:stand:')) === 0 && idx(q.calls, 'mech:autoland') >= 0, 'kaname: красного стенда нет к чтению — отказа по стенду нет, посадка демоном', JSON.stringify(q.res).slice(0, 200))
+  for (const [repo, lanes, plan] of [['PRO-Robotech/kacho', kcLanes, 'kc.json'], ['PRO-Robotech/kacho-workspace', lanes2, 'r0.json']]) {
+    q = await run({ args: { ...args, repo, lanes }, plan: [P(plan)], stand: [{ code: 1, reasons: ['STAND-REPORT-RED'] }] })
+    ok(q.res.ok === false && /внешний стенд до CI: красное/.test(q.res.stage || '') && by(q.calls, c => /^mech:(ci:|ready|autoland|cascade)/.test(c.label)) === 0, repo + ': красный стенд — ни CI, ни вливания, как прежде', JSON.stringify(q.res).slice(0, 200))
+    q = await run({ args: { ...args, repo, lanes }, plan: [P(plan)] })
+    ok(q.res.ok === true && idx(q.calls, 'mech:stand:0') >= 0 && !noStand(prm(q.calls, 'mech:autoland')) && !noStand(prm(q.calls, 'mech:gates')), repo + ': стенд судится, посадке отчёт передаётся', JSON.stringify(q.res).slice(0, 200))
   }
-  q = await run({ args: kArgs, plan: [P('r0.json')], kanameExternal: [{ head: 'd'.repeat(40) }] })
-  ok(q.res.ok === false && idx(q.calls, 'mech:kaname-publish:1') < 0, 'Kaname external head mismatch denied')
-  q = await run({ args: kArgs, plan: [P('r0.json')], kanamePublish: [{ head: 'd'.repeat(40) }] })
-  ok(q.res.ok === false && idx(q.calls, 'mech:stand:0') < 0, 'Kaname publication head drift denied')
-  q = await run({ args: kArgs, plan: [P('r0.json')], stand: [{ code: 0, head: 'd'.repeat(40) }] })
-  ok(q.res.ok === false && idx(q.calls, 'mech:autoland') < 0, 'Kaname final proof wrong head denied')
-  q = await run({ args: kArgs, plan: [P('r0.json')], stand: [{ code: 3 }, { code: 0 }] })
-  ok(q.res.ok === true && by(q.calls, c => c.label.startsWith('mech:kaname-publish:')) === 1 && by(q.calls, c => c.label.startsWith('mech:kaname-external:')) === 1 && by(q.calls, c => c.label.startsWith('mech:stand:')) === 2, 'Kaname pending hosted resume does not republish or rerun external')
-  q = await run({ args: { ...argsABC, repo: 'PRO-Robotech/kaname' }, plan: [P('r1c.json')], wave: [W3('accept', 'accept', 'return')], kanameExternal: [{ code: 0 }, { code: 3 }] })
-  ok(q.res.state === 'running' && idx(q.calls, 'mech:kaname-external:2') >= 0 && idx(q.calls, 'mech:kaname-publish:2') < 0, 'Kaname reassembly pending not failed/published')
 }
 
 console.log('== объединение вызовов всех сценариев: модель, усилие, место отчётов (ws#1016)')
@@ -1314,7 +1308,7 @@ mutant "срок снят у ревью" "'. ' + due('review') + ' Верни ve
 mutant "правило вливания снято из общего задания" "  'ВЛИВАНИЕ (ws#1008, ws#1152)" "  '(ws#1008, ws#1152)"
 mutant "демон без сверки головы" "' --head ' + asm.head + ' --subject \"'" "' --subject \"'"
 mutant "вливание локальным --no-ff вместо демона" "ОДНОЙ командой \`bash ' + AUTOLAND + ' start" "ОДНОЙ командой \`git merge --no-ff ' + asm.head + ' && bash ' + AUTOLAND + ' start"
-mutant "старт демона с --auto" " --stand-expect ' + STAND_EXP + '\` — он сразу" " --stand-expect ' + STAND_EXP + ' --auto\` — он сразу"
+mutant "старт демона с --auto" " + STAND_ARGS + '\` — он сразу" " + STAND_ARGS + ' --auto\` — он сразу"
 mutant "тело PR при посадке — не генератором (ws#1146)" "/scripts/pr-body.sh ' + (A.repo || '?') + ' origin/' + (A.epic || A.base || '?') + ' ' + asm.head" "/scripts/body.sh ' + (A.repo || '?') + ' origin/' + (A.epic || A.base || '?') + ' ' + asm.head"
 mutant "норма вливания — сквошем (урок 2026-10-16)" "вливает он \`gh pr merge <PR> --merge --match-head-commit" "вливает он \`gh pr merge <PR> --squash --match-head-commit"
 mutant "лимит CI не судится (урок 2026-10-16)" "  if (rateOf(ci)) return rateStop('CI', ci, asm.head)" ""
@@ -1440,7 +1434,7 @@ mutant 'G2 старт: «Закрыть задачи полос сразу, по
 mutant 'G3 status: повторить status обязательно, раньше нельзя' 'Исход не толкуй, не жди, демон не перезапускай.' 'Исход не толкуй, демон не перезапускай; повторить status обязательно, раньше нельзя.'
 mutant "старт демона не судится" "if (!alStart || ![0, 3].includes(alStart.code)) return" "if (false) return"
 mutant "тело сборки руками (ws#1146)" "тело — ТОЛЬКО вывод генератора (ws#1146), руками не пишется: \`RITUAL_REPO_DIR=" "тело — ровно состав git log база..голова: \`true RITUAL_REPO_DIR="
-mutant "демон без отчёта стенда" "' --stand-report ' + STAND + ' --stand-expect ' + STAND_EXP + '\` — он сразу" "'\` — он сразу"
+mutant "демон без отчёта стенда" " + STAND_ARGS + '\` — он сразу" " + '\` — он сразу"
 mutant "срок CI-чтения больше 10 мин" "implement: 90, review: 30, mech: 10, ci: 2 }" "implement: 90, review: 30, mech: 10, ci: 60 }"
 # ws#1004: пустые ходы.
 mutant "план — JSON.parse всего вывода" "  plan = r ? parseJsonTail(r.out) : null" "  try { plan = r ? JSON.parse(r.out) : null } catch (e) { plan = null }"
@@ -1510,9 +1504,9 @@ mutant "два красных CI — без стопа (ws#1110)" "два кра
 mutant "стенд не судится (ws#1110)" "if (!stand || stand.code !== 0) return {" "if (false) return {"
 mutant "CI при идущем стенде (ws#1110)" "  if (!stand || stand.code !== 3) break" "  break"
 mutant "пауза стенда не проверяется (ws#1110)" "if (i > 0 && !(got && Number.isFinite(got.slept) && got.slept + CI_SLEPT_SLACK >= CI_PAUSE_S)) { stand = " "if (false) { stand = "
-mutant "отчёт стенда не в посадке (ws#1110)" "' --stand-report ' + STAND + ' --stand-expect ' + STAND_EXP," "'',"
+mutant "отчёт стенда не в посадке (ws#1110)" " + STAND_ARGS, D + '/landing-precheck-1.md')" " + '', D + '/landing-precheck-1.md')"
 mutant "ожидаемое стенда из отчёта (ws#1110)" " + ' --expect ' + STAND_EXP" ""
-mutant "ожидаемое не в посадке (ws#1110)" " + ' --stand-expect ' + STAND_EXP," ","
+mutant "ожидаемое не в посадке (ws#1110)" "' --stand-report ' + STAND + ' --stand-expect ' + STAND_EXP" "' --stand-report ' + STAND"
 mutant "ожидаемое стенда — выбор черновика, не ready (ws#1110, паритет с --github-output)" "' --draft false > ' + STAND_EXP" "' > ' + STAND_EXP"
 mutant "стенд — до первого красного (ws#1110)" "без остановки на первом красном; набор" "до первого красного; набор"
 mutant "красный стенд без порядка круга (ws#1110)" "...(stand && stand.code === 1 ? { redRound: RED_ROUND } : {})" "...({})"
@@ -1547,23 +1541,22 @@ mutant "текст автору приёмки не судится (ws#1271)" " 
 mutant "meta не литерал: вызов" "name: 'wave'," "name: ['wa', 've'].join(''),"
 mutant "meta не литерал: шаблонная строка" "name: 'wave'," "name: \`wave\`,"
 mutant "operator publication source drift accepted" "!published || published.head !== local.head" "!published"
-mutant "operator final proof source ignored" "(operatorStand || kanameStand) && got && got.head !== asm.head" "false"
+mutant "operator final proof source ignored" "operatorStand && got && got.head !== asm.head" "false"
 mutant "operator cluster red permits publication" "clusterStage.code !== 0" "false"
 mutant "operator cluster source ignored" "clusterStage.head !== local.head" "false"
-mutant "operator reassembly pending treated failed" "if ((operatorStand || kanameStand) && asm && asm.status === 'running') return { ok: false, state: 'running', stage: 'operator reassembly" "if (false) return { ok: false, state: 'running', stage: 'operator reassembly"
+mutant "operator reassembly pending treated failed" "if (operatorStand && asm && asm.status === 'running') return { ok: false, state: 'running', stage: 'operator reassembly" "if (false) return { ok: false, state: 'running', stage: 'operator reassembly"
 mutant "operator final prompt repeats cluster and push" "заново cluster не запускай и push не делай" "запусти cluster заново и выполни push"
-# Kaname-specific one-fact mutants retain the legal staged twin above.
-# ws#1301: ступени судей kaname и операторов — входом stand-report.sh; python3 на машине страж отказывает.
-mutant "Kaname import/register — python3 на машине (ws#1301)" "Ступени судьи — входом \`bash ' + WS + '/scripts/stand-report.sh <ступень>" "Ступени судьи — \`python3 ' + WS + '/scripts/kaname-stand.py <ступень>"
-mutant "Kaname external-only — kaname-stand.py (ws#1301)" "проверь \`bash ' + WS + '/scripts/stand-report.sh check <report>" "проверь \`python3 ' + WS + '/scripts/kaname-stand.py check <report>"
-mutant "Kaname report — kaname-stand.py (ws#1301)" "Собери отчёт \`bash ' + WS + '/scripts/stand-report.sh report" "Собери отчёт \`python3 ' + WS + '/scripts/kaname-stand.py report"
+# ws#1301: ступени судей операторов — входом stand-report.sh; python3 на машине страж отказывает.
 mutant "оператор register — operator-stand.py (ws#1301)" "зарегистрировать \`bash ' + WS + '/scripts/stand-report.sh register" "зарегистрировать \`operator-stand.py register"
 mutant "оператор cluster-check — python3 на машине (ws#1301)" "вызови bash ' + WS + '/scripts/stand-report.sh cluster-check" "вызови python3 ' + WS + '/scripts/operator-stand.py cluster-check"
 mutant "оператор итог cluster-check — без входа (ws#1301)" "повторно проверь \`bash ' + WS + '/scripts/stand-report.sh cluster-check\`" "повторно проверь cluster-check"
-mutant "Kaname external red publishes" "external.code !== 0" "false"
-mutant "Kaname external source ignored" "external.head !== local.head" "false"
-mutant "Kaname publication source ignored" "published && published.head === local.head ? published" "published ? published"
 
 echo
 echo "wave-template-inject: контроль код $rc; мутантов и близнецов $((pass + fail)), сошлось $pass (мутант красный, близнец молчит), разошлось $fail"
 [ "$rc" -eq 0 ] && [ "$fail" -eq 0 ]
+# ws#1460: исключение стенда — ровно kaname; расширение и снятие краснеют.
+mutant "исключение стенда расширено на все репозитории (ws#1460)" "const standExempt = STAND_EXEMPT.includes(A.repo)" "const standExempt = true"
+mutant "перечень исключения стенда расширен на kacho (ws#1460)" "const STAND_EXEMPT = ['PRO-Robotech/kaname']" "const STAND_EXEMPT = ['PRO-Robotech/kaname', 'PRO-Robotech/kacho']"
+mutant "исключение стенда снято (ws#1460)" "const standExempt = STAND_EXEMPT.includes(A.repo)" "const standExempt = false"
+mutant "kaname: стенд пропущен, а отчёт в посадке (ws#1460)" "const STAND_ARGS = standExempt ? '' : ' --stand-report '" "const STAND_ARGS = false ? '' : ' --stand-report '"
+mutant "kaname: отчёт снят, а стенд зовётся (ws#1460)" "if (standExempt) { stand = { code: 0, exempt: true };" "if (false) { stand = { code: 0, exempt: true };"

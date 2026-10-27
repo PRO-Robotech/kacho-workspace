@@ -197,7 +197,15 @@
 #                             красного (ws#1110, `ai-tooling.md#at-red-ci-one-round`):
 #                             его причины переносятся строкой на причину; его код 2 —
 #                             VOID. Без довода — строка CENSUS «пункт (з) НЕ СУДИЛСЯ»
-#                             (шаблон волны довод передаёт всегда);
+#                             (шаблон волны довод передаёт всегда, кроме kaname).
+#                             ИСКЛЮЧЕНИЕ — PRO-Robotech/kaname (ws#1460), владелец
+#                             2026-10-27 дословно: «Сам репозиторий канаме изолирован
+#                             от процесса и туда можно добавить тесты которые
+#                             имитировали требуемые проверки, сама проверка на мастер ci
+#                             занимают меньше часа а мы не можем влить этот код больше
+#                             суток»: вливается по своему CI, пункт (з) не судится и с
+#                             доводом — строка CENSUS «не судится»; перечень — один
+#                             репозиторий (`STAND_EXEMPT`, тот же — в `wave.js`);
 #   PR-NOT-OPEN             — PR не открыт.
 #
 # Перепись печатается всегда, строками CENSUS<TAB>…, отдельно от причин:
@@ -1001,9 +1009,15 @@ for r, n in closes:
         reason("CLOSES-WITHOUT-PROOF", f"{r}#{n}: комментария «DoD-proof @<sha>» нет — Refs, а не Closes")
 census.append(f"закрытие: Closes {len(closes)}, с доказательством {proven}")
 
-# (з) отчёт прогона на внешнем кластере — судит stand-report.sh той же головы
+# (з) отчёт прогона на внешнем кластере — судит stand-report.sh той же головы.
+# Исключение ws#1460 (владелец 2026-10-27, цитата — шапка): kaname вливается по своему CI —
+# отказа по стенду ему нет. Перечень — ровно один репозиторий, тот же, что STAND_EXEMPT wave.js.
+STAND_EXEMPT = ("PRO-Robotech/kaname",)
 sr = os.environ.get("STAND_REPORT", "")
-if sr:
+if os.environ["REPO"] in STAND_EXEMPT:
+    census.append(f"пункт (з) не судится: {os.environ['REPO']} вливается по своему CI (владелец 2026-10-27, ws#1460)"
+                  + (f"; отчёт {sr} передан и не судим — не основание отказа" if sr else ""))
+elif sr:
     import subprocess
     se = os.environ.get("STAND_EXPECT", "")
     p = subprocess.run(["bash", os.environ["STAND_TOOL"], "check", sr, "--head", head] + (["--expect", se] if se else [])

@@ -70,7 +70,7 @@ pass=0; fail=0
 # рядом со скриптом в архиве origin/main — судит раздел «ведомость ci-read». Вторая
 # строка — пара запроса, который судит команда посадки шаблона волны («запуск», (в)):
 # шаблон отрисовывает репозиторий воркспейса на том же захвате с базой 1266.
-printf '# ведомость случая kacho#3036\nPRO-Robotech/kacho\t1266\t74\tсинтетика пробы\nPRO-Robotech/kacho-workspace\t1266\t74\tсинтетика пробы: команда шаблона волны\n' > "$W/ledger.tsv"
+printf '# ведомость случая kacho#3036\nPRO-Robotech/kacho\t1266\t74\tсинтетика пробы\nPRO-Robotech/kacho-workspace\t1266\t74\tсинтетика пробы: команда шаблона волны\nPRO-Robotech/kaname\t1266\t74\tсинтетика пробы: исключение стенда ws#1460\n' > "$W/ledger.tsv"
 export CI_READ_EXPECTED="$W/ledger.tsv"
 
 # Подмена gh: отвечает только на `gh api <путь>`; путь → файл песочницы пробы.
@@ -735,6 +735,52 @@ expect 2 $'VOID\tотчёт стенда' "без ожидаемого stand-rep
 twin; run 0
 if grep -q 'пункт (з) НЕ СУДИЛСЯ' "$W/out"; then echo "  [OK]   без --stand-report пункт (з) назван несуждённым"; pass=$((pass + 1))
 else echo "  [FAIL] без --stand-report нет строки «пункт (з) НЕ СУДИЛСЯ»" >&2; fail=$((fail + 1)); fi
+
+echo "== (з) исключение kaname: вливается по своему CI (ws#1460, владелец 2026-10-27)"
+# Тот же захват под другим репозиторием запроса: подменный gh отвечает по пути, не по
+# владельцу, ведомость случая несёт строку kaname/1266. Красный отчёт kacho той же
+# головы: kaname — отказа нет (пункт (з) «не судится»), kacho и воркспейс — отказ как прежде.
+# runr <репозиторий> <предпроверка> [доводы] — код в $W/code, вывод в $W/out.
+runr() {
+    local repo="$1" tool="$2"; shift 2
+    FAKE="$W/case" LANDING_PRECHECK_GH="$W/gh" LANDING_PRECHECK_MERGE_READINESS="$W/mr0" \
+        bash "$tool" "$repo" 3036 "$@" > "$W/out" 2>&1
+    echo $? > "$W/code"
+}
+exempt_line() {  # exempt_line <имя пробы> — строка переписи исключения есть
+    if grep -q $'^CENSUS\tпункт (з) не судится: PRO-Robotech/kaname вливается по своему CI' "$W/out"; then
+        echo "  [OK]   $1: перепись называет исключение"; pass=$((pass + 1))
+    else echo "  [FAIL] $1: строки исключения в переписи нет" >&2; sed 's/^/           /' "$W/out" >&2; fail=$((fail + 1)); fi
+}
+RED_STAND='.suites[1] |= (.outcome = "red" | .quote = "expected 404, got 403")'
+twin; sreport "$HEAD_SHA" "$RED_STAND"; runr PRO-Robotech/kaname "$TOOL" --stand-report "$W/case/stand.json" "${SE[@]}"
+expect 0 - "kaname: красный отчёт стенда — отказа нет, вливается по своему CI"; exempt_line "kaname с красным отчётом"
+twin; runr PRO-Robotech/kaname "$TOOL" --stand-report "$W/case/нет.json" --stand-expect "$W/case/нет-expect.json"
+expect 0 - "kaname: отчёта нет вовсе — отказа нет"
+twin; runr PRO-Robotech/kaname "$TOOL"
+expect 0 - "kaname: без --stand-report — код 0"; exempt_line "kaname без довода"
+twin; sreport "$HEAD_SHA" "$RED_STAND"; runr PRO-Robotech/kacho "$TOOL" --stand-report "$W/case/stand.json" "${SE[@]}"
+expect 1 $'REASON\tSTAND-REPORT\tSTAND-REPORT-RED' "kacho: тот же красный отчёт — отказ как прежде"
+# Воркспейс: допустимый нулевой отчёт о ДРУГОЙ голове — отказ как прежде.
+twin; sreport "${HEAD_SHA%?}0" '.planned = 0 | .suites = []' '.repo = "PRO-Robotech/kacho-workspace" | .source = "none" | .ledger = [] | .jobs = [] | .routes = {}'
+[ "${HEAD_SHA%?}0" != "$HEAD_SHA" ] || sreport "${HEAD_SHA%?}1" '.planned = 0 | .suites = []' '.repo = "PRO-Robotech/kacho-workspace" | .source = "none" | .ledger = [] | .jobs = [] | .routes = {}'
+runr PRO-Robotech/kacho-workspace "$TOOL" --stand-report "$W/case/stand.json" "${SE[@]}"
+expect 1 $'REASON\tSTAND-REPORT\tSTAND-REPORT-STALE' "воркспейс: отчёт о другой голове — отказ как прежде"
+# Мутанты исключения — копия scripts/ целиком (стенд-судья и lib/ — соседи по пути).
+# xmutant <имя> <литерал> <замена> <репозиторий случая> <ждём код близнеца>
+rm -rf "$W/xs"; cp -r "$HERE" "$W/xs"
+xmutant() {
+    FROM="$2" TO="$3" perl -pe 's/\Q$ENV{FROM}\E/$ENV{TO}/' "$TOOL" > "$W/xs/landing-precheck.sh"
+    if cmp -s "$TOOL" "$W/xs/landing-precheck.sh"; then echo "  [FAIL] мутант «$1»: образец не найден" >&2; fail=$((fail + 1)); return; fi
+    twin; sreport "$HEAD_SHA" "$RED_STAND"; runr "$4" "$W/xs/landing-precheck.sh" --stand-report "$W/case/stand.json" "${SE[@]}"
+    local code; code="$(cat "$W/code")"
+    if [ "$code" != "$5" ] && [ "$code" != 2 ]; then echo "  [OK]   мутант «$1» красный: $4 код $code вместо $5"; pass=$((pass + 1))
+    else echo "  [FAIL] мутант «$1» не пойман: $4 код $code" >&2; sed 's/^/           /' "$W/out" >&2; fail=$((fail + 1)); fi
+}
+xmutant "исключение расширено на все репозитории" 'if os.environ["REPO"] in STAND_EXEMPT:' 'if True:' PRO-Robotech/kacho 1
+xmutant "перечень исключения расширен на kacho" 'STAND_EXEMPT = ("PRO-Robotech/kaname",)' 'STAND_EXEMPT = ("PRO-Robotech/kaname", "PRO-Robotech/kacho")' PRO-Robotech/kacho 1
+xmutant "исключение снято" 'if os.environ["REPO"] in STAND_EXEMPT:' 'if False:' PRO-Robotech/kaname 0
+rm -rf "$W/xs"
 
 echo "== лимит площадки — до чтения гейтов (урок 2026-10-16, ws#1110)"
 # Исчерпанный лимит — «не выполнилось» со временем сброса (код 2), а не красное и не
