@@ -982,6 +982,30 @@ commit "$b"
 expect 1 "$b" "инъекция: подключение, не разрешённое в файл дерева, — находка, а не молчаливый пропуск" "$C07" \
     "scripts/${SUITES[0]}/check-02-probe.sh:4 — подключение" "подключений не разрешено 1"
 
+# Подключение ищется в КОДЕ, а не в литерале (ws#1432: `then . else` программы jq в
+# scripts/lane-precheck.sh прочитан как `. else`). Литерал — форма строки 765 той
+# правки: многострочная программа jq в одинарных кавычках внутри "$( … )"; рядом —
+# текст для другой оболочки (`bash -c '…; . …'`). Строки 4–7 файла.
+LIT7=("v=\"\$(jq -rn '" "    . as \$x" "    | if type == \"string\" then . else (. | tostring) end' 2> /dev/null)\""
+      "bash -c 'cd /; . \"\$ELSEWHERE/absent.sh\"'")
+b="$(barebox)"; world7 "$b"
+pipescript "$b" "${SUITES[0]}/check-02-probe.sh" "${LIT7[@]}"
+commit "$b"
+expect 0 "$b" "близнец: «. » внутри литерала (программа jq, текст для bash -c) — не подключение, молчит" "$C07" \
+    "подключений не разрешено 0" "находок 0"
+
+b="$(barebox)"; world7 "$b"
+pipescript "$b" "${SUITES[0]}/check-02-probe.sh" "${LIT7[@]}" '. "$ELSEWHERE/absent.sh"'
+commit "$b"
+expect 1 "$b" "инъекция: настоящее «. файл» вне литерала рядом с тем же литералом — краснеет своей строкой, литерал не сочтён" "$C07" \
+    "scripts/${SUITES[0]}/check-02-probe.sh:8 — подключение \"\$ELSEWHERE/absent.sh\"" "подключений не разрешено 1"
+
+b="$(barebox)"; world7 "$b"
+pipescript "$b" "${SUITES[0]}/check-02-probe.sh" 'x="$(. "$ELSEWHERE/absent.sh"; echo ok)"'
+commit "$b"
+expect 1 "$b" "инъекция: подключение в подстановке внутри двойных кавычек — это код, краснеет" "$C07" \
+    "scripts/${SUITES[0]}/check-02-probe.sh:4 — подключение" "подключений не разрешено 1"
+
 b="$(barebox)"; world7 "$b"
 plainscript "$b" "${SUITES[0]}/helpers.sh" "$LAWFUL"
 pipescript "$b" "${SUITES[0]}/check-02-probe.sh" '. "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"'
@@ -1181,6 +1205,11 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$here/../lib/proofs.sh"
 # proof_own_environment — только в комментарии
 echo "проб 1"'
+# библиотека названа лишь в литерале (`; . <путь>` внутри кавычек) — не подключена (ws#1432)
+P_LITSRC='#!/usr/bin/env bash
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; hint='"'"'подключи так; . "$here/../lib/proofs.sh"'"'"'
+proof_own_environment
+echo "проб 1"'
 
 # world8 <песочница> [<набор> <код проверки> <доказательство>] — во всех наборах
 # проверка читает указатель и доказательство владеет окружением; в названном —
@@ -1212,6 +1241,10 @@ done
 b="$(mkbox)"; world8 "$b" "${SUITES[0]}" "$READS_PY" "$P_NOSRC"; commit "$b"
 expect 1 "$b" "инъекция: вызов есть, библиотека не подключена — функции нет, краснеет" "$C08" \
     "scripts/${SUITES[0]}/inject.sh:2 — proof_own_environment зовётся, но scripts/lib/proofs.sh не подключён"
+
+b="$(mkbox)"; world8 "$b" "${SUITES[0]}" "$READS_PY" "$P_LITSRC"; commit "$b"
+expect 1 "$b" "инъекция: библиотека названа лишь в литерале — не подключена, краснеет" "$C08" \
+    "scripts/${SUITES[0]}/inject.sh:3 — proof_own_environment зовётся, но scripts/lib/proofs.sh не подключён"
 
 b="$(mkbox)"; world8 "$b" "${SUITES[0]}" "$READS_PY" "$P_COMMENT"; commit "$b"
 expect 1 "$b" "инъекция: вызов только в комментарии — читается код, краснеет" "$C08" \
