@@ -50,6 +50,18 @@ MUTANTS = [
     ("dind-userland-proxy", "U1p", "dockerd в dind снова с пользовательским прокси портов",
      " --userland-proxy=false'",
      "'"),
+    # (check-verifier ws#1459, круг 1) — образец по тексту команды пропускал эти три: U1p
+    # судит исполнением хвоста dind, а не строку.
+    ("dind-proxy-comment", "U1p", "флаг съеден комментарием в строке exec dockerd — прокси включён",
+     " --userland-proxy=false'",
+     " # --userland-proxy=false'"),
+    ("dind-proxy-override", "U1p", "флаг переопределён последним --userland-proxy=true — прокси включён",
+     " --userland-proxy=false'",
+     " --userland-proxy=false --userland-proxy=true'"),
+    ("dind-proxy-dead-line", "U1p", "строка с флагом закомментирована, ниже exec dockerd без флага — прокси включён",
+     "exec dockerd --host=unix:///run/dind/docker.sock --registry-mirror=https://mirror.gcr.io --userland-proxy=false'",
+     "# exec dockerd --host=unix:///run/dind/docker.sock --registry-mirror=https://mirror.gcr.io --userland-proxy=false\n"
+     "exec dockerd --host=unix:///run/dind/docker.sock --registry-mirror=https://mirror.gcr.io'"),
     # ПРОФИЛЬ kind (ws#1385, kind.sh): hostUsers узла лишь ему, допуск до Job, 77 — не красное,
     # сверка hostUsers без «//» jq (false для него пусто).
     ("kind-hostusers", "KD2", "Job профиля kind в своём пространстве пользователей — узел kind не встанет",

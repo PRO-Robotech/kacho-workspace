@@ -41,7 +41,11 @@
 #      каждый созданный объект — в ns прогона; запросы и пределы — числом
 #   U0 pod в своём пространстве пользователей (hostUsers: false)
 #   U1 профиль с dind: privileged нет нигде, dind на crun без cgroup (F1)
-#   U1p dockerd в dind без пользовательского прокси портов (--userland-proxy=false)
+#   U1p dockerd в dind без пользовательского прокси портов ИСПОЛНЕНИЕМ: хвост команды
+#      dind из Job в sh с двойниками apk и dockerd; судится действующее значение —
+#      последний --userland-proxy argv, без флага — ключ daemon.json; близнецы T1
+#      (daemon.json), T2 (перенос строки), T3 (флаг первым) → молчат; D1 флаг и ключ
+#      вместе (dockerd не стартует), D2 ключ true → краснеют
 #   S0 сервер добавил законные умолчания   → 0 (близнец S1–S3)
 #   S1 API снял hostUsers (Job и pod)       → 69; ns снято и при --keep; доставки нет
 #   S2 вебхук снял procMount dind в pod     → 69 до доставки
@@ -891,10 +895,6 @@ if jq -e '.spec.template.spec.hostUsers == false
           and (.spec.template.spec.initContainers[] | select(.name == "dind") | .securityContext.privileged == false
                and (.command | join(" ") | test("crun.*--cgroup-manager=disabled")))' "$J" >/dev/null 2>&1; then ok
 else OUT="$J"; bad U1 "dind привилегирован либо pod не в своём пространстве пользователей"; fi
-# U1p — dockerd без пользовательского прокси портов (DOCKER в шапке run.sh): порт контейнера
-# testcontainers на 127.0.0.1 — DNAT ядра, а не процесс docker-proxy на каждом соединении
-if jq -e '.spec.template.spec.initContainers[] | select(.name == "dind") | .command | join(" ") | test("exec dockerd [^\n]*--userland-proxy=false")' "$J" >/dev/null 2>&1; then ok
-else OUT="$J"; bad U1p "dockerd в dind с пользовательским прокси портов (нет --userland-proxy=false)"; fi
 cp "$J" "$BOX/u1-job.json"
 
 # ── пространство пользователей ИСПОЛНЕНИЕМ (ревью ws#984, N1) ───────────────
@@ -954,6 +954,94 @@ for sh_ in sh bash; do
 done
 printf '0 0 4294967295\n' > "$UP/uid_map"; rm -f "$UP/tl"; sh "$BOX/userns-fake.sh" >/dev/null 2>&1
 USERNS_MSG="$(cat "$UP/tl" 2>/dev/null)"
+# U1p — dockerd в dind без пользовательского прокси портов (DOCKER в шапке run.sh): порт
+# контейнера testcontainers на 127.0.0.1 — DNAT ядра, а не процесс docker-proxy на каждом
+# соединении. ИСПОЛНЕНИЕМ, не образцом: хвост команды dind из Job (за «# userns-end»)
+# исполняется в sh — как busybox dind — с двойниками apk и dockerd, /etc/docker — каталог
+# пробы. Двойник dockerd пишет свой argv; судья берёт ДЕЙСТВУЮЩЕЕ значение: последний
+# --userland-proxy argv (булев флаг: последний побеждает, голый — true), без флага — ключ
+# daemon.json, без обоих — умолчание dockerd (прокси включён); флаг и ключ вместе — отказ
+# старта dockerd. Комментарий, переопределение и перенос строки решает разбор sh.
+DP="$BOX/dproxy"
+cat > "$BOX/dproxy-judge.py" <<'PY'
+import json, os, sys
+argv_p, cfg_default = sys.argv[1:3]
+if not os.path.exists(argv_p):
+    print("dockerd не позван — хвост команды dind до exec dockerd не дошёл")
+    sys.exit(1)
+argv = [a.decode() for a in open(argv_p, "rb").read().split(b"\0")[:-1]]
+FALSE = {"0", "f", "F", "false", "FALSE", "False"}
+flag, cfg, i = None, None, 0
+while i < len(argv):
+    a = argv[i]
+    if a == "--userland-proxy":
+        flag = "true"
+    elif a.startswith("--userland-proxy="):
+        flag = a.split("=", 1)[1]
+    elif a == "--config-file" and i + 1 < len(argv):
+        cfg, i = argv[i + 1], i + 1
+    elif a.startswith("--config-file="):
+        cfg = a.split("=", 1)[1]
+    i += 1
+path, conf = cfg or cfg_default, {}
+if os.path.exists(path):
+    try:
+        conf = json.load(open(path))
+    except ValueError as e:
+        print("%s не JSON — dockerd не стартует: %s" % (path, e))
+        sys.exit(1)
+    if not isinstance(conf, dict):
+        print("%s не объект JSON — dockerd не стартует" % path)
+        sys.exit(1)
+elif cfg:
+    print("--config-file %s не существует — dockerd не стартует" % cfg)
+    sys.exit(1)
+print("argv dockerd: " + " ".join(argv))
+if flag is not None and "userland-proxy" in conf:
+    print("userland-proxy задан и флагом, и в %s — dockerd не стартует" % path)
+    sys.exit(1)
+if flag is not None:
+    off, what = flag in FALSE, "флаг argv «%s» (последний)" % flag
+elif "userland-proxy" in conf:
+    off, what = conf["userland-proxy"] is False, "ключ daemon.json %s" % json.dumps(conf["userland-proxy"])
+else:
+    off, what = False, "ни флага, ни ключа — умолчание dockerd"
+print("userland-proxy: %s — прокси портов %s" % (what, "выключен" if off else "ВКЛЮЧЁН"))
+sys.exit(0 if off else 1)
+PY
+sed '1,/^# userns-end$/d' "$BOX/dind.cmd" > "$BOX/dtail.sh"
+# dproxy_case <случай> <хвост> <0 — прокси выключен | 1 — включён либо dockerd не встанет>
+dproxy_case() {
+    rm -rf "$DP"; mkdir -p "$DP/bin" "$DP/etc"
+    printf '#!/bin/sh\nexit 0\n' > "$DP/bin/apk"
+    cat > "$DP/bin/dockerd" <<EOF
+#!/bin/sh
+for a in "\$@"; do printf '%s\0' "\$a"; done > "$DP/argv"
+EOF
+    chmod +x "$DP/bin/apk" "$DP/bin/dockerd"
+    sed "s#/etc/docker#$DP/etc#g" "$2" > "$DP/tail.sh"
+    OUT="$BOX/$1.out"
+    { env -i PATH="$DP/bin:/usr/bin:/bin" sh "$DP/tail.sh"; echo "sh хвоста: код $?"
+      python3 "$BOX/dproxy-judge.py" "$DP/argv" "$DP/etc/daemon.json"; } > "$OUT" 2>&1; RC=$?
+    if [ "$RC" -eq "$3" ]; then ok
+    elif [ "$3" -eq 0 ]; then bad "$1" "dockerd в dind с пользовательским прокси портов либо не встанет"
+    else bad "$1" "проба не отличила: ждали прокси включён либо отказ dockerd, судья — выключен"; fi
+}
+# dproxy_twin <случай> <0|1> <выражения sed>… — вариант из НАСТОЯЩЕГО хвоста; не изменился — не построен
+dproxy_twin() {
+    local c="$1" want="$2"; shift 2
+    sed "$@" "$BOX/dtail.sh" > "$BOX/$c.tail"
+    if cmp -s "$BOX/dtail.sh" "$BOX/$c.tail"; then OUT="$BOX/dtail.sh"; bad "$c" "вариант не построен: в хвосте dind нет ожидаемой строки"
+    else dproxy_case "$c" "$BOX/$c.tail" "$want"; fi
+}
+if grep -q '^exec dockerd ' "$BOX/dtail.sh"; then ok; else OUT="$BOX/dind.cmd"; bad U1p "в хвосте команды dind нет строки exec dockerd — судить нечего"; fi
+dproxy_case U1p "$BOX/dtail.sh" 0
+JSON_OFF='s/{\\"runtimes\\"/{\\"userland-proxy\\":false,\\"runtimes\\"/'
+dproxy_twin U1p-T1 0 -e 's/ --userland-proxy=false//' -e "$JSON_OFF"
+dproxy_twin U1p-T2 0 -e 's/ --userland-proxy=false/ \\\n--userland-proxy=false/'
+dproxy_twin U1p-T3 0 -e 's/ --userland-proxy=false//' -e 's/^exec dockerd /exec dockerd --userland-proxy=false /'
+dproxy_twin U1p-D1 1 -e "$JSON_OFF"
+dproxy_twin U1p-D2 1 -e 's/ --userland-proxy=false//' -e 's/{\\"runtimes\\"/{\\"userland-proxy\\":true,\\"runtimes\\"/'
 # U3 — двойник: dind с тождественным uid_map отказал (его текст из U2) → 69, ns снято, доставки нет
 fresh
 go_run u3 env FAKE_EXIT=0 FAKE_USERNS_DIND="$USERNS_MSG" bash "$RUN" --task 1 --repo kaname --ref HEAD --src "$SRC" --profile integration --short u3 --keep 2 -- true
