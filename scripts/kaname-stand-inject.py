@@ -1044,7 +1044,16 @@ class TrustBoundaries(unittest.TestCase):
              'detached checkout without a source branch at HEAD: pass --ref refs/heads/<branch>'),
             ('detached-ambiguous', [('update-ref', 'refs/remotes/origin/955', 'HEAD'),
                                     ('checkout', '-q', '--detach')], None,
-             'detached checkout with several source branches at HEAD (955, work): pass --ref refs/heads/<branch>')]
+             'detached checkout with several source branches at HEAD (955, work): pass --ref refs/heads/<branch>'),
+            # Приёмка check-verifier (мутанты MB4, MB5): у каждой ветви приоритета — второй кандидат.
+            # Близнец `detached-ambiguous` без отсоединения: присоединённая ветка решает сама, чужая
+            # ветка на HEAD её не оспаривает. Близнец `detached-origin-only` с чужим remote: ветка
+            # источника — лишь `origin/*`, `upstream/*` в счёт не входит.
+            ('attached-with-origin-other-at-head', [('update-ref', 'refs/remotes/origin/955', 'HEAD')], None,
+             'refs/heads/work'),
+            ('detached-foreign-remote-only', [('update-ref', 'refs/remotes/upstream/955', 'HEAD'),
+                                              ('checkout', '-q', '--detach'), ('branch', '-qD', 'work')], None,
+             'detached checkout without a source branch at HEAD: pass --ref refs/heads/<branch>')]
         for scene, prepare, ref, outcome in cases:
             with self.subTest(scene=scene), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory); co = root / 'checkout'
