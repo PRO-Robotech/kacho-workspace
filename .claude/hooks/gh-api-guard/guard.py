@@ -55,10 +55,14 @@ Bash был корнем воркспейса, и коммит лёг в main в
 
 Четвёртый предмет — вывод, несущий значения переменных CI (ws#1418, уроки 5da59f1b и диспетчера
 2026-10-26: `kubectl get pod -o json` пода задачи раннера напечатал env с переменными CI):
-  pod-env-dump    — `kubectl get <род с шаблоном пода: pod, job, deploy, sts, ds, rs, cronjob>
-                    -o json|yaml` (любой агент), если следующее звено конвейера — не jq/yq с
-                    фильтром-проекцией (фильтр `.`, пустой, из файла `-f` или называющий env —
-                    не проекция). `-o jsonpath=…`, `custom-columns`, `name`, `wide` — пропуск.
+  pod-env-dump    — род с шаблоном пода (pod, job, deploy, sts, ds, rs, rc, cronjob, podtemplate,
+                    all) в любой подкоманде kubectl у любого агента: формат вывода — ПЕРЕЧНЕМ
+                    (SAFE_FORMATS: пусто, name, wide); json|yaml — лишь если следующее звено —
+                    jq/yq, чей фильтр — путь, `{ключ: путь}` или `[путь]` (с `.items[] |` для
+                    списка) и каждый путь в белом списке SAFE_PATHS; любой иной формат (jsonpath,
+                    custom-columns, kyaml, go-template, неизвестный) — отказ без разбора; `get --raw
+                    …/<род>/…` кроме `/log`; `exec … -- env|printenv` и /proc/*/environ в доводах.
+                    Форма — перечень форматов (круг 2 ⛔ check-verifier: путь внутри jsonpath и kyaml).
 
 Пятый предмет — вывод gh, обрезанный МОЛЧА (пачка уроков 6, уроки 9432d39d и 97419cc8: эпик
 выбран без `--limit` — 30 задач из большего числа; `--json files` PR — первые 100 файлов):
@@ -102,9 +106,11 @@ https://api.github.com/…` и интерпретатор (`python3 -c …`); `g
 (другой класс: его держат хук отправки и защита ветки); коммит — иные записи истории
 (`merge`, `cherry-pick`, `am`, `revert`), `--git-dir`/`--work-tree`, каталог из
 `$(…)` и из переменной без присваивания в строке; `cd` внутри подоболочки `( … )`
-считается действующим и после неё; снимок пода — `kubectl describe pod` (env в тексте),
-`-o jsonpath='{.spec}'` (проекция целиком), потребитель-группа
-(`… | { jq …; }`).
+считается действующим и после неё; снимок пода — `kubectl describe pod` (env в тексте:
+форма для чтения событий, отказ в ней краснил бы разбор падений), `exec … -- sh -c 'env'`
+(команда внутри строки оболочки пода не разбирается), подкоманды, печатающие шаблон пода без
+`-o` (`apply view-last-applied`, `rollout history --revision`), kubectl внутри обёртки
+(`heavy-slot.sh … -- kubectl …`: argv обёртки не разбирается), потребитель-группа (`… | { jq …; }`).
 """
 
 import importlib.util
@@ -140,26 +146,64 @@ CLASS_TEXT = {
     "commit-unanchored": "git add/commit после относительного cd или -C",
     "commit-trunk": "git add/commit в стволе основного клона",
     "run-list-short-sha": "gh run list --commit с неполной sha",
-    "pod-env-dump": "kubectl get рода с шаблоном пода -o json|yaml без проекции",
+    "pod-env-dump": "снимок рода с шаблоном пода вне белого списка полей",
     "gh-silent-cap": "вывод gh, обрезаемый молча (список без --limit либо --json files)",
     "detach-unit-stop": "systemctl stop|kill|restart службы шага detach.sh",
     "hook-bypass": "git commit|push … --no-verify (обход хука)",
 }
 # Подкоманды gh, отдающие по умолчанию 30 записей без признака обрезки.
 CAPPED_LISTS = {("issue", "list"), ("pr", "list"), ("search", "issues"), ("search", "prs")}
-# Роды, чей вывод несёт env контейнеров (pod и шаблон пода); значения флагов kubectl.
+# Роды, чей вывод несёт env контейнеров (pod и шаблон пода; `all` их включает); значения флагов kubectl.
 POD_KINDS = {"po", "pod", "pods", "job", "jobs", "deploy", "deployment", "deployments", "sts",
              "statefulset", "statefulsets", "ds", "daemonset", "daemonsets", "rs", "replicaset",
-             "replicasets", "cj", "cronjob", "cronjobs"}
+             "replicasets", "cj", "cronjob", "cronjobs", "all", "rc", "replicationcontroller",
+             "replicationcontrollers", "podtemplate", "podtemplates"}
+# те же роды путём API (`kubectl get --raw /api/v1/namespaces/x/pods/y`)
+RAW_KINDS = {"pods", "jobs", "deployments", "statefulsets", "daemonsets", "replicasets",
+             "cronjobs", "replicationcontrollers", "podtemplates"}
 KUBE_VALUED = {"-n", "--namespace", "--context", "--kubeconfig", "--cluster", "--user", "-l",
-               "--selector", "--field-selector", "-c", "--container", "--sort-by", "--template",
+               "--selector", "--field-selector", "-c", "--container", "--sort-by",
                "-s", "--server", "--token", "--as", "--as-group", "--request-timeout",
                "--chunk-size", "-L", "--label-columns"}
-DUMP = {"json", "yaml"}
 PROJECTORS = {"jq", "gojq", "yq"}
 # флаги jq/yq со значением: имя и число слов значения
 PROJ_VALUED = {"--arg": 2, "--argjson": 2, "--slurpfile": 2, "--rawfile": 2, "--indent": 1,
                "-L": 1, "--from-file": 1, "-f": 1, "-I": 1, "-p": 1, "-o": 1}
+# БЕЛЫЙ СПИСОК (ws#1418, решение диспетчера по ⛔ check-verifier): снимок пода пропускается, лишь
+# когда КАЖДЫЙ путь проекции — поле без env. Путь нормализуется: индексы `[]`/`[N]`/`[*]` сняты,
+# ведущий `items.` и `spec.template.` (шаблон пода) сняты. Всё вне перечня — отказ.
+SAFE_PATHS = {
+    "metadata.name", "metadata.namespace", "metadata.labels", "metadata.uid",
+    "metadata.creationTimestamp", "metadata.ownerReferences",
+    "spec.nodeName", "spec.nodeSelector", "spec.securityContext", "spec.serviceAccountName",
+    "spec.hostNetwork", "spec.hostPID", "spec.hostIPC", "spec.tolerations", "spec.affinity",
+    "spec.priorityClassName", "spec.runtimeClassName", "spec.replicas",
+    "spec.containers.name", "spec.containers.image", "spec.containers.securityContext",
+    "spec.initContainers.name", "spec.initContainers.image", "spec.initContainers.securityContext",
+    "status.phase", "status.podIP", "status.hostIP", "status.conditions",
+}
+_ID = r"[A-Za-z_][A-Za-z0-9_]*"
+_IDX = r"(?:\[[0-9*]*\])?"
+_PATH = r"\.%s%s(?:\.%s%s)*" % (_ID, _IDX, _ID, _IDX)
+# фильтр jq/yq: [`.items[] |`] путь | {ключ: путь, …} | [путь, …]
+_ITEM = r"(?:%s\s*:\s*)?%s" % (_ID, _PATH)
+JQ_FILTER = re.compile(r"^\s*(?:\.items\[\]\s*\|\s*)?(?:%s|\{\s*%s(?:\s*,\s*%s)*\s*\}|\[\s*%s(?:\s*,\s*%s)*\s*\])\s*$"
+                       % (_PATH, _ITEM, _ITEM, _PATH, _PATH))
+PATH_RE = re.compile(_PATH)
+
+
+def safe_path(p):
+    """Путь проекции — в белом списке (после нормализации); `.items` сам — источник перебора."""
+    n = re.sub(r"\[[0-9*]*\]", "", p).lstrip(".")
+    if n.startswith("items."):
+        n = n[len("items."):]
+    if n.startswith("spec.template."):
+        n = n[len("spec.template."):]
+    return n in SAFE_PATHS
+
+
+# Форматы вывода рода пода без env (ws#1418, круг 2): прочие — отказ, json|yaml — лишь с проекцией.
+SAFE_FORMATS = {"", "name", "wide"}
 SHORT_SHA = re.compile(r"[0-9a-fA-F]{4,39}")
 TRUNKS = {"main", "master"}
 COMMIT_SUBS = {"add", "commit"}
@@ -299,8 +343,9 @@ def judge_capped(sub2, args, shown):
 
 
 def projects(sink):
-    """Следующее звено конвейера — jq/yq с фильтром, который не печатает объект целиком и не
-    называет env: `.`, пустой фильтр, фильтр из файла (`-f`) — не проекция."""
+    """Следующее звено конвейера — jq/yq, чей фильтр — проекция по БЕЛОМУ СПИСКУ (JQ_FILTER, safe_path):
+    путь, `{ключ: путь, …}` либо `[путь, …]`, с `.items[] |` впереди для списка. Прочее — `.`, `.spec`,
+    `.items[]`, `del(…)`, `.|.`, фильтр из файла (`-f`) — не проекция (ws#1418, ⛔ check-verifier)."""
     if sink is None or sink.kind != "simple":
         return False
     argv, _, _ = nwg.head(hg.words(sink.text))
@@ -323,22 +368,36 @@ def projects(sink):
         filt = a
         break
     f = (filt or "").strip()
-    return f not in ("", ".") and "env" not in f
+    # `.items[] |` — источник перебора списка, не путь проекции: из сверки путей снимается
+    body = re.sub(r"^\.items\[\]\s*\|\s*", "", f)
+    return bool(JQ_FILTER.match(f)) and all(safe_path(p) for p in PATH_RE.findall(body))
 
 
 def judge_kubectl(args, shown, sink):
-    """`kubectl get <род с шаблоном пода> -o json|yaml` без проекции следующим звеном (ws#1418)."""
-    words, out, i = [], None, 0
+    """Род с шаблоном пода, несущий env контейнеров (ws#1418): формат вывода любой подкоманды — перечнем
+    SAFE_FORMATS; `-o json|yaml` — лишь с проекцией jq/yq по белому списку следующим звеном; прочие
+    форматы — отказ без разбора; `get --raw …/<род>/…` (кроме `/log`); `exec … -- env|printenv|…environ`."""
+    words, out, raw, tmpl, cmd, i = [], None, None, None, None, 0
     while i < len(args):
         a = args[i]
+        if a == "--":
+            cmd = args[i + 1:]
+            break
         if a.startswith("--") and "=" in a:
             name, val = a.split("=", 1)
-            if name == "--output":
-                out = val
+            out = val if name == "--output" else out
+            raw = val if name == "--raw" else raw
+            tmpl = val if name == "--template" else tmpl
             i += 1
             continue
-        if a in ("-o", "--output"):
-            out = args[i + 1] if i + 1 < len(args) else ""
+        if a in ("-o", "--output", "--raw", "--template"):
+            val = args[i + 1] if i + 1 < len(args) else ""
+            if a == "--raw":
+                raw = val
+            elif a == "--template":
+                tmpl = val
+            else:
+                out = val
             i += 2
             continue
         if a.startswith("-o") and len(a) > 2:
@@ -351,14 +410,33 @@ def judge_kubectl(args, shown, sink):
         if not a.startswith("-"):
             words.append(a)
         i += 1
-    if words[:1] != ["get"] or (out or "").lower() not in DUMP:
+    if words[:1] == ["exec"] and cmd:
+        base = os.path.basename(cmd[0])
+        if base in ("env", "printenv") or any(re.search(r"/proc/[^/\s]+/environ", c) for c in cmd[1:]):
+            return Finding("pod-env-dump", shown, "exec … -- %s печатает env контейнера — значения переменных CI" % base)
         return None
+    if raw is not None:
+        segs = [s for s in raw.split("?", 1)[0].split("/") if s]
+        if words[:1] == ["get"] and set(segs) & RAW_KINDS and segs[-1:] != ["log"] and not projects(sink):
+            return Finding("pod-env-dump", shown, "get --raw %s отдаёт объект пода целиком — env с переменными CI" % raw)
+        return None
+    # Любая подкоманда с родом пода (get, label, patch, set, …): формат — ПЕРЕЧНЕМ (ws#1418, круг 2
+    # ⛔ check-verifier: белый список путей внутри jsonpath и неизвестные форматы вроде kyaml
+    # пропускали env). Пропуск — пустой, name, wide; json|yaml — лишь с проекцией по белому списку.
     kinds = {p.split("/", 1)[0].split(".", 1)[0].lower() for w in words[1:] for p in w.split(",")}
-    hit = sorted(kinds & POD_KINDS)
-    if not hit or projects(sink):
+    hit = ",".join(sorted(kinds & POD_KINDS))
+    if not hit:
         return None
-    return Finding("pod-env-dump", shown, "-o %s у %s печатает env контейнеров — значения переменных CI"
-                   % (out.lower(), ",".join(hit)))
+    fmt = (out if out is not None else ("template" if tmpl is not None else "")).partition("=")[0].lower()
+    if fmt in SAFE_FORMATS:
+        return None
+    if fmt in ("json", "yaml"):
+        if projects(sink):
+            return None
+        why = "-o %s у %s без проекции по белому списку полей следующим звеном (jq/yq)" % (fmt, hit)
+    else:
+        why = "-o %s у %s — формат вне перечня (пусто, name, wide; json|yaml с проекцией jq)" % (fmt, hit)
+    return Finding("pod-env-dump", shown, why + " — env контейнеров несёт значения переменных CI")
 
 
 def judge_pr_merge(args, agent, shown):
@@ -703,12 +781,17 @@ def deny(found):
         sys.exit(2)
     if f.cls == "pod-env-dump":
         sys.stderr.write("\n".join([
-            "GH-API-GUARD: отказ — снимок пода целиком несёт значения переменных CI в env (ws#1418).",
+            "GH-API-GUARD: отказ — снимок пода несёт значения переменных CI в env (ws#1418).",
             "  форма: %s — %s" % (CLASS_TEXT[f.cls], hg.clip(f.text, 200)),
             "  почему: %s" % f.why,
-            "Снимай только нужные поля: `-o jsonpath='{.spec.securityContext}'` либо",
-            "`-o json | jq '{sc: .spec.securityContext, node: .spec.nodeName, sel: .spec.nodeSelector}'`",
-            "(`.items[] | …` для списка). Фильтр `.` и фильтр с env — не проекция.",
+            "Формат вывода рода пода — перечнем: пусто, `-o name`, `-o wide`. json|yaml — лишь с",
+            "проекцией jq/yq, где КАЖДЫЙ путь из белого списка (guard.py SAFE_PATHS): metadata.name|",
+            "namespace|labels|uid|ownerReferences, spec.nodeName|nodeSelector|securityContext|",
+            "serviceAccountName|host*|tolerations|affinity, spec.containers[].name|image|securityContext,",
+            "status.phase|podIP|hostIP|conditions (и то же под spec.template.). Вместо jsonpath и",
+            "custom-columns — `-o json | jq '<путь из списка>'`; список — `-o json | jq '.items[] |",
+            "{name: .metadata.name, sc: .spec.securityContext}'`. Прочие форматы (jsonpath, kyaml,",
+            "go-template, …), `.spec`, `.items[]`, `get --raw …/pods/…`, `exec -- env` — отказ.",
         ]) + "\n")
         sys.exit(2)
     lines = [

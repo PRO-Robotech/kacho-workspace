@@ -976,6 +976,17 @@ console.log('== перепись гейтов посадки разом; отв�
   ok(q.res.ok === false && /статус «блокер»/.test(JSON.stringify(q.res)) && by(q.calls, c => c.label.startsWith('impl:')) === 0, 'жирное «**статус:** блокер» — стоп, «**» в статус не попадает', JSON.stringify(q.res).slice(0, 200))
   q = await run({ args: { ...args, lanes: laneM }, plan: [P('r2.json')], 'text:census': ['итог\n### ВОЗВРАТ\n- **статус: готово**'] })
   ok(q.res.ok === true && by(q.calls, c => c.label.startsWith('impl:')) >= 1, 'жирное поле целиком «**статус: готово**» — полоса идёт', JSON.stringify(q.res).slice(0, 200))
+  // ⛔ check-verifier 2026-10-26 (раздел B): формы поля и границы блока
+  const GO = [['без дефиса, жирное целиком', '**статус: готово**'], ['без дефиса, жирное имя', '**статус:** готово'], ['двоеточие вне жирного', '- **статус**: готово'], ['жирное значение', '- статус: **готово**'], ['точка после значения', '- статус: готово.']]
+  for (const [nm, ln] of GO) {
+    q = await run({ args: { ...args, lanes: laneM }, plan: [P('r2.json')], 'text:census': ['итог\n### ВОЗВРАТ\n' + ln + '\n- вердикт: —'] })
+    ok(q.res.ok === true && by(q.calls, c => c.label.startsWith('impl:')) >= 1, 'поле статуса «' + nm + '» — «готово», полоса идёт', JSON.stringify(q.res).slice(0, 160))
+  }
+  const STOP = [['незаполненный шаблон', '### ВОЗВРАТ\n- статус: готово | блокер | вопрос-владельцу | не-выполнилось', 'поля «статус» нет'], ['строка статуса после пустой — проза, не поле', '### ВОЗВРАТ\n- вердикт: —\n\nпримечание:\n- статус: готово', 'поля «статус» нет'], ['«готово» в поле факты', '### ВОЗВРАТ\n- статус: блокер\n- факты: статус: готово', 'статус «блокер»']]
+  for (const [nm, txt, why] of STOP) {
+    q = await run({ args: { ...args, lanes: laneM }, plan: [P('r2.json')], 'text:census': ['итог\n' + txt] })
+    ok(q.res.ok === false && JSON.stringify(q.res).includes(why) && by(q.calls, c => c.label.startsWith('impl:')) === 0, nm + ' — стоп («' + why + '»), исполнитель не зван', JSON.stringify(q.res).slice(0, 160))
+  }
 }
 
 console.log('== уроки посадки 2026-10-14 (ws#1078): кэш дочитывания, итог без простыней, задание файлом, коммиты у рецензента, стволы продуктов')
@@ -1550,11 +1561,15 @@ mutant "ответ без ВОЗВРАТ принят (ws#1071)" "const hasRet =
 mutant "без ВОЗВРАТ — повтора дочитыванием нет (ws#1071)" "  if (!hasRet(a)) a = await agent(prompt + " "  if (false) a = await agent(prompt + "
 mutant "не-выполнилось подставлено дальше (ws#1071)" "    if (!s1) return noRet(out, l, 'client-sim', 'sim:' + l.key)" "    if (false) return noRet(out, l, 'client-sim', 'sim:' + l.key)"
 mutant "статус ВОЗВРАТ не судится — шаг после блокера (ws#1418)" "  if (retStatus(a) === 'готово') return a" "  return a"
-mutant "статус — из первого блока, а не последнего (ws#1418)" "t.slice(t.lastIndexOf(RET_MARK)).match(" "t.match("
 mutant "стоп без статуса в stage (ws#1418)" "(notReady[label] ? 'статус «' + notReady[label]" "(false ? 'статус «' + notReady[label]"
-twin "статус: класс разделителей иным порядком (ws#1418)" "\\s*([^\\s|·,;*]+)/m" "\\s*([^|·,;*\\s]+)/m"
-mutant "имя поля в жирном не узнано (ws#1418)" "статус:(?:\\*\\*)?\\s*([^" "статус:\\s*([^"
-mutant "«**» входит в статус (ws#1418)" "\\s*([^\\s|·,;*]+)/m" "\\s*([^\\s|·,;]+)/m"
+mutant "статус — из первого блока, а не последнего (ws#1418)" "t.slice(t.lastIndexOf(RET_MARK) + RET_MARK.length)" "t.slice(t.indexOf(RET_MARK) + RET_MARK.length)"
+twin "статус: класс разделителей иным порядком (ws#1418)" "v.match(/^[^\\s·,;.]+/)" "v.match(/^[^·,;.\\s]+/)"
+mutant "имя поля в жирном не узнано (ws#1418)" "(?:\\*\\*)?статус(?:\\*\\*)?\\s*:" "статус(?:\\*\\*)?\\s*:"
+mutant "«**» входит в статус (ws#1418)" ".replace(/\\*\\*/g, '')" ".replace(/^\\*\\*/g, '')"
+mutant "незаполненный шаблон — статус (ws#1418)" "    if (v.includes('|')) return ''" "    if (false) return ''"
+mutant "граница блока снята — статус из прозы (ws#1418)" "for (; i < ls.length && ls[i].trim(); i++)" "for (; i < ls.length; i++)"
+mutant "поле статуса только с дефисом (ws#1418)" "(?:[-*]\\s+)?(?:\\*\\*)?статус" "[-*]\\s+(?:\\*\\*)?статус"
+mutant "двоеточие только внутри жирного (ws#1418)" "статус(?:\\*\\*)?\\s*:\\s*(.*)" "статус\\s*:\\s*(.*)"
 twin "дочитывание: формулировка (ws#1071)" "дочитай .rc и журнал своего прогона и верни" "дочитай .rc и журнал своего прогона, затем верни"
 twin "схождение: формулировка запрета правки (ws#1063)" "Ничего не правь. Запись — ' + R + '/trial-convergence.md" "Ничего не правь в дереве. Запись — ' + R + '/trial-convergence.md"
 mutant "строка head не порождается (ws#1191)" "const headLines = (l, ds, stack) => (ds && ds.length ?" "const headLines = (l, ds, stack) => (false ?"
