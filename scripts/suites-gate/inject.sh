@@ -1006,6 +1006,29 @@ commit "$b"
 expect 1 "$b" "инъекция: подключение в подстановке внутри двойных кавычек — это код, краснеет" "$C07" \
     "scripts/${SUITES[0]}/check-02-probe.sh:4 — подключение" "подключений не разрешено 1"
 
+# ANSI-C `$'…'` с `\'` (⛔ check-verifier ws#1432): кавычка не закрывается на `\'`.
+# Прежде маска накрывала код ниже до конца файла, и подключение терялось молча (C5, C20);
+# а `; . x` внутри такого литерала читалось подключением (C4).
+ANSI7="msg=\$'it\\'s ok'"
+b="$(barebox)"; world7 "$b"
+pipescript "$b" "${SUITES[0]}/check-02-probe.sh" "$ANSI7" '. "$ELSEWHERE/absent.sh"'
+commit "$b"
+expect 1 "$b" "инъекция C5: настоящее «. файл» строкой ниже ANSI-C \$'…\\'…' — краснеет, маска не накрыла код" "$C07" \
+    "scripts/${SUITES[0]}/check-02-probe.sh:5 — подключение" "подключений не разрешено 1"
+
+b="$(barebox)"; world7 "$b"
+plainscript "$b" "${SUITES[0]}/helpers.sh" "$PIPED"
+pipescript "$b" "${SUITES[0]}/check-02-probe.sh" "$ANSI7" '. "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"'
+commit "$b"
+expect 1 "$b" "инъекция C20: библиотека, подключённая под ANSI-C-литералом, наследует pipefail — краснеет в библиотеке" "$C07" \
+    "scripts/${SUITES[0]}/helpers.sh:3 — вердикт из трубы в grep" "подключением 1"
+
+b="$(barebox)"; world7 "$b"
+pipescript "$b" "${SUITES[0]}/check-02-probe.sh" "msg=\$'it\\'s; . x'"
+commit "$b"
+expect 0 "$b" "близнец C4: «; . x» внутри ANSI-C \$'…\\'…' — текст литерала, молчит" "$C07" \
+    "подключений не разрешено 0" "находок 0"
+
 b="$(barebox)"; world7 "$b"
 plainscript "$b" "${SUITES[0]}/helpers.sh" "$LAWFUL"
 pipescript "$b" "${SUITES[0]}/check-02-probe.sh" '. "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"'
@@ -1210,8 +1233,15 @@ P_LITSRC='#!/usr/bin/env bash
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; hint='"'"'подключи так; . "$here/../lib/proofs.sh"'"'"'
 proof_own_environment
 echo "проб 1"'
+# ANSI-C `$'…\'…'` строкой выше настоящего подключения и вызова (D3, ws#1432)
+P_ANSI='#!/usr/bin/env bash
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+msg=$'"'"'it\'"'"'s ok'"'"'
+. "$here/../lib/proofs.sh"
+proof_own_environment
+echo "проб 1"'
 
-# world8 <песочница> [<набор> <код проверки> <доказательство>] — во всех наборах
+# world8<песочница> [<набор> <код проверки> <доказательство>] — во всех наборах
 # проверка читает указатель и доказательство владеет окружением; в названном —
 # внесённое.
 world8() {
@@ -1245,6 +1275,10 @@ expect 1 "$b" "инъекция: вызов есть, библиотека не 
 b="$(mkbox)"; world8 "$b" "${SUITES[0]}" "$READS_PY" "$P_LITSRC"; commit "$b"
 expect 1 "$b" "инъекция: библиотека названа лишь в литерале — не подключена, краснеет" "$C08" \
     "scripts/${SUITES[0]}/inject.sh:3 — proof_own_environment зовётся, но scripts/lib/proofs.sh не подключён"
+
+b="$(mkbox)"; world8 "$b" "${SUITES[0]}" "$READS_PY" "$P_ANSI"; commit "$b"
+expect 0 "$b" "близнец D3: ANSI-C \$'…\\'…' выше подключения и вызова — маска их не накрыла, молчит" "$C08" \
+    "владеет окружением ${#SUITES[@]}"
 
 b="$(mkbox)"; world8 "$b" "${SUITES[0]}" "$READS_PY" "$P_COMMENT"; commit "$b"
 expect 1 "$b" "инъекция: вызов только в комментарии — читается код, краснеет" "$C08" \
