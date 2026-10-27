@@ -1011,6 +1011,72 @@ class TrustBoundaries(unittest.TestCase):
                 self.assertTrue(bad.stdout.startswith('VOID\t'), bad.stdout)
                 self.assertIn(refused, bad.stdout)
 
+    def test_detached_checkout_ref_is_the_single_branch_at_head(self):
+        # ws#1426: копия `git worktree add --detach` и клон bundle в pod remote-reader — голова
+        # отсоединена. Ветка источника без --ref — единственное имя ветки (refs/heads, origin/*),
+        # чья вершина = HEAD; ноль имён или несколько — отказ с причиной, а не «producer command
+        # failed: git». Законные близнецы: присоединённая голова, явный --ref, origin/HEAD вне счёта.
+        import json, os, subprocess, tempfile
+        def fixture(name): return (HERE / 'kaname-stand-fixtures' / name).read_bytes()
+        sources = {'ci.yml': fixture('ci-workflow-native.yml'),
+                   'e2e-newman.yml': fixture('e2e-workflow-matrix-native.yml'),
+                   'docker-build.yml': fixture('image-workflow-native.yml'),
+                   'pr-rule.yml': fixture('pr-rule-workflow-native.yml')}
+        cases = [  # (сцена, подготовка refs, явный --ref, ожидаемая ветка либо фрагмент отказа)
+            ('attached-twin', [], None, 'refs/heads/work'),
+            ('detached-origin-only', [('update-ref', 'refs/remotes/origin/955', 'HEAD'),
+                                      ('checkout', '-q', '--detach'), ('branch', '-qD', 'work')],
+             None, 'refs/heads/955'),
+            ('detached-local-and-origin-same-name', [('branch', '-q', '955'),
+                                                     ('update-ref', 'refs/remotes/origin/955', 'HEAD'),
+                                                     ('checkout', '-q', '--detach'), ('branch', '-qD', 'work')],
+             None, 'refs/heads/955'),
+            ('detached-origin-head-twin', [('update-ref', 'refs/remotes/origin/955', 'HEAD'),
+                                           ('symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/955'),
+                                           ('checkout', '-q', '--detach'), ('branch', '-qD', 'work')],
+             None, 'refs/heads/955'),
+            ('detached-explicit-ref-twin', [('checkout', '-q', '--detach'), ('branch', '-q', 'other')],
+             'refs/heads/955', 'refs/heads/955'),
+            ('detached-no-branch', [('checkout', '-q', '--detach'), ('branch', '-qD', 'work')], None,
+             'detached checkout without a source branch at HEAD: pass --ref refs/heads/<branch>'),
+            ('detached-branch-elsewhere', [('checkout', '-q', '--detach'), ('commit', '-q', '--allow-empty', '-m', 'x'),
+                                           ('update-ref', 'refs/remotes/origin/955', 'HEAD~1')], None,
+             'detached checkout without a source branch at HEAD: pass --ref refs/heads/<branch>'),
+            ('detached-ambiguous', [('update-ref', 'refs/remotes/origin/955', 'HEAD'),
+                                    ('checkout', '-q', '--detach')], None,
+             'detached checkout with several source branches at HEAD (955, work): pass --ref refs/heads/<branch>')]
+        for scene, prepare, ref, outcome in cases:
+            with self.subTest(scene=scene), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory); co = root / 'checkout'
+                (co / '.github/workflows').mkdir(parents=True)
+                env = dict(os.environ); env.pop('LANDING_PRECHECK_WS', None)
+                def git(*args):
+                    return subprocess.run(['bash', '-c',
+                        '. "$1"; sandbox_git_home "$2" || exit; shift 2; sandbox_run git "$@"',
+                        'fixture', str(HERE / 'lib/sandbox-git-home.sh'), str(root / 'git-home'),
+                        '-C', str(co), *args], env=env,
+                        check=True, capture_output=True, text=True).stdout.strip()
+                git('init', '-q', '-b', 'work')
+                git('remote', 'add', 'origin', 'https://github.com/PRO-Robotech/kaname.git')
+                for name, raw in sources.items():
+                    (co / '.github/workflows' / name).write_bytes(raw)
+                git('add', '.'); git('commit', '-qm', 'lawful source inventory')
+                base = git('rev-parse', 'HEAD')
+                for step in prepare:
+                    git(*step)
+                result = subprocess.run(['bash', str(HERE / 'stand-report.sh'), 'expect',
+                    '--checkout', str(co), '--head', git('rev-parse', 'HEAD'), '--base', base,
+                    '--draft', 'false', *(['--ref', ref] if ref else [])], env=env,
+                    capture_output=True, text=True, timeout=30)
+                if outcome.startswith('refs/heads/'):
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertEqual(json.loads(result.stdout)['ref'], outcome)
+                    continue
+                self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                self.assertTrue(result.stdout.startswith('VOID\t'), result.stdout)
+                self.assertIn(outcome, result.stdout)
+                self.assertNotIn('producer command failed', result.stdout)
+
     def test_canonical_shell_entrypoint_reaches_stage_check(self):
         # Real shell dispatcher and parser, with no network or replacement helper.
         import json, subprocess, tempfile
