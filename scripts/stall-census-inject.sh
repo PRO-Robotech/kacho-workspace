@@ -25,7 +25,7 @@
 # `<task-notification>` главного журнала после последней записи агента, возобновление после
 # него, снятие уведомления из очереди, чужой id в тексте, уведомление глубже хвоста 4 МиБ.
 #
-# Коды: 0 — все пробы сошлись; 1 — нет; 2 — нет python3: вердикта нет.
+# Коды: 0 — все пробы сошлись; 1 — нет; 2 — нет python3 либо корневой подписи git: вердикта нет.
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -462,7 +462,11 @@ echo "== неактуальный запуск (ws#1469): шаг detach.sh на 
 # Сцена — копия git с тремя коммитами c0←c1←c2 на ветке; .fp шага несёт голову старта,
 # голова копии и origin/<ветка> ставятся update-ref; окружение, строка запуска и cwd шага —
 # в каталоге вида /proc (pid 500 — корень с DETACH_TAG, 501 — его потомок той же метки).
-G() { git -c user.name=p -c user.email=p@p -c commit.gpgsign=false "$@"; }
+# Подпись коммитов сцены — HOME песочницы с корневой подписью (sandbox-git-home.sh, check-16).
+# shellcheck source=lib/sandbox-git-home.sh
+. "$HERE/lib/sandbox-git-home.sh"
+sandbox_git_home "$T/st-home" || { echo "stall-census-inject: VOID — нет корневой подписи git для сцен Н1–Н7" >&2; exit 2; }
+G() { sandbox_git "$@"; }
 # srepo <сцена> <ветка> <голова .fp 0|1|2> <голова копии 0|1|2> <origin -|0|1|2> [сессия] [unit]
 srepo() {
     local r="$T/st-$1" pr="$T/st-$1-proc" tag="20261028T000000Z-1-$1" i d
