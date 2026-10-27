@@ -1521,7 +1521,7 @@ f_sec() { # $1 = вывод, $2 = начало заголовка раздела
   awk -v h="── $2" 'index($0, h) == 1 {f = 1; next} /^── |^branch-audit: /{f = 0} f' <<<"$1"
 }
 f_has() { # $1 = вывод, $2 = раздел, $3 = начало строки ветки, $4 = образец внутри строки → 0, если есть
-  f_sec "$1" "$2" | grep -F -- "   $3" | grep -qE -- "$4"
+  grep -qE -- "$4" <<<"$(f_sec "$1" "$2" | grep -F -- "   $3")"
 }
 f_run "$AUDIT" "$FO"; F_FAST=$F_OUT
 f_run env BRANCH_AUDIT_EXACT=1 "$AUDIT" "$FO"; F_EXACT=$F_OUT
@@ -1575,8 +1575,8 @@ bc_ok=1; bd_ok=1
 for mode in F_EXACT F_FAST; do
   o=${!mode}
   f_has "$o" "ТОЛЬКО ЛОКАЛЬНО" "f-pr-open (" '#12 OPEN' || bc_ok=0
-  f_sec "$o" "ВНИМАНИЕ: PR закрыт" | grep -qF -- '   f-pr-open ' && bc_ok=0
-  f_sec "$o" "ВНИМАНИЕ: PR закрыт" | grep -qF -- '   f-pr-fork ' && bd_ok=0
+  grep -qF -- '   f-pr-open ' <<<"$(f_sec "$o" "ВНИМАНИЕ: PR закрыт")" && bc_ok=0
+  grep -qF -- '   f-pr-fork ' <<<"$(f_sec "$o" "ВНИМАНИЕ: PR закрыт")" && bd_ok=0
   grep -q '#7 ' <<<"$o" && bd_ok=0
   f_has "$o" "ВНИМАНИЕ: PR закрыт" "f-pr-own —" '#8 MERGED' || bd_ok=0
 done
