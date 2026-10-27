@@ -3455,6 +3455,33 @@ b="$(mksandbox)"
 c21_sub "$b/CLAUDE.md" "а мы не можем влить этот код больше суток»): вливается" "а мы не можем влить этот код
    больше суток»): вливается"
 run 0 "$b" "близнец: перенос строки внутри исключения протокола — молчит" "$C23"
+# ⛔ check-verifier ws#1460 (C4): дописанное к перечню условие — находка; литерал перечня цел.
+b="$(mksandbox)"
+c21_sub "$b/.claude/workflows/wave.js" "const standExempt = STAND_EXEMPT.includes(A.repo)" "const standExempt = STAND_EXEMPT.includes(A.repo) || /kaname/i.test(A.repo || '')"
+run_says 1 "$b" "инъекция: к условию исключения в шаблоне дописано || /kaname/i — краснеет" "$C23" "условие исключения стенда"
+b="$(mksandbox)"
+c21_sub "$b/.claude/workflows/wave.js" "const standExempt = STAND_EXEMPT.includes(A.repo)" "const standExempt = STAND_EXEMPT.includes(A.repo)
+  || /kaname/i.test(A.repo || '')"
+run_says 1 "$b" "инъекция: дописанное условие перенесено на строку-продолжение — краснеет" "$C23" "условие исключения стенда"
+b="$(mksandbox)"
+c21_sub "$b/.claude/workflows/wave.js" "const standExempt = STAND_EXEMPT.includes(A.repo)" "const standExempt = STAND_EXEMPT.includes(A.repo)
+// ws#1460: перечень — единственное основание"
+run 0 "$b" "близнец: комментарий строкой ниже условия — молчит" "$C23"
+b="$(mksandbox)"
+c21_sub "$b/scripts/landing-precheck.sh" 'if os.environ["REPO"] in STAND_EXEMPT:' 'if os.environ["REPO"] in STAND_EXEMPT or "kaname" in os.environ["REPO"].lower():'
+run_says 1 "$b" "инъекция: к условию исключения в посадке дописано or — краснеет" "$C23" "условие исключения стенда"
+b="$(mksandbox)"
+c21_sub "$b/.claude/rules/testing-verdict.md" "kaname вливается своим CI, полный прогон здесь до CI ему не обязателен" "kaname и kacho вливаются своим CI, полный прогон здесь до CI им не обязателен"
+run_says 1 "$b" "инъекция: норма исключения в testing-verdict расширена — краснеет" "$C23" "external-cluster-kaname"
+b="$(mksandbox)"
+c21_sub "$b/.claude/rules/testing-verdict.md" '(`ai-tooling.md#at-red-ci-one-round`): Job-ом' '(`ai-tooling.md#at-red-ci-one-round`; kaname — своим CI, ws#1460); Job-ом'
+run_says 1 "$b" "инъекция: оговорка kaname внутри закреплённого якоря external-cluster-first — краснеет" "$C23" "external-cluster-first"
+b="$(mksandbox)"
+printf 'mutant "дописан после итога (ws#1460)" "a" "b"\n' >> "$b/scripts/wave-template-inject.sh"
+run_says 1 "$b" "инъекция: мутант после итога пробы шаблона — краснеет" "$C23" "последняя исполняемая строка"
+b="$(mksandbox)"
+printf '# конец пробы\n\n' >> "$b/scripts/wave-template-inject.sh"
+run 0 "$b" "близнец: комментарий и пустая строка после итога — молчит" "$C23"
 # Близнецы: перенос строки внутри нормы и правка мимо предмета — молчат.
 b="$(mksandbox)"
 c21_sub "$b/.claude/rules/ai-tooling.md" "все корни — исполнителям классов, одной сборкой" "все корни — исполнителям классов,
@@ -3904,6 +3931,30 @@ if sandbox_git_home "$TMP/home28"; then
 else
     premise_broken "check-28: корневой подписи нет — синтетический клон kacho не родится"
 fi
+
+echo "== check-29: итог пробы с мутантами — её последняя исполняемая строка (ws#1460) =="
+C29=check-29-probe-verdict-is-the-last-line.sh
+b="$(mksandbox)"; run 0 "$b" "чистое дерево — молчит" "$C29"
+b="$(mksandbox)"
+printf 'mutant "после итога" "a" "b"\n' >> "$b/scripts/plan-precheck-inject.sh"
+run_says 1 "$b" "инъекция: вызов мутанта после итога — краснеет с координатой" "$C29" "scripts/plan-precheck-inject.sh:"
+b="$(mksandbox)"
+printf 'echo "итог напечатан"\n' >> "$b/.claude/hooks/no-wait-guard/prove.sh"
+run_says 1 "$b" "инъекция: echo после итога (код отдаёт echo) — краснеет" "$C29" ".claude/hooks/no-wait-guard/prove.sh:"
+b="$(mksandbox)"
+printf '# итог выше\n\n' >> "$b/scripts/plan-precheck-inject.sh"
+run 0 "$b" "близнец: комментарий и пустая строка после итога — молчит" "$C29"
+b="$(mksandbox)"
+printf 'exit 0\n' >> "$b/scripts/stall-census-inject.sh"
+run 0 "$b" "близнец: exit последней строкой — итог, молчит" "$C29"
+b="$(mksandbox)"
+printf 'cat <<'"'"'EOF'"'"'\nmutant "внутри heredoc" "a" "b"\nEOF\n[ "$fail" -eq 0 ]\n' >> "$b/scripts/rituals/inject.sh"
+run 0 "$b" "близнец: вызов мутанта в теле heredoc, итог после — молчит" "$C29"
+b="$(mksandbox)"
+for f29 in $(git -C "$b" ls-files -- '*.sh'); do
+    [ -f "$b/$f29" ] && perl -0pi -e 's/^(mutant|twin)\(\)\s*\{/${1}_x() {/mg' "$b/$f29"
+done
+run 2 "$b" "ни одного объявления mutant()/twin() — VOID, а не успех" "$C29"
 
 echo
 # Мутация образца последней пробой вердиктов уже не меняет, но это запись вне

@@ -780,7 +780,18 @@ xmutant() {
 xmutant "исключение расширено на все репозитории" 'if os.environ["REPO"] in STAND_EXEMPT:' 'if True:' PRO-Robotech/kacho 1
 xmutant "перечень исключения расширен на kacho" 'STAND_EXEMPT = ("PRO-Robotech/kaname",)' 'STAND_EXEMPT = ("PRO-Robotech/kaname", "PRO-Robotech/kacho")' PRO-Robotech/kacho 1
 xmutant "исключение снято" 'if os.environ["REPO"] in STAND_EXEMPT:' 'if False:' PRO-Robotech/kaname 0
+# ⛔ check-verifier ws#1460 (C4): условие, дописанное к перечню, — ловит близнец похожего имени
+# (пары похожих имён — в ведомости случая, иначе отказ пришёл бы от CI-LEDGER-MISSING).
+printf 'PRO-Robotech/kaname-fork\t1266\t74\tсинтетика пробы ws#1460\nPRO-Robotech/kaname-iam-operator\t1266\t74\tсинтетика пробы ws#1460\npro-robotech/KANAME\t1266\t74\tсинтетика пробы ws#1460\nPRO-Robotech/kaname.git\t1266\t74\tсинтетика пробы ws#1460\n' >> "$W/ledger.tsv"
+xmutant "исключение дописано условием по имени" 'if os.environ["REPO"] in STAND_EXEMPT:' 'if os.environ["REPO"] in STAND_EXEMPT or "kaname" in os.environ["REPO"].lower():' PRO-Robotech/kaname-fork 1
+xmutant "исключение без регистра" 'if os.environ["REPO"] in STAND_EXEMPT:' 'if os.environ["REPO"].lower() in [x.lower() for x in STAND_EXEMPT]:' pro-robotech/KANAME 1
 rm -rf "$W/xs"
+# ⛔ check-verifier ws#1460 (C1): похожее имя, иной регистр, суффикс — отказ по стенду, исключения нет.
+for cvr in PRO-Robotech/kaname-fork PRO-Robotech/kaname-iam-operator pro-robotech/KANAME PRO-Robotech/kaname.git; do
+    twin; sreport "$HEAD_SHA" "$RED_STAND"; runr "$cvr" "$TOOL" --stand-report "$W/case/stand.json" "${SE[@]}"
+    expect 1 $'REASON\tSTAND-REPORT\t' "$cvr: красный отчёт — отказ по стенду (не kaname дословно)"
+    if grep -q 'не судится' "$W/out"; then echo "  [FAIL] $cvr: исключение применено" >&2; fail=$((fail + 1)); else echo "  [OK]   $cvr: исключения нет"; pass=$((pass + 1)); fi
+done
 
 echo "== лимит площадки — до чтения гейтов (урок 2026-10-16, ws#1110)"
 # Исчерпанный лимит — «не выполнилось» со временем сброса (код 2), а не красное и не

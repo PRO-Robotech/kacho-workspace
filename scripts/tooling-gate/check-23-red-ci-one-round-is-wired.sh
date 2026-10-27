@@ -31,6 +31,9 @@
 #      в `wave.js` и `landing-precheck.sh` — ровно kaname (клаузула вместе с ограничителем),
 #      ветвь исключения в шаблоне — до шага стенда, в посадке — до суда отчёта; правило, архив
 #      и протокол несут оговорку; проба шаблона — раздел ws#1460 и мутанты расширения и снятия.
+#      Условие исключения судится ЦЕЛЫМ выражением (со строками-продолжениями), не присутствием
+#      литерала: дописанное `|| …` — находка; `testing-verdict.md#external-cluster-kaname` —
+#      отдельной нормой; итог пробы шаблона — её последняя исполняемая строка (общий страж — check-29).
 #
 # ПРЕДПОСЫЛКА (VOID, код 2): все носители есть в дереве.
 # Коды: 0 — находок нет; 1 — находка с координатой; 2 — предмета нет.
@@ -278,8 +281,27 @@ for where, rx, sep in ((WAVE, r"const STAND_EXEMPT = \[([^\]]*)\]", ','), (LP, r
     got = sorted(x.strip().replace('"', "'") for x in ms[0].split(sep) if x.strip())
     if got != EXEMPT:
         finds.append('%s: перечень исключения стенда %s — ждём ровно %s (ws#1460)' % (where, got, EXEMPT))
-need(WAVE, w, ['const standExempt = STAND_EXEMPT.includes(A.repo)',
-               "if (standExempt) { stand = { code: 0, exempt: true };"], 'исключение стенда kaname — ветвью по перечню')
+need(WAVE, w, ["if (standExempt) { stand = { code: 0, exempt: true };"], 'исключение стенда kaname — ветвью по перечню')
+# Условие исключения — ЦЕЛЫМ выражением, а не присутствием литерала (⛔ check-verifier ws#1460, C4:
+# `|| /kaname/i.test(…)`, дописанное к перечню, предикат присутствия пропускал). Строки-продолжения
+# (следующая строка начинается оператором) входят в выражение; выражение — ровно одно.
+SX = re.findall(r'^[ \t]*const standExempt = (.*(?:\n[ \t]*(?:\|\||&&|\?|:|\.|\+|-|\(|\[).*)*)$', texts[WAVE], re.M)
+if [flat(x).strip() for x in SX] != ['STAND_EXEMPT.includes(A.repo)']:
+    finds.append('%s: условие исключения стенда %s — ждём ровно «STAND_EXEMPT.includes(A.repo)» (ws#1460)'
+                 % (WAVE, [flat(x).strip()[:120] for x in SX]))
+LX = re.findall(r'^[ \t]*(?:el)?if [^\n]*STAND_EXEMPT[^\n]*$', texts[LP], re.M)
+if [x.strip() for x in LX] != ['if os.environ["REPO"] in STAND_EXEMPT:']:
+    finds.append('%s: условие исключения стенда %s — ждём ровно «if os.environ["REPO"] in STAND_EXEMPT:» (ws#1460)'
+                 % (LP, [x.strip()[:120] for x in LX]))
+need(TV, unit(texts[TV], '\nexternal-cluster-kaname · ', r'\n'),
+     ['kaname вливается своим CI, полный прогон здесь до CI ему не обязателен (владелец 2026-10-27, ws#1460)'],
+     'external-cluster-kaname: исключение отдельной нормой')
+# Итог пробы — ПОСЛЕДНЕЙ исполняемой строкой (⛔ check-verifier ws#1460: мутанты после итога
+# отдавали скрипту код последнего вызова и маскировали контроль); общий страж — check-29.
+PL = [l for l in texts[PROBE].splitlines() if l.strip() and not l.lstrip().startswith('#')]
+if not PL or PL[-1].strip() != '[ "$rc" -eq 0 ] && [ "$fail" -eq 0 ]':
+    finds.append('%s: последняя исполняемая строка — «%s», ждём итог «[ "$rc" -eq 0 ] && [ "$fail" -eq 0 ]»'
+                 % (PROBE, PL[-1].strip()[:120] if PL else ''))
 iE = w.find('if (standExempt) {')
 if not (0 <= iE < iS):
     finds.append('%s: ветвь исключения стенда не стоит ДО шага стенда' % WAVE)
@@ -287,7 +309,10 @@ need(LP, texts[LP], ['if os.environ["REPO"] in STAND_EXEMPT:', 'elif sr:'], 'п�
 need(PROBE, texts[PROBE], ["console.log('== Kaname вливается по своему CI: стенда нет, посадке отчёт не передаётся (ws#1460)')",
                            'mutant "исключение стенда расширено на все репозитории (ws#1460)"',
                            'mutant "перечень исключения стенда расширен на kacho (ws#1460)"',
-                           'mutant "исключение стенда снято (ws#1460)"'], 'исключение kaname доказано исполнением шаблона')
+                           'mutant "исключение стенда снято (ws#1460)"',
+                           'mutant "исключение стенда дописано условием по имени (ws#1460, C4)"',
+                           "for (const repo of ['PRO-Robotech/kaname-fork', 'PRO-Robotech/kaname-iam-operator', 'pro-robotech/KANAME',"],
+     'исключение kaname доказано исполнением шаблона')
 
 print('[CENSUS] %s: носителей осмотрено %d (правило, архив, база, ci-watcher, шаблон, проба шаблона, протокол, '
       'testing-verdict, ci-read, stand-report, ci.yaml, landing-precheck); находок %d' % (name, len(texts), len(finds)))

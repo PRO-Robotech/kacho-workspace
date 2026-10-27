@@ -1109,6 +1109,12 @@ console.log('== Kaname вливается по своему CI: стенда н�
     q = await run({ args: { ...args, repo, lanes }, plan: [P(plan)] })
     ok(q.res.ok === true && idx(q.calls, 'mech:stand:0') >= 0 && !noStand(prm(q.calls, 'mech:autoland')) && !noStand(prm(q.calls, 'mech:gates')), repo + ': стенд судится, посадке отчёт передаётся', JSON.stringify(q.res).slice(0, 200))
   }
+  // ⛔ check-verifier ws#1460 (C1): похожее имя, иной регистр, голое имя, без имени — исключения
+  // нет: шаг стенда зовётся, красный останавливает. Ловят условие, дописанное к перечню (C4).
+  for (const repo of ['PRO-Robotech/kaname-fork', 'PRO-Robotech/kaname-iam-operator', 'pro-robotech/KANAME', 'PRO-Robotech/Kaname', 'kaname', undefined]) {
+    q = await run({ args: { ...kArgs, repo }, plan: [P('kn.json')], stand: [{ code: 1, reasons: ['STAND-REPORT-RED'] }] })
+    ok(q.res.ok === false && idx(q.calls, 'mech:stand:0') >= 0 && by(q.calls, c => /^mech:(ci:|ready|autoland|cascade)/.test(c.label)) === 0, String(repo) + ': не kaname дословно — стенд зовётся, красный останавливает (ws#1460, C1)', JSON.stringify(q.res).slice(0, 200))
+  }
 }
 
 console.log('== объединение вызовов всех сценариев: модель, усилие, место отчётов (ws#1016)')
@@ -1551,12 +1557,19 @@ mutant "оператор register — operator-stand.py (ws#1301)" "зареги
 mutant "оператор cluster-check — python3 на машине (ws#1301)" "вызови bash ' + WS + '/scripts/stand-report.sh cluster-check" "вызови python3 ' + WS + '/scripts/operator-stand.py cluster-check"
 mutant "оператор итог cluster-check — без входа (ws#1301)" "повторно проверь \`bash ' + WS + '/scripts/stand-report.sh cluster-check\`" "повторно проверь cluster-check"
 
-echo
-echo "wave-template-inject: контроль код $rc; мутантов и близнецов $((pass + fail)), сошлось $pass (мутант красный, близнец молчит), разошлось $fail"
-[ "$rc" -eq 0 ] && [ "$fail" -eq 0 ]
 # ws#1460: исключение стенда — ровно kaname; расширение и снятие краснеют.
 mutant "исключение стенда расширено на все репозитории (ws#1460)" "const standExempt = STAND_EXEMPT.includes(A.repo)" "const standExempt = true"
 mutant "перечень исключения стенда расширен на kacho (ws#1460)" "const STAND_EXEMPT = ['PRO-Robotech/kaname']" "const STAND_EXEMPT = ['PRO-Robotech/kaname', 'PRO-Robotech/kacho']"
 mutant "исключение стенда снято (ws#1460)" "const standExempt = STAND_EXEMPT.includes(A.repo)" "const standExempt = false"
 mutant "kaname: стенд пропущен, а отчёт в посадке (ws#1460)" "const STAND_ARGS = standExempt ? '' : ' --stand-report '" "const STAND_ARGS = false ? '' : ' --stand-report '"
 mutant "kaname: отчёт снят, а стенд зовётся (ws#1460)" "if (standExempt) { stand = { code: 0, exempt: true };" "if (false) { stand = { code: 0, exempt: true };"
+# ⛔ check-verifier ws#1460 (C4): условие, дописанное к перечню, — краснеют близнецы похожих имён и регистра.
+mutant "исключение стенда дописано условием по имени (ws#1460, C4)" "const standExempt = STAND_EXEMPT.includes(A.repo)" "const standExempt = STAND_EXEMPT.includes(A.repo) || /kaname/i.test(A.repo || '')"
+mutant "исключение стенда без регистра (ws#1460)" "const standExempt = STAND_EXEMPT.includes(A.repo)" "const standExempt = STAND_EXEMPT.map(x => x.toLowerCase()).includes(String(A.repo).toLowerCase())"
+
+# Итог — ПОСЛЕДНЕЙ исполняемой строкой: строка после него отдала бы скрипту свой код
+# (⛔ check-verifier ws#1460: пять мутантов после итога маскировали контроль и 317 мутантов).
+# Порядок держит tooling-gate check-29.
+echo
+echo "wave-template-inject: контроль код $rc; мутантов и близнецов $((pass + fail)), сошлось $pass (мутант красный, близнец молчит), разошлось $fail"
+[ "$rc" -eq 0 ] && [ "$fail" -eq 0 ]
