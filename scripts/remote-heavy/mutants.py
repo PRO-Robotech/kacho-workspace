@@ -26,8 +26,12 @@
   - фрагмент порчи встречается в исходнике РОВНО один раз — иначе порча
     устарела вместе с правкой `run.sh` и молча перестала что-либо портить.
 
-ИСХОДЫ: 0 — все порчи убиты; 1 — выжила хоть одна порча либо отказала
-предпосылка; 2 — порч ноль (перечень пуст — проверено ничего).
+БЛИЗНЕЦЫ (TWINS): законная правка `run.sh` той же формы — набор обязан остаться
+зелёным (код 0); красное близнеца — проба судит форму записи, а не предмет.
+
+ИСХОДЫ: 0 — все порчи убиты, все близнецы молчат; 1 — выжила хоть одна порча,
+покраснел близнец либо отказала предпосылка; 2 — порч и близнецов ноль
+(перечень пуст — проверено ничего).
 
 Запуск: python3 scripts/remote-heavy/mutants.py [-j <параллельно>] [<id>…]
 """
@@ -692,6 +696,22 @@ $FILEWAIT_SH"'''),
 ]
 
 
+DOCKERD = "exec dockerd --host=unix:///run/dind/docker.sock --registry-mirror=https://mirror.gcr.io"
+# Законные близнецы: правка `run.sh`, после которой набор обязан остаться ЗЕЛЁНЫМ (код 0) —
+# иначе проба судит форму записи, а не предмет. (id, проба, что меняет, [(фрагмент, замена)…])
+TWINS = [
+    # (check-verifier ws#1459, круг 1) — образец по тексту краснел на T1 и T2.
+    ("dind-proxy-json", "U1p", "флаг перенесён в daemon.json ключом userland-proxy: false",
+     [(DOCKERD + " --userland-proxy=false'", DOCKERD + "'"),
+      ('printf "%s" "{\\"runtimes\\"', 'printf "%s" "{\\"userland-proxy\\":false,\\"runtimes\\"')]),
+    ("dind-proxy-wrap", "U1p", "флаг перенесён на следующую строку продолжением",
+     [(DOCKERD + " --userland-proxy=false'", DOCKERD + " \\\n  --userland-proxy=false'")]),
+    ("dind-proxy-first", "U1p", "флаг первым доводом dockerd",
+     [(DOCKERD + " --userland-proxy=false'",
+       "exec dockerd --userland-proxy=false --host=unix:///run/dind/docker.sock --registry-mirror=https://mirror.gcr.io'")]),
+]
+
+
 def run_inject(run_path, tmp):
     env = dict(os.environ, REMOTE_HEAVY_RUN=run_path, TMPDIR=tmp)
     p = subprocess.run(["bash", INJECT], env=env, capture_output=True, text=True, timeout=1800)
@@ -715,17 +735,32 @@ def one(src, root, m):
     return mid, killed, by_probe, rc, fails, tail
 
 
+def twin(src, root, t):
+    tid, _, _, reps = t
+    d = tempfile.mkdtemp(prefix=f"twin-{tid}-", dir=root)
+    path = os.path.join(d, "run.sh")
+    for frag, repl in reps:
+        src = src.replace(frag, repl, 1)
+    with open(path, "w") as f:
+        f.write(src)
+    rc, fails, tail = run_inject(path, d)
+    shutil.rmtree(d, ignore_errors=True)
+    return tid, rc, fails, tail
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("-j", type=int, default=4)
     ap.add_argument("ids", nargs="*")
     a = ap.parse_args()
     todo = [m for m in MUTANTS if not a.ids or m[0] in a.ids]
-    if not todo:
-        print("mutants: порч ноль — проверено ничего")
+    twins = [t for t in TWINS if not a.ids or t[0] in a.ids]
+    if not todo and not twins:
+        print("mutants: порч и близнецов ноль — проверено ничего")
         return 2
     src = open(RUN).read()
     bad = [m[0] for m in todo if src.count(m[3]) != 1]
+    bad += [t[0] for t in twins if any(src.count(frag) != 1 for frag, _ in t[3])]
     if bad:
         print("mutants: ПРЕДПОСЫЛКА — фрагмент встречается не ровно один раз: " + ", ".join(bad))
         return 1
@@ -736,16 +771,24 @@ def main():
         if rc != 0:
             print("mutants: ПРЕДПОСЫЛКА — набор красный без порчи")
             return 1
-        survived = 0
+        survived, loud = 0, 0
         with concurrent.futures.ThreadPoolExecutor(max_workers=a.j) as ex:
-            res = list(ex.map(lambda m: one(src, root, m), todo))
+            fm = [ex.submit(one, src, root, m) for m in todo]
+            ft = [ex.submit(twin, src, root, t) for t in twins]
+            res, tres = [f.result() for f in fm], [f.result() for f in ft]
         for m, (mid, killed, by_probe, rc, fails, tail) in zip(todo, res):
             survived += not killed
             names = sorted({ln.split(":", 1)[0][len("ПРОВАЛ "):] for ln in fails})
             print(f"{'УБИТА ' if killed else 'ВЫЖИЛА'} {mid:18} держит {m[1]}"
                   f" · код {rc} · {tail} · красные: {', '.join(names) or '—'} · {m[2]}")
-        print(f"remote-heavy mutants: порч {len(todo)} · убито {len(todo) - survived} · выжило {survived}")
-        return 1 if survived else 0
+        for t, (tid, rc, fails, tail) in zip(twins, tres):
+            loud += rc != 0
+            names = sorted({ln.split(":", 1)[0][len("ПРОВАЛ "):] for ln in fails})
+            print(f"{'МОЛЧИТ ' if rc == 0 else 'КРАСНЕЕТ'} {tid:18} близнец {t[1]}"
+                  f" · код {rc} · {tail} · красные: {', '.join(names) or '—'} · {t[2]}")
+        print(f"remote-heavy mutants: порч {len(todo)} · убито {len(todo) - survived} · выжило {survived}"
+              f" · близнецов {len(twins)} · молчат {len(twins) - loud} · красных {loud}")
+        return 1 if survived or loud else 0
     finally:
         shutil.rmtree(root, ignore_errors=True)
 

@@ -43,9 +43,10 @@
 #   U1 профиль с dind: privileged нет нигде, dind на crun без cgroup (F1)
 #   U1p dockerd в dind без пользовательского прокси портов ИСПОЛНЕНИЕМ: хвост команды
 #      dind из Job в sh с двойниками apk и dockerd; судится действующее значение —
-#      последний --userland-proxy argv, без флага — ключ daemon.json; близнецы T1
-#      (daemon.json), T2 (перенос строки), T3 (флаг первым) → молчат; D1 флаг и ключ
-#      вместе (dockerd не стартует), D2 ключ true → краснеют
+#      последний --userland-proxy argv, без флага — ключ daemon.json; варианты — из
+#      базы (хвост без настройки): близнецы T1 (daemon.json), T2 (перенос строки), T3
+#      (флаг первым) → молчат; D0 без настройки (умолчание), D1 флаг и ключ вместе
+#      (dockerd не стартует), D2 ключ true → краснеют
 #   S0 сервер добавил законные умолчания   → 0 (близнец S1–S3)
 #   S1 API снял hostUsers (Job и pod)       → 69; ns снято и при --keep; доставки нет
 #   S2 вебхук снял procMount dind в pod     → 69 до доставки
@@ -1027,21 +1028,30 @@ EOF
     elif [ "$3" -eq 0 ]; then bad "$1" "dockerd в dind с пользовательским прокси портов либо не встанет"
     else bad "$1" "проба не отличила: ждали прокси включён либо отказ dockerd, судья — выключен"; fi
 }
-# dproxy_twin <случай> <0|1> <выражения sed>… — вариант из НАСТОЯЩЕГО хвоста; не изменился — не построен
-dproxy_twin() {
-    local c="$1" want="$2"; shift 2
-    sed "$@" "$BOX/dtail.sh" > "$BOX/$c.tail"
-    if cmp -s "$BOX/dtail.sh" "$BOX/$c.tail"; then OUT="$BOX/dtail.sh"; bad "$c" "вариант не построен: в хвосте dind нет ожидаемой строки"
-    else dproxy_case "$c" "$BOX/$c.tail" "$want"; fi
-}
 if grep -q '^exec dockerd ' "$BOX/dtail.sh"; then ok; else OUT="$BOX/dind.cmd"; bad U1p "в хвосте команды dind нет строки exec dockerd — судить нечего"; fi
 dproxy_case U1p "$BOX/dtail.sh" 0
-JSON_OFF='s/{\\"runtimes\\"/{\\"userland-proxy\\":false,\\"runtimes\\"/'
-dproxy_twin U1p-T1 0 -e 's/ --userland-proxy=false//' -e "$JSON_OFF"
-dproxy_twin U1p-T2 0 -e 's/ --userland-proxy=false/ \\\n--userland-proxy=false/'
-dproxy_twin U1p-T3 0 -e 's/ --userland-proxy=false//' -e 's/^exec dockerd /exec dockerd --userland-proxy=false /'
-dproxy_twin U1p-D1 1 -e "$JSON_OFF"
-dproxy_twin U1p-D2 1 -e 's/ --userland-proxy=false//' -e 's/{\\"runtimes\\"/{\\"userland-proxy\\":true,\\"runtimes\\"/'
+# Варианты — из НАСТОЯЩЕГО хвоста, но от формы его настройки не зависят: база — хвост со
+# склеенными продолжениями строк и без единой настройки userland-proxy (флаги argv, ключ
+# daemon.json); вариант ставит настройку своей формой. Без базы вариантов нет — отказ.
+sed -e :a -e '/\\$/N; s/\\\n//; ta' \
+    -e 's/ *--userland-proxy\(=[^ ]*\)\{0,1\}\( \|$\)/\2/g' -e 's/, *\\"userland-proxy\\": *[a-z]*//g' -e 's/\\"userland-proxy\\": *[a-z]*,\{0,1\}//g' \
+    "$BOX/dtail.sh" > "$BOX/dbase.sh"
+if grep -q '^exec dockerd ' "$BOX/dbase.sh" && grep -q '"{\\"' "$BOX/dbase.sh" && ! grep -q 'userland-proxy' "$BOX/dbase.sh"; then ok
+else OUT="$BOX/dbase.sh"; bad U1p-base "база вариантов не построена: нет exec dockerd, записи daemon.json либо настройка осталась"; fi
+# dproxy_twin <случай> <0|1> <выражения sed>… — вариант из базы; не изменился — не построен
+dproxy_twin() {
+    local c="$1" want="$2"; shift 2
+    sed "$@" "$BOX/dbase.sh" > "$BOX/$c.tail"
+    if cmp -s "$BOX/dbase.sh" "$BOX/$c.tail"; then OUT="$BOX/dbase.sh"; bad "$c" "вариант не построен: в базе нет ожидаемой строки"
+    else dproxy_case "$c" "$BOX/$c.tail" "$want"; fi
+}
+JSON_OFF='s/"{\\"/"{\\"userland-proxy\\":false,\\"/'
+dproxy_case U1p-D0 "$BOX/dbase.sh" 1
+dproxy_twin U1p-T1 0 -e "$JSON_OFF"
+dproxy_twin U1p-T2 0 -e 's/^exec dockerd .*/& \\\n--userland-proxy=false/'
+dproxy_twin U1p-T3 0 -e 's/^exec dockerd /&--userland-proxy=false /'
+dproxy_twin U1p-D1 1 -e "$JSON_OFF" -e 's/^exec dockerd .*/& --userland-proxy=false/'
+dproxy_twin U1p-D2 1 -e 's/"{\\"/"{\\"userland-proxy\\":true,\\"/'
 # U3 — двойник: dind с тождественным uid_map отказал (его текст из U2) → 69, ns снято, доставки нет
 fresh
 go_run u3 env FAKE_EXIT=0 FAKE_USERNS_DIND="$USERNS_MSG" bash "$RUN" --task 1 --repo kaname --ref HEAD --src "$SRC" --profile integration --short u3 --keep 2 -- true
