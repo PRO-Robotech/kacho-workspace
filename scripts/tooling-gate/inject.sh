@@ -3438,7 +3438,7 @@ c21_sub "$b/.claude/workflows/wave.js" "const STAND_EXEMPT = ['PRO-Robotech/kana
 run_says 1 "$b" "инъекция: исключение стенда в шаблоне расширено на kacho — краснеет" "$C23" "перечень исключения стенда"
 b="$(mksandbox)"
 c21_sub "$b/.claude/workflows/wave.js" "const standExempt = STAND_EXEMPT.includes(A.repo)" "const standExempt = true"
-run_says 1 "$b" "инъекция: исключение стенда в шаблоне — на все репозитории — краснеет" "$C23" "исключение стенда kaname — ветвью по перечню"
+run_says 1 "$b" "инъекция: исключение стенда в шаблоне — на все репозитории — краснеет" "$C23" "условие исключения стенда ['true']"
 b="$(mksandbox)"
 c21_sub "$b/scripts/landing-precheck.sh" 'if os.environ["REPO"] in STAND_EXEMPT:' 'if True:'
 run_says 1 "$b" "инъекция: посадка не судит стенд ни у кого — краснеет" "$C23" "посадка: исключение kaname"
