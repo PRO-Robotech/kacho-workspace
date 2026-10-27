@@ -318,8 +318,24 @@ MUTANTS = [
      r'''"$@" >&"$fd" 2>&1; rc=0'''),
     ("red-tee-pipe", "RG8", "копия вывода — трубой: фоновый писатель держит шаг до срока Job",
      r'''  exec {fd}> >(tee /work/heavy-cmd.out); tp=$!
+  if [ "${HEAVY_OPERATOR_RECEIPT:-}" = 1 ]; then
+    local source_clean=clean source_status source_head source_tree
+    source_status="$(git status --porcelain --untracked-files=all)" || source_clean=dirty
+    source_head="$(git rev-parse HEAD)" || source_clean=dirty
+    source_tree="$(git rev-parse 'HEAD^{tree}')" || source_clean=dirty
+    [ -z "$source_status" ] || source_clean=dirty
+    printf 'REMOTE_SOURCE_V1 before %s %s %s\n' "$source_head" "$source_tree" "$source_clean"
+  fi
   "$@" >&"$fd" 2>&1; rc=$?''',
      r'''  tp=0
+  if [ "${HEAVY_OPERATOR_RECEIPT:-}" = 1 ]; then
+    local source_clean=clean source_status source_head source_tree
+    source_status="$(git status --porcelain --untracked-files=all)" || source_clean=dirty
+    source_head="$(git rev-parse HEAD)" || source_clean=dirty
+    source_tree="$(git rev-parse 'HEAD^{tree}')" || source_clean=dirty
+    [ -z "$source_status" ] || source_clean=dirty
+    printf 'REMOTE_SOURCE_V1 before %s %s %s\n' "$source_head" "$source_tree" "$source_clean"
+  fi
   "$@" 2>&1 | tee /work/heavy-cmd.out; rc="${PIPESTATUS[0]}"'''),
     ("red-unwired", "RG1", "команда идёт мимо шага красных групп",
      ' с\\" >&2\nheavy_cmd \\"\\$@\\""',
