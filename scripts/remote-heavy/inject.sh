@@ -41,6 +41,7 @@
 #      каждый созданный объект — в ns прогона; запросы и пределы — числом
 #   U0 pod в своём пространстве пользователей (hostUsers: false)
 #   U1 профиль с dind: privileged нет нигде, dind на crun без cgroup (F1)
+#   U1p dockerd в dind без пользовательского прокси портов (--userland-proxy=false)
 #   S0 сервер добавил законные умолчания   → 0 (близнец S1–S3)
 #   S1 API снял hostUsers (Job и pod)       → 69; ns снято и при --keep; доставки нет
 #   S2 вебхук снял procMount dind в pod     → 69 до доставки
@@ -890,6 +891,10 @@ if jq -e '.spec.template.spec.hostUsers == false
           and (.spec.template.spec.initContainers[] | select(.name == "dind") | .securityContext.privileged == false
                and (.command | join(" ") | test("crun.*--cgroup-manager=disabled")))' "$J" >/dev/null 2>&1; then ok
 else OUT="$J"; bad U1 "dind привилегирован либо pod не в своём пространстве пользователей"; fi
+# U1p — dockerd без пользовательского прокси портов (DOCKER в шапке run.sh): порт контейнера
+# testcontainers на 127.0.0.1 — DNAT ядра, а не процесс docker-proxy на каждом соединении
+if jq -e '.spec.template.spec.initContainers[] | select(.name == "dind") | .command | join(" ") | test("exec dockerd [^\n]*--userland-proxy=false")' "$J" >/dev/null 2>&1; then ok
+else OUT="$J"; bad U1p "dockerd в dind с пользовательским прокси портов (нет --userland-proxy=false)"; fi
 cp "$J" "$BOX/u1-job.json"
 
 # ── пространство пользователей ИСПОЛНЕНИЕМ (ревью ws#984, N1) ───────────────

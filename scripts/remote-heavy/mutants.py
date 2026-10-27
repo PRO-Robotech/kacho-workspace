@@ -45,6 +45,11 @@ INJECT = os.path.join(HERE, "inject.sh")
 
 # (id, проба, что портит, фрагмент, замена)
 MUTANTS = [
+    # СЕТЬ DIND (шапка run.sh, DOCKER): порт контейнера testcontainers — DNAT ядра, а не
+    # docker-proxy процессом на каждом запросе пробы.
+    ("dind-userland-proxy", "U1p", "dockerd в dind снова с пользовательским прокси портов",
+     " --userland-proxy=false'",
+     "'"),
     # ПРОФИЛЬ kind (ws#1385, kind.sh): hostUsers узла лишь ему, допуск до Job, 77 — не красное,
     # сверка hostUsers без «//» jq (false для него пусто).
     ("kind-hostusers", "KD2", "Job профиля kind в своём пространстве пользователей — узел kind не встанет",
