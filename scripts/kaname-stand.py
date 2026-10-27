@@ -286,6 +286,27 @@ def chart_own_shards(co, jobs):
     return {'plan': path, 'shards': plan}
 
 
+def source_ref(co):
+    """Ветка источника копии без довода --ref (ws#1426).
+
+    Присоединённая голова — её ветка. Отсоединённая (`git worktree add --detach`, клон bundle в
+    pod remote-reader) — единственное имя ветки, чья вершина = HEAD, среди `refs/heads` и
+    `refs/remotes/origin` (`origin/HEAD` — указатель, не ветка). Ноль имён или несколько — отказ
+    с причиной: ветку, по которой ищутся прогоны hosted, решает довод, а не угадывание.
+    """
+    attached = common.git(co, 'rev-parse', '--symbolic-full-name', 'HEAD')
+    if attached.startswith('refs/heads/'):
+        return attached
+    refs = common.git(co, 'for-each-ref', '--points-at', 'HEAD', '--format=%(refname)',
+                      'refs/heads', 'refs/remotes/origin').splitlines()
+    names = sorted({r.removeprefix('refs/heads/').removeprefix('refs/remotes/origin/') for r in refs}
+                   - {'HEAD'})
+    require(names, 'detached checkout without a source branch at HEAD: pass --ref refs/heads/<branch>')
+    require(len(names) == 1, 'detached checkout with several source branches at HEAD ('
+            + ', '.join(names) + '): pass --ref refs/heads/<branch>')
+    return 'refs/heads/' + names[0]
+
+
 def expected(checkout, head, base, ref):
     """Не исполняет workflow и не подменяет отсутствующий cluster route."""
     co = Path(checkout)
@@ -928,7 +949,7 @@ def main():
     args = parser.parse_args()
     if args.action == 'expect':
         if not args.ref and args.checkout:
-            args.ref = common.git(args.checkout, 'symbolic-ref', 'HEAD')
+            args.ref = source_ref(args.checkout)
         require(all((args.checkout, args.head, args.base, args.ref)), 'expect requires exact checkout/head/base/ref')
         result = expected(args.checkout, args.head, args.base, args.ref)
     else:
