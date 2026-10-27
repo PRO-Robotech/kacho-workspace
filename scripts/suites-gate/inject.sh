@@ -1234,12 +1234,12 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; hint='"'"'подключи
 proof_own_environment
 echo "проб 1"'
 # ANSI-C `$'…\'…'` строкой выше настоящего подключения и вызова (D3, ws#1432)
-P_ANSI='#!/usr/bin/env bash
-here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-msg=$'"'"'it\'"'"'s ok'"'"'
-. "$here/../lib/proofs.sh"
+P_ANSI="#!/usr/bin/env bash
+here=\"\$(cd \"\$(dirname \"\${BASH_SOURCE[0]}\")\" && pwd)\"
+msg=\$'it\\'s ok'
+. \"\$here/../lib/proofs.sh\"
 proof_own_environment
-echo "проб 1"'
+echo \"проб 1\""
 
 # world8<песочница> [<набор> <код проверки> <доказательство>] — во всех наборах
 # проверка читает указатель и доказательство владеет окружением; в названном —
