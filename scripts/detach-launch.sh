@@ -63,8 +63,13 @@ detach_launch() {
         local on_post='s=self; [ -e "$DETACH_EXIT_FILE.stop" ] && s=stop; echo "$s $SERVICE_RESULT $EXIT_CODE $EXIT_STATUS" > "$DETACH_EXIT_FILE.tmp" && mv -f "$DETACH_EXIT_FILE.tmp" "$DETACH_EXIT_FILE"; rm -f "$DETACH_EXIT_FILE.stop"'
         # --expand-environment=no: иначе systemd раскрывает `$$` и `$ИМЯ` в доводах ExecStart
         # (замер: `echo $$` писал в .pid «$»), и текст команды исполнялся бы не тот.
+        # ExitType=cgroup (systemd ≥ 250): служба жива, пока жив процесс её cgroup. По умолчанию
+        # (main) выход обёртки снимал остаток cgroup — потомок ловушки (kubectl уборки, git push
+        # под push-then.sh) гиб, stop его не дожидался (ws#1468, замер: `( sleep 2; echo late > f ) &
+        # exit 0` службой — файла нет, с ExitType=cgroup — есть); setsid потомков и так не снимает.
+        # Старее 250 systemd-run отказывает — путь setsid с ПРЕДУПРЕЖДЕНИЕМ.
         if out="$(systemd-run --user --quiet --collect --unit="$unit" --same-dir --expand-environment=no \
-                -p UMask="$(umask)" -p OOMPolicy=continue "${envs[@]}" --setenv=DETACH_EXIT_FILE="${log%.log}.exit" \
+                -p UMask="$(umask)" -p OOMPolicy=continue -p ExitType=cgroup "${envs[@]}" --setenv=DETACH_EXIT_FILE="${log%.log}.exit" \
                 -p "ExecStop=:/bin/sh -c '$on_stop'" -p "ExecStopPost=:/bin/sh -c '$on_post'" \
                 -- bash -c "$wrap" "$log" "$@" 2>&1 < /dev/null)"; then
             DETACH_MODE=unit; return 0

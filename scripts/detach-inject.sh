@@ -325,8 +325,14 @@ sig_cases
 
 echo "== мутанты"
 muts=0; survived=0
-mutant() {  # <имя> <было> <стало>
+mutant() {  # <имя> <было> <стало> [<файл> <случаи>]
     local m="$W/mut/detach.sh" f="${4:-detach.sh}"; mkdir -p "$W/mut"; cp "$HERE/detach.sh" "$HERE/detach-launch.sh" "$W/mut/"
+    # Вызов судится до правки: склеенный довод (имя без пробела перед «было», ws#1468) сдвигал
+    # прочие — файл и случаи не те, мутант выпадал в VOID «правка не легла», а не в отказ вызова.
+    if { [ $# -ne 3 ] && [ $# -ne 5 ]; } || [[ ! "$1" =~ ^[a-z0-9-]+$ ]] || [ ! -f "$HERE/$f" ] || ! declare -F "${5:-run_cases}" > /dev/null; then
+        echo "  [VOID] мутант «${1:0:60}»: вызов неверен — доводов $# (3 либо 5), имя [a-z0-9-], файл $f, случаи ${5:-run_cases}"
+        survived=$((survived + 1)); return
+    fi
     python3 - "$HERE/$f" "$W/mut/$f" "$2" "$3" <<'PY' || { echo "  [VOID] мутант $1: правка не легла"; survived=$((survived + 1)); return; }
 import sys
 s, d, a, b = sys.argv[1:5]
@@ -372,8 +378,9 @@ mutant stop-kill-not-term '        kill -TERM $kids 2>/dev/null' '        kill -
 mutant stop-no-wait 'while [ ! -f "$base.rc" ] && [ "$(date +%s)" -lt "$end" ]' 'while false && [ "$(date +%s)" -lt "$end" ]' detach.sh stop_cases
 mutant stop-descendants-ignored 'while [ -f "$base.rc" ] && [ -n "$(tagged)" ] && [ "$(date +%s)" -lt "$end" ]; do sleep 1; done
     if [ -f "$base.rc" ] && [ -n "$(tagged)" ]; then' 'if false; then' detach.sh stop_cases
-mutant stop-grace-ignored'while [ ! -f "$base.rc" ] && [ "$(date +%s)" -lt "$end" ]' 'while [ ! -f "$base.rc" ] && true' detach.sh stop_cases
+mutant stop-grace-ignored 'while [ ! -f "$base.rc" ] && [ "$(date +%s)" -lt "$end" ]' 'while [ ! -f "$base.rc" ] && true' detach.sh stop_cases
 if [ "$SYSD" = 1 ]; then
+    mutant exit-type-main ' -p ExitType=cgroup' '' detach-launch.sh stop_cases
     mutant no-unit '[ "${KACHO_DETACH_NO_SYSTEMD:-}" = 1 ]; then' 'true; then' detach-launch.sh survive_cases
     mutant env-expanded ' --expand-environment=no \' ' \' detach-launch.sh survive_cases
     mutant env-not-carried '&& [ "$n" != DETACH_EXIT_FILE ] && envs+=("--setenv=$n")' '&& true' detach-launch.sh survive_cases
