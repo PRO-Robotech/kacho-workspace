@@ -70,6 +70,13 @@
 #   M43 pr-body: снятая ведомость своего репозитория не судится        → check-01
 #   M44 pr-body: вложенные полосы не раскрыты                         → check-01
 #   M45 pr-body: названо первое доказательство диапазона, а не последнее → check-01
+#   ws#1324: исход — по ПОСЛЕДНЕМУ доказательству диапазона, полному или частичному (PR ws#1446:
+#   полное @0494f424a, затем частичное @5f63447cd — было Closes #1426):
+#   M74 pr-body: частичное позже полного не учитывается               → check-01
+#   M75 pr-body: последнее — лишь из полных (частичные отброшены до выбора) → check-01
+#   M76 pr-body: последнее — без привязки к диапазону (частичное вне него снимает Closes) → check-01
+#   M77 pr-body: решает первое доказательство диапазона, а не последнее → check-01
+#   близнец T3: признак частичного последнего записан иначе — check-01 зелен
 #   M46 pr-body: номера задач — из всего сообщения, а не из первой строки → check-01
 #   M47 pr-body: задача первой строки в полной форме — голым `#N`       → check-01
 #   M48 pr-body: задача первой строки в полной форме — не задача       → check-01
@@ -327,6 +334,16 @@ inject "M43 pr-body: снятая ведомость не судится" check-
 inject "M44 pr-body: вложенные полосы не раскрыты" check-01-pr-body.py \
     '            subs.append(lanes(p, excl + seen, meta))' \
     '            subs.append([])'
+inject "M74 pr-body: частичное позже полного не учитывается" check-01-pr-body.py \
+    '        if inside and last and last[2]:' '        if False:'
+inject "M75 pr-body: последнее — лишь из полных" check-01-pr-body.py \
+    "' | _dod_marks[] | select(.rev" "' | _dod_marks[] | select(.partial | not) | select(.rev"
+inject "M76 pr-body: последнее — без привязки к диапазону" check-01-pr-body.py \
+    ' | select(.rev | dod_proof_bound($range)) | [$u, .rev, .partial]]' ' | [$u, .rev, .partial]]'
+inject "M77 pr-body: решает первое доказательство диапазона, а не последнее" check-01-pr-body.py \
+    "[\$u, .rev, .partial]] | last')" "[\$u, .rev, .partial]] | first')"
+twin "T3 pr-body: признак частичного последнего записан иначе" check-01-pr-body.py \
+    '        if inside and last and last[2]:' '        if inside and last is not None and last[2] is True:'
 inject "M45 pr-body: первое доказательство диапазона" check-01-pr-body.py \
     '            url, rev = inside[-1]' \
     '            url, rev = inside[0]'

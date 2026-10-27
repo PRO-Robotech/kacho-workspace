@@ -122,8 +122,8 @@ _DOD_COMMENTS = ('include "dod_proof"; [.[] | {url: (.html_url // ""), revs: ((.
                  ' | select(.revs | length > 0)]')
 
 
-def _dod_query(repo: str, n: int, tail: str, rng: list | None = None):
-    """Комментарии задачи через общий распознаватель `scripts/lib/dod_proof.jq` и хвост `tail`.
+def _dod_query(repo: str, n: int, tail: str, rng: list | None = None, head: str = _DOD_COMMENTS):
+    """Комментарии задачи через общий распознаватель `scripts/lib/dod_proof.jq`: `head`, затем `tail`.
 
     `rng` — полные sha диапазона запроса (`$range` хвоста, привязка `dod_proof_bound`).
     """
@@ -133,7 +133,7 @@ def _dod_query(repo: str, n: int, tail: str, rng: list | None = None):
                     % os.path.normpath(os.path.join(DOD_LIB, "dod_proof.jq")))
     try:
         p = subprocess.run(["jq", "-L", DOD_LIB, "-c", "--argjson", "range", json.dumps(rng or []),
-                            _DOD_COMMENTS + tail], input=json.dumps(comments),
+                            head + tail], input=json.dumps(comments),
                            capture_output=True, text=True)
     except OSError as e:
         raise Unmet("jq не вызывается: %s — доказательство DoD судить нечем" % e)
@@ -160,6 +160,18 @@ def dod_proofs(repo: str, n: int, rng: list) -> list:
     """
     return [tuple(x) for x in _dod_query(repo, n, ' | [.[] | .url as $u | .revs[] | [$u, ., dod_proof_bound($range)]]',
                                          rng) or []]
+
+
+def dod_last_in(repo: str, n: int, rng: list):
+    """Последнее доказательство задачи с ревизией диапазона — (адрес, ревизия, частичное ли) либо None.
+
+    Полное и частичное — в одном порядке: по комментариям и по строкам внутри комментария
+    (ws#1324): частичное ПОСЛЕ полного снимает `Closes`. Строки-доказательства и признак
+    частичности — общего `scripts/lib/dod_proof.jq` (`_dod_marks`), привязка — `dod_proof_bound`.
+    """
+    got = _dod_query(repo, n, "", rng, head='include "dod_proof"; [.[] | (.html_url // "") as $u | (.body // "")'
+                     ' | _dod_marks[] | select(.rev | dod_proof_bound($range)) | [$u, .rev, .partial]] | last')
+    return tuple(got) if got else None
 
 
 def dod_partial(repo: str, n: int):
@@ -241,7 +253,8 @@ def need_repo(repo: str) -> str:
 #     `<владелец>/<имя>#N` (её BODY-FOREIGN-TASK не судит, Closes судит пункт (ж)); прочие
 #     номера — без `#`;
 #   * `Closes` — задаче с доказательством DoD, чья ревизия — коммит диапазона (предок
-#     головы, не предок базы; CLOSES-WITHOUT-PROOF), и не держателю записи долга;
+#     головы, не предок базы; CLOSES-WITHOUT-PROOF), чьё ПОСЛЕДНЕЕ доказательство диапазона
+#     не частичное (ws#1324: частичное после полного — Refs), и не держателю записи долга;
 #   * закрывающие строки — последними (`git-issues.md#gi-closes-last-line`).
 
 # Номер задачи так, как его судит landing-precheck (пункт (в), `NUM`): `#N` не после
@@ -576,7 +589,12 @@ def pr_body(argv: list[str]) -> int:
             continue
         proofs = dod_proofs(repo, n, range_shas)
         inside = [(u, r) for u, r, bound in proofs if bound]
-        if inside:
+        last = dod_last_in(repo, n, range_shas) if inside else None
+        if inside and last and last[2]:
+            refs.append(n)
+            rows.append("- %s «%s» — `DoD-proof @%s` частичный — последнее доказательство диапазона, после полного "
+                        "`DoD-proof @%s`: `Refs`, не `Closes`" % (label(n), title, last[1], inside[-1][1]))
+        elif inside:
             url, rev = inside[-1]
             closes.append(n)
             rows.append("- %s «%s» — доказательство DoD: %s (`DoD-proof @%s`, коммит диапазона)" % (label(n), title, url, rev))
