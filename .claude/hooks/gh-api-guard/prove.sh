@@ -309,6 +309,163 @@ passes 'gh run list -R PRO-Robotech/kacho --branch 1288-x --json status'
 passes 'gh run view 123 --json status'
 AGENT=""
 
+echo "== вывод gh, обрезанный молча — список без --limit, --json files (пачка уроков 6)"
+# denies_cap <команда> — отказ 2, класс назван, правильная форма (--limit, git diff --name-only) в тексте.
+denies_cap() {
+    local rc named fix
+    rc="$(run "$1")"
+    named="нет"; grep -qF -- 'вывод gh, обрезаемый молча' "$WORK/out" && named="да"
+    fix="нет"; grep -qF -- '--limit 1000' "$WORK/out" && grep -qF 'git diff --name-only' "$WORK/out" && fix="да"
+    assert "2 да да" "$rc $named $fix" "отказ${AGENT:+ [$AGENT]} (обрезка молча): $1"
+    denied=$((denied + 1))
+}
+for ag in git-operator scout; do
+    AGENT=$ag
+    denies_cap 'gh issue list -R PRO-Robotech/kacho --search "epic in:title" --state open --json number'
+done
+AGENT=scout
+denies_cap 'gh pr list -R PRO-Robotech/kacho --state merged --json number'
+denies_cap 'gh search issues "repo:PRO-Robotech/kacho label:P1"'
+denies_cap 'gh search prs --repo PRO-Robotech/kaname --state open'
+denies_cap 'gh pr view 3184 -R PRO-Robotech/kacho --json files --jq ".files | length"'
+denies_cap 'gh pr view 3184 --json=number,files,title'
+denies_cap 'N=$(gh issue list --label P1 --json number --jq length); echo $N'
+passes 'gh issue list -R PRO-Robotech/kacho --search "epic in:title" --state open --limit 1000 --json number'
+passes 'gh issue list -L 5'
+passes 'gh issue list -L5 --state all'
+passes 'gh pr list --limit=200 --json number'
+passes 'gh search issues "repo:a/b" --limit 100'
+passes 'gh pr view 3184 --json number,title,mergeCommit'
+passes 'gh pr view 3184 --json filesChanged'
+passes 'gh issue view 1431 -R PRO-Robotech/kacho-workspace --json title'
+boundary "репозиторий до подкоманды" 'gh -R PRO-Robotech/kacho issue list'
+AGENT=""
+
+echo "== остановка службы шага detach.sh — обрыв уборки (класс detach-stop-оставляет-ns)"
+denies_stop() {
+    local rc named fix
+    rc="$(run "$1")"
+    named="нет"; grep -qF 'systemctl stop|kill|restart службы шага detach.sh' "$WORK/out" && named="да"
+    fix="нет"; grep -qF 'scripts/detach.sh stop <файл .rc шага>' "$WORK/out" && fix="да"
+    assert "2 да да" "$rc $named $fix" "отказ${AGENT:+ [$AGENT]} (обрыв уборки): $1"
+    denied=$((denied + 1))
+}
+AGENT=deploy-engineer
+denies_stop 'systemctl --user stop kacho-detach-20261026T101010Z-123-abcd1234'
+denies_stop 'systemctl --user kill kacho-detach-20261026T101010Z-123-abcd1234.service'
+denies_stop 'systemctl stop --user kacho-detach-x && echo ok'
+denies_stop 'systemctl --user restart kacho-detach-x'
+passes 'systemctl --user status kacho-detach-x'
+passes 'systemctl --user stop detach-inject-1.scope'
+passes 'systemctl --user show -p ActiveState kacho-detach-x'
+boundary "юнит из переменной" 'systemctl --user stop "$(cat x.unit)"'
+AGENT=""
+
+echo "== обход хука --no-verify (уроки 7abe9b9c, c5f6fc09)"
+denies_nv() {
+    local rc named fix
+    rc="$(run "$1")"
+    named="нет"; grep -qF 'git commit|push … --no-verify (обход хука)' "$WORK/out" && named="да"
+    fix="нет"; grep -qF 'no-verify-granted <основание из задания>' "$WORK/out" && fix="да"
+    assert "2 да да" "$rc $named $fix" "отказ${AGENT:+ [$AGENT]} (обход хука): $1"
+    denied=$((denied + 1))
+}
+AGENT=acceptance-author
+denies_nv 'git -C /ws/tmp/kn-1 commit --no-verify -m "#1 x"'
+denies_nv 'git -C /ws/tmp/kn-1 commit -n -m "#1 x"'
+denies_nv 'git -C /ws/tmp/kn-1 commit -anm "#1 x"'
+denies_nv 'git -C /ws/tmp/kn-1 push --no-verify origin HEAD:refs/heads/1'
+denies_nv 'bash -c "git -C /ws/tmp/kn-1 commit --no-verify -m x"'
+passes 'git -C /ws/tmp/kn-1 commit -m "#1 -n это сообщение"'
+passes 'git -C /ws/tmp/kn-1 commit -mn'
+passes 'git -C /ws/tmp/kn-1 commit -am "#1 x"'
+passes 'git -C /ws/tmp/kn-1 log -n 3'
+passes 'git -C /ws/tmp/kn-1 push --no-verify origin HEAD:refs/heads/1  # no-verify-granted задание #1 п.3'
+AGENT=""
+
+echo "== снимок пода — env несёт переменные CI; пропуск только по белому списку полей (ws#1418)"
+# denies_pod <команда> — отказ 2, класс назван, форма проекции по списку в тексте отказа.
+denies_pod() {
+    local rc named fix
+    rc="$(run "$1")"
+    named="нет"; grep -qF -- 'вне белого списка полей' "$WORK/out" && named="да"
+    fix="нет"; grep -qF "jq '.items[] |" "$WORK/out" && grep -qF 'SAFE_PATHS' "$WORK/out" && fix="да"
+    assert "2 да да" "$rc $named $fix" "отказ${AGENT:+ [$AGENT]} (снимок пода): $1"
+    denied=$((denied + 1))
+}
+for ag in deploy-engineer scout; do
+    AGENT=$ag
+    # НАСТОЯЩИЙ ВХОД — форма урока 5da59f1b: снимок пода задачи раннера целиком.
+    denies_pod 'kubectl -n gitlab-runner get pod runner-abc-project-1-concurrent-0 -o json'
+done
+AGENT=""
+denies_pod 'kubectl get pods -A -o yaml'
+AGENT=deploy-engineer
+denies_pod 'kubectl get pod/x -ojson'
+denies_pod 'kubectl get job.batch/x --output=yaml'
+denies_pod 'kubectl get deploy,svc -n k -o yaml > snap.yaml'
+denies_pod 'X=$(kubectl get sts y -o json); echo $X'
+# фильтр вне белого списка — каждая форма опыта check-verifier (⛔ на 9ca63883c)
+denies_pod 'kubectl get po x -o json | jq .'
+denies_pod "kubectl get po x -o json | jq '.spec.containers[].env'"
+denies_pod "kubectl get pod x -o json | jq '.spec'"
+denies_pod "kubectl get pods -A -o json | jq '.items[]'"
+denies_pod "kubectl get pod x -o json | jq '.spec.containers'"
+denies_pod "kubectl get pod x -o json | jq '.spec.containers[0]'"
+denies_pod "kubectl get pod x -o yaml | yq '.spec'"
+denies_pod "kubectl get pod x -o json | jq '.|.'"
+denies_pod "kubectl get pod x -o json | jq 'del(.metadata)'"
+denies_pod 'kubectl get pod x -o json | jq -f filter.jq'
+# роды, которых не было в перечне: all, rc, podtemplates
+denies_pod 'kubectl get all -n ns -o yaml'
+denies_pod 'kubectl get rc x -o yaml'
+denies_pod 'kubectl get podtemplates -o yaml'
+# смежные формы
+denies_pod "kubectl get pod x -o go-template='{{.}}'"
+denies_pod "kubectl get pod x -o jsonpath='{.spec}'"
+denies_pod "kubectl get pod x -o jsonpath='{.spec.containers[*].env}'"
+denies_pod 'kubectl get pod x -o custom-columns=E:.spec.containers[*].env'
+denies_pod 'kubectl get --raw /api/v1/namespaces/x/pods/y'
+denies_pod 'kubectl exec x -- env'
+denies_pod 'kubectl exec -n k x -c c -- printenv'
+denies_pod 'kubectl exec x -- cat /proc/1/environ'
+denies_pod 'kubectl exec x -- head /proc/1/environ'
+# круг 2 ⛔ check-verifier: формат — перечнем; kyaml, jsonpath с корнем объекта, любой jsonpath
+denies_pod 'kubectl get pod x -o kyaml'
+denies_pod 'kubectl get pod x -okyaml'
+denies_pod 'kubectl get pods -A --output=kyaml'
+denies_pod "kubectl get pod x -o jsonpath='{.metadata.name}{@}'"
+denies_pod "kubectl get pod x -o jsonpath='{.metadata.name}{\$}'"
+denies_pod "kubectl get pods -o jsonpath='{range .items[*]}{.metadata.name}{@}{end}'"
+denies_pod "kubectl get pod x -o jsonpath=\"{.metadata.name}{'\\\"'}{.spec}{'\\\"'}\""
+denies_pod "kubectl get pod x -o jsonpath='{.spec.nodeName}'"
+denies_pod "kubectl get pods -A --field-selector spec.nodeName=n1 -o jsonpath='{range .items[*]}{.metadata.namespace}{\"\\t\"}{.spec.serviceAccountName}{\"\\n\"}{end}'"
+denies_pod 'kubectl get pod x -o custom-columns=NAME:.metadata.name,SC:.spec.securityContext'
+denies_pod 'kubectl get pod x -o somefuture'
+denies_pod 'kubectl label pod x a=b --overwrite -o yaml'
+# законные близнецы той же формы: путь из списка, иной род, /log, иная команда
+passes "kubectl get pod x -o json | jq '{sc: .spec.securityContext, node: .spec.nodeName}'"
+passes "kubectl get pod x -o json | jq -r --arg n x '.spec.nodeName'"
+passes "kubectl get pod x -o yaml | yq e '.spec.securityContext'"
+passes "kubectl get pods -A -o json | jq '.items[] | {name: .metadata.name, sc: .spec.securityContext}'"
+passes "kubectl get pods -A -o json | jq '.items[] | .spec.nodeName'"
+passes "kubectl get pods -A -o json | jq '.items[].spec.nodeName'"
+passes "kubectl get deploy d -o json | jq '.spec.template.spec.securityContext'"
+passes "kubectl get pod x -o json 2>&1 | jq '.spec.nodeName'"
+passes 'kubectl get pod x -o name'
+passes 'kubectl get pods -A -o wide'
+passes 'kubectl get svc x -o yaml'
+passes 'kubectl get nodes -o json'
+passes 'kubectl logs pod/x'
+passes 'kubectl get --raw /api/v1/namespaces/x/pods/y/log'
+passes 'kubectl exec x -- ls /'
+boundary "describe — env текстом, форма чтения событий" 'kubectl describe pod x'
+boundary "команда в строке оболочки пода" "kubectl exec x -- sh -c 'env'"
+boundary "шаблон пода без -o: view-last-applied" 'kubectl apply view-last-applied deploy/x'
+boundary "шаблон пода без -o: rollout history" 'kubectl rollout history deploy/x --revision=1'
+boundary "kubectl внутри обёртки слота" 'scripts/heavy-slot.sh suite -- kubectl get pod x -o json'
+AGENT=""
+
 echo "== граница (ГРАНИЦА шапки guard.py) — известно, не ловится"
 boundary "вызов внутри скрипта"        'bash ./merge-base.sh'
 boundary "eval: строка не разбирается" 'eval "gh api -X POST repos/x/y/merges"'
@@ -375,6 +532,18 @@ mutant "run list: префикс не судится"    '        if val is not 
 mutant "run list: --commit= не разобран" '        elif a.startswith("--commit="):' '        elif False:' 'gh run list --commit=68aa62d' ci-watcher
 mutant "run list: -c не разобран"        '        if a in ("--commit", "-c"):' '        if a in ("--commit",):' 'gh run list -c 68aa62d88a1b' ci-watcher
 mutant "run list: подкоманда не судится" '        elif sub[:2] == ["run", "list"]:' '        elif False:' 'gh run list --commit 68aa62d88a1b' ci-watcher
+mutant "обход хука не судится"           '            f = judge_no_verify(args, seg.strip()) or self.git_commit' '            f = self.git_commit' 'git -C /ws/tmp/kn-1 commit --no-verify -m x' acceptance-author
+mutant "-n в группе не узнан"            '                if ch == "n":' '                if False:' 'git -C /ws/tmp/kn-1 commit -anm x' acceptance-author
+mutant "значение -m — флаги"             '                if ch in "mFCct":
+                    break' '                if False:
+                    break' 'git -C /ws/tmp/kn-1 commit -mn' acceptance-author
+mutant "разрешение не снимает отказ"     '        w.found = [f for f in w.found if f.cls != "hook-bypass"]' '        pass' 'git push --no-verify origin x  # no-verify-granted задание #1' acceptance-author
+mutant "detach: stop не судится"         '            if verbs[:1] and verbs[0] in ("stop", "kill", "restart")' '            if False' 'systemctl --user stop kacho-detach-x' deploy-engineer
+mutant "detach: любой юнит — шаг"        'any(v.startswith("kacho-detach-") for v in verbs[1:])' 'True' 'systemctl --user stop detach-inject-1.scope' deploy-engineer
+mutant "обрезка: список не судится"      '    if sub2 in CAPPED_LISTS:' '    if False:' 'gh issue list --state open --json number' scout
+mutant "обрезка: -L слитно не узнан"     ' or (a.startswith("-L") and not a.startswith("--"))' '' 'gh issue list -L5 --state all' scout
+mutant "обрезка: --json files не судится" '            if val is not None and "files" in' '            if False and "files" in' 'gh pr view 1 --json files' scout
+mutant "обрезка: files — подстрока"      '.split(",")]:' '.split(",")] or (val is not None and "files" in val):' 'gh pr view 3184 --json filesChanged' scout
 mutant "run list: полная sha — находка"  '{4,39}' '{4,40}' "gh run list --commit $FULL" ci-watcher
 mutant "pr merge у любого агента"        '    if agent != OPERATOR:
         return Finding("pr-merge"' '    if False:
@@ -386,6 +555,37 @@ mutant "--disable-auto — вливание"       '    if "--disable-auto" in f
 mutant "подстановка не судится"          '            self.text(s)' '            pass' 'x=$(gh api -X POST repos/x/y/merges)' ci-watcher
 mutant "bash -c не разбирается"          '                self.text(cmd)' '                pass' 'bash -c "gh api -X POST repos/x/y/merges"' ci-watcher
 mutant "heredoc в оболочку не судится"  '                    self.text(hbody)' '                    pass' $'bash '"$LT"$'EOF\ngh api -X POST repos/x/y/merges\nEOF' ci-watcher
+mutant "pod: kubectl не судится"          '        if base == "kubectl":' '        if False:' 'kubectl get pods -A -o yaml' deploy-engineer
+mutant "pod: потребитель конвейера не виден" '                self.node(k, nxt)' '                self.node(k, None)' "kubectl get pod x -o json | jq '.spec.nodeName'" deploy-engineer
+mutant "pod: форма фильтра не судится"      '    return bool(JQ_FILTER.match(f)) and all(' '    return True and all(' "kubectl get pod x -o json | jq '.|.'" deploy-engineer
+mutant "pod: .items[] | — путь проекции"   '    body = re.sub(r"^\.items\[\]\s*\|\s*", "", f)' '    body = f' "kubectl get pods -A -o json | jq '.items[] | {name: .metadata.name, sc: .spec.securityContext}'" deploy-engineer
+mutant "pod: белый список снят"             '    return n in SAFE_PATHS' '    return True' "kubectl get pod x -o json | jq '.spec'" deploy-engineer
+mutant "pod: env в белом списке"            '"spec.containers.name", "spec.containers.image",' '"spec.containers.name", "spec.containers.env", "spec.containers.image",' "kubectl get po x -o json | jq '.spec.containers[].env'" deploy-engineer
+mutant "pod: .items. не снимается"          '    if n.startswith("items."):' '    if False:' "kubectl get pods -A -o json | jq '.items[].spec.nodeName'" deploy-engineer
+mutant "pod: spec.template. не снимается"   '    if n.startswith("spec.template."):' '    if False:' "kubectl get deploy d -o json | jq '.spec.template.spec.securityContext'" deploy-engineer
+mutant "pod: род all снят"                  ' "cronjobs", "all", "rc",' ' "cronjobs", "rc",' 'kubectl get all -n ns -o yaml' deploy-engineer
+mutant "pod: род rc снят"                   ' "all", "rc", "replicationcontroller",' ' "all", "replicationcontroller",' 'kubectl get rc x -o yaml' deploy-engineer
+mutant "pod: род podtemplates снят"         ' "podtemplate", "podtemplates"}' '}' 'kubectl get podtemplates -o yaml' deploy-engineer
+mutant "pod: формат вне перечня пропущен"   'SAFE_FORMATS = {"", "name", "wide"}' 'SAFE_FORMATS = {"", "name", "wide", "kyaml"}' 'kubectl get pod x -o kyaml' deploy-engineer
+mutant "pod: wide снят из перечня"          'SAFE_FORMATS = {"", "name", "wide"}' 'SAFE_FORMATS = {"", "name"}' 'kubectl get pods -A -o wide' deploy-engineer
+mutant "pod: jsonpath — как пустой формат"  '    if fmt in SAFE_FORMATS:' '    if fmt in SAFE_FORMATS or fmt == "jsonpath":' "kubectl get pod x -o jsonpath='{.spec.nodeName}'" deploy-engineer
+mutant "pod: подкоманда не get не судится"  '    # Любая подкоманда с родом пода' '    if words[:1] != ["get"]:
+        return None
+    # Любая подкоманда с родом пода' 'kubectl label pod x a=b --overwrite -o yaml' deploy-engineer
+mutant "pod: --template без -o пропущен"   '("template" if tmpl is not None else "")' '""' "kubectl get pod x --template='{{.}}'" deploy-engineer
+mutant "pod: --raw не судится"              'if words[:1] == ["get"] and set(segs) & RAW_KINDS and' 'if False and' 'kubectl get --raw /api/v1/namespaces/x/pods/y' deploy-engineer
+mutant "pod: --raw …/log — отказ"           ' and segs[-1:] != ["log"] and' ' and' 'kubectl get --raw /api/v1/namespaces/x/pods/y/log' deploy-engineer
+mutant "pod: exec env пропущен"             '        if base in ("env", "printenv") or' '        if base in ("printenv",) or' 'kubectl exec x -- env' deploy-engineer
+mutant "pod: exec environ пропущен"         'or any(re.search(r"/proc/[^/\s]+/environ", c) for c in cmd[1:])' 'or False' 'kubectl exec x -- head /proc/1/environ' deploy-engineer
+mutant "pod: команда после -- не читается"  '            cmd = args[i + 1:]' '            cmd = None' 'kubectl exec -n k x -c c -- printenv' deploy-engineer
+mutant "pod: -ojson слитно не разобран"     '        if a.startswith("-o") and len(a) > 2:' '        if False:' 'kubectl get pod/x -ojson' deploy-engineer
+mutant "pod: род с группой не узнан"       'p.split("/", 1)[0].split(".", 1)[0].lower()' 'p.split("/", 1)[0].lower()' 'kubectl get job.batch/x --output=yaml' deploy-engineer
+mutant "pod: значение -n — род"            '        if a in KUBE_VALUED:
+            i += 2' '        if a in KUBE_VALUED:
+            i += 1' 'kubectl get svc -n pod -o yaml' deploy-engineer
+mutant "pod: фильтр из файла — проекция"    '        if a in ("-f", "--from-file"):
+            return False' '        if a in ("-f", "--from-file"):
+            return True' 'kubectl get pod x -o json | jq -f filter.jq' deploy-engineer
 mutant "без agent_type — git-operator"  '    w = Walker(agent_type or None, cwd)' '    w = Walker(agent_type or OPERATOR, cwd)' 'gh api -X POST repos/x/y/issues/1/comments -f body=hi'
 CWD="$S/ws"
 mutant "ствол не судится"                '        trunk = trunk_clone(d)' '        trunk = None' 'git add -A && git commit -m x'

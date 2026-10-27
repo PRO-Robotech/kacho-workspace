@@ -119,7 +119,10 @@
 #   кода; метрики — последним шагом на любом исходе; каскад щадит держателя ведомости.
 #   перепись гейтов (ws#1071): один шаг до старта демона вливания, все шесть гейтов,
 #   ничего не чинит, итог несёт таблицу; текстовый шаг без «### ВОЗВРАТ» — один повтор
-#   дочитыванием, снова без — полоса стоит, фраза ожидания в задания не уходит.
+#   дочитыванием, снова без — полоса стоит, фраза ожидания в задания не уходит;
+#   статус ПОСЛЕДНЕГО блока не «готово» (ws#1418) — стоп со статусом в stage, следующий
+#   шаг не зван; процитированное выше «готово» не пропускает; близнец «готово · …» — идёт; имя поля
+#   в жирном («- **статус:** готово», «**статус: готово**») — тот же статус.
 #   уроки ws#1078: диапазон коммитов рецензента волны исполняется на настоящем репозитории
 #   (с коммитом — 0, пустой — 2); стволы — по каждому из kacho, kaname, corelib; задание
 #   файлом — во всех шагах с заданием; итог режется и внутри массивов.
@@ -224,6 +227,7 @@ ok(!/Date\.now\(|Math\.random\(|new Date\(\s*\)/.test(body), 'в теле нет
 
 const H = (k, n) => (k + n).padEnd(40, 'a').replace(/[^0-9a-f]/g, 'b').slice(0, 40)
 const HW = 'f'.repeat(40)
+const DG = 'd'.repeat(64)   // дайджест содержимого подставной предпроверки (строка DIGEST lane-precheck)
 // Объединение вызовов ВСЕХ сценариев пробы: утверждения о модели, усилии и месте
 // отчётов судят его, а не один сценарий по умолчанию (ws#1016, check-verifier ⛔).
 const ALL = []
@@ -245,7 +249,7 @@ async function run(sc) {
     // sc.dispatchCode по «<ключ> <вид>», затем по ключу, иначе 0; sc.dispatchNull — нет ответа.
     if (label === 'mech:dispatch-premise') { if (sc.dispatchNull) return null; const dc = sc.dispatchCode || {}; return { items: [...prompt.matchAll(/\n(\d+)\) \[(\S+) (\S+)\] `/g)].map(x => { const c = dc[x[2] + ' ' + x[3]] ?? dc[x[2]] ?? 0; return { n: +x[1], code: c, out: c === 1 ? 'REASON PREMISE-FALSE task o/r#5: задача closed, задание ждёт open' : c === 2 ? 'VOID GH-UNREADABLE task o/r#5' : '' } }) } }
     if (label.startsWith('mech:premise:')) return { out: '', head: '', reasons: [], ...take('premise:' + lane, () => ({ code: 0 })) }
-    if (label.startsWith('mech:precheck:')) return { out: '', head: heads[lane], reasons: [], ...take('pre:' + lane, () => ({ code: 0 })) }
+    if (label.startsWith('mech:precheck:')) return { out: '', head: heads[lane], reasons: [], digest: DG, ...take('pre:' + lane, () => ({ code: 0 })) }
     if (label.startsWith('review-wave')) return { verdict: 'accept', sha: HW, blocking: [], report: 'r', ...take('wave', () => ({})) }
     if (label.startsWith('review-landing')) return { verdict: 'accept', sha: HW, blocking: [], report: 'r' }
     if (sc.ret && label === 'review-' + sc.ret + ':' + lane) return { verdict: 'return', sha: heads[lane], blocking: ['x'], report: 'r' }
@@ -350,6 +354,9 @@ ok(by(r.calls, c => c.label.startsWith('mech:assemble:')) === 0, 'останов
 r = await run({ args: { ...args, lanes: [{ key: 'M', repo: 'kacho-workspace', agent: 'migration-writer', branch: '9-m', text: 't' }] }, plan: [P('r2.json')], ret: P('r2.json').lanes[0].roles[0] })
 const revOne = ((r.res.lanes || {}).M || {}).reviews || []
 ok(r.res.ok === true && revOne.length === 1 && revOne[0].sha === head2 && atHead(revOne[0].role, head2), 'близнец: единственная роль вернула и приняла дельту — полоса идёт, вердикт на новой голове', JSON.stringify(r.res).slice(0, 200))
+ok(r.calls.filter(c => c.label.startsWith('review-') && c.label.endsWith(':M')).every(c => c.prompt.includes('дайджест содержимого ' + DG)) && by(r.calls, c => c.label.startsWith('review-') && c.label.endsWith(':M')) === 2, 'дайджест предпроверки — в задании роли, оба круга (пачка уроков 6)')
+r = await run({ args: { ...args, lanes: [{ key: 'M', repo: 'kacho-workspace', agent: 'migration-writer', branch: '9-m', text: 't' }] }, plan: [P('r2.json')], 'pre:M': [{ code: 0, digest: '' }] })
+ok(r.res.ok === false && /дайджеста нет/.test(((r.res.lanes || {}).M || {}).stage || '') && by(r.calls, c => c.label.startsWith('review-') && c.label.endsWith(':M')) === 0, 'предпроверка без дайджеста — роль не зовётся (урок 607f7f6e)', JSON.stringify(r.res).slice(0, 300))
 
 console.log('== зависимая полоса — от сводки голов deps (ws#938)')
 // A проходит повтор предпроверки: итоговая голова A — вторая, её и обязана
@@ -953,6 +960,33 @@ console.log('== перепись гейтов посадки разом; отв�
   ok(q.res.ok === true && by(q.calls, c => c.label.startsWith('census:')) === 2 && idx(q.calls, 'census:M:reread') < idx(q.calls, 'impl:M'), 'перепись поверхности — ВОЗВРАТ после дочитывания: полоса идёт, исполнитель после него', JSON.stringify(q.res).slice(0, 200))
   q = await run({ args: { ...args, lanes: laneM }, plan: [P('r2.json')] })
   ok(q.res.ok === true && !q.calls.some(c => c.label.endsWith(':reread')), 'близнец: ответы с ВОЗВРАТ — повторов дочитывания нет', JSON.stringify(q.calls.map(c => c.label)).slice(0, 200))
+  // ws#1418 (уроки 564da7e6, e052d6e8, c947fbd3): следующий шаг — только при «статус: готово» ПОСЛЕДНЕГО блока.
+  const BLK = 'перекатка вернула блокер\n### ВОЗВРАТ\n- статус: блокер\n- вердикт: —'
+  q = await run({ args: { ...args, lanes: laneM }, plan: [P('r2.json')], 'text:sim': [BLK] })
+  const stB = ((q.res.lanes || {}).M || (q.res.remainder || []).find(x => x.key === 'M') || {}).stage || q.res.stage || ''
+  ok(q.res.ok === false && /статус «блокер», не «готово» — следующий шаг не зван/.test(JSON.stringify(q.res)) && by(q.calls, c => c.label.startsWith('impl:')) === 0 && !q.calls.some(c => c.label.endsWith(':reread')), 'шаг со статусом «блокер» — стоп с ним в stage: исполнитель не зван, дочитывания нет', stB + ' ' + JSON.stringify(q.res).slice(0, 200))
+  const QUOTED = 'цитата прошлого шага:\n### ВОЗВРАТ\n- статус: готово\nмой итог:\n### ВОЗВРАТ\n- статус: вопрос-владельцу'
+  q = await run({ args: { ...args, lanes: laneM }, plan: [P('r2.json')], 'text:acc': [QUOTED] })
+  ok(q.res.ok === false && /статус «вопрос-владельцу»/.test(JSON.stringify(q.res)) && by(q.calls, c => c.label.startsWith('impl:')) === 0, 'статус — из ПОСЛЕДНЕГО блока: процитированное «готово» выше не пропускает', JSON.stringify(q.res).slice(0, 200))
+  q = await run({ args: { ...args, lanes: laneM }, plan: [P('r2.json')], 'text:census': ['итог\n### ВОЗВРАТ\n- статус: готово · перепись в отчёте'] })
+  ok(q.res.ok === true && by(q.calls, c => c.label.startsWith('impl:')) >= 1, 'близнец: «статус: готово · пояснение» — полоса идёт', JSON.stringify(q.res).slice(0, 200))
+  q = await run({ args: { ...args, lanes: laneM }, plan: [P('r2.json')], 'text:census': ['итог\n### ВОЗВРАТ\n- **статус:** готово\n- **вердикт:** —'] })
+  ok(q.res.ok === true && by(q.calls, c => c.label.startsWith('impl:')) >= 1, 'имя поля в жирном «- **статус:** готово» — полоса идёт (урок диспетчера 2026-10-26)', JSON.stringify(q.res).slice(0, 200))
+  q = await run({ args: { ...args, lanes: laneM }, plan: [P('r2.json')], 'text:census': ['итог\n### ВОЗВРАТ\n- **статус:** блокер'] })
+  ok(q.res.ok === false && /статус «блокер»/.test(JSON.stringify(q.res)) && by(q.calls, c => c.label.startsWith('impl:')) === 0, 'жирное «**статус:** блокер» — стоп, «**» в статус не попадает', JSON.stringify(q.res).slice(0, 200))
+  q = await run({ args: { ...args, lanes: laneM }, plan: [P('r2.json')], 'text:census': ['итог\n### ВОЗВРАТ\n- **статус: готово**'] })
+  ok(q.res.ok === true && by(q.calls, c => c.label.startsWith('impl:')) >= 1, 'жирное поле целиком «**статус: готово**» — полоса идёт', JSON.stringify(q.res).slice(0, 200))
+  // ⛔ check-verifier 2026-10-26 (раздел B): формы поля и границы блока
+  const GO = [['без дефиса, жирное целиком', '**статус: готово**'], ['без дефиса, жирное имя', '**статус:** готово'], ['двоеточие вне жирного', '- **статус**: готово'], ['жирное значение', '- статус: **готово**'], ['точка после значения', '- статус: готово.']]
+  for (const [nm, ln] of GO) {
+    q = await run({ args: { ...args, lanes: laneM }, plan: [P('r2.json')], 'text:census': ['итог\n### ВОЗВРАТ\n' + ln + '\n- вердикт: —'] })
+    ok(q.res.ok === true && by(q.calls, c => c.label.startsWith('impl:')) >= 1, 'поле статуса «' + nm + '» — «готово», полоса идёт', JSON.stringify(q.res).slice(0, 160))
+  }
+  const STOP = [['незаполненный шаблон', '### ВОЗВРАТ\n- статус: готово | блокер | вопрос-владельцу | не-выполнилось', 'поля «статус» нет'], ['строка статуса после пустой — проза, не поле', '### ВОЗВРАТ\n- вердикт: —\n\nпримечание:\n- статус: готово', 'поля «статус» нет'], ['«готово» в поле факты', '### ВОЗВРАТ\n- статус: блокер\n- факты: статус: готово', 'статус «блокер»']]
+  for (const [nm, txt, why] of STOP) {
+    q = await run({ args: { ...args, lanes: laneM }, plan: [P('r2.json')], 'text:census': ['итог\n' + txt] })
+    ok(q.res.ok === false && JSON.stringify(q.res).includes(why) && by(q.calls, c => c.label.startsWith('impl:')) === 0, nm + ' — стоп («' + why + '»), исполнитель не зван', JSON.stringify(q.res).slice(0, 160))
+  }
 }
 
 console.log('== уроки посадки 2026-10-14 (ws#1078): кэш дочитывания, итог без простыней, задание файлом, коммиты у рецензента, стволы продуктов')
@@ -1227,7 +1261,10 @@ mutant "sha вердикта подменяется" "const stale = (d.reviews |
 # переписан на новую голову — сверка непросмотренной головы слепнет.
 mutant "принявшим роль переписывается sha новой головы" "      vs = vs.map((v, i) => { const j = back.findIndex(x => x.r === roles[i]); return j < 0 ? v : again[j] })" "      vs = vs.map((v, i) => { const j = back.findIndex(x => x.r === roles[i]); return j < 0 ? { ...v, sha: impl.head } : again[j] })"
 mutant "непросмотренная голова не останавливает полосу" "      if (unseen.length) return" "      if (false) return"
-mutant "повтор — и принявшим" "const again = await Promise.all(back.map(x => review(x.r, l, impl.head, prev, 'review-' + x.r + '-2')))" "const again = await Promise.all(roles.map(r => review(r, l, impl.head, prev, 'review-' + r + '-2')))"
+mutant "повтор — и принявшим" "const again = await Promise.all(back.map(x => review(x.r, l, impl.head, prev, 'review-' + x.r + '-2', undefined, digestOf(pc))))" "const again = await Promise.all(roles.map(r => review(r, l, impl.head, prev, 'review-' + r + '-2', undefined, digestOf(pc))))"
+# Пачка уроков 6: ревью — лишь с дайджестом машиной, и дайджест — в задании роли.
+mutant "ревью без дайджеста" "    if (!digestOf(pc)) return { ...out, stage: 'предпроверка: дайджеста нет" "    if (false) return { ...out, stage: 'предпроверка: дайджеста нет"
+mutant "дайджест не в задании роли" "(digest ? ' — дайджест содержимого '" "(false ? ' — дайджест содержимого '"
 mutant "перепин не заводится" "onlySkew && round === 1)" "onlySkew && round === 0)"
 mutant "рецензент волны на каждую полосу" "if (steps.has('wave-reviewer')) {" "for (const _ of order) if (steps.has('wave-reviewer')) {"
 mutant "номер PR не судится" "if (!Number.isInteger(asm.pr) || asm.pr < 1) return" "if (false) return"
@@ -1521,8 +1558,18 @@ mutant "перепись гейтов без branch-audit (ws#1071)" ", 'branch-
 mutant "перепись гейтов чинит по одному (ws#1071)" "прогони КАЖДЫЙ гейт по разу, ничего не чини" "прогони первый красный гейт и почини его"
 mutant "таблица гейтов не в итоге посадки (ws#1071)" "const gatesOf = () => ({ gates:" "const gatesOf = () => ({ gatesX:"
 mutant "ответ без ВОЗВРАТ принят (ws#1071)" "const hasRet = t => typeof t === 'string' && t.includes(RET_MARK)" "const hasRet = t => typeof t === 'string'"
-mutant "без ВОЗВРАТ — повтора дочитыванием нет (ws#1071)" "  return hasRet(b) ? b : null" "  return a"
-mutant "не-выполнилось подставлено дальше (ws#1071)" "    if (!s1) return noRet(out, l, 'client-sim')" "    if (false) return noRet(out, l, 'client-sim')"
+mutant "без ВОЗВРАТ — повтора дочитыванием нет (ws#1071)" "  if (!hasRet(a)) a = await agent(prompt + " "  if (false) a = await agent(prompt + "
+mutant "не-выполнилось подставлено дальше (ws#1071)" "    if (!s1) return noRet(out, l, 'client-sim', 'sim:' + l.key)" "    if (false) return noRet(out, l, 'client-sim', 'sim:' + l.key)"
+mutant "статус ВОЗВРАТ не судится — шаг после блокера (ws#1418)" "  if (retStatus(a) === 'готово') return a" "  return a"
+mutant "стоп без статуса в stage (ws#1418)" "(notReady[label] ? 'статус «' + notReady[label]" "(false ? 'статус «' + notReady[label]"
+mutant "статус — из первого блока, а не последнего (ws#1418)" "t.slice(t.lastIndexOf(RET_MARK) + RET_MARK.length)" "t.slice(t.indexOf(RET_MARK) + RET_MARK.length)"
+twin "статус: класс разделителей иным порядком (ws#1418)" "v.match(/^[^\\s·,;.]+/)" "v.match(/^[^·,;.\\s]+/)"
+mutant "имя поля в жирном не узнано (ws#1418)" "(?:\\*\\*)?статус(?:\\*\\*)?\\s*:" "статус(?:\\*\\*)?\\s*:"
+mutant "«**» входит в статус (ws#1418)" ".replace(/\\*\\*/g, '')" ".replace(/^\\*\\*/g, '')"
+mutant "незаполненный шаблон — статус (ws#1418)" "    if (v.includes('|')) return ''" "    if (false) return ''"
+mutant "граница блока снята — статус из прозы (ws#1418)" "for (; i < ls.length && ls[i].trim(); i++)" "for (; i < ls.length; i++)"
+mutant "поле статуса только с дефисом (ws#1418)" "(?:[-*]\\s+)?(?:\\*\\*)?статус" "[-*]\\s+(?:\\*\\*)?статус"
+mutant "двоеточие только внутри жирного (ws#1418)" "статус(?:\\*\\*)?\\s*:\\s*(.*)" "статус\\s*:\\s*(.*)"
 twin "дочитывание: формулировка (ws#1071)" "дочитай .rc и журнал своего прогона и верни" "дочитай .rc и журнал своего прогона, затем верни"
 twin "схождение: формулировка запрета правки (ws#1063)" "Ничего не правь. Запись — ' + R + '/trial-convergence.md" "Ничего не правь в дереве. Запись — ' + R + '/trial-convergence.md"
 mutant "строка head не порождается (ws#1191)" "const headLines = (l, ds, stack) => (ds && ds.length ?" "const headLines = (l, ds, stack) => (false ?"

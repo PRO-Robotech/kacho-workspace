@@ -87,6 +87,14 @@
 #                                                 (`delete_branch_on_merge`); ws#1314, уроки 6c51014f,
 #                                                 1e621e48: новый репозиторий создан с настройками по
 #                                                 умолчанию — шаг после `gh repo create`; не видны — VOID;
+#   idle <каталог копии> [<минут>]                в копии никто не пишет: нет процесса с cwd, доводом или
+#                                                 открытым файлом в ней (кроме цепочки проверки) и нет
+#                                                 живого агента сессии (журнал за <минут>, по умолчанию 120;
+#                                                 `LANE_PRECHECK_PROJECTS_DIR`), чьё задание называет копию,
+#                                                 без итога модели (урок e70614d4: копия двум писателям);
+#   stand-free <кубконфиг> <ns> [<контекст>]      стенд не занят: в ns нет Job с active > 0 и пода прогона
+#                                                 (без владельца либо под Job) в Pending|Running (урок
+#                                                 40da5ea0: выкатка поверх чужого прогона); ns нет — свободен;
 #   proof <владелец/репо>#<N>                     у задачи есть `DoD-proof @<sha>`;
 #   verdict <файл записи роли> <accept|return>    `verdict.value` записи: ✅ / ⛔.
 # Ложное — `REASON PREMISE-FALSE …`, код 1. Не судимо (трекер не ответил, строка вне
@@ -710,6 +718,76 @@ if [ -n "$premise" ]; then
                 case "$v" in *✅*) got="accept" ;; *⛔*) got="return" ;; *) got="" ;; esac
                 if [ -z "$got" ]; then voids+=("VERDICT-UNREADABLE $line")
                 elif [ "$got" != "$b" ]; then reasons+=("PREMISE-FALSE $line: вердикт $got"); fi ;;
+            idle)
+                # В копии никто не пишет (урок e70614d4, урок диспетчера (б) 2026-10-26: одна копия
+                # выдана git-operator на коммит и автору на правку разом). Признаков два: процесс
+                # (cwd, довод, открытый файл в копии — кроме цепочки самой проверки) и живой агент
+                # сессии, чьё задание называет копию и чей журнал не кончается итогом модели.
+                if [ -z "$a" ] || ! top="$(cd "$a" 2> /dev/null && pwd -P)" || { [ -n "$b" ] && ! [[ "$b" =~ ^[1-9][0-9]*$ ]]; }; then voids+=("PREMISE-FORM $line: форма — idle <каталог копии> [<минут журнала>]"); continue; fi
+                own=" $$ "; q=$$
+                while q="$(awk '/^PPid:/ { print $2 }' "/proc/$q/status" 2> /dev/null)" && [ -n "$q" ] && [ "$q" != 0 ]; do own+="$q "; done
+                desc() { local x=$1; while [ -n "$x" ] && [ "$x" != 0 ] && [ "$x" != 1 ]; do [ "$x" = $$ ] && return 0; x="$(awk '/^PPid:/ { print $2 }' "/proc/$x/status" 2> /dev/null)"; done; return 1; }
+                busy=()
+                # Три прохода по /proc (как detach.sh status), а не вызовы на процесс: cwd, довод, открытый файл.
+                pl=(/proc/[0-9]*); np=${#pl[@]}
+                cwp=" $(find /proc/[0-9]*/cwd -maxdepth 0 \( -lname "$top" -o -lname "$top/*" \) -printf '%h\n' 2> /dev/null | cut -d/ -f3 | paste -sd ' ' -) "
+                agp=" $(grep -lzF -- "$top" /proc/[0-9]*/cmdline 2> /dev/null | cut -d/ -f3 | paste -sd ' ' -) "
+                fdp=" $(find /proc/[0-9]*/fd -maxdepth 1 -lname "$top/*" -printf '%h\n' 2> /dev/null | cut -d/ -f3 | sort -u | paste -sd ' ' -) "
+                # shellcheck disable=SC2086 # перечни pid — словами
+                for p in $(printf '%s\n' $cwp $agp $fdp | sort -u); do
+                    [[ "$own" == *" $p "* ]] && continue
+                    [ -d "/proc/$p" ] || continue   # вышел (в том числе grep этой переписи) — не писатель
+                    desc "$p" && continue
+                    if [[ "$cwp" == *" $p "* ]]; then why=cwd; elif [[ "$agp" == *" $p "* ]]; then why=довод; else why=файл; fi
+                    busy+=("pid $p ($(cat "/proc/$p/comm" 2> /dev/null), $why)")
+                done
+                # Агенты сессии: журнал менялся за окно (по умолчанию 120 мин), задание называет копию
+                # (абсолютно либо от корня WS), последняя запись user/assistant — не итог модели
+                # (`stall-census.sh`: ответ без вызова инструмента). Проверяющий, чьё задание несёт
+                # саму строку `idle <копия>`, писателем не считается — граница объявлена. Журналы —
+                # раскладкой каталога проекта WS (как collect.sh, stall-census.sh), не обходом диска.
+                if [ -n "${LANE_PRECHECK_PROJECTS_DIR:-}" ]; then pj="$LANE_PRECHECK_PROJECTS_DIR"
+                else
+                    # shellcheck source=lib/ws-home.sh
+                    . "$HERE/lib/ws-home.sh"; pj="$HOME/.claude/projects/$(ws_home "$HERE" | sed 's/[^A-Za-z0-9]/-/g')"
+                fi
+                case "$top" in */tmp/*) rel="tmp/${top##*/tmp/}" ;; *) rel="" ;; esac
+                na=0 cut_ts=$(( $(date +%s) - ${b:-120} * 60 ))
+                shopt -s nullglob; jl=("$pj"/*/subagents/agent-*.jsonl "$pj"/*/subagents/workflows/*/agent-*.jsonl); shopt -u nullglob
+                while read -r jt j; do
+                    [ "$jt" -ge "$cut_ts" ] || continue
+                    na=$((na + 1))
+                    v="$(jq -rs --arg a "$top" --arg r "$rel" '
+                        def esc: gsub("(?<c>[.+*?()|\\[\\]{}^$\\\\])"; "\\\(.c)");
+                        def names($p): $p != "" and test("(^|[^A-Za-z0-9_.-])" + ($p | esc) + "($|[^A-Za-z0-9_.-])");
+                        [.[] | select(.type == "user" or .type == "assistant")] as $m
+                        | ($m | map(select(.type == "user")) | first | .message.content
+                           | if type == "string" then . else ([.[]? | .text? // empty] | join(" ")) end) as $t
+                        | ($m | last) as $z
+                        | if ($t | (names($a) or names($r))) | not then "skip"
+                          elif ($t | test("(^|\\n|`|-)\\s*idle\\s")) then "checker"
+                          elif $z.type == "assistant" and ([$z.message.content[]? | select(.type == "tool_use")] | length) == 0 then "done"
+                          else "live" end' "$j" 2> /dev/null)"
+                    [ "$v" = live ] && busy+=("агент ${j##*/agent-} — задание называет копию, итога нет (журнал $(( ($(date +%s) - jt) / 60 )) мин назад)")
+                done < <([ "${#jl[@]}" -eq 0 ] || printf '%s\0' "${jl[@]}" | xargs -0 stat -c '%Y %n' -- 2> /dev/null)
+                if [ "${#busy[@]}" -gt 0 ]; then reasons+=("PREMISE-FALSE $line: в копии пишут — $(IFS=';'; echo "${busy[*]}"); второй писатель — своей копией (git worktree add --detach <путь> <голова сдачи>) либо после итога первого")
+                else heads+=("IDLE $top: процессов осмотрено $np, журналов агентов за ${b:-120} мин $na — писателей 0"); fi ;;
+            stand-free)
+                # Стенд не занят чужим прогоном (урок 40da5ea0, урок диспетчера (д) 2026-10-26: выкатка
+                # выдана, пока на стенде шёл прогон другой полосы). Занят — Job с active > 0 либо под
+                # прогона (без владельца или под Job) в фазе Pending|Running; поды служб (ReplicaSet,
+                # StatefulSet, DaemonSet) — стенд, не прогон. Пространства нет — свободен. Граница:
+                # билет очереди слота (`heavy-slot.sh --enqueue`), ещё не создавший Job, не виден.
+                read -r _ _ _ sctx _ <<< "$line"
+                if [ -z "$a" ] || [ -z "$b" ]; then voids+=("PREMISE-FORM $line: форма — stand-free <кубконфиг> <ns> [<контекст>]"); continue; fi
+                sj="$(kubectl --kubeconfig "$(knorm "$a")" ${sctx:+--context "$sctx"} --request-timeout=20s -n "$b" get jobs,pods -o json 2> /dev/null)" \
+                    || { voids+=("KUBE-UNREADABLE $line: get jobs,pods не ответил"); continue; }
+                sb="$(jq -r '.items[]? | select((.kind == "Job" and ((.status.active // 0) > 0))
+                        or (.kind == "Pod" and (.status.phase == "Pending" or .status.phase == "Running")
+                            and (((.metadata.ownerReferences // []) | length) == 0 or any(.metadata.ownerReferences[]; .kind == "Job"))))
+                        | "\(.kind)/\(.metadata.name)"' <<< "$sj" 2> /dev/null)" || { voids+=("KUBE-UNREADABLE $line: ответ get jobs,pods не разобран"); continue; }
+                if [ -n "$sb" ]; then reasons+=("PREMISE-FALSE $line: стенд занят прогоном — $(paste -sd ' ' <<< "$sb"); выкатка и прогон — после его исхода либо в своём ns (make stand-ns-up NS=t<N>-<коротко>)")
+                else heads+=("STAND-FREE $b: объектов осмотрено $(jq '.items | length' <<< "$sj"), прогонов 0"); fi ;;
             *) voids+=("PREMISE-FORM $line") ;;
         esac
     done < "$premise"
@@ -970,6 +1048,13 @@ PY
     fi
 fi
 
+# Дайджест содержимого — машиной, а не пересказом возврата (уроки 99e22a80, 43d20f29, урок
+# диспетчера (в) 2026-10-26: задание ревью без дайджеста — «сверь с указанным» не сверяет
+# ничего); wave.js подставляет строку DIGEST в задание роли и без неё ревью не зовёт.
+if [ -n "$head" ] && [ -n "$base_sha" ]; then
+    digest="$(git -C "$top" diff --full-index "$base_sha...$head" 2> /dev/null | sha256sum | cut -c1-64)"
+    echo "DIGEST $digest ${base_sha}...${head} — перемер: git diff --full-index ${base_sha}...${head} | sha256sum"
+fi
 echo "lane-precheck: копия $top; предков осмотрено на go.mod $n_up; ветка $branch @${head:0:12}; origin @${remote_head:0:12}; база ${base_sha:0:12}; задач $n_issues, с доказательством $n_proven; хук $hook; причин ${#reasons[@]}, не судимо ${#voids[@]}"
 for x in "${reasons[@]+"${reasons[@]}"}"; do echo "REASON $x"; done
 for x in "${voids[@]+"${voids[@]}"}"; do echo "VOID $x"; done

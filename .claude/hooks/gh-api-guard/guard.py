@@ -53,6 +53,37 @@ Bash был корнем воркспейса, и коммит лёг в main в
                     читается как факт (измерено: 40 знаков — 1 прогон, 12 знаков — 0, одна
                     ревизия). Значение из переменной (`$SHA`) не судится: текст его не знает.
 
+Четвёртый предмет — вывод, несущий значения переменных CI (ws#1418, уроки 5da59f1b и диспетчера
+2026-10-26: `kubectl get pod -o json` пода задачи раннера напечатал env с переменными CI):
+  pod-env-dump    — род с шаблоном пода (pod, job, deploy, sts, ds, rs, rc, cronjob, podtemplate,
+                    all) в любой подкоманде kubectl у любого агента: формат вывода — ПЕРЕЧНЕМ
+                    (SAFE_FORMATS: пусто, name, wide); json|yaml — лишь если следующее звено —
+                    jq/yq, чей фильтр — путь, `{ключ: путь}` или `[путь]` (с `.items[] |` для
+                    списка) и каждый путь в белом списке SAFE_PATHS; любой иной формат (jsonpath,
+                    custom-columns, kyaml, go-template, неизвестный) — отказ без разбора; `get --raw
+                    …/<род>/…` кроме `/log`; `exec … -- env|printenv` и /proc/*/environ в доводах.
+                    Форма — перечень форматов (круг 2 ⛔ check-verifier: путь внутри jsonpath и kyaml).
+
+Пятый предмет — вывод gh, обрезанный МОЛЧА (пачка уроков 6, уроки 9432d39d и 97419cc8: эпик
+выбран без `--limit` — 30 задач из большего числа; `--json files` PR — первые 100 файлов):
+  gh-silent-cap   — `gh issue list`, `gh pr list`, `gh search issues|prs` без `-L|--limit`
+                    (gh отдаёт 30 без признака обрезки); `gh pr view … --json …files…` (поле
+                    files — первые 100). Любой агент. `gh run list` не судится (его форма —
+                    run-list-short-sha); значение лимита не судится: `--limit 5` — осознанный срез.
+
+Шестой предмет — остановка шага detach.sh, обрывающая его уборку (класс detach-stop-оставляет-ns,
+7 случаев; урок c719d3fd): `systemctl stop` шлёт TERM всей cgroup и KILL через 90 с, ловушка
+снятия ns гибнет вместе с kubectl:
+  detach-unit-stop — `systemctl [--user] stop|kill|restart <юнит kacho-detach-…>` (любой агент);
+                    форма — `scripts/detach.sh stop <.rc> [--grace <с>]`. Юнит из переменной не судится.
+
+Седьмой предмет — обход хука (уроки 7abe9b9c, c5f6fc09: временный коммит пробы с `--no-verify`
+обошёл commit-msg, копию пересоздавали):
+  hook-bypass     — `git commit|push|merge|am|cherry-pick|revert … --no-verify`, у commit и `-n`
+                    (группа `-an` — да, `-mn` — сообщение «n», не флаг). Любой агент. Дословное
+                    разрешение диспетчера (gi-no-verify-by-request) — меткой той же команды
+                    `# no-verify-granted <основание>`.
+
 РАЗРЕШЕНО: `gh api <путь>` без тела и метода (GET), `gh api --method GET … -f q=…`
 (поля уходят строкой запроса), `gh api graphql -f query='query{…}'`, `compare`,
 `git merge-base`; у git-operator — изменяющие вызовы, кроме путей вливания;
@@ -75,7 +106,11 @@ https://api.github.com/…` и интерпретатор (`python3 -c …`); `g
 (другой класс: его держат хук отправки и защита ветки); коммит — иные записи истории
 (`merge`, `cherry-pick`, `am`, `revert`), `--git-dir`/`--work-tree`, каталог из
 `$(…)` и из переменной без присваивания в строке; `cd` внутри подоболочки `( … )`
-считается действующим и после неё.
+считается действующим и после неё; снимок пода — `kubectl describe pod` (env в тексте:
+форма для чтения событий, отказ в ней краснил бы разбор падений), `exec … -- sh -c 'env'`
+(команда внутри строки оболочки пода не разбирается), подкоманды, печатающие шаблон пода без
+`-o` (`apply view-last-applied`, `rollout history --revision`), kubectl внутри обёртки
+(`heavy-slot.sh … -- kubectl …`: argv обёртки не разбирается), потребитель-группа (`… | { jq …; }`).
 """
 
 import importlib.util
@@ -111,7 +146,64 @@ CLASS_TEXT = {
     "commit-unanchored": "git add/commit после относительного cd или -C",
     "commit-trunk": "git add/commit в стволе основного клона",
     "run-list-short-sha": "gh run list --commit с неполной sha",
+    "pod-env-dump": "снимок рода с шаблоном пода вне белого списка полей",
+    "gh-silent-cap": "вывод gh, обрезаемый молча (список без --limit либо --json files)",
+    "detach-unit-stop": "systemctl stop|kill|restart службы шага detach.sh",
+    "hook-bypass": "git commit|push … --no-verify (обход хука)",
 }
+# Подкоманды gh, отдающие по умолчанию 30 записей без признака обрезки.
+CAPPED_LISTS = {("issue", "list"), ("pr", "list"), ("search", "issues"), ("search", "prs")}
+# Роды, чей вывод несёт env контейнеров (pod и шаблон пода; `all` их включает); значения флагов kubectl.
+POD_KINDS = {"po", "pod", "pods", "job", "jobs", "deploy", "deployment", "deployments", "sts",
+             "statefulset", "statefulsets", "ds", "daemonset", "daemonsets", "rs", "replicaset",
+             "replicasets", "cj", "cronjob", "cronjobs", "all", "rc", "replicationcontroller",
+             "replicationcontrollers", "podtemplate", "podtemplates"}
+# те же роды путём API (`kubectl get --raw /api/v1/namespaces/x/pods/y`)
+RAW_KINDS = {"pods", "jobs", "deployments", "statefulsets", "daemonsets", "replicasets",
+             "cronjobs", "replicationcontrollers", "podtemplates"}
+KUBE_VALUED = {"-n", "--namespace", "--context", "--kubeconfig", "--cluster", "--user", "-l",
+               "--selector", "--field-selector", "-c", "--container", "--sort-by",
+               "-s", "--server", "--token", "--as", "--as-group", "--request-timeout",
+               "--chunk-size", "-L", "--label-columns"}
+PROJECTORS = {"jq", "gojq", "yq"}
+# флаги jq/yq со значением: имя и число слов значения
+PROJ_VALUED = {"--arg": 2, "--argjson": 2, "--slurpfile": 2, "--rawfile": 2, "--indent": 1,
+               "-L": 1, "--from-file": 1, "-f": 1, "-I": 1, "-p": 1, "-o": 1}
+# БЕЛЫЙ СПИСОК (ws#1418, решение диспетчера по ⛔ check-verifier): снимок пода пропускается, лишь
+# когда КАЖДЫЙ путь проекции — поле без env. Путь нормализуется: индексы `[]`/`[N]`/`[*]` сняты,
+# ведущий `items.` и `spec.template.` (шаблон пода) сняты. Всё вне перечня — отказ.
+SAFE_PATHS = {
+    "metadata.name", "metadata.namespace", "metadata.labels", "metadata.uid",
+    "metadata.creationTimestamp", "metadata.ownerReferences",
+    "spec.nodeName", "spec.nodeSelector", "spec.securityContext", "spec.serviceAccountName",
+    "spec.hostNetwork", "spec.hostPID", "spec.hostIPC", "spec.tolerations", "spec.affinity",
+    "spec.priorityClassName", "spec.runtimeClassName", "spec.replicas",
+    "spec.containers.name", "spec.containers.image", "spec.containers.securityContext",
+    "spec.initContainers.name", "spec.initContainers.image", "spec.initContainers.securityContext",
+    "status.phase", "status.podIP", "status.hostIP", "status.conditions",
+}
+_ID = r"[A-Za-z_][A-Za-z0-9_]*"
+_IDX = r"(?:\[[0-9*]*\])?"
+_PATH = r"\.%s%s(?:\.%s%s)*" % (_ID, _IDX, _ID, _IDX)
+# фильтр jq/yq: [`.items[] |`] путь | {ключ: путь, …} | [путь, …]
+_ITEM = r"(?:%s\s*:\s*)?%s" % (_ID, _PATH)
+JQ_FILTER = re.compile(r"^\s*(?:\.items\[\]\s*\|\s*)?(?:%s|\{\s*%s(?:\s*,\s*%s)*\s*\}|\[\s*%s(?:\s*,\s*%s)*\s*\])\s*$"
+                       % (_PATH, _ITEM, _ITEM, _PATH, _PATH))
+PATH_RE = re.compile(_PATH)
+
+
+def safe_path(p):
+    """Путь проекции — в белом списке (после нормализации); `.items` сам — источник перебора."""
+    n = re.sub(r"\[[0-9*]*\]", "", p).lstrip(".")
+    if n.startswith("items."):
+        n = n[len("items."):]
+    if n.startswith("spec.template."):
+        n = n[len("spec.template."):]
+    return n in SAFE_PATHS
+
+
+# Форматы вывода рода пода без env (ws#1418, круг 2): прочие — отказ, json|yaml — лишь с проекцией.
+SAFE_FORMATS = {"", "name", "wide"}
 SHORT_SHA = re.compile(r"[0-9a-fA-F]{4,39}")
 TRUNKS = {"main", "master"}
 COMMIT_SUBS = {"add", "commit"}
@@ -233,6 +325,118 @@ def judge_run_list(args, shown):
                            % len(val.strip("'\"")))
         i += 1
     return None
+
+
+def judge_capped(sub2, args, shown):
+    """Молчаливая обрезка: список без -L|--limit (30) либо `pr view --json` с полем files (100)."""
+    if sub2 in CAPPED_LISTS:
+        if any(a in ("-L", "--limit") or a.startswith("--limit=") or (a.startswith("-L") and not a.startswith("--"))
+               for a in args):
+            return None
+        return Finding("gh-silent-cap", shown, "gh %s %s без --limit отдаёт 30 записей и не говорит, что их больше" % sub2)
+    if sub2 == ("pr", "view"):
+        for i, a in enumerate(args):
+            val = args[i + 1] if a == "--json" and i + 1 < len(args) else a.split("=", 1)[1] if a.startswith("--json=") else None
+            if val is not None and "files" in [x.strip() for x in val.strip("'\"").split(",")]:
+                return Finding("gh-silent-cap", shown, "поле files gh pr view отдаёт первыми 100 файлами и не говорит, что их больше")
+    return None
+
+
+def projects(sink):
+    """Следующее звено конвейера — jq/yq, чей фильтр — проекция по БЕЛОМУ СПИСКУ (JQ_FILTER, safe_path):
+    путь, `{ключ: путь, …}` либо `[путь, …]`, с `.items[] |` впереди для списка. Прочее — `.`, `.spec`,
+    `.items[]`, `del(…)`, `.|.`, фильтр из файла (`-f`) — не проекция (ws#1418, ⛔ check-verifier)."""
+    if sink is None or sink.kind != "simple":
+        return False
+    argv, _, _ = nwg.head(hg.words(sink.text))
+    if not argv or os.path.basename(argv[0]) not in PROJECTORS:
+        return False
+    args, i, filt = argv[1:], 0, None
+    while i < len(args):
+        a = args[i]
+        if a in ("-f", "--from-file"):
+            return False
+        if a in PROJ_VALUED:
+            i += 1 + PROJ_VALUED[a]
+            continue
+        if a.startswith("-"):
+            i += 1
+            continue
+        if os.path.basename(argv[0]) == "yq" and filt is None and a in ("e", "eval", "ea", "eval-all"):
+            i += 1
+            continue
+        filt = a
+        break
+    f = (filt or "").strip()
+    # `.items[] |` — источник перебора списка, не путь проекции: из сверки путей снимается
+    body = re.sub(r"^\.items\[\]\s*\|\s*", "", f)
+    return bool(JQ_FILTER.match(f)) and all(safe_path(p) for p in PATH_RE.findall(body))
+
+
+def judge_kubectl(args, shown, sink):
+    """Род с шаблоном пода, несущий env контейнеров (ws#1418): формат вывода любой подкоманды — перечнем
+    SAFE_FORMATS; `-o json|yaml` — лишь с проекцией jq/yq по белому списку следующим звеном; прочие
+    форматы — отказ без разбора; `get --raw …/<род>/…` (кроме `/log`); `exec … -- env|printenv|…environ`."""
+    words, out, raw, tmpl, cmd, i = [], None, None, None, None, 0
+    while i < len(args):
+        a = args[i]
+        if a == "--":
+            cmd = args[i + 1:]
+            break
+        if a.startswith("--") and "=" in a:
+            name, val = a.split("=", 1)
+            out = val if name == "--output" else out
+            raw = val if name == "--raw" else raw
+            tmpl = val if name == "--template" else tmpl
+            i += 1
+            continue
+        if a in ("-o", "--output", "--raw", "--template"):
+            val = args[i + 1] if i + 1 < len(args) else ""
+            if a == "--raw":
+                raw = val
+            elif a == "--template":
+                tmpl = val
+            else:
+                out = val
+            i += 2
+            continue
+        if a.startswith("-o") and len(a) > 2:
+            out = a[2:].lstrip("=")
+            i += 1
+            continue
+        if a in KUBE_VALUED:
+            i += 2
+            continue
+        if not a.startswith("-"):
+            words.append(a)
+        i += 1
+    if words[:1] == ["exec"] and cmd:
+        base = os.path.basename(cmd[0])
+        if base in ("env", "printenv") or any(re.search(r"/proc/[^/\s]+/environ", c) for c in cmd[1:]):
+            return Finding("pod-env-dump", shown, "exec … -- %s печатает env контейнера — значения переменных CI" % base)
+        return None
+    if raw is not None:
+        segs = [s for s in raw.split("?", 1)[0].split("/") if s]
+        if words[:1] == ["get"] and set(segs) & RAW_KINDS and segs[-1:] != ["log"] and not projects(sink):
+            return Finding("pod-env-dump", shown, "get --raw %s отдаёт объект пода целиком — env с переменными CI" % raw)
+        return None
+    # Любая подкоманда с родом пода (get, label, patch, set, …): формат — ПЕРЕЧНЕМ (ws#1418, круг 2
+    # ⛔ check-verifier: белый список путей внутри jsonpath и неизвестные форматы вроде kyaml
+    # пропускали env). Пропуск — пустой, name, wide; json|yaml — лишь с проекцией по белому списку.
+    kinds = {p.split("/", 1)[0].split(".", 1)[0].lower() for w in words[1:] for p in w.split(",")}
+    hit = ",".join(sorted(kinds & POD_KINDS))
+    if not hit:
+        return None
+    fmt = (out if out is not None else ("template" if tmpl is not None else "")).partition("=")[0].lower()
+    if fmt in SAFE_FORMATS:
+        return None
+    if fmt in ("json", "yaml"):
+        if projects(sink):
+            return None
+        why = "-o %s у %s без проекции по белому списку полей следующим звеном (jq/yq)" % (fmt, hit)
+    else:
+        why = "-o %s у %s — формат вне перечня (пусто, name, wide; json|yaml с проекцией jq)" % (fmt, hit)
+    return Finding("pod-env-dump", shown, why + " — env контейнеров несёт значения переменных CI")
 
 
 def judge_pr_merge(args, agent, shown):
@@ -390,16 +594,18 @@ class Walker:
                     self.text(hbody)
                     break
 
-    def node(self, n):
+    def node(self, n, sink=None):
         for s in n.substs:
             self.text(s)
         if n.kind == "group":
-            for k in n.kids:
-                self.node(k)
+            # звено конвейера знает своего потребителя: `a | b` — b.feed is a (ws#1418)
+            for i, k in enumerate(n.kids):
+                nxt = n.kids[i + 1] if i + 1 < len(n.kids) and n.kids[i + 1].feed is k else None
+                self.node(k, nxt)
             return
-        self.simple(n.text)
+        self.simple(n.text, sink)
 
-    def simple(self, seg):
+    def simple(self, seg, sink=None):
         ws = hg.words(seg)
         if self.assign(ws):
             return
@@ -419,12 +625,23 @@ class Walker:
             self.cwd, self.how = None, "unknown"
             return
         if base == "git":
-            f = self.git_commit(args, seg.strip())
+            f = judge_no_verify(args, seg.strip()) or self.git_commit(args, seg.strip())
             if f:
                 self.found.append(f)
             return
         if base == "timeout":  # head вернул timeout ≥ 600 вместе с командой
-            self.simple(" ".join(nwg.shlex.quote(w) for w in argv[2:]))
+            self.simple(" ".join(nwg.shlex.quote(w) for w in argv[2:]), sink)
+            return
+        if base == "systemctl":
+            verbs = [a for a in args if not a.startswith("-")]
+            if verbs[:1] and verbs[0] in ("stop", "kill", "restart") and any(v.startswith("kacho-detach-") for v in verbs[1:]):
+                self.found.append(Finding("detach-unit-stop", seg.strip(),
+                                          "systemctl %s шлёт сигнал всей cgroup шага, KILL через 90 с — ловушка уборки (снятие ns) гибнет" % verbs[0]))
+            return
+        if base == "kubectl":
+            f = judge_kubectl(args, seg.strip(), sink)
+            if f:
+                self.found.append(f)
             return
         if base in nwg.SHELLS:
             cmd, _, _, _ = hg.shell_args(args)
@@ -439,7 +656,7 @@ class Walker:
             if rest[:1] in (["-c"], ["--command"]) and len(rest) > 1:
                 self.text(rest[1])
             elif rest:
-                self.simple(" ".join(nwg.shlex.quote(x) for x in rest))
+                self.simple(" ".join(nwg.shlex.quote(x) for x in rest), sink)
             return
         if base != "gh":
             return
@@ -452,13 +669,54 @@ class Walker:
             f = judge_run_list(args[args.index("list") + 1:], shown)
         elif sub[:2] == ["pr", "merge"]:
             f = judge_pr_merge(args[args.index("merge") + 1:], self.agent, shown)
+        elif len(sub) >= 2:
+            f = judge_capped((sub[0], sub[1]), args, shown)
         if f:
             self.found.append(f)
+
+
+def judge_no_verify(args, shown):
+    """`git commit|push|merge|am|cherry-pick|revert … --no-verify` (у commit и `-n`, в том числе
+    в группе до буквы со значением: `-an` — да, `-mn` — сообщение «n»)."""
+    i = 0
+    while i < len(args):
+        a = args[i]
+        if a == "-C" or a in GIT_VALUED:
+            i += 2
+        elif a.startswith("-"):
+            i += 1
+        else:
+            break
+    if i >= len(args) or args[i] not in ("commit", "push", "merge", "am", "cherry-pick", "revert"):
+        return None
+    sub, skip = args[i], False
+    for a in args[i + 1:]:
+        if skip:
+            skip = False
+            continue
+        if a == "--":
+            break
+        if a == "--no-verify":
+            return Finding("hook-bypass", shown, "git %s --no-verify — хук не исполнится" % sub)
+        if sub == "commit" and a in ("-m", "-F", "-C", "-c", "-t", "--message", "--file", "--template", "--author", "--date"):
+            skip = True
+            continue
+        if sub == "commit" and re.fullmatch(r"-[A-Za-z]+", a):
+            for ch in a[1:]:
+                if ch == "n":
+                    return Finding("hook-bypass", shown, "git commit -n — это --no-verify, хук коммита не исполнится")
+                if ch in "mFCct":
+                    break
+    return None
 
 
 def judge(cmd, agent_type=None, cwd=None):
     w = Walker(agent_type or None, cwd)
     w.text(cmd)
+    # Обход хука по ДОСЛОВНОМУ разрешению диспетчера (git-issues.md#gi-no-verify-by-request) —
+    # меткой той же команды, как `# no-wait-exempt` у переписи застоя.
+    if re.search(r"#\s*no-verify-granted\s+\S", cmd):
+        w.found = [f for f in w.found if f.cls != "hook-bypass"]
     return w.found
 
 
@@ -489,6 +747,51 @@ def deny(found):
             "  почему: %s" % f.why,
             "Полная sha: `git rev-parse <ревизия>` либо `gh pr view <N> --json headRefOid -q .headRefOid`;",
             "`scripts/ci-read.sh` печатает её сам. Пустой ответ при короткой sha — не «прогонов нет».",
+        ]) + "\n")
+        sys.exit(2)
+    if f.cls == "hook-bypass":
+        sys.stderr.write("\n".join([
+            "GH-API-GUARD: отказ — хук не обходится (git-issues.md#gi-no-verify-by-request; уроки 7abe9b9c, c5f6fc09).",
+            "  форма: %s — %s" % (CLASS_TEXT[f.cls], hg.clip(f.text, 200)),
+            "  почему: %s" % f.why,
+            "Временный коммит пробы — с хуком: `git -C <абсолютная копия> commit -m '#<N> …'`, своя учётка;",
+            "отказ хука разбирается, а не обходится. Дословное разрешение диспетчера во входе — меткой",
+            "той же команды: `… --no-verify  # no-verify-granted <основание из задания>`.",
+        ]) + "\n")
+        sys.exit(2)
+    if f.cls == "detach-unit-stop":
+        sys.stderr.write("\n".join([
+            "GH-API-GUARD: отказ — остановка службы шага обрывает его уборку (класс detach-stop-оставляет-ns).",
+            "  форма: %s — %s" % (CLASS_TEXT[f.cls], hg.clip(f.text, 200)),
+            "  почему: %s" % f.why,
+            "Остановка с уборкой: `bash $WS/scripts/detach.sh stop <файл .rc шага> [--grace <с>]` — TERM",
+            "команде шага, ожидание её ловушки до срока (≤ 540 с), KILL не шлётся; код 3 — уборка идёт,",
+            "исход — `detach.sh status <.rc>` позже.",
+        ]) + "\n")
+        sys.exit(2)
+    if f.cls == "gh-silent-cap":
+        sys.stderr.write("\n".join([
+            "GH-API-GUARD: отказ — вывод gh будет обрезан молча, число по нему ложно (пачка уроков 6).",
+            "  форма: %s — %s" % (CLASS_TEXT[f.cls], hg.clip(f.text, 200)),
+            "  почему: %s" % f.why,
+            "Перепись — с явным пределом: `gh issue list … --limit 1000` (`gh pr list`, `gh search` — так же);",
+            "файлы PR — `git diff --name-only <база>...<голова>` в копии либо",
+            "`gh api --paginate repos/<o>/<r>/pulls/<N>/files --jq '.[].filename'`.",
+        ]) + "\n")
+        sys.exit(2)
+    if f.cls == "pod-env-dump":
+        sys.stderr.write("\n".join([
+            "GH-API-GUARD: отказ — снимок пода несёт значения переменных CI в env (ws#1418).",
+            "  форма: %s — %s" % (CLASS_TEXT[f.cls], hg.clip(f.text, 200)),
+            "  почему: %s" % f.why,
+            "Формат вывода рода пода — перечнем: пусто, `-o name`, `-o wide`. json|yaml — лишь с",
+            "проекцией jq/yq, где КАЖДЫЙ путь из белого списка (guard.py SAFE_PATHS): metadata.name|",
+            "namespace|labels|uid|ownerReferences, spec.nodeName|nodeSelector|securityContext|",
+            "serviceAccountName|host*|tolerations|affinity, spec.containers[].name|image|securityContext,",
+            "status.phase|podIP|hostIP|conditions (и то же под spec.template.). Вместо jsonpath и",
+            "custom-columns — `-o json | jq '<путь из списка>'`; список — `-o json | jq '.items[] |",
+            "{name: .metadata.name, sc: .spec.securityContext}'`. Прочие форматы (jsonpath, kyaml,",
+            "go-template, …), `.spec`, `.items[]`, `get --raw …/pods/…`, `exec -- env` — отказ.",
         ]) + "\n")
         sys.exit(2)
     lines = [

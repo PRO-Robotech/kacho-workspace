@@ -163,7 +163,7 @@ skills:
 - Норма `CLAUDE.md` «Не жди» (ws#1001); долгое — `$WS/scripts/detach.sh start <каталог> -- <команда>`, возврат его строкой «идёт», исход — `detach.sh status <.rc>` следующим шагом (ws#1225).
 - Норма «`gh api` — только GET» (ws#1008, хук `gh-api-guard`): `-X`/`--method` и поля `-f/-F/--input` без `--method GET` меняют состояние (`repos/<r>/merges -X POST` ВЛИВАЕТ мимо посадки, kacho#3142). Merge-base — `gh api repos/<o>/<r>/compare/<base>...<head> --jq .merge_base_commit.sha` либо `git merge-base`; влитость — `git merge-base --is-ancestor <head> origin/<base>`.
 - режима ожидания нет (ws#1152): CI до вливания ждёт демон `autoland.sh`, не агент; пауза —
-  только командой чтения из задания шаблона волны (`sleep N; … ci-read.sh`, N ≤ 300), циклов
+  только `pauseCmd` шаблона волны (`s0=…; sleep N; echo SLEPT…; ci-read.sh`, N ≤ 300; голый `sleep N && …` снимает харнесс), циклов
   и фоновых наблюдателей не завожу; сетевой вызов — под `timeout` не дольше 90 с.
 
 ## Локальный прогон

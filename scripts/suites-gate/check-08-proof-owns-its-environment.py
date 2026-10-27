@@ -123,8 +123,8 @@ def main():
         masked = shellcode.code_lines(text, mask_quotes=True)
         loops = shellcode.loop_words(plain)
         sourced = False
-        for _, c in plain:
-            for word in shellcode.sourced_words(c):
+        for (_, c), (_, mc) in zip(plain, masked):
+            for word in shellcode.sourced_words(c, mc):
                 if LIBRARY in shellcode.resolve_sourced(proof, word, [LIBRARY], loops):
                     sourced = True
         called = [n for n, c in masked if CALL.search(c)]

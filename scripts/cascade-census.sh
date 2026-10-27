@@ -46,6 +46,14 @@
 # Закрытые дочерние не судятся: их закрыло не это действие. Без ключа
 # доказательство не спрашивается (возврат check-verifier, ws#920).
 #
+# РЕЖИМ `--pr <репо> <PR>` — ЗАДАЧИ СБОРКИ (урок диспетчера 2026-10-26, ws#1428). У сборочной
+# задачи дочерних нет (код 2), и её задачи называет лишь тело PR: сверка шла руками — 18
+# задач, шесть вызовов. Здесь задачи — ссылки строк `Closes`/`Fixes`/`Resolves`/`Refs` тела
+# (все ссылки строки: `Refs #1, #2`), у ОТКРЫТОЙ — доказательство DoD, чья ревизия — коммит
+# диапазона `compare/<база>...<голова>` (`dod_proof_bound`, как merge-readiness): ревизия до
+# догона базы демоном остаётся в диапазоне и засчитывается. Частичное, вне диапазона, нет —
+# находка (код 1); тело без задач, диапазон неполон, комментарии не прочитаны — код 2.
+#
 # ПЕРЕЧНЯ В ТЕЛЕ МОЖЕТ НЕ БЫТЬ: в kacho тело волны пишет «задачи волны — её
 # sub-issue, в теле они не перечисляются» (kacho#2795). Тогда сверяется одно
 # отношение, и это печатается строкой, а не молчанием. Перечень есть — он
@@ -71,12 +79,14 @@ set -uo pipefail
 dod_lib="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 
 usage() {
-    echo "usage: cascade-census.sh [--children-closed | --proof] <владелец/репо> <номер задачи>" >&2
+    echo "usage: cascade-census.sh [--children-closed | --proof] <владелец/репо> <номер задачи> | --pr <владелец/репо> <номер PR>" >&2
     exit 2
 }
 WANT_CLOSED=0
 WANT_PROOF=0
+WANT_PR=0
 case "${1:-}" in
+    --pr) WANT_PR=1; WANT_PROOF=1; shift ;;
     --children-closed) WANT_CLOSED=1; shift ;;
     --proof) WANT_PROOF=1; shift ;;
 esac
@@ -100,6 +110,75 @@ command -v perl >/dev/null 2>&1 || void "perl не найден"
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
+
+# ── Режим --pr: задачи сборки из тела PR (шапка, «РЕЖИМ `--pr`») ──────────────
+if [ "$WANT_PR" = 1 ]; then
+    WHO="$REPO PR #$NUM"
+    gh api "repos/$REPO/pulls/$NUM" > "$TMP/pr.json" 2> "$TMP/err" \
+        || void "PR не читается: $(head -c 300 "$TMP/err")"
+    jq -e 'type == "object" and (.base.sha | test("^[0-9a-f]{40}$")) and (.head.sha | test("^[0-9a-f]{40}$"))' \
+        "$TMP/pr.json" > /dev/null 2>&1 || void "ответ о PR не разбирается (нет base.sha и head.sha формы sha)"
+    base="$(jq -r .base.sha "$TMP/pr.json")"
+    head="$(jq -r .head.sha "$TMP/pr.json")"
+    jq -r '.body // ""' "$TMP/pr.json" | tr -d '\r' > "$TMP/body"
+    # Ссылки строк с ключевым словом — все ссылки строки, форма ключа сверки — как у перечня.
+    grep -iE '^[[:space:]]*([-*+][[:space:]]+)?(close[sd]?|fix(e[sd])?|resolve[sd]?|refs?)[[:space:]]*:?[[:space:]]+' "$TMP/body" \
+        | grep -oE 'https://github\.com/[[:alnum:]_.-]+/[[:alnum:]_.-]+/issues/[0-9]+|([[:alnum:]_.-]+/[[:alnum:]_.-]+)?#[0-9]+' \
+        | sed -E "s|^https://github\.com/||; s|/issues/|#|; s|^#|$REPO#|" \
+        | awk '{ print tolower($0) "\t" $0 }' | LC_ALL=C sort -u -t$'\t' -k1,1 > "$TMP/refs" || true
+    total="$(grep -c . "$TMP/refs" || true)"
+    [ "$total" -gt 0 ] || void "в теле PR задач ноль (строк Closes/Fixes/Resolves/Refs со ссылкой нет) — судить нечего, это не «доказано»"
+    # Диапазон — постранично; полнота: различных sha столько, сколько total_commits, и голова среди них.
+    gh api --paginate "repos/$REPO/compare/$base...$head" > "$TMP/range.json" 2> "$TMP/err" \
+        || void "диапазон PR (compare) не читается: $(head -c 300 "$TMP/err")"
+    rtotal="$(jq -s '.[0].total_commits // empty' "$TMP/range.json" 2> /dev/null)" \
+        || void "ответ compare не разбирается"
+    jq -r -s '.[].commits[]?.sha // empty' "$TMP/range.json" 2> /dev/null | LC_ALL=C sort -u > "$TMP/range.txt"
+    rgot="$(grep -c . "$TMP/range.txt" || true)"
+    [ -n "$rtotal" ] && [ "$rgot" -eq "$rtotal" ] \
+        || void "диапазон PR неполон: compare объявил коммитов ${rtotal:-?}, прочитано различных $rgot"
+    grep -qxF "$head" "$TMP/range.txt" || void "голова ${head:0:12} не среди коммитов диапазона compare"
+    range_json="$(jq -R . "$TMP/range.txt" | jq -sc .)"
+    n_open=0; n_closed=0; ok=0; missing=""; outside=""; partial=""; unread=""; absent=""
+    while IFS=$'\t' read -r _ ref; do
+        r="${ref%#*}"; n="${ref##*#}"
+        st="$(gh api "repos/$r/issues/$n" --jq .state 2> "$TMP/err")" || st=""
+        case "$st" in
+            closed) n_closed=$((n_closed + 1)); continue ;;
+            open) n_open=$((n_open + 1)) ;;
+            *) if grep -q 'Not Found' "$TMP/err"; then absent="$absent $ref"; else unread="$unread $ref"; fi; continue ;;
+        esac
+        if ! gh api --paginate "repos/$r/issues/$n/comments" > "$TMP/c.json" 2> /dev/null \
+            || ! jq -e -s 'all(.[]; type == "array")' "$TMP/c.json" > /dev/null 2>&1; then
+            unread="$unread $ref"; continue
+        fi
+        verdict="$(jq -L "$dod_lib" -r -s --argjson range "$range_json" 'include "dod_proof";
+            [add // [] | .[] | (.body // "")] as $b
+            | if any($b[]; dod_proof_revisions_in($range) | length > 0) then "ok"
+              elif any($b[]; dod_proof) then "outside"
+              elif any($b[]; dod_proof_partial_revisions | length > 0) then "partial"
+              else "none" end' "$TMP/c.json" 2> /dev/null)" || verdict=""
+        case "$verdict" in
+            ok) ok=$((ok + 1)) ;;
+            outside) missing="$missing $ref"; outside="$outside $ref" ;;
+            partial) missing="$missing $ref"; partial="$partial $ref" ;;
+            none) missing="$missing $ref" ;;
+            *) unread="$unread $ref" ;;
+        esac
+    done < "$TMP/refs"
+    echo "cascade-census: $WHO [$(jq -r '.state // "?"' "$TMP/pr.json")] $(jq -r '.title // ""' "$TMP/pr.json")"
+    echo "  режим:      --pr — задачи из строк Closes/Fixes/Resolves/Refs тела, доказательство — на коммите диапазона"
+    echo "  диапазон:   коммитов $rgot (compare ${base:0:12}...${head:0:12})"
+    echo "  задачи:     total $total · открытых $n_open · закрытых $n_closed · не прочитано:${unread:- —} · не задач (404):${absent:- —}"
+    echo "  DoD-proof:  открытых $n_open · с доказательством $ok · без:${missing:- —} · из них вне диапазона:${outside:- —} · частичное:${partial:- —}"
+    if [ -n "$missing" ]; then
+        echo "НАХОДКА: --pr, у открытых задач сборки нет доказательства DoD на коммите диапазона:$missing — каскад их не закрывает, они переводятся остатком (gi-cascade-remainder)"
+        exit 1
+    fi
+    [ -z "$unread" ] || void "задачи либо их комментарии не прочитаны:$unread — доказательство DoD не сверено"
+    echo "ИТОГ: задач $total, открытых $n_open, у всех открытых доказательство на коммите диапазона"
+    exit 0
+fi
 
 # ── Задача верхнего уровня ───────────────────────────────────────────────────
 gh api "repos/$REPO/issues/$NUM" > "$TMP/parent.json" 2> "$TMP/err" \
