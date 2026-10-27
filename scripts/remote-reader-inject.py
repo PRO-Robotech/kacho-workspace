@@ -655,7 +655,8 @@ class RemoteReader(unittest.TestCase):
         for i in range(400):
             (self.box.ws / 'lane.txt').write_text('правка %d\n' % i)
             h = self.box.commit('#5 правка %d' % i)
-            if h[:6].isdigit():
+            # Ведущий ноль — не номер задачи и без мутанта: проба мутанта стала бы жребием (1 из 10).
+            if h[:6].isdigit() and h[0] != '0':
                 self.box.git('update-ref', 'refs/remotes/origin/5-lane', 'HEAD')
                 return h[:6]
         self.fail('цифрового префикса sha за 400 коммитов не нашлось')
