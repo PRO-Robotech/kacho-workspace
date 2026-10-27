@@ -103,7 +103,9 @@ def release_only_trigger(doc):
     """События `on:` workflow заданий RELEASE_ONLY, которые запускают их вне метки версии.
 
     Закрытая форма: `on: {push: {tags: [образец, …]}}`. Иное событие, `push` строкой или
-    списком, фильтр ветки или пути рядом с `tags`, пустой `tags` — запуск вне метки.
+    списком, фильтр ветки или пути рядом с `tags`, пустой `tags` или пустой образец — запуск
+    вне метки. Нет `push` (в том числе `on: {}`) — тоже отказ `push`: событий ноль — не форма
+    «лишь по метке», а её отсутствие; иначе пустой обход событий зеленил бы ведомость.
     """
     trigger = doc.get('on')
     if isinstance(trigger, str):
@@ -112,14 +114,12 @@ def release_only_trigger(doc):
         return sorted(map(str, trigger)) if isinstance(trigger, list) else ['on']
     bad = sorted(str(event) for event in trigger if event != 'push')
     push = trigger.get('push')
-    if 'push' in trigger:
-        if not isinstance(push, dict):
-            bad.append('push')
-        else:
-            bad += sorted('push.' + str(key) for key in push if key != 'tags')
-            tags = push.get('tags')
-            if not (isinstance(tags, list) and tags and all(isinstance(t, str) and t for t in tags)):
-                bad.append('push.tags')
+    if not isinstance(push, dict):
+        return bad + ['push']
+    bad += sorted('push.' + str(key) for key in push if key != 'tags')
+    tags = push.get('tags')
+    if not (isinstance(tags, list) and tags and all(isinstance(t, str) and t for t in tags)):
+        bad.append('push.tags')
     return bad
 
 
