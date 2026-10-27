@@ -326,6 +326,25 @@ def body(pr):
         comment(41, 2, "DoD-proof @%s — полностью, пункты 0–5\nкод 0" % sha["41b"][:9])])), extra=extra)
     pr.ok("близнец: частичное, затем полное — Closes #41 по полному",
           rc == 0 and "Closes #41" in closes(out) and ("`DoD-proof @%s`, коммит диапазона" % sha["41b"][:9]) in out, out + err)
+    # ws#1324: решает ПОСЛЕДНЕЕ доказательство диапазона, полное или частичное (PR ws#1446:
+    # полное @0494f424a, затем «частично» @5f63447cd — генератор давал Closes #1426).
+    for label, c41 in (
+            ("полное, затем частичное (два комментария)", [
+                comment(41, 1, "DoD-proof @%s\nкод 0" % sha["41a"][:9]),
+                comment(41, 2, "DoD-proof @%s — частично: пункт 2\nкод 0" % sha["41b"][:9])]),
+            ("полное, затем частичное (один комментарий)", [
+                comment(41, 1, "DoD-proof @%s\nкод 0\n\nDoD-proof @%s — частично: пункт 2\nкод 0"
+                        % (sha["41a"][:9], sha["41b"][:9]))])):
+        rc, out, err, _ = pr.run("pr-body", args, pr.state(world(sha, c41=c41)), extra=extra)
+        pr.ok("%s — Refs #41, названо частичное после полного" % label,
+              rc == 0 and "Refs #41" in tail_of(out) and "Closes #41" not in closes(out)
+              and ("`DoD-proof @%s` частичный — последнее доказательство диапазона, после полного `DoD-proof @%s`"
+                   % (sha["41b"][:9], sha["41a"][:9])) in out, out + err)
+    rc, out, err, _ = pr.run("pr-body", args, pr.state(world(sha, c41=[
+        comment(41, 1, "DoD-proof @%s\nкод 0" % sha["41b"][:9]),
+        comment(41, 2, "DoD-proof @%s — частично: пункт 2\nкод 0" % sha["base42"][:9])])), extra=extra)
+    pr.ok("близнец: частичное ревизией вне диапазона после полного — Closes #41 по полному",
+          rc == 0 and "Closes #41" in closes(out) and ("`DoD-proof @%s`, коммит диапазона" % sha["41b"][:9]) in out, out + err)
     two = [comment(41, 1, "DoD-proof @%s\nпервое" % sha["41a"][:9]), comment(41, 2, "обсуждение"),
            comment(41, 3, "DoD-proof @%s\nпоследнее" % sha["41b"][:9]), comment(41, 4, "DoD-proof @%s\nбаза" % sha["base42"][:9])]
     rc, out, err, _ = pr.run("pr-body", args, pr.state(world(sha, c41=two)), extra=extra)
