@@ -1,7 +1,7 @@
 # Producer captures
 
-- iam-job.json: GitHub API job120041741421, run39834315878 attempt2, source26ee9709d57ca9ba00ac523695b6b927a3e59db3, captured2026-10-22.
-- iam-go.log: actual Go verbose census from that completed job's Integration probe, before the workflow repeats its tail. Five top-level cases, all executed.
+- registry-kaname-job.json, registry-kaname-run.json, registry-kaname-check.json, registry-kaname-integration.yml: GitHub API job120585583320, run40003550595 attempt1 (registry-operator `integration-kaname.yml:kaname`), source9fb8ed43ecefa7e6df0a61b2eafdf1b97e44dc8b, captured2026-10-27.
+- registry-kaname-go.log: actual Go verbose RUN/PASS rows of that completed job, timestamps and t.Log lines removed. Five top-level cases and two subtests, all executed.
 - vault-ginkgo.log: raw GitHub API job120006092379 log Ginkgo-v2 census from Vault run39830801736 (5/5, no skipped/pending/failed), captured2026-10-22.
 
 These historical captures do not contain source boundary markers and cannot independently authorize final operator readiness. Negative parser experiments mutate one captured fact; source-marker tests must execute the actual producer before claiming a positive producer twin.

@@ -1905,7 +1905,7 @@ portable_script() {
     return 1
 }
 # route_static — статическая часть маршрута Job-ом, ОДНА у прогона и у --route: класс с внешним
-# путём, клон kacho, kaname, corelib, внешнего оператора (vault-operator, kaname-iam-operator,
+# путём, клон kacho, kaname, corelib, внешнего оператора (vault-operator,
 # registry-operator — go-race, go-unit, integration, ci-local; ws#1303; kind — лишь им, ws#1385) либо воркспейса (RS_TOP, RS_REPO), нагрузка опознана (RS_KNOWN),
 # профиль Job (RS_PROFILE: класс, у клона воркспейса — ws) и причина маршрута (RS_WHY). 1 — внешнего
 # пути у команды нет (WHY_LOCAL); неопознанная нагрузка клона продукта пути не закрывает: при
@@ -1924,10 +1924,9 @@ origin_addr() {
 }
 # Канонические адреса клонов внешних операторов — хост и путь целиком (решение диспетчера
 # 2026-10-24, ws#1385): registry-operator — зеркало GitHub и источник правды GitLab;
-# vault-operator и kaname-iam-operator — GitHub. Суффиксное совпадение не годится: чужой хост
+# vault-operator — GitHub. Суффиксное совпадение не годится: чужой хост
 # с тем же хвостом пути — не наш клон.
 OPERATOR_ADDRS='github.com/PRO-Robotech/vault-operator
-github.com/PRO-Robotech/kaname-iam-operator
 github.com/PRO-Robotech/registry-operator
 gitlab.beget.ru/cloud/k8s/controllers/registry-operator'
 route_static() {
@@ -1980,7 +1979,7 @@ route_static() {
         operator)
             case "$CLASS" in go-race|go-unit|integration|ci-local|kind) ;; *) WHY_LOCAL="клон внешнего оператора $RS_REPO: класс «$CLASS» внешнего пути не имеет — Job несёт go-race, go-unit, integration, ci-local и kind (lint — пин линтера run.sh берёт лишь из ci.yaml, ci.yml)"; return 1 ;; esac
             RS_PROFILE="$PCLASS"; RS_WHY="клон внешнего оператора $RS_REPO — Job профиля $PCLASS, образ golang версии его go.mod" ;;
-        *) WHY_LOCAL="клон не kacho, kaname, corelib, kacho-workspace, vault-operator, kaname-iam-operator или registry-operator: внешнего пути нет"; return 1 ;;
+        *) WHY_LOCAL="клон не kacho, kaname, corelib, kacho-workspace, vault-operator или registry-operator: внешнего пути нет"; return 1 ;;
     esac
     [ -n "$RS_KNOWN" ] || ! portable_script || RS_KNOWN=1
     return 0

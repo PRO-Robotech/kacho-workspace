@@ -1,0 +1,15 @@
+=== RUN   TestKaname_RightsTableWithTheOrdinaryToken
+=== RUN   TestKaname_RightsTableWithTheOrdinaryToken/service_account
+=== RUN   TestKaname_RightsTableWithTheOrdinaryToken/human
+--- PASS: TestKaname_RightsTableWithTheOrdinaryToken (10.96s)
+    --- PASS: TestKaname_RightsTableWithTheOrdinaryToken/service_account (4.62s)
+    --- PASS: TestKaname_RightsTableWithTheOrdinaryToken/human (4.52s)
+=== RUN   TestKaname_AnonymousAndPublic
+--- PASS: TestKaname_AnonymousAndPublic (1.75s)
+=== RUN   TestKaname_TokenOfAnotherAudienceIsRefused
+--- PASS: TestKaname_TokenOfAnotherAudienceIsRefused (2.77s)
+=== RUN   TestKaname_RevocationReachesTheProxyWithinTheCacheTTL
+--- PASS: TestKaname_RevocationReachesTheProxyWithinTheCacheTTL (12.67s)
+=== RUN   TestKaname_OpaqueDirectIdentityAndPermissions
+--- PASS: TestKaname_OpaqueDirectIdentityAndPermissions (3.59s)
+PASS

@@ -80,14 +80,14 @@ MUTANTS = [
      "if [ \"$n\" -ge \"$MAX_PAR\" ]; then"),
     # СРЕДА ВОРКСПЕЙСА (ws#1304): профиль ws — репозиторий, провязка сверки, шаги образа без go.
     ('ws-repo-off', 'WS1', 'клон воркспейса не принят run.sh: профиль ws без репозитория',
-     'case "$REPO" in kacho|kaname|corelib|kacho-workspace|vault-operator|kaname-iam-operator|registry-operator) ;;',
-     'case "$REPO" in kacho|kaname|corelib|vault-operator|kaname-iam-operator|registry-operator) ;;'),
+     'case "$REPO" in kacho|kaname|corelib|kacho-workspace|vault-operator|registry-operator) ;;',
+     'case "$REPO" in kacho|kaname|corelib|vault-operator|registry-operator) ;;'),
     # ВНЕШНИЕ ОПЕРАТОРЫ (ws#1303): run.sh принимает их клоны и в прогоне, и в --available.
     ('op-repo-off', 'OP1', 'клон внешнего оператора не принят run.sh: прогон отказывает 64',
-     'case "$REPO" in kacho|kaname|corelib|kacho-workspace|vault-operator|kaname-iam-operator|registry-operator) ;;',
+     'case "$REPO" in kacho|kaname|corelib|kacho-workspace|vault-operator|registry-operator) ;;',
      'case "$REPO" in kacho|kaname|corelib|kacho-workspace|vault-operator) ;;'),
     ('op-avail-off', 'QR-op', 'клон внешнего оператора не принят --available: слот не войдёт в кластер',
-     "case \"$AV_REPO\" in ''|kacho|kaname|corelib|kacho-workspace|vault-operator|kaname-iam-operator|registry-operator) ;;",
+     "case \"$AV_REPO\" in ''|kacho|kaname|corelib|kacho-workspace|vault-operator|registry-operator) ;;",
      "case \"$AV_REPO\" in ''|kacho|kaname|corelib|kacho-workspace) ;;"),
     ('ws-check-unwired', 'WS1', 'сверка среды воркспейса не провязана в подготовку run',
      '$WSCHECK_SH\n$WSUSER_SH"',

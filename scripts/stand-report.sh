@@ -158,7 +158,7 @@ try:
         repo = json.load(open(value('--expect')))['repo']
 except (OSError, ValueError, KeyError):
     pass
-if repo in ('PRO-Robotech/kaname-iam-operator', 'PRO-Robotech/registry-operator', 'PRO-Robotech/vault-operator'):
+if repo in ('PRO-Robotech/registry-operator', 'PRO-Robotech/vault-operator'):
     os.execv(sys.executable, [sys.executable, helper] + (args if args[0] in ('expect', 'check', 'register', 'cluster-check') else ['check'] + args))
 if repo == 'PRO-Robotech/kaname':
     kaname = os.path.join(os.path.dirname(helper), 'kaname-stand.py')
