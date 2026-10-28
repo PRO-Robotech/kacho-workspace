@@ -447,7 +447,8 @@
 # у ранера конвейера либо с подменой в пробе. Среда — как у конвейера воркспейса (ci.yaml,
 # .github/actions/suite-prerequisites):
 #   • jq и PyYAML — шаг пакетов (как у прочих профилей);
-#   • node мажора WS_NODE — шагом СРЕДЫ (INSTALL_SH, сумма SHASUMS256): wave.js исполняют
+#   • node мажора WS_NODE — шагом СРЕДЫ (INSTALL_SH, свежий выпуск с опубликованной суммой
+#     SHASUMS256, ws#1501): wave.js исполняют
 #     пробы шаблона волны (wave-template-inject.sh без node — VOID); ранер несёт node в образе;
 #   • yq v4 (mikefarah, его зовут пробы, `yq -i`), shellcheck пина `env.SHELLCHECK_VERSION`
 #     конвейера ревизии и bats-core (ранер ставит его apt'ом, 1.10.0 у ubuntu-24.04) — шаг
@@ -2027,12 +2028,29 @@ if [ -n "${HEAVY_HELM:-}" ]; then
 fi
 if [ -n "${HEAVY_NODE:-}" ]; then
   a="$(ha x64)" || pf "node: архитектура $(uname -m) не поддержана"
-  v="$(curl -fsSL --retry 3 https://nodejs.org/dist/index.json | jq -r --arg m "v$HEAVY_NODE." "[.[] | .version | select(startswith(\$m) or . == (\$m | rtrimstr(\".\")))][0] // empty")"
-  [ -n "$v" ] || pf "node: версии под пин $HEAVY_NODE в индексе нет"
+  # Выпуски под пин — от свежего к старому; ставится СВЕЖИЙ, у которого опубликована
+  # сумма его архива (ws#1501: индекс назвал v26.13.0 раньше, чем выложен его
+  # SHASUMS256.txt, — архив 200, сумма 404). Сумма 404 либо строки архива в ней нет —
+  # выпуск пропускается и называется; иной ответ — отказ, а не молчаливый откат на
+  # старый выпуск; сумма не сошлась — отказ: без сошедшейся суммы node не ставится.
+  vs="$(curl -fsSL --retry 3 https://nodejs.org/dist/index.json | jq -r --arg m "v$HEAVY_NODE." "[.[] | .version | select(startswith(\$m) or . == (\$m | rtrimstr(\".\")))][]")"
+  [ -n "$vs" ] || pf "node: версии под пин $HEAVY_NODE в индексе нет"
+  mkdir -p /work/dl /work/node || pf "каталог загрузки не создан"
+  v=""; s=""; skip=""
+  for c in $vs; do
+    hc="$(curl -sSL --retry 3 -o /work/dl/SHASUMS256.txt -w "%{http_code}" "https://nodejs.org/dist/$c/SHASUMS256.txt")" || pf "node: SHASUMS256.txt выпуска $c не прочитан (сеть)"
+    case "$hc" in
+      200) s="$(grep "  node-$c-linux-$a.tar.gz\$" /work/dl/SHASUMS256.txt)"; [ -z "$s" ] || { v="$c"; break; }; skip="$skip $c (строки архива нет)";;
+      404) skip="$skip $c (404)";;
+      *) pf "node: SHASUMS256.txt выпуска $c — HTTP $hc";;
+    esac
+  done
+  [ -n "$v" ] || pf "node: под пин $HEAVY_NODE нет выпуска с опубликованной суммой архива linux-$a — осмотрено:$skip"
+  [ -z "$skip" ] || echo "remote-heavy: node — сумма не опубликована:$skip; беру $v" >&2
   echo "remote-heavy: ставлю node $v (пин $HEAVY_NODE)" >&2
-  f="node-$v-linux-$a.tar.gz"; mkdir -p /work/dl /work/node || pf "каталог загрузки не создан"
+  f="node-$v-linux-$a.tar.gz"
   ( cd /work/dl && curl -fsSL --retry 3 -o "$f" "https://nodejs.org/dist/$v/$f" \
-    && curl -fsSL --retry 3 "https://nodejs.org/dist/$v/SHASUMS256.txt" | grep "  $f\$" | sha256sum -c --quiet - \
+    && echo "$s" | sha256sum -c --quiet - \
     && tar -xzf "$f" -C /work/node --strip-components=1 ) || pf "node $v не поставлен"
   for b in node npm npx; do ln -sf "/work/node/bin/$b" "/work/bin/$b"; done
 fi
