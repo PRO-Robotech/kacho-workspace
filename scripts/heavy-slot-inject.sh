@@ -48,6 +48,9 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SLOT="$HERE/heavy-slot.sh"
 IMAGE="${HEAVY_SLOT_PROBE_IMAGE:-python:3.13-slim}"
 W="$(mktemp -d)"
+# Предпосылка проб «каталог не git» и «не клон»: поиск репозитория не поднимается над $W — иначе
+# TMPDIR вызывающего внутри дерева git (копия воркспейса) делает их клоном (@3b818bfd0, 3 расхождения).
+export GIT_CEILING_DIRECTORIES="$W"
 # shellcheck disable=SC2154
 trap '_rc=$?; rm -rf "$W" 2>/dev/null || rm -rf "$W" || echo "ПРЕДУПРЕЖДЕНИЕ: временный каталог $W не снят; код проверки $_rc сохранён" >&2; exit $_rc' EXIT
 
@@ -629,6 +632,29 @@ git init -q "$W/sugit"
 assert "64 да" "$(cd "$W/sugit" && slot bash "$SLOT" suite -- git push -q origin HEAD) $(has "$W/err" 'нагрузка продукта')" "suite -- git push → 64: отправке положен ci-local"
 assert "64 да" "$(cd "$W/sugit" && env HEAVY_SLOT_REMOTE_RUN="$W/nope" bash "$SLOT" --route suite -- go version 2>"$W/err" >/dev/null; echo $?) $(has "$W/err" 'нагрузка продукта')" "--route судит тем же: suite -- go → 64"
 
+echo "── suite: свой TMPDIR прогона под корнем слота, снимается выходом и сигналом; заданный — сильнее (ws#1292)"
+ST="$HEAVY_SLOT_DIR/suite-tmp"
+# shellcheck disable=SC2016  # тело `sh -c` раскрывает дочерняя оболочка
+LEAK='printf %s "$TMPDIR" > "$0"; mkdir "$TMPDIR/leak"; : > "$TMPDIR/leak/f"'
+under() { case "$(cat "$1" 2>/dev/null)" in "$ST"/?*) echo да ;; *) echo нет ;; esac; }
+gone() { local d; d="$(cat "$1" 2>/dev/null)"; [ -n "$d" ] && [ ! -e "$d" ] && echo да || echo нет; }
+assert "0 да да" "$(slot -u TMPDIR bash "$SLOT" suite -- sh -c "$LEAK" "$W/stt1") $(under "$W/stt1") $(gone "$W/stt1")" "TMPDIR не задан — каталог прогона под корнем слота, след внутри снят выходом слота"
+assert "0 да да" "$(slot TMPDIR=/tmp bash "$SLOT" suite -- sh -c "$LEAK" "$W/stt2") $(under "$W/stt2") $(gone "$W/stt2")" "TMPDIR — системный /tmp — тот же свой каталог прогона, снят"
+mkdir -p "$W/own-tmp"
+assert "0 $W/own-tmp да" "$(slot TMPDIR="$W/own-tmp" bash "$SLOT" suite -- sh -c "$LEAK" "$W/stt3") $(cat "$W/stt3") $([ -e "$W/own-tmp/leak/f" ] && echo да || echo нет)" "близнец: заданный вызывающим TMPDIR сильнее — слот его не подменяет и не снимает"
+assert "0 нет" "$(slot -u TMPDIR bash "$SLOT" docker -- sh -c 'printf %s "${TMPDIR:-}" > "$0"' "$W/stt4") $(under "$W/stt4")" "близнец: класс не suite — TMPDIR не ставится"
+# shellcheck disable=SC2016
+env -u TMPDIR bash "$SLOT" suite -- sh -c 'printf %s "$TMPDIR" > "$0"; exec sleep 30' "$W/stt5" 2>/dev/null & SP=$!
+for _ in $(seq 1 50); do [ -s "$W/stt5" ] && break; sleep 0.2; done
+kill -TERM "$SP"; wait "$SP"; rc=$?
+assert "143 да" "$rc $(gone "$W/stt5")" "сигнал слоту — каталог прогона снят и на обрыве"
+mkdir -p "$ST/1-1/x"; : > "$ST/1-1/x/f"
+assert "0 нет" "$(slot bash "$SLOT" docker -- true) $([ -e "$ST/1-1" ] && echo да || echo нет)" "сирота (слот убит KILL, записи active нет) снят входом следующего слота"
+sed 's|^    \[ -n "\$SUITE_TMP" \] \&\& rm -rf --one-file-system -- "\$SUITE_TMP"$|    :|' "$SLOT" > "$W/slot-mut-st.sh"
+# shellcheck disable=SC2016
+assert "1 0 нет" "$(diff "$SLOT" "$W/slot-mut-st.sh" | grep -c '^<') $(slot -u TMPDIR bash "$W/slot-mut-st.sh" suite -- sh -c "$LEAK" "$W/stt6") $(gone "$W/stt6")" "мутант «выход не снимает каталог прогона»: след остаётся — проба «снят выходом» выше его ловит"
+rm -rf -- "$(cat "$W/stt6" 2>/dev/null)"
+
 echo "── --waits: ожидание входа класса по журналу — медиана для решения о пуле suite (ws#1291)"
 # Журнал синтетический: вошедшие suite 100/300/500 с, не дождавшийся 200 с, отказ 74, чужой класс,
 # строка старше окна. Каждая порча — один факт: окно, класс, вид строки.
@@ -912,10 +938,13 @@ assert "17 да" "$(ttslot) $(has "$W/argv" '--profile')" "контроль: д�
 ttpush docs/x.md
 rm -f "$W/argv.avail"
 assert "17 нет" "$(ttslot) $(has "$W/err" 'TOOLING-LAG')" "близнец: origin/main впереди лишь вне оснастки (docs/) — слоту не мешает (17)"
+TL="$TT/$(printf 'д%.0s' $(seq 1 120))/ws"; git clone -q "$TT/origin.git" "$TL" 2>/dev/null; git -C "$TL" symbolic-ref HEAD refs/heads/main
 ttpush scripts/remote-heavy/run.sh
 rm -f "$W/argv.avail"
 assert "69 да да нет нет" "$(ttslot) $(has "$W/err" 'отстаёт от origin/main на 1 коммит(ов) по путям scripts/remote-heavy/ scripts/heavy-slot.sh') $(has "$W/err" "merge --ff-only origin/main") $(argv_seen) $(has "$W/out" 'go version go')" "дерево оснастки отстаёт по run.sh на 1 — 69 с числом, путями и командой догона; ни проверки кластера, ни Job, ни локального запуска"
 assert "1" "$(grep -c ' stale-tooling class=lint rc=1 ' "$HEAVY_SLOT_DIR/journal.log" 2>/dev/null)" "отказ записан в журнал слота строкой stale-tooling"
+rm -f "$W/argv"
+assert "69 да" "$(rslot env HEAVY_SLOT_TOOLING_TREE="$TL" bash "$SLOT" lint -- go version) $(has "$W/err" "merge --ff-only origin/main")" "близнец длины: выписка с путём > 240 байт отстаёт — команда догона в выводе цела (журналу — предел, выводу — нет)"
 assert "0 да" "$(FAKE_AVAIL=1 rslot env HEAVY_SLOT_TOOLING_TREE="$TT/ws" bash "$SLOT" --local "сверка ws#1228" lint -- true) $(has "$W/err" 'локально по флагу --local')" "обход — только --local с причиной: маршрут и сверка не судятся"
 git -C "$TT/ws" merge -q --ff-only origin/main
 rm -f "$W/argv.avail"

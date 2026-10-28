@@ -20,6 +20,12 @@
 # неосмотренной (`#void <ось> <причина>`) — «ноль следов» отличим от «ноль
 # прочитанного»: нет инструмента, нет доступа — это не чисто.
 #   tmpdir            — верхний уровень `${TMPDIR:-/tmp}`, только записи этого uid;
+#   sys-tmp           — верхний уровень временного каталога СИСТЕМЫ (`/tmp`), записи `tmp.*`
+#                       этого uid — безымянное `mktemp` прогона, чей TMPDIR не был задан
+#                       (ws#1292: 2473 каталога, старший ~39 суток; ось tmpdir их не видела, когда
+#                       TMPDIR переписи — под tmp/ воркспейса). Ось осматривается ВСЕГДА; когда
+#                       TMPDIR и есть системный каталог, `tmp.*` идут сюда, а не в tmpdir: запись —
+#                       одной оси, и след не считается дважды;
 #   ws-tmp            — верхний уровень `tmp/` воркспейса (копии полос);
 #   worktree          — зарегистрированные worktree воркспейса и репозиториев
 #                       из RESIDUE_REPOS (через двоеточие);
@@ -30,6 +36,9 @@
 #                       Имя контекста и адрес кластера не печатаются: репозиторий
 #                       публичный, а вывод переписи уходит в комментарии задач.
 # RESIDUE_AXES=<ось,ось> сужает перепись (инъекция гоняет только tmpdir).
+# RESIDUE_SYSTMP=<каталог> подменяет системный каталог, RESIDUE_UID=<uid> — владельца путевых осей
+# (инъекция: чужой владелец — запись настоящая, uid переписи иной). Ручки только читающему
+# инструменту: снять ими нельзя ничего.
 #
 # КОДЫ compare: 0 — новых следов нет; 1 — есть, каждый назван осью и именем;
 # 2 — не выполнилось: снимок не читается либо ни одной оси, осмотренной в ОБОИХ
@@ -60,6 +69,9 @@ if [ -z "$WS" ]; then
         && WS="$(dirname "$_common")" \
         || WS="$(cd "$SELF_DIR/../.." && pwd)"
 fi
+
+SYSTMP="${RESIDUE_SYSTMP:-/tmp}"
+RUID="${RESIDUE_UID:-$(id -u)}"
 
 want_axis() {
     [ -z "${RESIDUE_AXES:-}" ] && return 0
@@ -93,9 +105,16 @@ void() {
 }
 
 read_tmpdir() {
-    local t="${TMPDIR:-/tmp}"
+    local t="${TMPDIR:-/tmp}" own=()
     [ -d "$t" ] || return 3
-    find "$t" -mindepth 1 -maxdepth 1 -user "$(id -u)" -printf "$t/%f\n" | sort
+    # Тот же каталог, что системный: `tmp.*` — ось sys-tmp (одна запись — одна ось).
+    [ "$(realpath -e -- "$t" 2>/dev/null)" = "$(realpath -e -- "$SYSTMP" 2>/dev/null)" ] && own=(! -name 'tmp.*')
+    find "$t" -mindepth 1 -maxdepth 1 -user "$RUID" "${own[@]}" -printf "$t/%f\n" | sort
+}
+
+read_systmp() {
+    [ -d "$SYSTMP" ] || return 3
+    find "$SYSTMP" -mindepth 1 -maxdepth 1 -name 'tmp.*' -user "$RUID" -printf "$SYSTMP/%f\n" | sort
 }
 
 read_ws_tmp() {
@@ -119,6 +138,9 @@ has() { command -v "$1" >/dev/null 2>&1; }
 snapshot() {
     if [ -d "${TMPDIR:-/tmp}" ]; then emit tmpdir read_tmpdir
     else void tmpdir "каталога ${TMPDIR:-/tmp} нет"; fi
+
+    if [ -d "$SYSTMP" ]; then emit sys-tmp read_systmp
+    else void sys-tmp "системного временного каталога $SYSTMP нет"; fi
 
     if [ -d "$WS/tmp" ]; then emit ws-tmp read_ws_tmp
     else void ws-tmp "каталога tmp/ в воркспейсе нет"; fi
