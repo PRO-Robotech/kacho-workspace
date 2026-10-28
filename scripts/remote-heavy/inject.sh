@@ -304,7 +304,8 @@
 #      узлы те же → 0, узлы переписаны заново
 #   W10 узлы с -infra- при остатках мёртвого владельца → 69, уборка ns не звалась
 #
-# Запуск: bash scripts/remote-heavy/inject.sh   (код 0 — все случаи сошлись)
+# Запуск: bash scripts/remote-heavy/inject.sh   (код 0 — все случаи сошлись и все сцены
+# исполнены; 1 — разошлось; 2 — не выполнилось: сцена GS без клона kaname, KACHO_GHPOD_KANAME)
 # Что набор краснеет на порче каждого решения среды и истории — mutants.py рядом
 # (REMOTE_HEAVY_RUN — путь испорченной копии run.sh).
 set -uo pipefail
@@ -4141,13 +4142,19 @@ ws6_case WS6-down 125 "yq v4.45.4 не поставлен" WSC_DOWN=1
 # GP3 gh pod ИСПОЛНЕНИЕМ (текст шага из Job, /work — каталог пробы): формы хука → ответ из
 #     снятого; ветка не снята, чужой репозиторий, не open, поле не снято → 1; не «pr list» → 4;
 #     снятого нет → gh не ставится; снятое не той формы → 125
+# GP3-base снятое несёт запрос 1059 с базой 1054: «--base main» его не отдаёт, «--head 1057»
+#     отдаёт (близнец), «--head 1057 --base main» — пусто (порча cv-base-filter)
+# GP4 отправка ветки эпика 1054 ЧЕРЕЗ драйвер: её запрос 1058 в main приходит дважды — ответом
+#     «--base main» без body и ответом «--head 1054» с body; в снятом — один объект с body, и
+#     gh pod отвечает форме хука «--head 1054 --json …,body» (порча cv-merge-minby)
 # GS сцена НАСТОЯЩЕГО хука kaname (prepush-classes.py и pr-rule-check.sh ревизии клона kaname,
 #     где они есть) над origin пробы с main, эпиком 1054 и веткой сборки 1057 от него:
 #     GS0 контроль — gh отказывает (как без gh): база main, правило запроса красное (дефект
 #     воспроизведён); GS1 gh pod: база 1054, зелёное; GS2 чужой коммит без номера в диапазоне
 #     1057 — красное; GS3 ветка 1060 без запроса и без эпика — база main, зелёное; GS4 запрос
 #     ветки 1057 с базой 1054 — база запроса, заголовок судится, зелёное. Клона kaname с хуком
-#     нет — «НЕ ИСПОЛНЕНО GS» в итоге, не зелёное.
+#     нет — «НЕ ИСПОЛНЕНО GS» и код 2 набора («не выполнилось»), не 0: неисполненная сцена
+#     зелёной не считается. Конвейер даёт клон шагом «клон kaname для сцены хука» (ci.yaml).
 GPD="$BOX/gpd"; rm -rf "$GPD"; mkdir -p "$GPD"
 printf '[{"number":1058,"title":"#1054 эпик","baseRefName":"main","headRefName":"1054","isDraft":true}]\n' > "$GPD/base-main.json"
 # Ревизия prhook — HEAD клона и хук, спрашивающий «pr list»; собрана без рабочего дерева
@@ -4237,6 +4244,34 @@ gp_install "$BOX/gpw-none" ""; OUT="$BOX/gpw-none/step.out"; expect_rc GP3-none 
 if [ ! -e "$BOX/gpw-none/bin/gh" ] && grep -q 'gh в pod — нет' "$BOX/gpw-none/step.out"; then ok; else bad GP3-none "без снятого gh поставлен либо строки нет"; fi
 gp_install "$BOX/gpw-bad" '{}'; OUT="$BOX/gpw-bad/step.out"; expect_rc GP3-bad 125
 if grep -q '^remote-heavy-prep: gh pod' "$BOX/gpw-bad/tl" 2>/dev/null; then ok; else bad GP3-bad "отказ «gh pod» не записан в termination-log"; fi
+# GP3-base — снятое с запросом базы не main: фильтр «--base» обязан его отсечь
+gp_install "$BOX/gpw-pr" "$(jq -c '.prs += [{number: 1059, title: "#1057 сборка волны", body: "состав", baseRefName: "1054", headRefName: "1057", isDraft: true}]' <<< "$GP_SNAP")"
+OUT="$BOX/gpw-pr/step.out"; expect_rc GP3-base 0
+gpb() { GPR="$("$BOX/gpw-pr/bin/gh" "$@" 2>&1)"; GPC=$?; }
+gpb pr list -R PRO-Robotech/kaname --base main --state open --json number,headRefName --limit 200
+if [ "$GPC" = 0 ] && [ "$(jq -c . <<< "$GPR" 2>/dev/null)" = '[{"number":1058,"headRefName":"1054"}]' ]; then ok
+else bad GP3-base "«--base main» отдал не только запросы в main: код $GPC, «$GPR»"; fi
+gpb pr list -R PRO-Robotech/kaname --head 1057 --state open --json number,baseRefName --limit 5
+if [ "$GPC" = 0 ] && [ "$(jq -c . <<< "$GPR" 2>/dev/null)" = '[{"number":1059,"baseRefName":"1054"}]' ]; then ok
+else bad GP3-base "близнец «--head 1057» без базы: ждали запрос 1059, код $GPC, «$GPR»"; fi
+gpb pr list -R PRO-Robotech/kaname --head 1057 --base main --state open --json number --limit 5
+if [ "$GPC" = 0 ] && [ "$(jq -c . <<< "$GPR" 2>/dev/null)" = '[]' ]; then ok
+else bad GP3-base "«--head 1057 --base main»: запрос с базой 1054 не отсечён, код $GPC, «$GPR»"; fi
+# GP4 — отправка ветки эпика 1054 ЧЕРЕЗ драйвер: запрос 1058 в обоих ответах gh машины, слит с body
+GPE="$BOX/gpd-epic"; mkdir -p "$GPE"; cp "$GPD/base-main.json" "$GPE/"
+printf '[{"number":1058,"title":"#1054 эпик","body":"состав эпика","baseRefName":"main","headRefName":"1054","isDraft":true}]\n' > "$GPE/head-1054.json"
+fresh
+go_run gp4 env FAKE_EXIT=0 FAKE_GH_DIR="$GPE" GIT_CONFIG_GLOBAL="$BOX/gi.cfg" \
+    bash "$RUN" --task 1 --repo kaname --ref prhook --src "$SRC" --profile ci-local --short gp4 \
+    --push-input "refs/heads/1054 $(git -C "$SRC" rev-parse prhook) refs/heads/1054 $ZS" -- true
+expect_rc GP4 0
+GP4_SNAP="$(envv "$BOX/state/job.json" HEAVY_GH_PRS)"
+if jq -e '.heads == ["1054"] and (.prs | length) == 1 and .prs[0].number == 1058 and .prs[0].body == "состав эпика"' <<< "$GP4_SNAP" > /dev/null 2>&1; then ok
+else bad GP4 "запрос 1058 из двух ответов слит не полным объектом (body): «$GP4_SNAP»"; fi
+gp_install "$BOX/gpw-epic" "$GP4_SNAP"; OUT="$BOX/gpw-epic/step.out"; expect_rc GP4 0
+GPR="$("$BOX/gpw-epic/bin/gh" pr list -R PRO-Robotech/kaname --head 1054 --state open --json number,title,body,baseRefName,isDraft --limit 5 2>&1)"; GPC=$?
+if [ "$GPC" = 0 ] && [ "$(jq -c '[.[] | [.number, .baseRefName, .body]]' <<< "$GPR" 2>/dev/null)" = '[[1058,"main","состав эпика"]]' ]; then ok
+else bad GP4 "форма хука «--head 1054 --json …,body» на снятом драйвером: код $GPC, «$GPR»"; fi
 # GS — сцена настоящего хука kaname
 GS_NOTRUN=""
 KN="${KACHO_GHPOD_KANAME:-}"
@@ -4571,4 +4606,6 @@ if [ -s "$ALL_OUT" ]; then ok; else bad L1 "вывод пуст — судить
 
 if [ -s "$CNF" ]; then OUT="$CNF"; bad CNF "в наборе вызваны несуществующие команды: $(sort -u "$CNF" | tr '\n' ' ')— утверждения при них не исполнялись"; fi
 printf 'remote-heavy inject: утверждений %d · сошлось %d · разошлось %d%s\n' $((PASS + FAIL)) "$PASS" "$FAIL" "${GS_NOTRUN:+ · не исполнено: сцена GS — $GS_NOTRUN}"
-[ "$FAIL" -eq 0 ]
+[ "$FAIL" -eq 0 ] || exit 1
+# Неисполненная сцена зелёной не считается (ws#1503): код 2 — «не выполнилось», не 0.
+[ -z "$GS_NOTRUN" ] || { echo "remote-heavy inject: НЕ ВЫПОЛНИЛОСЬ (код 2) — сцена GS не исполнена: $GS_NOTRUN; клон kaname — KACHO_GHPOD_KANAME"; exit 2; }

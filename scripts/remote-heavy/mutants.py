@@ -690,6 +690,13 @@ $FILEWAIT_SH"'''),
     for h in''',
      r'''    all="[]"
     for h in'''),
+    # ws#1503, ⛔ check-verifier: порчи, выжившие прежний набор.
+    ("cv-base-filter", "GP3-base", "gh pod не фильтрует по --base — «--base main» отдаёт запрос в ветку эпика",
+     r'''($b == "" or .baseRefName == $b)''',
+     r'''(true)'''),
+    ("cv-merge-minby", "GP4", "слияние снятого берёт меньший объект запроса — body из ответа «--head» теряется",
+     r'''group_by(.number)[] | max_by(length)''',
+     r'''group_by(.number)[] | min_by(length)'''),
 ]
 
 
@@ -735,7 +742,8 @@ def main():
         rc, fails, tail = run_inject(RUN, root)
         print(f"контроль: код {rc} · {tail}")
         if rc != 0:
-            print("mutants: ПРЕДПОСЫЛКА — набор красный без порчи")
+            print("mutants: ПРЕДПОСЫЛКА — " + ("набор не выполнился без порчи (код 2: сцена не исполнена)"
+                                               if rc == 2 else "набор красный без порчи"))
             return 1
         survived = 0
         with concurrent.futures.ThreadPoolExecutor(max_workers=a.j) as ex:
