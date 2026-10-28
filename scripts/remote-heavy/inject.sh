@@ -4137,6 +4137,15 @@ ws6_case WS6-yqsum 125 "yq v4.45.4 не поставлен" WSC_BAD=yq
 ws6_case WS6-scsum 125 "shellcheck 0.11.0 не поставлен" WSC_BAD=sc
 ws6_case WS6-batssum 125 "bats-core 1.10.0 не поставлен" WSC_BAD=bats
 ws6_case WS6-down 125 "yq v4.45.4 не поставлен" WSC_DOWN=1
+# WS6-present (ws#1482, образ слота) — законный близнец: yq, shellcheck пина и bats уже в PATH, сеть
+# мертва → код 0, ни одного «ставлю», читатель трекера записан (он не загрузка)
+WP="$WC/present"; rm -rf "$WP"; mkdir -p "$WP"
+cp "$WC/yq" "$WP/yq"; cp "$WC/src/shellcheck-v0.11.0/shellcheck" "$WP/shellcheck"; printf '#!/bin/sh\necho Bats 1.10.0\n' > "$WP/bats"; chmod +x "$WP"/*
+rm -rf "$WK"; mkdir -p "$WK"; OUT="$BOX/WS6-present.out"
+env -i PATH="$WP:$WC/bin" HOME="$WC" WSC_DIR="$WC" WSC_DOWN=1 HEAVY_SHELLCHECK=0.11.0 bash "$WC/wstools.sh" > "$OUT" 2>&1; RC=$?
+expect_rc WS6-present 0
+if [ "$(grep -c 'ставлю' "$OUT")" -eq 0 ] && [ ! -e "$WK/bin/yq" ] && [ -x "$WK/bin/gh-issue-public" ]; then ok
+else bad WS6-present "инструменты пина в PATH, а шаг ставит («ставлю» $(grep -c 'ставлю' "$OUT")) либо читателя трекера нет"; fi
 
 # WS7 — локаль en_US.UTF-8 и ensurepip (ws#1482) ИСПОЛНЕНИЕМ: текст шагов wsenv и wsenvwait из Job,
 #     curl — двойник с поддельными источниками, суммы пина заменены суммами двойников (каждый пин —
