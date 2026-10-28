@@ -652,8 +652,10 @@ PY
 }
 echo "== мутанты"
 mok=0 mfail=0
-mutant unkeyed-accepted py '        if not m:
-            return None' '        if not m:
+mutant unkeyed-accepted py '        m = PLACE_RE.search(raw)
+        if not m:
+            return None' '        m = PLACE_RE.search(raw)
+        if not m:
             return norm(raw)'
 mutant dedup-off py '        if lid in self.ids:
             return False' '        if False:

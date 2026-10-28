@@ -1264,7 +1264,7 @@ mutant "конфликт сводки не останавливает" "    if (
 mutant "голова dep вне сводки не судится" "|| !sha40(st.head) || missing.length) {" "|| !sha40(st.head)) {"
 mutant "сводка не снимается при вливании" "(stacks.length ? 'Сними временные сводки deps ' + stacks.join(', ') + ' коммитным предикатом (git-operator.md §«Вливание и снятие»). ' : '')" "''"
 # Мутанты check-verifier ws#939 (выжили на aeb93941) — те же образцы.
-mutant "сводка из всех прошедших, а не deps" "const ds = deps.map(d => ({ branch: lanes.find(x => x.key === d.key).branch, head: d.head, repo:" "const ds = Object.values(done).filter(d => d.ok).map(d => ({ branch: lanes.find(x => x.key === d.key).branch, head: d.head, repo:"
+mutant "сводка из всех прошедших, а не deps" "const ds = deps.map(d => ({ branch: d.branch, head: d.head, repo:" "const ds = Object.values(done).filter(d => d.ok).map(d => ({ branch: d.branch, head: d.head, repo:"
 mutant "статус failed принимается" "!['done', 'already-done'].includes(st.status) ||" ""
 mutant "ревью без дельты сводки" "(stack ? ' — своя дельта" "(false ? ' — своя дельта"
 mutant "доводка предпроверки — от базы" "rep(l.key, 'lane-precheck'), stack)" "rep(l.key, 'lane-precheck'), null)"
