@@ -776,6 +776,77 @@ assert "0" "$(LANE_PRECHECK_GIT_BASE="$W/gb" mut pushed '[ "$kind" = pushed ] &&
 [ -z "${CHERRY_GV:-}" ] || assert "1" "$(mut testdata '*/testdata/*) ctd=$((ctd + 1)); continue ;;' '*/testdata-never/*) ;;' "cherry-vet $CHERRY_GV 774")" "мутант «testdata судится»: битый файл testdata даёт ложь — проба выше его ловит"
 [ -z "${CHERRY_GV:-}" ] || assert "0" "$(mut cherry 'elif [ -n "$cerr" ]; then reasons+=' 'elif false; then reasons+=' "cherry-vet $CHERRY_GV 771")" "мутант «отказ vet не судится»: вишня без зависимости проходит — проба выше его ловит"
 
+echo "== перепись вызывающих при смене кода возврата (ws#1496)"
+# База: общая функция подключаемого файла (x.sh ← use.sh), скрипт с упоминанием в тексте
+# (tool.sh ← doc.md), функция НЕподключаемого скрипта (helper в tool.sh; слово helper — в
+# other.sh, который tool.sh не подключает), модуль python (mod.py ← app.py). Ветка полосы —
+# ОДНА правка от базы; доказательство — своё на её голове: меняется один факт.
+git -C "$L" checkout -q -f -b rc-base main
+mkdir -p "$L/scripts/lib"
+printf '%s\n' 'xf() {' '    return 0' '}' > "$L/scripts/lib/x.sh"
+printf '%s\n' '#!/usr/bin/env bash' '. "$(dirname "$0")/lib/x.sh"' 'xf || exit 1' > "$L/scripts/use.sh"
+printf '%s\n' '#!/usr/bin/env bash' 'helper() {' '    return 0' '}' 'helper' 'exit 0' > "$L/scripts/tool.sh"
+printf '%s\n' '#!/usr/bin/env bash' 'helper=1' > "$L/scripts/other.sh"
+printf '%s\n' 'код 0 — scripts/tool.sh прошёл' > "$L/doc.md"
+printf '%s\n' 'def f():' '    return 0' > "$L/mod.py"
+printf '%s\n' 'import mod' 'raise SystemExit(mod.f())' > "$L/app.py"
+git -C "$L" add -A && git -C "$L" commit -qm rc-base && git -C "$L" push -q origin rc-base 2> /dev/null
+rcb() {  # <ветка> <правка оболочкой в корне копии> — ветка от rc-base, отправлена; голова — RCH, журнал — push-rc.log
+    git -C "$L" checkout -q -f -b "$1" rc-base
+    (cd "$L" && eval "$2")
+    git -C "$L" add -A && git -C "$L" commit -qm "$1" && git -C "$L" push -q origin "$1" 2> /dev/null
+    RCH="$(git -C "$L" rev-parse HEAD)"
+    { echo "lane-push head=$RCH"; echo "$GREEN"; echo "lane-push rc=0"; } > "$W/push-rc.log"
+}
+rcrun() { run "$L" "$1" rc-base --issue "o/r#$2" --hook-log "$W/push-rc.log"; }
+rcb rc-1 "sed -i 's/return 0/return 3/' scripts/lib/x.sh"
+comments 41 "DoD-proof @${RCH:0:12}"
+assert "1 да да" "$(rcrun rc-1 41) $(has 'REASON CALLERS-UNCENSUSED функция xf (scripts/lib/x.sh): код возврата изменён диффом, вызывающих вне диффа 1 (scripts/use.sh)') $(has 'причин 1,')" "код возврата общей функции сменён, подключающий вне диффа, DoD-proof имени не называет → CALLERS-UNCENSUSED"
+assert "да" "$(has 'код возврата — строк диффа 2, предметов 1, без переписи вызывающих 1')" "перепись печатается: строк диффа, предметов, открытых — отдельно от находки"
+comment1 42 "DoD-proof @${RCH:0:12}
+вызывающие xf: scripts/use.sh — код 3 разобран"
+assert "0" "$(rcrun rc-1 42)" "близнец: DoD-proof называет xf → 0"
+comments 43 "DoD-proof @${RCH:0:12}" "вызывающие xf: scripts/use.sh"
+assert "1 да" "$(rcrun rc-1 43) $(has 'REASON CALLERS-UNCENSUSED функция xf')" "имя — в комментарии НЕ доказательстве → CALLERS-UNCENSUSED"
+rcb rc-2 "sed -i 's/return 0/return 3/' scripts/lib/x.sh; sed -i 's/exit 1/exit 3/' scripts/use.sh"
+comments 44 "DoD-proof @${RCH:0:12}"
+assert "0 да" "$(rcrun rc-2 44) $(has 'предметов 2, без переписи вызывающих 0')" "близнец: подключающий переписан тем же диффом → 0"
+rcb rc-3 "sed -i 's/exit 0/exit 4/' scripts/tool.sh"
+comments 45 "DoD-proof @${RCH:0:12}"
+assert "1 да" "$(rcrun rc-3 45) $(has 'REASON CALLERS-UNCENSUSED скрипт tool.sh: код возврата изменён диффом, вызывающих вне диффа 1 (doc.md)')" "код выхода скрипта сменён, упоминание вне диффа → CALLERS-UNCENSUSED"
+rcb rc-4 "sed -i 's/    return 0/    return 2/' scripts/tool.sh"
+comments 46 "DoD-proof @${RCH:0:12}"
+assert "0 да" "$(rcrun rc-4 46) $(has 'предметов 1, без переписи вызывающих 0')" "близнец: функция неподключаемого скрипта — слово helper вне диффа не вызывающий → 0"
+rcb rc-5 "sed -i 's/return 0/return 2/' mod.py"
+comments 47 "DoD-proof @${RCH:0:12}"
+assert "1 да" "$(rcrun rc-5 47) $(has 'REASON CALLERS-UNCENSUSED функция f (mod.py): код возврата изменён диффом, вызывающих вне диффа 1 (app.py)')" "python: return модуля сменён, импортирующий вне диффа → CALLERS-UNCENSUSED"
+rcb rc-6 "printf '%s\n' '# return 7 — пример в шапке' >> scripts/lib/x.sh"
+comments 48 "DoD-proof @${RCH:0:12}"
+assert "0 да" "$(rcrun rc-6 48) $(has 'строк диффа 0, предметов 0')" "близнец: строка-комментарий о коде — не предмет → 0"
+mutb() {  # <было> <стало> <ветка> <задача> — код мутанта предпроверки на ветке полосы
+    python3 - "$P" "$W/ms/lane-precheck.sh" "$1" "$2" <<'PYM' || { echo VOID; return; }
+import sys
+s, d, a, b = sys.argv[1:5]
+t = open(s, encoding="utf-8").read()
+if t.count(a) != 1:
+    sys.exit(1)
+open(d, "w", encoding="utf-8").write(t.replace(a, b))
+PYM
+    bash "$W/ms/lane-precheck.sh" "$L" "$3" rc-base --issue "o/r#$4" --hook-log "$W/push-rc.log" > "$W/out" 2>&1; echo $?
+}
+mkdir -p "$W/ms"; ln -sfn "$HERE/lib" "$W/ms/lib"
+rcb rc-1m "sed -i 's/return 0/return 3/' scripts/lib/x.sh"
+comments 49 "DoD-proof @${RCH:0:12}"
+assert "0" "$(mutb 'grep -q -w -F -e "$name" <<< "$dod_text" && continue' 'continue' rc-1m 49)" "мутант «DoD-proof не сверяется»: непереписанный вызывающий проходит — проба выше его ловит"
+assert "0" "$(mutb 'rc_grep() { git -C' 'rc_grep() { return 0; git -C' rc-1m 49)" "мутант «вызывающие не ищутся»: проходит — проба выше его ловит"
+rcb rc-4m "sed -i 's/    return 0/    return 2/' scripts/tool.sh"
+comments 50 "DoD-proof @${RCH:0:12}"
+assert "1" "$(mutb 'callers="$(comm -12 <(rc_grep "$name") <(rc_grep "$mod"))"' 'callers="$(rc_grep "$name")"' rc-4m 50)" "мутант «подключение не требуется»: слово helper в other.sh краснеет — близнец выше его ловит"
+rcb rc-2m "sed -i 's/return 0/return 3/' scripts/lib/x.sh; sed -i 's/exit 1/exit 3/' scripts/use.sh"
+comments 51 "DoD-proof @${RCH:0:12}"
+assert "1" "$(mutb '-f <(printf '"'"'%s\n'"'"' "$rc_changed")' '-f /dev/null' rc-2m 51)" "мутант «тронутый диффом не исключён»: подключающий в диффе краснеет — близнец выше его ловит"
+git -C "$L" checkout -q -f 1-lane
+
 echo "== вход"
 assert "2" "$(run "$W/srv" 1-lane main --issue o/r#7)" "не рабочая копия → код 2"
 assert "2" "$(run "$L" 1-lane)" "неполный вызов → код 2"

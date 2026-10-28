@@ -191,6 +191,10 @@
 #                       же у merge-readiness и `cascade-census.sh --proof`),
 #                       чей sha — голова полосы или коммит из база..голова:
 #                       доказательство чужой или прежней ревизии — не доказательство;
+#   CALLERS-UNCENSUSED  (ws#1496) дифф меняет код возврата числом (`return N`, `exit N`,
+#                       `sys.exit(N)`) функции или скрипта .sh/.bash/.py, вызывающие вне
+#                       диффа есть, а DoD-proof задач имени предмета не называет; перепись
+#                       строкой «код возврата — …», устройство и граница — у проверки ниже;
 #   HOOK-LOG-MISSING    журнала отправки нет;
 #   HOOK-HEAD-MISMATCH  журнал отправки — не о текущей голове;
 #   HOOK-RC             отправка вышла не нулём;
@@ -816,7 +820,7 @@ in_lane() {
 }
 
 # ── доказательства DoD ──────────────────────────────────────────────────
-n_issues="${#issues[@]}" n_proven=0
+n_issues="${#issues[@]}" n_proven=0 dod_text=""
 if [ "$n_issues" -eq 0 ]; then
     reason ISSUES-NONE "задач полосы ноль (--issue): доказательство DoD судить не о чем"
 fi
@@ -834,6 +838,8 @@ for it in "${issues[@]+"${issues[@]}"}"; do
         void DOD-LIB "$r#$n: распознаватель $HERE/lib/dod_proof.jq не судил"
         continue
     fi
+    # Тексты доказательств — для CALLERS-UNCENSUSED ниже: перепись вызывающих называется в них.
+    dod_text+="$(printf '%s' "$raw" | jq -r -s 'add // [] | .[] | (.body // "") | select(test("DoD-proof"))' 2> /dev/null)"$'\n'
     ok=0
     if [ -n "$head" ]; then
         while IFS= read -r s; do
@@ -849,6 +855,75 @@ for it in "${issues[@]+"${issues[@]}"}"; do
         reason DOD-PROOF-MISSING "$r#$n: DoD-proof есть, но ни один sha не голова полосы и не коммит база..голова ($(printf '%s' "$shas" | tr '\n' ' '))"
     fi
 done
+
+# ── перепись вызывающих при смене кода возврата (ws#1496) ───────────────
+# Уроки 4f996099, 7faa5874 и ws#1246 п.1: контракт общей функции сменён, вызывающие не
+# переписаны. Предмет — добавленная или снятая диффом база..голова строка кода возврата
+# ЧИСЛОМ: оболочка — `return N` (функция — из заголовка куска драйвера `diff=bash` либо из
+# строки определения в том же куске) и `exit N` (скрипт); python — `return N` (функция,
+# `diff=python`), `sys.exit(N)`, `SystemExit(N)` (скрипт). Вызывающий — файл ГОЛОВЫ вне диффа:
+# у скрипта — имя файла словом, у функции — имя функции словом И имя её файла (подключающий).
+# Вызывающий есть, а DoD-proof задач полосы имени предмета не называет — CALLERS-UNCENSUSED.
+# ГРАНИЦА (названо): Go и файлы без .sh/.bash/.py не судятся; код переменной (`return "$rc"`)
+# и строка-комментарий — не предмет; вызывающий, тронутый диффом, считается переписанным.
+n_rc_lines=0 n_rc_subj=0 n_rc_open=0
+if [ -n "$head" ] && [ -n "$base_sha" ]; then
+    rc_attrs="$(mktemp)"
+    printf '%s\n' '*.sh diff=bash' '*.bash diff=bash' '*.py diff=python' > "$rc_attrs"
+    rc_sh_fn='^[[:space:]]*(function[[:space:]]+)?([A-Za-z_][A-Za-z0-9_:.-]*)[[:space:]]*\(\)'
+    rc_sh_fn2='^[[:space:]]*function[[:space:]]+([A-Za-z_][A-Za-z0-9_:.-]*)'
+    rc_py_fn='^[[:space:]]*(async[[:space:]]+)?def[[:space:]]+([A-Za-z_][A-Za-z0-9_]*)'
+    rc_sh_exit='(^|[[:space:];&|{(])exit[[:space:]]+[0-9]+([^0-9]|$)'
+    rc_sh_ret='(^|[[:space:];&|{(])return[[:space:]]+[0-9]+([^0-9]|$)'
+    rc_py_exit='(^|[^A-Za-z0-9_.])(sys\.exit|SystemExit)\([[:space:]]*[0-9]+'
+    rc_py_ret='^[[:space:]]*return[[:space:]]+[0-9]+[[:space:]]*(#.*)?$'
+    rc_fname() {  # <файл> <строка> — в RC_FN имя функции, которую строка определяет, либо пусто (без подоболочки: строк диффа тысячи)
+        RC_FN=""; case "$1" in
+            *.py) if [[ "$2" =~ $rc_py_fn ]]; then RC_FN="${BASH_REMATCH[2]}"; fi ;;
+            *) if [[ "$2" =~ $rc_sh_fn ]]; then RC_FN="${BASH_REMATCH[2]}"
+               elif [[ "$2" =~ $rc_sh_fn2 ]]; then RC_FN="${BASH_REMATCH[1]}"; fi ;;
+        esac
+    }
+    rc_subj=() f="" fn=""
+    while IFS= read -r l; do
+        case "$l" in
+            'diff --git '*) f="${l##* b/}"; fn=""; continue ;;
+            '+++ '* | '--- '*) continue ;;
+            '@@ '*) rc_fname "$f" "${l#@@ * @@ }"; fn="$RC_FN"; continue ;;
+            [+-]*) b="${l:1}" ;;
+            *) continue ;;
+        esac
+        rc_fname "$f" "$b"; d="$RC_FN"
+        if [ -n "$d" ]; then fn="$d"; continue; fi
+        [[ "$b" =~ ^[[:space:]]*# ]] && continue
+        s=""
+        case "$f" in
+            *.py) if [[ "$b" =~ $rc_py_exit ]]; then s="script ${f##*/} $f"; elif [ -n "$fn" ] && [[ "$b" =~ $rc_py_ret ]]; then s="func $fn $f"; fi ;;
+            *) if [[ "$b" =~ $rc_sh_exit ]]; then s="script ${f##*/} $f"; elif [ -n "$fn" ] && [[ "$b" =~ $rc_sh_ret ]]; then s="func $fn $f"; fi ;;
+        esac
+        [ -z "$s" ] || rc_subj+=("$s")
+    done < <(git -C "$top" -c core.attributesFile="$rc_attrs" diff -U0 --no-color --no-ext-diff "$base_sha" "$head" -- '*.sh' '*.bash' '*.py' 2> /dev/null)
+    rm -f "$rc_attrs"
+    n_rc_lines="${#rc_subj[@]}"
+    rc_changed="$(git -C "$top" diff --name-only "$base_sha" "$head" 2> /dev/null)"
+    rc_grep() { git -C "$top" grep -l -w -F -e "$1" "$head" -- 2> /dev/null | sed "s|^$head:||" | sort -u; }
+    while read -r kind name file; do
+        [ -n "$name" ] || continue
+        n_rc_subj=$((n_rc_subj + 1))
+        if [ "$kind" = script ]; then
+            callers="$(rc_grep "$name")" what="скрипт $name"
+        else
+            mod="${file##*/}"; mod="${mod%.py}"
+            callers="$(comm -12 <(rc_grep "$name") <(rc_grep "$mod"))" what="функция $name ($file)"
+        fi
+        callers="$(grep -v -x -F -f <(printf '%s\n' "$rc_changed") <<< "$callers" | grep .)"
+        [ -n "$callers" ] || continue
+        grep -q -w -F -e "$name" <<< "$dod_text" && continue
+        n_rc_open=$((n_rc_open + 1))
+        reason CALLERS-UNCENSUSED "$what: код возврата изменён диффом, вызывающих вне диффа $(grep -c . <<< "$callers") ($(head -5 <<< "$callers" | paste -sd ' ' -)), а DoD-proof задач полосы имени «$name» не называет — перепись \`git grep -n -w '$name' $head\`, правка каждого вызывающего тем же изменением, имя с итогом — в DoD-proof"
+    done < <(printf '%s\n' "${rc_subj[@]+"${rc_subj[@]}"}" | sort -u)
+    echo "lane-precheck: код возврата — строк диффа $n_rc_lines, предметов $n_rc_subj, без переписи вызывающих $n_rc_open"
+fi
 
 # ── хук отправки на голове ─────────────────────────────────────────────
 url="$(git -C "$top" remote get-url origin 2> /dev/null || true)"
