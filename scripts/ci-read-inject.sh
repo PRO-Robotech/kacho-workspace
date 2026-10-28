@@ -900,6 +900,6 @@ while IFS=$'\t' read -r name _ _; do
 done < "$SC/list"
 
 echo
-echo "ci-read-inject: мутантов $((killed + survived + void + broken)), убито $killed, выжило $survived, не легло $void; клеток матрицы $(( $(wc -l < "$SC/list") * NC )), исполнено $ran, процессов $JOBS"
+echo "ci-read-inject: мутантов $((killed + survived + void + broken)), убито $killed, выжило $survived, не легло $void, прибор сломан (VOID) $broken; клеток матрицы $(( $(wc -l < "$SC/list") * NC )), исполнено $ran, процессов $JOBS"
 [ "$broken" -eq 0 ] || exit 2
 [ "$cases_ok" = 1 ] && [ "$survived" -eq 0 ] && [ "$void" -eq 0 ] && [ "$killed" -gt 0 ]
