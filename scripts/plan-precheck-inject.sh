@@ -165,7 +165,7 @@ assert "2" "$(run)" "голова не разрешается — код 2"
 echo "== строка ведомости ci-read пары запроса волны (ws#1510)"
 # Форма ведомости — шапка ci-read-expected.tsv: строка «репо TAB база TAB число TAB основание».
 # Пара 1054 — лишь в комментарии: ровно случай kaname#1069 (база эпика без строки).
-printf '# шапка\n# PRO-Robotech/kaname\t1054\t28\tв комментарии\nPRO-Robotech/kaname\tmain\t28\tзамер\nPRO-Robotech/kaname\t942\t0\tноль\nPRO-Robotech/kaname\t955\tмного\tне число\n' > "$W/ledger.tsv"
+printf '# шапка\n# PRO-Robotech/kaname\t1054\t28\tв комментарии\nPRO-Robotech/kaname\tmain\t28\tзамер\nPRO-Robotech/kaname\t942\t0\tноль\nPRO-Robotech/kaname\t955\tмного\tне число\nPRO-Robotech/kaname\t960\t28 \tпробел справа\nPRO-Robotech/kaname\t961\t 28\tпробел слева\nPRO-Robotech/kaname\t962\t28\r\n' > "$W/ledger.tsv"
 export CI_READ_EXPECTED="$W/ledger.tsv"
 plan '.'
 assert "0 - да" "$(run) $(reasons) $(has 'пара запроса волны (pr) не объявлена — не судилась')" "без pr — перепись называет несудимое, код 0"
@@ -179,6 +179,15 @@ plan '.pr = {repo: "PRO-Robotech/kaname", base: "942"}'
 assert "1 CI-LEDGER-MISSING да" "$(run) $(reasons) $(has "третье поле '0' не число ≥ 1")" "число 0 — строки нет: неизвестное не ноль"
 plan '.pr = {repo: "PRO-Robotech/kaname", base: "955"}'
 assert "1 CI-LEDGER-MISSING" "$(run) $(reasons)" "третье поле не число — строки нет"
+# ci-read.sh берёт поле через `$(…)`: снимаются лишь хвостовые переводы строки, пробел и CR остаются — там VOID.
+plan '.pr = {repo: "PRO-Robotech/kaname", base: "960"}'
+assert "1 CI-LEDGER-MISSING да" "$(run) $(reasons) $(has "третье поле '28 ' не число")" "«28 » — ci-read VOID, здесь не строка"
+plan '.pr = {repo: "PRO-Robotech/kaname", base: "961"}'
+assert "1 CI-LEDGER-MISSING да" "$(run) $(reasons) $(has "третье поле ' 28' не число")" "« 28» — ci-read VOID, здесь не строка"
+plan '.pr = {repo: "PRO-Robotech/kaname", base: "962"}'
+assert "1 CI-LEDGER-MISSING да" "$(run) $(reasons) $(has "третье поле '28\\\\r' не число")" "«28\\r» (строка CRLF) — ci-read VOID, здесь не строка"
+plan '.pr = null'
+assert "0 - да" "$(run) $(reasons) $(has 'пара запроса волны (pr) не объявлена — не судилась')" "pr: null — как не объявлена, код 0"
 plan '.pr = {repo: "kaname", base: "main"}'
 assert "2 да" "$(run) $(has 'PLAN-MALFORMED')" "pr без владельца — план неразборчив, код 2"
 plan '.pr = {repo: "PRO-Robotech/kaname"}'
@@ -231,6 +240,7 @@ mutant "crossRepo false включает сверку" 'if len(repos) == 2 or cr
 mutant "строка ведомости не судится" '    elif re.fullmatch(r"[1-9][0-9]*", got):' '    elif True:'
 mutant "пара — по одной базе" "LEDGER_AWK = '!/^#/ && \$1==r && \$2==b {print \$3; exit}'" "LEDGER_AWK = '!/^#/ && \$2==b {print \$3; exit}'"
 mutant "форма pr не судится" 'elif not pr_ok:' 'elif False:'
+mutant "поле ведомости чистится шире, чем \$(…) ci-read" '    got = p.stdout.rstrip("\n")' '    got = p.stdout.strip()'
 mutant "нечитаемая ведомость — как пары нет" '    if p.returncode != 0 or not os.path.isfile(ledger):' '    if False:'
 echo "plan-precheck-inject: контроль разошлось $ctl; мутантов $((mpass + mfail)), красных $mpass, выживших $mfail"
 [ "$ctl" -eq 0 ] && [ "$mfail" -eq 0 ]

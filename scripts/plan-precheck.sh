@@ -315,7 +315,8 @@ else:
     pr_repo, pr_base = str(pr["repo"]), str(pr["base"])
     p = subprocess.run(["awk", "-F\t", "-v", f"r={pr_repo}", "-v", f"b={pr_base}", LEDGER_AWK, ledger],
                        capture_output=True, text=True)
-    got = p.stdout.strip()
+    # Как `$(…)` в ci-read.sh: снимаются лишь хвостовые переводы строки — «28 », « 28», «28\r» там VOID, здесь отказ.
+    got = p.stdout.rstrip("\n")
     if p.returncode != 0 or not os.path.isfile(ledger):
         void("LEDGER-UNREADABLE", f"ведомость ci-read «{ledger}» не читается — строку пары {pr_repo} / {pr_base} не судить")
     elif re.fullmatch(r"[1-9][0-9]*", got):
