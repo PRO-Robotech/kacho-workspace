@@ -112,18 +112,35 @@ start)
     # `heavy-slot.sh --enqueue` сам отсоединяется и выходит сразу: внутри службы шага его ожидатель
     # гибнет с ней, .rc не появляется (урок 239bf44d) — форма одна, без detach.sh.
     for a in "$@"; do case "$a" in --enqueue) case " $* " in *heavy-slot*) say "heavy-slot.sh --enqueue сам отсоединяется и печатает свой .rc — зови его напрямую, без detach.sh start"; exit 64 ;; esac ;; esac; done
-    # Входы шага (ws#1476, уроки 6846b2ee и check-verifier 2026-10-28: путь к предмету не проверен —
-    # прогон впустую): довод-сценарий или файл сборки, которого нет, — 64; под heavy-slot (исполняет
-    # коммит головы) относительный — ещё и вне коммита либо с правкой.
-    slot=0; case " $* " in *heavy-slot*) slot=1 ;; esac
+    # Входы шага (ws#1476, урок 6846b2ee и возврат check-verifier 2026-10-28: путь к предмету не
+    # проверен — прогон впустую). Судятся лишь ПОЗИЦИИ входа, не любое слово с расширением (выходной
+    # путь `cp a.yaml out.yaml` — не вход): первое слово с «/» (и первое после «--» слота);
+    # сценарий интерпретатора bash|sh|dash|python3|python (первый не-флаг, -c и -m — без сценария);
+    # makefile у make (-f X, -fX, --file=X, --makefile=X; с -C D — от D). Нет — 64. После слова
+    # heavy-slot (слот исполняет коммит головы) вход внутри копии — ещё и в коммите без правки;
+    # абсолютный путь и симлинк — по пути и по цели в копии.
+    dx_in() {  # <путь> <под слотом 0|1>
+        [ -e "$1" ] || { say "вход «$1» не существует (от $PWD) — прогон ушёл бы впустую; проверь путь до start"; exit 64; }
+        [ "$2" = 1 ] || return 0
+        local top p r; top="$(git rev-parse --show-toplevel 2> /dev/null)" || return 0
+        for p in "$1" "$(readlink -f -- "$1")"; do
+            r="$(realpath -m -s --relative-to="$top" -- "$p")"; case "$r" in .. | ../*) continue ;; esac
+            { git -C "$top" ls-files --error-unmatch -- "$r" && git -C "$top" diff --quiet HEAD -- "$r"; } > /dev/null 2>&1 ||
+                { say "вход «$1» не в коммите головы — слот исполняет коммит, правка до него не дойдёт; закоммить до start"; exit 64; }
+        done
+    }
+    slot=0; first=1; interp=0; mk=0; next=""; mdir=""; mfs=()
     for a in "$@"; do
-        case "${a##*/}" in *.sh | *.py | *.jq | *.go | *.mk | Makefile | Dockerfile* | *.yaml | *.yml) ;; *) continue ;; esac
-        case "$a" in -* | *=* | *[[:space:]]*) continue ;; esac; [ "$a" != "$1" ] || ! command -v -- "$a" > /dev/null 2>&1 || continue
-        [ -e "$a" ] || { say "вход «$a» не существует (от $PWD) — прогон ушёл бы впустую; проверь путь до start"; exit 64; }
-        [ "$slot" = 1 ] && [ "${a:0:1}" != / ] && [ "$(git rev-parse --is-inside-work-tree 2> /dev/null)" = true ] || continue
-        { git ls-files --error-unmatch -- "$a" && git diff --quiet HEAD -- "$a"; } > /dev/null 2>&1 ||
-            { say "вход «$a» не в коммите головы — слот исполняет коммит, правка до него не дойдёт; закоммить до start"; exit 64; }
+        if [ -n "$next" ]; then [ "$next" = C ] && mdir="$a"; [ "$next" = f ] && mfs+=("$a"); next=""; continue; fi
+        if [ "$first" = 1 ]; then first=0; [[ "$a" == */* ]] && dx_in "$a" "$slot"
+        elif [ "$interp" = 1 ]; then case "$a" in -c | -m | -[!-]*c*) interp=0 ;; -*) ;; *) interp=0; dx_in "$a" "$slot" ;; esac
+        elif [ "$mk" = 1 ]; then
+            case "$a" in -f | --file | --makefile) next=f ;; --file=* | --makefile=*) mfs+=("${a#*=}") ;; -f?*) mfs+=("${a#-f}") ;;
+                -C | --directory) next=C ;; --directory=*) mdir="${a#*=}" ;; -C?*) mdir="${a#-C}" ;; esac
+        fi
+        case "${a##*/}" in bash | sh | dash | python3 | python) interp=1 ;; make | gmake) mk=1 ;; *heavy-slot*) slot=1 ;; --) [ "$slot" = 1 ] && first=1 ;; esac
     done
+    for m in "${mfs[@]}"; do case "$m" in /*) dx_in "$m" "$slot" ;; *) dx_in "${mdir:+$mdir/}$m" "$slot" ;; esac; done
     mkdir -p "$dir" 2>/dev/null || { say "каталог «$dir» не заводится — не запущено"; exit 69; }
     dir="$(cd "$dir" && pwd -P)"
     ign=1
