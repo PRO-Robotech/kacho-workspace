@@ -275,9 +275,18 @@ jobs:
       # его — кластер, которого у ранера нет. Доказательство гонит run.sh против
       # двойника kubectl: ns снимается на успехе, падении команды, TERM и OOM, код
       # команды доходит, адрес кластера в вывод не попадает, ns kacho и чужое ns —
-      # отказ.
+      # отказ. Сцена GS (ws#1503) исполняет НАСТОЯЩИЙ хук отправки kaname
+      # (prepush-classes.py, pr-rule-check.sh) из клона kaname; без клона набор — код 2
+      # («не выполнилось»), не зелёное. Клон — только чтение публичного репозитория без
+      # токена: анонимный https, помощник учётных данных и заголовки checkout сняты;
+      # полный, а не частичный и не мелкий — сцена берёт его объекты через alternates
+      # (дозагрузки там нет) и ищет хук по всем веткам origin; путь вне project/.
+      - name: клон kaname для сцены хука
+        run: >-
+          GIT_TERMINAL_PROMPT=0 git -c credential.helper= -c http.extraheader=
+          clone -q --no-checkout --no-tags https://github.com/PRO-Robotech/kaname.git .ci-kaname-hook
       - name: тяжёлый прогон в кластере снимает своё ns на каждом исходе
-        run: bash scripts/remote-heavy/inject.sh
+        run: KACHO_GHPOD_KANAME="$PWD/.ci-kaname-hook" bash scripts/remote-heavy/inject.sh
       # Шаги задания конвейера на машине (ws#1110) — инструмент предпрогона, не набор:
       # его предмет — задание продукта, которого у ранера нет. Доказательство гонит
       # ghjob.py на задании формы `stand` kaname: шаг always() видит пакет пропущенного
