@@ -289,7 +289,7 @@ sib_tail() { [ -z "$1" ] || printf ' — на origin есть ветка тог�
 sib_gh() {  # sib_gh <владелец/репо> <ветка>
     local n="${2%%[!0-9]*}"
     [ -n "$n" ] || return 0
-    sib_tail "$(ghget "repos/$1/git/matching-refs/heads/$n" "[.[].ref | ltrimstr(\"refs/heads/\") | select(test(\"^$n(-|\$)\")) | select(. != \"$2\")] | join(\" \")")"
+    sib_tail "$(ghget "repos/$1/git/matching-refs/heads/$n" "[.[].ref | ltrimstr(\"refs/heads/\") | select(test(\"^$n(-|\$)\"))] - [\"$2\"] | join(\" \")")"
 }
 sib_ls() {  # sib_ls <адрес origin> <ветка>
     local n="${2%%[!0-9]*}"
