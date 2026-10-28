@@ -7,18 +7,16 @@ description: "Сквозные пробы newman: край чёрным ящик
 
 ## Край проверяет newman, автор — тестировщик чёрного ящика
 
-Основание — архив (2026-09-23).
-
 edge-is-newman · поведение края утверждай newman-кейсом; край — то, с чем работает потребитель: gateway kacho, публичные пути kaname (`/iam/v1/authorize`, `/iam/v1/token`), поток `gateway/internal/subscriptionstream` (тело — до закрытия по `streamBudget`); HTTP-путь без proto — новый RPC (testing.md#new-rpc-newman-case); консоль — playwright · ЗАВЕСТИ new-rpc-newman-case · red: путь края покрыт только Go-пробой
 edge-internal-consequence · внутренний слушатель — не край; его следствие, видимое через край, утверждай newman, создав условие средствами потребителя или админ-проекции (`{{internalBaseUrl}}`), иначе — Go integration с причиной в шапке · ЗАВЕСТИ · red: следствие видно через край, проба только Go
-edge-author-black-box · кейс края пишет тестировщик — `integration-tester` до реализации, `qa-test-engineer` после выкатки и на баг, автор предмета его заказывает; вход — приёмка, контракт, документация, адрес края, провенанс, тронутые методы полными путями, план опыта; кода предмета нет, негатив — из контракта · dispatcher.md §3 «Край» · red: ожидание списано с реализации; кейс написан автором предмета
+edge-author-black-box · кейс края пишет тестировщик (§«Флоу кейса края»), автор предмета его заказывает; вход — приёмка, контракт, документация, адрес края, провенанс, тронутые методы полными путями, план опыта; кода предмета нет: ожидание, негатив и Given — из контракта, наблюдаемым краем, не механизмом реализации · dispatcher.md §3 «Край» · red: ожидание списано с реализации; Given — механизм реализации; кейс написан автором предмета
 edge-double-check · утверждай исход по приёмке И ответ, равный интерфейсу: статус и код (e2e-flow.md#assert-status-and-code); ключи тела — ровно `json_name`, типы и enum — из контракта; id, время, `reason`, текст — по `api-conventions.md`; `content-type`; метод, тип тела и `Accept` вне контракта — исход библиотеки (e2e-flow.md#status-set-computed) · ЗАВЕСТИ (сверка с `buf build proto`) · red: ответ сверен выборочными полями
 edge-composite-chain · родителей заводи краем по зависимости (сеть → подсеть → адрес), звено утверждает исход и id; сноси в обратном порядке с проверкой остатка, и после отказа посреди; негативы — родитель несуществующий, чужой, удаляемый, в другом проекте или аккаунте; удаление родителя с детьми — по контракту · ЗАВЕСТИ (уборка стеком в kacholib) · red: сироты после сноса; ребро края без кейса
 
 ## Свод классов: что утверждает каждый
 
 qa-classes-per-method · методу края — каждый применимый класс свода, неприменимый — в шапке набора с причиной; позитив — круг create→get→list→update→get→delete→get 404 со сверкой тела · ЗАВЕСТИ qa-class-census · red: метод с одним happy и одним negative; «кейсов N» без разреза по классам
-qa-class-label · метка `classes` — из словаря `docs/TAXONOMY.md` (CRUD, VAL, NEG, BVA, IDM, CONC, CONF, STATE, AUTHZ, PAGE, FILTER, SEC; AUTHN законен; синонимы nlb IDEM = IDM, AZD = AUTHZ, LSG — PAGE либо FILTER сводит перепись) и обязывает к утверждению вида: CONF — edge-double-check, VAL — имя поля, AUTHZ — субъект и исход · ЗАВЕСТИ qa-class-census · red: метка вне словаря либо без утверждения
+qa-class-label · метка `classes` — из словаря `docs/TAXONOMY.md` (CRUD, VAL, NEG, BVA, IDM, CONC, CONF, STATE, AUTHZ, PAGE, FILTER, SEC; AUTHN законен; синонимы nlb IDEM = IDM, AZD = AUTHZ, LSG = PAGE либо FILTER) и обязывает к утверждению вида: CONF — edge-double-check, VAL — имя поля, AUTHZ — субъект и исход · ЗАВЕСТИ qa-class-census · red: метка вне словаря либо без утверждения
 qa-create · (CRUD, VAL, NEG) минимум и полный набор полей; дубль уникального → ALREADY_EXISTS; нет обязательного → INVALID_ARGUMENT с именем поля; необязательное применено либо отвергнуто с именем поля (api-conventions.md#api-accepted-ignored); свой `id` — форма и дубль; ключ вне контракта не шлётся; get после операции равен телу, repeated — на ≥3 элементах · ЗАВЕСТИ qa-class-census · red: поле принято и проигнорировано
 qa-get · (NEG, CONF) есть → ресурс; нет → NOT_FOUND дословно; кривой id — testing.md#malformed-id-not-weakened; чужой — security-hardening.md#hard-hide-existence-byte-identical · ЗАВЕСТИ qa-class-census · red: чужой ресурс отличим от несуществующего
 qa-list · (PAGE, FILTER) пусто; страницы (и при `pageSize` 1) не пересекаются и покрывают всё, чужого нет; границы и мусорный токен — api-conventions.md#api-pagesize; чужой курсор — 200 и только своё, протухший — продолжение без повтора; фильтр верный и кривой; элемент равен get · ЗАВЕСТИ qa-class-census · red: элемент повторён или потерян между страницами
@@ -34,11 +32,11 @@ qa-rate · (SEC) окно темпа из контракта (kaname: вход, 
 
 ## Флоу кейса края
 
-flow-red-by-acceptance · до реализации `integration-tester` пишет по APPROVED приёмке красный кейс на каждый сценарий края, классы — из свода; вход — путь и отпечаток приёмки, ID сценариев, адрес края · `landing-reviewer` на сыром красном · red: кейс края написан после кода и сразу зелёный
+flow-red-by-acceptance · до реализации `integration-tester` пишет по APPROVED приёмке красный кейс на каждый сценарий края, классы — из свода; вход — путь и отпечаток приёмки, ID сценариев · `landing-reviewer` на сыром красном · red: кейс края написан после кода и сразу зелёный
 flow-after-deploy · после выкатки, тронувшей край, при провенансе «сходится» `qa-test-engineer`: smoke каждого тронутого пути, затем классы свода и хартия (объём «пути × классы» отдельно от находок); найденное — кейсом либо задачей · вниманием диспетчера · red: выкатка без прогона пути; «находок 0» без объёма
 flow-bug-regression · баг, видимый через край (и находка аудита), — красный кейс `qa-test-engineer` `# verifies <issue>` до фикса (testing.md#tdd-red-case-links-issue-no-skip); фикс его зеленит, не правя; Go RED-lock его не заменяет · tools/knownfailingsubject; наличие — вниманием `landing-reviewer` · red: фикс влит без кейса-замка края
 flow-handoff · сдача — `cases/*.py` с `classes` и ID сценария либо `# verifies` → validate-cases.py → gen.py; CASES-INDEX; RESULTS «исполнено N из M»; коллекция kaname — строка PRODUCER_LEDGER; новый набор — e2e-flow.md#new-suite-four-things · validate-cases.py; newman-suite-debt.py · red: кейс вне CASES-INDEX; набор вне обхода валидатора
-flow-acceptance · вердикт прогона — `landing-reviewer` по числам; кейс, не падавший ни разу, и правка kacholib или генератора — работа-проверка: `check-verifier` ломает утверждаемое, кейс краснеет с координатой · вниманием диспетчера: dispatcher.md §5 · red: кейс, не падавший ни разу, принят зелёным
+flow-acceptance · вердикт прогона — `landing-reviewer` по числам; сдача — с красным однофактной подмены Given; не падавший ни разу и правка kacholib или генератора — работа-проверка: `check-verifier` ломает утверждаемое, кейс краснеет с координатой · вниманием диспетчера: dispatcher.md §5 · red: зелен при любом значении условия; не падавший ни разу принят зелёным
 flow-flaky-is-defect · разный исход кейса на одной ревизии и стенде — дефект кейса либо продукта; карантин, пропуск и повтор до зелёного запрещены; сбой среды — недействителен весь прогон (testing-verdict.md#exhausted-run-is-third-category) · вниманием `landing-reviewer` · red: карантин; перезапуск до зелёного
 
 ## Толерантность к EC без маскировки: фикстуры и общий принцип
@@ -49,7 +47,7 @@ fixture-self-seed-per-case · self-seed свежего ресурса per-case (
 
 ## op-poll с РЕАЛЬНОЙ inter-poll задержкой
 
-poll-busywait-before-setnextrequest · ставь busy-wait прямо перед ним: const _x=Date.now(); while(Date.now()-_x<N) void 0; · ГЕЙТА НЕТ — кандидат: while (Date.now() - _ в 4 строках выше · red: петля на 30 итераций покрывает 0.15s вместо секунд
+poll-busywait-before-setnextrequest · ставь busy-wait прямо перед ним: const _x=Date.now(); while(Date.now()-_x<N) void 0; · ЗАВЕСТИ poll-grep-gate · red: петля на 30 итераций покрывает 0.15s вместо секунд
 poll-delay-scaled-from-cap · от cap петли: clamp(30000/cap, 100..500)ms; budget покрывает async-хвост ~15s · тот же grep-гейт · red: фиксированные 500ms при POLL_CAP=300 дают 150s worst-case
 poll-grep-gate · заведи grep-гейт: у каждого setNextRequest есть while (Date.now() - _ в 4 строках выше · ЗАВЕСТИ · red: 51 петля в 26 файлах без ожидания
 
