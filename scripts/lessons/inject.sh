@@ -674,12 +674,13 @@ mutant b1-no-block-needed py '        m = FIELD_RE.search(text)
 # B2 — первый осмотр хвостом 256 КиБ
 mutant b2-tail-first py 'isinstance(st, int) and 0 <= st <= size else 0' 'isinstance(st, int) and 0 <= st <= size else max(0, size - (1 << 18))'
 # B3 — сведение по тексту между агентами; пара workflow ↔ lessons.md не сведена
-mutant b3-text-dedup py "            rh = (r.get('sid'), r.get('agent'), r.get('ts'), k)" "            rh = (k, sha(re.sub(r'\\s+', ' ', r.get('raw', '')).strip()))"
+mutant b3-text-dedup py "            rh = (r.get('sid'), r.get('agent'), r.get('ts'), k) if r.get('src') == 'workflow' else r['id']" "            rh = (k, sha(re.sub(r'\\s+', ' ', r.get('raw', '')).strip()))"
 mutant b3-relay-counted py " or (r.get('relay') and flat(r) in authored):" ":"
 mutant b3-pair-off py "        if r.get('wave') and r.get('lane'):" "        if False:"
 # ws#1498 — повтор одного итога: счёт по id (две записи — два случая); scan пишет вторую запись
 mutant b3-moment-off py "            rh = (r.get('sid'), r.get('agent'), r.get('ts'), k)" "            rh = r['id']"
 mutant b3-moment-no-ts py "            rh = (r.get('sid'), r.get('agent'), r.get('ts'), k)" "            rh = (r.get('sid'), r.get('agent'), k)"
+MSUITE=suite_key mutant b3-moment-all-src py "if r.get('src') == 'workflow' else r['id']" "if True else r['id']"
 mutant b3-scan-dup py '                if k is not None and k in keys:' '                if False:'
 # ws#1498 — граница исключения: ядро порождает процесс
 mutant core-spawns py 'import calendar

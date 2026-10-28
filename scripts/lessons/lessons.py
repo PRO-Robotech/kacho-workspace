@@ -551,9 +551,10 @@ def analyse(store, now, aliases, since=0.0):
         if r.get('wave') and r.get('lane'):
             rh = (r['wave'], r['lane'], sha(flat(r)))
         else:
-            # Агент и момент записи (ws#1498): прежние сборки писали один итог дважды —
-            # поле lesson и блок ВОЗВРАТ, — и класс получал второй «случай» от одного агента.
-            rh = (r.get('sid'), r.get('agent'), r.get('ts'), k)
+            # Итог workflow — по агенту и моменту (ws#1498): прежние сборки писали один итог
+            # дважды — поле lesson и блок ВОЗВРАТ, — и класс получал второй «случай» от одного
+            # агента. Строки диспетчера одного хода — разные уроки (места склейки), не повтор.
+            rh = (r.get('sid'), r.get('agent'), r.get('ts'), k) if r.get('src') == 'workflow' else r['id']
         if rh in seen:
             continue
         seen.add(rh)
