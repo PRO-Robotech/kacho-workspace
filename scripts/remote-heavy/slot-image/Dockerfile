@@ -34,7 +34,8 @@ RUN mkdir -p /tmp/dl && cd /tmp/dl \
  && dl https://github.com/bats-core/bats-core/archive/refs/tags/v1.10.0.tar.gz bats.tgz a1a9f7875aa4b6a9480ca384d5865f1ccf1b0b1faead6b47aa47d79709a5c5fd \
  && tar -xzf bats.tgz && bash bats-core-1.10.0/install.sh /usr/local > /dev/null \
  && dl https://nodejs.org/dist/v26.12.1/node-v26.12.1-linux-x64.tar.xz node.txz 6170b2d474e1c626f43cff3adc118df9fe3b573258a4fc3d850c8dbc6b079bbd \
- && tar -xJf node.txz -C /usr/local --strip-components=1 --exclude='*/CHANGELOG.md' --exclude='*/README.md' --exclude='*/LICENSE' \
+ && tar -xJf node.txz -C /usr/local --strip-components=1 --exclude=node-v26.12.1-linux-x64/CHANGELOG.md \
+      --exclude=node-v26.12.1-linux-x64/README.md --exclude=node-v26.12.1-linux-x64/LICENSE \
  && dl https://get.helm.sh/helm-v4.2.4-linux-amd64.tar.gz helm.tgz c306b46f719b0a4da32d0f78ee21bf90ce8d602f15b22ab753f0674d1670a7f3 \
  && tar -xzf helm.tgz && install -m 0755 linux-amd64/helm /usr/local/bin/helm \
  && dl https://github.com/bufbuild/buf/releases/download/v1.72.0/buf-Linux-x86_64 buf 8720830e26a733da55bb89bcd3cb44849c0965fc0c44fb5d691cccdc64dca5af \
