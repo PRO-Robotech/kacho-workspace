@@ -4010,7 +4010,7 @@ ws_std() {
     [ "$skip" = go ] || { printf '#!/bin/sh\necho "go version go1.26.9 linux/amd64"\n' > "$WT/go"; chmod +x "$WT/go"; }
     [ "$skip" = node ] || { printf '#!/bin/sh\necho v26.8.1\n' > "$WT/node"; chmod +x "$WT/node"; }
     if [ "$skip" != python3 ]; then
-        printf '#!/bin/sh\nPYTHONPATH=%s exec %s %s "$@"\n' "$WT/pylib" "$PY3" "${noyaml:+-S}" > "$WT/python3"; chmod +x "$WT/python3"
+        printf '#!/bin/sh\nexec %s PYTHONPATH=%s %s %s "$@"\n' "$(command -v env)" "$WT/pylib" "$PY3" "${noyaml:+-S}" > "$WT/python3"; chmod +x "$WT/python3"
     fi
     [ "$skip" = yq ] || { printf '#!/bin/sh\necho "yq (https://github.com/mikefarah/yq/) version %s"\n' "$yv" > "$WT/yq"; chmod +x "$WT/yq"; }
     [ "$skip" = shellcheck ] || { printf '#!/bin/sh\nprintf "ShellCheck - shell script analysis tool\\nversion: %s\\nlicense: GNU\\n"\n' "$sv" > "$WT/shellcheck"; chmod +x "$WT/shellcheck"; }
