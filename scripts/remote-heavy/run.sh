@@ -1332,7 +1332,9 @@ slot_image() {
     [ "$(wc -l <<< "$line")" -eq 1 ] || { SLOT_WHY="версия go $v в slot-image/go-versions — не одной строкой"; return 1; }
     read -r _ dg rest <<< "$line"
     [ -n "$dg" ] || { SLOT_WHY="digest образа под go $v не закреплён в slot-image/go-versions (публикация — slot-image.yaml с main, строка digest — PR в main)"; return 1; }
-    [[ "$dg" =~ ^sha256:[0-9a-f]{64}$ ]] && [ -z "$rest" ] || { SLOT_WHY="строка go $v в slot-image/go-versions вне формы «<версия> sha256:<64 знака>»"; return 1; }
+    if ! [[ "$dg" =~ ^sha256:[0-9a-f]{64}$ ]] || [ -n "$rest" ]; then
+        SLOT_WHY="строка go $v в slot-image/go-versions вне формы «<версия> sha256:<64 знака>»"; return 1
+    fi
     SLOT_REF="$SLOT_REPO@$dg"
 }
 if slot_image "$IMG_GO"; then
