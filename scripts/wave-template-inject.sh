@@ -1106,6 +1106,8 @@ for (const repo of ['PRO-Robotech/kaname-iam-operator', 'PRO-Robotech/registry-o
   ok(q.res.ok === false && idx(q.calls, 'mech:operator-publish:1') < 0 && /wave-reviewer/.test(q.res.stage || ''), 'operator R1: вердикт рецензента о другой голове — отправки нет', JSON.stringify(q.res).slice(0, 300))
   q = await run({ args: r1, plan: [P('r1.json')], wave: [{ verdict: 'void' }] })
   ok(q.res.ok === false && idx(q.calls, 'mech:operator-publish:1') < 0, 'operator R1: рецензент не принял — отправки нет')
+  q = await run({ args: opArgs, plan: [P('r0.json')], operatorPublish: [{ pr: 0 }] })
+  ok(q.res.ok === false && idx(q.calls, 'mech:stand:0') < 0 && /отправка сборки оператора/.test(q.res.stage || ''), 'operator: отправка без номера PR — стенд и CI не зовутся (ws#935)', JSON.stringify(q.res).slice(0, 300))
   q = await run({ args: opArgs, plan: [P('r0.json')], operatorLocal: [{ questions: ['сократить заголовки слияний до публикации?'] }] })
   ok(q.res.state === 'question' && (q.res.questions || []).length === 1 && idx(q.calls, 'mech:operator-cluster:1') < 0 && idx(q.calls, 'mech:operator-publish:1') < 0, 'operator: вопрос сборщика без решения — стоп до кластера и отправки', JSON.stringify(q.res).slice(0, 300))
   q = await run({ args: { ...opArgs, asmAnswers: 'сократить до 72 знаков' }, plan: [P('r0.json')], operatorLocal: [{ questions: ['сократить заголовки слияний до публикации?'] }] })
@@ -1249,7 +1251,8 @@ mutant "непросмотренная голова не останавлива�
 mutant "повтор — и принявшим" "const again = await Promise.all(back.map(x => review(x.r, l, impl.head, prev, 'review-' + x.r + '-2')))" "const again = await Promise.all(roles.map(r => review(r, l, impl.head, prev, 'review-' + r + '-2')))"
 mutant "перепин не заводится" "onlySkew && round === 1)" "onlySkew && round === 0)"
 mutant "рецензент волны на каждую полосу" "if (steps.has('wave-reviewer')) {" "for (const _ of order) if (steps.has('wave-reviewer')) {"
-mutant "номер PR не судится" "if (!Number.isInteger(asm.pr) || asm.pr < 1) return" "if (false) return"
+mutant "номер PR не судится" "if (!operatorStand && prBad(asm)) return" "if (false) return"
+mutant "номер PR отправки оператора не судится (ws#1491)" "!sha40(asm.head) || prBad(asm)) return { ok: false, state: 'failed', stage: 'отправка сборки оператора" "!sha40(asm.head)) return { ok: false, state: 'failed', stage: 'отправка сборки оператора"
 mutant "pr в схеме — любое число" "pr: { type: 'integer', minimum: 1 }" "pr: { type: 'number' }"
 mutant "CI идёт после ожидания — провал" "if (ciState(ci) === 'running' && ciHead === asm.head) return" "if (false) return"
 mutant "исход демона без пути .state" "autoland: AL_STATE, pr: asm.pr, head: asm.head, ...gatesOf(), errors" "pr: asm.pr, head: asm.head, ...gatesOf(), errors"
