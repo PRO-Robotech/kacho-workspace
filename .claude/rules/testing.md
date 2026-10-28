@@ -7,11 +7,9 @@ description: "Тестирование (строгий TDD)"
 
 ## Части этого правила
 
-| файл | предмет |
-|---|---|
-| `.claude/rules/testing-verdict.md` | чтение вердикта: текст отказа, недействительный прогон, слепой разборщик |
-| `.claude/rules/testing-newman.md` | newman: край, свод классов, флоу кейса, EC, поллер, параллельный прогон |
-| `.claude/rules/testing-load.md` | замер под нагрузкой: что делает числа недействительными |
+- `testing-verdict.md` — чтение вердикта: текст отказа, недействительный прогон, слепой разборщик
+- `testing-newman.md` — newman: край, свод классов, флоу кейса, EC, поллер, параллельный прогон
+- `testing-load.md` — замер под нагрузкой: что делает числа недействительными
 
 ## E2E НИКОГДА не пропускаются — только честные тесты
 
@@ -42,19 +40,19 @@ tests-followup-issue-form · форма `Tests-followup: #<N>` на открыт
 no-todo-skip-in-tests · запрещены так же строго, как в проде · TestDeferralGateCatchesAMarkerInProductionCode · red: маркер отсрочки в tests/
 tdd-red-case-links-issue-no-skip · пометь `# verifies <issue-url>` и НЕ ставь skip · tools/knownfailingsubject · red: кейс отключён вместо пометки
 known-failing-declared · объяви в RESULTS.md «Known failing — product bugs» и issue · tools/knownfailingsubject · red: красный кейс не объявлен
-test-only-pr-no-prod-code · трогай только tests/ и docs/; любой internal/cmd/migrations-фикс — отдельный PR со своим issue · ЗАВЕСТИ · red: в test-only PR правлен internal/
+test-only-pr-no-prod-code · только tests/ и docs/; фикс internal/cmd/migrations — отдельный PR со своим issue · ЗАВЕСТИ · red: в test-only PR правлен internal/
 
 ## Пирамида и инфраструктура
 
-unit-mock-ports-no-sleep · моки port-интерфейсов (repomock/kachomock); LRO — детерминированно AwaitOpDone · TestWaitOrderGateRedOnSleepLoopWait · red: time.Sleep вместо AwaitOpDone
+unit-mock-ports-no-sleep · моки port-интерфейсов (repomock/kachomock); LRO — детерминированно AwaitOpDone; шаг на управляемых часах — до возврата обработчика (сигнал, WaitGroup, счётчик), не до ответа · TestWaitOrderGateRedOnSleepLoopWait; часы — вниманием · red: time.Sleep вместо AwaitOpDone; часы сдвинуты до возврата
 usecase-needs-postgres-is-leak · утечка adapter в use-case — чинится слой · TestUseCaseLayerHasOneLayout · red: usecase_test.go поднимает контейнер
 integration-covers-sql-races · CRUD, EXCLUDE/FK/UNIQUE, outbox-транзакционность, гонки CAS/OCC/SKIP-LOCKED — на testcontainers Postgres 16 · TestNoPackageStartsAContainerPerTest · red: миграция или CAS-путь без гоночного теста
-e2e-http-through-gateway-only · ходи только HTTP через край (testing-newman.md#edge-is-newman) · TestNewmanConsumersReachTheSpineThroughTheSuiteBinding · red: кейс зовёт сервис напрямую
-newman-case-workflow · прогони validate-cases.py, затем gen.py · validate-cases.py в ci.yaml; gen.py перед прогоном (newman-e2e.sh, newman-parallel.sh) · red: коллекция правлена руками
-ryw-retry-first-own-read · клиентский bounded-retry: retry_until_authorized / retry_until_present · TestOwnFreshReadWrapPredicateWiredInEveryNewmanGenerator · red: кейс падает на 403/404 своего же созданного ресурса
+e2e-http-through-gateway-only · только HTTP через край (testing-newman.md#edge-is-newman) · TestNewmanConsumersReachTheSpineThroughTheSuiteBinding · red: кейс зовёт сервис напрямую
+newman-case-workflow · прогони validate-cases.py, затем gen.py · validate-cases.py в ci.yaml; gen.py в newman-e2e.sh, newman-parallel.sh · red: коллекция правлена руками
+ryw-retry-first-own-read · клиентский bounded-retry: retry_until_authorized / retry_until_present · TestOwnFreshReadWrapPredicateWiredInEveryNewmanGenerator · red: кейс падает на 403/404 своего ресурса
 ryw-retry-bounded-budget · конечный (~10s) и fail-open: по исчерпании падает реальный assert · TestOwnFreshReadWrapPredicateWiredInEveryNewmanGenerator · red: retry без предела либо проглатывающий отказ
 ryw-retry-never-on-negatives · НИКОГДА — на негатив, cross-account, absent-id, lst-excludes, sync-4xx, давно существующий ресурс · TestDeleteRetryWindowGate_SilentWhenStepDeclares404AsItsOutcome · red: обёрнут negative-шаг
-authz-first-negative-tolerance · oneOf([400,403,404]) — assert_absent_id_rejected / assert_unscoped_rejected · TestResponseCodeFormCorpusIsHonoredByEveryNewmanGenerator · red: STRICT-403 негатив ложно падает на authz-first отказе
+authz-first-negative-tolerance · oneOf([400,403,404]) — assert_absent_id_rejected / assert_unscoped_rejected · TestResponseCodeFormCorpusIsHonoredByEveryNewmanGenerator · red: STRICT-403 негатив падает на authz-first отказе
 malformed-id-not-weakened · НЕ ослабляй: они доходят до backend (400/404) · TestResponseCodeFormCorpusIsHonoredByEveryNewmanGenerator · red: в такой негатив добавлен 403
 product-bug-go-fix-not-tolerance · Go-фикс с RED-lock, а не толерантность утверждения · ЗАВЕСТИ · red: в кейс добавлен лишний допустимый код вместо фикса
 per-service-fixture-isolation · свой account и home/cross проекты (setup.sh), scope через existingProjectId; shared-account — только у authz-deny matrix · TestNewmanConsumersReachTheSpineThroughTheSuiteBinding · red: два suite делят account
@@ -137,7 +135,7 @@ prop-against-growth-needs-subject · от роста — отсрочка с и�
 
 positive-control-needs-nonempty · требуй НЕПУСТОГО предмета; счёт строк разметки не годится · TestEdgeCatalogBlockStorageGate_FindsAnEmptyPositiveControl · red: «флажков нет» зеленеет там, где нет ничего
 selfcheck-on-synthetic-not-live-entry · строй на синтетике в t.TempDir(), не на живой записи его ведомости · TestBakedLedgerInjection_EntryWithoutSubjectIsFound · red: ведомость опустела — самопроверка покраснела
-empty-ledger-must-pass · обязан проходить (то же, что `testing-verdict.md#probe-passes-on-empty-ledger`) · TestBakedLedgerInjection_AnEmptyLedgerIsTheGoalNotAFailure · red: соблазн вернуть запись ради зелёного
+empty-ledger-must-pass · обязан проходить — `testing-verdict.md#probe-passes-on-empty-ledger` · TestBakedLedgerInjection_AnEmptyLedgerIsTheGoalNotAFailure · red: соблазн вернуть запись ради зелёного
 ledger-pair-second-half · заведи обе: запись без предмета — находка, запись С предметом — молчание · TestBakedLedgerInjection_EntryWithASubjectIsSilent · red: пара односторонняя
 shared-source-instead-of-reading-text · общий источник, импортируемый обеими сторонами, — вместо чтения чужого исходника · TestPostureVocabularyHasASingleSource · red: гейт добывает чужой предикат чтением текста
 local-run-says-how-many-executed · «отказов 0» — не вердикт, пока не сказано, сколько исполнилось · scripts/hooks · red: «отказов 0, НЕ выполнено 6» прочитано как зелёное
