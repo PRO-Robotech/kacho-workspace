@@ -785,7 +785,7 @@ assert "0" "$(mut repo-merge 'elif [ "$got" != "squash=false merge=true rebase=f
 assert "1 нет" "$(mut sib-off 'sib_tail() { [ -z "$1" ] ||' 'sib_tail() { true ||' 'branch o/r 2-gone') $(has 'того же номера')" "мутант «ветка того же номера не называется» (ws#1498): причина без имени — проба выше его ловит"
 assert "1 да" "$(mut sib-prefix 'select(test(\"^$n(-|\$)\"))' 'select(test(\"^$n\"))' 'branch o/r 2-gone') $(has '20-other')" "мутант «номер — префиксом без границы» (ws#1498): 20-other назван веткой номера 2 — проба выше его ловит"
 assert "1 нет" "$(LANE_PRECHECK_GIT_BASE="$W/gb" mut sib-ls 'if (r != b && (r == n || index(r, n "-") == 1))' 'if (0)' 'head o/r 1-gone ls-remote') $(has 'того же номера')" "мутант «ls-remote соседа не ищет» (ws#1498): проба выше его ловит"
-assert "0" "$(LANE_PRECHECK_GIT_BASE="$W/gb" mut pushed'[ "$kind" = pushed ] && [ "$got" != "$want" ]' 'false' "pushed o/r 1-lane $BASE_SHA")" "мутант «голова отправки не сверяется»: непредъявленная голова проходит — проба выше его ловит"
+assert "0" "$(LANE_PRECHECK_GIT_BASE="$W/gb" mut pushed '[ "$kind" = pushed ] && [ "$got" != "$want" ]' 'false' "pushed o/r 1-lane $BASE_SHA")" "мутант «голова отправки не сверяется»: непредъявленная голова проходит — проба выше его ловит"
 
 [ -z "${CHERRY_GV:-}" ] || assert "1" "$(mut tags-cut 'if [ "${nf:-0}" -gt 0 ]; then keep=' 'if true; then keep=' "cherry-vet $CHERRY_GV 774")" "мутант «теги не отсекаются»: tools.go даёт ложь vet — проба выше его ловит"
 [ -z "${CHERRY_GV:-}" ] || assert "1" "$(mut testdata '*/testdata/*) ctd=$((ctd + 1)); continue ;;' '*/testdata-never/*) ;;' "cherry-vet $CHERRY_GV 774")" "мутант «testdata судится»: битый файл testdata даёт ложь — проба выше его ловит"
