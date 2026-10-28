@@ -146,6 +146,16 @@
 # их подряд: шаг конвейера вырос до 100+ с и оборвал задание по пределу (прогон
 # 38182137070).
 #
+# РАННИЙ ВЫХОД УБИТОГО МУТАНТА (ws#1481, ws#1229). Контроль исполняет КАЖДЫЙ случай.
+# Мутант — до первого расхождения: клетка, давшая FAIL, ставит метку KILLED в каталог
+# исходов мутанта, и клетки того же мутанта, стартующие после неё, не исполняются
+# (исход SKIP). Вердикт мутанта — «расхождений ≥ 1» — от непрогнанных клеток не
+# зависит: они могли бы лишь добавить расхождений убитому. Матрица (сценарии ×
+# случаи) не урезается; итог печатает её размер и число исполненных клеток. Замер
+# прогона 40630285095 (PR ws#1472): клеток 9724, шаг 1223 с; сумма позиций первого
+# убивающего случая по 67 мутантам — 3868, с контролем — 4011 клеток (41 %). SKIP без
+# метки KILLED (метка ставится лишь после FAIL) — поломка прибора, код 2.
+#
 # МУТАНТЫ (вторая половина доказательства): копия ci-read.sh с ровно одним
 # дефектом, превращающим красное в зелёное, прогоняется тем же набором случаев;
 # мутант обязан дать хотя бы одно расхождение (KILLED). Мутант, правка которого
@@ -259,12 +269,16 @@ pre_e="$(tr -d '\r' < "$T/pre/200" | sed -n 's/^Etag: //p')"
     || { echo "VOID: двойник gh не отдаёт форму условного чтения (-i, If-None-Match → 304)" >&2; exit 2; }
 
 # Исполнитель одной клетки матрицы: <сценарий ci-read> <живая ведомость> <каталог
-# случая> <файл исхода>. Исход — строка «OK|FAIL TAB код»; при FAIL следом хвост вывода.
+# случая> <файл исхода> <full|first>. Исход — строка «OK|FAIL TAB код»; при FAIL следом
+# хвост вывода. first — мутант: метка KILLED рядом с исходом — клетка не исполняется
+# (исход «SKIP»), FAIL ставит метку. full — контроль, исполняется всегда.
 # Ведомость случая: файл ledger.tsv в каталоге случая, либо row (репозиторий TAB
 # база) — копия ЖИВОЙ ведомости сценария с числом этой строки, заменённым на fxn.
 cat > "$T/cell.sh" <<'CELL'
 #!/usr/bin/env bash
-S="$1"; LV="$2"; C="$3"; O="$4"
+S="$1"; LV="$2"; C="$3"; O="$4"; MODE="$5"
+K="${O%/*}/KILLED"
+if [ "$MODE" = first ] && [ -e "$K" ]; then printf 'SKIP\n' > "$O"; exit 0; fi
 L="$C/ledger.tsv"
 if [ -f "$C/row" ]; then
     L="$O.ledger"
@@ -294,6 +308,7 @@ if [ "$code" -eq "$(cat "$C/code")" ] && { [ -z "$pat" ] || grep -qP "$pat" <<<"
     printf 'OK\t%s\n' "$code" > "$O"
 else
     { printf 'FAIL\t%s\n' "$code"; tail -8 <<<"$out"; } > "$O"
+    if [ "$MODE" = first ]; then : > "$K"; fi
 fi
 CELL
 chmod +x "$T/cell.sh"
@@ -824,22 +839,30 @@ while IFS=$'\t' read -r rr rb; do
     printf '%s\t%s\t%s\n' "$name" "$HERE/ci-read.sh" "$SC/ledger.$name.tsv" >> "$SC/list"
 done < "$ROWS"
 
-# --- матрица: каждая клетка — отдельный процесс, JOBS одновременно
+# --- матрица: каждая клетка — отдельный процесс, JOBS одновременно; порядок —
+# сценарий за сценарием, поэтому метка KILLED мутанта снимает его оставшиеся клетки
 R="$T/res"
 while IFS=$'\t' read -r name scr lv; do
     mkdir -p "$R/$name"
-    for c in "$CASES"/*; do printf '%s\0%s\0%s\0%s\0' "$scr" "$lv" "$c" "$R/$name/$(basename "$c")"; done
-done < "$SC/list" | xargs -0 -n 4 -P "$JOBS" "$T/cell.sh"
+    mode=first; [ "$name" != control ] || mode=full
+    for c in "$CASES"/*; do printf '%s\0%s\0%s\0%s\0%s\0' "$scr" "$lv" "$c" "$R/$name/$(basename "$c")" "$mode"; done
+done < "$SC/list" | xargs -0 -n 5 -P "$JOBS" "$T/cell.sh"
 xs=$?
 [ "$xs" -eq 0 ] || { echo "VOID: исполнитель матрицы вернул $xs" >&2; exit 2; }
 
 # --- свод: контроль — построчно, мутанты — строкой на мутант
-tally() {  # tally <сценарий> → pass fail failed-перечень в переменные
-    pass=0; fail=0; failed=""
+tally() {  # tally <сценарий> → pass fail skip failed-перечень в переменные; чтение — без порождения процессов
+    pass=0; fail=0; skip=0; failed=""
+    local c o first code
     for c in "$CASES"/*; do
-        o="$R/$1/$(basename "$c")"
-        if [ -s "$o" ] && [ "$(head -c 2 "$o")" = OK ]; then pass=$((pass + 1))
-        else fail=$((fail + 1)); failed="$failed; $(cat "$c/name") (код $(head -1 "$o" 2>/dev/null | cut -f2))"; fi
+        o="$R/$1/${c##*/}"; first=""
+        [ -s "$o" ] && IFS= read -r first < "$o"
+        case "$first" in
+            OK$'\t'*) pass=$((pass + 1)) ;;
+            SKIP) skip=$((skip + 1)) ;;
+            *) fail=$((fail + 1)); code="${first#*$'\t'}"; [ "$code" != "$first" ] || code=""
+               failed="$failed; $(< "$c/name") (код $code)" ;;
+        esac
     done
 }
 sec=""
@@ -855,22 +878,26 @@ for c in "$CASES"/*; do
 done
 tally control
 echo
-echo "ci-read-inject: случаев $((pass + fail)), сошлось $pass, разошлось $fail"
-cases_ok=0; [ "$fail" -eq 0 ] && [ "$pass" -gt 0 ] && cases_ok=1
+echo "ci-read-inject: случаев $((pass + fail + skip)), сошлось $pass, разошлось $fail"
+cases_ok=0; [ "$fail" -eq 0 ] && [ "$skip" -eq 0 ] && [ "$pass" -eq "$NC" ] && cases_ok=1
+ran=$((pass + fail))
 
 echo
-echo "== мутанты — каждый обязан покраснеть"
-killed=0; survived=0
+echo "== мутанты — каждый обязан покраснеть (ранний выход: после расхождения клетки мутанта не исполняются)"
+killed=0; survived=0; broken=0
 while IFS=$'\t' read -r name _ _; do
     [ "$name" != control ] || continue
-    tally "$name"
+    tally "$name"; ran=$((ran + pass + fail))
     if [ "$fail" -gt 0 ]; then
-        killed=$((killed + 1)); echo "  MUTANT $name → RESULT KILLED (разошлось $fail из $((pass + fail)): ${failed#; })"
+        killed=$((killed + 1)); echo "  MUTANT $name → RESULT KILLED (разошлось $fail из исполненных $((pass + fail)), снято ранним выходом $skip: ${failed#; })"
+    elif [ "$skip" -gt 0 ]; then
+        broken=$((broken + 1)); echo "  MUTANT $name → RESULT VOID (снято $skip клеток без расхождения — метка KILLED без FAIL, прибор сломан)"
     else
         survived=$((survived + 1)); echo "  MUTANT $name → RESULT SURVIVED (все $pass случаев сошлись)"
     fi
 done < "$SC/list"
 
 echo
-echo "ci-read-inject: мутантов $((killed + survived + void)), убито $killed, выжило $survived, не легло $void; клеток $(( $(wc -l < "$SC/list") * NC )), процессов $JOBS"
+echo "ci-read-inject: мутантов $((killed + survived + void + broken)), убито $killed, выжило $survived, не легло $void; клеток матрицы $(( $(wc -l < "$SC/list") * NC )), исполнено $ran, процессов $JOBS"
+[ "$broken" -eq 0 ] || exit 2
 [ "$cases_ok" = 1 ] && [ "$survived" -eq 0 ] && [ "$void" -eq 0 ] && [ "$killed" -gt 0 ]
