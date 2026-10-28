@@ -3139,14 +3139,15 @@ b="$(mksandbox)"
 c21_sub "$b/.claude/workflows/wave.js" ", 'report', 'lesson'] }" ", 'report'] }"
 run_says 1 "$b" "инъекция: lesson не обязателен в схеме исполнителя — краснеет" "$C21" "сбор уроков"
 b="$(mksandbox)"
-c21_sub "$b/CLAUDE.md" "(\`setsid env --default-signal=PIPE …\`, код — в \`.rc\`)" "(\`setsid nohup … > журнал &\`, pid-файл)"
+c21_sub "$b/CLAUDE.md" "(\`setsid env --default-signal=PIPE …\`)" "(\`setsid nohup … > журнал &\`, pid-файл)"
 run_says 1 "$b" "инъекция: протокол снова предписывает setsid nohup — краснеет" "$C21" "снова предписан «setsid nohup»"
 b="$(mksandbox)"
 c21_sub "$b/.claude/agents/git-operator.md" '--subject "#<N> merge #<PR>: <суть>"' '--subject "#<N> <суть>"'
 run_says 1 "$b" "инъекция: тема вливания без merge #<M> (ws#1029) — краснеет" "$C21" "прежняя тема вливания"
 # G. пачка 2026-10-16 (ws#1110): тело нормы выворачивается при сохранённом окружении.
 b="$(mksandbox)"
-c21_sub "$b/CLAUDE.md" "ОДИН раз \`heavy-slot.sh --enqueue <каталог>\`; повтор — \`--resume <билет>\`" "повтором короткого шага, сколько потребуется"
+c21_sub "$b/CLAUDE.md" "ОДИН раз
+  \`heavy-slot.sh --enqueue <каталог>\`; повтор — \`--resume <билет>\`" "повтором короткого шага, сколько потребуется"
 run_says 1 "$b" "инъекция: протокол снова предписывает перезапуск ожидания вместо --enqueue — краснеет" "$C21" "пачка 2026-10-16"
 b="$(mksandbox)"
 c21_sub "$b/CLAUDE.md" "> <журнал> 2>&1\` (141 после хука — снятый простоем ssh, слот ставит ему
