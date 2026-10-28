@@ -26,7 +26,14 @@
 #      `testing-verdict.md#external-cluster-first` — полный прогон до CI;
 #   F. механизмы: `ci-read.sh` — красное при идущих код 3; ci.yaml гонит
 #      `stand-report-inject.sh` — разбором YAML: строкой `run` включённого шага, не
-#      комментарием и не `|| true`; `landing-precheck.sh` судит `--stand-report`.
+#      комментарием и не `|| true`; `landing-precheck.sh` судит `--stand-report`;
+#   G. исключение kaname (ws#1460, владелец 2026-10-27, цитата — архив): перечень STAND_EXEMPT
+#      в `wave.js` и `landing-precheck.sh` — ровно kaname (клаузула вместе с ограничителем),
+#      ветвь исключения в шаблоне — до шага стенда, в посадке — до суда отчёта; правило, архив
+#      и протокол несут оговорку; проба шаблона — раздел ws#1460 и мутанты расширения и снятия.
+#      Условие исключения судится ЦЕЛЫМ выражением (со строками-продолжениями), не присутствием
+#      литерала: дописанное `|| …` — находка; `testing-verdict.md#external-cluster-kaname` —
+#      отдельной нормой; итог пробы шаблона — её последняя исполняемая строка (общий страж — check-29).
 #
 # ПРЕДПОСЫЛКА (VOID, код 2): все носители есть в дереве.
 # Коды: 0 — находок нет; 1 — находка с координатой; 2 — предмета нет.
@@ -59,6 +66,9 @@ QUOTE16 = ('никогда нельзя решать проблемы по од�
            'потом прогоняется тесты на внешнем кластере, потом в master ci. Если найдены ошибки так '
            'же сначала перепись ошибок, массовое решение, дальше проверка только того что было '
            'красное, если все зеленое на внешнем кластере гонится весь прогон и в CI')
+QUOTE27 = ('Сам репозиторий канаме изолирован от процесса и туда можно добавить тесты которые '
+           'имитировали требуемые проверки, сама проверка на мастер ci занимают меньше часа а мы не '
+           'можем влить этот код больше суток')
 
 
 def void(msg):
@@ -112,13 +122,15 @@ else:
                       'два красных CI подряд — стоп, разбор паритета',
                       'после каждой волны — CI MR эпика и пробное схождение',
                       'событие и блок `event` — одним заходом',
+                      'исключение kaname — вливается по своему CI, стенд не обязателен, пробел — тестом в kaname (владелец 2026-10-27, архив',
                       'tooling-gate check-23',
                       'red: правка до переписи; один корень при большем числе; ready без отчёта стенда; третья отправка CI; класс без цитаты'],
          'at-red-ci-one-round без требования')
 need(ARCH, texts[ARCH], [QUOTE13, '«Запиши в рул и запомни что бы компакция не убила память»',
                          '#779, #781, #783, #3201, #3203', 'kaname 24 проверки, kacho 74, 40–90 мин',
                          '(~1,5 ч)', 'круг починки стоил 5–7 ч вместо 2–2,5',
-                         QUOTE16, 'kacho#3259 прошёл 5 полных кругов CI по 52–63 мин'],
+                         QUOTE16, 'kacho#3259 прошёл 5 полных кругов CI по 52–63 мин',
+                         QUOTE27, 'kaname вливается по своему CI; внешняя ступень стенда для него не обязательна'],
      'архив: цитаты владельца 2026-10-13 и 2026-10-16 и замеры')
 
 # B. база диспетчера.
@@ -171,7 +183,8 @@ need(WAVE, w, ["const RED_ROUND = 'перепись — потом массов�
                'без остановки на первом красном',
                "if (!stand || stand.code !== 0) return {",
                "...(stand && stand.code === 1 ? { redRound: RED_ROUND } : {})",
-               "' --stand-report ' + STAND + ' --stand-expect ' + STAND_EXP,",
+               "const STAND_ARGS = standExempt ? '' : ' --stand-report ' + STAND + ' --stand-expect ' + STAND_EXP",
+               " + STAND_ARGS, D + '/landing-precheck-1.md')", " + STAND_ARGS + '` — он сразу",
                " --head ' + asm.head + ' --expect ' + STAND_EXP + '",
                "const epicMr = landedOk && !!A.epic && A.epic !== 'main'",
                'пересчитай отпечатки пакета изменения и дай перечень недостающих записей ролей и событий',
@@ -213,7 +226,8 @@ else:
                      '2. все корни — одной сборкой, по одному — нарушение',
                      '3. только бывшее красным — на кластере',
                      '4. всё зелёное — полный там же: `stand-report.sh` код 0 той же головы',
-                     '5. затем ОДИН CI; ready и вливание без п.4 — отказ'],
+                     '5. затем ОДИН CI; ready и вливание без п.4 — отказ',
+                     'Исключение — kaname (владелец 2026-10-27: «сама проверка на мастер ci занимают меньше часа а мы не можем влить этот код больше суток»): вливается по своему CI, пп.3–4 ему не обязательны.'],
          'раздел протокола «Перепись — потом массово»')
 need(TV, unit(texts[TV], '\nexternal-cluster-first · ', r'\n'),
      ['до CI — полный прогон здесь, `stand-report.sh` код 0 (`ai-tooling.md#at-red-ci-one-round`)'],
@@ -254,6 +268,51 @@ if ci is not None and runs == 0:
     finds.append('%s: конвейер гонит доказательство отчёта стенда — ни один включённый шаг задания не исполняет '
                  '`bash scripts/stand-report-inject.sh` строкой своего `run`' % CIY)
 need(LP, texts[LP], ['--stand-report) STAND_REPORT=', '"check", sr, "--head", head'], 'посадка судит отчёт стенда')
+
+# G. исключение kaname (ws#1460, владелец 2026-10-27): клаузула и её ограничитель — одним судом.
+#    Оба перечня (шаблон и посадка) — РОВНО один репозиторий kaname; исключение применено ветвью,
+#    а не выключением стенда целиком: в шаблоне ветвь стоит до шага стенда, в посадке — до суда.
+EXEMPT = ["'PRO-Robotech/kaname'"]
+for where, rx, sep in ((WAVE, r"const STAND_EXEMPT = \[([^\]]*)\]", ','), (LP, r'STAND_EXEMPT = \(([^)]*)\)', ',')):
+    ms = re.findall(rx, texts[where])
+    if len(ms) != 1:
+        finds.append('%s: перечень STAND_EXEMPT объявлен %d раз (ждём 1)' % (where, len(ms)))
+        continue
+    got = sorted(x.strip().replace('"', "'") for x in ms[0].split(sep) if x.strip())
+    if got != EXEMPT:
+        finds.append('%s: перечень исключения стенда %s — ждём ровно %s (ws#1460)' % (where, got, EXEMPT))
+need(WAVE, w, ["if (standExempt) { stand = { code: 0, exempt: true };"], 'исключение стенда kaname — ветвью по перечню')
+# Условие исключения — ЦЕЛЫМ выражением, а не присутствием литерала (⛔ check-verifier ws#1460, C4:
+# `|| /kaname/i.test(…)`, дописанное к перечню, предикат присутствия пропускал). Строки-продолжения
+# (следующая строка начинается оператором) входят в выражение; выражение — ровно одно.
+SX = re.findall(r'^[ \t]*const standExempt = (.*(?:\n[ \t]*(?:\|\||&&|\?|:|\.|\+|-|\(|\[).*)*)$', texts[WAVE], re.M)
+if [flat(x).strip() for x in SX] != ['STAND_EXEMPT.includes(A.repo)']:
+    finds.append('%s: условие исключения стенда %s — ждём ровно «STAND_EXEMPT.includes(A.repo)» (ws#1460)'
+                 % (WAVE, [flat(x).strip()[:120] for x in SX]))
+LX = re.findall(r'^[ \t]*(?:el)?if [^\n]*STAND_EXEMPT[^\n]*$', texts[LP], re.M)
+if [x.strip() for x in LX] != ['if os.environ["REPO"] in STAND_EXEMPT:']:
+    finds.append('%s: условие исключения стенда %s — ждём ровно «if os.environ["REPO"] in STAND_EXEMPT:» (ws#1460)'
+                 % (LP, [x.strip()[:120] for x in LX]))
+need(TV, unit(texts[TV], '\nexternal-cluster-kaname · ', r'\n'),
+     ['kaname вливается своим CI, полный прогон здесь до CI ему не обязателен (владелец 2026-10-27, ws#1460)'],
+     'external-cluster-kaname: исключение отдельной нормой')
+# Итог пробы — ПОСЛЕДНЕЙ исполняемой строкой (⛔ check-verifier ws#1460: мутанты после итога
+# отдавали скрипту код последнего вызова и маскировали контроль); общий страж — check-29.
+PL = [l for l in texts[PROBE].splitlines() if l.strip() and not l.lstrip().startswith('#')]
+if not PL or PL[-1].strip() != '[ "$rc" -eq 0 ] && [ "$fail" -eq 0 ]':
+    finds.append('%s: последняя исполняемая строка — «%s», ждём итог «[ "$rc" -eq 0 ] && [ "$fail" -eq 0 ]»'
+                 % (PROBE, PL[-1].strip()[:120] if PL else ''))
+iE = w.find('if (standExempt) {')
+if not (0 <= iE < iS):
+    finds.append('%s: ветвь исключения стенда не стоит ДО шага стенда' % WAVE)
+need(LP, texts[LP], ['if os.environ["REPO"] in STAND_EXEMPT:', 'elif sr:'], 'посадка: исключение kaname — ветвью до суда отчёта')
+need(PROBE, texts[PROBE], ["console.log('== Kaname вливается по своему CI: стенда нет, посадке отчёт не передаётся (ws#1460)')",
+                           'mutant "исключение стенда расширено на все репозитории (ws#1460)"',
+                           'mutant "перечень исключения стенда расширен на kacho (ws#1460)"',
+                           'mutant "исключение стенда снято (ws#1460)"',
+                           'mutant "исключение стенда дописано условием по имени (ws#1460, C4)"',
+                           "for (const repo of ['PRO-Robotech/kaname-fork', 'PRO-Robotech/kaname-iam-operator', 'pro-robotech/KANAME',"],
+     'исключение kaname доказано исполнением шаблона')
 
 print('[CENSUS] %s: носителей осмотрено %d (правило, архив, база, ci-watcher, шаблон, проба шаблона, протокол, '
       'testing-verdict, ci-read, stand-report, ci.yaml, landing-precheck); находок %d' % (name, len(texts), len(finds)))

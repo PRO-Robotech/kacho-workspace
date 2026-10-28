@@ -78,7 +78,8 @@ pipefail перечисляются в переписи отдельным чи�
 послабление, которому нечего прощать, не истечёт больше никогда.
 
 Читается КОД, а не текст (`scripts/lib/shellcode.py`): форма в комментарии, в
-строковом литерале или в здесь-документе находкой не является.
+строковом литерале или в здесь-документе находкой не является — и подключение тоже:
+`then . else` в программе jq — текст литерала, а не `. else` (ws#1432).
 
 Коды: 0 — формы нет; 1 — находка; 2 — осматривать нечего.
 """
@@ -273,8 +274,8 @@ def main():
         plain = shellcode.code_lines(text)
         loops = shellcode.loop_words(plain)
         targets, unresolved = set(), []
-        for n, c in plain:
-            for word in shellcode.sourced_words(c):
+        for (n, c), (_, mc) in zip(plain, masked):
+            for word in shellcode.sourced_words(c, mc):
                 hit = shellcode.resolve_sourced(rel, word, all_shells, loops)
                 if hit:
                     targets.update(hit)

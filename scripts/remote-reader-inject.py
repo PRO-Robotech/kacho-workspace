@@ -816,6 +816,26 @@ class RemoteReader(unittest.TestCase):
         self.assertEqual(dirty.returncode, 64, dirty.stderr)
         self.assertEqual(len(self.box.slots()), 1)
         (co / 'untracked.txt').unlink()
+        # Копия без ветки (уроки daaa30fd, dff7480a; ws#1428): на машине — 64 до Job с причиной,
+        # судья напрямую — причина вместо «producer command failed: git»; с --ref — близнец идёт.
+        self.box.git('checkout', '-q', '--detach', cwd=co)
+        detached = self.box.run('stand-report.sh', *args)
+        self.assertEqual(detached.returncode, 64, detached.stderr)
+        self.assertIn('без ветки источника', detached.stderr)
+        self.assertEqual(len(self.box.slots()), 1)
+        bare = self.box.run('stand-report.sh', *args, machine=False)
+        self.assertEqual(bare.returncode, 2, bare.stdout + bare.stderr)
+        self.assertIn('checkout without branch', bare.stdout + bare.stderr)
+        twin = self.box.run('stand-report.sh', *args, '--ref', 'refs/heads/954-sandbox')
+        self.assertEqual((twin.returncode, json.loads(twin.stdout)), (0, json.loads(direct.stdout)), twin.stderr)
+        self.assertEqual(len(self.box.slots()), 2)
+        # Мутант: отказа до Job нет — Job идёт и возвращает VOID с причиной судьи (проба читает предмет).
+        self.box.mutate('remote-reader.sh', '[ -n "$ref" ] || has_arg --ref ||', 'true ||')
+        late = self.box.run('stand-report.sh', *args)
+        self.assertEqual(late.returncode, 2, late.stdout + late.stderr)
+        self.assertIn('checkout without branch', late.stdout + late.stderr)
+        self.assertEqual(len(self.box.slots()), 3)
+        self.box.git('checkout', '-q', '954-sandbox', cwd=co)
         # Ветка копии доводом --ref: без него клон Job (отсоединённый) ref не вывел бы.
         self.box.mutate('remote-reader.sh', '|| EXTRA=(--ref "$ref")', '|| EXTRA=()')
         blind = self.box.run('stand-report.sh', *args)

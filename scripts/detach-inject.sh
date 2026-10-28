@@ -13,7 +13,9 @@
 # читает перепись застоя). Машина перезагружена — .pid старше btime — причина названа.
 # Причина обрыва службы — дословной строкой status: kill -9 процесса шага и
 # `systemctl --user stop` — РАЗНЫЕ фразы (запись .exit службы), сторонний kill -TERM — своя
-# (журнал о нём молчит — держит чтение записи); запись снята — та же фраза из журнала юнита.
+# (журнал о нём молчит): шага вместе с ребёнком — держит чтение записи; лишь процесса шага при
+# живом ребёнке — служба активна (ExitType=cgroup), записи нет, держит чтение состояния службы;
+# запись снята — та же фраза из журнала юнита.
 # Без systemd --user (ранер CI) случаи службы не исполняются и печатаются счётом
 # «служба: не исполнено N» — не зелёным; setsid-путь и остальное исполняются везде.
 # Каталог шагов — свой временный; процессы шагов снимаются по группе на выходе (и на падении),
@@ -230,10 +232,14 @@ jsettle() {
     done
     return 1
 }
+# ugone <юнит> — служба вышла и снята (--collect): состояния с исходом процесса у неё нет, до 5 с.
+# mainpid0 <юнит> — процесс шага вышел, служба ещё держит его исход (MainPID=0), до 5 с.
+ugone() { local _; for _ in $(seq 1 20); do [ "$(systemctl --user show -p ExecMainPID --value "$1" 2>/dev/null)" = 0 ] && return 0; sleep 0.25; done; return 1; }
+mainpid0() { local _; for _ in $(seq 1 20); do [ "$(systemctl --user show -p MainPID --value "$1" 2>/dev/null)" = 0 ] && return 0; sleep 0.25; done; return 1; }
 PID=""; UNIT=""
 cause_cases() {
-    local R="$W/run.$RANDOM" kill9 stop; mkdir -p "$R"
-    if [ "$SYSD" = 0 ]; then unexec=$((unexec + 6)); return 0; fi
+    local R="$W/run.$RANDOM" kill9 stop kids term; mkdir -p "$R"
+    if [ "$SYSD" = 0 ]; then unexec=$((unexec + 7)); return 0; fi
     step_up() { st "$R/c" sleep 30; PID="$(cat "${RCF%.rc}.pid")"; UNIT="$(cat "${RCF%.rc}.unit")"; }
     step_up; kill -9 "$PID"; settle "${RCF%.rc}.exit"
     kill9="служба $UNIT: процесс шага убит сигналом KILL (kill -9 либо OOM-убийство)"
@@ -245,11 +251,56 @@ cause_cases() {
     want "$stop" "инъекция systemctl --user stop — «остановлена менеджером служб», не «убит»"
     rm -f "${RCF%.rc}.exit"; jsettle "$UNIT" "Stopped $UNIT"
     want "$stop" "  …записи .exit нет — та же фраза из журнала юнита"
-    step_up; kill -TERM "$PID"; settle "${RCF%.rc}.exit"
-    want "служба $UNIT: процесс шага убит сигналом TERM" "инъекция стороннего kill -TERM — «убит сигналом TERM», не остановка (журнал молчит — фраза из записи)"
+    # Ребёнок шага (sleep) снят следом за ним: cgroup пуст, служба вышла и записала .exit; её
+    # состояние снято (--collect) — фразу держит лишь запись.
+    step_up; kids="$(cat "/proc/$PID/task/"*/children 2>/dev/null)"; kill -TERM "$PID"
+    # shellcheck disable=SC2086  # pid детей — словами
+    [ -n "$kids" ] && kill -TERM $kids 2>/dev/null
+    settle "${RCF%.rc}.exit"; ugone "$UNIT"
+    term="служба $UNIT: процесс шага убит сигналом TERM"
+    want "$term" "инъекция стороннего kill -TERM шага и его ребёнка — «убит сигналом TERM», не остановка (журнал молчит — фраза из записи)"
+    # Лишь процесс шага: ребёнок жив, ExitType=cgroup держит службу активной — записи .exit нет,
+    # журнал молчит (SIGTERM для systemd — чистый выход); фразу держит состояние службы.
+    step_up; kill -TERM "$PID"; mainpid0 "$UNIT"
+    term="служба $UNIT: процесс шага убит сигналом TERM"
+    want "$term" "инъекция kill -TERM лишь процесса шага при живом ребёнке — служба активна, записи нет — «убит сигналом TERM» из состояния службы"
+    systemctl --user stop "$UNIT" 2>/dev/null
     step_up; settle "${RCF%.rc}.exit"
     assert "3" "$(status "$RCF")" "близнец: служба жива — status 3, причины нет"
     systemctl --user stop "$UNIT" 2>/dev/null
+}
+
+# stop_cases — остановка с уборкой (класс detach-stop-оставляет-ns): ловушка TERM команды
+# спит <с> и пишет метку уборки, затем exit 9. Шаг ждёт метку «up» в журнале до stop
+# (иначе TERM опередил бы ловушку). Метка и срок — окружением (MK, SL): файл-довод, созданный
+# за прогон, сменил бы отпечаток доводов, и status ответил бы 5. Работает и службой, и setsid-путём.
+stop_cases() {
+    local R="$W/run.$RANDOM" out rc; mkdir -p "$R"
+    # shellcheck disable=SC2016  # тело скрипта шага
+    # Фон шага снимает сама ловушка: он несёт метку шага, и stop честно ждал бы его до срока.
+    printf '%s\n' 'sleep 30 & S=$!' 'trap '\''kill $S; sleep "$SL"; echo cleaned > "$MK"; exit 9'\'' TERM' 'echo up' 'wait $S' > "$R/trap.sh"
+    up() { local _; for _ in $(seq 1 40); do grep -q '^up$' "${RCF%.rc}.log" 2>/dev/null && return 0; sleep 0.25; done; return 1; }
+    st "$R/t" env MK="$R/m1" SL=2 bash "$R/trap.sh"; up
+    out="$(bash "$D" stop "$RCF" --grace 20 2>&1)"; rc=$?
+    assert "0 cleaned 9 да" "$rc $(cat "$R/m1" 2>/dev/null || echo нет) $(head -n 1 "$RCF" 2>/dev/null) $(grep -qF 'кодом 9' <<< "$out" && echo да || echo нет)" "stop: TERM команде — ловушка довела уборку (2 с), .rc 9 записан обёрткой, код 0"
+    out="$(bash "$D" stop "$RCF" 2>&1)"; rc=$?
+    assert "4 да" "$rc $(grep -qF 'уже вышел кодом 9' <<< "$out" && echo да || echo нет)" "stop вышедшего шага — 4, код назван, останавливать нечего"
+    st "$R/t" env MK="$R/m2" SL=4 bash "$R/trap.sh"; up
+    out="$(bash "$D" stop "$RCF" --grace 1 2>&1)"; rc=$?
+    assert "3 нет" "$rc $([ -e "$R/m2" ] && echo да || echo нет)" "stop --grace 1 при уборке 4 с — 3 «идёт», KILL не послан, уборка не оборвана"
+    settle "$RCF"
+    assert "1 cleaned" "$(status "$RCF") $(cat "$R/m2" 2>/dev/null || echo нет)" "  …уборка дошла после возврата stop: status 1 (код 9), метка есть"
+    # Потомок ловушки переживает команду на 3 с (как git push под push-then.sh, ws#1432): stop
+    # ждёт и его — по метке шага DETACH_TAG в окружении, а не лишь .rc.
+    printf '%s\n' 'sleep 30 & S=$!' 'trap '\''kill $S; ( sleep 3; echo late > "$MK" ) & exit 9'\'' TERM' 'echo up' 'wait $S' > "$R/trap2.sh"
+    st "$R/t" env MK="$R/m3" bash "$R/trap2.sh"; up
+    out="$(bash "$D" stop "$RCF" --grace 20 2>&1)"; rc=$?
+    assert "0 late да" "$rc $(cat "$R/m3" 2>/dev/null || echo нет) $(grep -qF 'потомков с меткой шага 0' <<< "$out" && echo да || echo нет)" "stop: потомок ловушки пережил команду — stop дождался его (метка шага), код 0"
+    st "$R/t" env MK="$R/m4" bash "$R/trap2.sh"; up
+    out="$(bash "$D" stop "$RCF" --grace 1 2>&1)"; rc=$?
+    assert "3 да" "$rc $(grep -qF 'потомки шага живы' <<< "$out" && echo да || echo нет)" "stop --grace 1 при живом потомке — 3, потомок назван, KILL не послан"
+    assert "2" "$(bash "$D" stop "$R/t/none.rc" > /dev/null 2>&1; echo $?)" "stop без файлов шага — 2"
+    assert "64 64" "$(bash "$D" stop "$R/t/none.rc" --grace 600 > /dev/null 2>&1; echo $?) $(bash "$D" stop "$R/t/none.rc" --grace x > /dev/null 2>&1; echo $?)" "--grace больше 540 либо не число — 64 (вызов не дольше 10 мин)"
 }
 
 grc() {
@@ -264,7 +315,12 @@ echo "== перезапуск сессии: scope вызова снят"
 survive_cases
 echo "== причина обрыва службы"
 cause_cases
+echo "== остановка с уборкой (stop)"
+stop_cases
+echo "== остановка с уборкой (stop), путь setsid"
+KACHO_DETACH_NO_SYSTEMD=1 stop_cases
 echo "== страж no-wait-guard"
+assert "0" "$(grc "bash \$WS/scripts/detach.sh stop \$WS/tmp/1225/x.rc --grace 300")" "страж пропускает stop"
 assert "0" "$(grc "bash \$WS/scripts/detach.sh start \$WS/tmp/1225 -- bash \$WS/scripts/heavy-slot.sh ci-local -- env KACHO_TASK=1225 git push origin HEAD:refs/heads/1225-x")" "страж пропускает start"
 assert "0" "$(grc "bash \$WS/scripts/detach.sh status \$WS/tmp/1225/x.rc")" "страж пропускает status"
 assert "2" "$(grc "until bash \$WS/scripts/detach.sh status \$WS/tmp/1225/x.rc; do sleep 30; done")" "страж отказывает циклу дочитки агентом"
@@ -287,8 +343,14 @@ sig_cases
 
 echo "== мутанты"
 muts=0; survived=0
-mutant() {  # <имя> <было> <стало>
+mutant() {  # <имя> <было> <стало> [<файл> <случаи>]
     local m="$W/mut/detach.sh" f="${4:-detach.sh}"; mkdir -p "$W/mut"; cp "$HERE/detach.sh" "$HERE/detach-launch.sh" "$W/mut/"
+    # Вызов судится до правки: склеенный довод (имя без пробела перед «было», ws#1468) сдвигал
+    # прочие — файл и случаи не те, мутант выпадал в VOID «правка не легла», а не в отказ вызова.
+    if { [ $# -ne 3 ] && [ $# -ne 5 ]; } || [[ ! "$1" =~ ^[a-z0-9-]+$ ]] || [ ! -f "$HERE/$f" ] || ! declare -F "${5:-run_cases}" > /dev/null; then
+        echo "  [VOID] мутант «${1:0:60}»: вызов неверен — доводов $# (3 либо 5), имя [a-z0-9-], файл $f, случаи ${5:-run_cases}"
+        survived=$((survived + 1)); return
+    fi
     python3 - "$HERE/$f" "$W/mut/$f" "$2" "$3" <<'PY' || { echo "  [VOID] мутант $1: правка не легла"; survived=$((survived + 1)); return; }
 import sys
 s, d, a, b = sys.argv[1:5]
@@ -329,7 +391,14 @@ mutant fp-unjudged '[ -f "$base.fp" ] && [ -f "$base.fp-end" ] && ! cmp -s' 'fal
 mutant fp-end-at-status 'if [ -f "$base.fp" ] && [ -f "$base.fp-end" ]' 'if (cd "$(dirname "$base")/.." && detach_fp bash s.sh > "$base.fp-end" 2> /dev/null); [ -f "$base.fp" ] && [ -f "$base.fp-end" ]'
 mutant boot-unread '[ "$mt" -lt "$bt" ]; then' '[ "$mt" -lt 0 ]; then' detach-launch.sh boot_cases
 mutant hup-inherited 'env --default-signal=PIPE,HUP DETACH_TAG' 'env --default-signal=PIPE DETACH_TAG' detach.sh sig_cases
+mutant stop-term-wrapper '        kill -TERM $kids 2>/dev/null' '        kill -TERM "$pid" 2>/dev/null' detach.sh stop_cases
+mutant stop-kill-not-term '        kill -TERM $kids 2>/dev/null' '        kill -KILL $kids 2>/dev/null' detach.sh stop_cases
+mutant stop-no-wait 'while [ ! -f "$base.rc" ] && [ "$(date +%s)" -lt "$end" ]' 'while false && [ "$(date +%s)" -lt "$end" ]' detach.sh stop_cases
+mutant stop-descendants-ignored 'while [ -f "$base.rc" ] && [ -n "$(tagged)" ] && [ "$(date +%s)" -lt "$end" ]; do sleep 1; done
+    if [ -f "$base.rc" ] && [ -n "$(tagged)" ]; then' 'if false; then' detach.sh stop_cases
+mutant stop-grace-ignored 'while [ ! -f "$base.rc" ] && [ "$(date +%s)" -lt "$end" ]' 'while [ ! -f "$base.rc" ] && true' detach.sh stop_cases
 if [ "$SYSD" = 1 ]; then
+    mutant exit-type-main ' -p ExitType=cgroup' '' detach-launch.sh stop_cases
     mutant no-unit '[ "${KACHO_DETACH_NO_SYSTEMD:-}" = 1 ]; then' 'true; then' detach-launch.sh survive_cases
     mutant env-expanded ' --expand-environment=no \' ' \' detach-launch.sh survive_cases
     mutant env-not-carried '&& [ "$n" != DETACH_EXIT_FILE ] && envs+=("--setenv=$n")' '&& true' detach-launch.sh survive_cases
@@ -339,6 +408,7 @@ if [ "$SYSD" = 1 ]; then
     mutant stop-mark-inverted '[ -z "$MAINPID" ] || : >' '[ -n "$MAINPID" ] || : >' detach-launch.sh cause_cases
     mutant record-unread 'rec="$(head -n 1 "${2%.unit}.exit" 2> /dev/null)"' 'rec=""' detach-launch.sh cause_cases
     mutant journal-unread '[ -n "$rec" ] || rec="$(detach_unit_journal "$u")"' ':' detach-launch.sh cause_cases
+    mutant unit-state-unread '[ -n "$rec" ] || rec="$(detach_unit_main "$u")"' ':' detach-launch.sh cause_cases
 fi
 
 reap_steps

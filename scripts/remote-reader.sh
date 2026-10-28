@@ -292,6 +292,10 @@ for a in "$@"; do
         [ -z "$(git -C "$a" status --porcelain --untracked-files=all 2> /dev/null)" ] ||
             die 64 "в копии «$a» правки вне коммита — expect судил бы не голову"
         ref="$(git -C "$a" symbolic-ref -q HEAD 2> /dev/null)" || ref=""
+        # Копия без ветки и без --ref: судья выводит ref из ветки, клон Job отсоединён — отказ здесь,
+        # а не «producer command failed: git» после Job (уроки daaa30fd, dff7480a; ws#1428).
+        [ -n "$ref" ] || has_arg --ref ||
+            die 64 "копия «$a» без ветки источника (HEAD отсоединена): expect выводит ref из ветки — переключи копию на ветку либо передай --ref refs/heads/<ветка>"
         a="$(ship_checkout "$a")" || die 69 "копия «$prev» не упакована"
         ARGS+=("$a"); prev="$a"
         has_arg --ref || [ -z "$ref" ] || EXTRA=(--ref "$ref")

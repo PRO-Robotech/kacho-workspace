@@ -34,7 +34,9 @@
 #   внешний стенд до CI (ws#1110): шаг mech:stand ci-watcher после рецензента волны и до
 #   первого чтения CI, суд stand-report.sh этой головы; красный — ни CI, ни ready, ни
 #   вливания; не выполнилось — без круга; идёт — чтение с проверенной паузой; посадка —
-#   landing-precheck --stand-report;
+#   landing-precheck --stand-report; исключение — kaname (ws#1460, владелец 2026-10-27): штатная
+#   сборка, mech:stand не зовётся, посадке отчёт не передаётся; kacho и воркспейс — как прежде;
+#   расширение и снятие исключения — мутанты;
 #   влитая волна в ветку эпика — пробное схождение и одно чтение CI MR эпика без
 #   ожидания; близнецы — волна прямо в main и невлитая волна — без них;
 #   предпроверка полосы красная, голова та же — повтора нет, строка счётчика
@@ -119,7 +121,10 @@
 #   кода; метрики — последним шагом на любом исходе; каскад щадит держателя ведомости.
 #   перепись гейтов (ws#1071): один шаг до старта демона вливания, все шесть гейтов,
 #   ничего не чинит, итог несёт таблицу; текстовый шаг без «### ВОЗВРАТ» — один повтор
-#   дочитыванием, снова без — полоса стоит, фраза ожидания в задания не уходит.
+#   дочитыванием, снова без — полоса стоит, фраза ожидания в задания не уходит;
+#   статус ПОСЛЕДНЕГО блока не «готово» (ws#1418) — стоп со статусом в stage, следующий
+#   шаг не зван; процитированное выше «готово» не пропускает; близнец «готово · …» — идёт; имя поля
+#   в жирном («- **статус:** готово», «**статус: готово**») — тот же статус.
 #   уроки ws#1078: диапазон коммитов рецензента волны исполняется на настоящем репозитории
 #   (с коммитом — 0, пустой — 2); стволы — по каждому из kacho, kaname, corelib; задание
 #   файлом — во всех шагах с заданием; итог режется и внутри массивов.
@@ -224,6 +229,7 @@ ok(!/Date\.now\(|Math\.random\(|new Date\(\s*\)/.test(body), 'в теле нет
 
 const H = (k, n) => (k + n).padEnd(40, 'a').replace(/[^0-9a-f]/g, 'b').slice(0, 40)
 const HW = 'f'.repeat(40)
+const DG = 'd'.repeat(64)   // дайджест содержимого подставной предпроверки (строка DIGEST lane-precheck)
 // Объединение вызовов ВСЕХ сценариев пробы: утверждения о модели, усилии и месте
 // отчётов судят его, а не один сценарий по умолчанию (ws#1016, check-verifier ⛔).
 const ALL = []
@@ -245,14 +251,11 @@ async function run(sc) {
     // sc.dispatchCode по «<ключ> <вид>», затем по ключу, иначе 0; sc.dispatchNull — нет ответа.
     if (label === 'mech:dispatch-premise') { if (sc.dispatchNull) return null; const dc = sc.dispatchCode || {}; return { items: [...prompt.matchAll(/\n(\d+)\) \[(\S+) (\S+)\] `/g)].map(x => { const c = dc[x[2] + ' ' + x[3]] ?? dc[x[2]] ?? 0; return { n: +x[1], code: c, out: c === 1 ? 'REASON PREMISE-FALSE task o/r#5: задача closed, задание ждёт open' : c === 2 ? 'VOID GH-UNREADABLE task o/r#5' : '' } }) } }
     if (label.startsWith('mech:premise:')) return { out: '', head: '', reasons: [], ...take('premise:' + lane, () => ({ code: 0 })) }
-    if (label.startsWith('mech:precheck:')) return { out: '', head: heads[lane], reasons: [], ...take('pre:' + lane, () => ({ code: 0 })) }
+    if (label.startsWith('mech:precheck:')) return { out: '', head: heads[lane], reasons: [], digest: DG, ...take('pre:' + lane, () => ({ code: 0 })) }
     if (label.startsWith('review-wave')) return { verdict: 'accept', sha: HW, blocking: [], report: 'r', ...take('wave', () => ({})) }
     if (label.startsWith('review-landing')) return { verdict: 'accept', sha: HW, blocking: [], report: 'r' }
     if (sc.ret && label === 'review-' + sc.ret + ':' + lane) return { verdict: 'return', sha: heads[lane], blocking: ['x'], report: 'r' }
     if (label.startsWith('review-') || label.startsWith('acceptance-review-')) return { verdict: 'accept', sha: sc.staleRole ? H('old', 0) : heads[lane] || '', blocking: [], report: 'r' }
-    if (label.startsWith('mech:kaname-local:')) return { status: 'done', head: HW, copy: '/ws/tmp/w', pr: 0, conflicts: [], report: 'r', ...take('kanameLocal', () => ({})) }
-    if (label.startsWith('mech:kaname-external:')) return { code: 0, out: '', reasons: [], head: HW, ...take('kanameExternal', () => ({})) }
-    if (label.startsWith('mech:kaname-publish:')) return { status: 'done', head: HW, copy: '/ws/tmp/w', pr: 7, conflicts: [], report: 'r', ...take('kanamePublish', () => ({})) }
     if (label.startsWith('mech:assemble-local:')) return { status: 'done', head: HW, copy: '/ws/tmp/w', pr: 0, conflicts: [], report: 'r', ...take('operatorLocal', () => ({})) }
     if (label.startsWith('mech:operator-cluster:')) return { code: 0, out: '', reasons: [], head: HW, ...take('operatorCluster', () => ({})) }
     if (label.startsWith('mech:operator-publish:')) return { status: 'done', head: HW, copy: '/ws/tmp/w', pr: 7, conflicts: [], report: 'r', ...take('operatorPublish', () => ({})) }
@@ -350,6 +353,9 @@ ok(by(r.calls, c => c.label.startsWith('mech:assemble:')) === 0, 'останов
 r = await run({ args: { ...args, lanes: [{ key: 'M', repo: 'kacho-workspace', agent: 'migration-writer', branch: '9-m', text: 't' }] }, plan: [P('r2.json')], ret: P('r2.json').lanes[0].roles[0] })
 const revOne = ((r.res.lanes || {}).M || {}).reviews || []
 ok(r.res.ok === true && revOne.length === 1 && revOne[0].sha === head2 && atHead(revOne[0].role, head2), 'близнец: единственная роль вернула и приняла дельту — полоса идёт, вердикт на новой голове', JSON.stringify(r.res).slice(0, 200))
+ok(r.calls.filter(c => c.label.startsWith('review-') && c.label.endsWith(':M')).every(c => c.prompt.includes('дайджест содержимого ' + DG)) && by(r.calls, c => c.label.startsWith('review-') && c.label.endsWith(':M')) === 2, 'дайджест предпроверки — в задании роли, оба круга (пачка уроков 6)')
+r = await run({ args: { ...args, lanes: [{ key: 'M', repo: 'kacho-workspace', agent: 'migration-writer', branch: '9-m', text: 't' }] }, plan: [P('r2.json')], 'pre:M': [{ code: 0, digest: '' }] })
+ok(r.res.ok === false && /дайджеста нет/.test(((r.res.lanes || {}).M || {}).stage || '') && by(r.calls, c => c.label.startsWith('review-') && c.label.endsWith(':M')) === 0, 'предпроверка без дайджеста — роль не зовётся (урок 607f7f6e)', JSON.stringify(r.res).slice(0, 300))
 
 console.log('== зависимая полоса — от сводки голов deps (ws#938)')
 // A проходит повтор предпроверки: итоговая голова A — вторая, её и обязана
@@ -953,6 +959,33 @@ console.log('== перепись гейтов посадки разом; отв�
   ok(q.res.ok === true && by(q.calls, c => c.label.startsWith('census:')) === 2 && idx(q.calls, 'census:M:reread') < idx(q.calls, 'impl:M'), 'перепись поверхности — ВОЗВРАТ после дочитывания: полоса идёт, исполнитель после него', JSON.stringify(q.res).slice(0, 200))
   q = await run({ args: { ...args, lanes: laneM }, plan: [P('r2.json')] })
   ok(q.res.ok === true && !q.calls.some(c => c.label.endsWith(':reread')), 'близнец: ответы с ВОЗВРАТ — повторов дочитывания нет', JSON.stringify(q.calls.map(c => c.label)).slice(0, 200))
+  // ws#1418 (уроки 564da7e6, e052d6e8, c947fbd3): следующий шаг — только при «статус: готово» ПОСЛЕДНЕГО блока.
+  const BLK = 'перекатка вернула блокер\n### ВОЗВРАТ\n- статус: блокер\n- вердикт: —'
+  q = await run({ args: { ...args, lanes: laneM }, plan: [P('r2.json')], 'text:sim': [BLK] })
+  const stB = ((q.res.lanes || {}).M || (q.res.remainder || []).find(x => x.key === 'M') || {}).stage || q.res.stage || ''
+  ok(q.res.ok === false && /статус «блокер», не «готово» — следующий шаг не зван/.test(JSON.stringify(q.res)) && by(q.calls, c => c.label.startsWith('impl:')) === 0 && !q.calls.some(c => c.label.endsWith(':reread')), 'шаг со статусом «блокер» — стоп с ним в stage: исполнитель не зван, дочитывания нет', stB + ' ' + JSON.stringify(q.res).slice(0, 200))
+  const QUOTED = 'цитата прошлого шага:\n### ВОЗВРАТ\n- статус: готово\nмой итог:\n### ВОЗВРАТ\n- статус: вопрос-владельцу'
+  q = await run({ args: { ...args, lanes: laneM }, plan: [P('r2.json')], 'text:acc': [QUOTED] })
+  ok(q.res.ok === false && /статус «вопрос-владельцу»/.test(JSON.stringify(q.res)) && by(q.calls, c => c.label.startsWith('impl:')) === 0, 'статус — из ПОСЛЕДНЕГО блока: процитированное «готово» выше не пропускает', JSON.stringify(q.res).slice(0, 200))
+  q = await run({ args: { ...args, lanes: laneM }, plan: [P('r2.json')], 'text:census': ['итог\n### ВОЗВРАТ\n- статус: готово · перепись в отчёте'] })
+  ok(q.res.ok === true && by(q.calls, c => c.label.startsWith('impl:')) >= 1, 'близнец: «статус: готово · пояснение» — полоса идёт', JSON.stringify(q.res).slice(0, 200))
+  q = await run({ args: { ...args, lanes: laneM }, plan: [P('r2.json')], 'text:census': ['итог\n### ВОЗВРАТ\n- **статус:** готово\n- **вердикт:** —'] })
+  ok(q.res.ok === true && by(q.calls, c => c.label.startsWith('impl:')) >= 1, 'имя поля в жирном «- **статус:** готово» — полоса идёт (урок диспетчера 2026-10-26)', JSON.stringify(q.res).slice(0, 200))
+  q = await run({ args: { ...args, lanes: laneM }, plan: [P('r2.json')], 'text:census': ['итог\n### ВОЗВРАТ\n- **статус:** блокер'] })
+  ok(q.res.ok === false && /статус «блокер»/.test(JSON.stringify(q.res)) && by(q.calls, c => c.label.startsWith('impl:')) === 0, 'жирное «**статус:** блокер» — стоп, «**» в статус не попадает', JSON.stringify(q.res).slice(0, 200))
+  q = await run({ args: { ...args, lanes: laneM }, plan: [P('r2.json')], 'text:census': ['итог\n### ВОЗВРАТ\n- **статус: готово**'] })
+  ok(q.res.ok === true && by(q.calls, c => c.label.startsWith('impl:')) >= 1, 'жирное поле целиком «**статус: готово**» — полоса идёт', JSON.stringify(q.res).slice(0, 200))
+  // ⛔ check-verifier 2026-10-26 (раздел B): формы поля и границы блока
+  const GO = [['без дефиса, жирное целиком', '**статус: готово**'], ['без дефиса, жирное имя', '**статус:** готово'], ['двоеточие вне жирного', '- **статус**: готово'], ['жирное значение', '- статус: **готово**'], ['точка после значения', '- статус: готово.']]
+  for (const [nm, ln] of GO) {
+    q = await run({ args: { ...args, lanes: laneM }, plan: [P('r2.json')], 'text:census': ['итог\n### ВОЗВРАТ\n' + ln + '\n- вердикт: —'] })
+    ok(q.res.ok === true && by(q.calls, c => c.label.startsWith('impl:')) >= 1, 'поле статуса «' + nm + '» — «готово», полоса идёт', JSON.stringify(q.res).slice(0, 160))
+  }
+  const STOP = [['незаполненный шаблон', '### ВОЗВРАТ\n- статус: готово | блокер | вопрос-владельцу | не-выполнилось', 'поля «статус» нет'], ['строка статуса после пустой — проза, не поле', '### ВОЗВРАТ\n- вердикт: —\n\nпримечание:\n- статус: готово', 'поля «статус» нет'], ['«готово» в поле факты', '### ВОЗВРАТ\n- статус: блокер\n- факты: статус: готово', 'статус «блокер»']]
+  for (const [nm, txt, why] of STOP) {
+    q = await run({ args: { ...args, lanes: laneM }, plan: [P('r2.json')], 'text:census': ['итог\n' + txt] })
+    ok(q.res.ok === false && JSON.stringify(q.res).includes(why) && by(q.calls, c => c.label.startsWith('impl:')) === 0, nm + ' — стоп («' + why + '»), исполнитель не зван', JSON.stringify(q.res).slice(0, 160))
+  }
 }
 
 console.log('== уроки посадки 2026-10-14 (ws#1078): кэш дочитывания, итог без простыней, задание файлом, коммиты у рецензента, стволы продуктов')
@@ -1093,28 +1126,29 @@ for (const repo of ['PRO-Robotech/kaname-iam-operator', 'PRO-Robotech/registry-o
   ok(q.res.state === 'running' && idx(q.calls, 'mech:operator-cluster:2') >= 0 && idx(q.calls, 'mech:operator-publish:2') < 0, 'operator reassembly pending remains running without second publication', JSON.stringify(q.res))
 }
 
-console.log('== Kaname staged proof: external → publication → real hosted')
+console.log('== Kaname вливается по своему CI: стенда нет, посадке отчёт не передаётся (ws#1460)')
 {
-  const kArgs = { ...args, repo: 'PRO-Robotech/kaname' }
-  let q = await run({ args: kArgs, plan: [P('r0.json')] })
-  ok(q.res.ok === true && idx(q.calls, 'mech:kaname-local:1') < idx(q.calls, 'mech:kaname-external:1') && idx(q.calls, 'mech:kaname-external:1') < idx(q.calls, 'mech:kaname-publish:1') && idx(q.calls, 'mech:kaname-publish:1') < idx(q.calls, 'mech:stand:0'), 'Kaname lawful twin ordered stages')
-  ok(prm(q.calls, 'mech:stand:0').includes('kaname-staged-report-v1') && prm(q.calls, 'mech:stand:0').includes('без external-only'), 'Kaname full reader requires real hosted proof')
-  const extPrompt = prm(q.calls, 'mech:kaname-external:1'), fullPrompt = prm(q.calls, 'mech:stand:0')
-  ok(/`bash \/ws\/scripts\/stand-report\.sh <ступень> … --expect <ожидаемое>`/.test(extPrompt) && /`bash \/ws\/scripts\/stand-report\.sh check <report> --head [0-9a-f]{40} --expect <ожидаемое> --external-only`/.test(extPrompt) && /`bash \/ws\/scripts\/stand-report\.sh report --expect /.test(fullPrompt) && !/python3 \/|kaname-stand\.py/.test(extPrompt + fullPrompt), 'ступени Kaname — входом stand-report.sh, не python3 на машине (ws#1301)')
-  for (const code of [1, 2, 3]) {
-    q = await run({ args: kArgs, plan: [P('r0.json')], kanameExternal: [{ code }] })
-    ok(q.res.ok === false && idx(q.calls, 'mech:kaname-publish:1') < 0 && (code !== 3 || q.res.state === 'running'), 'Kaname external code ' + code + ' forbids premature publication')
+  // Владелец 2026-10-27: «…сама проверка на мастер ci занимают меньше часа а мы не можем влить
+  // этот код больше суток». Близнецы — kacho и воркспейс: красный стенд останавливает, как прежде.
+  const kArgs = { ...args, repo: 'PRO-Robotech/kaname', base: '296', epic: '296', lanes: knLanes }
+  const noStand = p => !/--stand-report|--stand-expect/.test(p)
+  let q = await run({ args: kArgs, plan: [P('kn.json')] })
+  ok(q.res.ok === true && by(q.calls, c => c.label.startsWith('mech:stand:')) === 0 && idx(q.calls, 'mech:assemble:1') >= 0 && idx(q.calls, 'mech:assemble:1') < idx(q.calls, 'mech:ci:0'), 'kaname: штатная сборка, mech:stand не зовётся, сразу CI', JSON.stringify(q.res).slice(0, 200))
+  ok(/autoland\.sh start --repo PRO-Robotech\/kaname /.test(prm(q.calls, 'mech:autoland')) && noStand(prm(q.calls, 'mech:autoland')) && prm(q.calls, 'mech:gates').includes('landing-precheck.sh') && noStand(prm(q.calls, 'mech:gates')), 'kaname: демону вливания и переписи гейтов отчёт стенда не передаётся')
+  q = await run({ args: kArgs, plan: [P('kn.json')], stand: [{ code: 1, reasons: ['STAND-REPORT-RED'] }] })
+  ok(q.res.ok === true && by(q.calls, c => c.label.startsWith('mech:stand:')) === 0 && idx(q.calls, 'mech:autoland') >= 0, 'kaname: красного стенда нет к чтению — отказа по стенду нет, посадка демоном', JSON.stringify(q.res).slice(0, 200))
+  for (const [repo, lanes, plan] of [['PRO-Robotech/kacho', kcLanes, 'kc.json'], ['PRO-Robotech/kacho-workspace', lanes2, 'r0.json']]) {
+    q = await run({ args: { ...args, repo, lanes }, plan: [P(plan)], stand: [{ code: 1, reasons: ['STAND-REPORT-RED'] }] })
+    ok(q.res.ok === false && /внешний стенд до CI: красное/.test(q.res.stage || '') && by(q.calls, c => /^mech:(ci:|ready|autoland|cascade)/.test(c.label)) === 0, repo + ': красный стенд — ни CI, ни вливания, как прежде', JSON.stringify(q.res).slice(0, 200))
+    q = await run({ args: { ...args, repo, lanes }, plan: [P(plan)] })
+    ok(q.res.ok === true && idx(q.calls, 'mech:stand:0') >= 0 && !noStand(prm(q.calls, 'mech:autoland')) && !noStand(prm(q.calls, 'mech:gates')), repo + ': стенд судится, посадке отчёт передаётся', JSON.stringify(q.res).slice(0, 200))
   }
-  q = await run({ args: kArgs, plan: [P('r0.json')], kanameExternal: [{ head: 'd'.repeat(40) }] })
-  ok(q.res.ok === false && idx(q.calls, 'mech:kaname-publish:1') < 0, 'Kaname external head mismatch denied')
-  q = await run({ args: kArgs, plan: [P('r0.json')], kanamePublish: [{ head: 'd'.repeat(40) }] })
-  ok(q.res.ok === false && idx(q.calls, 'mech:stand:0') < 0, 'Kaname publication head drift denied')
-  q = await run({ args: kArgs, plan: [P('r0.json')], stand: [{ code: 0, head: 'd'.repeat(40) }] })
-  ok(q.res.ok === false && idx(q.calls, 'mech:autoland') < 0, 'Kaname final proof wrong head denied')
-  q = await run({ args: kArgs, plan: [P('r0.json')], stand: [{ code: 3 }, { code: 0 }] })
-  ok(q.res.ok === true && by(q.calls, c => c.label.startsWith('mech:kaname-publish:')) === 1 && by(q.calls, c => c.label.startsWith('mech:kaname-external:')) === 1 && by(q.calls, c => c.label.startsWith('mech:stand:')) === 2, 'Kaname pending hosted resume does not republish or rerun external')
-  q = await run({ args: { ...argsABC, repo: 'PRO-Robotech/kaname' }, plan: [P('r1c.json')], wave: [W3('accept', 'accept', 'return')], kanameExternal: [{ code: 0 }, { code: 3 }] })
-  ok(q.res.state === 'running' && idx(q.calls, 'mech:kaname-external:2') >= 0 && idx(q.calls, 'mech:kaname-publish:2') < 0, 'Kaname reassembly pending not failed/published')
+  // ⛔ check-verifier ws#1460 (C1): похожее имя, иной регистр, голое имя, без имени — исключения
+  // нет: шаг стенда зовётся, красный останавливает. Ловят условие, дописанное к перечню (C4).
+  for (const repo of ['PRO-Robotech/kaname-fork', 'PRO-Robotech/kaname-iam-operator', 'pro-robotech/KANAME', 'PRO-Robotech/Kaname', 'kaname', undefined]) {
+    q = await run({ args: { ...kArgs, repo }, plan: [P('kn.json')], stand: [{ code: 1, reasons: ['STAND-REPORT-RED'] }] })
+    ok(q.res.ok === false && idx(q.calls, 'mech:stand:0') >= 0 && by(q.calls, c => /^mech:(ci:|ready|autoland|cascade)/.test(c.label)) === 0, String(repo) + ': не kaname дословно — стенд зовётся, красный останавливает (ws#1460, C1)', JSON.stringify(q.res).slice(0, 200))
+  }
 }
 
 console.log('== объединение вызовов всех сценариев: модель, усилие, место отчётов (ws#1016)')
@@ -1227,7 +1261,10 @@ mutant "sha вердикта подменяется" "const stale = (d.reviews |
 # переписан на новую голову — сверка непросмотренной головы слепнет.
 mutant "принявшим роль переписывается sha новой головы" "      vs = vs.map((v, i) => { const j = back.findIndex(x => x.r === roles[i]); return j < 0 ? v : again[j] })" "      vs = vs.map((v, i) => { const j = back.findIndex(x => x.r === roles[i]); return j < 0 ? { ...v, sha: impl.head } : again[j] })"
 mutant "непросмотренная голова не останавливает полосу" "      if (unseen.length) return" "      if (false) return"
-mutant "повтор — и принявшим" "const again = await Promise.all(back.map(x => review(x.r, l, impl.head, prev, 'review-' + x.r + '-2')))" "const again = await Promise.all(roles.map(r => review(r, l, impl.head, prev, 'review-' + r + '-2')))"
+mutant "повтор — и принявшим" "const again = await Promise.all(back.map(x => review(x.r, l, impl.head, prev, 'review-' + x.r + '-2', undefined, digestOf(pc))))" "const again = await Promise.all(roles.map(r => review(r, l, impl.head, prev, 'review-' + r + '-2', undefined, digestOf(pc))))"
+# Пачка уроков 6: ревью — лишь с дайджестом машиной, и дайджест — в задании роли.
+mutant "ревью без дайджеста" "    if (!digestOf(pc)) return { ...out, stage: 'предпроверка: дайджеста нет" "    if (false) return { ...out, stage: 'предпроверка: дайджеста нет"
+mutant "дайджест не в задании роли" "(digest ? ' — дайджест содержимого '" "(false ? ' — дайджест содержимого '"
 mutant "перепин не заводится" "onlySkew && round === 1)" "onlySkew && round === 0)"
 mutant "рецензент волны на каждую полосу" "if (steps.has('wave-reviewer')) {" "for (const _ of order) if (steps.has('wave-reviewer')) {"
 mutant "номер PR не судится" "if (!Number.isInteger(asm.pr) || asm.pr < 1) return" "if (false) return"
@@ -1314,7 +1351,7 @@ mutant "срок снят у ревью" "'. ' + due('review') + ' Верни ve
 mutant "правило вливания снято из общего задания" "  'ВЛИВАНИЕ (ws#1008, ws#1152)" "  '(ws#1008, ws#1152)"
 mutant "демон без сверки головы" "' --head ' + asm.head + ' --subject \"'" "' --subject \"'"
 mutant "вливание локальным --no-ff вместо демона" "ОДНОЙ командой \`bash ' + AUTOLAND + ' start" "ОДНОЙ командой \`git merge --no-ff ' + asm.head + ' && bash ' + AUTOLAND + ' start"
-mutant "старт демона с --auto" " --stand-expect ' + STAND_EXP + '\` — он сразу" " --stand-expect ' + STAND_EXP + ' --auto\` — он сразу"
+mutant "старт демона с --auto" " + STAND_ARGS + '\` — он сразу" " + STAND_ARGS + ' --auto\` — он сразу"
 mutant "тело PR при посадке — не генератором (ws#1146)" "/scripts/pr-body.sh ' + (A.repo || '?') + ' origin/' + (A.epic || A.base || '?') + ' ' + asm.head" "/scripts/body.sh ' + (A.repo || '?') + ' origin/' + (A.epic || A.base || '?') + ' ' + asm.head"
 mutant "норма вливания — сквошем (урок 2026-10-16)" "вливает он \`gh pr merge <PR> --merge --match-head-commit" "вливает он \`gh pr merge <PR> --squash --match-head-commit"
 mutant "лимит CI не судится (урок 2026-10-16)" "  if (rateOf(ci)) return rateStop('CI', ci, asm.head)" ""
@@ -1440,7 +1477,7 @@ mutant 'G2 старт: «Закрыть задачи полос сразу, по
 mutant 'G3 status: повторить status обязательно, раньше нельзя' 'Исход не толкуй, не жди, демон не перезапускай.' 'Исход не толкуй, демон не перезапускай; повторить status обязательно, раньше нельзя.'
 mutant "старт демона не судится" "if (!alStart || ![0, 3].includes(alStart.code)) return" "if (false) return"
 mutant "тело сборки руками (ws#1146)" "тело — ТОЛЬКО вывод генератора (ws#1146), руками не пишется: \`RITUAL_REPO_DIR=" "тело — ровно состав git log база..голова: \`true RITUAL_REPO_DIR="
-mutant "демон без отчёта стенда" "' --stand-report ' + STAND + ' --stand-expect ' + STAND_EXP + '\` — он сразу" "'\` — он сразу"
+mutant "демон без отчёта стенда" " + STAND_ARGS + '\` — он сразу" " + '\` — он сразу"
 mutant "срок CI-чтения больше 10 мин" "implement: 90, review: 30, mech: 10, ci: 2 }" "implement: 90, review: 30, mech: 10, ci: 60 }"
 # ws#1004: пустые ходы.
 mutant "план — JSON.parse всего вывода" "  plan = r ? parseJsonTail(r.out) : null" "  try { plan = r ? JSON.parse(r.out) : null } catch (e) { plan = null }"
@@ -1510,9 +1547,9 @@ mutant "два красных CI — без стопа (ws#1110)" "два кра
 mutant "стенд не судится (ws#1110)" "if (!stand || stand.code !== 0) return {" "if (false) return {"
 mutant "CI при идущем стенде (ws#1110)" "  if (!stand || stand.code !== 3) break" "  break"
 mutant "пауза стенда не проверяется (ws#1110)" "if (i > 0 && !(got && Number.isFinite(got.slept) && got.slept + CI_SLEPT_SLACK >= CI_PAUSE_S)) { stand = " "if (false) { stand = "
-mutant "отчёт стенда не в посадке (ws#1110)" "' --stand-report ' + STAND + ' --stand-expect ' + STAND_EXP," "'',"
+mutant "отчёт стенда не в посадке (ws#1110)" " + STAND_ARGS, D + '/landing-precheck-1.md')" " + '', D + '/landing-precheck-1.md')"
 mutant "ожидаемое стенда из отчёта (ws#1110)" " + ' --expect ' + STAND_EXP" ""
-mutant "ожидаемое не в посадке (ws#1110)" " + ' --stand-expect ' + STAND_EXP," ","
+mutant "ожидаемое не в посадке (ws#1110)" "' --stand-report ' + STAND + ' --stand-expect ' + STAND_EXP" "' --stand-report ' + STAND"
 mutant "ожидаемое стенда — выбор черновика, не ready (ws#1110, паритет с --github-output)" "' --draft false > ' + STAND_EXP" "' > ' + STAND_EXP"
 mutant "стенд — до первого красного (ws#1110)" "без остановки на первом красном; набор" "до первого красного; набор"
 mutant "красный стенд без порядка круга (ws#1110)" "...(stand && stand.code === 1 ? { redRound: RED_ROUND } : {})" "...({})"
@@ -1521,8 +1558,18 @@ mutant "перепись гейтов без branch-audit (ws#1071)" ", 'branch-
 mutant "перепись гейтов чинит по одному (ws#1071)" "прогони КАЖДЫЙ гейт по разу, ничего не чини" "прогони первый красный гейт и почини его"
 mutant "таблица гейтов не в итоге посадки (ws#1071)" "const gatesOf = () => ({ gates:" "const gatesOf = () => ({ gatesX:"
 mutant "ответ без ВОЗВРАТ принят (ws#1071)" "const hasRet = t => typeof t === 'string' && t.includes(RET_MARK)" "const hasRet = t => typeof t === 'string'"
-mutant "без ВОЗВРАТ — повтора дочитыванием нет (ws#1071)" "  return hasRet(b) ? b : null" "  return a"
-mutant "не-выполнилось подставлено дальше (ws#1071)" "    if (!s1) return noRet(out, l, 'client-sim')" "    if (false) return noRet(out, l, 'client-sim')"
+mutant "без ВОЗВРАТ — повтора дочитыванием нет (ws#1071)" "  if (!hasRet(a)) a = await agent(prompt + " "  if (false) a = await agent(prompt + "
+mutant "не-выполнилось подставлено дальше (ws#1071)" "    if (!s1) return noRet(out, l, 'client-sim', 'sim:' + l.key)" "    if (false) return noRet(out, l, 'client-sim', 'sim:' + l.key)"
+mutant "статус ВОЗВРАТ не судится — шаг после блокера (ws#1418)" "  if (retStatus(a) === 'готово') return a" "  return a"
+mutant "стоп без статуса в stage (ws#1418)" "(notReady[label] ? 'статус «' + notReady[label]" "(false ? 'статус «' + notReady[label]"
+mutant "статус — из первого блока, а не последнего (ws#1418)" "t.slice(t.lastIndexOf(RET_MARK) + RET_MARK.length)" "t.slice(t.indexOf(RET_MARK) + RET_MARK.length)"
+twin "статус: класс разделителей иным порядком (ws#1418)" "v.match(/^[^\\s·,;.]+/)" "v.match(/^[^·,;.\\s]+/)"
+mutant "имя поля в жирном не узнано (ws#1418)" "(?:\\*\\*)?статус(?:\\*\\*)?\\s*:" "статус(?:\\*\\*)?\\s*:"
+mutant "«**» входит в статус (ws#1418)" ".replace(/\\*\\*/g, '')" ".replace(/^\\*\\*/g, '')"
+mutant "незаполненный шаблон — статус (ws#1418)" "    if (v.includes('|')) return ''" "    if (false) return ''"
+mutant "граница блока снята — статус из прозы (ws#1418)" "for (; i < ls.length && ls[i].trim(); i++)" "for (; i < ls.length; i++)"
+mutant "поле статуса только с дефисом (ws#1418)" "(?:[-*]\\s+)?(?:\\*\\*)?статус" "[-*]\\s+(?:\\*\\*)?статус"
+mutant "двоеточие только внутри жирного (ws#1418)" "статус(?:\\*\\*)?\\s*:\\s*(.*)" "статус\\s*:\\s*(.*)"
 twin "дочитывание: формулировка (ws#1071)" "дочитай .rc и журнал своего прогона и верни" "дочитай .rc и журнал своего прогона, затем верни"
 twin "схождение: формулировка запрета правки (ws#1063)" "Ничего не правь. Запись — ' + R + '/trial-convergence.md" "Ничего не правь в дереве. Запись — ' + R + '/trial-convergence.md"
 mutant "строка head не порождается (ws#1191)" "const headLines = (l, ds, stack) => (ds && ds.length ?" "const headLines = (l, ds, stack) => (false ?"
@@ -1547,23 +1594,29 @@ mutant "текст автору приёмки не судится (ws#1271)" " 
 mutant "meta не литерал: вызов" "name: 'wave'," "name: ['wa', 've'].join(''),"
 mutant "meta не литерал: шаблонная строка" "name: 'wave'," "name: \`wave\`,"
 mutant "operator publication source drift accepted" "!published || published.head !== local.head" "!published"
-mutant "operator final proof source ignored" "(operatorStand || kanameStand) && got && got.head !== asm.head" "false"
+mutant "operator final proof source ignored" "operatorStand && got && got.head !== asm.head" "false"
 mutant "operator cluster red permits publication" "clusterStage.code !== 0" "false"
 mutant "operator cluster source ignored" "clusterStage.head !== local.head" "false"
-mutant "operator reassembly pending treated failed" "if ((operatorStand || kanameStand) && asm && asm.status === 'running') return { ok: false, state: 'running', stage: 'operator reassembly" "if (false) return { ok: false, state: 'running', stage: 'operator reassembly"
+mutant "operator reassembly pending treated failed" "if (operatorStand && asm && asm.status === 'running') return { ok: false, state: 'running', stage: 'operator reassembly" "if (false) return { ok: false, state: 'running', stage: 'operator reassembly"
 mutant "operator final prompt repeats cluster and push" "заново cluster не запускай и push не делай" "запусти cluster заново и выполни push"
-# Kaname-specific one-fact mutants retain the legal staged twin above.
-# ws#1301: ступени судей kaname и операторов — входом stand-report.sh; python3 на машине страж отказывает.
-mutant "Kaname import/register — python3 на машине (ws#1301)" "Ступени судьи — входом \`bash ' + WS + '/scripts/stand-report.sh <ступень>" "Ступени судьи — \`python3 ' + WS + '/scripts/kaname-stand.py <ступень>"
-mutant "Kaname external-only — kaname-stand.py (ws#1301)" "проверь \`bash ' + WS + '/scripts/stand-report.sh check <report>" "проверь \`python3 ' + WS + '/scripts/kaname-stand.py check <report>"
-mutant "Kaname report — kaname-stand.py (ws#1301)" "Собери отчёт \`bash ' + WS + '/scripts/stand-report.sh report" "Собери отчёт \`python3 ' + WS + '/scripts/kaname-stand.py report"
+# ws#1301: ступени судей операторов — входом stand-report.sh; python3 на машине страж отказывает.
 mutant "оператор register — operator-stand.py (ws#1301)" "зарегистрировать \`bash ' + WS + '/scripts/stand-report.sh register" "зарегистрировать \`operator-stand.py register"
 mutant "оператор cluster-check — python3 на машине (ws#1301)" "вызови bash ' + WS + '/scripts/stand-report.sh cluster-check" "вызови python3 ' + WS + '/scripts/operator-stand.py cluster-check"
 mutant "оператор итог cluster-check — без входа (ws#1301)" "повторно проверь \`bash ' + WS + '/scripts/stand-report.sh cluster-check\`" "повторно проверь cluster-check"
-mutant "Kaname external red publishes" "external.code !== 0" "false"
-mutant "Kaname external source ignored" "external.head !== local.head" "false"
-mutant "Kaname publication source ignored" "published && published.head === local.head ? published" "published ? published"
 
+# ws#1460: исключение стенда — ровно kaname; расширение и снятие краснеют.
+mutant "исключение стенда расширено на все репозитории (ws#1460)" "const standExempt = STAND_EXEMPT.includes(A.repo)" "const standExempt = true"
+mutant "перечень исключения стенда расширен на kacho (ws#1460)" "const STAND_EXEMPT = ['PRO-Robotech/kaname']" "const STAND_EXEMPT = ['PRO-Robotech/kaname', 'PRO-Robotech/kacho']"
+mutant "исключение стенда снято (ws#1460)" "const standExempt = STAND_EXEMPT.includes(A.repo)" "const standExempt = false"
+mutant "kaname: стенд пропущен, а отчёт в посадке (ws#1460)" "const STAND_ARGS = standExempt ? '' : ' --stand-report '" "const STAND_ARGS = false ? '' : ' --stand-report '"
+mutant "kaname: отчёт снят, а стенд зовётся (ws#1460)" "if (standExempt) { stand = { code: 0, exempt: true };" "if (false) { stand = { code: 0, exempt: true };"
+# ⛔ check-verifier ws#1460 (C4): условие, дописанное к перечню, — краснеют близнецы похожих имён и регистра.
+mutant "исключение стенда дописано условием по имени (ws#1460, C4)" "const standExempt = STAND_EXEMPT.includes(A.repo)" "const standExempt = STAND_EXEMPT.includes(A.repo) || /kaname/i.test(A.repo || '')"
+mutant "исключение стенда без регистра (ws#1460)" "const standExempt = STAND_EXEMPT.includes(A.repo)" "const standExempt = STAND_EXEMPT.map(x => x.toLowerCase()).includes(String(A.repo).toLowerCase())"
+
+# Итог — ПОСЛЕДНЕЙ исполняемой строкой: строка после него отдала бы скрипту свой код
+# (⛔ check-verifier ws#1460: пять мутантов после итога маскировали контроль и 317 мутантов).
+# Порядок держит tooling-gate check-29.
 echo
 echo "wave-template-inject: контроль код $rc; мутантов и близнецов $((pass + fail)), сошлось $pass (мутант красный, близнец молчит), разошлось $fail"
 [ "$rc" -eq 0 ] && [ "$fail" -eq 0 ]

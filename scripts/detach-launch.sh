@@ -22,7 +22,8 @@
 #     значении доходят дословно). Метки окружения (CLAUDE_CODE_SESSION_ID, CLAUDE_PID,
 #     KACHO_DETACHED_UNTIL) доходят до службы — перепись застоя её видит;
 #     исход службы — запись <журнал без .log>.exit одной строкой «<как> <SERVICE_RESULT>
-#     <EXIT_CODE> <EXIT_STATUS>»: ExecStopPost пишет её при ЛЮБОМ выходе, <как> — stop, если
+#     <EXIT_CODE> <EXIT_STATUS>»: ExecStopPost пишет её при ЛЮБОМ выходе службы (ExitType=cgroup —
+#     когда опустел её cgroup, а не когда вышел процесс шага), <как> — stop, если
 #     ExecStop застал главный процесс живым ($MAINPID задан лишь при остановке, замер
 #     systemd 259), иначе self; её читает detach_gone_reason;
 #   · иначе — прежний путь `setsid` с ГРОМКИМ предупреждением в stderr: шаг живёт в scope
@@ -63,8 +64,13 @@ detach_launch() {
         local on_post='s=self; [ -e "$DETACH_EXIT_FILE.stop" ] && s=stop; echo "$s $SERVICE_RESULT $EXIT_CODE $EXIT_STATUS" > "$DETACH_EXIT_FILE.tmp" && mv -f "$DETACH_EXIT_FILE.tmp" "$DETACH_EXIT_FILE"; rm -f "$DETACH_EXIT_FILE.stop"'
         # --expand-environment=no: иначе systemd раскрывает `$$` и `$ИМЯ` в доводах ExecStart
         # (замер: `echo $$` писал в .pid «$»), и текст команды исполнялся бы не тот.
+        # ExitType=cgroup (systemd ≥ 250): служба жива, пока жив процесс её cgroup. По умолчанию
+        # (main) выход обёртки снимал остаток cgroup — потомок ловушки (kubectl уборки, git push
+        # под push-then.sh) гиб, stop его не дожидался (ws#1468, замер: `( sleep 2; echo late > f ) &
+        # exit 0` службой — файла нет, с ExitType=cgroup — есть); setsid потомков и так не снимает.
+        # Старее 250 systemd-run отказывает — путь setsid с ПРЕДУПРЕЖДЕНИЕМ.
         if out="$(systemd-run --user --quiet --collect --unit="$unit" --same-dir --expand-environment=no \
-                -p UMask="$(umask)" -p OOMPolicy=continue "${envs[@]}" --setenv=DETACH_EXIT_FILE="${log%.log}.exit" \
+                -p UMask="$(umask)" -p OOMPolicy=continue -p ExitType=cgroup "${envs[@]}" --setenv=DETACH_EXIT_FILE="${log%.log}.exit" \
                 -p "ExecStop=:/bin/sh -c '$on_stop'" -p "ExecStopPost=:/bin/sh -c '$on_post'" \
                 -- bash -c "$wrap" "$log" "$@" 2>&1 < /dev/null)"; then
             DETACH_MODE=unit; return 0
@@ -105,9 +111,9 @@ detach_fp() {
 # detach_gone_reason <файл .pid> <файл .unit> — почему процесса шага нет: перезагрузка
 # машины (файл шага старше загрузки — btime из /proc/stat; судит и шаги, запущенные до
 # этой правки); у службы — исход из её записи <.unit без .unit>.exit, нет записи — из журнала
-# юнита (`systemctl --user kill` всей группы убивает и ExecStopPost; запуск до записи):
-# остановлена менеджером служб либо процесс убит сигналом — разными фразами; иначе
-# состояние systemd; процесс setsid-пути убит.
+# юнита (`systemctl --user kill` всей группы убивает и ExecStopPost; запуск до записи), молчит
+# журнал — из состояния службы (detach_unit_main): остановлена менеджером служб либо процесс
+# убит сигналом — разными фразами; иначе состояние systemd; процесс setsid-пути убит.
 detach_gone_reason() {
     local bt mt u st rec
     bt="$(awk '$1 == "btime" { print $2 }' /proc/stat 2> /dev/null)"
@@ -120,6 +126,7 @@ detach_gone_reason() {
     if [ -n "$u" ]; then
         rec="$(head -n 1 "${2%.unit}.exit" 2> /dev/null)"
         [ -n "$rec" ] || rec="$(detach_unit_journal "$u")"
+        [ -n "$rec" ] || rec="$(detach_unit_main "$u")"
         # shellcheck disable=SC2086  # запись — четыре слова
         [ -n "$rec" ] && { detach_cause_text "$u" $rec; return; }
         st="$(systemctl --user show -p ActiveState -p Result --value "$u" 2> /dev/null | paste -sd/)"
@@ -159,4 +166,30 @@ detach_unit_journal() {
             if (m ~ /^Failed with result \047/) { res = m; sub(/^Failed with result \047/, "", res); sub(/\047\.$/, "", res) }
         }
         END { if (how != "" || code != "") print (how == "" ? "self" : how), (res == "" ? "success" : res), (code == "" ? "-" : code), (st == "" ? "-" : st) }'
+}
+
+# detach_unit_main <юнит> — запись исхода «self <result> <code> <status>» из состояния службы,
+# когда процесс шага вышел, а служба жива: ExitType=cgroup держит её, пока в cgroup есть
+# потомок шага, — записи .exit нет (ExecStopPost ждёт пустого cgroup), а SIGTERM systemd
+# считает чистым выходом, и журнал о нём молчит (замер systemd 259, ws#1468: после kill -TERM
+# главного при живом ребёнке — active/running, MainPID=0, ExecMainCode=2, ExecMainStatus=15,
+# в журнале лишь «Started»). ExecMainCode — si_code: 1 вышел, 2 убит, 3 убит с дампом. Пусто —
+# процесс шага жив (MainPID не 0) либо службы нет (ExecMainPID 0).
+detach_unit_main() {
+    local kv mp="" ep="" c="" s="" r=""
+    while IFS= read -r kv; do
+        case "$kv" in
+            MainPID=*) mp="${kv#*=}" ;;
+            ExecMainPID=*) ep="${kv#*=}" ;;
+            ExecMainCode=*) c="${kv#*=}" ;;
+            ExecMainStatus=*) s="${kv#*=}" ;;
+            Result=*) r="${kv#*=}" ;;
+        esac
+    done < <(systemctl --user show -p MainPID -p ExecMainPID -p ExecMainCode -p ExecMainStatus -p Result "$1" 2> /dev/null)
+    if [ "$mp" != 0 ] || [[ ! "$ep" =~ ^[1-9][0-9]*$ ]] || [[ ! "$s" =~ ^[0-9]+$ ]]; then return 0; fi
+    case "$c" in
+        1) printf 'self %s exited %s\n' "${r:-success}" "$s" ;;
+        2 | 3) printf 'self %s killed %s\n' "${r:-success}" "$(kill -l "$s" 2> /dev/null || echo "$s")" ;;
+    esac
+    return 0
 }
