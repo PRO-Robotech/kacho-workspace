@@ -837,10 +837,10 @@ const noBr = ({ branch, ...l }) => l
 const argsNoBr = { ...args, lanes: [noBr(lanes2[0]), lanes2[1]] }
 const zz = [{ status: 'done', head: H('A', 1), branch: '9-zz' }]
 r = await run({ args: argsNoBr, plan: [P('r0.json')], 'impl:A': zz })
-const asmP = calls => calls.filter(c => /^mech:(assemble|assemble-local|kaname-local):/.test(c.label)).map(c => c.prompt).join('\n')
-ok(r.res.ok === true && prm(r.calls, 'impl:A').includes('план не задал') && prm(r.calls, 'mech:trial:A').includes('влей 9-zz@' + H('A', 1)) && prm(r.calls, 'mech:trial:A').includes('HEAD:refs/heads/9-zz`') && asmHas(r.calls, '9-zz') && !/undefined/.test(prm(r.calls, 'mech:trial:A') + asmP(r.calls)), 'CV3/CV4: ветки в плане нет — исполнителю «по правилу», пробная сборка и сборка с именем из возврата 9-zz', prm(r.calls, 'mech:trial:A').slice(0, 300) + ' | ' + asmP(r.calls).slice(0, 300))
+const asmAll = calls => calls.filter(c => /^mech:(assemble|assemble-local|kaname-local):/.test(c.label)).map(c => c.prompt).join('\n')
+ok(r.res.ok === true && prm(r.calls, 'impl:A').includes('план не задал') && prm(r.calls, 'mech:trial:A').includes('влей 9-zz@' + H('A', 1)) && prm(r.calls, 'mech:trial:A').includes('HEAD:refs/heads/9-zz`') && asmHas(r.calls, '9-zz') && !/undefined/.test(prm(r.calls, 'mech:trial:A') + asmAll(r.calls)), 'CV3/CV4: ветки в плане нет — исполнителю «по правилу», пробная сборка и сборка с именем из возврата 9-zz', prm(r.calls, 'mech:trial:A').slice(0, 300) + ' | ' + asmAll(r.calls).slice(0, 300))
 r = await run({ args: argsNoBr, plan: [P('r0.json')], 'impl:A': [{ status: 'done', head: H('A', 1), branch: '' }] })
-ok(inRest(r.res, 'A') && /назвал «», план — «не задана»; имени ветки в возврате нет/.test(brStage(r.res, 'A')) && by(r.calls, c => c.label === 'mech:precheck:A' || c.label === 'mech:trial:A') === 0 && asmHas(r.calls, '9-b') && !/undefined@|@undefined/.test(asmP(r.calls)), 'ветки нет ни в плане, ни в возврате — A стоит, в сборку не идёт; B садится', JSON.stringify(r.res).slice(0, 300))
+ok(inRest(r.res, 'A') && /назвал «», план — «не задана»; имени ветки в возврате нет/.test(brStage(r.res, 'A')) && by(r.calls, c => c.label === 'mech:precheck:A' || c.label === 'mech:trial:A') === 0 && asmHas(r.calls, '9-b') && !/undefined@|@undefined/.test(asmAll(r.calls)), 'ветки нет ни в плане, ни в возврате — A стоит, в сборку не идёт; B садится', JSON.stringify(r.res).slice(0, 300))
 for (const repo of ['PRO-Robotech/kaname', 'PRO-Robotech/registry-operator']) {
   r = await run({ args: { ...argsNoBr, repo }, plan: [P('r0.json')], 'impl:A': zz })
   const lbl = repo === 'PRO-Robotech/kaname' ? 'mech:kaname-local:1' : 'mech:assemble-local:1'
