@@ -112,6 +112,18 @@ start)
     # `heavy-slot.sh --enqueue` сам отсоединяется и выходит сразу: внутри службы шага его ожидатель
     # гибнет с ней, .rc не появляется (урок 239bf44d) — форма одна, без detach.sh.
     for a in "$@"; do case "$a" in --enqueue) case " $* " in *heavy-slot*) say "heavy-slot.sh --enqueue сам отсоединяется и печатает свой .rc — зови его напрямую, без detach.sh start"; exit 64 ;; esac ;; esac; done
+    # Входы шага (ws#1476, уроки 6846b2ee и check-verifier 2026-10-28: путь к предмету не проверен —
+    # прогон впустую): довод-сценарий или файл сборки, которого нет, — 64; под heavy-slot (исполняет
+    # коммит головы) относительный — ещё и вне коммита либо с правкой.
+    slot=0; case " $* " in *heavy-slot*) slot=1 ;; esac
+    for a in "$@"; do
+        case "${a##*/}" in *.sh | *.py | *.jq | *.go | *.mk | Makefile | Dockerfile* | *.yaml | *.yml) ;; *) continue ;; esac
+        case "$a" in -* | *=*) continue ;; esac; [ "$a" != "$1" ] || ! command -v -- "$a" > /dev/null 2>&1 || continue
+        [ -e "$a" ] || { say "вход «$a» не существует (от $PWD) — прогон ушёл бы впустую; проверь путь до start"; exit 64; }
+        [ "$slot" = 1 ] && [ "${a:0:1}" != / ] && [ "$(git rev-parse --is-inside-work-tree 2> /dev/null)" = true ] || continue
+        { git ls-files --error-unmatch -- "$a" && git diff --quiet HEAD -- "$a"; } > /dev/null 2>&1 ||
+            { say "вход «$a» не в коммите головы — слот исполняет коммит, правка до него не дойдёт; закоммить до start"; exit 64; }
+    done
     mkdir -p "$dir" 2>/dev/null || { say "каталог «$dir» не заводится — не запущено"; exit 69; }
     dir="$(cd "$dir" && pwd -P)"
     ign=1

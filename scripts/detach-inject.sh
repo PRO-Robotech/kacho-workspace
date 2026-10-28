@@ -140,6 +140,12 @@ echo x'; assert "64" "$SRC" "echo после перевода строки — 6
     assert "64 да" "$SRC $(grep -qF 'сам отсоединяется' <<< "$OUT" && echo да || echo нет)" "heavy-slot.sh --enqueue внутри detach.sh start — 64 с причиной (урок 239bf44d)"
     st "$R/s" echo --enqueue; settle "$RCF"
     assert "0 0" "$SRC $(status "$RCF")" "близнец: «--enqueue» доводом не слота — запускается"
+    # ws#1476: вход шага, которого нет, — 64; под heavy-slot — и вне коммита; закоммиченный — 0.
+    st "$R/s" bash "$R/none.sh"; assert "64 да" "$SRC $(grep -qF 'не существует' <<< "$OUT" && echo да || echo нет)" "довод-сценарий, которого нет, — 64 с причиной (урок 6846b2ee)"
+    : > "$R/repo/in.sh"; local cwd0=$PWD; cd "$R/repo" || return
+    st "$R/repo/steps" echo heavy-slot -- bash in.sh; assert "64 да" "$SRC $(grep -qF 'не в коммите' <<< "$OUT" && echo да || echo нет)" "под heavy-slot вход вне коммита — 64 с причиной"
+    git add in.sh && git commit -qm in > /dev/null; st "$R/repo/steps" echo heavy-slot -- bash in.sh; settle "$RCF"
+    cd "$cwd0" || return; assert "0 0" "$SRC $(status "$RCF")" "близнец: тот же вход в коммите — запускается"
     echo "== предмет сменился за время прогона (класс правка-во-время-прогона, 7 случаев)"
     # Копия git с отслеживаемым скриптом; шаг ждёт файл-сигнал (до 10 с), проба правит между
     # стартом и сигналом — правка гарантированно ВНУТРИ прогона, без гонки.
@@ -369,6 +375,8 @@ mutant trailing-echo-allowed '&& [[ "$last" =~ ^(echo|printf)([[:space:]]|$) ]];
 mutant name-not-unique '-$$-$(printf' '-$(printf'
 mutant tree-unchecked '= true ] && [ "$ign" = 0 ]; then' '= true ] && false; then'
 mutant enqueue-allowed 'exit 64 ;; esac ;; esac; done' ';; esac ;; esac; done'
+mutant input-exists-unchecked '[ -e "$a" ] || { say' 'true || { say'
+mutant input-commit-unchecked '{ git ls-files --error-unmatch -- "$a" && git diff --quiet HEAD -- "$a"; } > /dev/null 2>&1 ||' 'true ||'
 mutant fp-unjudged '[ -f "$base.fp" ] && [ -f "$base.fp-end" ] && ! cmp -s' 'false && ! cmp -s'
 mutant fp-end-at-status 'if [ -f "$base.fp" ] && [ -f "$base.fp-end" ]' 'if (cd "$(dirname "$base")/.." && detach_fp bash s.sh > "$base.fp-end" 2> /dev/null); [ -f "$base.fp" ] && [ -f "$base.fp-end" ]'
 mutant boot-unread '[ "$mt" -lt "$bt" ]; then' '[ "$mt" -lt 0 ]; then' detach-launch.sh boot_cases
