@@ -245,7 +245,7 @@
 # docker.io предел анонимных скачиваний на адрес узла, а входа в реестр нет. Пин
 # неоднозначен или не найден — 69, а не «какая-нибудь версия». Образ слота той же версии
 # (docker.io/prorobotech/kacho-heavy-slot, ws#1482: среда в образе, а не загрузкой при запуске)
-# берётся вместо него, когда тег опубликован, — ОБРАЗ СЛОТА у WS_IMAGE ниже.
+# берётся вместо него лишь по digest, закреплённому в дереве, — ОБРАЗ СЛОТА у WS_IMAGE ниже.
 #
 # СРЕДА (ws#996). Пробы, зовущие helm и node подпроцессом, без них в pod краснели
 # или отвечали «не выполнилось» (2026-10-10: 11 случаев gateway/deploy без helm,
@@ -517,11 +517,14 @@ WS_IMAGE="$REGISTRY/golang:$WS_GO"
 # запуске (jq, PyYAML, pytest, file, helm, node, buf, yq, shellcheck, bats, локали, ensurepip) —
 # slot-image/Dockerfile, сборка — .github/workflows/slot-image.yaml. Аудит 2026-10-28: 6 из 270
 # запусков — 69 на загрузках (jq и yq с github.com, модули с proxy.golang.org) при 19–22 pod.
-# Тег — go<версия>-<первые 12 знаков sha256 Dockerfile ЭТОГО дерева>, тем же правилом, что у
-# сборки; берётся, лишь когда версия в slot-image/go-versions и тег опубликован (Docker Hub
-# отвечает 200). Иначе — golang:<версия> зеркала, а среда ставится шагами подготовки, как до
-# образа: строка «образ слота не взят: <причина>» называет это; шаги подготовки ставят лишь
-# отсутствующее либо не той версии, поэтому на образе слота они молчат.
+# ЛИЧНОСТЬ ОБРАЗА — digest из дерева (ws#1482 F2): образ берётся ТОЛЬКО как <repo>@sha256:<digest>
+# со строки «<версия> sha256:<digest>» slot-image/go-versions; тег реестра не читается и не
+# спрашивается — он лишь для людей, поэтому подменённый тег не выбирается никогда, а digest в
+# дерево попадает только PR-ом в main (строку печатает задание publish сборки). Строки версии
+# нет, digest не закреплён либо строка вне формы — golang:<версия> зеркала, а среда ставится
+# шагами подготовки, как до образа: строка «образ слота не взят: <причина>» называет это; шаги
+# подготовки ставят лишь отсутствующее либо не той версии, поэтому на образе слота они молчат
+# (и образ, собранный из прежнего Dockerfile, добирается ими же).
 SLOT_REPO="docker.io/prorobotech/kacho-heavy-slot"
 SLOT_DIR="$SELF_DIR/slot-image"
 # GOPROXY pod: goproxy.ru первым, proxy.golang.org — на ЛЮБОМ его отказе («|», а не «,»: запятая
@@ -1319,26 +1322,22 @@ if [ "$PROFILE" = lint ] && [ -z "$LINT_PIN" ]; then
 fi
 GO_IMAGE="$REGISTRY/golang:$GOVER"; IMG_NAME="golang:$GOVER"; IMG_GO="$GOVER"
 [ "$PROFILE" != ws ] || { GO_IMAGE="$WS_IMAGE"; IMG_NAME="${WS_IMAGE##*/}"; IMG_GO="$WS_GO"; LINT_PIN=""; GOSEC_PIN=""; }
-# slot_image <версия go> — SLOT_REF образа слота под версию либо 1 и SLOT_WHY (ОБРАЗ СЛОТА выше).
-# Ответ реестра — код HTTP тега: 200 — есть, 404 — не опубликован, иное и обрыв — «не ответил».
+# slot_image <версия go> — SLOT_REF образа слота (<repo>@sha256:…) под версию либо 1 и SLOT_WHY
+# (ОБРАЗ СЛОТА выше). Сеть не спрашивается: личность образа — строка дерева, а не ответ реестра.
 slot_image() {
-    local v="$1" h code
+    local v="$1" line dg rest
     SLOT_REF=""; SLOT_WHY=""
-    grep -qxF -- "$v" "$SLOT_DIR/go-versions" 2>/dev/null || { SLOT_WHY="версии go $v нет в slot-image/go-versions"; return 1; }
-    h="$(sha256sum "$SLOT_DIR/Dockerfile" 2>/dev/null)"; h="${h:0:12}"
-    [[ "$h" =~ ^[0-9a-f]{12}$ ]] || { SLOT_WHY="slot-image/Dockerfile не прочитан"; return 1; }
-    code="$(curl -sS -o /dev/null -w '%{http_code}' --connect-timeout 5 --max-time 15 \
-        "https://hub.docker.com/v2/namespaces/prorobotech/repositories/kacho-heavy-slot/tags/go$v-$h" 2>/dev/null)"
-    case "$code" in
-        200) SLOT_REF="$SLOT_REPO:go$v-$h"; return 0 ;;
-        404) SLOT_WHY="тег go$v-$h не опубликован (сборка — .github/workflows/slot-image.yaml)" ;;
-        *) SLOT_WHY="реестр образов не ответил о теге go$v-$h (HTTP ${code:-нет})" ;;
-    esac
-    return 1
+    line="$(awk -v v="$v" '$1 "" == v ""' "$SLOT_DIR/go-versions" 2>/dev/null)"  # сравнение строкой: «1.26» не равно «1.260»
+    [ -n "$line" ] || { SLOT_WHY="версии go $v нет в slot-image/go-versions"; return 1; }
+    [ "$(wc -l <<< "$line")" -eq 1 ] || { SLOT_WHY="версия go $v в slot-image/go-versions — не одной строкой"; return 1; }
+    read -r _ dg rest <<< "$line"
+    [ -n "$dg" ] || { SLOT_WHY="digest образа под go $v не закреплён в slot-image/go-versions (публикация — slot-image.yaml с main, строка digest — PR в main)"; return 1; }
+    [[ "$dg" =~ ^sha256:[0-9a-f]{64}$ ]] && [ -z "$rest" ] || { SLOT_WHY="строка go $v в slot-image/go-versions вне формы «<версия> sha256:<64 знака>»"; return 1; }
+    SLOT_REF="$SLOT_REPO@$dg"
 }
 if slot_image "$IMG_GO"; then
     GO_IMAGE="$SLOT_REF"; IMG_NAME="${SLOT_REF##*/}"
-    say "образ слота ${IMG_NAME}: среда в образе — шаги подготовки ставят лишь отсутствующее"
+    say "образ слота под go $IMG_GO — ${IMG_NAME} (digest из slot-image/go-versions): среда в образе — шаги подготовки ставят лишь отсутствующее"
 else
     say "образ слота не взят: $SLOT_WHY — образ $IMG_NAME, среда ставится шагами подготовки"
 fi

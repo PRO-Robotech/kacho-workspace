@@ -6,9 +6,9 @@
 # Шаги подготовки в run.sh ставят лишь отсутствующее либо не той версии — на этом образе они
 # молчат; версия, не совпавшая с пином ревизии, по-прежнему ставится шагом (а не подменяется).
 # Версии и суммы — те же, что у шагов run.sh (PKGS_SH, PYTEST_SH, FILE_SH, INSTALL_SH,
-# WSTOOLS_SH): сверку держит inject.sh remote-heavy (IMG2). Тег образа — go<версия>-<первые 12
-# знаков sha256 этого файла>: run.sh и сборка (.github/workflows/slot-image.yaml) выводят его
-# одним правилом, и правка файла даёт новый тег, а не подмену прежнего.
+# WSTOOLS_SH): сверку держит inject.sh remote-heavy (IMG2). Личность образа — digest строки
+# go-versions рядом (run.sh берёт лишь <repo>@sha256:…); тег сборки (.github/workflows/slot-image.yaml)
+# — для людей.
 ARG GO_VERSION
 FROM golang:${GO_VERSION}
 

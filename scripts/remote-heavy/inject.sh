@@ -274,13 +274,16 @@
 #      наборов, её сверка и команда от runner; пара профиля и репозитория; пин shellcheck; сверка
 #      среды, читатель трекера и установка с пином суммы исполнением (подробно — у случаев);
 #      WS7 — локаль en_US.UTF-8 и ensurepip (ws#1482) исполнением шагов wsenv/wsenvwait над двойниками
-#   IMG1–IMG3 образ слота (ws#1482): тег опубликован (двойник реестра 200) → run и fetch — образ
-#      слота go<версия>-<sha Dockerfile>, строка названа; 404, обрыв, версия вне go-versions →
-#      golang зеркала и причина; GOPROXY pod — goproxy.ru первым (IMG1); версии и суммы Dockerfile —
+#   IMG1–IMG4 образ слота (ws#1482): образ — ТОЛЬКО по digest строки slot-image/go-versions →
+#      run и fetch — kacho-heavy-slot@sha256:<digest>, тег реестра не выбран и не спрошен; версии нет,
+#      digest не закреплён либо вне формы → golang зеркала и причина; ведомость дерева годной формы
+#      (IMG1-tree); GOPROXY pod — goproxy.ru первым (IMG1); версии и суммы Dockerfile —
 #      те же, что у шагов run.sh, порча суммы краснеет (IMG2); установка среды при инструментах
 #      пина в PATH (образ слота) — ни одного «ставлю» и ни одной загрузки, близнец другой версии —
 #      ставит (IMG3). Шаги пакетов, воркспейса и локали молчат на образе тем же «ставлю лишь
-#      отсутствующее» (P2, WS6, WS7 — законные близнецы «уже есть»); на кластере — проба живым pod
+#      отсутствующее» (P2, WS6, WS7 — законные близнецы «уже есть»); на кластере — проба живым pod;
+#      сборка slot-image.yaml (IMG4): секреты и docker login/push — лишь в задании под environment
+#      slot-image с условием «только main», на pull_request их нет; uses — полным SHA (yq, порчи копии)
 #   KD1–KD9 профиль kind (ws#1385, kind.sh): пара профиля — лишь клоны внешних операторов
 #      (kind + kacho → 64); Job — hostUsers узла и privileged лишь у dind, проба допуска от
 #      имени job-controller до Job, проба исполнимости kind в pod (исполнением шага над
@@ -728,9 +731,9 @@ case "$u" in
       '[ubuntu-24.04]: https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2404-Readme.md' \
       '[ubuntu-24.04-arm64]: https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2404-Arm64-Readme.md' ;;
   */images/ubuntu/Ubuntu2404-Readme.md) printf '%s\n' '# Ubuntu 24.04' '- Image Version: 20261012.334.1' '- Helm 3.22.0' '- Kind 0.33.0' ;;
-  # Тег образа слота (ws#1482): как настоящий curl -sS -o /dev/null -w '%{http_code}' — код
-  # ответа в stdout и код 0 (без -f); FAKE_HUB — код реестра (по умолчанию 404 — не опубликован),
-  # FAKE_HUB_LOG — файл, куда пишется спрошенный адрес.
+  # Тег образа слота (ws#1482) — ЛОВУШКА: run.sh реестр о теге не спрашивает (личность образа —
+  # digest дерева); двойник отвечает как curl -w %{http_code} (FAKE_HUB, по умолчанию 404), а
+  # спрошенный адрес пишет в FAKE_HUB_LOG — его непустота краснит случаи IMG1.
   https://hub.docker.com/v2/namespaces/prorobotech/repositories/kacho-heavy-slot/tags/*)
     [ -z "${FAKE_HUB_LOG:-}" ] || printf '%s\n' "$u" >> "$FAKE_HUB_LOG"
     printf '%s' "${FAKE_HUB:-404}" ;;
@@ -4263,36 +4266,54 @@ kd_tab="$(sed -n '/^# kind-operators-begin$/,/^# kind-operators-end$/p' "$SELF_D
 if [ "$kd_tab" = 3 ]; then ok; else bad KD-table "строк таблицы личности дерева годной формы $kd_tab, ждали 3"; fi
 export REMOTE_HEAVY_KIND_DIR="$KDLIB"
 # ── IMG образ слота (ws#1482) ─────────────────────────────────────────────────
-# IMG1 — выбор образа: тег go<версия>-<sha Dockerfile> опубликован (двойник реестра 200) → run и
-#     fetch — образ слота, реестр спрошен ровно этим тегом, строки названы; 404, обрыв, версия вне
-#     go-versions → golang зеркала и причина; GOPROXY pod — goproxy.ru первым, «|» до proxy.golang.org
+# IMG1 — выбор образа ТОЛЬКО по digest дерева (F2): строка «1.26.9 sha256:<D>» slot-image/go-versions
+#     → run и fetch — kacho-heavy-slot@sha256:<D>, строки названы; реестр не спрашивается ни в одном
+#     случае (двойник curl пишет любой запрос тега в hub.log). Двойник реестра отвечает «тег
+#     опубликован» (200) везде: подменённый тег не выбирается — в Job ни тега, ни формы «repo:тег»,
+#     образ ровно @<digest дерева> (IMG1-tag); digest дерева — выбран (IMG1-hit); нет
+#     строки версии (IMG1-ver), строка без digest (IMG1-nodg), digest вне формы (IMG1-form) —
+#     golang зеркала и причина. Каталоги случаев — копия «$RUN» рядом со своим slot-image/: run.sh
+#     читает slot-image/ рядом с собой, как у mutants.py. GOPROXY pod — goproxy.ru первым.
 SDIR="$(dirname "$RUN")/slot-image"
+SLOT_D1="sha256:$(printf 'slot-image-pinned' | sha256sum | cut -c1-64)"
 SLOT_H="$(sha256sum "$SDIR/Dockerfile" 2>/dev/null | cut -c1-12)"
-SLOT_WANT="docker.io/prorobotech/kacho-heavy-slot:go1.26.9-$SLOT_H"
-if [[ "$SLOT_H" =~ ^[0-9a-f]{12}$ ]]; then ok; else bad IMG1 "Dockerfile образа слота рядом с run.sh не прочитан ($SDIR)"; fi
+if [[ "$SLOT_H" =~ ^[0-9a-f]{12}$ ]] && [[ "$SLOT_D1" =~ ^sha256:[0-9a-f]{64}$ ]]; then ok
+else bad IMG1 "Dockerfile образа слота рядом с run.sh не прочитан ($SDIR) либо digest фикстуры не собран"; fi
+# slot_dir <каталог> <строки go-versions…> — копия run.sh с Dockerfile дерева и своей ведомостью версий.
+slot_dir() {
+    local d="$BOX/$1"; shift
+    rm -rf "$d"; mkdir -p "$d/slot-image"
+    cp "$RUN" "$d/run.sh"; cp "$SDIR/Dockerfile" "$d/slot-image/Dockerfile"
+    { echo '# ведомость фикстуры IMG1'; printf '%s\n' "$@"; } > "$d/slot-image/go-versions"
+}
+slot_dir slot-pin "1.26.0" "1.26.9 $SLOT_D1" "1.26.10"
+slot_dir slot-nodg "1.26.9"
+slot_dir slot-form "1.26.9 sha256:${SLOT_D1:7:40}"
 img_of() { jq -r --arg c "$2" '[(.spec.template.spec.initContainers // [])[], .spec.template.spec.containers[] | select(.name == $c) | .image] | join(" ")' "$1" 2>/dev/null; }
-# img_case <случай> <код реестра|down> <ждём образ> <слово строки> <--repo> <--ref> <--profile> <--src>
+# img_case <случай> <run.sh> <ждём образ> <слово строки> <--repo> <--ref> <--profile> <--src>
 img_case() {
-    local c="$1" hub="$2" want="$3" word="$4"; shift 4
+    local c="$1" run="$2" want="$3" word="$4"; shift 4
     fresh; : > "$BOX/hub.log"
-    if [ "$hub" = down ]; then set -- FAKE_HUB=000 "$@"; else set -- FAKE_HUB="$hub" "$@"; fi
-    go_run "$c" env FAKE_EXIT=0 FAKE_HUB_LOG="$BOX/hub.log" "$1" bash "$RUN" --task 1 --repo "$2" --ref "$3" --src "$5" --profile "$4" --short img -- true
+    go_run "$c" env FAKE_EXIT=0 FAKE_HUB=200 FAKE_HUB_LOG="$BOX/hub.log" bash "$run" --task 1 --repo "$1" --ref "$2" --src "$4" --profile "$3" --short img -- true
     expect_rc "$c" 0
     local j="$BOX/state/job.json"
     if [ "$(img_of "$j" run)" = "$want" ] && [ "$(img_of "$j" fetch)" = "$want" ]; then ok
     else OUT="$j"; bad "$c" "образ run «$(img_of "$j" run)», fetch «$(img_of "$j" fetch)», ждали $want"; fi
     if grep -q "remote-heavy: .*$word" "$BOX/$c.out"; then ok; else bad "$c" "строка «$word» о выборе образа не напечатана"; fi
+    if [ -s "$BOX/hub.log" ]; then OUT="$BOX/hub.log"; bad "$c" "реестр спрошен о теге — личность образа обязана браться из дерева, а не из ответа реестра"; else ok; fi
     if [ "$(kx env "$j" run GOPROXY)" = 'https://goproxy.ru|https://proxy.golang.org,direct' ]; then ok
     else OUT="$j"; bad "$c" "GOPROXY run «$(kx env "$j" run GOPROXY)», ждали goproxy.ru первым и proxy.golang.org на любом его отказе"; fi
 }
-img_case IMG1-hit 200 "$SLOT_WANT" "образ слота kacho-heavy-slot:go1.26.9-$SLOT_H: среда в образе" kacho-workspace HEAD ws "$SRCW"
-if [ "$(cat "$BOX/hub.log")" = "https://hub.docker.com/v2/namespaces/prorobotech/repositories/kacho-heavy-slot/tags/go1.26.9-$SLOT_H" ]; then ok
-else OUT="$BOX/hub.log"; bad IMG1-hit "реестр спрошен не ровно тегом go1.26.9-$SLOT_H"; fi
-if grep -q "Job создан: образ kacho-heavy-slot:go1.26.9-$SLOT_H" "$BOX/IMG1-hit.out"; then ok; else bad IMG1-hit "строка «Job создан» не называет образ слота"; fi
-img_case IMG1-miss 404 mirror.gcr.io/library/golang:1.26.9 "образ слота не взят: тег go1.26.9-$SLOT_H не опубликован" kacho-workspace HEAD ws "$SRCW"
-img_case IMG1-down down mirror.gcr.io/library/golang:1.26.9 "образ слота не взят: реестр образов не ответил" kacho-workspace HEAD ws "$SRCW"
-img_case IMG1-ver 200 mirror.gcr.io/library/golang:1.26.8 "образ слота не взят: версии go 1.26.8 нет в slot-image/go-versions" kaname pins integration "$SRC"
-if [ -s "$BOX/hub.log" ]; then OUT="$BOX/hub.log"; bad IMG1-ver "версии нет в ведомости, а реестр спрошен"; else ok; fi
+SLOT_WANT="docker.io/prorobotech/kacho-heavy-slot@$SLOT_D1"
+img_case IMG1-hit "$BOX/slot-pin/run.sh" "$SLOT_WANT" "образ слота под go 1.26.9 — kacho-heavy-slot@$SLOT_D1 (digest из slot-image/go-versions)" kacho-workspace HEAD ws "$SRCW"
+if grep -q "Job создан: образ kacho-heavy-slot@$SLOT_D1" "$BOX/IMG1-hit.out"; then ok; else bad IMG1-hit "строка «Job создан» не называет образ слота по digest"; fi
+# IMG1-tag — тот же выбор, судимый с другой стороны: в Job нет тега kacho-heavy-slot:go<…>,
+# а образ слота — ровно @<digest дерева>.
+OUT="$BOX/state/job.json"
+if grep -qF "kacho-heavy-slot:go" "$OUT" || ! grep -qF "kacho-heavy-slot@$SLOT_D1" "$OUT"; then bad IMG1-tag "образ слота выбран не ровно по digest дерева: тег реестра в Job"; else ok; fi
+img_case IMG1-ver "$RUN" mirror.gcr.io/library/golang:1.26.8 "образ слота не взят: версии go 1.26.8 нет в slot-image/go-versions" kaname pins integration "$SRC"
+img_case IMG1-nodg "$BOX/slot-nodg/run.sh" mirror.gcr.io/library/golang:1.26.9 "образ слота не взят: digest образа под go 1.26.9 не закреплён в slot-image/go-versions" kacho-workspace HEAD ws "$SRCW"
+img_case IMG1-form "$BOX/slot-form/run.sh" mirror.gcr.io/library/golang:1.26.9 "образ слота не взят: строка go 1.26.9 в slot-image/go-versions вне формы" kacho-workspace HEAD ws "$SRCW"
 # IMG2 — версии и суммы Dockerfile — те же, что у шагов run.sh: сумма загрузки Dockerfile, кроме
 #     node, helm и buf (их сумму шаги run.sh берут у выпуска), — дословно в run.sh; go профиля ws —
 #     в go-versions; node — мажора WS_NODE; shellcheck — WS_SHELLCHECK. Порча суммы копии — краснеет.
@@ -4309,7 +4330,7 @@ if [ "$I2" = "сумм 9" ]; then ok; else bad IMG2 "суммы Dockerfile и ru
 sed 's/b96de04645707e14a12f52c37e6266832e03c29e95b9b139cddcae7314466e69/b96de04645707e14a12f52c37e6266832e03c29e95b9b139cddcae7314466e6a/' "$SDIR/Dockerfile" > "$BOX/img2-bad.Dockerfile"
 if grep -q '^нет в run.sh: ' <<< "$(img2 "$BOX/img2-bad.Dockerfile")"; then ok; else bad IMG2-inj "порча суммы yq в копии Dockerfile не замечена"; fi
 WSGO="$(sed -n 's/^WS_GO=\([0-9.]*\)$/\1/p' "$RUN")"; WSNODE="$(sed -n 's/^WS_NODE=\([0-9]*\)$/\1/p' "$RUN")"; WSSC="$(sed -n 's/^WS_SHELLCHECK=\([0-9.]*\)$/\1/p' "$RUN")"
-if [ -n "$WSGO" ] && grep -qxF "$WSGO" "$SDIR/go-versions"; then ok; else bad IMG2 "go профиля ws «$WSGO» нет в slot-image/go-versions"; fi
+if [ -n "$WSGO" ] && awk -v v="$WSGO" '$1 "" == v "" { f = 1 } END { exit !f }' "$SDIR/go-versions"; then ok; else bad IMG2 "go профиля ws «$WSGO» нет в slot-image/go-versions"; fi
 if [ -n "$WSNODE" ] && grep -qE "nodejs\.org/dist/v$WSNODE\.[0-9]+\.[0-9]+/" "$SDIR/Dockerfile"; then ok; else bad IMG2 "node Dockerfile не мажора WS_NODE «$WSNODE»"; fi
 if [ -n "$WSSC" ] && grep -qF "shellcheck-v$WSSC.linux.x86_64" "$SDIR/Dockerfile"; then ok; else bad IMG2 "shellcheck Dockerfile не WS_SHELLCHECK «$WSSC»"; fi
 # IMG3 — установка среды (текст install из Job E1) при инструментах пина в PATH — образ слота:
@@ -4345,6 +4366,59 @@ img3_twin IMG3-helm helm 'helm v4.2.4' v3.17.0+gold v26.12.1 1.72.0 v4.53.6
 img3_twin IMG3-node node 'node v26.11.1' v4.2.4+gimage v24.1.0 1.72.0 v4.53.6
 img3_twin IMG3-buf buf 'buf 1.72.0' v4.2.4+gimage v26.12.1 1.71.0 v4.53.6
 img3_twin IMG3-yq yq 'yq v4.53.6' v4.2.4+gimage v26.12.1 1.72.0 v4.53.5
+# IMG1-tree — ведомость версий дерева годной формы: каждая строка, кроме пустых и «#», — «<версия>»
+#     либо «<версия> sha256:<64 знака>», версия — одной строкой. Иначе run.sh молча уходит в запасной
+#     путь по версии, которую считают закреплённой.
+I1T="$(awk '/^[[:space:]]*(#|$)/ { next } { n++ }
+    !($1 ~ /^[0-9]+\.[0-9]+(\.[0-9]+)?$/ && (NF == 1 || (NF == 2 && $2 ~ /^sha256:[0-9a-f]{64}$/))) { print "строка " FNR ": «" $0 "»" }
+    seen[$1]++ { print "версия " $1 " — не одной строкой" } END { print "строк " n + 0 }' "$SDIR/go-versions")"
+if [[ "$I1T" =~ ^строк\ [1-9][0-9]*$ ]]; then ok; else bad IMG1-tree "slot-image/go-versions вне формы: $(tr '\n' ' ' <<< "$I1T")"; fi
+# IMG4 — сборка образа (.github/workflows/slot-image.yaml, F1/F4), разобранная yq как YAML, а не
+#     подстрокой: задание, несущее `secrets.` либо `docker login|push`, — лишь под environment
+#     slot-image и с условием `github.ref == 'refs/heads/main'` первым членом верхнего `&&` (остаток —
+#     одни скобки без вложенных), то есть на pull_request (ref refs/pull/…) не исполняется;
+#     секретов в `env` уровня workflow нет; каждый `uses:` — полный SHA коммита (40 знаков).
+#     Граница распознавателя — форма условия: иное записанное условие — находка, а не догадка.
+#     Предпосылка: заданий ≥ 2 и с секретами ≥ 1 (иначе судить нечего). Порчи копии — каждая краснеет:
+#     снято условие, условие расширено «|| pull_request», снято окружение, секрет в задании
+#     сборки PR, `uses:` по тегу; контроль — дерево — молчит.
+WFS="$SELF_DIR/../../.github/workflows/slot-image.yaml"
+# wf_judge <workflow> — находки по строке; последней — «заданий N · с секретами M».
+wf_judge() {
+    local js
+    js="$(yq -o=json '.' "$1" 2>/dev/null)" || { echo "workflow не разобран yq: $1"; return; }
+    jq -r '
+      def priv: tostring | test("secrets\\.|docker +(login|push)");
+      def envname: if type == "object" then (.name // "") else (. // "") end;
+      ((.env // {}) | select(priv) | "env уровня workflow несёт секрет"),
+      (.jobs // {} | to_entries[] | .key as $k | .value as $v |
+        (if ($v | priv) and (($v.environment | envname) != "slot-image") then "\($k): секрет либо docker login/push без environment slot-image" else empty end),
+        (if ($v | priv) and ((($v.if // "") | test("^github\\.ref == '\''refs/heads/main'\''( && \\([^()]*\\))?$")) | not) then "\($k): секрет без условия «github.ref == refs/heads/main» первым членом — исполнится и на pull_request (if: «\($v.if // "нет")»)" else empty end),
+        ($v.steps // [] | .[] | .uses // empty | select(test("@[0-9a-f]{40}$") | not) | "\($k): uses не по полному SHA — \(.)")),
+      "заданий \(.jobs // {} | length) · с секретами \([.jobs // {} | .[] | select(priv)] | length)"' <<< "$js"
+}
+if command -v yq > /dev/null && yq --version 2>/dev/null | grep -q ' v4\.'; then
+    W0="$(wf_judge "$WFS")"
+    if [ "$W0" = "заданий 2 · с секретами 1" ]; then ok; else bad IMG4 "slot-image.yaml: $(tr '\n' ' ' <<< "$W0")(ждали «заданий 2 · с секретами 1» без находок)"; fi
+    # wf_inj <случай> <выражение yq> <образец находки> — порча копии краснеет своей находкой.
+    wf_inj() {
+        local f="$BOX/wf-$1.yaml" w
+        yq "$2" "$WFS" > "$f" 2>/dev/null || { bad "$1" "порча yq «$2» не применена"; return; }
+        w="$(wf_judge "$f")"
+        if grep -q -- "$3" <<< "$w"; then ok; else bad "$1" "порча «$2» не замечена: $(tr '\n' ' ' <<< "$w")"; fi
+    }
+    wf_inj IMG4-noif 'del(.jobs.publish.if)' '^publish: секрет без условия'
+    wf_inj IMG4-orpr '.jobs.publish.if += " || github.event_name == '"'"'pull_request'"'"'"' '^publish: секрет без условия'
+    wf_inj IMG4-noenv 'del(.jobs.publish.environment)' '^publish: секрет либо docker login/push без environment'
+    # shellcheck disable=SC2016  # выражение Actions — буквы порчи, не подстановка
+    wf_inj IMG4-prsecret '.jobs.verify.steps[1].env.DH_TOKEN = "${{ secrets.DOCKERHUB_TOKEN }}"' '^verify: секрет либо docker login/push без environment'
+    wf_inj IMG4-prlogin '.jobs.verify.steps[1].run += "docker login -u x\n"' '^verify: секрет либо docker login/push без environment'
+    wf_inj IMG4-uses 'with(.jobs.publish.steps[0]; .uses = "actions/checkout@v7")' '^publish: uses не по полному SHA'
+    # shellcheck disable=SC2016  # выражение Actions — буквы порчи, не подстановка
+    wf_inj IMG4-wfenv '.env.T = "${{ secrets.DOCKERHUB_TOKEN }}"' '^env уровня workflow несёт секрет'
+else
+    bad IMG4 "yq v4 нет в PATH — сборку образа слота судить нечем (не выполнилось)"
+fi
 
 # KD1 — пара профиля: kind лишь клонам внешних операторов; продукт — 64 с причиной (ПОВЕРХНОСТЬ)
 fresh; go_run kd1 bash "$RUN" --request --profile kind --repo kacho
