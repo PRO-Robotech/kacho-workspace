@@ -94,7 +94,8 @@ jobs:
             echo "go $v: digest в дереве ${dg:-не закреплён} — собираю $t"
             docker build --pull --build-arg "GO_VERSION=$v" -t "$t" "$d"
             docker push "$t"
-            got="$(docker inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$t" | sed -n "s|^$repo@||p" | head -1)"
+            # RepoDigests docker пишет без «docker.io/»: судится имя репозитория, а не префикс реестра.
+            got="$(docker inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$t" | sed -n 's|^\(docker\.io/\)\{0,1\}prorobotech/kacho-heavy-slot@||p' | head -1)"
             [[ "$got" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::digest опубликованного $t не прочитан"; exit 1; }
             echo "опубликован $t как $repo@$got"
             pin="$pin$v $got"$'\n'
