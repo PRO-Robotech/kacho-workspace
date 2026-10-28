@@ -103,7 +103,7 @@ if old is not None:
         new = new.strip()
         old = "    " + old
         new = "    " + new
-    assert old in source, (mode, old[:60])
+    assert source.count(old) == 1, (mode, old[:60])  # ровно одно место (урок ws#1413)
     source = source.replace(old, new, 1)
     open(target, "w", encoding="utf-8").write(source)
 PY
