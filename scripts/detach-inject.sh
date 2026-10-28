@@ -136,7 +136,7 @@ echo x'; assert "64" "$SRC" "echo после перевода строки — 6
     st "$R/s"; assert "64" "$SRC" "без «-- <команда>» — 64"
     # Урок 239bf44d: `heavy-slot.sh --enqueue` сам отсоединяется и выходит сразу — внутри
     # detach.sh start его ожидатель гибнет вместе со службой шага, .rc не появляется.
-    st "$R/s" bash /ws/scripts/heavy-slot.sh --enqueue "$R/q" docker -- true
+    : > "$R/heavy-slot.sh"; st "$R/s" echo "$R/heavy-slot.sh" --enqueue "$R/q" docker -- true  # вход есть: мутанта не маскирует проверка входов
     assert "64 да" "$SRC $(grep -qF 'сам отсоединяется' <<< "$OUT" && echo да || echo нет)" "heavy-slot.sh --enqueue внутри detach.sh start — 64 с причиной (урок 239bf44d)"
     st "$R/s" echo --enqueue; settle "$RCF"
     assert "0 0" "$SRC $(status "$RCF")" "близнец: «--enqueue» доводом не слота — запускается"
