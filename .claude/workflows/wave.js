@@ -17,6 +17,8 @@ export const meta = {
 //    код lane-precheck.sh не 0 — полоса и зависимые не раздаются;
 //  - шаги полосы берутся из вывода plan-precheck.sh (а тот — из lane-tier.sh);
 //    своего соответствия «уровень → шаги» здесь нет;
+//  - план несёт пару запроса волны {repo, epic||base}: строки ведомости ci-read нет —
+//    plan-precheck CI-LEDGER-MISSING до раздачи, а не VOID демона на посадке (ws#1510);
 //  - R0 — без рецензентов; R1 — один wave-reviewer на СОБРАННУЮ волну; R2 — роли
 //    полосы, рецензент волны; landing-reviewer — только за НЕДОСТАЮЩИМ фактом;
 //  - вердикт и решение (база диспетчера §7 «Вердикт и решение», владелец
@@ -229,7 +231,7 @@ const res = await (async () => {
 // ── План ────────────────────────────────────────────────────────────────
 phase('План')
 const runPlan = async (lanes, round) => {
-  const plan = { wave: N, targets: A.targets || {}, crossRepo: A.crossRepo === true || undefined, lanes: lanes.map(l => ({ key: l.key, repo: l.repo, dir: l.dir || '', base: l.base || A.base, head: l.head || undefined, paths: l.paths || undefined, deps: l.deps || [], declared: l.tier || undefined, repin: l.repin || undefined })) }
+  const plan = { wave: N, targets: A.targets || {}, crossRepo: A.crossRepo === true || undefined, pr: { repo: String(A.repo || ''), base: String(A.epic || A.base || '') }, lanes: lanes.map(l => ({ key: l.key, repo: l.repo, dir: l.dir || '', base: l.base || A.base, head: l.head || undefined, paths: l.paths || undefined, deps: l.deps || [], declared: l.tier || undefined, repin: l.repin || undefined })) }
   return agent(C + '\n\nРежим план: запиши ровно этот JSON в ' + D + '/plan-' + round + '.json: ' + JSON.stringify(plan) + '\nВыполни `bash ' + WS + '/scripts/wave-errors.sh open ' + N + '` и `bash ' + WS + '/scripts/plan-precheck.sh ' + D + '/plan-' + round + '.json --json > ' + D + '/plan-' + round + '.out.json 2> ' + D + '/plan-' + round + '.census.txt`. Верни code (код plan-precheck), out (ТОЛЬКО последняя строка .out.json — JSON-объект плана, дословно, без строк CENSUS и пояснений), reasons (коды причин из него), head "".', { ...MECH, label: 'mech:plan:' + round, phase: 'План', schema: S_MECH })
 }
 let lanes = (A.lanes || []).map(l => ({ ...l }))

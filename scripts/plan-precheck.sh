@@ -18,7 +18,7 @@
 # usage: plan-precheck.sh <план.json> [--json]
 #
 # ПЛАН — объект:
-#   {"wave": "<N>", "crossRepo": true?,
+#   {"wave": "<N>", "crossRepo": true?, "pr": {"repo": "<владелец/репо>", "base": "<ветка>"}?,
 #    "targets": {"kacho": {"dir": "<клон>", "rev": "<ревизия>"},
 #                "kaname": {"dir": "<клон>", "rev": "<ревизия>"}},
 #    "lanes": [{"key": "A", "repo": "kacho", "dir": "<клон>", "base": "<ревизия>",
@@ -55,7 +55,18 @@
 #                     (`.claude/workflows/wave.js`) заводит такую полосу первой
 #                     сам и зовёт проверку заново;
 #   CORELIB-SKEW-NEIGHBOUR  то же при `crossRepo`, но отстаёт репозиторий, полос
-#                     которого в плане нет: остановка без `autoRepin`.
+#                     которого в плане нет: остановка без `autoRepin`;
+#   CI-LEDGER-MISSING у пары запроса волны `"pr": {"repo": "<владелец/репо>",
+#                     "base": "<база запроса>"}` нет строки в ведомости, которую
+#                     читает `ci-read.sh` рядом (`${CI_READ_EXPECTED:-<каталог
+#                     скрипта>/ci-read-expected.tsv}`; выборка `awk` и форма числа
+#                     `^[1-9][0-9]*$` — его). Тот же код у `landing-precheck.sh`
+#                     пункта (г), но там — после CI, здесь — до раздачи: строка
+#                     базы эпика заводится вместе с веткой эпика, а не на посадке
+#                     (ws#1510: kaname#1069 в 1054 — VOID ci-read на демоне вливания).
+#                     Без `pr` — строка CENSUS «не судилась» (`pr` передаёт
+#                     `.claude/workflows/wave.js` всегда); `pr` не той формы —
+#                     PLAN-MALFORMED, ведомость не читается — LEDGER-UNREADABLE (код 2).
 #
 # ВЫВОД. Перепись и причины — строками; с `--json` в stdout один объект
 # {code, lanes:[{key, repo, tier, computed, steps, roles, acceptance, review,
@@ -72,10 +83,10 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 [ $# -ge 1 ] || { echo "usage: plan-precheck.sh <план.json> [--json]" >&2; exit 2; }
 command -v python3 > /dev/null 2>&1 || { echo "plan-precheck: VOID — нет python3" >&2; exit 2; }
-exec python3 - "$HERE/lane-tier.sh" "$@" <<'PY'
+exec python3 - "$HERE/lane-tier.sh" "${CI_READ_EXPECTED:-$HERE/ci-read-expected.tsv}" "$@" <<'PY'
 import json, os, re, subprocess, sys, tempfile
 
-tier_tool, args = sys.argv[1], sys.argv[2:]
+tier_tool, ledger, args = sys.argv[1], sys.argv[2], sys.argv[3:]
 as_json = "--json" in args
 args = [a for a in args if a != "--json"]
 if len(args) != 1:
@@ -288,6 +299,32 @@ elif repos:
     census.append(f"corelib: в плане один репозиторий ({', '.join(sorted(repos))}), crossRepo не объявлен — сосед не судился")
 else:
     census.append("corelib: полос kacho и kaname нет — не судился")
+
+# ── строка ведомости ci-read пары запроса волны (ws#1510) ───────────────
+# Выборка — выражение ci-read.sh дословно (его шапка: строка пары, третье поле).
+LEDGER_AWK = '!/^#/ && $1==r && $2==b {print $3; exit}'
+pr = plan.get("pr")
+pr_ok = isinstance(pr, dict) and bool(re.fullmatch(r"[^/\s]+/[^/\s]+", str(pr.get("repo") or "")))
+pr_ok = pr_ok and bool(re.fullmatch(r"\S+", str(pr.get("base") or "")))
+led_src = ledger if not os.environ.get("CI_READ_EXPECTED") else f"подмена CI_READ_EXPECTED: {ledger}"
+if pr is None:
+    census.append("ведомость ci-read: пара запроса волны (pr) не объявлена — не судилась")
+elif not pr_ok:
+    void("PLAN-MALFORMED", f"pr — не {{repo: \"<владелец>/<репо>\", base: \"<ветка>\"}}: {pr!r}")
+else:
+    pr_repo, pr_base = str(pr["repo"]), str(pr["base"])
+    p = subprocess.run(["awk", "-F\t", "-v", f"r={pr_repo}", "-v", f"b={pr_base}", LEDGER_AWK, ledger],
+                       capture_output=True, text=True)
+    got = p.stdout.strip()
+    if p.returncode != 0 or not os.path.isfile(ledger):
+        void("LEDGER-UNREADABLE", f"ведомость ci-read «{ledger}» не читается — строку пары {pr_repo} / {pr_base} не судить")
+    elif re.fullmatch(r"[1-9][0-9]*", got):
+        census.append(f"ведомость ci-read: {pr_repo} / {pr_base} — строка есть, проверок не меньше {got} ({led_src})")
+    else:
+        reason("CI-LEDGER-MISSING", f"пары {pr_repo} / {pr_base} нет в ведомости {led_src}"
+               + (f" (третье поле {got!r} не число ≥ 1)" if got else "")
+               + " — запрос волны в эту базу ci-read.sh прочтёт VOID «ожидаемое не известно», демон вливания не посадит;"
+               + " строку заводит tooling-maintainer замером предикатом шапки ведомости до раздачи")
 
 census.insert(0, f"план {args[0]}: полос {len(lanes)}, слоёв {len(layers)}, пар одного репозитория {pairs}, уровней вычислено {len(lanes_out)}")
 for lo in lanes_out:

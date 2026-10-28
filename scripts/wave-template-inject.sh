@@ -306,6 +306,11 @@ if (landWs) {
 console.log('== R0: без рецензентов, механика без заданной модели')
 let r = await run({ args, plan: [P('r0.json')] })
 ok(r.res.ok === true, 'волна R0 влита', JSON.stringify(r.res).slice(0, 300))
+ok(prm(r.calls, 'mech:plan:1').includes('"pr":{"repo":"PRO-Robotech/kacho-workspace","base":"main"}'), 'план несёт пару запроса волны (репозиторий, epic||base) — plan-precheck судит строку ведомости ci-read до раздачи (ws#1510)', prm(r.calls, 'mech:plan:1').slice(0, 300))
+{
+  const rEp = await run({ args: { ...args, epic: '1054', base: 'main' }, plan: [P('r0.json')] })
+  ok(prm(rEp.calls, 'mech:plan:1').includes('"pr":{"repo":"PRO-Robotech/kacho-workspace","base":"1054"}'), 'пара запроса волны — база эпика, а не база полос: запрос волны идёт в epic (ws#1510)', prm(rEp.calls, 'mech:plan:1').slice(0, 300))
+}
 ok(by(r.calls, c => REVIEWERS.includes(c.agentType)) === 0, 'ни одного рецензента и приёмщика')
 ok(by(r.calls, c => c.label.startsWith('mech:precheck:')) === 2, 'lane-precheck — по полосе')
 ok(mechOk(r.calls) && by(r.calls, c => c.label.startsWith('mech:')) > 0, 'механика — модель не задана; усилие не задано у шагов, чей ответ читает решение')
@@ -1563,6 +1568,8 @@ mutant "оператор итог cluster-check — без входа (ws#1301)"
 mutant "Kaname external red publishes" "external.code !== 0" "false"
 mutant "Kaname external source ignored" "external.head !== local.head" "false"
 mutant "Kaname publication source ignored" "published && published.head === local.head ? published" "published ? published"
+mutant "план без пары запроса волны (ws#1510)" "pr: { repo: String(A.repo || ''), base: String(A.epic || A.base || '') }, " ""
+mutant "пара запроса волны — база полос, не эпик (ws#1510)" "base: String(A.epic || A.base || '') }" "base: String(A.base || '') }"
 
 echo
 echo "wave-template-inject: контроль код $rc; мутантов и близнецов $((pass + fail)), сошлось $pass (мутант красный, близнец молчит), разошлось $fail"
