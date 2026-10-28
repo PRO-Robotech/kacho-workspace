@@ -345,6 +345,22 @@
 # исполняет локально (heavy-slot.sh, ЗАВИСИМОСТИ КОНСОЛИ ЛОКАЛЬНО, ws#1190) с
 # HEAVY_NPM_CACHE — кэшем машины; в Job переменной нет, кэш прежний.
 #
+# ЗАПРОСЫ НА СЛИЯНИЕ ДЛЯ ХУКА (ws#1503). Хук kaname (prepush-classes.py) выбирает базу
+# правила запроса по `gh pr list`: базу открытого запроса ветки либо ближайшую из main и
+# голов эпиков. В pod gh нет и токена нет (ws#1382) — хук брал main, и коммит открытия
+# эпика попадал в диапазон ветки сборки (отправка 1057 в эпик 1054, 2026-10-28: «#1054» на
+# ветке «1057» — красное, которого нет). Поэтому драйвер ci-local ОТПРАВКИ, если хуки
+# ревизии спрашивают `pr list` (git grep scripts/hooks по ревизии), снимает на машине
+# ЧТЕНИЕМ `gh pr list` открытых запросов в main и запросов каждой отправляемой ветки (вход
+# pre-push) и кладёт ответ JSON в env HEAVY_GH_PRS; шаг «# ghpr-begin» пишет его файлом и
+# ставит в /work/bin `gh`, который отвечает на `pr list` лишь из снятого (фильтр
+# --head/--base/--state, поля --json, --limit), прочее — код 4, неснятое — код 1 с
+# причиной. Токен в pod не уходит: в Job — только снятый JSON (публичные данные публичных
+# репозиториев). Не снялось (gh машины нет, отказал, ответ не тот, больше 100 000 байт) —
+# 69 до кластера с причиной: хук молча выбрал бы main (предикат ws#1503, п. 5). Прочие
+# вызовы gh в хуках (трекер, слияния площадки) при отказе gh pod судят так же, как без gh
+# (перепись ws#1503: pr-rule-check.sh, review-event-silence.py, newman-suite-debt.py).
+#
 # УЧЁТКА GIT (ws#1115). Стражи правила ветки и коммита хуков отправки (kaname
 # branch-rule.sh, corelib git-rule.sh) сверяют подпись коммитов с КОРНЕВОЙ
 # учётной записью — `git config --global user.name / user.email`; в pod её нет,
@@ -1268,6 +1284,42 @@ if [ "$PROFILE" = ci-local ] || [ "$PROFILE" = ws ]; then
         say "учётка git: корневой у вызывающей копии нет — Job идёт без неё (не отправка)"
     fi
 fi
+# ЗАПРОСЫ НА СЛИЯНИЕ ДЛЯ ХУКА (шапка, ws#1503) — снятие чтением на машине, до кластера.
+# gh_prs_snapshot <репозиторий> — JSON {repo, heads, prs} в GH_PRS; код 1 — не снято, причина
+# в GH_PRS_ERR: хук молча выбрал бы main, поэтому отправка — «не выполнилось» (69) до кластера.
+GH_PRS_MAX=100000
+gh_prs_snapshot() {
+    local slug="$1" all got h n
+    local -a heads=()
+    GH_PRS=""; GH_PRS_ERR=""
+    mapfile -t heads < <(awk '$2 !~ /^0+$/ && $3 ~ /^refs\/heads\// { sub(/^refs\/heads\//, "", $3); print $3 }' <<< "$PUSH_INPUT" | sort -u)
+    command -v gh > /dev/null 2>&1 || { GH_PRS_ERR="gh на машине не найден"; return 1; }
+    got="$(timeout 30 gh pr list -R "$slug" --base main --state open --json number,title,baseRefName,headRefName,isDraft --limit 1000 2>&1)" \
+        || { GH_PRS_ERR="gh pr list --base main: $(printf '%s' "$got" | tr '\n' ' ' | cut -c1-200)"; return 1; }
+    n="$(jq -e 'if type == "array" and all(.[]; type == "object" and (.headRefName | type) == "string") then length else error("не массив запросов") end' <<< "$got" 2>&1)" \
+        || { GH_PRS_ERR="gh pr list --base main: ответ не массив запросов"; return 1; }
+    [ "$n" -lt 1000 ] || { GH_PRS_ERR="открытых запросов в main не меньше 1000 — перепись неполна"; return 1; }
+    all="$got"
+    for h in "${heads[@]}"; do
+        got="$(timeout 30 gh pr list -R "$slug" --head "$h" --state open --json number,title,body,baseRefName,headRefName,isDraft --limit 5 2>&1)" \
+            || { GH_PRS_ERR="gh pr list --head $h: $(printf '%s' "$got" | tr '\n' ' ' | cut -c1-200)"; return 1; }
+        all="$(jq -ce --argjson add "$got" 'if ($add | type) == "array" and all($add[]; type == "object" and (.headRefName | type) == "string")
+                   then [(. + $add) | group_by(.number)[] | max_by(length)] else error("не массив запросов") end' <<< "$all" 2>&1)" \
+            || { GH_PRS_ERR="gh pr list --head $h: ответ не массив запросов"; return 1; }
+    done
+    GH_PRS="$(jq -cn --arg repo "$slug" --argjson prs "$all" '{repo: $repo, heads: $ARGS.positional, prs: $prs}' --args "${heads[@]}")"
+    [ "${#GH_PRS}" -le "$GH_PRS_MAX" ] || { GH_PRS_ERR="снятое ${#GH_PRS} байт больше предела $GH_PRS_MAX (env pod)"; GH_PRS=""; return 1; }
+}
+GH_PRS=""
+if [ "$PROFILE" = ci-local ] && [ -n "$PUSH_INPUT" ]; then
+    if ! git -C "$SRC" grep -qE 'gh pr list|"pr", *"list"' "$SHA" -- scripts/hooks 2>/dev/null; then
+        say "запросы на слияние: хуки ревизии «pr list» не спрашивают (scripts/hooks) — не снимаю"
+    elif ! gh_prs_snapshot "PRO-Robotech/$REPO"; then
+        say "запросы на слияние для хука НЕ сняты: $GH_PRS_ERR — хук выбрал бы базу main без голов эпиков (не выполнилось, Job не создавался)"; exit 69
+    else
+        say "запросы на слияние для хука сняты чтением на машине: открытых в main $(jq '[.prs[] | select(.baseRefName == "main")] | length' <<< "$GH_PRS"), веток отправки $(jq '.heads | length' <<< "$GH_PRS"), их запросов $(jq '. as $d | [.prs[] | select(.headRefName as $h | $d.heads | index($h))] | length' <<< "$GH_PRS") — gh в pod отвечает снятым, токена в pod нет"
+    fi
+fi
 GOVER=""
 if [ "$PROFILE" != ws ]; then
 GOMOD="$(git -C "$SRC" show "$SHA:go.mod" 2>/dev/null)" || { say "go.mod на $SHA не прочитан"; exit 69; }
@@ -2178,6 +2230,57 @@ else
 fi
 # gitid-end
 GITID
+)"
+# ЗАПРОСЫ НА СЛИЯНИЕ ДЛЯ ХУКА (шапка, ws#1503) — снятое машиной файлом и `gh` pod, который
+# отвечает лишь на `pr list` из него. Маркеры — граница, по которой inject.sh исполняет шаг
+# и сам gh pod над снятым двойником.
+# shellcheck disable=SC2016  # раскрывается в pod, не здесь
+GHPR_SH="$(cat <<'GHPR'
+# ghpr-begin
+if [ -n "${HEAVY_GH_PRS:-}" ]; then
+  printf '%s' "$HEAVY_GH_PRS" > /work/gh-prs.json && jq -e '(.repo | type) == "string" and (.prs | type) == "array" and (.heads | type) == "array"' /work/gh-prs.json > /dev/null \
+    || pf "gh pod: снятое машиной не записано либо не той формы"
+  cat > /work/bin/gh <<'GHPOD'
+#!/usr/bin/env bash
+# gh pod (ws#1503): «pr list» — из снятого машиной /work/gh-prs.json, токена в pod нет.
+set -uo pipefail
+snap=/work/gh-prs.json
+die() { printf 'gh pod (снятое машиной, ws#1503): %s\n' "$1" >&2; exit "$2"; }
+[ "${1:-}" = pr ] && [ "${2:-}" = list ] || die "поддержан лишь «pr list» — токена в pod нет; вызов: «$*»" 4
+shift 2
+repo=""; base=""; head=""; state=open; fields=""; limit=30
+while [ "$#" -gt 0 ]; do
+  [ "$#" -ge 2 ] || die "у флага «$1» нет значения" 4
+  case "$1" in
+    -R|--repo) repo="$2" ;; -B|--base) base="$2" ;; -H|--head) head="$2" ;;
+    -s|--state) state="$2" ;; --json) fields="$2" ;; -L|--limit) limit="$2" ;;
+    *) die "флаг «$1» не поддержан" 4 ;;
+  esac
+  shift 2
+done
+[ -n "$fields" ] || die "без --json не отвечаю" 4
+[[ "$limit" =~ ^[1-9][0-9]*$ ]] || die "--limit «$limit» не число" 4
+[ "$repo" = "$(jq -r .repo "$snap")" ] || die "снят репозиторий «$(jq -r .repo "$snap")», спрошен «$repo»" 1
+[ "$state" = open ] || die "сняты лишь открытые запросы, спрошено «$state»" 1
+if [ -n "$head" ]; then
+  jq -e --arg h "$head" '.heads | index($h)' "$snap" > /dev/null || die "запросы ветки «$head» не сняты (сняты: $(jq -r '.heads | join(" ")' "$snap"))" 1
+elif [ "$base" != main ]; then
+  die "без --head снят лишь «--base main», спрошено «${base:-без базы}»" 1
+fi
+jq --arg h "$head" --arg b "$base" --arg f "$fields" --argjson n "$limit" '
+  ($f | split(",")) as $fs
+  | [.prs[] | select(($h == "" or .headRefName == $h) and ($b == "" or .baseRefName == $b))]
+  | sort_by(-.number) | .[:$n]
+  | if all(.[]; . as $r | all($fs[]; . as $k | $r | has($k))) then map(with_entries(select(.key as $k | $fs | index($k))))
+    else error("поле из «\($f)» не снято машиной") end' "$snap" || die "ответ не собран из снятого" 1
+GHPOD
+  chmod 0755 /work/bin/gh || pf "gh pod не поставлен"
+  echo "remote-heavy: gh в pod — «pr list» из снятого машиной (запросов $(jq '.prs | length' /work/gh-prs.json), веток отправки $(jq -r '.heads | join(" ")' /work/gh-prs.json)), токена нет" >&2
+else
+  echo "remote-heavy: gh в pod — нет: запросы на слияние не снимались (не отправка либо хук их не спрашивает)" >&2
+fi
+# ghpr-end
+GHPR
 )"
 # ХУКИ КЛОНА (ws#1207): ci-local гонит хук отправки в клоне pod, а клон из bundle
 # хуками не провязан. Хук corelib спрашивает `install.sh check` ДО проверок и
@@ -3218,6 +3321,8 @@ $PULL_SH"
 { [ "$PROFILE" = ci-local ] || [ "$PROFILE" = ws ]; } && PREP="$PREP
 $GITID_SH
 $HOOKS_SH"
+[ "$PROFILE" = ci-local ] && PREP="$PREP
+$GHPR_SH"
 [ "$PROFILE" = lint ] || PREP="$PREP
 $INSTALL_SH
 $TOOLS_SH"
@@ -3428,7 +3533,7 @@ jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg goimg "$GO_IMAGE" --arg dimg "
     --arg cr "${RUN_CPU_REQ}m" --arg cl "$CPU_LIM" --arg mr "${RUN_MEM_REQ}Mi" --arg ml "${RUN_MEM_LIM}Mi" --arg eph "$EPH" \
     --arg dcr "$DCR" --arg dcl "$DCL" --arg dmr "$DMR" --arg dml "$DML" \
     --arg pgimg "$PG_IMAGE" --arg pgsh "$PG_SH" --argjson pg "$PG" --arg pgcr "${PG_REQ_M}m" --arg pgmr "${PG_REQ_MIB}Mi" --arg dindsh "$DIND_SH" --arg deny "$DENY_PROBE" --arg helm "$HELM_PIN" --arg node "$NODE_PIN" --arg buf "$BUF_PIN" --arg yq "$YQ_PIN" \
-    --arg pull "$PULL_IMG" --arg pushin "$PUSH_INPUT" --arg gname "$GIT_NAME" --arg gemail "$GIT_EMAIL" --arg wssc "$WS_SC" --slurpfile cmdv <(printf '%s' "$CMD_JSON") \
+    --arg pull "$PULL_IMG" --arg pushin "$PUSH_INPUT" --arg gname "$GIT_NAME" --arg gemail "$GIT_EMAIL" --arg ghprs "$GH_PRS" --arg wssc "$WS_SC" --slurpfile cmdv <(printf '%s' "$CMD_JSON") \
     --argjson kind "$(if kind_on; then echo 1; else echo 0; fi)" --arg kprobe "$KIND_PROBE_IMAGE" '
 # kubelet раскрывает в command, args и value env контейнера $(ИМЯ) значением env и
 # сворачивает $$ в $ (ws#1142: составной Job потерял переменные и коды осей). Каждый
@@ -3465,6 +3570,7 @@ def kesc_c: (if .command then .command |= map(kesc) else (.) end)
               {name: "GOLANGCI_LINT_CACHE", value: "/cache/lint"}, {name: "CI", value: "true"}]
              + (if $wssc != "" then [{name: "HEAVY_SHELLCHECK", value: $wssc},
                                     {name: "PREPUSH_GH", value: "/work/bin/gh-issue-public"}] else [] end)
+             + (if $ghprs != "" then [{name: "HEAVY_GH_PRS", value: $ghprs}] else [] end)
              + (if $dind == 1 then [{name: "DOCKER_HOST", value: "unix:///run/dind/docker.sock"},
                                     {name: "TESTCONTAINERS_RYUK_DISABLED", value: "true"}] else [] end)
              + (if $kind == 1 then [{name: "HEAVY_KIND_PROBE", value: $kprobe}] else [] end)),

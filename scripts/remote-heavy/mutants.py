@@ -672,6 +672,24 @@ $FILEWAIT_SH"'''),
     ("file-elf", "F2x", "собранный file не судится исполнением на настоящем ELF",
      '''case "$fk" in ELF*) ;;''',
      '''case "$fk" in *) ;;'''),
+    # ws#1503: запросы на слияние для хука — снятое машиной в Job и gh pod из него.
+    ("ghpr-env", "GP1", "снятое машиной не доходит до окружения run",
+     r'''+ (if $ghprs != "" then [{name: "HEAVY_GH_PRS", value: $ghprs}] else [] end)''',
+     r'''+ []'''),
+    ("ghpr-unwired", "GP1", "шаг gh pod не включён в Job ci-local",
+     '[ "$PROFILE" = ci-local ] && PREP="$PREP\n$GHPR_SH"',
+     'false && PREP="$PREP\n$GHPR_SH"'),
+    ("ghpr-token", "GP1-env", "токен машины уходит в окружение pod",
+     r'''[{name: "HEAVY_GH_PRS", value: $ghprs}]''',
+     r'''[{name: "HEAVY_GH_PRS", value: $ghprs}, {name: "GH_TOKEN", value: (env.GH_TOKEN // "")}]'''),
+    ("ghpr-head-filter", "GP3-head", "gh pod не фильтрует по --head — ветке без запроса достаётся чужой",
+     r'''select(($h == "" or .headRefName == $h) and''',
+     r'''select((true) and'''),
+    ("ghpr-epics-dropped", "GP1", "снимается лишь запрос ветки, головы эпиков не снимаются",
+     r'''    all="$got"
+    for h in''',
+     r'''    all="[]"
+    for h in'''),
 ]
 
 
