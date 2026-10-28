@@ -126,6 +126,20 @@ MUTANTS = [
     ('ws-locale-unchecked', 'WS4-noloc', 'сверка среды воркспейса не судит локаль en_US.UTF-8',
      '|| tf "локаль en_US.UTF-8 не установлена',
      '|| : tf "локаль en_US.UTF-8 не установлена'),
+    # ОБРАЗ СЛОТА (ws#1482): выбор по ответу реестра и ведомости версий, GOPROXY pod, установка лишь
+    # отсутствующего той же формой версии, что у сверки среды.
+    ('slot-404-taken', 'IMG1-miss', 'тег, не опубликованный в реестре (404), принят образом слота',
+     '200) SLOT_REF="$SLOT_REPO:go$v-$h"',
+     '200|404) SLOT_REF="$SLOT_REPO:go$v-$h"'),
+    ('slot-no-ledger', 'IMG1-ver', 'версия go вне slot-image/go-versions идёт в реестр и берётся образом слота',
+     'grep -qxF -- "$v" "$SLOT_DIR/go-versions" 2>/dev/null ||',
+     ': ||'),
+    ('slot-goproxy-plain', 'IMG1-hit', 'GOPROXY pod без goproxy.ru первым',
+     'POD_GOPROXY="https://goproxy.ru|https://proxy.golang.org,direct"',
+     'POD_GOPROXY="https://proxy.golang.org,direct"'),
+    ('slot-helm-any', 'IMG3-twin', 'helm любой версии в PATH снимает установку пина',
+     '"$HEAVY_HELM"|"$HEAVY_HELM+"*) true;;',
+     '*) true;;'),
     # ОБРАЗЫ TESTCONTAINERS (ws#1268): предел, застой и код вердикта загрузки.
     ("pull-no-limit", "PW3", "загрузка образа без предела: попытка не ограничена сроком шага",
      "ctx, cancel := context.WithDeadline(context.Background(), deadline)",
@@ -707,6 +721,8 @@ def one(src, root, m):
     mid, probe, _, frag, repl = m
     d = tempfile.mkdtemp(prefix=f"mut-{mid}-", dir=root)
     path = os.path.join(d, "run.sh")
+    # Образ слота (ws#1482): run.sh читает slot-image/ рядом с собой — копия несёт его так же.
+    shutil.copytree(os.path.join(HERE, "slot-image"), os.path.join(d, "slot-image"))
     with open(path, "w") as f:
         f.write(src.replace(frag, repl, 1))
     rc, fails, tail = run_inject(path, d)

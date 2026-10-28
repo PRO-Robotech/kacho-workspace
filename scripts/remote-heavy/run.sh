@@ -243,7 +243,9 @@
 # в go.mod, golangci-lint и gosec — пин `go install …@vX` в .github/workflows/ci.y*ml.
 # Образ golang:<go> берётся через зеркало Docker Hub (mirror.gcr.io) — у прямого
 # docker.io предел анонимных скачиваний на адрес узла, а входа в реестр нет. Пин
-# неоднозначен или не найден — 69, а не «какая-нибудь версия».
+# неоднозначен или не найден — 69, а не «какая-нибудь версия». Образ слота той же версии
+# (docker.io/prorobotech/kacho-heavy-slot, ws#1482: среда в образе, а не загрузкой при запуске)
+# берётся вместо него, когда тег опубликован, — ОБРАЗ СЛОТА у WS_IMAGE ниже.
 #
 # СРЕДА (ws#996). Пробы, зовущие helm и node подпроцессом, без них в pod краснели
 # или отвечали «не выполнилось» (2026-10-10: 11 случаев gateway/deploy без helm,
@@ -509,7 +511,22 @@ CLI_IMAGE="$REGISTRY/docker:29-cli"
 # Образ профиля ws (СРЕДА ВОРКСПЕЙСА): golang toolchain продуктов на 2026-10-22 (go1.26.9 в go.mod
 # kacho, kaname, corelib) — тот же образ, что у их Job, тёплый на узлах; bash, git, curl, python3.
 # Продукты сменили toolchain — образ ws остаётся прежним и тянется холодным, пока его не поднимут здесь.
-WS_IMAGE="$REGISTRY/golang:1.26.9"
+WS_GO=1.26.9
+WS_IMAGE="$REGISTRY/golang:$WS_GO"
+# ОБРАЗ СЛОТА (ws#1482): golang той же версии со средой, которую подготовка прежде качала на каждом
+# запуске (jq, PyYAML, pytest, file, helm, node, buf, yq, shellcheck, bats, локали, ensurepip) —
+# slot-image/Dockerfile, сборка — .github/workflows/slot-image.yaml. Аудит 2026-10-28: 6 из 270
+# запусков — 69 на загрузках (jq и yq с github.com, модули с proxy.golang.org) при 19–22 pod.
+# Тег — go<версия>-<первые 12 знаков sha256 Dockerfile ЭТОГО дерева>, тем же правилом, что у
+# сборки; берётся, лишь когда версия в slot-image/go-versions и тег опубликован (Docker Hub
+# отвечает 200). Иначе — golang:<версия> зеркала, а среда ставится шагами подготовки, как до
+# образа: строка «образ слота не взят: <причина>» называет это; шаги подготовки ставят лишь
+# отсутствующее либо не той версии, поэтому на образе слота они молчат.
+SLOT_REPO="docker.io/prorobotech/kacho-heavy-slot"
+SLOT_DIR="$SELF_DIR/slot-image"
+# GOPROXY pod: goproxy.ru первым, proxy.golang.org — на ЛЮБОМ его отказе («|», а не «,»: запятая
+# переходит дальше лишь на 404/410, а срывы аудита — сетевые), direct — на 404/410 обоих.
+POD_GOPROXY="https://goproxy.ru|https://proxy.golang.org,direct"
 # node профиля ws — мажор, как машина владельца и пин setup-node конвейера kacho (26).
 WS_NODE=26
 # Версия shellcheck профиля ws — та, что несёт шаг WSTOOLS_SH (суммы — там же); пин дерева
@@ -1300,8 +1317,31 @@ GOSEC_PIN="$(pin_of 'securego/gosec/v2/cmd/gosec')"; [ "$?" -eq 2 ] && exit 69
 if [ "$PROFILE" = lint ] && [ -z "$LINT_PIN" ]; then
     say "профиль lint: пина golangci-lint в конвейере $REPO на $SHA нет — версию не выбрать"; exit 69
 fi
-GO_IMAGE="$REGISTRY/golang:$GOVER"; IMG_NAME="golang:$GOVER"
-[ "$PROFILE" != ws ] || { GO_IMAGE="$WS_IMAGE"; IMG_NAME="${WS_IMAGE##*/}"; LINT_PIN=""; GOSEC_PIN=""; }
+GO_IMAGE="$REGISTRY/golang:$GOVER"; IMG_NAME="golang:$GOVER"; IMG_GO="$GOVER"
+[ "$PROFILE" != ws ] || { GO_IMAGE="$WS_IMAGE"; IMG_NAME="${WS_IMAGE##*/}"; IMG_GO="$WS_GO"; LINT_PIN=""; GOSEC_PIN=""; }
+# slot_image <версия go> — SLOT_REF образа слота под версию либо 1 и SLOT_WHY (ОБРАЗ СЛОТА выше).
+# Ответ реестра — код HTTP тега: 200 — есть, 404 — не опубликован, иное и обрыв — «не ответил».
+slot_image() {
+    local v="$1" h code
+    SLOT_REF=""; SLOT_WHY=""
+    grep -qxF -- "$v" "$SLOT_DIR/go-versions" 2>/dev/null || { SLOT_WHY="версии go $v нет в slot-image/go-versions"; return 1; }
+    h="$(sha256sum "$SLOT_DIR/Dockerfile" 2>/dev/null)"; h="${h:0:12}"
+    [[ "$h" =~ ^[0-9a-f]{12}$ ]] || { SLOT_WHY="slot-image/Dockerfile не прочитан"; return 1; }
+    code="$(curl -sS -o /dev/null -w '%{http_code}' --connect-timeout 5 --max-time 15 \
+        "https://hub.docker.com/v2/namespaces/prorobotech/repositories/kacho-heavy-slot/tags/go$v-$h" 2>/dev/null)"
+    case "$code" in
+        200) SLOT_REF="$SLOT_REPO:go$v-$h"; return 0 ;;
+        404) SLOT_WHY="тег go$v-$h не опубликован (сборка — .github/workflows/slot-image.yaml)" ;;
+        *) SLOT_WHY="реестр образов не ответил о теге go$v-$h (HTTP ${code:-нет})" ;;
+    esac
+    return 1
+}
+if slot_image "$IMG_GO"; then
+    GO_IMAGE="$SLOT_REF"; IMG_NAME="${SLOT_REF##*/}"
+    say "образ слота ${IMG_NAME}: среда в образе — шаги подготовки ставят лишь отсутствующее"
+else
+    say "образ слота не взят: $SLOT_WHY — образ $IMG_NAME, среда ставится шагами подготовки"
+fi
 # Пин shellcheck профиля ws — пин конвейера ревизии (env.SHELLCHECK_VERSION, как его ставит ci.yaml
 # воркспейса) обязан совпасть с WS_SHELLCHECK: суммы под иную версию в шаге WSTOOLS_SH нет.
 # Читается awk, а не python3: драйвер идёт на машине владельца, а она не для прогонов (2026-10-22;
@@ -1845,7 +1885,7 @@ PREP='PT0=$(date +%s); pf() { echo "remote-heavy-prep: $1" | tee /dev/terminatio
 # shellcheck disable=SC2016  # раскрывается в pod, не здесь
 PREP="$PREP"'; tcp() { timeout "$1" bash -c "</dev/tcp/$2/$3" 2>/dev/null; }
 getent hosts kubernetes.default.svc >/dev/null || pf "сеть pod: DNS кластера не отвечает"
-tcp 15 proxy.golang.org 443 || pf "сеть pod: мир недоступен (proxy.golang.org:443)"
+tcp 15 goproxy.ru 443 || tcp 15 proxy.golang.org 443 || pf "сеть pod: мир недоступен (ни goproxy.ru:443, ни proxy.golang.org:443 — оба адреса GOPROXY pod)"
 ! tcp 5 kubernetes.default.svc 443 || pf "сеть pod: управление кластера доступно — сетевая политика не исполняется"
 if [ -n "$HEAVY_DENY_PROBE" ]; then
   getent hosts "${HEAVY_DENY_PROBE%:*}" >/dev/null || pf "сеть pod: имя ${HEAVY_DENY_PROBE%:*} не разрешается"
@@ -2024,7 +2064,12 @@ echo \"remote-heavy: ставлю gosec $GOSEC_PIN\" >&2; GOBIN=/work/bin go ins
 # shellcheck disable=SC2016  # раскрывается в pod, не здесь
 INSTALL_SH='# install-begin
 ha() { case "$(uname -m)" in x86_64) echo "$1";; aarch64|arm64) echo arm64;; *) return 1;; esac; }
-if [ -n "${HEAVY_HELM:-}" ]; then
+# Инструмент той версии, что судит сверка среды (tools-check), уже в образе (образ слота, ws#1482) —
+# не ставится: та же форма версии, что у сверки; иначе — установка, как прежде.
+ih() { echo "remote-heavy: $1 — уже в образе ($2)" >&2; }
+hv="$(helm version --short 2>/dev/null)"; nv="$(node --version 2>/dev/null)"; bv="$(buf --version 2>/dev/null)"; yv="$(yq --version 2>/dev/null)"
+if [ -n "${HEAVY_HELM:-}" ] && case "$hv" in "$HEAVY_HELM"|"$HEAVY_HELM+"*) true;; *) false;; esac; then ih "helm $HEAVY_HELM" "$hv"
+elif [ -n "${HEAVY_HELM:-}" ]; then
   echo "remote-heavy: ставлю helm $HEAVY_HELM" >&2
   a="$(ha amd64)" || pf "helm: архитектура $(uname -m) не поддержана"
   f="helm-$HEAVY_HELM-linux-$a.tar.gz"; mkdir -p /work/dl/helm || pf "каталог загрузки не создан"
@@ -2032,7 +2077,8 @@ if [ -n "${HEAVY_HELM:-}" ]; then
     && echo "$(curl -fsSL --retry 3 "https://get.helm.sh/$f.sha256sum" | cut -d" " -f1)  $f" | sha256sum -c --quiet - \
     && tar -xzf "$f" -C helm "linux-$a/helm" && mv "helm/linux-$a/helm" /work/bin/helm ) || pf "helm $HEAVY_HELM не поставлен"
 fi
-if [ -n "${HEAVY_NODE:-}" ]; then
+if [ -n "${HEAVY_NODE:-}" ] && case "$nv" in "v$HEAVY_NODE"|"v$HEAVY_NODE."*) true;; *) false;; esac; then ih "node $HEAVY_NODE" "$nv"
+elif [ -n "${HEAVY_NODE:-}" ]; then
   a="$(ha x64)" || pf "node: архитектура $(uname -m) не поддержана"
   v="$(curl -fsSL --retry 3 https://nodejs.org/dist/index.json | jq -r --arg m "v$HEAVY_NODE." "[.[] | .version | select(startswith(\$m) or . == (\$m | rtrimstr(\".\")))][0] // empty")"
   [ -n "$v" ] || pf "node: версии под пин $HEAVY_NODE в индексе нет"
@@ -2043,7 +2089,8 @@ if [ -n "${HEAVY_NODE:-}" ]; then
     && tar -xzf "$f" -C /work/node --strip-components=1 ) || pf "node $v не поставлен"
   for b in node npm npx; do ln -sf "/work/node/bin/$b" "/work/bin/$b"; done
 fi
-if [ -n "${HEAVY_BUF:-}" ]; then
+if [ -n "${HEAVY_BUF:-}" ] && [ "$bv" = "$HEAVY_BUF" ]; then ih "buf $HEAVY_BUF" "$bv"
+elif [ -n "${HEAVY_BUF:-}" ]; then
   echo "remote-heavy: ставлю buf $HEAVY_BUF" >&2
   case "$(uname -m)" in x86_64) ba=x86_64;; aarch64|arm64) ba=aarch64;; *) pf "buf: архитектура $(uname -m) не поддержана";; esac
   f="buf-Linux-$ba"; mkdir -p /work/dl/buf || pf "каталог загрузки не создан"
@@ -2052,7 +2099,8 @@ if [ -n "${HEAVY_BUF:-}" ]; then
     && grep -E "^[0-9a-f]{64}  $f\$" sums | sha256sum -c --quiet --strict - \
     && install -m 0755 "$f" /work/bin/buf ) || pf "buf $HEAVY_BUF не поставлен"
 fi
-if [ -n "${HEAVY_YQ:-}" ]; then
+if [ -n "${HEAVY_YQ:-}" ] && case "$yv" in *mikefarah*" version $HEAVY_YQ") true;; *) false;; esac; then ih "yq $HEAVY_YQ" "mikefarah"
+elif [ -n "${HEAVY_YQ:-}" ]; then
   echo "remote-heavy: ставлю yq $HEAVY_YQ" >&2
   a="$(ha amd64)" || pf "yq: архитектура $(uname -m) не поддержана"
   f="yq_linux_$a"; u="https://github.com/mikefarah/yq/releases/download/$HEAVY_YQ"; mkdir -p /work/dl/yq || pf "каталог загрузки не создан"
@@ -3501,7 +3549,7 @@ jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg goimg "$GO_IMAGE" --arg dimg "
     --arg dcr "$DCR" --arg dcl "$DCL" --arg dmr "$DMR" --arg dml "$DML" \
     --arg pgimg "$PG_IMAGE" --arg pgsh "$PG_SH" --argjson pg "$PG" --arg pgcr "${PG_REQ_M}m" --arg pgmr "${PG_REQ_MIB}Mi" --arg dindsh "$DIND_SH" --arg deny "$DENY_PROBE" --arg helm "$HELM_PIN" --arg node "$NODE_PIN" --arg buf "$BUF_PIN" --arg yq "$YQ_PIN" \
     --arg pull "$PULL_IMG" --arg pushin "$PUSH_INPUT" --arg gname "$GIT_NAME" --arg gemail "$GIT_EMAIL" --arg wssc "$WS_SC" --slurpfile cmdv <(printf '%s' "$CMD_JSON") \
-    --argjson kind "$(if kind_on; then echo 1; else echo 0; fi)" --arg kprobe "$KIND_PROBE_IMAGE" '
+    --argjson kind "$(if kind_on; then echo 1; else echo 0; fi)" --arg kprobe "$KIND_PROBE_IMAGE" --arg goproxy "$POD_GOPROXY" '
 # kubelet раскрывает в command, args и value env контейнера $(ИМЯ) значением env и
 # сворачивает $$ в $ (ws#1142: составной Job потерял переменные и коды осей). Каждый
 # $ удваивается: kubelet свернёт его обратно, и байты дойдут до контейнера как есть.
@@ -3533,6 +3581,7 @@ def kesc_c: (if .command then .command |= map(kesc) else (.) end)
         volumeMounts: [{name: "work", mountPath: "/work"}]}]),
      containers: ([{name: "run", image: $goimg, command: (["bash", "-c", $prep, "run"] + $cmdv[0]),
        env: ([{name: "HEAVY_WORKDIR", value: $wd}, {name: "HEAVY_PULL", value: $pull}, {name: "HEAVY_DENY_PROBE", value: $deny}, {name: "HEAVY_HELM", value: $helm}, {name: "HEAVY_NODE", value: $node}, {name: "HEAVY_BUF", value: $buf}, {name: "HEAVY_YQ", value: $yq}, {name: "HEAVY_PUSH_INPUT", value: $pushin}, {name: "HEAVY_GIT_NAME", value: $gname}, {name: "HEAVY_GIT_EMAIL", value: $gemail}, {name: "GOTOOLCHAIN", value: "local"},
+              {name: "GOPROXY", value: $goproxy},
               {name: "GOMODCACHE", value: "/cache/mod"}, {name: "GOCACHE", value: "/cache/build"},
               {name: "GOLANGCI_LINT_CACHE", value: "/cache/lint"}, {name: "CI", value: "true"}]
              + (if $wssc != "" then [{name: "HEAVY_SHELLCHECK", value: $wssc},

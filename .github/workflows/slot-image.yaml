@@ -1,0 +1,65 @@
+name: slot-image
+# ОБРАЗ POD СЛОТА (ws#1482): scripts/remote-heavy/slot-image/Dockerfile под каждую версию go из
+# scripts/remote-heavy/slot-image/go-versions — в docker.io/prorobotech/kacho-heavy-slot с тегом
+# go<версия>-<первые 12 знаков sha256 Dockerfile>. Тем же правилом тег выводит run.sh
+# (slot_image) и берёт образ лишь тогда, когда тег опубликован; иначе — golang:<версия> со средой
+# шагами подготовки, строкой в журнале. Тег уже есть — сборки нет (правка Dockerfile даёт новый
+# тег, а не подмену прежнего), поэтому прогон без правки образа — секунды.
+#
+# СОБЫТИЯ — те же, что у ci.yaml (сужение — tooling-gate check-05): pull_request в `main` (ветка
+# с правкой образа публикует его до вливания: слот на её голове берёт новый образ), push в
+# `main`, workflow_dispatch. Учётки Docker Hub — секреты организации DOCKERHUB_USERNAME и
+# DOCKERHUB_TOKEN (как у сборки образов kacho); без них (PR из форка) образ собирается и
+# сверяется, но не публикуется — строкой notice, а не молча.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: slot-image-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  slot-image:
+    runs-on: ubuntu-24.04
+    # Холодная сборка — около 4 мин на версию (pull golang, apt, загрузки, сборка file, push),
+    # три версии — около 12 мин; 30 мин — 40 %. С опубликованными тегами задание — секунды.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: образ слота под каждую версию go
+        env:
+          DH_USER: ${{ secrets.DOCKERHUB_USERNAME }}
+          DH_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          d=scripts/remote-heavy/slot-image
+          h="$(sha256sum "$d/Dockerfile" | cut -c1-12)"
+          repo=docker.io/prorobotech/kacho-heavy-slot
+          push=0
+          if [ -n "$DH_USER" ] && [ -n "$DH_TOKEN" ]; then
+            printf '%s' "$DH_TOKEN" | docker login -u "$DH_USER" --password-stdin docker.io > /dev/null
+            push=1
+          else
+            echo "::notice::секретов Docker Hub нет — образ собирается и сверяется, но не публикуется"
+          fi
+          n=0
+          while read -r v; do
+            case "$v" in ''|'#'*) continue ;; esac
+            [[ "$v" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]] || { echo "::error::$d/go-versions: строка вне формы версии: «$v»"; exit 1; }
+            n=$((n + 1)); t="$repo:go$v-$h"
+            if docker manifest inspect "$t" > /dev/null 2>&1; then
+              echo "образ $t уже опубликован — сборки нет"; continue
+            fi
+            echo "собираю $t"
+            docker build --pull --build-arg "GO_VERSION=$v" -t "$t" "$d"
+            if [ "$push" = 1 ]; then docker push "$t"; echo "опубликован $t"; fi
+          done < "$d/go-versions"
+          [ "$n" -gt 0 ] || { echo "::error::$d/go-versions: версий ноль — собирать нечего"; exit 1; }
+          echo "версий $n, тег Dockerfile $h"

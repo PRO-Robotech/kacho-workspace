@@ -274,6 +274,13 @@
 #      наборов, её сверка и команда от runner; пара профиля и репозитория; пин shellcheck; сверка
 #      среды, читатель трекера и установка с пином суммы исполнением (подробно — у случаев);
 #      WS7 — локаль en_US.UTF-8 и ensurepip (ws#1482) исполнением шагов wsenv/wsenvwait над двойниками
+#   IMG1–IMG3 образ слота (ws#1482): тег опубликован (двойник реестра 200) → run и fetch — образ
+#      слота go<версия>-<sha Dockerfile>, строка названа; 404, обрыв, версия вне go-versions →
+#      golang зеркала и причина; GOPROXY pod — goproxy.ru первым (IMG1); версии и суммы Dockerfile —
+#      те же, что у шагов run.sh, порча суммы краснеет (IMG2); установка среды при инструментах
+#      пина в PATH (образ слота) — ни одного «ставлю» и ни одной загрузки, близнец другой версии —
+#      ставит (IMG3). Шаги пакетов, воркспейса и локали молчат на образе тем же «ставлю лишь
+#      отсутствующее» (P2, WS6, WS7 — законные близнецы «уже есть»); на кластере — проба живым pod
 #   KD1–KD9 профиль kind (ws#1385, kind.sh): пара профиля — лишь клоны внешних операторов
 #      (kind + kacho → 64); Job — hostUsers узла и privileged лишь у dind, проба допуска от
 #      имени job-controller до Job, проба исполнимости kind в pod (исполнением шага над
@@ -721,6 +728,12 @@ case "$u" in
       '[ubuntu-24.04]: https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2404-Readme.md' \
       '[ubuntu-24.04-arm64]: https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2404-Arm64-Readme.md' ;;
   */images/ubuntu/Ubuntu2404-Readme.md) printf '%s\n' '# Ubuntu 24.04' '- Image Version: 20261012.334.1' '- Helm 3.22.0' '- Kind 0.33.0' ;;
+  # Тег образа слота (ws#1482): как настоящий curl -sS -o /dev/null -w '%{http_code}' — код
+  # ответа в stdout и код 0 (без -f); FAKE_HUB — код реестра (по умолчанию 404 — не опубликован),
+  # FAKE_HUB_LOG — файл, куда пишется спрошенный адрес.
+  https://hub.docker.com/v2/namespaces/prorobotech/repositories/kacho-heavy-slot/tags/*)
+    [ -z "${FAKE_HUB_LOG:-}" ] || printf '%s\n' "$u" >> "$FAKE_HUB_LOG"
+    printf '%s' "${FAKE_HUB:-404}" ;;
   *) echo "двойник curl: адрес не знаком: $u" >&2; exit 22 ;;
 esac
 FAKE
@@ -2060,12 +2073,16 @@ STUB
 # shellcheck disable=SC2016  # раскрывается в двойнике uname
 printf '#!/bin/sh\necho "${STUB_ARCH_M:-x86_64}"\n' > "$IS/uname"
 chmod +x "$IS/curl" "$IS/uname"
+# PATH установки — двойники, jq машины и /usr/bin:/bin, а не PATH набора (ws#1482): шаг ставит лишь
+# отсутствующее, и helm, node, buf, yq пина из PATH набора (образ слота, /work/bin pod) сняли бы
+# установку, которую судят случаи ниже.
+IJQ="$BOX/ijq"; rm -rf "$IJQ"; mkdir -p "$IJQ"; ln -sf "$(command -v jq)" "$IJQ/jq"
 # install_case <случай> <пин helm> <пин node> <код> <что обязано быть в bin|слово отказа> [окружение…]
 install_case() {
     local name="$1" h="$2" n="$3" want="$4" what="$5"; shift 5
     rm -rf "$IW"; mkdir -p "$IW/bin"
     OUT="$BOX/$name.out"
-    env PATH="$IS:$PATH" STUB_ARCH="$IA" HEAVY_HELM="$h" HEAVY_NODE="$n" "$@" bash "$BOX/install.sh" > "$OUT" 2>&1; RC=$?
+    env PATH="$IS:$IJQ:/usr/bin:/bin" STUB_ARCH="$IA" HEAVY_HELM="$h" HEAVY_NODE="$n" "$@" bash "$BOX/install.sh" > "$OUT" 2>&1; RC=$?
     expect_rc "$name" "$want"
     if [ "$want" -eq 0 ]; then
         for t in $what; do
@@ -4236,6 +4253,81 @@ if grep -q "^KIND_OPERATORS='registry-operator|example.com/x|$kd_root|" "$KDLIB/
 kd_tab="$(sed -n '/^# kind-operators-begin$/,/^# kind-operators-end$/p' "$SELF_DIR/kind.sh" | grep -cE '^(KIND_OPERATORS=.)?(vault-operator|kaname-iam-operator|registry-operator)\|github\.com/PRO-Robotech/(vault-operator|kaname-iam-operator|registry-operator)\|[0-9a-f]{40}\|[^|]+$')"
 if [ "$kd_tab" = 3 ]; then ok; else bad KD-table "строк таблицы личности дерева годной формы $kd_tab, ждали 3"; fi
 export REMOTE_HEAVY_KIND_DIR="$KDLIB"
+# ── IMG образ слота (ws#1482) ─────────────────────────────────────────────────
+# IMG1 — выбор образа: тег go<версия>-<sha Dockerfile> опубликован (двойник реестра 200) → run и
+#     fetch — образ слота, реестр спрошен ровно этим тегом, строки названы; 404, обрыв, версия вне
+#     go-versions → golang зеркала и причина; GOPROXY pod — goproxy.ru первым, «|» до proxy.golang.org
+SDIR="$(dirname "$RUN")/slot-image"
+SLOT_H="$(sha256sum "$SDIR/Dockerfile" 2>/dev/null | cut -c1-12)"
+SLOT_WANT="docker.io/prorobotech/kacho-heavy-slot:go1.26.9-$SLOT_H"
+if [[ "$SLOT_H" =~ ^[0-9a-f]{12}$ ]]; then ok; else bad IMG1 "Dockerfile образа слота рядом с run.sh не прочитан ($SDIR)"; fi
+img_of() { jq -r --arg c "$2" '[(.spec.template.spec.initContainers // [])[], .spec.template.spec.containers[] | select(.name == $c) | .image] | join(" ")' "$1" 2>/dev/null; }
+# img_case <случай> <код реестра|down> <ждём образ> <слово строки> <--repo> <--ref> <--profile> <--src>
+img_case() {
+    local c="$1" hub="$2" want="$3" word="$4"; shift 4
+    fresh; : > "$BOX/hub.log"
+    if [ "$hub" = down ]; then set -- FAKE_HUB=000 "$@"; else set -- FAKE_HUB="$hub" "$@"; fi
+    go_run "$c" env FAKE_EXIT=0 FAKE_HUB_LOG="$BOX/hub.log" "$1" bash "$RUN" --task 1 --repo "$2" --ref "$3" --src "$5" --profile "$4" --short img -- true
+    expect_rc "$c" 0
+    local j="$BOX/state/job.json"
+    if [ "$(img_of "$j" run)" = "$want" ] && [ "$(img_of "$j" fetch)" = "$want" ]; then ok
+    else OUT="$j"; bad "$c" "образ run «$(img_of "$j" run)», fetch «$(img_of "$j" fetch)», ждали $want"; fi
+    if grep -q "remote-heavy: .*$word" "$BOX/$c.out"; then ok; else bad "$c" "строка «$word» о выборе образа не напечатана"; fi
+    if [ "$(kx env "$j" run GOPROXY)" = 'https://goproxy.ru|https://proxy.golang.org,direct' ]; then ok
+    else OUT="$j"; bad "$c" "GOPROXY run «$(kx env "$j" run GOPROXY)», ждали goproxy.ru первым и proxy.golang.org на любом его отказе"; fi
+}
+img_case IMG1-hit 200 "$SLOT_WANT" "образ слота kacho-heavy-slot:go1.26.9-$SLOT_H: среда в образе" kacho-workspace HEAD ws "$SRCW"
+if [ "$(cat "$BOX/hub.log")" = "https://hub.docker.com/v2/namespaces/prorobotech/repositories/kacho-heavy-slot/tags/go1.26.9-$SLOT_H" ]; then ok
+else OUT="$BOX/hub.log"; bad IMG1-hit "реестр спрошен не ровно тегом go1.26.9-$SLOT_H"; fi
+if grep -q "Job создан: образ kacho-heavy-slot:go1.26.9-$SLOT_H" "$BOX/IMG1-hit.out"; then ok; else bad IMG1-hit "строка «Job создан» не называет образ слота"; fi
+img_case IMG1-miss 404 mirror.gcr.io/library/golang:1.26.9 "образ слота не взят: тег go1.26.9-$SLOT_H не опубликован" kacho-workspace HEAD ws "$SRCW"
+img_case IMG1-down down mirror.gcr.io/library/golang:1.26.9 "образ слота не взят: реестр образов не ответил" kacho-workspace HEAD ws "$SRCW"
+img_case IMG1-ver 200 mirror.gcr.io/library/golang:1.26.8 "образ слота не взят: версии go 1.26.8 нет в slot-image/go-versions" kaname pins integration "$SRC"
+if [ -s "$BOX/hub.log" ]; then OUT="$BOX/hub.log"; bad IMG1-ver "версии нет в ведомости, а реестр спрошен"; else ok; fi
+# IMG2 — версии и суммы Dockerfile — те же, что у шагов run.sh: сумма загрузки Dockerfile, кроме
+#     node, helm и buf (их сумму шаги run.sh берут у выпуска), — дословно в run.sh; go профиля ws —
+#     в go-versions; node — мажора WS_NODE; shellcheck — WS_SHELLCHECK. Порча суммы копии — краснеет.
+# img2 <Dockerfile> — печатает суммы Dockerfile, которых нет в run.sh; последней строкой — «сумм N»
+img2() {
+    local n=0 s
+    while read -r s; do
+        n=$((n + 1)); grep -qF "$s" "$RUN" || echo "нет в run.sh: $s"
+    done < <(grep -vE 'nodejs\.org|get\.helm\.sh|bufbuild/buf' "$1" | grep -oE '(^|[^0-9a-f])[0-9a-f]{64}([^0-9a-f]|$)' | grep -oE '[0-9a-f]{64}' | sort -u)
+    echo "сумм $n"
+}
+I2="$(img2 "$SDIR/Dockerfile")"
+if [ "$I2" = "сумм 9" ]; then ok; else bad IMG2 "суммы Dockerfile и run.sh: $(tr '\n' ' ' <<< "$I2")(ждали «сумм 9» без расхождений: yq, shellcheck, bats, пять колёс pytest, file)"; fi
+sed 's/b96de04645707e14a12f52c37e6266832e03c29e95b9b139cddcae7314466e69/b96de04645707e14a12f52c37e6266832e03c29e95b9b139cddcae7314466e6a/' "$SDIR/Dockerfile" > "$BOX/img2-bad.Dockerfile"
+if grep -q '^нет в run.sh: ' <<< "$(img2 "$BOX/img2-bad.Dockerfile")"; then ok; else bad IMG2-inj "порча суммы yq в копии Dockerfile не замечена"; fi
+WSGO="$(sed -n 's/^WS_GO=\([0-9.]*\)$/\1/p' "$RUN")"; WSNODE="$(sed -n 's/^WS_NODE=\([0-9]*\)$/\1/p' "$RUN")"; WSSC="$(sed -n 's/^WS_SHELLCHECK=\([0-9.]*\)$/\1/p' "$RUN")"
+if [ -n "$WSGO" ] && grep -qxF "$WSGO" "$SDIR/go-versions"; then ok; else bad IMG2 "go профиля ws «$WSGO» нет в slot-image/go-versions"; fi
+if [ -n "$WSNODE" ] && grep -qE "nodejs\.org/dist/v$WSNODE\.[0-9]+\.[0-9]+/" "$SDIR/Dockerfile"; then ok; else bad IMG2 "node Dockerfile не мажора WS_NODE «$WSNODE»"; fi
+if [ -n "$WSSC" ] && grep -qF "shellcheck-v$WSSC.linux.x86_64" "$SDIR/Dockerfile"; then ok; else bad IMG2 "shellcheck Dockerfile не WS_SHELLCHECK «$WSSC»"; fi
+# IMG3 — установка среды (текст install из Job E1) при инструментах пина в PATH — образ слота:
+#     ни одного «ставлю», ни одного обращения к сети (двойник curl пишет каждое), четыре «уже в
+#     образе»; близнец — helm иной версии ставится (одна строка «ставлю helm»), прочие — нет
+I3B="$BOX/img3bin"; I3N="$BOX/img3net"; rm -rf "$I3B" "$I3N"; mkdir -p "$I3B" "$I3N"
+printf '#!/bin/sh\necho v26.12.1\n' > "$I3B/node"
+printf '#!/bin/sh\necho 1.72.0\n' > "$I3B/buf"
+printf '#!/bin/sh\necho "yq (https://github.com/mikefarah/yq/) version v4.53.6"\n' > "$I3B/yq"
+# shellcheck disable=SC2016  # раскрывается в двойнике curl
+printf '#!/bin/sh\necho "$*" >> "%s/net.log"\nexec "%s/curl" "$@"\n' "$I3N" "$IS" > "$I3N/curl"
+chmod +x "$I3B"/* "$I3N/curl"
+img3() {
+    local c="$1" hv="$2"
+    printf '#!/bin/sh\necho %s\n' "$hv" > "$I3B/helm"; chmod +x "$I3B/helm"
+    rm -rf "$IW"; mkdir -p "$IW/bin"; : > "$I3N/net.log"; OUT="$BOX/$c.out"
+    env PATH="$I3B:$I3N:$IS:$IJQ:/usr/bin:/bin" STUB_ARCH="$IA" HEAVY_HELM=v4.2.4 HEAVY_NODE=26 HEAVY_BUF=1.72.0 HEAVY_YQ=v4.53.6 \
+        bash "$BOX/install.sh" > "$OUT" 2>&1; RC=$?
+    expect_rc "$c" 0
+}
+img3 IMG3 v4.2.4+gimage
+if [ "$(grep -c 'ставлю' "$OUT")" -eq 0 ] && [ ! -s "$I3N/net.log" ] && [ "$(grep -c 'уже в образе' "$OUT")" -eq 4 ]; then ok
+else bad IMG3 "инструменты пина в PATH, а установка: «ставлю» $(grep -c 'ставлю' "$OUT"), обращений к сети $(wc -l < "$I3N/net.log"), «уже в образе» $(grep -c 'уже в образе' "$OUT") (ждали 0, 0, 4)"; fi
+img3 IMG3-twin v3.17.0+gold
+if [ "$(grep -c 'ставлю helm v4.2.4' "$OUT")" -eq 1 ] && [ "$(grep -c 'ставлю' "$OUT")" -eq 1 ] && [ -x "$IW/bin/helm" ]; then ok
+else bad IMG3-twin "helm иной версии в PATH: «ставлю helm» $(grep -c 'ставлю helm v4.2.4' "$OUT"), «ставлю» всего $(grep -c 'ставлю' "$OUT") (ждали 1 и 1, helm в bin)"; fi
+
 # KD1 — пара профиля: kind лишь клонам внешних операторов; продукт — 64 с причиной (ПОВЕРХНОСТЬ)
 fresh; go_run kd1 bash "$RUN" --request --profile kind --repo kacho
 expect_rc KD1 64
