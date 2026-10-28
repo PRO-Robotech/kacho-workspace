@@ -13,7 +13,9 @@
 # читает перепись застоя). Машина перезагружена — .pid старше btime — причина названа.
 # Причина обрыва службы — дословной строкой status: kill -9 процесса шага и
 # `systemctl --user stop` — РАЗНЫЕ фразы (запись .exit службы), сторонний kill -TERM — своя
-# (журнал о нём молчит — держит чтение записи); запись снята — та же фраза из журнала юнита.
+# (журнал о нём молчит): шага вместе с ребёнком — держит чтение записи; лишь процесса шага при
+# живом ребёнке — служба активна (ExitType=cgroup), записи нет, держит чтение состояния службы;
+# запись снята — та же фраза из журнала юнита.
 # Без systemd --user (ранер CI) случаи службы не исполняются и печатаются счётом
 # «служба: не исполнено N» — не зелёным; setsid-путь и остальное исполняются везде.
 # Каталог шагов — свой временный; процессы шагов снимаются по группе на выходе (и на падении),
@@ -230,10 +232,14 @@ jsettle() {
     done
     return 1
 }
+# ugone <юнит> — служба вышла и снята (--collect): состояния с исходом процесса у неё нет, до 5 с.
+# mainpid0 <юнит> — процесс шага вышел, служба ещё держит его исход (MainPID=0), до 5 с.
+ugone() { local _; for _ in $(seq 1 20); do [ "$(systemctl --user show -p ExecMainPID --value "$1" 2>/dev/null)" = 0 ] && return 0; sleep 0.25; done; return 1; }
+mainpid0() { local _; for _ in $(seq 1 20); do [ "$(systemctl --user show -p MainPID --value "$1" 2>/dev/null)" = 0 ] && return 0; sleep 0.25; done; return 1; }
 PID=""; UNIT=""
 cause_cases() {
-    local R="$W/run.$RANDOM" kill9 stop; mkdir -p "$R"
-    if [ "$SYSD" = 0 ]; then unexec=$((unexec + 6)); return 0; fi
+    local R="$W/run.$RANDOM" kill9 stop kids term; mkdir -p "$R"
+    if [ "$SYSD" = 0 ]; then unexec=$((unexec + 7)); return 0; fi
     step_up() { st "$R/c" sleep 30; PID="$(cat "${RCF%.rc}.pid")"; UNIT="$(cat "${RCF%.rc}.unit")"; }
     step_up; kill -9 "$PID"; settle "${RCF%.rc}.exit"
     kill9="служба $UNIT: процесс шага убит сигналом KILL (kill -9 либо OOM-убийство)"
@@ -245,8 +251,20 @@ cause_cases() {
     want "$stop" "инъекция systemctl --user stop — «остановлена менеджером служб», не «убит»"
     rm -f "${RCF%.rc}.exit"; jsettle "$UNIT" "Stopped $UNIT"
     want "$stop" "  …записи .exit нет — та же фраза из журнала юнита"
-    step_up; kill -TERM "$PID"; settle "${RCF%.rc}.exit"
-    want "служба $UNIT: процесс шага убит сигналом TERM" "инъекция стороннего kill -TERM — «убит сигналом TERM», не остановка (журнал молчит — фраза из записи)"
+    # Ребёнок шага (sleep) снят следом за ним: cgroup пуст, служба вышла и записала .exit; её
+    # состояние снято (--collect) — фразу держит лишь запись.
+    step_up; kids="$(cat "/proc/$PID/task/"*/children 2>/dev/null)"; kill -TERM "$PID"
+    # shellcheck disable=SC2086  # pid детей — словами
+    [ -n "$kids" ] && kill -TERM $kids 2>/dev/null
+    settle "${RCF%.rc}.exit"; ugone "$UNIT"
+    term="служба $UNIT: процесс шага убит сигналом TERM"
+    want "$term" "инъекция стороннего kill -TERM шага и его ребёнка — «убит сигналом TERM», не остановка (журнал молчит — фраза из записи)"
+    # Лишь процесс шага: ребёнок жив, ExitType=cgroup держит службу активной — записи .exit нет,
+    # журнал молчит (SIGTERM для systemd — чистый выход); фразу держит состояние службы.
+    step_up; kill -TERM "$PID"; mainpid0 "$UNIT"
+    term="служба $UNIT: процесс шага убит сигналом TERM"
+    want "$term" "инъекция kill -TERM лишь процесса шага при живом ребёнке — служба активна, записи нет — «убит сигналом TERM» из состояния службы"
+    systemctl --user stop "$UNIT" 2>/dev/null
     step_up; settle "${RCF%.rc}.exit"
     assert "3" "$(status "$RCF")" "близнец: служба жива — status 3, причины нет"
     systemctl --user stop "$UNIT" 2>/dev/null
@@ -390,6 +408,7 @@ if [ "$SYSD" = 1 ]; then
     mutant stop-mark-inverted '[ -z "$MAINPID" ] || : >' '[ -n "$MAINPID" ] || : >' detach-launch.sh cause_cases
     mutant record-unread 'rec="$(head -n 1 "${2%.unit}.exit" 2> /dev/null)"' 'rec=""' detach-launch.sh cause_cases
     mutant journal-unread '[ -n "$rec" ] || rec="$(detach_unit_journal "$u")"' ':' detach-launch.sh cause_cases
+    mutant unit-state-unread '[ -n "$rec" ] || rec="$(detach_unit_main "$u")"' ':' detach-launch.sh cause_cases
 fi
 
 reap_steps
