@@ -781,6 +781,8 @@ echo "== перепись вызывающих при смене кода воз
 # (tool.sh ← doc.md), функция НЕподключаемого скрипта (helper в tool.sh; слово helper — в
 # other.sh, который tool.sh не подключает), модуль python (mod.py ← app.py). Ветка полосы —
 # ОДНА правка от базы; доказательство — своё на её голове: меняется один факт.
+# Origin копии — воркспейс (словарь строки зелёного итога); прежний адрес возвращается в конце.
+RC_ORIGIN="$(git -C "$L" remote get-url origin)"; git -C "$L" remote set-url origin "$W/srv/kacho-workspace.git"
 git -C "$L" checkout -q -f -b rc-base main
 mkdir -p "$L/scripts/lib"
 printf '%s\n' 'xf() {' '    return 0' '}' > "$L/scripts/lib/x.sh"
@@ -845,7 +847,7 @@ assert "1" "$(mutb 'callers="$(comm -12 <(rc_grep "$name") <(rc_grep "$mod"))"' 
 rcb rc-2m "sed -i 's/return 0/return 3/' scripts/lib/x.sh; sed -i 's/exit 1/exit 3/' scripts/use.sh"
 comments 51 "DoD-proof @${RCH:0:12}"
 assert "1" "$(mutb '-f <(printf '"'"'%s\n'"'"' "$rc_changed")' '-f /dev/null' rc-2m 51)" "мутант «тронутый диффом не исключён»: подключающий в диффе краснеет — близнец выше его ловит"
-git -C "$L" checkout -q -f 1-lane
+git -C "$L" checkout -q -f 1-lane && git -C "$L" remote set-url origin "$RC_ORIGIN"
 
 echo "== вход"
 assert "2" "$(run "$W/srv" 1-lane main --issue o/r#7)" "не рабочая копия → код 2"
