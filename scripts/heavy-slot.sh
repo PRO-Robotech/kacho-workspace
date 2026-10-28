@@ -1849,6 +1849,8 @@ ext_run() {
 # набором, здесь переносим, — перепись heavy-slot-inject (SUITE_NAME импортом guard.py, файлы — git
 # ls-files). Скрипт с python3 первым словом — слово после ключей интерпретатора. Сторона pod
 # читателей (scripts/remote-reader/pod.sh, ws#1365) — классом suite: её зовёт scripts/remote-reader.sh.
+# Запись *.bats — шаг конвейера `bats <файл>…` (ws#1482): переносим, когда каждый файл довода — её
+# отслеживаемый файл (portable_bats); оболочке файл bats переносимым не считается.
 PORTABLE='kaname|.github/scripts/run-integration.sh|integration
 kacho-workspace|scripts/*/run-all.sh|ci-local,suite
 kacho-workspace|scripts/*/run-suites.sh|ci-local,suite
@@ -1864,6 +1866,7 @@ kacho-workspace|scripts/*/check-*|ci-local,suite
 kacho-workspace|.claude/hooks/*/prove.sh|ci-local,suite
 kacho-workspace|.claude/hooks/*-inject.sh|ci-local,suite
 kacho-workspace|.claude/hooks/*/mutants.py|ci-local,suite
+kacho-workspace|tests/*.bats|ci-local,suite
 kacho-workspace|scripts/remote-reader/pod.sh|suite'
 # MACHINE — пробы воркспейса, чей предмет — САМА машина (systemd --user и scope, cgroup памяти
 # машины, docker, память машины), а не дерево: Job их не воспроизводит, и в pod они дают не
@@ -1878,31 +1881,58 @@ scripts/session-memcap-inject.sh'
 # portable_script — 0, если слово нагрузки (PAY_I) — скрипт ведомости PORTABLE этого клона и класса;
 # PORT_REL — его путь в дереве клона.
 portable_script() {
-    local i="${PAY_I:-0}" w real r p c
+    local i="${PAY_I:-0}"
     PORT_REL=""
     [ -n "$PAY_I" ] && [ -z "$PAY_SH" ] || return 1
     case "$(basename -- "${CMD_R[$i]:-}")" in
+        bats) portable_bats "$i"; return ;;
         python3|python)
             i=$(( i + 1 ))
             while [ "$i" -lt "${#CMD_R[@]}" ]; do
                 case "${CMD_R[$i]}" in -X|-W) i=$(( i + 2 )) ;; -c|-m|-) return 1 ;; -*) i=$(( i + 1 )) ;; *) break ;; esac
             done ;;
     esac
-    w="${CMD_R[$i]:-}"
+    portable_path "${CMD_R[$i]:-}" script || return 1
+    PORT_REL="$PORT_ONE"
+}
+# portable_path <слово> <script|bats> — PORT_ONE — путь в дереве клона, если слово — относительный
+# путь к отслеживаемому файлу записи PORTABLE этого клона и класса; вид записи: bats — лишь
+# файлы *.bats (их исполняет bats, а не оболочка), script — всё прочее. Иначе 1.
+portable_path() {
+    local w="$1" real r p c
+    PORT_ONE=""
     case "$w" in /*|'') return 1 ;; esac
     [ "$w" != "${w#*/}" ] || return 1
     real="$(cd "$PWD" && realpath -e -- "$w" 2>/dev/null)" || return 1
     while IFS='|' read -r r p c; do
         [ "$r" = "$RS_REPO" ] || continue
         [[ ",$c," == *",$CLASS,"* ]] || continue
+        case "$2:$p" in bats:*.bats) ;; bats:*|script:*.bats) continue ;; esac
         # shellcheck disable=SC2053  # путь записи — образец (строки kacho-workspace)
         [[ "$real" == "$RS_TOP/"$p ]] || continue
         p="${real#"$RS_TOP"/}"
         git -C "$RS_TOP" ls-files --error-unmatch -- "$p" > /dev/null 2>&1 || continue
-        PORT_REL="$p"
+        PORT_ONE="$p"
         return 0
     done <<< "$PORTABLE"
     return 1
+}
+# portable_bats <индекс слова bats> — шаг конвейера `bats <файл>…` (ci.yaml «run bats tests», ws#1482):
+# переносим, когда КАЖДЫЙ позиционный довод — файл записи PORTABLE вида bats (tests/*.bats), а ключи —
+# без значения либо из закрытого перечня ключей со значением; значение иного ключа судится путём и
+# закрывает путь (77), а не уходит мимо. Файлов ноль — 1. PORT_REL — файлы через пробел.
+portable_bats() {
+    local i=$(( $1 + 1 )) n=${#CMD_R[@]} files=""
+    while [ "$i" -lt "$n" ]; do
+        case "${CMD_R[$i]}" in
+            -j|--jobs|-f|--filter|-F|--formatter|--filter-status|--filter-tags|-o|--output|--report-formatter) i=$(( i + 2 )); continue ;;
+            -*) ;;
+            *) portable_path "${CMD_R[$i]}" bats || return 1; files="${files:+$files }$PORT_ONE" ;;
+        esac
+        i=$(( i + 1 ))
+    done
+    [ -n "$files" ] || return 1
+    PORT_REL="$files"
 }
 # route_static — статическая часть маршрута Job-ом, ОДНА у прогона и у --route: класс с внешним
 # путём, клон kacho, kaname, corelib, внешнего оператора (vault-operator, kaname-iam-operator,
@@ -1974,7 +2004,7 @@ route_static() {
             elif [ -n "$PORT_REL" ]; then
                 RS_KNOWN=1; RS_WHY="клон воркспейса, скрипт ведомости PORTABLE $PORT_REL — Job профиля ws"
             else
-                WHY_LOCAL="клон воркспейса: нагрузка «${PAY_SH:-$PAY}» — не хук отправки и не отслеживаемый набор либо проба относительным путём (ведомость PORTABLE: run-all.sh, inject*.sh, *-inject.sh, prove*.sh, *mutants.py, run-suites.sh, hook-proofs.sh, check-*): внешнего пути нет"; return 1
+                WHY_LOCAL="клон воркспейса: нагрузка «${PAY_SH:-$PAY}» — не хук отправки и не отслеживаемый набор либо проба относительным путём (ведомость PORTABLE: run-all.sh, inject*.sh, *-inject.sh, prove*.sh, *mutants.py, run-suites.sh, hook-proofs.sh, check-*, bats tests/*.bats): внешнего пути нет"; return 1
             fi
             return 0 ;;
         operator)

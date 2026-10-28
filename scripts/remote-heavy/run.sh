@@ -453,6 +453,12 @@
 #     конвейера ревизии и bats-core (ранер ставит его apt'ом, 1.10.0 у ubuntu-24.04) — шаг
 #     WSTOOLS_SH: версия и sha256 зашиты в тексте, архив — python3 tarfile (xz в образе может
 #     не быть); пин shellcheck дерева не равен зашитому — 69 до кластера: суммы под него нет;
+#   • локаль en_US.UTF-8 и ensurepip системного python3 — шаг WSENV_SH (ws#1482): ранер несёт
+#     обе, образ golang — ни одной (residue-census K6 «локали не установлены», ghjob «ensurepip
+#     is not available» → venv не создан, код 4). Локаль — localedef образа над источниками
+#     glibc ЕГО версии (суммой перечня), фоном под клоны; ensurepip — каталог Lib/ensurepip
+#     CPython минора образа с колесом pip (сумма на файл). Иная версия glibc или python3 — 69:
+#     сумм под неё нет;
 #   • клоны kacho, kaname и corelib — `git clone` с GitHub (публичны, токена нет) в project/
 #     дерева pod, полной историей, как checkout предпосылок конвейера (fetch-depth: 0); хук
 #     выводит их из project/ канонической копии, наборы стволов без них — VOID-отказ. Клоны
@@ -467,7 +473,8 @@
 #     файлов, и пробы «не записываема» (chmod 0400) краснели чужим красным; подготовка — под root,
 #     шаг «# wsuser-begin» передаёт дерево и кэш и судит запись в 0400 положительным контролем.
 # Сверка среды — ПОСЛЕ видимости, подпроцессом с пустым окружением и PATH образа (шаг
-# «# wscheck-begin»): bash, python3 с yaml, git, curl, go, node, jq, yq v4, shellcheck пина, bats; нет либо не
+# «# wscheck-begin»): bash, python3 с yaml и ensurepip, git, curl, go, node, jq, yq v4, shellcheck пина, bats,
+# локаль en_US.UTF-8; нет либо не
 # та версия — «remote-heavy-prep: среда: <имя> …», то есть 69 «не выполнилось», а не красное
 # набора через минуты. ЗАПРОС — строки ws PEAKS: КОНСЕРВАТИВНЫЙ до замера в кластере (ниже).
 #
@@ -3125,6 +3132,67 @@ echo "remote-heavy: клоны продуктов —$wcs, $(( $(date +%s) - wc0
 # wsclonewait-end
 WSCW
 )"
+# ЛОКАЛЬ И ENSUREPIP (шапка, СРЕДА ВОРКСПЕЙСА; ws#1482). Источники — GitHub (та же предпосылка
+# сети, что у yq и bats): локаль — localedata тега glibc-<версия образа> (зеркало bminor/glibc;
+# подлинность держит сумма перечня «sha256sum файлов» — одна строка на все семнадцать), ensurepip —
+# Lib/ensurepip тега CPython (колесо pip то же, что на PyPI, сумма на файл). Шаг ставит лишь
+# отсутствующее (образ уже несёт — ни одной загрузки). localedef — фоном, ждётся в WSENVWAIT_SH
+# перед видимостью; его код 1 — «предупреждения, локаль записана» (-c), исход судит сверка среды
+# (`locale -a` подпроцессом с пустым окружением), а не код.
+# shellcheck disable=SC2016  # раскрывается в pod, не здесь
+WSENV_SH="$(cat <<'WSENV'
+# wsenv-begin
+wel() { curl -fsSL --retry 4 --retry-all-errors --retry-delay 3 --connect-timeout 10 --max-time 180 -o "$2" "$1"; }
+py="$(command -v python3)" || pf "python3 в образе нет"
+wlp=""
+if ! env -i "$py" -c 'import ensurepip' > /dev/null 2>&1; then
+  pv="$("$py" -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null)"
+  [ "$pv" = 3.13 ] || pf "ensurepip: python3 образа — «$pv», а суммы в шаге — лишь CPython 3.13 (тег v3.13.5)"
+  ed="$("$py" -c 'import sysconfig; print(sysconfig.get_path("stdlib"))' 2>/dev/null)/ensurepip"
+  echo "remote-heavy: ставлю ensurepip CPython v3.13.5 (pip 25.1.1) в $ed" >&2
+  mkdir -p /work/dl/wsenv/ep/_bundled || pf "ensurepip: каталог загрузки не создан"
+  while read -r f s; do
+    wel "https://raw.githubusercontent.com/python/cpython/v3.13.5/Lib/ensurepip/$f" "/work/dl/wsenv/ep/$f" \
+      && printf '%s  %s\n' "$s" "/work/dl/wsenv/ep/$f" | sha256sum -c --quiet - || pf "ensurepip CPython v3.13.5 не поставлен ($f)"
+  done <<'EPSUM'
+__init__.py bc591ab7b958724eadc5871916a7797a7993208fcee9e16e1a7f09fc84016c5e
+__main__.py ee735f518d0fc4dfec81f7aa3da1e052372ed4202c0da4eddd2587840beaecd7
+_uninstall.py 3a6e95d01c45e2e47c05df3c81073b895c97c1eb0e5b90ab175d6d9263fc81f2
+_bundled/pip-25.1.1-py3-none-any.whl 2913a38a2abf4ea6b64ab507bd9e967f3b53dc1ede74b01b0931e1ce548751af
+EPSUM
+  mkdir -p "$ed" && cp -R /work/dl/wsenv/ep/. "$ed/" && chmod -R a+rX "$ed" || pf "ensurepip CPython v3.13.5 не поставлен (копия в $ed)"
+fi
+if ! locale -a 2> /dev/null | grep -qixE 'en_US\.utf-?8'; then
+  command -v localedef > /dev/null 2>&1 || pf "локаль en_US.UTF-8: localedef нет в образе"
+  gv="$(getconf GNU_LIBC_VERSION 2>/dev/null)"
+  [ "$gv" = "glibc 2.41" ] || pf "локаль en_US.UTF-8: в образе «$gv», а сумма источников в шаге — лишь glibc 2.41"
+  echo "remote-heavy: собираю локаль en_US.UTF-8 из источников glibc 2.41 (фоном)" >&2
+  li=/work/dl/wsenv/i18n
+  lf="en_US i18n i18n_ctype iso14651_t1 iso14651_t1_common translit_circle translit_cjk_compat translit_combining translit_compat translit_emojis translit_font translit_fraction translit_narrow translit_neutral translit_small translit_wide"
+  mkdir -p "$li/locales" "$li/charmaps" || pf "локаль en_US.UTF-8: каталог загрузки не создан"
+  for f in $lf; do wel "https://raw.githubusercontent.com/bminor/glibc/glibc-2.41/localedata/locales/$f" "$li/locales/$f" || pf "локаль en_US.UTF-8: источник $f не загружен"; done
+  wel https://raw.githubusercontent.com/bminor/glibc/glibc-2.41/localedata/charmaps/UTF-8 "$li/charmaps/UTF-8" || pf "локаль en_US.UTF-8: таблица UTF-8 не загружена"
+  ls_="$(cd "$li" && { for f in $lf; do sha256sum "locales/$f"; done; sha256sum charmaps/UTF-8; } | sha256sum | cut -d' ' -f1)"
+  [ "$ls_" = 0c881af3c20cd0cfb26bfcb414823597ebac3ba8e36a785c2f128f6d1a727096 ] || pf "локаль en_US.UTF-8: сумма источников glibc 2.41 не сошлась («$ls_»)"
+  rm -f /work/locale.rc
+  ( I18NPATH="$li" localedef -c -i "$li/locales/en_US" -f "$li/charmaps/UTF-8" en_US.UTF-8 > /work/locale.log 2>&1; echo "$?" > /work/locale.rc ) &
+  wlp=$!
+fi
+# wsenv-end
+WSENV
+)"
+# shellcheck disable=SC2016  # раскрывается в pod, не здесь
+WSENVWAIT_SH="$(cat <<'WSENVW'
+# wsenvwait-begin
+if [ -n "${wlp:-}" ]; then
+  wait "$wlp"; lr="$(cat /work/locale.rc 2>/dev/null)"
+  case "$lr" in 0|1) echo "remote-heavy: локаль en_US.UTF-8 собрана (localedef код $lr)" >&2 ;;
+    *) pf "локаль en_US.UTF-8: localedef код ${lr:-нет} — $(tail -n 2 /work/locale.log 2>/dev/null | tr '\n' ' ')" ;; esac
+fi
+rm -rf /work/dl/wsenv
+# wsenvwait-end
+WSENVW
+)"
 # ДОМА ПРОБ KANAME (ws#1196) — ci-local kaname: проба приёмок (internal/check probe_home.go)
 # резолвит координаты `PRO-Robotech/<дом>[@ревизия]:Имя` в копии дома — `KACHO_HOME_<ИМЯ>`
 # либо `<предок корня>/project/<имя>` — по origin/main или названной ревизии. Без копии —
@@ -3181,6 +3249,8 @@ for t in bash python3 git curl go node jq yq shellcheck bats; do
   [ -n "$(env -i PATH="$sp" bash -c "command -v $t" 2>/dev/null)" ] || tf "$t нет в PATH образа — наборы и хук воркспейса зовут его, прогон не равен конвейеру"
 done
 wx 'python3 -c "import yaml"' > /dev/null || tf "python3-yaml: модуль yaml не виден python3 подпроцесса с пустым окружением"
+v="$(wx 'python3 -c "import ensurepip; print(ensurepip.version())"')" || tf "ensurepip: модуль не виден python3 подпроцесса с пустым окружением — venv ghjob не создастся («$(tail -n 1 <<< "$v")»)"
+wx 'locale -a' | grep -qixE 'en_US\.utf-?8' || tf "локаль en_US.UTF-8 не установлена — residue-census K6 не выполнится"
 v="$(wx 'yq --version')"; case "$v" in *" v4."*) ;; *) tf "yq в PATH — «$(head -n 1 <<< "$v")», нужен v4 (mikefarah)" ;; esac
 v="$(wx 'shellcheck --version' | sed -n 's/^version: //p')"; [ "$v" = "$HEAVY_SHELLCHECK" ] || tf "shellcheck в PATH — «$v», пин конвейера $HEAVY_SHELLCHECK"
 v="$(wx 'bats --version')"; case "$v" in "Bats "*) ;; *) tf "bats не исполняется — «$(head -n 1 <<< "$v")»" ;; esac
@@ -3208,7 +3278,8 @@ WSUSER
 )"
 [ "$PROFILE" = ws ] && PREP="$PREP
 $WSCLONE_SH
-$WSTOOLS_SH"
+$WSTOOLS_SH
+$WSENV_SH"
 [ "$PROFILE" = ci-local ] && [ "$REPO" = kaname ] && PREP="$PREP
 $HOMES_SH"
 [ "$PROFILE" = ws ] || PREP="$PREP
@@ -3230,7 +3301,8 @@ $FILEWAIT_SH"
 [ "$DIND" = 1 ] && PREP="$PREP
 $PULLWAIT_SH"
 [ "$PROFILE" = ws ] && PREP="$PREP
-$WSCLONEWAIT_SH"
+$WSCLONEWAIT_SH
+$WSENVWAIT_SH"
 [ "$PROFILE" = ci-local ] && [ "$REPO" = kaname ] && PREP="$PREP
 $HOMESWAIT_SH"
 PREP="$PREP

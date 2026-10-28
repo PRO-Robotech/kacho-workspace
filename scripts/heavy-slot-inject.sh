@@ -1007,6 +1007,7 @@ echo "── клон воркспейса: хук отправки, набор�
 # близнец — клон kacho тем же механизмом уходит профилем своего класса.
 RW="$W/rclone-ws"; git init -q -b 1304-w "$RW"; git -C "$RW" remote add origin https://github.com/PRO-Robotech/kacho-workspace.git
 mkdir -p "$RW/scripts/tg" "$RW/scripts/hooks" "$RW/.claude/hooks/hg"
+mkdir -p "$RW/tests"; for f in tests/a.bats tests/b.bats; do printf "#!/usr/bin/env bats\n@test x { true; }\n" > "$RW/$f"; done
 for f in scripts/tg/run-all.sh scripts/tg/inject.sh scripts/tg-inject.sh scripts/other.sh .claude/hooks/hg/prove.sh; do printf '#!/usr/bin/env bash\necho %s\n' "$f" > "$RW/$f"; done
 printf 'print(1)\n' > "$RW/scripts/tg/mutants.py"
 # shellcheck disable=SC2016  # текст хука раскрывает он сам
@@ -1031,6 +1032,25 @@ for pl in "bash scripts/other.sh" "bash scripts/tg/check-99-untracked.sh" "bash 
     # shellcheck disable=SC2086  # нагрузка — слова
     assert "77 да нет" "$(RDIR="$RW" rslot bash "$SLOT" suite -- $pl) $(has "$W/err" 'клон воркспейса: нагрузка') $([ -e "$W/argv" ] && echo да || echo нет)" "близнец: $pl (вне ведомости, не отслеживается, путь машины, строка) → внешнего пути нет, при доступном кластере 77 с причиной (ws#1301)"
 done
+# bats — шаг конвейера `bats <файл>…` (ws#1482): каждый файл довода — отслеживаемый tests/*.bats →
+# Job профиля ws, причина называет файлы; хоть один файл вне записи, путь машины, файл не вида bats,
+# файлов ноль, файл bats под оболочкой — внешнего пути нет (77).
+printf '#!/usr/bin/env bats\n' > "$RW/tests/u.bats"
+rm -f "$W/argv"; bb="$(jn 'why=клон воркспейса, скрипт ведомости PORTABLE tests/a.bats tests/b.bats — Job профиля ws who=')"
+assert "17 ws . $((bb + 1))" "$(RDIR="$RW" rslot bash "$SLOT" suite -- bats tests/a.bats tests/b.bats) $(argv_of profile) $(argv_of workdir) $(jn 'why=клон воркспейса, скрипт ведомости PORTABLE tests/a.bats tests/b.bats — Job профиля ws who=')" "suite: bats двух отслеживаемых tests/*.bats → Job профиля ws, причина называет оба файла"
+rm -f "$W/argv"
+assert "17 ws" "$(RDIR="$RW" rslot bash "$SLOT" ci-local -- bats -j 2 --tap tests/a.bats) $(argv_of profile)" "ci-local: bats с ключами (-j 2, --tap) → Job профиля ws"
+for pl in "bats tests/a.bats tests/u.bats" "bats $RW/tests/a.bats" "bats scripts/tg/run-all.sh" "bats --tap" "bash tests/a.bats" "bats -x tests/a.bats"; do
+    rm -f "$W/argv"
+    case "$pl" in "bats -x"*) want=17 ;; *) want=77 ;; esac
+    # shellcheck disable=SC2086  # нагрузка — слова
+    r="$(RDIR="$RW" rslot bash "$SLOT" suite -- $pl)"
+    if [ "$want" = 77 ]; then
+        assert "77 да нет" "$r $(has "$W/err" 'клон воркспейса: нагрузка') $([ -e "$W/argv" ] && echo да || echo нет)" "близнец: $pl (файл вне записи, путь машины, не вида bats, файлов ноль, bats под оболочкой) → внешнего пути нет, 77"
+    else
+        assert "17" "$r" "законный близнец: $pl — ключ без значения не путь, файл записи → Job"
+    fi
+done
 rm -f "$W/argv"
 assert "77 да нет" "$(RDIR="$RW" rslot bash "$SLOT" go-race -- true) $(has "$W/err" 'Job профиля ws несёт лишь ci-local и suite') $([ -e "$W/argv" ] && echo да || echo нет)" "близнец: класс go-race в клоне воркспейса — внешнего пути нет (образ ws без go), при доступном кластере 77"
 rm -f "$W/argv"; bk="$(jn 'why=клон kacho — Job профиля go-race who=')"
@@ -1047,7 +1067,8 @@ for l in sys.stdin:
     if p.startswith(("scripts/", ".claude/hooks/")) and g.SUITE_NAME.match(os.path.basename(p)):
         print(p)' "$WS_TOP/.claude/hooks/heavy-guard/guard.py" 2>/dev/null)
 RSC="$W/rclone-wsc"; git init -q -b 1304-c "$RSC"; git -C "$RSC" remote add origin https://github.com/PRO-Robotech/kacho-workspace.git
-for f in "${SUF[@]}"; do mkdir -p "$RSC/$(dirname "$f")"; : > "$RSC/$f"; done
+mapfile -t BTF < <(cd "$WS_TOP" && git ls-files -- 'tests/*.bats')
+for f in "${SUF[@]}" "${BTF[@]}"; do mkdir -p "$RSC/$(dirname "$f")"; : > "$RSC/$f"; done
 git -C "$RSC" add -A 2>/dev/null; sandbox_git -C "$RSC" commit -q --allow-empty -m census
 # Пробы, судящие машину (MACHINE heavy-slot.sh), — без внешнего пути: каждая запись — живой файл
 # дерева (иначе запись устарела) и маршрут none (при доступном кластере 77) с причиной; прочие — external.
@@ -1061,6 +1082,13 @@ for f in "${SUF[@]}"; do
     elif [ "$r" = "0 external" ]; then n_ext=$((n_ext + 1)); else miss="$miss $f"; fi
 done
 assert "да ${#SUF[@]}" "$([ "${#SUF[@]}" -gt 0 ] && echo да || echo нет) $((n_ext + n_mach))" "перепись: наборов и проб дерева воркспейса (SUITE_NAME стража) ${#SUF[@]}: Job-ом профиля ws $n_ext, судящих машину (none) $n_mach${miss:+ — мимо ведомости:$miss}"
+# Перепись bats (ws#1482): каждый отслеживаемый tests/*.bats дерева (шаг конвейера `bats <файл>…`)
+# классом suite уходит Job-ом профиля ws; ноль файлов — отказ (запись PORTABLE без предмета).
+n_bats=0; miss_b=""
+for f in "${BTF[@]}"; do
+    r="$(route "$RSC" suite -- bats "$f")"; if [ "$r" = "0 external" ]; then n_bats=$((n_bats + 1)); else miss_b="$miss_b $f($r)"; fi
+done
+assert "да ${#BTF[@]}" "$([ "${#BTF[@]}" -gt 0 ] && echo да || echo нет) $n_bats" "перепись bats: отслеживаемых tests/*.bats ${#BTF[@]}, Job-ом профиля ws $n_bats${miss_b:+ — мимо ведомости:$miss_b}"
 # MACHINE — законный локальный маршрут (решение диспетчера 2026-10-22 по правилу владельца «только
 # если доступа к кластеру нету»: у предмета-машины доступа из кластера нет по построению): запись
 # перечня при ДОСТУПНОМ кластере идёт в слоте машины с доказательством, а не 77; посторонняя

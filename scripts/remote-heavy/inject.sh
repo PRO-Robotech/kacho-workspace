@@ -272,7 +272,8 @@
 #      go.mod ревизии; QR-op — их запрос по строке «*» профиля; --repo иной → 64 (QR-badrepo)
 #   WS1–WS6 профиль ws клона воркспейса (ws#1304): Job — образ продуктов, клоны продуктов, среда
 #      наборов, её сверка и команда от runner; пара профиля и репозитория; пин shellcheck; сверка
-#      среды, читатель трекера и установка с пином суммы исполнением (подробно — у случаев)
+#      среды, читатель трекера и установка с пином суммы исполнением (подробно — у случаев);
+#      WS7 — локаль en_US.UTF-8 и ensurepip (ws#1482) исполнением шагов wsenv/wsenvwait над двойниками
 #   KD1–KD9 профиль kind (ws#1385, kind.sh): пара профиля — лишь клоны внешних операторов
 #      (kind + kacho → 64); Job — hostUsers узла и privileged лишь у dind, проба допуска от
 #      имени job-controller до Job, проба исполнимости kind в pod (исполнением шага над
@@ -3936,7 +3937,7 @@ else OUT="$WJ"; bad WS1 "Job профиля ws: образ не golang:1.26.9 л
 if [ "$(kx env "$WJ" run HEAVY_SHELLCHECK)" = 0.11.0 ] && [ "$(kx env "$WJ" run PREPUSH_GH)" = /work/bin/gh-issue-public ] && [ "$(kx env "$WJ" run HEAVY_NODE)" = 26 ]; then ok
 else OUT="$WJ"; bad WS1 "окружение run: HEAVY_SHELLCHECK «$(kx env "$WJ" run HEAVY_SHELLCHECK)», PREPUSH_GH «$(kx env "$WJ" run PREPUSH_GH)», HEAVY_NODE «$(kx env "$WJ" run HEAVY_NODE)»"; fi
 kx cmd "$WJ" run 2 > "$BOX/ws1.cmd"
-for m in wsclone-begin wstools-begin gitid-begin hooks-begin install-begin tools-check wsclonewait-begin expose-begin wscheck-begin wsuser-begin; do
+for m in wsclone-begin wstools-begin wsenv-begin gitid-begin hooks-begin install-begin tools-check wsclonewait-begin wsenvwait-begin expose-begin wscheck-begin wsuser-begin; do
     if grep -qx "# $m" "$BOX/ws1.cmd"; then ok; else OUT="$BOX/ws1.cmd"; bad WS1 "шага «# $m» в подготовке run нет"; fi
 done
 for m in moddl-begin pgwait-begin pull-begin npmci-begin file-begin; do
@@ -3945,6 +3946,9 @@ done
 if awk '/^# wsclone-begin$/ { a = NR } /^# wsclonewait-begin$/ { b = NR } /^# expose-end$/ { c = NR } /^# wscheck-begin$/ { d = NR } /^# wsuser-begin$/ { u = NR } /^heavy_cmd "\$@"$/ { e = NR }
         END { exit !(a && b && c && d && u && e && a < b && b < c && c < d && d < u && u < e) }' "$BOX/ws1.cmd"; then ok
 else OUT="$BOX/ws1.cmd"; bad WS1 "порядок: клоны фоном → ожидание клонов → видимость → сверка среды → пользователь команды → команда — нарушен"; fi
+if awk '/^# wstools-end$/ { a = NR } /^# wsenv-begin$/ { b = NR } /^# wsenvwait-begin$/ { c = NR } /^# expose-end$/ { d = NR }
+        END { exit !(a && b && c && d && a < b && b < c && c < d) }' "$BOX/ws1.cmd"; then ok
+else OUT="$BOX/ws1.cmd"; bad WS1 "порядок: инструменты → локаль и ensurepip (localedef фоном) → их ожидание → видимость — нарушен (ws#1482)"; fi
 if grep -qx 'set -- setpriv --reuid=1001 --regid=1001 --init-groups env HOME=/home/runner USER=runner LOGNAME=runner "$@"' "$BOX/ws1.cmd"; then ok
 else OUT="$BOX/ws1.cmd"; bad WS1 "команда профиля ws идёт не от пользователя runner (uid 1001): root pod обходит права файлов"; fi
 if [ "$(jq -r '.spec.template.spec.containers[] | select(.name == "run") | "\(.resources.requests.memory) \(.resources.limits.memory)"' "$WJ" 2>/dev/null)" = "2560Mi 9216Mi" ]; then ok
@@ -3991,14 +3995,22 @@ WT="$BOX/wstd"; PY3="$(command -v python3)"
 # curl, jq, python3; yq, shellcheck и bats — двойники с выводом версии своего вида.
 ws_std() {
     rm -rf "$WT"; mkdir -p "$WT"
-    local yv=v4.45.4 sv=0.11.0 skip="" noyaml=""
-    while [ "$#" -gt 0 ]; do case "$1" in без) skip="$2"; shift 2 ;; yq) yv="$2"; shift 2 ;; sc) sv="$2"; shift 2 ;; noyaml) noyaml=1; shift ;; esac; done
-    for t in bash git curl jq sed head cut; do [ "$t" = "$skip" ] || ln -s "$(command -v "$t")" "$WT/$t"; done
+    local yv=v4.45.4 sv=0.11.0 skip="" noyaml="" noep="" noloc=""
+    while [ "$#" -gt 0 ]; do case "$1" in без) skip="$2"; shift 2 ;; yq) yv="$2"; shift 2 ;; sc) sv="$2"; shift 2 ;; noyaml) noyaml=1; shift ;; noep) noep=1; shift ;; noloc) noloc=1; shift ;; esac; done
+    for t in bash git curl jq sed head cut tail grep; do [ "$t" = "$skip" ] || ln -s "$(command -v "$t")" "$WT/$t"; done
+    # ensurepip и локаль (ws#1482) — двойники, а не среда машины пробы: ensurepip — модуль в
+    # PYTHONPATH обёртки python3 (впереди stdlib; noep — модуль, отказывающий импорту), locale -a —
+    # перечень вида образа (noloc — без en_US).
+    mkdir -p "$WT/pylib/ensurepip"
+    if [ -n "$noep" ]; then echo 'raise ImportError("ensurepip снят")' > "$WT/pylib/ensurepip/__init__.py"
+    else printf 'def version():\n    return "25.1.1"\n' > "$WT/pylib/ensurepip/__init__.py"; fi
+    if [ -n "$noloc" ]; then printf '#!/bin/sh\nprintf "C\\nC.utf8\\nPOSIX\\n"\n' > "$WT/locale"
+    else printf '#!/bin/sh\nprintf "C\\nC.utf8\\nen_US.utf8\\nPOSIX\\n"\n' > "$WT/locale"; fi
+    chmod +x "$WT/locale"
     [ "$skip" = go ] || { printf '#!/bin/sh\necho "go version go1.26.9 linux/amd64"\n' > "$WT/go"; chmod +x "$WT/go"; }
     [ "$skip" = node ] || { printf '#!/bin/sh\necho v26.8.1\n' > "$WT/node"; chmod +x "$WT/node"; }
     if [ "$skip" != python3 ]; then
-        if [ -n "$noyaml" ]; then printf '#!/bin/sh\nexec %s -S "$@"\n' "$PY3" > "$WT/python3"; chmod +x "$WT/python3"
-        else ln -s "$PY3" "$WT/python3"; fi
+        printf '#!/bin/sh\nPYTHONPATH=%s exec %s %s "$@"\n' "$WT/pylib" "$PY3" "${noyaml:+-S}" > "$WT/python3"; chmod +x "$WT/python3"
     fi
     [ "$skip" = yq ] || { printf '#!/bin/sh\necho "yq (https://github.com/mikefarah/yq/) version %s"\n' "$yv" > "$WT/yq"; chmod +x "$WT/yq"; }
     [ "$skip" = shellcheck ] || { printf '#!/bin/sh\nprintf "ShellCheck - shell script analysis tool\\nversion: %s\\nlicense: GNU\\n"\n' "$sv" > "$WT/shellcheck"; chmod +x "$WT/shellcheck"; }
@@ -4024,6 +4036,8 @@ ws_case WS4-git 125 git без git
 ws_case WS4-go 125 go без go
 ws_case WS4-node 125 node без node
 ws_case WS4-noyaml 125 python3-yaml noyaml
+ws_case WS4-noep 125 ensurepip noep
+ws_case WS4-noloc 125 "локаль en_US.UTF-8" noloc
 # WS5 — читатель трекера (PREPUSH_GH) исполнением: текст из Job, curl — двойник api.github.com
 sed -n "/^cat > \/work\/bin\/gh-issue-public <<'GHP'$/,/^GHP$/p" "$BOX/ws1.cmd" | sed '1d;$d' > "$BOX/ghp.sh"
 mkdir -p "$BOX/ghbin"
@@ -4106,6 +4120,99 @@ ws6_case WS6-yqsum 125 "yq v4.45.4 не поставлен" WSC_BAD=yq
 ws6_case WS6-scsum 125 "shellcheck 0.11.0 не поставлен" WSC_BAD=sc
 ws6_case WS6-batssum 125 "bats-core 1.10.0 не поставлен" WSC_BAD=bats
 ws6_case WS6-down 125 "yq v4.45.4 не поставлен" WSC_DOWN=1
+
+# WS7 — локаль en_US.UTF-8 и ensurepip (ws#1482) ИСПОЛНЕНИЕМ: текст шагов wsenv и wsenvwait из Job,
+#     curl — двойник с поддельными источниками, суммы пина заменены суммами двойников (каждый пин —
+#     ровно один раз в тексте); python3, locale, localedef, getconf — двойники, их состояние — файлы
+#     каталога пробы (шаг зовёт python3 через env -i). Чисто → ensurepip в stdlib двойника, localedef
+#     позван над загруженными источниками, код 0; среда уже есть → ни одной загрузки при мёртвой сети
+#     (законный близнец); подмена источника, чужая версия python3 или glibc, отказ localedef → 125
+#     и причина в termination-log
+WE="$BOX/wse"; WEK="$WE/work"; rm -rf "$WE"; mkdir -p "$WE/bin" "$WE/srv/ep/_bundled" "$WE/srv/loc" "$WE/st"
+for t in bash sh cp mkdir chmod cat rm sha256sum sed printf cut grep tr tail env sort; do
+    p_="$(command -v "$t" 2>/dev/null)" && [ -n "$p_" ] && ln -sf "$p_" "$WE/bin/$t"
+done
+for f in __init__.py __main__.py _uninstall.py _bundled/pip-25.1.1-py3-none-any.whl; do echo "двойник $f" > "$WE/srv/ep/$f"; done
+for f in en_US i18n i18n_ctype iso14651_t1 iso14651_t1_common translit_circle translit_cjk_compat translit_combining translit_compat translit_emojis translit_font translit_fraction translit_narrow translit_neutral translit_small translit_wide UTF-8; do
+    echo "двойник $f" > "$WE/srv/loc/$f"
+done
+cat > "$WE/bin/curl" <<WSE
+#!$(command -v bash)
+o=""; u=""
+while [ "\$#" -gt 0 ]; do case "\$1" in -o) o="\$2"; shift 2 ;; --retry|--retry-delay|--connect-timeout|--max-time) shift 2 ;; -*) shift ;; *) u="\$1"; shift ;; esac; done
+[ ! -e "$WE/st/down" ] || exit 7
+echo "\$u" >> "$WE/st/curl.log"
+case "\$u" in
+  https://raw.githubusercontent.com/python/cpython/v3.13.5/Lib/ensurepip/*) cp "$WE/srv/ep/\${u#*/Lib/ensurepip/}" "\$o" || exit 22
+      [ "\$(cat "$WE/st/bad" 2>/dev/null)" != ep ] || echo x >> "\$o" ;;
+  https://raw.githubusercontent.com/bminor/glibc/glibc-2.41/localedata/*/*) cp "$WE/srv/loc/\${u##*/}" "\$o" || exit 22
+      [ "\$(cat "$WE/st/bad" 2>/dev/null)" != loc ] || echo x >> "\$o" ;;
+  *) echo "двойник curl: адрес не знаком: \$u" >&2; exit 22 ;;
+esac
+WSE
+cat > "$WE/bin/python3" <<WSE
+#!$(command -v bash)
+case "\$2" in
+  'import ensurepip') [ -f "$WE/stdlib/ensurepip/__init__.py" ] ;;
+  *version_info*) cat "$WE/st/pv" 2>/dev/null || echo 3.13 ;;
+  *sysconfig*) echo "$WE/stdlib" ;;
+  *) exit 99 ;;
+esac
+WSE
+cat > "$WE/bin/locale" <<WSE
+#!$(command -v bash)
+printf 'C\nC.utf8\nPOSIX\n'; cat "$WE/st/locales" 2>/dev/null; exit 0
+WSE
+cat > "$WE/bin/getconf" <<WSE
+#!$(command -v bash)
+cat "$WE/st/glibc" 2>/dev/null || echo "glibc 2.41"
+WSE
+cat > "$WE/bin/localedef" <<WSE
+#!$(command -v bash)
+echo "I18NPATH=\${I18NPATH:-} \$*" >> "$WE/st/localedef.log"
+r="\$(cat "$WE/st/ldrc" 2>/dev/null || echo 0)"; [ "\$r" -gt 1 ] || echo en_US.utf8 >> "$WE/st/locales"; exit "\$r"
+WSE
+chmod +x "$WE/bin/curl" "$WE/bin/python3" "$WE/bin/locale" "$WE/bin/getconf" "$WE/bin/localedef"
+{ sed -n '/^# wsenv-begin$/,/^# wsenv-end$/p' "$BOX/ws1.cmd"; sed -n '/^# wsenvwait-begin$/,/^# wsenvwait-end$/p' "$BOX/ws1.cmd"; } > "$WE/raw.sh"
+we_pins=0; for f in __init__.py __main__.py _uninstall.py _bundled/pip-25.1.1-py3-none-any.whl; do
+    p_="$(grep -E "^${f//./\\.} [0-9a-f]{64}\$" "$WE/raw.sh" | awk '{print $2}')"
+    if [ -n "$p_" ] && [ "$(grep -c "$p_" "$WE/raw.sh")" = 1 ]; then we_pins=$((we_pins + 1)); echo "s#$p_#$(sha256sum < "$WE/srv/ep/$f" | cut -d' ' -f1)#" >> "$WE/pins.sed"; fi
+done
+l_pin="$(grep -oE '\[ "\$ls_" = [0-9a-f]{64} \]' "$WE/raw.sh" | grep -oE '[0-9a-f]{64}')"
+l_dbl="$(cd "$WE/srv/loc" && { for f in en_US i18n i18n_ctype iso14651_t1 iso14651_t1_common translit_circle translit_cjk_compat translit_combining translit_compat translit_emojis translit_font translit_fraction translit_narrow translit_neutral translit_small translit_wide; do sha256sum "$f" | sed "s#  #  locales/#"; done; sha256sum UTF-8 | sed "s#  #  charmaps/#"; } | sha256sum | cut -d' ' -f1)"
+if [ "$we_pins" = 4 ] && [ -n "$l_pin" ] && [ "$(grep -c "$l_pin" "$WE/raw.sh")" = 1 ] && grep -q '^# wsenvwait-end$' "$WE/raw.sh"; then ok
+else OUT="$WE/raw.sh"; bad WS7 "шаги wsenv/wsenvwait не взяты из Job либо пины ensurepip (4) и источников локали (1) стоят не ровно по одному разу (ensurepip $we_pins)"; fi
+echo "s#$l_pin#$l_dbl#" >> "$WE/pins.sed"
+# shellcheck disable=SC2016  # текст функции раскрывает исполняемый шаг
+{ printf 'pf() { echo "remote-heavy-prep: $1" > "%s/tl"; exit 125; }\n' "$WEK"; sed -e "s#/work/#$WEK/#g" -f "$WE/pins.sed" "$WE/raw.sh"; } > "$WE/wsenv.sh"
+# we_case <случай> <код> <слово отказа | -> [состояние: down | bad=ep|loc | pv=<в> | glibc=<в> | ldrc=<к> | have]…
+we_case() {
+    local c="$1" want="$2" word="$3" s; shift 3
+    rm -rf "$WEK" "$WE/stdlib" "$WE/st"; mkdir -p "$WEK" "$WE/st"; OUT="$BOX/$c.out"
+    for s in "$@"; do case "$s" in
+        down) : > "$WE/st/down" ;; bad=*) echo "${s#bad=}" > "$WE/st/bad" ;; pv=*) echo "${s#pv=}" > "$WE/st/pv" ;;
+        glibc=*) echo "glibc ${s#glibc=}" > "$WE/st/glibc" ;; ldrc=*) echo "${s#ldrc=}" > "$WE/st/ldrc" ;;
+        have) mkdir -p "$WE/stdlib/ensurepip"; : > "$WE/stdlib/ensurepip/__init__.py"; echo en_US.utf8 > "$WE/st/locales" ;;
+    esac; done
+    env -i PATH="$WE/bin" HOME="$WE" bash "$WE/wsenv.sh" > "$OUT" 2>&1; RC=$?
+    expect_rc "$c" "$want"
+    if [ "$want" -ne 0 ]; then
+        if grep -q "^remote-heavy-prep: $word" "$WEK/tl" 2>/dev/null; then ok; else bad "$c" "отказ «$word» не записан в termination-log"; fi
+    fi
+}
+we_case WS7 0 -
+if cmp -s "$WE/srv/ep/_bundled/pip-25.1.1-py3-none-any.whl" "$WE/stdlib/ensurepip/_bundled/pip-25.1.1-py3-none-any.whl" && cmp -s "$WE/srv/ep/__init__.py" "$WE/stdlib/ensurepip/__init__.py" \
+   && grep -qxF "I18NPATH=$WEK/dl/wsenv/i18n -c -i $WEK/dl/wsenv/i18n/locales/en_US -f $WEK/dl/wsenv/i18n/charmaps/UTF-8 en_US.UTF-8" "$WE/st/localedef.log" 2>/dev/null \
+   && [ ! -e "$WEK/dl/wsenv" ] && [ "$(wc -l < "$WE/st/curl.log")" = 21 ]; then ok
+else OUT="$BOX/WS7.out"; bad WS7 "ensurepip не в stdlib, localedef позван не над загруженными источниками, каталог загрузки не снят либо загрузок не 21 ($(wc -l < "$WE/st/curl.log" 2>/dev/null))"; fi
+we_case WS7-have 0 - have down
+if [ ! -e "$WE/st/curl.log" ] && [ ! -e "$WE/st/localedef.log" ]; then ok; else bad WS7-have "среда уже в образе, а шаг тянул источники либо звал localedef"; fi
+we_case WS7-epsum 125 "ensurepip CPython v3.13.5 не поставлен" bad=ep
+we_case WS7-locsum 125 "локаль en_US.UTF-8: сумма источников glibc 2.41 не сошлась" bad=loc
+we_case WS7-py 125 "ensurepip: python3 образа — «3.12»" pv=3.12
+we_case WS7-glibc 125 "локаль en_US.UTF-8: в образе «glibc 2.36»" glibc=2.36
+we_case WS7-ldrc 125 "локаль en_US.UTF-8: localedef код 4" ldrc=4
+we_case WS7-ldwarn 0 - ldrc=1
 
 # ── KD: профиль kind (ws#1385, kind.sh) ──────────────────────────────────────
 # Личность оператора (Ф1, Ф2) у клона пробы своя: таблица KIND_OPERATORS kind.sh подменяется
