@@ -1288,7 +1288,7 @@ mutant "sha вердикта подменяется" "const stale = (d.reviews |
 # переписан на новую голову — сверка непросмотренной головы слепнет.
 mutant "принявшим роль переписывается sha новой головы" "      vs = vs.map((v, i) => { const j = back.findIndex(x => x.r === roles[i]); return j < 0 ? v : again[j] })" "      vs = vs.map((v, i) => { const j = back.findIndex(x => x.r === roles[i]); return j < 0 ? { ...v, sha: impl.head } : again[j] })"
 mutant "непросмотренная голова не останавливает полосу" "      if (unseen.length) return" "      if (false) return"
-mutant "повтор — и принявшим" "const again = await Promise.all(back.map(x => review(x.r, l, impl.head, prev, 'review-' + x.r + '-2')))" "const again = await Promise.all(roles.map(r => review(r, l, impl.head, prev, 'review-' + r + '-2')))"
+mutant "повтор — и принявшим" "const again = await Promise.all(back.map(x => review(x.r, { ...l, branch: impl.branch }, impl.head, prev, 'review-' + x.r + '-2')))" "const again = await Promise.all(roles.map(r => review(r, { ...l, branch: impl.branch }, impl.head, prev, 'review-' + r + '-2')))"
 mutant "перепин не заводится" "onlySkew && round === 1)" "onlySkew && round === 0)"
 mutant "рецензент волны на каждую полосу" "if (steps.has('wave-reviewer')) {" "for (const _ of order) if (steps.has('wave-reviewer')) {"
 mutant "номер PR не судится" "if (!Number.isInteger(asm.pr) || asm.pr < 1) return" "if (false) return"
