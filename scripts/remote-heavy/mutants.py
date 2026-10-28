@@ -672,6 +672,31 @@ $FILEWAIT_SH"'''),
     ("file-elf", "F2x", "собранный file не судится исполнением на настоящем ELF",
      '''case "$fk" in ELF*) ;;''',
      '''case "$fk" in *) ;;'''),
+    # ws#1503: запросы на слияние для хука — снятое машиной в Job и gh pod из него.
+    ("ghpr-env", "GP1", "снятое машиной не доходит до окружения run",
+     r'''+ (if $ghprs != "" then [{name: "HEAVY_GH_PRS", value: $ghprs}] else [] end)''',
+     r'''+ []'''),
+    ("ghpr-unwired", "GP1", "шаг gh pod не включён в Job ci-local",
+     '[ "$PROFILE" = ci-local ] && PREP="$PREP\n$GHPR_SH"',
+     'false && PREP="$PREP\n$GHPR_SH"'),
+    ("ghpr-token", "GP1-env", "токен машины уходит в окружение pod",
+     r'''[{name: "HEAVY_GH_PRS", value: $ghprs}]''',
+     r'''[{name: "HEAVY_GH_PRS", value: $ghprs}, {name: "GH_TOKEN", value: (env.GH_TOKEN // "")}]'''),
+    ("ghpr-head-filter", "GP3-head", "gh pod не фильтрует по --head — ветке без запроса достаётся чужой",
+     r'''select(($h == "" or .headRefName == $h) and''',
+     r'''select((true) and'''),
+    ("ghpr-epics-dropped", "GP1", "снимается лишь запрос ветки, головы эпиков не снимаются",
+     r'''    all="$got"
+    for h in''',
+     r'''    all="[]"
+    for h in'''),
+    # ws#1503, ⛔ check-verifier: порчи, выжившие прежний набор.
+    ("cv-base-filter", "GP3-base", "gh pod не фильтрует по --base — «--base main» отдаёт запрос в ветку эпика",
+     r'''($b == "" or .baseRefName == $b)''',
+     r'''(true)'''),
+    ("cv-merge-minby", "GP4", "слияние снятого берёт меньший объект запроса — body из ответа «--head» теряется",
+     r'''group_by(.number)[] | max_by(length)''',
+     r'''group_by(.number)[] | min_by(length)'''),
 ]
 
 
@@ -717,7 +742,8 @@ def main():
         rc, fails, tail = run_inject(RUN, root)
         print(f"контроль: код {rc} · {tail}")
         if rc != 0:
-            print("mutants: ПРЕДПОСЫЛКА — набор красный без порчи")
+            print("mutants: ПРЕДПОСЫЛКА — " + ("набор не выполнился без порчи (код 2: сцена не исполнена)"
+                                               if rc == 2 else "набор красный без порчи"))
             return 1
         survived = 0
         with concurrent.futures.ThreadPoolExecutor(max_workers=a.j) as ex:
