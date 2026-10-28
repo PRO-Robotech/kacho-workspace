@@ -4211,7 +4211,7 @@ if grep -q '^# ghpr-end$' <<< "$GPT"; then ok; else bad GP3 "текста шаг
 gp_install() {
     rm -rf "$1"; mkdir -p "$1/bin"
     # shellcheck disable=SC2016  # текст функции раскрывает исполняемый шаг
-    { printf 'pf() { echo "remote-heavy-prep: $1" > "%s/tl"; exit 125; }\n' "$1"; sed "s#/work/#$1/#g" <<< "$GPT"; } > "$1/step.sh"
+    { printf 'pf() { echo "remote-heavy-prep: $1" > "%s/tl"; exit 125; }\n' "$1"; printf "%s\n" "${GPT//\/work\//$1/}"; } > "$1/step.sh"
     env HEAVY_GH_PRS="$2" PATH="$1/bin:$PATH" bash "$1/step.sh" > "$1/step.out" 2>&1; RC=$?
 }
 GW="$BOX/gpw"

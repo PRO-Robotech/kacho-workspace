@@ -1304,7 +1304,7 @@ gh_prs_snapshot() {
         got="$(timeout 30 gh pr list -R "$slug" --head "$h" --state open --json number,title,body,baseRefName,headRefName,isDraft --limit 5 2>&1)" \
             || { GH_PRS_ERR="gh pr list --head $h: $(printf '%s' "$got" | tr '\n' ' ' | cut -c1-200)"; return 1; }
         all="$(jq -ce --argjson add "$got" 'if ($add | type) == "array" and all($add[]; type == "object" and (.headRefName | type) == "string")
-                   then [(. + $add) | group_by(.number)[] | max_by(length)] else error("не массив запросов") end' <<< "$all" 2>&1)" \
+                   then [($add + .) | group_by(.number)[] | max_by(length)] else error("не массив запросов") end' <<< "$all" 2>&1)" \
             || { GH_PRS_ERR="gh pr list --head $h: ответ не массив запросов"; return 1; }
     done
     GH_PRS="$(jq -cn --arg repo "$slug" --argjson prs "$all" '{repo: $repo, heads: $ARGS.positional, prs: $prs}' --args "${heads[@]}")"
@@ -1317,7 +1317,7 @@ if [ "$PROFILE" = ci-local ] && [ -n "$PUSH_INPUT" ]; then
     elif ! gh_prs_snapshot "PRO-Robotech/$REPO"; then
         say "запросы на слияние для хука НЕ сняты: $GH_PRS_ERR — хук выбрал бы базу main без голов эпиков (не выполнилось, Job не создавался)"; exit 69
     else
-        say "запросы на слияние для хука сняты чтением на машине: открытых в main $(jq '[.prs[] | select(.baseRefName == "main")] | length' <<< "$GH_PRS"), веток отправки $(jq '.heads | length' <<< "$GH_PRS"), их запросов $(jq '. as $d | [.prs[] | select(.headRefName as $h | $d.heads | index($h))] | length' <<< "$GH_PRS") — gh в pod отвечает снятым, токена в pod нет"
+        say "запросы на слияние для хука сняты чтением на машине: открытых в main $(jq '[.prs[] | select(.baseRefName == "main")] | length' <<< "$GH_PRS"), веток отправки $(jq '.heads | length' <<< "$GH_PRS"), их запросов $(jq '.heads as $hs | [.prs[] | select(.headRefName as $h | $hs | index($h))] | length' <<< "$GH_PRS") — gh в pod отвечает снятым, токена в pod нет"
     fi
 fi
 GOVER=""
@@ -2271,7 +2271,7 @@ jq --arg h "$head" --arg b "$base" --arg f "$fields" --argjson n "$limit" '
   ($f | split(",")) as $fs
   | [.prs[] | select(($h == "" or .headRefName == $h) and ($b == "" or .baseRefName == $b))]
   | sort_by(-.number) | .[:$n]
-  | if all(.[]; . as $r | all($fs[]; . as $k | $r | has($k))) then map(with_entries(select(.key as $k | $fs | index($k))))
+  | if all(.[]; has($fs[])) then map(with_entries(select(.key as $k | $fs | index($k))))
     else error("поле из «\($f)» не снято машиной") end' "$snap" || die "ответ не собран из снятого" 1
 GHPOD
   chmod 0755 /work/bin/gh || pf "gh pod не поставлен"
