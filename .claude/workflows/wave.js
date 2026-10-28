@@ -513,8 +513,8 @@ const steps = new Set(order.flatMap(k => tierOf[k].steps))
 const operatorStand = ['PRO-Robotech/kaname-iam-operator', 'PRO-Robotech/registry-operator', 'PRO-Robotech/vault-operator'].includes(A.repo)
 const kanameStand = A.repo === 'PRO-Robotech/kaname'
 const assembleLegacy = async round => agent(C + '\n\nРежим сборка ' + round + ': в копии ' + D + '/assemble от свежего origin/' + (A.base || '?') + ' сведи в ветку волны ' + N + ' полосы по порядку ' + order.map(k => lanes.find(l => l.key === k).branch + '@' + done[k].head).join(', ') + ' коммитами слияния pointpu --no-ff; конфликт по существу не решай — верни conflicts.' + UI_DEPS + ' Отправь ветку волны через слот (журнал ' + D + '/assemble-' + round + '.push.log); PR ' + N + ' → ' + (A.epic || A.base) + ' открой ЧЕРНОВИКОМ (`gh pr create --draft`), если его нет: на черновике конвейер исполняет только затронутое, полный прогон — один раз перед посадкой (ws#1013); доводки идут в черновике, затронутое до отправки судит хук отправки Job-ом слота, на машине не гоняется (ws#1301) (заголовок «#' + N + ' …»; тело — ТОЛЬКО вывод генератора (ws#1146), руками не пишется: `RITUAL_REPO_DIR=' + D + '/assemble bash ' + WS + '/scripts/pr-body.sh ' + (A.repo || '?') + ' origin/' + (A.epic || A.base || '?') + ' HEAD > ' + R + '/pr-body-' + round + '.md` — ' + PRB + ' (код не 0 — status failed, PR не трогать) в `gh pr create --draft --body-file`, PR есть — `gh pr edit --body-file`). Отчёт — ' + D + '/assemble-' + round + '.md. Верни status, head, copy, pr, conflicts, report.', { ...MECH, label: 'mech:assemble:' + round, phase: 'Сборка', schema: S_ASM })
-// Operator publication follows complete cluster evidence; a pending local assembly
-// has no PR number and cannot reach the reviewer/landing code below.
+// Сборка оператора: локально → кластер (ci-watcher) → рецензент волны на неопубликованной
+// голове (pr 0) → publishOp; идущий кластер — state running, до рецензента не доходит.
 const assemble = async round => {
   if (kanameStand) {
     const localSchema = { ...S_ASM, properties: { ...S_ASM.properties, pr: { type: 'integer', minimum: 0 } } }
@@ -526,27 +526,43 @@ const assemble = async round => {
     return published && published.head === local.head ? published : { ...local, status: 'failed' }
   }
   if (!operatorStand) return assembleLegacy(round)
-  const localSchema = { ...S_ASM, properties: { ...S_ASM.properties, pr: { type: 'integer', minimum: 0 } } }
-  const local = await agent(C + '\n\nРежим локальная сборка оператора ' + round + ': в ' + D + '/assemble от свежего origin/' + (A.base || '?') + ' сведи ' + order.map(k => lanes.find(l => l.key === k).branch + '@' + done[k].head).join(', ') + ' обычными --no-ff merge в ветку волны ' + N + '. Конфликт верни; ничего не публикуй и affected.py не вызывай: у оператора закрытая полная ведомость. Верни status, head, copy, pr=0, conflicts, report.', { ...MECH, label: 'mech:assemble-local:' + round, phase: 'Сборка', schema: localSchema })
+  const localSchema = { ...S_ASM, properties: { ...S_ASM.properties, pr: { type: 'integer', minimum: 0 }, questions: { type: 'array', items: { type: 'string' } } }, required: [...S_ASM.required, 'questions'] }
+  const local = await agent(C + '\n\nРежим локальная сборка оператора ' + round + ': в ' + D + '/assemble от свежего origin/' + (A.base || '?') + ' сведи ' + order.map(k => lanes.find(l => l.key === k).branch + '@' + done[k].head).join(', ') + ' обычными --no-ff merge в ветку волны ' + N + '. Конфликт верни; ничего не публикуй и affected.py не вызывай: у оператора закрытая полная ведомость. Вопрос до публикации (пересоздать цепочку, сократить заголовки, санкция) не решай — строкой в questions, нет — []' + (A.asmAnswers ? '; решения диспетчера прошлого захода исполни до итога: ' + A.asmAnswers : '') + '. Верни status, head, copy, pr=0, conflicts, questions, report.', { ...MECH, label: 'mech:assemble-local:' + round, phase: 'Сборка', schema: localSchema })
   if (!local || !['done', 'already-done'].includes(local.status) || !sha40(local.head)) return local
+  if ((local.questions || []).length && !A.asmAnswers) return { ...local, status: 'question' }
   const expected = D + '/stand-expect.json'
   const report = D + '/stand-cluster.json'
   const clusterStage = await agent(C + '\n\nДо публикации оператора @' + local.head + ': выведи expected через stand-report.sh expect --checkout ' + D + '/assemble --head ' + local.head + ' --base origin/' + (A.epic || A.base) + ' --draft false. Для paths фильтров --push-before должен быть текущей remote SHA этой ветки; неизвестный diff не угадывай. Сохрани ' + expected + '. Полная перепись всех cluster-job (hosted jobs позже): проверенное определение команд зарегистрировать `bash ' + WS + '/scripts/stand-report.sh register --expect ' + expected + ' …` (python3 на машине страж отказывает, ws#1301) с независимым check-verifier digest; KACHO_OPERATOR_DEFINITION передать штатному heavy-slot. Сохрани mode cluster и suite job/executor/definition_id/job_uid в ' + report + '. После терминального результата вызови bash ' + WS + '/scripts/stand-report.sh cluster-check ' + report + ' --head ' + local.head + ' --expect ' + expected + '. Код0 означает только cluster-ready; работающий Job код3. Никакой публикации. Верни code,out,reasons,head.', { ...MECH, agentType: 'ci-watcher', label: 'mech:operator-cluster:' + round, phase: 'Сборка', schema: S_MECH })
   if (!clusterStage || clusterStage.code !== 0 || clusterStage.head !== local.head) return { ...local, status: clusterStage && clusterStage.code === 3 ? 'running' : 'failed' }
-  const published = await agent(C + '\n\nCluster-stage оператора принят на ' + local.head + '; отдельное разрешение публикации — исходное поручение диспетчера, не код гейта. Отправь именно эту голову из ' + D + '/assemble штатным heavy-slot; создай либо обнови PR draft в ' + (A.epic || A.base) + '. Тело только pr-body.sh, никаких affected.py у оператора. Новую source SHA не создавать. Existing hosted workflows должны запуститься единственным push на этом ref; после них требуется полное stand-report check. Верни status,head,copy,pr,conflicts,report.', { ...MECH, label: 'mech:operator-publish:' + round, phase: 'Сборка', schema: S_ASM })
-  if (!published || published.head !== local.head) return { ...local, status: 'failed', report: 'published source differs from accepted cluster source' }
+  return { ...local, pr: 0, cluster: clusterStage } // не опубликовано: отправка — publishOp после рецензента волны
+}
+// Отправка сборки оператора — лишь с ВОЗВРАТАМИ предпосылки этой головы из того же прогона
+// (уроки ?245cbcd2, ?0a3a7b15, ws#1491): ci-watcher cluster-stage код 0 и, когда уровень зовёт
+// рецензента, wave-reviewer accept; задание несёт оба возврата и решения по вопросам сборщика.
+// Кластер на этой голове держит assemble (иначе до сюда не дойти), рецензента — проверка ниже.
+const publishOp = async (a, round) => {
+  const c = a.cluster, w = waveReviews[waveReviews.length - 1]
+  if (steps.has('wave-reviewer') && (!w || w.verdict !== 'accept' || w.sha !== a.head)) return { ...a, status: 'failed', report: 'отправки нет: возврата wave-reviewer accept на ' + a.head + ' нет' + (w ? ' (sha ' + w.sha + ')' : '') }
+  const ev = ' Возвраты предпосылки этой головы: ci-watcher cluster-stage code ' + c.code + ' head ' + c.head + (c.out ? ' — ' + String(c.out).slice(0, 400) : '') + (w ? '; wave-reviewer ' + w.verdict + ' sha ' + w.sha : '; рецензента уровень не зовёт') + (A.asmAnswers ? '; решения диспетчера по вопросам сборщика: ' + A.asmAnswers : '') + '.'
+  const published = await agent(C + '\n\nCluster-stage оператора принят на ' + a.head + '; отдельное разрешение публикации — исходное поручение диспетчера, не код гейта.' + ev + ' Отправь именно эту голову из ' + D + '/assemble штатным heavy-slot; создай либо обнови PR draft в ' + (A.epic || A.base) + '. Тело только pr-body.sh, никаких affected.py у оператора. Новую source SHA не создавать. Existing hosted workflows должны запуститься единственным push на этом ref; после них требуется полное stand-report check. Верни status,head,copy,pr,conflicts,report.', { ...MECH, label: 'mech:operator-publish:' + round, phase: 'Сборка', schema: S_ASM })
+  if (!published || published.head !== a.head) return { ...a, status: 'failed', report: 'published source differs from accepted cluster source' }
   return published
 }
+const questionStop = a => ({ ok: false, state: 'question', stage: 'вопросы сборщика до публикации — решение диспетчера в args.asmAnswers, затем повтор шаблона', questions: a.questions, head: a.head, errors, lessons: lessonsOf() })
+let asmRound = 1
 let asm = await assemble(1)
+if (asm && asm.status === 'question') return questionStop(asm)
 if ((operatorStand || kanameStand) && asm && asm.status === 'running') return { ok: false, state: 'running', stage: 'external census pending, unpublished', head: asm.head, errors, lessons: lessonsOf() }
 if (!asm || !['done', 'already-done'].includes(asm.status) || !sha40(asm.head)) return { ok: false, state: 'failed', stage: 'сборка', conflicts: asm ? asm.conflicts : [], errors, lessons: lessonsOf() }
 // Номер PR идёт в задания рецензента, CI, предпроверки и вливания. Не целое ≥ 1
 // (нет поля, 0, строка «—», адрес) — остановка ЗДЕСЬ с причиной: иначе шаги ниже
 // получили бы «PR #undefined» и судили бы не тот запрос либо никакой (ws#935).
-if (!Number.isInteger(asm.pr) || asm.pr < 1) return { ok: false, state: 'failed', stage: 'сборка: номер PR не целое ≥ 1 (' + JSON.stringify(asm.pr === undefined ? null : asm.pr) + ') — рецензент, CI и посадка без номера не зовутся', head: asm.head, errors, lessons: lessonsOf() }
+// Сборка оператора до рецензента не опубликована (pr 0) — номер судится после publishOp.
+const prBad = a => !Number.isInteger(a.pr) || a.pr < 1
+if (!operatorStand && prBad(asm)) return { ok: false, state: 'failed', stage: 'сборка: номер PR не целое ≥ 1 (' + JSON.stringify(asm.pr === undefined ? null : asm.pr) + ') — рецензент, CI и посадка без номера не зовутся', head: asm.head, errors, lessons: lessonsOf() }
 const waveReviews = []
 if (steps.has('wave-reviewer')) {
-  let wr = await agent(C + '\n\nСверка волны ' + N + ' на сборке @' + asm.head + ' (PR #' + asm.pr + '): полосы ' + order.join(', ') + ', отчёты — ' + R + '/<полоса>/implement.md. Пять классов столкновений; один раз на волну. Сообщения коммитов `' + logRange(A.base || '?', asm.head) + '` судятся признаком восстановимости (security-disclosure.md#disc-recoverability-predicate): до-фиксное состояние уязвимости в тексте — return полосы; код 2 (диапазон пуст либо не разрешился) — return, а не accept (ws#1078, L11). Вердикт — по КАЖДОЙ полосе в lanes (key, verdict, blocking): возврат одной полосы соседние не снимает. Запись — ' + D + '/wave-review.md. Верни verdict, sha (голова сборки), blocking, lanes, report.', { agentType: 'wave-reviewer', label: 'review-wave', phase: 'Сборка', schema: S_WREV })
+  let wr = await agent(C + '\n\nСверка волны ' + N + ' на сборке @' + asm.head + ' (' + (asm.pr ? 'PR #' + asm.pr : 'до публикации: PR нет, отправка ждёт этого вердикта') + '): полосы' + order.join(', ') + ', отчёты — ' + R + '/<полоса>/implement.md. Пять классов столкновений; один раз на волну. Сообщения коммитов `' + logRange(A.base || '?', asm.head) + '` судятся признаком восстановимости (security-disclosure.md#disc-recoverability-predicate): до-фиксное состояние уязвимости в тексте — return полосы; код 2 (диапазон пуст либо не разрешился) — return, а не accept (ws#1078, L11). Вердикт — по КАЖДОЙ полосе в lanes (key, verdict, blocking): возврат одной полосы соседние не снимает. Запись — ' + D + '/wave-review.md. Верни verdict, sha (голова сборки), blocking, lanes, report.', { agentType: 'wave-reviewer', label: 'review-wave', phase: 'Сборка', schema: S_WREV })
   const per = wr && Array.isArray(wr.lanes) ? wr.lanes : []
   const verdictOf = k => (per.find(x => x && x.key === k) || {}).verdict
   const covered = order.every(k => ['accept', 'return'].includes(verdictOf(k)))
@@ -558,13 +574,18 @@ if (steps.has('wave-reviewer')) {
     // Зависимые снялись вслед за возвращёнными — сводить может быть нечего.
     if (!order.length) return { ok: false, state: 'failed', stage: 'рецензент волны вернул ' + back.join(', ') + ', зависимые сняты вслед — сводить нечего, вливания нет', remainder, errors, lessons: lessonsOf() }
     const prevAsm = asm.head
-    asm = await assemble(2)
+    asm = await assemble(asmRound = 2)
     if ((operatorStand || kanameStand) && asm && asm.status === 'running') return { ok: false, state: 'running', stage: 'operator reassembly cluster census pending, unpublished', head: asm.head, errors, lessons: lessonsOf() }
-    if (!asm || !['done', 'already-done'].includes(asm.status) || !sha40(asm.head) || !Number.isInteger(asm.pr) || asm.pr < 1) return { ok: false, state: 'failed', stage: 'пересведение без возвращённых полос', remainder, errors, lessons: lessonsOf() }
+    if (asm && asm.status === 'question') return questionStop(asm)
+    if (!asm || !['done', 'already-done'].includes(asm.status) || !sha40(asm.head) || (!operatorStand && prBad(asm))) return { ok: false, state: 'failed', stage: 'пересведение без возвращённых полос', remainder, errors, lessons: lessonsOf() }
     wr = await agent(C + '\n\nПроверка исполнения сверки волны ' + N + ': сняты полосы ' + remainder.map(x => x.key).join(', ') + '; только дельта `git diff ' + prevAsm + '..' + asm.head + '` (принятое не переоткрывается), полосы ' + order.join(', ') + '. Запись — ' + D + '/wave-review-2.md. Верни verdict, sha (голова сборки), blocking, lanes, report.', { agentType: 'wave-reviewer', label: 'review-wave-2', phase: 'Сборка', schema: S_WREV })
   } else if (wr && wr.verdict === 'accept' && back.length) wr = { ...wr, verdict: 'void' } // свод «принято» при возврате полосы — противоречие, факта нет
   if (!wr || wr.verdict !== 'accept') return { ok: false, stage: 'рецензент волны — ' + (wr && wr.verdict === 'return' && !covered ? 'возврат без вердикта по каждой полосе: факта нет, ' : 'возврат; ') + 'доводка по ' + D + '/wave-review.md в ветках полос и пересведение решает диспетчер', blocking: wr ? wr.blocking : [], remainder, errors, lessons: lessonsOf() }
   waveReviews.push({ role: 'wave-reviewer', sha: wr.sha, verdict: wr.verdict, blocking: wr.blocking })
+}
+if (operatorStand) {
+  asm = await publishOp(asm, asmRound)
+  if (!asm || !['done', 'already-done'].includes(asm.status) || !sha40(asm.head) || prBad(asm)) return { ok: false, state: 'failed', stage: 'отправка сборки оператора: ' + (asm && asm.report ? asm.report : 'нет ответа либо PR не целое ≥ 1'), head: asm ? asm.head : '', remainder, errors, lessons: lessonsOf() }
 }
 // CI: «идёт» — ждать, не провал; вердикт — только на голове сборки и только
 // кодом scripts/ci-read.sh (ws#1006): полный набор, завершённые прогоны,

@@ -133,6 +133,9 @@
 #   («повторно его не запускай») читается как указание повтора; законная форма — «не запускай
 #   второй раз»; запрет через слова («закрыть задачи до merged нельзя») — тоже указание,
 #   законная форма — вплотную («нельзя закрыть задачи до merged»).
+#   Сборка оператора (ws#1491): кластер ci-watcher → wave-reviewer на неопубликованной голове →
+#   отправка, её задание несёт оба возврата; вердикт о другой голове либо не accept — отправки
+#   нет; вопрос сборщика без args.asmAnswers — state question до кластера; близнец — решение дано.
 #
 # ИНЪЕКЦИИ — без довода проба после контроля прогоняет МУТАНТОВ шаблона (по
 # одной правке, у каждой — своё свойство) и требует, чтобы каждый покраснел.
@@ -1091,6 +1094,22 @@ for (const repo of ['PRO-Robotech/kaname-iam-operator', 'PRO-Robotech/registry-o
   ok(q.res.ok === false && idx(q.calls, 'mech:autoland') < 0 && (q.res.reasons || []).includes('OPERATOR-STAND-HEAD-MISMATCH'), 'operator rejects final green proof of another head')
   q = await run({ args: { ...argsABC, repo }, plan: [P('r1c.json')], wave: [W3('accept', 'accept', 'return')], operatorCluster: [{ code: 0 }, { code: 3 }] })
   ok(q.res.state === 'running' && idx(q.calls, 'mech:operator-cluster:2') >= 0 && idx(q.calls, 'mech:operator-publish:2') < 0, 'operator reassembly pending remains running without second publication', JSON.stringify(q.res))
+  ok(idx(q.calls, 'mech:operator-publish:1') < 0, 'operator: рецензент вернул полосу — первой отправки нет (ws#1491)')
+  if (repo !== 'PRO-Robotech/registry-operator') continue
+  // ws#1491 (уроки ?245cbcd2, ?0a3a7b15): отправка — после возвратов ci-watcher и wave-reviewer той же головы.
+  const r1 = { ...argsDep, repo }
+  q = await run({ args: r1, plan: [P('r1.json')] })
+  const rv = idx(q.calls, 'review-wave'), pub = idx(q.calls, 'mech:operator-publish:1'), pubP = prm(q.calls, 'mech:operator-publish:1')
+  ok(q.res.ok === true && idx(q.calls, 'mech:operator-cluster:1') < rv && rv < pub && pub < idx(q.calls, 'mech:stand:0') && prm(q.calls, 'review-wave').includes('до публикации: PR нет'), 'operator R1: cluster → wave-reviewer на неопубликованной голове → отправка → hosted', JSON.stringify(q.res).slice(0, 300))
+  ok(pubP.includes('ci-watcher cluster-stage code 0 head ' + HW) && pubP.includes('wave-reviewer accept sha ' + HW), 'operator R1: задание отправки несёт возвраты ci-watcher и wave-reviewer этой головы', pubP.slice(0, 300))
+  q = await run({ args: r1, plan: [P('r1.json')], wave: [{ sha: 'd'.repeat(40) }] })
+  ok(q.res.ok === false && idx(q.calls, 'mech:operator-publish:1') < 0 && /wave-reviewer/.test(q.res.stage || ''), 'operator R1: вердикт рецензента о другой голове — отправки нет', JSON.stringify(q.res).slice(0, 300))
+  q = await run({ args: r1, plan: [P('r1.json')], wave: [{ verdict: 'void' }] })
+  ok(q.res.ok === false && idx(q.calls, 'mech:operator-publish:1') < 0, 'operator R1: рецензент не принял — отправки нет')
+  q = await run({ args: opArgs, plan: [P('r0.json')], operatorLocal: [{ questions: ['сократить заголовки слияний до публикации?'] }] })
+  ok(q.res.state === 'question' && (q.res.questions || []).length === 1 && idx(q.calls, 'mech:operator-cluster:1') < 0 && idx(q.calls, 'mech:operator-publish:1') < 0, 'operator: вопрос сборщика без решения — стоп до кластера и отправки', JSON.stringify(q.res).slice(0, 300))
+  q = await run({ args: { ...opArgs, asmAnswers: 'сократить до 72 знаков' }, plan: [P('r0.json')], operatorLocal: [{ questions: ['сократить заголовки слияний до публикации?'] }] })
+  ok(q.res.ok === true && prm(q.calls, 'mech:assemble-local:1').includes('сократить до 72 знаков') && prm(q.calls, 'mech:operator-publish:1').includes('по вопросам сборщика: сократить до 72 знаков') && prm(q.calls, 'mech:operator-publish:1').includes('рецензента уровень не зовёт'), 'близнец: решение дано — сборщик и отправка его несут, R0 без рецензента отправляется', JSON.stringify(q.res).slice(0, 300))
 }
 
 console.log('== Kaname staged proof: external → publication → real hosted')
@@ -1546,7 +1565,13 @@ mutant "зависимая от нераздаваемой в предполёт
 mutant "текст автору приёмки не судится (ws#1271)" "  if (tierOf[l.key].steps.includes('acceptance(<=2)')) gateItems.push(" "  if (false) gateItems.push("
 mutant "meta не литерал: вызов" "name: 'wave'," "name: ['wa', 've'].join(''),"
 mutant "meta не литерал: шаблонная строка" "name: 'wave'," "name: \`wave\`,"
-mutant "operator publication source drift accepted" "!published || published.head !== local.head" "!published"
+mutant "operator publication source drift accepted" "!published || published.head !== a.head" "!published"
+# ws#1491: отправка сборки оператора — с возвратами ci-watcher и wave-reviewer той же головы и решением по вопросам сборщика.
+mutant "отправка оператора без рецензента (ws#1491)" "if (steps.has('wave-reviewer') && (!w || w.verdict !== 'accept' || w.sha !== a.head)) return" "if (false) return"
+mutant "рецензент другой головы принят (ws#1491)" "w.verdict !== 'accept' || w.sha !== a.head" "w.verdict !== 'accept'"
+mutant "возвраты не в задании отправки (ws#1491)" "не код гейта.' + ev + ' Отправь" "не код гейта.' + ' Отправь"
+mutant "вопрос сборщика без решения (ws#1491)" "if ((local.questions || []).length && !A.asmAnswers) return { ...local, status: 'question' }" ""
+mutant "решения диспетчера не в задании сборщика (ws#1491)" "(A.asmAnswers ? '; решения диспетчера прошлого захода исполни до итога: ' + A.asmAnswers : '')" "''"
 mutant "operator final proof source ignored" "(operatorStand || kanameStand) && got && got.head !== asm.head" "false"
 mutant "operator cluster red permits publication" "clusterStage.code !== 0" "false"
 mutant "operator cluster source ignored" "clusterStage.head !== local.head" "false"
