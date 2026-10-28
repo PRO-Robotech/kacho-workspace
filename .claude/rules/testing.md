@@ -56,19 +56,19 @@ ryw-retry-bounded-budget · конечный (~10s) и fail-open: по исче�
 ryw-retry-never-on-negatives · НИКОГДА — на негатив, cross-account, absent-id, lst-excludes, sync-4xx, давно существующий ресурс · TestDeleteRetryWindowGate_SilentWhenStepDeclares404AsItsOutcome · red: обёрнут negative-шаг
 authz-first-negative-tolerance · oneOf([400,403,404]) — assert_absent_id_rejected / assert_unscoped_rejected · TestResponseCodeFormCorpusIsHonoredByEveryNewmanGenerator · red: STRICT-403 негатив ложно падает на authz-first отказе
 malformed-id-not-weakened · НЕ ослабляй: они доходят до backend (400/404) · TestResponseCodeFormCorpusIsHonoredByEveryNewmanGenerator · red: в такой негатив добавлен 403
-product-bug-go-fix-not-tolerance · Go-фикс с RED-lock, а не толерантность утверждения · ЗАВЕСТИ · red: в кейс добавлен лишний допустимый код вместо фикса
+product-bug-go-fix-not-tolerance · Go-фикс с RED-lock, а не толерантность утверждения · ЗАВЕСТИ · red: в кейс добавлен допустимый код вместо фикса
 per-service-fixture-isolation · свой account и home/cross проекты (setup.sh), scope через existingProjectId; shared-account — только у authz-deny matrix · TestNewmanConsumersReachTheSpineThroughTheSuiteBinding · red: два suite делят account
 run-idempotency-runid-suffix · {{runId}} в имени, и в max-len BVA · TestFixtureNamesObeyTheCanonWhereTheServiceMigrated · red: 409 AlreadyExists на повторном прогоне
 final-verification-before-merge · go test -race, golangci-lint, govulncheck, newman гонит конвейер PR сборки; до него — внешний кластер слотом · `.github/workflows/ci.yaml` · red: вливание без одного из четырёх
-code-first-no-wait · исполнитель пишет TDD, unit своих пакетов — `heavy-slot.sh go-unit`, gofmt — здесь, сдаёт коммитом и берёт следующую, не ждёт ревью и прогонов (владелец 2026-09-24) · вниманием · red: ждёт вердикта; тест на машине при доступном кластере
+code-first-no-wait · исполнитель пишет TDD, unit своих пакетов — `heavy-slot.sh go-unit`, gofmt — здесь, сдаёт коммитом и берёт следующую, ревью и прогонов не ждёт (владелец 2026-09-24) · вниманием · red: ждёт вердикта; тест на машине при доступном кластере
 
 ## Прогон не оставляет следов
 
-no-residue · снимай ВСЁ созданное и на падении, уборку заводи ДО создания (t.Cleanup/defer, trap EXIT): копии, TMPDIR, контейнеры/тома/сети testcontainers (ryuk off — лишь на эфемерном исполнителе), kind · scripts/residue-census/census.sh · red: уборка в конце тела; след после обрыва
-no-residue-cluster · внешний кластер — своё пространство имён прогона, снимается trap'ом и на падении, PVC и LB с ним · census.sh, RESIDUE_KUBE=1 · red: ns, PV или LB после прогона
-fixture-cleanup-mandatory · стенд: учётки и посев снимает тот же прогон, либо прогон в своём пространстве · TestSeededParentChildrenAreReclaimedBySuites; TestNestedReclaimGateRedsOnSeededParentLeak · red: пул растёт, list-контракты плывут
+no-residue · снимай ВСЁ созданное и на падении, уборку заводи ДО создания (t.Cleanup/defer, trap EXIT): копии (`worktree remove` без `--force`; грязная — в возврат), TMPDIR, контейнеры/тома/сети testcontainers (ryuk off — лишь на эфемерном), kind · scripts/residue-census/census.sh · red: уборка в конце тела; след после обрыва
+no-residue-cluster · внешний кластер — своё пространство имён прогона, снимается trap'ом и на падении с PVC и LB · census.sh, RESIDUE_KUBE=1 · red: ns, PV или LB после прогона
+fixture-cleanup-mandatory · стенд: учётки и посев снимает тот же прогон либо своё пространство · TestSeededParentChildrenAreReclaimedBySuites; TestNestedReclaimGateRedsOnSeededParentLeak · red: пул растёт, list-контракты плывут
 no-residue-census · приёмка — `census.sh snapshot` до и после, `compare` → 0; исключение — отчёт красного под `--keep`, ≤ 7 суток · residue-census/inject.sh · red: «убрал» без переписи; VOID-ось названа чистой; отчёт без срока
-no-residue-found-is-task · набор без уборки — задача P2 владельцу набора; копии снимает git-operator через `worktree remove` · ЗАВЕСТИ · red: чужая уборка мимоходом; rm -rf копии
+no-residue-found-is-task · набор без уборки — задача P2 владельцу набора; его копии снимает git-operator · ЗАВЕСТИ · red: чужая уборка мимоходом; rm -rf копии
 
 ## План опыта задачи-проверки
 
