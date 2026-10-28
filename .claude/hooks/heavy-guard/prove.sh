@@ -486,6 +486,56 @@ EOF
 passes '/ws/scripts/heavy-slot.sh go-race -- go test -race ./...'
 passes 'bash scripts/heavy-slot.sh docker -- docker run --rm alpine true'
 
+echo "── локальный раннер regop (ws#1473): управление и чтение — пропуск, задание агентом — отказ"
+# runner_denies <команда> — отказ «docker» с маршрутом через службу раннера, а не через слот:
+# внешнего пути у класса docker нет (ws#1312), строка слота была бы ложной.
+runner_denies() {
+    local rc unit slotline
+    rc="$(run "$1")"
+    unit="нет"; grep -qF 'systemctl --user start|restart|status gitlab-runner-regop' "$WORK/out" && grep -qF 'ws#1473' "$WORK/out" && unit="да"
+    slotline="нет"; grep -qF 'heavy-slot.sh docker --' "$WORK/out" && slotline="да"
+    assert "2 да нет" "$rc $unit $slotline" "отказ задания раннера, маршрут — служба: $1"
+    denied=$((denied + 1))
+}
+passes 'gitlab-runner --version'
+passes 'gitlab-runner verify'
+passes 'gitlab-runner list'
+passes 'gitlab-runner --debug status --service regop-local'
+passes '~/bin/gitlab-runner verify --delete'
+passes 'gitlab-runner run --help'
+passes 'systemctl --user daemon-reload && systemctl --user enable --now gitlab-runner-regop.service'
+passes 'systemctl --user restart gitlab-runner-regop'
+passes 'journalctl --user -u gitlab-runner-regop -n 50 --no-pager'
+passes 'docker info'
+passes 'docker version'
+passes 'docker system df'
+passes 'docker ps -a --filter label=com.gitlab.gitlab-runner.managed=true'
+passes 'docker run --help'
+passes 'docker container create --help'
+passes 'docker buildx build --help'
+passes 'docker compose up --help'
+runner_denies 'gitlab-runner run --config ~/.gitlab-runner/config.toml'
+runner_denies 'gitlab-runner --log-level debug run-single'
+runner_denies 'gitlab-runner exec docker build'
+runner_denies 'nohup ~/bin/gitlab-runner run &'
+denies docker  'docker run alpine --help'
+denies docker  'docker run -h box alpine true'
+denies docker  'docker run --rm -v /a:/b --help alpine'
+denies docker  'docker compose up -d'
+denies docker  'docker build --pull -t x .'
+lt_mut help-blind 'docker run --help' "$WORK" \
+    '    if sub in DOCKER_HEAVY | {"exec"} and asks_help(tail):' '    if False:'
+lt_mut help-past-positional 'docker run alpine --help' "$WORK" \
+    '        if not t.startswith("-"):
+            return False' '        if False:
+            return False'
+lt_mut runner-job-blind 'gitlab-runner run' "$WORK" \
+    '    if base == "gitlab-runner":
+        return runner_class(args)' '    if False:
+        return runner_class(args)'
+lt_mut runner-route-slot 'gitlab-runner run' "$WORK" \
+    '    if cls == "docker" and any(RUNNER_WORD.search(w) for w in argv):' '    if False:'
+
 echo "── ручки слота в строке команды: над настоящей памятью ни одной"
 knob   HEAVY_SLOT_LIMIT_GIB=200 'HEAVY_SLOT_LIMIT_GIB=200 /ws/scripts/heavy-slot.sh go-race -- go test -race ./...'
 knob   HEAVY_SLOT_DIR=/tmp/x    'HEAVY_SLOT_DIR=/tmp/x bash scripts/heavy-slot.sh docker -- true'

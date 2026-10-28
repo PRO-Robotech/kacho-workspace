@@ -93,6 +93,17 @@ ws#1247, — пропуск); в тексте скрипта — пропуск.
 `docker --context x run`; цель `make lint|test|ci` тяжела и по имени, когда рецепт
 из Makefile не выводится (цели нет, каталог в переменной).
 
+Локальный раннер registry-operator (ws#1473, решение диспетчера по поручению владельца;
+исключение узкое). Управление раннером — пропуск: `gitlab-runner verify|list|status|register|
+--version`, `systemctl --user …` и `journalctl --user` его службы `gitlab-runner-regop*` (тяжёлой
+программы в их словах нет), чтение `docker info|ps|version|system df`, справка `--help` тяжёлой
+подкоманды docker до первого позиционного слова (`docker run --help`; `-h` у run — hostname, не
+справка; `docker run alpine --help` — запуск образа). Задания раннера исполняет его служба вне
+хуков, страж их не видит: предел держат срез службы и лимиты config.toml. Задание командой
+агента — `gitlab-runner run|run-single|exec` — класс docker и отказ с маршрутом через службу
+(`deny_runner`), а не через слот: внешнего пути у класса docker нет (ws#1312).
+`docker run|build|create|start` агентом — отказ, как прежде.
+
 ГРАНИЦА — то, чего страж НЕ ловит, перечнем: BOUNDARY ниже (класс формы и пример);
 prove.sh исполняет каждый пример строкой [BOUND] — «известно, не ловится», не зелёное,
 а пойманный пример — [FAIL]: перечень устарел. Сверх примеров: каталог в переменной
@@ -235,7 +246,7 @@ NON_EXEC = {"echo", "printf", "grep", "egrep", "fgrep", "rg", "ag", "ack", "gh",
             "scp", "true", "false", ":", "sleep", "wc", "sort", "tee", "diff", "read"}
 SHELLS = {"bash", "sh", "zsh", "dash", "ksh"}
 HEADS = {"go", "golangci-lint", "govulncheck", "gosec", "docker", "docker-compose", "kind",
-         "helm", "newman", "make", "gmake", "pytest", "npm", "npx", "playwright"} | SHELLS
+         "gitlab-runner", "helm", "newman", "make", "gmake", "pytest", "npm", "npx", "playwright"} | SHELLS
 # npm: подкоманды и имена сценариев, которые собирают или тестируют (ws#1301; пик npm ci консоли —
 # 4,7 ГиБ, npm test модуля — до 2,1 ГиБ: журнал слотов, строки leave класса ci-local).
 NPM_SUBS = {"test", "t", "tst", "ci", "install", "i", "install-test", "it", "cit"}
@@ -750,6 +761,31 @@ DOCKER_GLOBAL_VALUE = {"--context", "-c", "-H", "--host", "--config", "-l", "--l
                        "--tlscacert", "--tlscert", "--tlskey"}
 DOCKER_HEAVY = {"run", "create", "start", "build", "bake"}
 COMPOSE_HEAVY = {"up", "run", "build", "start", "create"}
+# gitlab-runner (ws#1473): подкоманды, исполняющие задание командой агента, и глобальные
+# опции со значением отдельным словом; прочие подкоманды — управление раннером, пропуск.
+RUNNER_JOBS = {"run", "run-single", "exec"}
+RUNNER_GLOBAL_VALUE = {"--log-level", "-l", "--log-format", "--cpuprofile"}
+
+
+def asks_help(tail):
+    """`--help` среди опций до первого позиционного слова — справка, а не запуск (ws#1473).
+    Значение опции отдельным словом (`-v a:b`) обрывает поиск — исход прежний, отказ."""
+    for t in tail:
+        if t == "--help":
+            return True
+        if not t.startswith("-"):
+            return False
+    return False
+
+
+def runner_class(args):
+    """args — после `gitlab-runner`: docker для задания командой агента, иначе None."""
+    i = 0
+    while i < len(args) and args[i].startswith("-"):
+        i += 2 if args[i] in RUNNER_GLOBAL_VALUE else 1
+    if i < len(args) and args[i] in RUNNER_JOBS and not asks_help(args[i + 1:]):
+        return "docker"
+    return None
 
 
 def docker_class(args, ctx, level):
@@ -764,8 +800,10 @@ def docker_class(args, ctx, level):
     if sub in ("container", "image", "buildx", "builder") and tail:
         sub, tail = tail[0], tail[1:]
     if sub == "compose":
-        heavy = any(t in COMPOSE_HEAVY for t in tail if not t.startswith("-"))
-        return "docker" if heavy else None
+        k = next((k for k, t in enumerate(tail) if t in COMPOSE_HEAVY), None)
+        return "docker" if k is not None and not asks_help(tail[k + 1:]) else None
+    if sub in DOCKER_HEAVY | {"exec"} and asks_help(tail):
+        return None
     if sub in ("run", "exec"):
         # Команда контейнера — хвост после образа, либо строка `sh -c '…'` в нём.
         # Её класс уточняет бюджет: go test -race в golang — это go-race, а с
@@ -1211,6 +1249,8 @@ def classify_argv(env, argv, cwd, ctx, level, alt):
         return docker_class(args, ctx, level)
     if base == "docker-compose" and any(a in COMPOSE_HEAVY for a in args):
         return "docker"
+    if base == "gitlab-runner":
+        return runner_class(args)
     if base == "kind":
         sub, tail = subcommand(args, KIND_SUBS)
         if sub == "create" and subcommand(tail, {"cluster"})[0]:
@@ -1418,9 +1458,27 @@ def deny_local(cls, env, argv, slot):
     sys.exit(2)
 
 
+RUNNER_WORD = re.compile(r"(^|[\s/;&|(])gitlab-runner(\s|$)")
+
+
+def deny_runner(argv):
+    """Задание раннера командой агента (ws#1473): маршрут — его служба, не слот."""
+    sys.stderr.write(
+        "HEAVY-GUARD: отказ — задание gitlab-runner командой агента (класс «docker»).\n"
+        "  найдено: %s\n"
+        "Задания локального раннера исполняет его служба вне хуков (ws#1473, решение диспетчера):\n"
+        "  systemctl --user start|restart|status gitlab-runner-regop; журнал — journalctl --user -u gitlab-runner-regop\n"
+        "  · проверка раннера без задания — gitlab-runner verify|list|status;\n"
+        "  · слот не замена: внешнего пути у класса docker нет (ws#1312), он ответит 77.\n"
+        % clip(show(argv), 300))
+    sys.exit(2)
+
+
 def deny(cls, env, argv, slot):
     if cls.startswith(LOCAL):
         deny_local(cls[len(LOCAL):], env, argv, slot)
+    if cls == "docker" and any(RUNNER_WORD.search(w) for w in argv):
+        deny_runner(argv)
     shown = show(argv)
     fixed = clip(" ".join([show(env), slot, cls, "--", shown]).strip(), 400)
     sys.stderr.write(
