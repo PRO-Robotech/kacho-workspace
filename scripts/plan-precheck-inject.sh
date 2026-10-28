@@ -240,7 +240,9 @@ mutant "crossRepo false включает сверку" 'if len(repos) == 2 or cr
 mutant "строка ведомости не судится" '    elif re.fullmatch(r"[1-9][0-9]*", got):' '    elif True:'
 mutant "пара — по одной базе" "LEDGER_AWK = '!/^#/ && \$1==r && \$2==b {print \$3; exit}'" "LEDGER_AWK = '!/^#/ && \$2==b {print \$3; exit}'"
 mutant "форма pr не судится" 'elif not pr_ok:' 'elif False:'
-mutant "поле ведомости чистится шире, чем \$(…) ci-read" '    got = p.stdout.rstrip("\n")' '    got = p.stdout.strip()'
+mutant "поле ведомости чистится шире, чем \$(…) ci-read" '    got = raw.rstrip("\n")' '    got = raw.strip()'
+# Опыт ws#1510: text=True (универсальные переводы строки) съедал CR при rstrip — «28\r» проходил.
+mutant "CRLF переведён в LF при чтении" '    raw = p.stdout.decode("utf-8", "replace")' '    raw = p.stdout.decode("utf-8", "replace").replace("\r\n", "\n")'
 mutant "нечитаемая ведомость — как пары нет" '    if p.returncode != 0 or not os.path.isfile(ledger):' '    if False:'
 echo "plan-precheck-inject: контроль разошлось $ctl; мутантов $((mpass + mfail)), красных $mpass, выживших $mfail"
 [ "$ctl" -eq 0 ] && [ "$mfail" -eq 0 ]
