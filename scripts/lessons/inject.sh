@@ -701,9 +701,9 @@ mutant rekey-canon-at-write-only py "            k = canon(rekeys.get(r['id']), 
     "        store.rekey(r['id'], key, now)" "        store.rekey(r['id'], canon(key, aliases), now)"
 mutant rekey-ambiguous-takes-first py '        if len(hit) != 1:' '        if len(hit) < 1:'
 mutant rekey-first-event-wins py "self.rekeys[r['id']] = r['key']  # последнее событие выигрывает" "self.rekeys.setdefault(r['id'], r['key'])"
-mutant rekey-key-unchecked py '        if why:
-            print' '        if not key:
-            print'
+mutant rekey-key-unchecked py "        if why:
+            print('lessons: ОТКАЗ — ключ" "        if not key:
+            print('lessons: ОТКАЗ — ключ"
 mutant rekey-keyed-accepted py "        if r.get('src') == 'wave-errors' or (tk is not None and not general(tk, aliases)):" "        if False:"
 # B4 — бюджет, догон, исключения сборщика, ветви хука
 mutant b4-budget-1e9 py "deadline = time.time() + float(opts['--budget'])" "deadline = time.time() + 1e9"
