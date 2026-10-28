@@ -53,14 +53,18 @@ def _dod_lines_outside_code:
 # иначе тело PR ставило Closes задаче пачки по первому пункту (#1241 → «Closes #1242»).
 def _dod_partial_tail:
   test("частичн|только\\s+(?:пункт|пп?\\.)|(?:пункт[[:alpha:]]*|пп?\\.)\\s*[0-9][^\n]*?\\sиз\\s+[0-9]|(?<![0-9])([0-9]+)\\s+из\\s+(?!\\1(?![0-9]))[0-9]+\\s+пункт"; "i");
+# СУЖЕННОЕ (ws#1476, урок e8c083a8): своя строка «не исполнено», «не проверялось», «вне
+# досягаемости» где угодно вне блоков кода — частичное у всех строк-доказательств текста.
+def _dod_narrowed_re: "не\\s+исполнен|не\\s+проверял|вне\\s+досягаемост";
 def _dod_mark_re: "^([#]{1,6} +)?([*]{2})?DoD-proof @(?<rev>[0-9a-f]{7,40})(?<rest>.*)$";
 def _dod_marks:
   [_dod_lines_outside_code] as $l
+  | any($l[]; test(_dod_narrowed_re; "i")) as $narrowed
   | [range(0; $l | length) as $i
      | $l[$i] | capture(_dod_mark_re)
      | . + {next: ([$l[$i + 1:][] | select(test("\\S"))][0] // "")}
      | .next |= (if test(_dod_mark_re) then "" else . end)
-     | .partial = ((.rest + "\n" + .next) | _dod_partial_tail)];
+     | .partial = ($narrowed or ((.rest + "\n" + .next) | _dod_partial_tail))];
 
 # Ревизии всех строк-доказательств текста, по порядку; пустой массив — доказательства нет.
 def dod_proof_revisions: [_dod_marks[] | select(.partial | not) | .rev];
