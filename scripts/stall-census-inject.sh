@@ -620,7 +620,8 @@ mutant "чужая сессия судится" "or det_who(e) != 'own':" "or de
 mutant "потомок шага судится как корень" "(pe is not None and pe.get('DETACH_TAG') == tag)" "False" stale_cases
 mutant "срок без сверки со временем" "    if term.isdigit() and now < int(term):" "    if term.isdigit():" detached_cases
 mutant "судится каждый меченый, а не корень" "        continue  # не корень: судится корень поддерева" "        pass" detached_cases
-mutant "чужая сессия — своя" "        who = 'own' if sid == own_sid else 'foreign'" "        who = 'own'" detached_cases
+# Образец — в det_who (ws#1469 вынес решение туда); строка cpid делает его единственным.
+mutant "чужая сессия — своя" $'        return \'own\' if sid == own_sid else \'foreign\'\n    if own_pid and cpid == own_pid:' $'        return \'own\'\n    if own_pid and cpid == own_pid:' detached_cases
 mutant "непонятная принадлежность молчит" "            unjudged.append('pid %s (отсоединён, claude %s)' % (pid, cpid or '?'))" "            pass" detached_cases
 mutant "ноль прочитанного окружения — «чисто»" "env_void = bool(live) and env_read == 0" "env_void = False" detached_cases
 
