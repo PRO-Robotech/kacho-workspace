@@ -118,7 +118,7 @@ start)
     slot=0; case " $* " in *heavy-slot*) slot=1 ;; esac
     for a in "$@"; do
         case "${a##*/}" in *.sh | *.py | *.jq | *.go | *.mk | Makefile | Dockerfile* | *.yaml | *.yml) ;; *) continue ;; esac
-        case "$a" in -* | *=*) continue ;; esac; [ "$a" != "$1" ] || ! command -v -- "$a" > /dev/null 2>&1 || continue
+        case "$a" in -* | *=* | *[[:space:]]*) continue ;; esac; [ "$a" != "$1" ] || ! command -v -- "$a" > /dev/null 2>&1 || continue
         [ -e "$a" ] || { say "вход «$a» не существует (от $PWD) — прогон ушёл бы впустую; проверь путь до start"; exit 64; }
         [ "$slot" = 1 ] && [ "${a:0:1}" != / ] && [ "$(git rev-parse --is-inside-work-tree 2> /dev/null)" = true ] || continue
         { git ls-files --error-unmatch -- "$a" && git diff --quiet HEAD -- "$a"; } > /dev/null 2>&1 ||

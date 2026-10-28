@@ -142,6 +142,7 @@ echo x'; assert "64" "$SRC" "echo после перевода строки — 6
     assert "0 0" "$SRC $(status "$RCF")" "близнец: «--enqueue» доводом не слота — запускается"
     # ws#1476: вход шага, которого нет, — 64; под heavy-slot — и вне коммита; закоммиченный — 0.
     st "$R/s" bash "$R/none.sh"; assert "64 да" "$SRC $(grep -qF 'не существует' <<< "$OUT" && echo да || echo нет)" "довод-сценарий, которого нет, — 64 с причиной (урок 6846b2ee)"
+    st "$R/s" sh -c 'exit 0; cat none.sh'; assert "0" "$SRC" "близнец: строка оболочки с именем файла — не довод-путь, запускается"
     : > "$R/repo/in.sh"; local cwd0=$PWD; cd "$R/repo" || return
     st "$R/repo/steps" echo heavy-slot -- bash in.sh; assert "64 да" "$SRC $(grep -qF 'не в коммите' <<< "$OUT" && echo да || echo нет)" "под heavy-slot вход вне коммита — 64 с причиной"
     git add in.sh && git commit -qm in > /dev/null; st "$R/repo/steps" echo heavy-slot -- bash in.sh; settle "$RCF"
