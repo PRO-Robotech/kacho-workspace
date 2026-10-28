@@ -18,7 +18,11 @@
                   фона за агента — это опрос, а не отсоединение;
   bg-wait       — `wait` / `wait <pid>` в переднем плане той же оболочки, где был фоновый
                   запуск `… &`: это ожидание фона, а не отсоединение;
-  tail-pid      — `tail --pid …`, `tail -f/-F` без timeout < 600;
+  tail-pid      — `tail --pid …`;
+  follow-log    — слежение за журналом или `.rc` до события (ws#1486): `tail -f/-F/--follow`,
+                  `journalctl -f`, `kubectl|docker|podman logs -f`, `inotifywait` — при ЛЮБОМ
+                  timeout и в трубе (`timeout 290 tail -f l | grep -m1 x`): круг держит вызов N с
+                  и повторяется (STALL-AGENT 12–34 мин); дочитка — `detach.sh status <.rc>`;
   ci-watch      — `gh run watch`, `gh pr checks --watch`;
   watch         — `watch …` (бесконечный повтор);
   long-sleep    — `sleep N`, N ≥ 300 с;
@@ -84,7 +88,8 @@ make (страж судит строку, а не текст файла); `wait 
 не 0: источником судится лишь `<`, `0<`, `<>`), `yes | grep y | read x` (бесконечный поток через фильтр:
 судится лишь звено прямо перед `read`), `echo 900 | xargs sleep` (argv собирает xargs из
 входа), `python3 -c "import time; time.sleep(900)"` (и любой иной интерпретатор:
-страж судит команды оболочки, а не текст программы на другом языке).
+страж судит команды оболочки, а не текст программы на другом языке); ожидание ресурса,
+а не журнала — `kubectl wait …`, `kubectl get -w` (класс follow-log судит слежение за потоком).
 Снятие — страховка кооперативного агента, не граница безопасности (решение диспетчера,
 приёмка ws#1159): не разбираются запуск под другим пользователем и в другом окружении —
 `su -c`, `doas`, `runuser`, `nsenter`, `unshare`, `systemd-run`, `script -qc`, `strace`
@@ -158,7 +163,8 @@ CLASS_TEXT = {
     "loop-sleep": "цикл until/while со sleep — опрос в переднем плане",
     "for-sleep": "цикл for со sleep: итераций × sleep ≥ %d с или не вычислимо по тексту" % FOR_MAX,
     "bg-wait": "wait после фонового запуска — ожидание фона в переднем плане",
-    "tail-pid": "tail --pid / tail -f — ожидание чужого процесса или лога",
+    "tail-pid": "tail --pid — ожидание чужого процесса",
+    "follow-log": "слежение за журналом или .rc (tail -f/-F, inotifywait, logs -f) — ожидание события, под timeout тоже",
     "ci-watch": "ожидание CI (gh run watch / gh pr checks --watch)",
     "watch": "watch — бесконечный повтор в переднем плане",
     "long-sleep": "sleep ≥ %d с" % SLEEP_MAX,
@@ -177,7 +183,27 @@ CLASS_HINT = {
                     "`kill -TERM -- -<pgid>`; детей своего pid — `pkill -P <pid>`",
     "busy-read": "жди через heavy-slot --enqueue или короткий шаг: чтение бесконечного источника "
                  "не ждёт, а жжёт ядро",
+    "follow-log": "верни «идёт: pid, журнал, .rc» сейчас; исход — СЛЕДУЮЩИМ заходом одним шагом "
+                  "`{ws}/scripts/detach.sh status <.rc>` (код и хвост журнала); timeout над слежением "
+                  "не делает его дочиткой — круг держит вызов и повторяется; хвост сейчас — `tail -n 40 <журнал>`",
 }
+# Слежение за потоком (ws#1486): флаг продолжения — свой у каждой команды. tail: -f/-F в связке
+# флагов (`-fn40`, устаревшее `-40f`), --follow[=…], --retry; journalctl: -f в связке (-F там — поле,
+# не слежение), --follow; `<cli> logs`: только -f, --follow[=true] (связки вроде `-lfoo` — селектор).
+FOLLOW_SHORT = {"tail": re.compile(r"^-[0-9]*[A-Za-z]*[fF][A-Za-z]*$"),
+                "journalctl": re.compile(r"^-[A-Za-z]*f[A-Za-z]*$")}
+LOGS_CLI = {"kubectl", "docker", "podman", "oc", "crictl", "nerdctl"}
+
+
+def follows(base, args):
+    """argv (без имени) команды `base` следит за потоком до события."""
+    if base in FOLLOW_SHORT:
+        return any(a in ("--follow", "--retry") and (a != "--retry" or base == "tail")
+                   or (a.startswith("--follow=") and a != "--follow=false")
+                   or FOLLOW_SHORT[base].match(a) is not None for a in args)
+    if base in LOGS_CLI and "logs" in args:
+        return any(a in ("-f", "--follow", "--follow=true") for a in args)
+    return False
 
 
 def stdin_source(text):
@@ -903,10 +929,15 @@ class Judge:
             return
         if base == "tail" and not bg:
             pid = any(a == "--pid" or a.startswith("--pid=") for a in args)
-            follow = any(a in ("-f", "-F", "--follow", "--retry") or a.startswith("--follow=")
-                         or (re.match(r"^-[A-Za-z]*[fF][A-Za-z]*$", a) is not None) for a in args)
-            if pid or (follow and (bound is None or bound >= TIMEOUT_MAX)):
+            if pid:
                 self.add("tail-pid", shown, bound)
+                return
+        # слежение до события (ws#1486): предел timeout класса не снимает — снимает лишь метка
+        # ci-watcher с пределом (bound); в фоне `&` — не ожидание этого вызова
+        if not bg and (base == "inotifywait" or follows(base, args)):
+            self.add("follow-log", shown, bound)
+            return
+        if base == "tail":
             return
         if base == "watch" and not bg:
             self.add("watch", shown, bound)
@@ -1054,7 +1085,7 @@ def deny(found, err, ws, cmd=None):
     if f:
         lines.append("  форма: %s — %s" % (CLASS_TEXT[f.cls], hg.clip(f.text, 200)))
         if f.cls in CLASS_HINT:
-            lines.append("  подсказка: %s" % CLASS_HINT[f.cls])
+            lines.append("  подсказка: %s" % CLASS_HINT[f.cls].replace("{ws}", ws))
     if err:
         lines.append("  метка: %s" % err)
     lines += early_close_hint(cmd)

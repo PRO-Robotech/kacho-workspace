@@ -75,7 +75,8 @@ boundary() {
 }
 
 LOOP='цикл until/while со sleep'
-TAIL='tail --pid / tail -f'
+TAIL='tail --pid — ожидание чужого процесса'
+FOLLOW='слежение за журналом или .rc'
 CI='ожидание CI'
 SLEEP='sleep ≥ 300 с'
 TMO='timeout ≥ 600 с без отсоединения'
@@ -95,7 +96,7 @@ denies "$LOOP"  $'cat <<EOF | bash\nwhile :; do sleep 1; done\nEOF'
 denies "$FOR"   $'cat <<\'EOF\' | bash -s\nfor i in $(seq 100); do sleep 10; done\nEOF'
 denies "$TAIL"  'tail --pid=4242 -f /tmp/run.log'
 denies "$TAIL"  'tail --pid 4242 -n0 -f log'
-denies "$TAIL"  'tail -F /tmp/run.log'
+denies "$FOLLOW" 'tail -F /tmp/run.log'
 denies "$CI"    'gh run watch 123456'
 denies "$CI"    'gh pr checks 7 --watch --interval 30'
 denies "$CI"    'cd x && gh run watch --exit-status 1'
@@ -145,11 +146,48 @@ rc="$(run 'timeout 500 read -t 5 < /dev/zero # no-wait-exempt ci-watcher 9m')"
 assert 2 "$rc" "busy-read — метка ci-watcher его не снимает"
 denied=$((denied + 2))
 
+echo "== слежение за журналом или .rc (ws#1486) — отказ под любым timeout, дочитка detach.sh status"
+# Вход уроков ?4ddc1a46, ?c63d410e (2026-10-28): агенты ждали отсоединённый прогон формой
+# `timeout N tail -f … | grep -m1` по кругу 12–34 мин; прежний страж её пропускал (timeout < 600).
+denies "$FOLLOW" 'timeout 290 tail -f /tmp/run.log | grep -m1 "завершилась кодом"'
+denies "$FOLLOW" 'timeout 120 tail -f /tmp/run.log'
+denies "$FOLLOW" 'timeout 295 tail -F /ws/tmp/x.log | grep -m 1 -q done'
+denies "$FOLLOW" 'tail -fn 40 /tmp/run.log'
+denies "$FOLLOW" 'tail -40f /tmp/run.log'
+denies "$FOLLOW" 'tail --follow=name --retry /tmp/run.log'
+denies "$FOLLOW" 'timeout 60 bash -c "tail -F l | grep -m1 x"'
+denies "$FOLLOW" 'x=$(timeout 100 tail -f l | grep -m1 rc)'
+denies "$FOLLOW" 'inotifywait -e close_write /tmp/x.rc'
+denies "$FOLLOW" 'timeout 290 inotifywait -qq -e create /ws/tmp/1225'
+denies "$FOLLOW" 'inotifywait -t 280 -e modify /tmp/run.log && cat /tmp/x.rc'
+denies "$FOLLOW" 'journalctl --user -fu kacho-detach-x'
+denies "$FOLLOW" 'timeout 200 kubectl -n t1 logs -f job/x'
+denies "$FOLLOW" 'docker logs --follow c | grep -m1 ready'
+BG=1 denies "$FOLLOW" 'timeout 290 tail -F /tmp/run.log | grep -m1 x'
+rc="$(run 'timeout 290 tail -f /tmp/run.log | grep -m1 x')"
+assert "2 да" "$rc $(grep -qF 'подсказка: верни «идёт: pid, журнал, .rc» сейчас; исход — СЛЕДУЮЩИМ заходом одним шагом `/ws/scripts/detach.sh status <.rc>`' "$WORK/out" && echo да || echo нет)" "follow-log — подсказка ведёт к detach.sh status <.rc> следующим заходом"
+AGENT=ci-watcher
+passes 'timeout 290 tail -f l | grep -m1 x # no-wait-exempt ci-watcher 5m'
+AGENT=go-implementer
+rc="$(run 'timeout 290 tail -f l | grep -m1 x # no-wait-exempt ci-watcher 5m')"
+assert 2 "$rc" "follow-log — метку ci-watcher у другого агента не снимает"
+AGENT=""
+denied=$((denied + 2))
+passes 'tail -n 40 /tmp/run.log'
+passes 'tail -c 200 /tmp/run.log'
+passes 'tail -40 /tmp/run.log'
+passes 'tail -n 40 /tmp/run.log | grep -m1 "завершилась кодом"'
+passes 'journalctl -n 50 --no-pager -u x'
+passes 'journalctl -F _SYSTEMD_UNIT'
+passes 'kubectl logs pod/x --tail=40'
+passes 'kubectl -n ns logs job/x -c main --tail=100 --follow=false'
+passes 'docker logs --tail 40 c'
+passes 'grep -n "tail -f" f; echo "inotifywait -e close_write x.rc"'
+
 echo "== законные близнецы той же формы — пропуск без слова"
 passes 'sleep 299'
 passes 'sleep 30 && gh pr checks 7'
 passes 'timeout 599 go test ./...'
-passes 'timeout 120 tail -f /tmp/run.log'
 passes 'tail -n 50 /tmp/run.log; kill -0 4242 && echo идёт'
 passes 'gh pr checks 7'
 passes 'gh run view 123456 --json status,conclusion'
@@ -349,6 +387,8 @@ boundary "снятие: script -qc"          "script -qc 'pkill -f x' /dev/null"
 boundary "снятие: strace"              'strace -f pkill -f x'
 boundary "снятие: find -exec"          'find /proc -maxdepth 1 -name 1 -exec kill {} \;'
 boundary "снятие: env -S"              "env -S 'pkill -f x'"
+boundary "ожидание ресурса: kubectl wait" 'kubectl wait --for=condition=complete job/x --timeout=290s'
+boundary "ожидание ресурса: kubectl get -w" 'timeout 200 kubectl get pods -w'
 
 echo "== heredoc, закрытый вложенным ограничителем, — отказ называет причину (ws#1279)"
 # Вход урока 2026-10-19: тело `python3 - <<'PY'` несло текст с вложенным `<<'PY'`; оболочка
@@ -433,7 +473,13 @@ mutant "порог sleep 600"            'SLEEP_MAX = 300 ' 'SLEEP_MAX = 600 ' '
 mutant "порог timeout 3600"         'TIMEOUT_MAX = 600 ' 'TIMEOUT_MAX = 3600 ' 'timeout 600 go test ./...'
 mutant "flock без -w пропущен"      'if not nb and (w is None or w >= FLOCK_MAX):' 'if not nb and (w is not None and w >= FLOCK_MAX):' 'flock /tmp/l go test ./...'
 mutant "tail --pid не судится"      'pid = any(a == "--pid" or a.startswith("--pid=") for a in args)' 'pid = False' 'tail --pid=1 -n0 log'
-mutant "gh run watch пропущен"      'if sub[:2] == ["run", "watch"] or' 'if False or' 'gh run watch 1'
+mutant "follow-log снят"            'if not bg and (base == "inotifywait" or follows(base, args)):' 'if False:' 'timeout 290 tail -f l | grep -m1 x'
+mutant "timeout снимает слежение"   'if not bg and (base == "inotifywait" or follows(base, args)):' 'if not bg and (bound is None or bound >= TIMEOUT_MAX) and (base == "inotifywait" or follows(base, args)):' 'timeout 120 tail -F l'
+mutant "inotifywait не судится"     '(base == "inotifywait" or follows(base, args))' '(follows(base, args))' 'inotifywait -e close_write x.rc'
+mutant "logs -f не судится"         '    if base in LOGS_CLI and "logs" in args:' '    if False:' 'timeout 200 kubectl logs -f job/x'
+mutant "journalctl -F — слежение"   '"journalctl": re.compile(r"^-[A-Za-z]*f[A-Za-z]*$")' '"journalctl": re.compile(r"^-[A-Za-z]*[fF][A-Za-z]*$")' 'journalctl -F _SYSTEMD_UNIT'
+mutant "tail -40f не узнаётся"      '"tail": re.compile(r"^-[0-9]*[A-Za-z]*[fF][A-Za-z]*$")' '"tail": re.compile(r"^-[A-Za-z]*[fF][A-Za-z]*$")' 'tail -40f l'
+mutant "gh run watch пропущен"     'if sub[:2] == ["run", "watch"] or' 'if False or' 'gh run watch 1'
 mutant "bash -c не разбирается"     '                self.text(cmd, dict(ctx, bg=bg, tmo=bound))' '                pass' 'bash -c "until x; do sleep 1; done"'
 mutant "heredoc в конвейер не судится" 'for seg in line.split("|"):' 'for seg in line.split("|")[:1]:' $'cat <<EOF | bash\nwhile :; do sleep 1; done\nEOF'
 mutant "подстановка не судится"     '            self.text(s, dict(ctx, bg=ctx["bg"]))' '            pass' 'x=$(sleep 900)'
