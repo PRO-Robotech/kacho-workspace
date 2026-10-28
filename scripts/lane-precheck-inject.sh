@@ -507,6 +507,13 @@ assert "1 да" "$(tt 'Тело PR: RITUAL_REPO_DIR=. scripts/pr-body.sh o/r ori
 assert "0 да" "$(tt 'Тело PR вызовом Bash с timeout 600000: RITUAL_REPO_DIR=. scripts/pr-body.sh o/r origin/main HEAD > b.md') $(has 'причин 0')" "близнец: pr-body.sh с timeout 600000 — форма wave.js и git-operator → 0 (⛔ check-verifier ws#1413: формы сведены)"
 assert "1 да" "$(tt 'Отправь: scripts/detach.sh start d -- heavy-slot.sh ci-local -- git push origin HEAD:refs/heads/1-x; верни «идёт».') $(has 'REASON TASK-PUSH-DETACHED строка 1')" "отправка голым detach.sh → TASK-PUSH-DETACHED (уроки a4de34f3, 0177aaeb; ws#1413)"
 assert "0 да" "$(tt 'Отправь: scripts/push-then.sh start d . 1-x -- true (внутри detach.sh и git push); верни «идёт».') $(has 'причин 0')" "близнец: push-then.sh с detach.sh и git push в строке → 0"
+# Класс «состояние прочитано до отложенного прохода контроллера» (ws#1488; ws#1413, урок fc7e2094):
+assert "1 да" "$(tt 'Правка gitlab-runner-env: оператор перекатит Deployment.' 'Проверь, что новые поды получили переменные.') $(has 'REASON TASK-READ-AFTER-WRITE строка 1')" "оператор и перекат без «не раньше» → TASK-READ-AFTER-WRITE (урок fc7e2094)"
+assert "1 да" "$(tt 'Patch the CR; the controller reconciles it — read kubectl get deploy.') $(has 'TASK-READ-AFTER-WRITE строка 1')" "controller и kubectl латиницей → TASK-READ-AFTER-WRITE"
+assert "0 да нет" "$(tt 'Правка gitlab-runner-env: оператор перекатит Deployment.' 'Повторное чтение не раньше 10 мин после записи — отдельным шагом; до срока — возврат «идёт».') $(has 'причин 0') $(has 'TASK-WAIT')" "близнец: срок «не раньше 10 мин» назван → 0, и TASK-WAIT его не судит"
+assert "0 да" "$(tt 'Заказ git-operator: ветка 1-x, kubectl не нужен; состояние PR прочти.' 'Клон registry-operator: правь deployment.yaml.') $(has 'причин 0')" "близнец: git-operator и registry-operator — имена, не контроллер → 0"
+assert "0 да" "$(tt 'Правь reconcile оператора; unit своих пакетов — слотом.') $(has 'причин 0')" "близнец: оператор без состояния кластера (правка кода) → 0"
+assert "1 да" "$(tt 'Повтори чтение через 10 мин.') $(has 'TASK-WAIT строка 1')" "близнец: «через 10 мин» — ожидание, не срок шага → TASK-WAIT"
 : > "$W/task.txt"
 assert "2" "$(bash "$P" --task-text "$W/task.txt" > "$W/out" 2>&1; echo $?)" "пустой текст — ноль строк, не «причин нет» → 2"
 # Класс «заказ ожидания или паузы числом внутри вызова» (возврат check-verifier по #1225):
@@ -728,6 +735,9 @@ assert "0" "$(mut push-detached '[[ "${line,,}" =~ detach\.sh ]] && [[ "${line,,
 assert "0" "$(mut branch-dash ':—–]*' ':]*' --task-text 'Клон project/kaname, ветка — 986-x.')" "мутант «тире не разделитель»: «ветка — 986-x» проходит — проба выше его ловит (ws#1413)"
 assert "1" "$(mut prbody-timeout '|| [ -n "$p6" ] ||' '||' --task-text 'Тело PR вызовом Bash с timeout 600000: scripts/pr-body.sh o/r origin/main HEAD > b.md')" "мутант «timeout 600000 не принимается»: форма wave.js краснеет — проба выше его ловит (ws#1413)"
 assert "0" "$(mut prbody-unjudged '[ -z "$prb" ] || [ -n "$ret" ]' 'true || [ -n "$ret" ]' --task-text 'Тело PR: scripts/pr-body.sh o/r origin/main HEAD > b.md')" "мутант «pr-body не судится»: голый вызов проходит — проба выше его ловит (ws#1413)"
+assert "0" "$(mut raw-unjudged '[ -z "$raw" ] || [ -n "$rawok" ]' 'true || [ -n "$rawok" ]' --task-text 'Правка gitlab-runner-env: оператор перекатит Deployment.')" "мутант «чтение после записи не судится»: проходит — проба выше его ловит (ws#1488)"
+assert "1" "$(mut raw-names 'do o="${o/"${BASH_REMATCH[0]}"/ }"; done' 'do break; done' --task-text 'Заказ git-operator: ветка 1-x; kubectl не нужен.')" "мутант «имена с дефисом не сняты»: git-operator краснеет — близнец выше его ловит (ws#1488)"
+assert "1" "$(mut raw-notbefore '[Нн]е[[:space:]]+(раньше|ранее)[[:space:]]+~?${num}' 'NOMATCH[[:space:]]+~?${num}' --task-text 'Повторное чтение не раньше 10 мин — отдельным шагом.')" "мутант «не раньше прочитано ожиданием»: срок краснеет TASK-WAIT — близнец выше его ловит (ws#1488)"
 mut_a() {  # <имя> <было> <стало> <строки задания…> — код мутанта на задании автору приёмки
     local nm="$1" a="$2" b="$3"; shift 3
     mut "$nm" "$a" "$b" --task-text "$@" > /dev/null

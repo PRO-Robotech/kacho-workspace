@@ -104,7 +104,8 @@
 #                      Число не о заказе снято до суда: предел вызова («Bash ≤ 60 с»), порог
 #                      сравнением без «не» перед ним («ожидание дольше 10 минут» — запрет,
 #                      «дольше 300 с — --enqueue» — условие), «ожидаем*» — ожидание-прогноз;
-#                      «не дольше N» — разрешённый срок, заказ. «Не жди» без числа — норма;
+#                      «не дольше N» — разрешённый срок, заказ; «не раньше N» — срок
+#                      отдельного шага (TASK-READ-AFTER-WRITE), не ожидание. «Не жди» без числа — норма;
 #   TASK-LIMITS        два разных предела одного вызова («Bash ≤ 60 с» и «вызов до 270 с»);
 #   TASK-RETURN        задание с долгим шагом (полный хук отправки, слот, --enqueue, autoland)
 #                      не называет возврат «идёт» (detach.sh, «идёт: pid, журнал, срок»,
@@ -112,6 +113,15 @@
 #                      ws#1413) — без «timeout 600000» и без возврата «идёт».
 #   TASK-PUSH-DETACHED строка с detach.sh и git push без push-then (ws#1413, уроки a4de34f3,
 #                      0177aaeb, 17a166a3): дочитка отправки без меток журнала не судима.
+#   TASK-READ-AFTER-WRITE (ws#1488; «состояние прочитано до заказа» — 2 случая: ws#1413 и урок
+#                      fc7e2094 — проход оператора 7–9 мин, прочитано «не перекатил») строка
+#                      называет оператор или контроллер (оператор*, контроллер*, operator,
+#                      controller, reconcil*) и состояние кластера (состояни*, перекат*, поды,
+#                      применил*, kubectl, rollout, ReplicaSet, managedFields, Deployment,
+#                      StatefulSet, DaemonSet), а «не раньше <срок>» в задании нет: исполнитель
+#                      прочтёт до отложенного прохода. Имя с дефисом (`git-operator`,
+#                      `registry-operator`, `operator-stand`) — агент или репозиторий, не
+#                      контроллер. Граница: контроллер, не названный словом, не узнаётся.
 #   TASK-MERGE-FORM    строка слияния не по форме хука ветки (ws#1278, урок «#808 merge 746: …» —
 #                      хук kaname отверг коммит исполнителя; форма — его branch_rule_merge_form,
 #                      `^#<N> merge (#<M>|main)`, регистр и пробел — его). Класс, а не перечень:
@@ -288,7 +298,7 @@ knorm() {
 if [ -n "$task_text" ]; then
     [ "${#pos[@]}" -eq 0 ] && [ -z "$premise" ] || usage
     [ -r "$task_text" ] || { echo "lane-precheck: текста задания $task_text нет; вердикта нет" >&2; exit 2; }
-    reasons=() n=0 limits=() longstep="" ret="" prb="" p6="" cen=() cenk="" coords=() void="" kpaths=() vaultseen="" mountline="" vmention="" vfield=""
+    reasons=() n=0 limits=() longstep="" ret="" prb="" p6="" raw="" rawok="" cen=() cenk="" coords=() void="" kpaths=() vaultseen="" mountline="" vmention="" vfield=""
     kre='(~|\$\{HOME\}|\$HOME)?[A-Za-z0-9_./-]*/\.kube/[A-Za-z0-9_.@/-]*'
     # Распознаватель python3 (TASK-LOCAL-PYTHON) — из ТОГО ЖЕ источника, что heavy-guard: `PYTHONS` и
     # `PY_VERSION` его guard.py; не выведен — суда нет (VOID), а не «python3 не найден».
@@ -413,6 +423,10 @@ if [ -n "$task_text" ]; then
         while [[ "$w" =~ (^|[^[:alpha:]_])${cmp}[[:space:]]+~?${num}[[:space:]]*${sec} ]]; do
             w="${w/"${BASH_REMATCH[0]}"/"${BASH_REMATCH[1]}_ "}"
         done
+        # «не раньше N» — срок отдельного шага повторного чтения (TASK-READ-AFTER-WRITE), не ожидание.
+        while [[ "$w" =~ (^|[^[:alpha:]_])[Нн]е[[:space:]]+(раньше|ранее)[[:space:]]+~?${num}[[:space:]]*${sec} ]]; do
+            w="${w/"${BASH_REMATCH[0]}"/"${BASH_REMATCH[1]}_ "}"
+        done
         if [[ "$l" =~ (^|[^[:alnum:]_])sleep[[:space:]]+$num ]] \
             || { [[ "$w" =~ (^|[^[:alpha:]])(ожида|жд|дожд|подожд|выжд|обожд|пауз|повтор) ]] \
                 && [[ "$w" =~ (^|[^[:alnum:]])~?${num}[[:space:]]*${sec} ]]; } \
@@ -428,7 +442,15 @@ if [ -n "$task_text" ]; then
         [[ "${line,,}" =~ timeout[[:space:]]+600000 ]] && p6=1
         [[ "${line,,}" =~ detach\.sh ]] && [[ "${line,,}" =~ git[[:space:]]+push ]] && [[ "${line,,}" != *push-then* ]] \
             && reasons+=("TASK-PUSH-DETACHED строка $n: отправка голым detach.sh — журнал без меток lane-push head=/rc= (lane-precheck: HOOK-HEAD-MISMATCH, HOOK-RC), дочитать нечем; форма — scripts/push-then.sh start <каталог> <копия> <ветка> -- <шаг>, исход — detach.sh status <.rc>")
+        # Чтение после записи в контроллер (TASK-READ-AFTER-WRITE, ws#1488): имена с дефисом сняты до суда.
+        o="$l"
+        while [[ "$o" =~ [a-z0-9_.]+-(operator|controller)[a-z0-9_.-]*|(operator|controller)-[a-z0-9_.-]+ ]]; do o="${o/"${BASH_REMATCH[0]}"/ }"; done
+        { [[ "$line" =~ (^|[^[:alpha:]])([Оо]ператор|[Кк]онтроллер) ]] || [[ "$o" =~ (^|[^a-z])(operator|controller|reconcil) ]]; } \
+            && { [[ "$line" =~ (^|[^[:alpha:]])([Сс]остояни|[Пп]ерекат|[Пп]рименил|[Пп]од(ы|ов|ам)([^[:alpha:]]|$)) ]] \
+                || [[ "$o" =~ kubectl|rollout|replicaset|managedfields|deployment|statefulset|daemonset ]]; } && raw="${raw:-$n}"
+        [[ "$line" =~ (^|[^[:alpha:]])[Нн]е[[:space:]]+(раньше|ранее)([^[:alpha:]]|$) ]] && rawok=1
     done < "$task_text"
+    [ -z "$raw" ] || [ -n "$rawok" ] || reasons+=("TASK-READ-AFTER-WRITE строка $raw: состояние после записи в оператор или контроллер без срока его отложенного прохода — прочтут до прохода и назовут «не перекатил» (урок fc7e2094: проход 7–9 мин); задание называет «повторное чтение не раньше <срок> — отдельным шагом», до срока — возврат «идёт»")
     distinct="$(printf '%s\n' "${limits[@]+"${limits[@]}"}" | sed '/^$/d' | sort -un | tr '\n' ' ')"
     [ "$(wc -w <<< "$distinct")" -le 1 ] || reasons+=("TASK-LIMITS пределы одного вызова разные: ${distinct% } с — предел вызова задаётся одним числом")
     [ -z "$longstep" ] || [ -n "$ret" ] || reasons+=("TASK-RETURN строка $longstep: долгий шаг без возврата «идёт» — задание называет форму: scripts/detach.sh start …, возврат «идёт: pid, журнал, срок», исход отдельным шагом")
