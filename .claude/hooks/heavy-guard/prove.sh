@@ -523,18 +523,42 @@ denies docker  'docker run -h box alpine true'
 denies docker  'docker run --rm -v /a:/b --help alpine'
 denies docker  'docker compose up -d'
 denies docker  'docker build --pull -t x .'
+# `--help` значением опции (возврат check-verifier ws#1473): docker и gitlab-runner берут его
+# значением и запускают; арность опции стражу неизвестна — судится как «значение», отказ.
+denies docker  'docker run -e --help alpine true'
+denies docker  'docker run --entrypoint --help alpine'
+denies go-race 'docker run --name --help alpine sh -c "go test -race ./..."'
+denies docker  'docker run --rm --help alpine'
+denies docker  'docker compose run -e --help svc'
+runner_denies 'gitlab-runner run -c --help'
+runner_denies 'gitlab-runner run --config --help'
+passes 'docker run --name=probe --help'
+passes 'gitlab-runner run-single --help'
+passes 'journalctl --user -u gitlab-runner -g run'
+# Текст находки: слово gitlab-runner в словах контейнера — не задание агента, строка слота.
+denies docker  'docker run --rm alpine echo gitlab-runner'
+denies docker  'docker run --rm alpine sh -c "gitlab-runner run"'
 lt_mut help-blind 'docker run --help' "$WORK" \
     '    if sub in DOCKER_HEAVY | {"exec"} and asks_help(tail):' '    if False:'
 lt_mut help-past-positional 'docker run alpine --help' "$WORK" \
-    '        if not t.startswith("-"):
+    '        if not (t.startswith("--") and "=" in t):
             return False' '        if False:
             return False'
+# прежний распознаватель: любая опция — флаг, `--help` её значением засчитан справкой
+lt_mut help-value-blind 'docker run -e --help alpine true' "$WORK" \
+    '        if not (t.startswith("--") and "=" in t):' '        if not t.startswith("-"):'
+lt_mut help-value-blind-runner 'gitlab-runner run -c --help' "$WORK" \
+    '        if not (t.startswith("--") and "=" in t):' '        if not t.startswith("-"):'
+lt_mut help-inline-value 'docker run --name=probe --help' "$WORK" \
+    '        if not (t.startswith("--") and "=" in t):' '        if True:'
+lt_mut runner-mark-in-container 'docker run --rm alpine sh -c "gitlab-runner run"' "$WORK" \
+    '                del RUNNER_JOB[seen:]' '                pass'
 lt_mut runner-job-blind 'gitlab-runner run' "$WORK" \
     '    if base == "gitlab-runner":
         return runner_class(args)' '    if False:
         return runner_class(args)'
 lt_mut runner-route-slot 'gitlab-runner run' "$WORK" \
-    '    if cls == "docker" and any(RUNNER_WORD.search(w) for w in argv):' '    if False:'
+    '    if cls == "docker" and RUNNER_JOB:' '    if False:'
 
 echo "── ручки слота в строке команды: над настоящей памятью ни одной"
 knob   HEAVY_SLOT_LIMIT_GIB=200 'HEAVY_SLOT_LIMIT_GIB=200 /ws/scripts/heavy-slot.sh go-race -- go test -race ./...'

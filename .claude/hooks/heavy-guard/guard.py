@@ -97,8 +97,10 @@ ws#1247, — пропуск); в тексте скрипта — пропуск.
 исключение узкое). Управление раннером — пропуск: `gitlab-runner verify|list|status|register|
 --version`, `systemctl --user …` и `journalctl --user` его службы `gitlab-runner-regop*` (тяжёлой
 программы в их словах нет), чтение `docker info|ps|version|system df`, справка `--help` тяжёлой
-подкоманды docker до первого позиционного слова (`docker run --help`; `-h` у run — hostname, не
-справка; `docker run alpine --help` — запуск образа). Задания раннера исполняет его служба вне
+подкоманды docker в позиции флага — первым словом после подкоманды либо после `--имя=значение`
+(`docker run --help`). Арности прочих опций страж не знает и судит как «значение»: `docker run
+-e --help alpine` — `--help` значение `-e`, запуск, отказ; `-h` у run — hostname, не справка;
+`docker run alpine --help` — запуск образа. Задания раннера исполняет его служба вне
 хуков, страж их не видит: предел держат срез службы и лимиты config.toml. Задание командой
 агента — `gitlab-runner run|run-single|exec` — класс docker и отказ с маршрутом через службу
 (`deny_runner`), а не через слот: внешнего пути у класса docker нет (ws#1312).
@@ -243,7 +245,7 @@ PARALLEL_OPTS = {"-j", "--jobs", "-P", "--max-procs", "-S", "--sshlogin", "--job
 NON_EXEC = {"echo", "printf", "grep", "egrep", "fgrep", "rg", "ag", "ack", "gh", "man", "info",
             "which", "type", "whereis", "whatis", "apropos", "hash", "alias", "cat", "less",
             "more", "head", "tail", "sed", "awk", "gawk", "jq", "yq", "test", "[", "[[", "ssh",
-            "scp", "true", "false", ":", "sleep", "wc", "sort", "tee", "diff", "read"}
+            "scp", "true", "false", ":", "sleep", "wc", "sort", "tee", "diff", "read", "journalctl"}
 SHELLS = {"bash", "sh", "zsh", "dash", "ksh"}
 HEADS = {"go", "golangci-lint", "govulncheck", "gosec", "docker", "docker-compose", "kind",
          "gitlab-runner", "helm", "newman", "make", "gmake", "pytest", "npm", "npx", "playwright"} | SHELLS
@@ -768,14 +770,19 @@ RUNNER_GLOBAL_VALUE = {"--log-level", "-l", "--log-format", "--cpuprofile"}
 
 
 def asks_help(tail):
-    """`--help` среди опций до первого позиционного слова — справка, а не запуск (ws#1473).
-    Значение опции отдельным словом (`-v a:b`) обрывает поиск — исход прежний, отказ."""
+    """`--help` в позиции флага — справка, а не запуск (ws#1473): первым словом хвоста либо
+    после опций `--имя=значение`, чьё значение в том же слове. Арности прочих опций страж не
+    знает и судит их как берущие значение: `-e --help`, `--entrypoint --help`, `-c --help` —
+    `--help` значение опции, docker и gitlab-runner запускают; исход прежний, отказ."""
     for t in tail:
         if t == "--help":
             return True
-        if not t.startswith("-"):
+        if not (t.startswith("--") and "=" in t):
             return False
     return False
+
+
+RUNNER_JOB = []  # задание раннера командой агента в этом вызове: текст отказа — маршрут службы
 
 
 def runner_class(args):
@@ -784,6 +791,7 @@ def runner_class(args):
     while i < len(args) and args[i].startswith("-"):
         i += 2 if args[i] in RUNNER_GLOBAL_VALUE else 1
     if i < len(args) and args[i] in RUNNER_JOBS and not asks_help(args[i + 1:]):
+        RUNNER_JOB.append(args[i])
         return "docker"
     return None
 
@@ -811,9 +819,11 @@ def docker_class(args, ctx, level):
         # `docker exec` лёгок, пока внутри нет тяжёлого: память — уже живого контейнера.
         env = [a.split("=", 1)[1] if a.startswith("--env=") else a for a in tail if "GOFLAGS=" in a]
         sock = any("docker.sock" in a for a in tail)
+        seen = len(RUNNER_JOB)  # раннер внутри контейнера — не задание агента на машине
         for k, a in enumerate(tail):
             if os.path.basename(a) == "go" or a in SHELLS:
                 inner = classify_argv(env, tail[k:], None, ctx, level, None)
+                del RUNNER_JOB[seen:]
                 if inner in ("go-race", "integration"):
                     return "integration" if sock else inner
     if sub not in DOCKER_HEAVY:
@@ -1458,9 +1468,6 @@ def deny_local(cls, env, argv, slot):
     sys.exit(2)
 
 
-RUNNER_WORD = re.compile(r"(^|[\s/;&|(])gitlab-runner(\s|$)")
-
-
 def deny_runner(argv):
     """Задание раннера командой агента (ws#1473): маршрут — его служба, не слот."""
     sys.stderr.write(
@@ -1477,7 +1484,7 @@ def deny_runner(argv):
 def deny(cls, env, argv, slot):
     if cls.startswith(LOCAL):
         deny_local(cls[len(LOCAL):], env, argv, slot)
-    if cls == "docker" and any(RUNNER_WORD.search(w) for w in argv):
+    if cls == "docker" and RUNNER_JOB:
         deny_runner(argv)
     shown = show(argv)
     fixed = clip(" ".join([show(env), slot, cls, "--", shown]).strip(), 400)
