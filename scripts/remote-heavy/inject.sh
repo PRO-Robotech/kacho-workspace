@@ -2039,12 +2039,14 @@ while [ "$#" -gt 0 ]; do case "$1" in -o) o="$2"; shift 2 ;; --retry) shift 2 ;;
 out() { if [ -n "$o" ]; then cat > "$o"; else cat; fi; }
 Z=0000000000000000000000000000000000000000000000000000000000000000
 case "$u" in
-  */index.json) echo '[{"version":"v27.0.0"},{"version":"v26.11.1"},{"version":"v26.10.0"},{"version":"v26.1.2"},{"version":"v26.1.0"}]' | out ;;
+  # STUB_NODE_NEW — выпуск в индексе раньше архивов (2026-10-28, v26.13.0): архива нет, 404.
+  */index.json) nv=""; [ -z "${STUB_NODE_NEW:-}" ] || nv='{"version":"v26.13.0"},'
+    echo '[{"version":"v27.0.0"},'"$nv"'{"version":"v26.11.1"},{"version":"v26.10.0"},{"version":"v26.1.2"},{"version":"v26.1.0"}]' | out ;;
   *.sha256sum) a="${u##*/}"; ( cd "$STUB_ARCH" && sha256sum "${a%.sha256sum}" ) | if [ -n "${STUB_BADSUM:-}" ]; then sed 's/^[0-9a-f]*/'"$Z"'/'; else cat; fi | out ;;
   # Как настоящий SHASUMS256.txt — строки всех архивов; при STUB_BADSUM_NODE сумма
   # каждой строки не сходится, а имя файла на месте (grep строку находит).
   */SHASUMS256.txt) ( cd "$STUB_ARCH" && sha256sum node-*.tar.gz ) | if [ -n "${STUB_BADSUM_NODE:-}" ]; then sed 's/^[0-9a-f]*/'"$Z"'/'; else cat; fi | out ;;
-  *.tar.gz) cat "$STUB_ARCH/${u##*/}" | out ;;
+  *.tar.gz) [ -f "$STUB_ARCH/${u##*/}" ] || { echo "curl: (22) The requested URL returned error: 404" >&2; exit 22; }; cat "$STUB_ARCH/${u##*/}" | out ;;
   # Выпуск buf (ws#1110): sha256.txt — строки всех бинарей и архивов, как настоящий.
   */bufbuild/buf/releases/download/*/sha256.txt) ( cd "$STUB_ARCH/buf" && sha256sum buf-Linux-* ) | if [ -n "${STUB_BADSUM_BUF:-}" ]; then sed 's/^[0-9a-f]*/'"$Z"'/'; else cat; fi | out ;;
   */bufbuild/buf/releases/download/*/buf-Linux-*) cat "$STUB_ARCH/buf/${u##*/}" | out ;;
@@ -2116,10 +2118,18 @@ if [ -e "$IW/bin/node" ] && "$IW/bin/node" --version >/dev/null 2>&1; then OUT="
 # node_installed <случай> <пин> <выпуск> — пин разрешён в <выпуск>: node из bin
 # печатает его (архив каждого выпуска несёт свой node).
 node_installed() {
-    install_case "$1" "" "$2" 0 "node"
+    install_case "$1" "" "$2" 0 "node" "${@:4}"
     local got; got="$("$IW/bin/node" --version 2>/dev/null)"
     if [ "$got" = "$3" ]; then ok; else bad "$1" "пин $2 разрешён в «$got», ждали $3"; fi
 }
+# E7-unpublished (2026-10-28): новейший выпуск пина в индексе, архива нет (404) — ставится
+# следующий выпуск пина с названной причиной; близнецы — точный пин на неопубликованный
+# выпуск отказывает, несошедшаяся сумма отказывает без отката к соседнему выпуску.
+node_installed E7-unpublished 26 v26.11.1 STUB_NODE_NEW=1
+if grep -q 'node v26.13.0 под пин 26 не скачан' "$BOX/E7-unpublished.out" && grep -q 'ставлю node v26.11.1' "$BOX/E7-unpublished.out"; then ok
+else OUT="$BOX/E7-unpublished.out"; bad E7-unpublished "откат к выпуску с архивом не назван"; fi
+install_case E7-unpublished-exact "" 26.13.0 125 "node v26.13.0 не скачан под пин 26.13.0" STUB_NODE_NEW=1
+if grep -q 'ставлю node v26.10.0\|ставлю node v26.1.2' "$BOX/E7-badsum-node.out"; then OUT="$BOX/E7-badsum-node.out"; bad E7-badsum-node "несошедшаяся сумма откатила к соседнему выпуску"; else ok; fi
 node_installed E7-minor 26.1 v26.1.2
 node_installed E7-exact 26.1.0 v26.1.0
 if [ "$(cat "$BOX/E7-both.out" 2>/dev/null | grep -c 'ставлю node v26.11.1')" -eq 1 ]; then ok

@@ -2027,12 +2027,21 @@ if [ -n "${HEAVY_HELM:-}" ]; then
 fi
 if [ -n "${HEAVY_NODE:-}" ]; then
   a="$(ha x64)" || pf "node: архитектура $(uname -m) не поддержана"
-  v="$(curl -fsSL --retry 3 https://nodejs.org/dist/index.json | jq -r --arg m "v$HEAVY_NODE." "[.[] | .version | select(startswith(\$m) or . == (\$m | rtrimstr(\".\")))][0] // empty")"
-  [ -n "$v" ] || pf "node: версии под пин $HEAVY_NODE в индексе нет"
+  vs="$(curl -fsSL --retry 3 https://nodejs.org/dist/index.json | jq -r --arg m "v$HEAVY_NODE." "[.[] | .version | select(startswith(\$m) or . == (\$m | rtrimstr(\".\")))][0:3][]")"
+  [ -n "$vs" ] || pf "node: версии под пин $HEAVY_NODE в индексе нет"
+  mkdir -p /work/dl /work/node || pf "каталог загрузки не создан"
+  # Выпуск в индексе раньше архивов (2026-10-28: v26.13.0 в index.json, архив 404) — пин
+  # берёт следующий выпуск, как setup-node конвейера; несошедшаяся сумма — отказ, не откат.
+  v=""; miss=""
+  for c in $vs; do
+    f="node-$c-linux-$a.tar.gz"
+    if ( cd /work/dl && curl -fsSL --retry 3 -o "$f" "https://nodejs.org/dist/$c/$f" \
+      && curl -fsSL --retry 3 -o "SHASUMS-$c.txt" "https://nodejs.org/dist/$c/SHASUMS256.txt" ); then v="$c"; break; fi
+    miss="$miss $c"; echo "remote-heavy: node $c под пин $HEAVY_NODE не скачан (выпуск в индексе, архива нет) — следующий выпуск пина" >&2
+  done
+  [ -n "$v" ] || pf "node${miss} не скачан под пин $HEAVY_NODE"
   echo "remote-heavy: ставлю node $v (пин $HEAVY_NODE)" >&2
-  f="node-$v-linux-$a.tar.gz"; mkdir -p /work/dl /work/node || pf "каталог загрузки не создан"
-  ( cd /work/dl && curl -fsSL --retry 3 -o "$f" "https://nodejs.org/dist/$v/$f" \
-    && curl -fsSL --retry 3 "https://nodejs.org/dist/$v/SHASUMS256.txt" | grep "  $f\$" | sha256sum -c --quiet - \
+  ( cd /work/dl && grep "  $f\$" "SHASUMS-$v.txt" | sha256sum -c --quiet - \
     && tar -xzf "$f" -C /work/node --strip-components=1 ) || pf "node $v не поставлен"
   for b in node npm npx; do ln -sf "/work/node/bin/$b" "/work/bin/$b"; done
 fi
