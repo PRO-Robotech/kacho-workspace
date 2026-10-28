@@ -24,7 +24,8 @@
 #                 автора) при том же тексте у автора — не случай; один итог одним классом
 #                 дважды (поле lesson и блок ВОЗВРАТ, ws#1498) — один, scan второй записи не
 #                 пишет, прежние записи сводятся по агенту и моменту; близнец — тот же агент в
-#                 другой момент — два;
+#                 другой момент — два; два урока БЕЗ ключа в одном итоге — два (сведение лишь
+#                 по ключу, перемер check-verifier);
 #   мутанты     — образец порчи — ровно одно место файла (урок ws#1413), иначе отказ пробы;
 #   ключ, идемпотентность, порог 2, статусы — как прежде; `status <ключ>` судит один класс
 #                 (ws#1250): с исходом — 0 при чужом остатке, открытый — 1, нет класса — 2,
@@ -90,6 +91,11 @@ def agent(aid, *texts, task='задание'):
             f.write(asst(t, now - 3600) + '\n')
 if kind == 'idle':
     agent('i1', ret('одиночный класс · место правки'))
+    sys.exit(0)
+if kind == 'unkeyed':  # перемер check-verifier ws#1498: один итог — два урока без ключа (без «·»)
+    W1 = os.path.join(S, 'workflows', 'wf_1')
+    with open(os.path.join(W1, 'journal.jsonl'), 'w') as f:
+        f.write(json.dumps({'type': 'result', 'key': 'v2:u1', 'agentId': 'u1', 'result': {'status': 'done', 'lesson': 'первый урок без места', 'ret': ret('второй урок без места')}}, ensure_ascii=False) + '\n')
     sys.exit(0)
 if kind == 'dash':  # ключ, сам несущий « — » (76 из 1446 ключей живой ведомости 2026-10-19), и близнец без него
     agent('d1', ret('аа — бб · место'))
@@ -322,6 +328,12 @@ for l in open(sys.argv[1]):
     if grep -qE 'новых уроков ([1-9]|1[0-9]|2[01]),' <<< "$out"; then ok "бюджет 0: кусок за вызов прочитан — догон не стоит, но и не всё"; else no "бюджет 0: прочитано ноль либо всё: $out"; fi
     out="$(LESSONS_CHUNK=65536 L "$D/b" scan --budget 5)"
     has 'в ведомости 22' "догон: те же 22 урока"
+
+    # Перемер check-verifier (ws#1498): сведение одного итога — лишь по КЛЮЧУ; два урока без
+    # ключа в одном итоге — два урока, а не один (ключ None не общий ключ).
+    mkfix "$D/u" unkeyed
+    out="$(L "$D/u" scan)"
+    has 'новых уроков 2,' "ws#1498: один итог, два урока без ключа — оба записаны (сведение лишь по ключу)"
 
     # ws#1498: прежние сборки уже записали один итог дважды (поле lesson и блок ВОЗВРАТ) —
     # счёт сводит их по агенту и моменту; близнец — тот же агент в другой момент — два случая.
@@ -684,6 +696,7 @@ mutant b3-moment-off py "            rh = (r.get('sid'), r.get('agent'), r.get('
 mutant b3-moment-no-ts py "            rh = (r.get('sid'), r.get('agent'), r.get('ts'), k)" "            rh = (r.get('sid'), r.get('agent'), k)"
 MSUITE=suite_key mutant b3-moment-all-src py "if r.get('src') == 'workflow' else r['id']" "if True else r['id']"
 mutant b3-scan-dup py '                if k is not None and k in keys:' '                if False:'
+mutant b3-scan-unkeyed-merged py '                if k is not None and k in keys:' '                if k in keys:'
 # ws#1498 — граница исключения: ядро порождает процесс
 mutant core-spawns py 'import calendar
 ' 'import calendar
