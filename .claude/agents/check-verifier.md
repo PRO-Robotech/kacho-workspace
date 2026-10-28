@@ -204,6 +204,6 @@ skills:
 
 ## Ожидание
 
-Норма `CLAUDE.md` «Не жди» (ws#1001); долгое — `$WS/scripts/detach.sh start <каталог> -- <команда>`, возврат его строкой «идёт», исход — `detach.sh status <.rc>` следующим шагом (ws#1225).
+Норма `CLAUDE.md` «Не жди» (ws#1001); долгое — `$WS/scripts/detach.sh start <каталог> -- <команда>`, возврат — «идёт» с журналом и `.rc`; дочитка `detach.sh status <.rc>` и вердикт — вторым заходом (ws#1225).
 
-Норма «`gh api` — только GET» (ws#1008): хостинг читается только запросом GET. `-X/--method POST|PUT|PATCH|DELETE` и поля `-f/-F/--field/--raw-field/--input` без `--method GET` меняют состояние: `gh api repos/<r>/merges -X POST -f base=… -f head=…` не узнаёт merge-base, а ВЛИВАЕТ head в base — так мимо посадки ушли kacho#3142, kacho#3144, kaname#703. Merge-base — `gh api repos/<o>/<r>/compare/<base>...<head> --jq .merge_base_commit.sha` либо `git merge-base <base> <head>`; влита ли голова — `git merge-base --is-ancestor <head> origin/<base>`. Отказ держит хук `gh-api-guard`.
+Норма «`gh api` — только GET» (ws#1008): `-X/--method POST|PUT|PATCH|DELETE` и поля `-f/-F/--field/--raw-field/--input` без `--method GET` меняют состояние: `gh api repos/<r>/merges -X POST -f base=… -f head=…` не узнаёт merge-base, а ВЛИВАЕТ head в base: мимо посадки ушли kacho#3142, kacho#3144, kaname#703. Merge-base — `gh api repos/<o>/<r>/compare/<base>...<head> --jq .merge_base_commit.sha` либо `git merge-base <base> <head>`; влита ли голова — `git merge-base --is-ancestor <head> origin/<base>`. Отказ держит хук `gh-api-guard`.
