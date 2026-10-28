@@ -4314,28 +4314,37 @@ if [ -n "$WSNODE" ] && grep -qE "nodejs\.org/dist/v$WSNODE\.[0-9]+\.[0-9]+/" "$S
 if [ -n "$WSSC" ] && grep -qF "shellcheck-v$WSSC.linux.x86_64" "$SDIR/Dockerfile"; then ok; else bad IMG2 "shellcheck Dockerfile не WS_SHELLCHECK «$WSSC»"; fi
 # IMG3 — установка среды (текст install из Job E1) при инструментах пина в PATH — образ слота:
 #     ни одного «ставлю», ни одного обращения к сети (двойник curl пишет каждое), четыре «уже в
-#     образе»; близнец — helm иной версии ставится (одна строка «ставлю helm»), прочие — нет
+#     образе»; близнецы — один инструмент иной версии (helm, node, buf, yq по одному): ставится
+#     ровно он (одна строка «ставлю <он>», бинарь в bin), прочие — нет
 I3B="$BOX/img3bin"; I3N="$BOX/img3net"; rm -rf "$I3B" "$I3N"; mkdir -p "$I3B" "$I3N"
-printf '#!/bin/sh\necho v26.12.1\n' > "$I3B/node"
-printf '#!/bin/sh\necho 1.72.0\n' > "$I3B/buf"
-printf '#!/bin/sh\necho "yq (https://github.com/mikefarah/yq/) version v4.53.6"\n' > "$I3B/yq"
 # shellcheck disable=SC2016  # раскрывается в двойнике curl
 printf '#!/bin/sh\necho "$*" >> "%s/net.log"\nexec "%s/curl" "$@"\n' "$I3N" "$IS" > "$I3N/curl"
-chmod +x "$I3B"/* "$I3N/curl"
+chmod +x "$I3N/curl"
+# img3 <случай> <helm> <node> <buf> <yq — версия в строке mikefarah> — версии инструментов в PATH
 img3() {
-    local c="$1" hv="$2"
-    printf '#!/bin/sh\necho %s\n' "$hv" > "$I3B/helm"; chmod +x "$I3B/helm"
+    local c="$1"
+    printf '#!/bin/sh\necho %s\n' "$2" > "$I3B/helm"; printf '#!/bin/sh\necho %s\n' "$3" > "$I3B/node"
+    printf '#!/bin/sh\necho %s\n' "$4" > "$I3B/buf"
+    printf '#!/bin/sh\necho "yq (https://github.com/mikefarah/yq/) version %s"\n' "$5" > "$I3B/yq"; chmod +x "$I3B"/*
     rm -rf "$IW"; mkdir -p "$IW/bin"; : > "$I3N/net.log"; OUT="$BOX/$c.out"
     env PATH="$I3B:$I3N:$IS:$IJQ:/usr/bin:/bin" STUB_ARCH="$IA" HEAVY_HELM=v4.2.4 HEAVY_NODE=26 HEAVY_BUF=1.72.0 HEAVY_YQ=v4.53.6 \
         bash "$BOX/install.sh" > "$OUT" 2>&1; RC=$?
     expect_rc "$c" 0
 }
-img3 IMG3 v4.2.4+gimage
+img3 IMG3 v4.2.4+gimage v26.12.1 1.72.0 v4.53.6
 if [ "$(grep -c 'ставлю' "$OUT")" -eq 0 ] && [ ! -s "$I3N/net.log" ] && [ "$(grep -c 'уже в образе' "$OUT")" -eq 4 ]; then ok
 else bad IMG3 "инструменты пина в PATH, а установка: «ставлю» $(grep -c 'ставлю' "$OUT"), обращений к сети $(wc -l < "$I3N/net.log"), «уже в образе» $(grep -c 'уже в образе' "$OUT") (ждали 0, 0, 4)"; fi
-img3 IMG3-twin v3.17.0+gold
-if [ "$(grep -c 'ставлю helm v4.2.4' "$OUT")" -eq 1 ] && [ "$(grep -c 'ставлю' "$OUT")" -eq 1 ] && [ -x "$IW/bin/helm" ]; then ok
-else bad IMG3-twin "helm иной версии в PATH: «ставлю helm» $(grep -c 'ставлю helm v4.2.4' "$OUT"), «ставлю» всего $(grep -c 'ставлю' "$OUT") (ждали 1 и 1, helm в bin)"; fi
+# img3_twin <случай> <инструмент> <строка «ставлю …»> <helm> <node> <buf> <yq>
+img3_twin() {
+    local c="$1" t="$2" line="$3"; shift 3
+    img3 "$c" "$@"
+    if [ "$(grep -c "ставлю $line" "$OUT")" -eq 1 ] && [ "$(grep -c 'ставлю' "$OUT")" -eq 1 ] && [ -x "$IW/bin/$t" ]; then ok
+    else bad "$c" "$t иной версии в PATH: «ставлю $line» $(grep -c "ставлю $line" "$OUT"), «ставлю» всего $(grep -c 'ставлю' "$OUT"), в bin $([ -x "$IW/bin/$t" ] && echo есть || echo нет) (ждали 1, 1, есть)"; fi
+}
+img3_twin IMG3-helm helm 'helm v4.2.4' v3.17.0+gold v26.12.1 1.72.0 v4.53.6
+img3_twin IMG3-node node 'node v26.11.1' v4.2.4+gimage v24.1.0 1.72.0 v4.53.6
+img3_twin IMG3-buf buf 'buf 1.72.0' v4.2.4+gimage v26.12.1 1.71.0 v4.53.6
+img3_twin IMG3-yq yq 'yq v4.53.6' v4.2.4+gimage v26.12.1 1.72.0 v4.53.5
 
 # KD1 — пара профиля: kind лишь клонам внешних операторов; продукт — 64 с причиной (ПОВЕРХНОСТЬ)
 fresh; go_run kd1 bash "$RUN" --request --profile kind --repo kacho
