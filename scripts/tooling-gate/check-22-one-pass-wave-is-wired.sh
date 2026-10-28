@@ -143,7 +143,7 @@ need(WAVE, w, ["if (noMap.length) return { ok: false, stage: 'предполёт
                "+ mapText(l) + (sqlLane(l) ? SQL_RULE : '') + '\\n' + FILES_RULE",
                "'issues', 'impact', 'report', 'lesson'] }",
                'if (r.ok) r = await trialIn(l, r)',
-               "`git push --dry-run origin HEAD:refs/heads/' + l.branch + '`",
+               "`git push --dry-run origin HEAD:refs/heads/' + r.branch + '`",
                "const METRICS = R + '/metrics.json'",
                "label: 'mech:metrics'",
                '; КРОМЕ держателей записей ведомостей',
