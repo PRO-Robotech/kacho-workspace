@@ -4178,6 +4178,7 @@ we_pins=0; for f in __init__.py __main__.py _uninstall.py _bundled/pip-25.1.1-py
     p_="$(grep -E "^${f//./\\.} [0-9a-f]{64}\$" "$WE/raw.sh" | awk '{print $2}')"
     if [ -n "$p_" ] && [ "$(grep -c "$p_" "$WE/raw.sh")" = 1 ]; then we_pins=$((we_pins + 1)); echo "s#$p_#$(sha256sum < "$WE/srv/ep/$f" | cut -d' ' -f1)#" >> "$WE/pins.sed"; fi
 done
+# shellcheck disable=SC2016  # образец текста шага ($ls_ — его переменная), не раскрытие здесь
 l_pin="$(grep -oE '\[ "\$ls_" = [0-9a-f]{64} \]' "$WE/raw.sh" | grep -oE '[0-9a-f]{64}')"
 l_dbl="$(cd "$WE/srv/loc" && { for f in en_US i18n i18n_ctype iso14651_t1 iso14651_t1_common translit_circle translit_cjk_compat translit_combining translit_compat translit_emojis translit_font translit_fraction translit_narrow translit_neutral translit_small translit_wide; do sha256sum "$f" | sed "s#  #  locales/#"; done; sha256sum UTF-8 | sed "s#  #  charmaps/#"; } | sha256sum | cut -d' ' -f1)"
 if [ "$we_pins" = 4 ] && [ -n "$l_pin" ] && [ "$(grep -c "$l_pin" "$WE/raw.sh")" = 1 ] && grep -q '^# wsenvwait-end$' "$WE/raw.sh"; then ok
@@ -4203,7 +4204,7 @@ we_case() {
 we_case WS7 0 -
 if cmp -s "$WE/srv/ep/_bundled/pip-25.1.1-py3-none-any.whl" "$WE/stdlib/ensurepip/_bundled/pip-25.1.1-py3-none-any.whl" && cmp -s "$WE/srv/ep/__init__.py" "$WE/stdlib/ensurepip/__init__.py" \
    && grep -qxF "I18NPATH=$WEK/dl/wsenv/i18n -c -i $WEK/dl/wsenv/i18n/locales/en_US -f $WEK/dl/wsenv/i18n/charmaps/UTF-8 en_US.UTF-8" "$WE/st/localedef.log" 2>/dev/null \
-   && [ ! -e "$WEK/dl/wsenv" ] && [ "$(wc -l < "$WE/st/curl.log")" = 21 ]; then ok
+   && [ ! -e "$WEK/dl/wsenv" ] && [ "$(wc -l < "$WE/st/curl.log" 2>/dev/null)" = 21 ]; then ok
 else OUT="$BOX/WS7.out"; bad WS7 "ensurepip не в stdlib, localedef позван не над загруженными источниками, каталог загрузки не снят либо загрузок не 21 ($(wc -l < "$WE/st/curl.log" 2>/dev/null))"; fi
 we_case WS7-have 0 - have down
 if [ ! -e "$WE/st/curl.log" ] && [ ! -e "$WE/st/localedef.log" ]; then ok; else bad WS7-have "среда уже в образе, а шаг тянул источники либо звал localedef"; fi

@@ -3162,7 +3162,7 @@ _bundled/pip-25.1.1-py3-none-any.whl 2913a38a2abf4ea6b64ab507bd9e967f3b53dc1ede7
 EPSUM
   mkdir -p "$ed" && cp -R /work/dl/wsenv/ep/. "$ed/" && chmod -R a+rX "$ed" || pf "ensurepip CPython v3.13.5 не поставлен (копия в $ed)"
 fi
-if ! locale -a 2> /dev/null | grep -qixE 'en_US\.utf-?8'; then
+if ! grep -qixE 'en_US\.utf-?8' <<< "$(locale -a 2> /dev/null)"; then
   command -v localedef > /dev/null 2>&1 || pf "локаль en_US.UTF-8: localedef нет в образе"
   gv="$(getconf GNU_LIBC_VERSION 2>/dev/null)"
   [ "$gv" = "glibc 2.41" ] || pf "локаль en_US.UTF-8: в образе «$gv», а сумма источников в шаге — лишь glibc 2.41"
@@ -3250,7 +3250,7 @@ for t in bash python3 git curl go node jq yq shellcheck bats; do
 done
 wx 'python3 -c "import yaml"' > /dev/null || tf "python3-yaml: модуль yaml не виден python3 подпроцесса с пустым окружением"
 v="$(wx 'python3 -c "import ensurepip; print(ensurepip.version())"')" || tf "ensurepip: модуль не виден python3 подпроцесса с пустым окружением — venv ghjob не создастся («$(tail -n 1 <<< "$v")»)"
-wx 'locale -a' | grep -qixE 'en_US\.utf-?8' || tf "локаль en_US.UTF-8 не установлена — residue-census K6 не выполнится"
+grep -qixE 'en_US\.utf-?8' <<< "$(wx 'locale -a')" || tf "локаль en_US.UTF-8 не установлена — residue-census K6 не выполнится"
 v="$(wx 'yq --version')"; case "$v" in *" v4."*) ;; *) tf "yq в PATH — «$(head -n 1 <<< "$v")», нужен v4 (mikefarah)" ;; esac
 v="$(wx 'shellcheck --version' | sed -n 's/^version: //p')"; [ "$v" = "$HEAVY_SHELLCHECK" ] || tf "shellcheck в PATH — «$v», пин конвейера $HEAVY_SHELLCHECK"
 v="$(wx 'bats --version')"; case "$v" in "Bats "*) ;; *) tf "bats не исполняется — «$(head -n 1 <<< "$v")»" ;; esac
