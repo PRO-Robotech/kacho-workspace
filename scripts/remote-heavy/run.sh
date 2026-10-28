@@ -2067,8 +2067,8 @@ ha() { case "$(uname -m)" in x86_64) echo "$1";; aarch64|arm64) echo arm64;; *) 
 # Инструмент той версии, что судит сверка среды (tools-check), уже в образе (образ слота, ws#1482) —
 # не ставится: та же форма версии, что у сверки; иначе — установка, как прежде.
 ih() { echo "remote-heavy: $1 — уже в образе ($2)" >&2; }
-hv="$(helm version --short 2>/dev/null)"; nv="$(node --version 2>/dev/null)"; bv="$(buf --version 2>/dev/null)"; yv="$(yq --version 2>/dev/null)"
-if [ -n "${HEAVY_HELM:-}" ] && case "$hv" in "$HEAVY_HELM"|"$HEAVY_HELM+"*) true;; *) false;; esac; then ih "helm $HEAVY_HELM" "$hv"
+ihv="$(helm version --short 2>/dev/null)"; inv="$(node --version 2>/dev/null)"; ibv="$(buf --version 2>/dev/null)"; iyv="$(yq --version 2>/dev/null)"
+if [ -n "${HEAVY_HELM:-}" ] && case "$ihv" in "$HEAVY_HELM"|"$HEAVY_HELM+"*) true;; *) false;; esac; then ih "helm $HEAVY_HELM" "$ihv"
 elif [ -n "${HEAVY_HELM:-}" ]; then
   echo "remote-heavy: ставлю helm $HEAVY_HELM" >&2
   a="$(ha amd64)" || pf "helm: архитектура $(uname -m) не поддержана"
@@ -2077,7 +2077,7 @@ elif [ -n "${HEAVY_HELM:-}" ]; then
     && echo "$(curl -fsSL --retry 3 "https://get.helm.sh/$f.sha256sum" | cut -d" " -f1)  $f" | sha256sum -c --quiet - \
     && tar -xzf "$f" -C helm "linux-$a/helm" && mv "helm/linux-$a/helm" /work/bin/helm ) || pf "helm $HEAVY_HELM не поставлен"
 fi
-if [ -n "${HEAVY_NODE:-}" ] && case "$nv" in "v$HEAVY_NODE"|"v$HEAVY_NODE."*) true;; *) false;; esac; then ih "node $HEAVY_NODE" "$nv"
+if [ -n "${HEAVY_NODE:-}" ] && case "$inv" in "v$HEAVY_NODE"|"v$HEAVY_NODE."*) true;; *) false;; esac; then ih "node $HEAVY_NODE" "$inv"
 elif [ -n "${HEAVY_NODE:-}" ]; then
   a="$(ha x64)" || pf "node: архитектура $(uname -m) не поддержана"
   v="$(curl -fsSL --retry 3 https://nodejs.org/dist/index.json | jq -r --arg m "v$HEAVY_NODE." "[.[] | .version | select(startswith(\$m) or . == (\$m | rtrimstr(\".\")))][0] // empty")"
@@ -2089,7 +2089,7 @@ elif [ -n "${HEAVY_NODE:-}" ]; then
     && tar -xzf "$f" -C /work/node --strip-components=1 ) || pf "node $v не поставлен"
   for b in node npm npx; do ln -sf "/work/node/bin/$b" "/work/bin/$b"; done
 fi
-if [ -n "${HEAVY_BUF:-}" ] && [ "$bv" = "$HEAVY_BUF" ]; then ih "buf $HEAVY_BUF" "$bv"
+if [ -n "${HEAVY_BUF:-}" ] && [ "$ibv" = "$HEAVY_BUF" ]; then ih "buf $HEAVY_BUF" "$ibv"
 elif [ -n "${HEAVY_BUF:-}" ]; then
   echo "remote-heavy: ставлю buf $HEAVY_BUF" >&2
   case "$(uname -m)" in x86_64) ba=x86_64;; aarch64|arm64) ba=aarch64;; *) pf "buf: архитектура $(uname -m) не поддержана";; esac
@@ -2099,7 +2099,7 @@ elif [ -n "${HEAVY_BUF:-}" ]; then
     && grep -E "^[0-9a-f]{64}  $f\$" sums | sha256sum -c --quiet --strict - \
     && install -m 0755 "$f" /work/bin/buf ) || pf "buf $HEAVY_BUF не поставлен"
 fi
-if [ -n "${HEAVY_YQ:-}" ] && case "$yv" in *mikefarah*" version $HEAVY_YQ") true;; *) false;; esac; then ih "yq $HEAVY_YQ" "mikefarah"
+if [ -n "${HEAVY_YQ:-}" ] && case "$iyv" in *mikefarah*" version $HEAVY_YQ") true;; *) false;; esac; then ih "yq $HEAVY_YQ" "mikefarah"
 elif [ -n "${HEAVY_YQ:-}" ]; then
   echo "remote-heavy: ставлю yq $HEAVY_YQ" >&2
   a="$(ha amd64)" || pf "yq: архитектура $(uname -m) не поддержана"
