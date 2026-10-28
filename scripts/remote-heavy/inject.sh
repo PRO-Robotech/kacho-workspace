@@ -4397,7 +4397,8 @@ wf_judge() {
         ($v.steps // [] | .[] | .uses // empty | select(test("@[0-9a-f]{40}$") | not) | "\($k): uses не по полному SHA — \(.)")),
       "заданий \(.jobs // {} | length) · с секретами \([.jobs // {} | .[] | select(priv)] | length)"' <<< "$js"
 }
-if command -v yq > /dev/null && yq --version 2>/dev/null | grep -q ' v4\.'; then
+YQV="$(yq --version 2>/dev/null || true)"
+if grep -q ' v4\.' <<< "$YQV"; then
     W0="$(wf_judge "$WFS")"
     if [ "$W0" = "заданий 2 · с секретами 1" ]; then ok; else bad IMG4 "slot-image.yaml: $(tr '\n' ' ' <<< "$W0")(ждали «заданий 2 · с секретами 1» без находок)"; fi
     # wf_inj <случай> <выражение yq> <образец находки> — порча копии краснеет своей находкой.
