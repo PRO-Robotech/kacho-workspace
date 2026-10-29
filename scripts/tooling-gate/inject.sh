@@ -3888,14 +3888,18 @@ L30=scripts/ci-read-expected.tsv
 W30=.github/workflows/ci.yaml
 led30() { perl -pi -e 's/^(PRO-Robotech\/kacho-workspace\tmain\t)\d+/${1}'"$2"'/' "$1/$L30"; }
 b="$(mksandbox)"; run 0 "$b" "чистое дерево — молчит" "$C30"
-b="$(mksandbox)"; led30 "$b" 12
-run_says 1 "$b" "инъекция: ведомость 12 при 15 заданиях (прежнее состояние) — краснеет с координатой" "$C30" "$L30:"
-b="$(mksandbox)"; led30 "$b" 16
-run_says 1 "$b" "инъекция: ведомость больше числа заданий — краснеет (точное число, не потолок)" "$C30" "производит 15 заданий"
+b="$(mksandbox)"; led30 "$b" 15
+run_says 1 "$b" "инъекция: ведомость 15 при 17 заданиях (прежнее состояние) — краснеет с координатой" "$C30" "$L30:"
+b="$(mksandbox)"; led30 "$b" 18
+run_says 1 "$b" "инъекция: ведомость больше числа заданий — краснеет (точное число, не потолок)" "$C30" "производит 17 заданий"
 b="$(mksandbox)"; perl -ni -e 'print unless /^PRO-Robotech\/kacho-workspace\tmain\t/' "$b/$L30"
 run_says 1 "$b" "инъекция: строки ствола воркспейса нет — краснеет" "$C30" "строк «PRO-Robotech/kacho-workspace main» 0"
 b="$(mksandbox)"; perl -pi -e 's/^(    needs: \[bats-and-shellcheck-shard-1, bats-and-shellcheck-shard-2), bats-and-shellcheck-shard-3\]/$1]/' "$b/$W30"
 run_says 1 "$b" "инъекция: шард 3 снят из needs свода — краснеет с именем шарда" "$C30" "«bats-and-shellcheck-shard-3» не входит в needs"
+b="$(mksandbox)"; perl -pi -e 's/^(    needs: \[hook-proofs-shard-1), hook-proofs-shard-2\]/$1]/' "$b/$W30"
+run_says 1 "$b" "инъекция: шард чтения CI снят из needs свода hook-proofs — краснеет с именем шарда" "$C30" "«hook-proofs-shard-2» не входит в needs"
+b="$(mksandbox)"; perl -0pi -e 's/(\n  hook-proofs:\n(?:    .*\n)*?)    if: always\(\)\n/$1/' "$b/$W30"
+run_says 1 "$b" "инъекция: у свода hook-proofs снят if: always() — краснеет" "$C30" "у свода «hook-proofs» нет if: always()"
 b="$(mksandbox)"; perl -0pi -e 's/(\n  bats-and-shellcheck:\n(?:    .*\n)*?)    if: always\(\)\n/$1/' "$b/$W30"
 run_says 1 "$b" "инъекция: у свода снят if: always() — краснеет" "$C30" "нет if: always()"
 b="$(mksandbox)"; perl -pi -e 's/^    name: доказательства инструментов оснастки · шард 1 из 3$/    name: bats-and-shellcheck · шард 1 из 3/' "$b/$W30"
