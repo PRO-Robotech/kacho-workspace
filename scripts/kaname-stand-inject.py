@@ -901,11 +901,55 @@ class TrustBoundaries(unittest.TestCase):
             ('verdict-without-shards', 'e2e-newman.yml', lambda d: d['jobs'].update({'chart-own-verdict': {
                 'needs': ['chart-own'], 'runs-on': 'ubuntu-latest', 'steps': [{'run': 'true'}]}}),
              'chart-own verdict without shard matrix')]
+        # ws#1404: chart.yml kaname be652b042 (kaname#964) — `render` и `publish` только по метке
+        # версии. Класс ведомости RELEASE_ONLY: строки поимённо, запуск лишь `on: push: tags`;
+        # в ожидаемое стенда и в ci_read они не входят. ci/e2e/docker/pr-rule — снимки matrix:
+        # их наборы заданий те же на be652b042.
+        release = dict(matrix, **{'chart.yml': fixture('chart-workflow-native.yml')})
+        render = lambda d: d['jobs']['render']
+        cases += [
+            ('release-lawful', None, None, None),
+            ('release-tag-pattern-twin', 'chart.yml', lambda d: d['on']['push'].update(tags=['v*']), None),
+            ('release-step-twin', 'chart.yml', lambda d: render(d)['steps'].append({'run': 'true'}), None),
+            ('release-workflow-absent-twin', 'chart.yml', 'unlink', None),
+            ('release-pull-request', 'chart.yml', lambda d: d['on'].update(pull_request={'branches': ['main']}),
+             'release-only job runs outside a version tag: chart.yml:publish, chart.yml:render (on: pull_request)'),
+            ('release-push-branch', 'chart.yml', lambda d: d['on']['push'].update(branches=['main']),
+             'release-only job runs outside a version tag: chart.yml:publish, chart.yml:render (on: push.branches)'),
+            ('release-push-bare', 'chart.yml', lambda d: d.update({'on': 'push'}),
+             'release-only job runs outside a version tag: chart.yml:publish, chart.yml:render (on: push)'),
+            ('release-push-list', 'chart.yml', lambda d: d.update({'on': ['push']}),
+             'release-only job runs outside a version tag: chart.yml:publish, chart.yml:render (on: push)'),
+            ('release-dispatch', 'chart.yml', lambda d: d['on'].update(workflow_dispatch=None),
+             'release-only job runs outside a version tag: chart.yml:publish, chart.yml:render (on: workflow_dispatch)'),
+            ('release-tags-empty', 'chart.yml', lambda d: d['on']['push'].update(tags=[]),
+             'release-only job runs outside a version tag: chart.yml:publish, chart.yml:render (on: push.tags)'),
+            # Приёмка check-verifier (мутанты MA2b, MA5, `on: {}`): пустой элемент рядом с законным
+            # образцом — близнец два образца; фильтр рядом с `tags` любым ключом, не только
+            # `branches`; `on: {}` — событий ноль: запуска по метке нет, это не «вне метки ноль».
+            ('release-two-tag-patterns-twin', 'chart.yml',
+             lambda d: d['on']['push'].update(tags=['v*', 'chart-*']), None),
+            ('release-tag-element-empty', 'chart.yml', lambda d: d['on']['push'].update(tags=['v*', '']),
+             'release-only job runs outside a version tag: chart.yml:publish, chart.yml:render (on: push.tags)'),
+            ('release-push-branches-ignore', 'chart.yml',
+             lambda d: d['on']['push'].update({'branches-ignore': ['main']}),
+             'release-only job runs outside a version tag: chart.yml:publish, chart.yml:render (on: push.branches-ignore)'),
+            ('release-push-paths', 'chart.yml', lambda d: d['on']['push'].update(paths=['deploy/**']),
+             'release-only job runs outside a version tag: chart.yml:publish, chart.yml:render (on: push.paths)'),
+            ('release-on-empty', 'chart.yml', lambda d: d.update({'on': {}}),
+             'release-only job runs outside a version tag: chart.yml:publish, chart.yml:render (on: push)'),
+            ('release-extra-job', 'chart.yml', lambda d: d['jobs'].update(lint=copy.deepcopy(render(d))),
+             'CI job outside the Kaname ledger: chart.yml:lint'),
+            ('release-row-without-job', 'chart.yml', lambda d: d['jobs'].pop('render'),
+             'Kaname ledger row without CI job: chart.yml:render'),
+            ('release-job-elsewhere', 'ci.yml', lambda d: d['jobs'].update(render=copy.deepcopy(lint)),
+             'CI job outside the Kaname ledger: ci.yml:render')]
         def where(co, name):
             return co / (name if '/' in name else '.github/workflows/' + name)
         for mutation, target, change, refused in cases:
             sources = (plain if mutation == 'lawful-plain' else shards if mutation.startswith('shards-')
-                       else chart if mutation.startswith('chart-') else matrix)
+                       else chart if mutation.startswith('chart-') else release if mutation.startswith('release-')
+                       else matrix)
             with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory); co = root / 'checkout'; co.mkdir()
                 wf = co / '.github/workflows'; wf.mkdir(parents=True)
@@ -957,9 +1001,12 @@ class TrustBoundaries(unittest.TestCase):
                 self.assertEqual(actual.get('unit_shards'), width or None)
                 self.assertEqual(sum('unit_shard' in x for x in actual['definitions'].values()), width)
                 self.assertEqual(sum(x['executor'] == 'external' for x in actual['definitions'].values()), 4 + width)
+                released = 2 * (sources is release)
                 self.assertEqual(actual['ledger'], {'workflows': sorted(n for n in sources if '/' not in n),
-                                                    'jobs': 27 + bool(width) + planned,
-                                                    'staged': 6 + bool(width), 'ci_read': 21 + planned})
+                                                    'jobs': 27 + bool(width) + planned + released,
+                                                    'staged': 6 + bool(width), 'ci_read': 21 + planned,
+                                                    'release_only': released})
+                self.assertFalse([n for n in actual['jobs'] if n.startswith('chart.yml:')])
                 if target is None: continue
                 if change == 'unlink': where(co, target).unlink()
                 elif target.endswith('.txt'):
@@ -977,6 +1024,81 @@ class TrustBoundaries(unittest.TestCase):
                 self.assertEqual(bad.returncode, 2, bad.stdout + bad.stderr)
                 self.assertTrue(bad.stdout.startswith('VOID\t'), bad.stdout)
                 self.assertIn(refused, bad.stdout)
+
+    def test_detached_checkout_ref_is_the_single_branch_at_head(self):
+        # ws#1426: копия `git worktree add --detach` и клон bundle в pod remote-reader — голова
+        # отсоединена. Ветка источника без --ref — единственное имя ветки (refs/heads, origin/*),
+        # чья вершина = HEAD; ноль имён или несколько — отказ с причиной, а не «producer command
+        # failed: git». Законные близнецы: присоединённая голова, явный --ref, origin/HEAD вне счёта.
+        import json, os, subprocess, tempfile
+        def fixture(name): return (HERE / 'kaname-stand-fixtures' / name).read_bytes()
+        sources = {'ci.yml': fixture('ci-workflow-native.yml'),
+                   'e2e-newman.yml': fixture('e2e-workflow-matrix-native.yml'),
+                   'docker-build.yml': fixture('image-workflow-native.yml'),
+                   'pr-rule.yml': fixture('pr-rule-workflow-native.yml')}
+        cases = [  # (сцена, подготовка refs, явный --ref, ожидаемая ветка либо фрагмент отказа)
+            ('attached-twin', [], None, 'refs/heads/work'),
+            ('detached-origin-only', [('update-ref', 'refs/remotes/origin/955', 'HEAD'),
+                                      ('checkout', '-q', '--detach'), ('branch', '-qD', 'work')],
+             None, 'refs/heads/955'),
+            ('detached-local-and-origin-same-name', [('branch', '-q', '955'),
+                                                     ('update-ref', 'refs/remotes/origin/955', 'HEAD'),
+                                                     ('checkout', '-q', '--detach'), ('branch', '-qD', 'work')],
+             None, 'refs/heads/955'),
+            ('detached-origin-head-twin', [('update-ref', 'refs/remotes/origin/955', 'HEAD'),
+                                           ('symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/955'),
+                                           ('checkout', '-q', '--detach'), ('branch', '-qD', 'work')],
+             None, 'refs/heads/955'),
+            ('detached-explicit-ref-twin', [('checkout', '-q', '--detach'), ('branch', '-q', 'other')],
+             'refs/heads/955', 'refs/heads/955'),
+            ('detached-no-branch', [('checkout', '-q', '--detach'), ('branch', '-qD', 'work')], None,
+             'detached checkout without a source branch at HEAD: pass --ref refs/heads/<branch>'),
+            ('detached-branch-elsewhere', [('checkout', '-q', '--detach'), ('commit', '-q', '--allow-empty', '-m', 'x'),
+                                           ('update-ref', 'refs/remotes/origin/955', 'HEAD~1')], None,
+             'detached checkout without a source branch at HEAD: pass --ref refs/heads/<branch>'),
+            ('detached-ambiguous', [('update-ref', 'refs/remotes/origin/955', 'HEAD'),
+                                    ('checkout', '-q', '--detach')], None,
+             'detached checkout with several source branches at HEAD (955, work): pass --ref refs/heads/<branch>'),
+            # Приёмка check-verifier (мутанты MB4, MB5): у каждой ветви приоритета — второй кандидат.
+            # Близнец `detached-ambiguous` без отсоединения: присоединённая ветка решает сама, чужая
+            # ветка на HEAD её не оспаривает. Близнец `detached-origin-only` с чужим remote: ветка
+            # источника — лишь `origin/*`, `upstream/*` в счёт не входит.
+            ('attached-with-origin-other-at-head', [('update-ref', 'refs/remotes/origin/955', 'HEAD')], None,
+             'refs/heads/work'),
+            ('detached-foreign-remote-only', [('update-ref', 'refs/remotes/upstream/955', 'HEAD'),
+                                              ('checkout', '-q', '--detach'), ('branch', '-qD', 'work')], None,
+             'detached checkout without a source branch at HEAD: pass --ref refs/heads/<branch>')]
+        for scene, prepare, ref, outcome in cases:
+            with self.subTest(scene=scene), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory); co = root / 'checkout'
+                (co / '.github/workflows').mkdir(parents=True)
+                env = dict(os.environ); env.pop('LANDING_PRECHECK_WS', None)
+                def git(*args):
+                    return subprocess.run(['bash', '-c',
+                        '. "$1"; sandbox_git_home "$2" || exit; shift 2; sandbox_run git "$@"',
+                        'fixture', str(HERE / 'lib/sandbox-git-home.sh'), str(root / 'git-home'),
+                        '-C', str(co), *args], env=env,
+                        check=True, capture_output=True, text=True).stdout.strip()
+                git('init', '-q', '-b', 'work')
+                git('remote', 'add', 'origin', 'https://github.com/PRO-Robotech/kaname.git')
+                for name, raw in sources.items():
+                    (co / '.github/workflows' / name).write_bytes(raw)
+                git('add', '.'); git('commit', '-qm', 'lawful source inventory')
+                base = git('rev-parse', 'HEAD')
+                for step in prepare:
+                    git(*step)
+                result = subprocess.run(['bash', str(HERE / 'stand-report.sh'), 'expect',
+                    '--checkout', str(co), '--head', git('rev-parse', 'HEAD'), '--base', base,
+                    '--draft', 'false', *(['--ref', ref] if ref else [])], env=env,
+                    capture_output=True, text=True, timeout=30)
+                if outcome.startswith('refs/heads/'):
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertEqual(json.loads(result.stdout)['ref'], outcome)
+                    continue
+                self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                self.assertTrue(result.stdout.startswith('VOID\t'), result.stdout)
+                self.assertIn(outcome, result.stdout)
+                self.assertNotIn('producer command failed', result.stdout)
 
     def test_canonical_shell_entrypoint_reaches_stage_check(self):
         # Real shell dispatcher and parser, with no network or replacement helper.
