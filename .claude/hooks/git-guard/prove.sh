@@ -133,8 +133,8 @@ echo "── перечни стража выведены из git: опции �
 for sub in $(git --list-cmds=main 2>/dev/null | sort -u); do
     # gui-команды открыли бы окно; filter-branch по -h ждёт (измерено: 3 с до timeout)
     case "$sub" in gui|citool|gitk|instaweb|web--browse|difftool|mergetool|filter-branch) continue ;; esac
-    help="$(env -u DISPLAY -u WAYLAND_DISPLAY LC_ALL=C GIT_PAGER=cat timeout 3 git "$sub" -h < /dev/null 2>&1)"
-    [ $? = 124 ] && { timed=$((timed + 1)); continue; }
+    help="$(env -u DISPLAY -u WAYLAND_DISPLAY LC_ALL=C GIT_PAGER=cat timeout 3 git "$sub" -h < /dev/null 2>&1)"; st=$?
+    [ "$st" = 124 ] && { timed=$((timed + 1)); continue; }
     scanned=$((scanned + 1))
     printf '%s\n' "$help" | grep -i 'hook' | grep -E '^[[:space:]]+-' | while IFS= read -r line; do
         opt="$(printf '%s\n' "$line" | grep -oE -- '--(\[no-\])?[a-z][a-z-]*' | head -n 1)"
