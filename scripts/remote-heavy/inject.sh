@@ -178,7 +178,10 @@
 #      node, только helm → 0 и инструменты в bin; сумма helm не сошлась, сумма
 #      node не сошлась, чужая архитектура → 125 с названной причиной; мажор →
 #      последний выпуск мажора; пин 26.1 при v26.11.x в индексе → v26.1.x (не
-#      v26.11.x); полный пин 26.1.0 → ровно v26.1.0
+#      v26.11.x); полный пин 26.1.0 → ровно v26.1.0; E7-sums (ws#1501): сумма свежего
+#      404 либо без строки архива → предыдущий выпуск и пропуск назван; сумма есть →
+#      свежий; 404 у всех → 125 с перечнем осмотренного; сумма 503 → 125, не откат;
+#      полный пин без суммы → 125 (на другой выпуск не съезжает); без суммы node нет
 #   EY (ws#1296) yq: пин `go install …mikefarah/yq/v4@vX` ревизии → HEAVY_YQ в
 #      окружении run, строка «Job создан» его называет; сверка ИСПОЛНЕНИЕМ: yq нет,
 #      python-yq, чужой вендор той же версии, другая версия, версия-префикс → 125
@@ -2048,23 +2051,36 @@ printf '#!/bin/sh\necho v4.2.4+gprobe\n' > "$IA/linux-amd64/helm"; chmod +x "$IA
 tar -czf "$IA/helm-v4.2.4-linux-amd64.tar.gz" -C "$IA" linux-amd64
 # Архивы node — у каждого выпуска свой node, печатающий свою версию: какой
 # выпуск поставлен, судится по node --version из bin, а не по строке установки.
-for nv in v26.11.1 v26.1.2 v26.1.0; do
+for nv in v26.11.1 v26.10.0 v26.1.2 v26.1.0; do
     mkdir -p "$IA/node-$nv-linux-x64/bin"
     printf '#!/bin/sh\necho %s\n' "$nv" > "$IA/node-$nv-linux-x64/bin/node"; chmod +x "$IA/node-$nv-linux-x64/bin/node"
     tar -czf "$IA/node-$nv-linux-x64.tar.gz" -C "$IA" "node-$nv-linux-x64"
 done
 cat > "$IS/curl" <<'STUB'
 #!/bin/bash
-o=""; u=""
-while [ "$#" -gt 0 ]; do case "$1" in -o) o="$2"; shift 2 ;; --retry) shift 2 ;; -*) shift ;; *) u="$1"; shift ;; esac; done
+o=""; u=""; w=""; fl=""; code=200
+while [ "$#" -gt 0 ]; do case "$1" in -o) o="$2"; shift 2 ;; -w) w="$2"; shift 2 ;; --retry) shift 2 ;; --*) shift ;; -*f*) fl=1; shift ;; -*) shift ;; *) u="$1"; shift ;; esac; done
 out() { if [ -n "$o" ]; then cat > "$o"; else cat; fi; }
 Z=0000000000000000000000000000000000000000000000000000000000000000
+# in_list <выпуск> <список через пробел> — выпуск назван окружением случая
+in_list() { case " $2 " in *" $1 "*) return 0 ;; esac; return 1; }
 case "$u" in
   */index.json) echo '[{"version":"v27.0.0"},{"version":"v26.11.1"},{"version":"v26.10.0"},{"version":"v26.1.2"},{"version":"v26.1.0"}]' | out ;;
   *.sha256sum) a="${u##*/}"; ( cd "$STUB_ARCH" && sha256sum "${a%.sha256sum}" ) | if [ -n "${STUB_BADSUM:-}" ]; then sed 's/^[0-9a-f]*/'"$Z"'/'; else cat; fi | out ;;
-  # Как настоящий SHASUMS256.txt — строки всех архивов; при STUB_BADSUM_NODE сумма
-  # каждой строки не сходится, а имя файла на месте (grep строку находит).
-  */SHASUMS256.txt) ( cd "$STUB_ARCH" && sha256sum node-*.tar.gz ) | if [ -n "${STUB_BADSUM_NODE:-}" ]; then sed 's/^[0-9a-f]*/'"$Z"'/'; else cat; fi | out ;;
+  # Как настоящий SHASUMS256.txt выпуска — строки ЕГО архивов и строка чужой
+  # архитектуры (приманка той же формы); при STUB_BADSUM_NODE сумма каждой строки не
+  # сходится, а имя файла на месте (grep строку находит). ws#1501: выпуск из
+  # STUB_NOSUMS — 404 (индекс назвал его раньше, чем выложены суммы); из
+  # STUB_SUMS_NOROW — файл есть, строки архива linux нет; из STUB_SUMS_503 — 503.
+  */SHASUMS256.txt)
+    r="${u%/SHASUMS256.txt}"; r="${r##*/}"
+    if in_list "$r" "${STUB_NOSUMS:-}"; then code=404; echo "Not Found" | out
+    elif in_list "$r" "${STUB_SUMS_503:-}"; then code=503; echo "Service Unavailable" | out
+    else
+      { echo "$Z  node-$r-darwin-arm64.tar.gz"
+        in_list "$r" "${STUB_SUMS_NOROW:-}" || ( cd "$STUB_ARCH" && for x in node-"$r"-*.tar.gz; do [ ! -e "$x" ] || sha256sum "$x"; done ); } \
+        | if [ -n "${STUB_BADSUM_NODE:-}" ]; then sed 's/^[0-9a-f]*/'"$Z"'/'; else cat; fi | out
+    fi ;;
   *.tar.gz) cat "$STUB_ARCH/${u##*/}" | out ;;
   # Выпуск buf (ws#1110): sha256.txt — строки всех бинарей и архивов, как настоящий.
   */bufbuild/buf/releases/download/*/sha256.txt) ( cd "$STUB_ARCH/buf" && sha256sum buf-Linux-* ) | if [ -n "${STUB_BADSUM_BUF:-}" ]; then sed 's/^[0-9a-f]*/'"$Z"'/'; else cat; fi | out ;;
@@ -2076,6 +2092,9 @@ case "$u" in
   */mikefarah/yq/releases/download/*/yq_linux_*) cat "$STUB_ARCH/yq/${u##*/}" | out ;;
   *) echo "двойник curl: адрес не знаком" >&2; exit 22 ;;
 esac
+# Как настоящий curl: -w печатает код ответа после тела; -f при коде ≥ 400 — 22.
+case "$w" in "") ;; "%{http_code}") printf '%s' "$code" ;; *) echo "двойник curl: формат -w «$w» не знаком" >&2; exit 2 ;; esac
+[ -z "$fl" ] || [ "$code" -lt 400 ] || exit 22
 STUB
 # shellcheck disable=SC2016  # раскрывается в двойнике uname
 printf '#!/bin/sh\necho "${STUB_ARCH_M:-x86_64}"\n' > "$IS/uname"
@@ -2137,12 +2156,33 @@ if [ -e "$IW/bin/node" ] && "$IW/bin/node" --version >/dev/null 2>&1; then OUT="
 # node_installed <случай> <пин> <выпуск> — пин разрешён в <выпуск>: node из bin
 # печатает его (архив каждого выпуска несёт свой node).
 node_installed() {
-    install_case "$1" "" "$2" 0 "node"
+    local name="$1" pin="$2" rel="$3"; shift 3
+    install_case "$name" "" "$pin" 0 "node" "$@"
     local got; got="$("$IW/bin/node" --version 2>/dev/null)"
-    if [ "$got" = "$3" ]; then ok; else bad "$1" "пин $2 разрешён в «$got», ждали $3"; fi
+    if [ "$got" = "$rel" ]; then ok; else bad "$name" "пин $pin разрешён в «$got», ждали $rel"; fi
 }
 node_installed E7-minor 26.1 v26.1.2
 node_installed E7-exact 26.1.0 v26.1.0
+# E7-sums (ws#1501): индекс называет выпуск раньше, чем выложен его SHASUMS256.txt
+# (v26.13.0: архив 200, сумма 404). Свежий без суммы пропускается и называется, ставится
+# предыдущий; сумма есть — свежий; сумм нет ни у одного — отказ с перечнем; иной ответ
+# сервера сумм — отказ, а не откат на старый выпуск; без суммы в bin node нет.
+node_absent() { if [ -e "$IW/bin/node" ] && "$IW/bin/node" --version >/dev/null 2>&1; then OUT="$BOX/$1.out"; bad "$1" "node без опубликованной суммы исполним из bin"; else ok; fi; }
+node_installed E7-sums-fresh 26 v26.11.1
+node_installed E7-sums-404 26 v26.10.0 STUB_NOSUMS=v26.11.1
+if grep -qF 'remote-heavy: node — сумма не опубликована: v26.11.1 (404); беру v26.10.0' "$BOX/E7-sums-404.out"; then ok
+else OUT="$BOX/E7-sums-404.out"; bad E7-sums-404 "пропущенный выпуск без суммы не назван"; fi
+if grep -q 'сумма не опубликована' "$BOX/E7-sums-fresh.out"; then OUT="$BOX/E7-sums-fresh.out"; bad E7-sums-fresh "при опубликованной сумме назван пропуск"; else ok; fi
+node_installed E7-sums-norow 26 v26.10.0 STUB_SUMS_NOROW=v26.11.1
+if grep -qF 'v26.11.1 (строки архива нет); беру v26.10.0' "$BOX/E7-sums-norow.out"; then ok
+else OUT="$BOX/E7-sums-norow.out"; bad E7-sums-norow "выпуск без строки архива в сумме не назван"; fi
+install_case E7-sums-none "" 26 125 "node: под пин 26 нет выпуска с опубликованной суммой архива linux-x64 — осмотрено: v26.11.1 (404) v26.10.0 (404) v26.1.2 (404) v26.1.0 (строки архива нет)" \
+    STUB_NOSUMS="v26.11.1 v26.10.0 v26.1.2" STUB_SUMS_NOROW=v26.1.0
+node_absent E7-sums-none
+install_case E7-sums-503 "" 26 125 "node: SHASUMS256.txt выпуска v26.11.1 — HTTP 503" STUB_SUMS_503=v26.11.1
+node_absent E7-sums-503
+install_case E7-sums-exact "" 26.1.0 125 "node: под пин 26.1.0 нет выпуска с опубликованной суммой" STUB_NOSUMS=v26.1.0
+node_absent E7-sums-exact
 if [ "$(cat "$BOX/E7-both.out" 2>/dev/null | grep -c 'ставлю node v26.11.1')" -eq 1 ]; then ok
 else OUT="$BOX/E7-both.out"; bad E7 "мажор 26 разрешён не в последний выпуск 26 (v26.11.1)"; fi
 # E8 пины законными формами YAML (ключи шага до uses, поточный шаг) → те же пины
