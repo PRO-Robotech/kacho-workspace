@@ -53,6 +53,7 @@ DECLARED="
 .claude/hooks/class-guard/prove.sh
 .claude/hooks/docfresh/prove.sh
 .claude/hooks/gh-api-guard/prove.sh
+.claude/hooks/git-guard/prove.sh
 .claude/hooks/heavy-guard/prove.sh
 .claude/hooks/no-wait-guard/prove.sh
 "
