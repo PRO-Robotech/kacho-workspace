@@ -1069,7 +1069,7 @@ console.log('== предусловия раздачи — до исполнит�
 }
 
 console.log('== операторы: точная голова и порядок cluster → publish → hosted')
-for (const repo of ['PRO-Robotech/kaname-iam-operator', 'PRO-Robotech/registry-operator', 'PRO-Robotech/vault-operator']) {
+for (const repo of ['PRO-Robotech/registry-operator', 'PRO-Robotech/vault-operator']) {
   const opArgs = { ...args, repo }
   let q = await run({ args: opArgs, plan: [P('r0.json')] })
   const local = idx(q.calls, 'mech:assemble-local:1'), cluster = idx(q.calls, 'mech:operator-cluster:1'), publish = idx(q.calls, 'mech:operator-publish:1'), hosted = idx(q.calls, 'mech:stand:0')

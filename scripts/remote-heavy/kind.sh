@@ -73,15 +73,14 @@ kind|*|0|8265|13992"
 # у DIND_RES (собственный расход демона); предел выше: в dind живут узел kind (до 2,9 ГиБ,
 # строка stand heavy-slot.sh), реестр и сборка образов группы (docker build).
 KIND_DIND_RES='100m|8|256Mi|12Gi'
-KIND_REPOS='vault-operator kaname-iam-operator registry-operator'
+KIND_REPOS='vault-operator registry-operator'
 # Личность оператора (Ф1, Ф2): --repo|модуль go.mod|корневой коммит истории|канонический
 # удалённый репозиторий (ls-remote). Корень — `git rev-list --max-parents=0 --all` клона
 # канонического (2026-10-24: у каждого ровно один). Маркеры — граница, по которой inject.sh
 # подменяет таблицу фикстурой (клон пробы со своим корнем и каноническим — каталог).
 # kind-operators-begin
 KIND_OPERATORS='registry-operator|github.com/PRO-Robotech/registry-operator|39f27cd75c3c161675ced5c315e8e2f714f263fa|git@gitlab.beget.ru:cloud/k8s/controllers/registry-operator.git
-vault-operator|github.com/PRO-Robotech/vault-operator|cc0bb2ad55b81f8e1a448b06c5baa77c719d9f01|https://github.com/PRO-Robotech/vault-operator.git
-kaname-iam-operator|github.com/PRO-Robotech/kaname-iam-operator|4220c2646b618c327ed33d127348056dcfa49b43|https://github.com/PRO-Robotech/kaname-iam-operator.git'
+vault-operator|github.com/PRO-Robotech/vault-operator|cc0bb2ad55b81f8e1a448b06c5baa77c719d9f01|https://github.com/PRO-Robotech/vault-operator.git'
 # kind-operators-end
 # Образ пробы исполнимости — по имени docker.io: демон тянет его через своё зеркало
 # (--registry-mirror) с откатом на docker.io. Ссылка с явным хостом зеркала обходит и

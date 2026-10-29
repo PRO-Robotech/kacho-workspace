@@ -80,14 +80,14 @@ MUTANTS = [
      "if [ \"$n\" -ge \"$MAX_PAR\" ]; then"),
     # СРЕДА ВОРКСПЕЙСА (ws#1304): профиль ws — репозиторий, провязка сверки, шаги образа без go.
     ('ws-repo-off', 'WS1', 'клон воркспейса не принят run.sh: профиль ws без репозитория',
-     'case "$REPO" in kacho|kaname|corelib|kacho-workspace|vault-operator|kaname-iam-operator|registry-operator) ;;',
-     'case "$REPO" in kacho|kaname|corelib|vault-operator|kaname-iam-operator|registry-operator) ;;'),
+     'case "$REPO" in kacho|kaname|corelib|kacho-workspace|vault-operator|registry-operator) ;;',
+     'case "$REPO" in kacho|kaname|corelib|vault-operator|registry-operator) ;;'),
     # ВНЕШНИЕ ОПЕРАТОРЫ (ws#1303): run.sh принимает их клоны и в прогоне, и в --available.
     ('op-repo-off', 'OP1', 'клон внешнего оператора не принят run.sh: прогон отказывает 64',
-     'case "$REPO" in kacho|kaname|corelib|kacho-workspace|vault-operator|kaname-iam-operator|registry-operator) ;;',
+     'case "$REPO" in kacho|kaname|corelib|kacho-workspace|vault-operator|registry-operator) ;;',
      'case "$REPO" in kacho|kaname|corelib|kacho-workspace|vault-operator) ;;'),
     ('op-avail-off', 'QR-op', 'клон внешнего оператора не принят --available: слот не войдёт в кластер',
-     "case \"$AV_REPO\" in ''|kacho|kaname|corelib|kacho-workspace|vault-operator|kaname-iam-operator|registry-operator) ;;",
+     "case \"$AV_REPO\" in ''|kacho|kaname|corelib|kacho-workspace|vault-operator|registry-operator) ;;",
      "case \"$AV_REPO\" in ''|kacho|kaname|corelib|kacho-workspace) ;;"),
     ('ws-check-unwired', 'WS1', 'сверка среды воркспейса не провязана в подготовку run',
      '$WSCHECK_SH\n$WSUSER_SH"',
@@ -318,8 +318,24 @@ MUTANTS = [
      r'''"$@" >&"$fd" 2>&1; rc=0'''),
     ("red-tee-pipe", "RG8", "копия вывода — трубой: фоновый писатель держит шаг до срока Job",
      r'''  exec {fd}> >(tee /work/heavy-cmd.out); tp=$!
+  if [ "${HEAVY_OPERATOR_RECEIPT:-}" = 1 ]; then
+    local source_clean=clean source_status source_head source_tree
+    source_status="$(git status --porcelain --untracked-files=all)" || source_clean=dirty
+    source_head="$(git rev-parse HEAD)" || source_clean=dirty
+    source_tree="$(git rev-parse 'HEAD^{tree}')" || source_clean=dirty
+    [ -z "$source_status" ] || source_clean=dirty
+    printf 'REMOTE_SOURCE_V1 before %s %s %s\n' "$source_head" "$source_tree" "$source_clean"
+  fi
   "$@" >&"$fd" 2>&1; rc=$?''',
      r'''  tp=0
+  if [ "${HEAVY_OPERATOR_RECEIPT:-}" = 1 ]; then
+    local source_clean=clean source_status source_head source_tree
+    source_status="$(git status --porcelain --untracked-files=all)" || source_clean=dirty
+    source_head="$(git rev-parse HEAD)" || source_clean=dirty
+    source_tree="$(git rev-parse 'HEAD^{tree}')" || source_clean=dirty
+    [ -z "$source_status" ] || source_clean=dirty
+    printf 'REMOTE_SOURCE_V1 before %s %s %s\n' "$source_head" "$source_tree" "$source_clean"
+  fi
   "$@" 2>&1 | tee /work/heavy-cmd.out; rc="${PIPESTATUS[0]}"'''),
     ("red-unwired", "RG1", "команда идёт мимо шага красных групп",
      ' с\\" >&2\nheavy_cmd \\"\\$@\\""',

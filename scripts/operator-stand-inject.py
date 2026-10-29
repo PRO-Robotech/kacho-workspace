@@ -40,19 +40,19 @@ class ProducerExperiments(unittest.TestCase):
                         str(Path(cls.temp.name) / 'git-home'), str(cls.co)], check=True)
         cls.head = M.git(str(cls.co), 'rev-parse', 'HEAD')
         cls.tree = M.git(str(cls.co), 'rev-parse', 'HEAD^{tree}')
-        cls.job = json.loads((FIX / 'iam-job.json').read_text())
-        cls.api_run = json.loads((FIX / 'iam-run.json').read_text())
-        cls.check_run = json.loads((FIX / 'iam-check.json').read_text())
+        cls.job = json.loads((FIX / 'registry-kaname-job.json').read_text())
+        cls.api_run = json.loads((FIX / 'registry-kaname-run.json').read_text())
+        cls.check_run = json.loads((FIX / 'registry-kaname-check.json').read_text())
         cls.env = dict(os.environ, GITHUB_SHA=cls.head, GITHUB_RUN_ID=str(cls.api_run['id']),
-                       GITHUB_RUN_ATTEMPT=str(cls.api_run['run_attempt']), GITHUB_JOB='integration')
+                       GITHUB_RUN_ATTEMPT=str(cls.api_run['run_attempt']), GITHUB_JOB='kaname')
         cls.before = cls.produce('before')
         cls.after = cls.produce('after')
-        cls.native = (FIX / 'iam-go.log').read_text()
-        cls.workflow = (FIX / 'iam-integration.yml').read_bytes()
-        definition = M.definition(M.load_workflow(cls.workflow), 'integration')
-        cls.exp = {'repo': 'PRO-Robotech/kaname-iam-operator', 'head': cls.head, 'tree': cls.tree,
+        cls.native = (FIX / 'registry-kaname-go.log').read_text()
+        cls.workflow = (FIX / 'registry-kaname-integration.yml').read_bytes()
+        definition = M.definition(M.load_workflow(cls.workflow), 'kaname')
+        cls.exp = {'repo': 'PRO-Robotech/registry-operator', 'head': cls.head, 'tree': cls.tree,
                    'ref': 'refs/heads/' + cls.api_run['head_branch'], 'definitions': {
-                       'integration.yml:integration': {'definition': definition,
+                       'integration-kaname.yml:kaname': {'definition': definition,
                            'definition_digest': M.digest(definition),
                            'workflow_digest': M.digest(cls.workflow), 'name': cls.job['name'],
                            'parser': 'go-v1', 'executor': 'github-hosted'}}}
@@ -90,13 +90,13 @@ class ProducerExperiments(unittest.TestCase):
             fetched.append(endpoint)
             return state['runs' if key == 'workflow_runs' else 'jobs']
         with patch.object(M, 'api', api), patch.object(M, 'pages', pages):
-            result = M.hosted(self.exp, 'integration.yml:integration')
+            result = M.hosted(self.exp, 'integration-kaname.yml:kaname')
         self.assertTrue(any('check-runs/' in item for item in fetched))
         self.assertTrue(any(item.endswith('/logs') for item in fetched))
         return result
 
     def test_actual_source_producer_and_captured_api_shape_positive(self):
-        self.assertEqual(self.invoke(self.state())['cases'], 5)
+        self.assertEqual(self.invoke(self.state())['cases'], 7)
 
     def test_source_producer_rejects_tracked_dirty(self):
         source = self.co / 'source.txt'
@@ -117,7 +117,7 @@ class ProducerExperiments(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
 
     def test_go_complete_repeated_invocation_positive(self):
-        self.assertEqual(M.census(self.native * 2, 'go-v1'), 10)
+        self.assertEqual(M.census(self.native * 2, 'go-v1'), 14)
 
     def test_go_truncated_repeated_invocation_negative(self):
         with self.assertRaises(M.Unread):
@@ -144,26 +144,26 @@ class ProducerExperiments(unittest.TestCase):
 
     def test_current_push_job_condition_positive(self):
         doc = M.load_workflow(self.workflow)
-        doc['jobs']['integration']['if'] = "github.event_name == 'push'"
-        M.definition(doc, 'integration')
+        doc['jobs']['kaname']['if'] = "github.event_name == 'push'"
+        M.definition(doc, 'kaname')
 
     def test_matrix_negative(self):
         doc = M.load_workflow(self.workflow)
-        doc['jobs']['integration']['strategy'] = {'matrix': {'os': ['ubuntu-latest']}}
+        doc['jobs']['kaname']['strategy'] = {'matrix': {'os': ['ubuntu-latest']}}
         with self.assertRaises(M.Unread):
-            M.definition(doc, 'integration')
+            M.definition(doc, 'kaname')
 
     def test_overridden_checkout_negative(self):
         doc = M.load_workflow(self.workflow)
-        doc['jobs']['integration']['steps'][0]['with'] = {'ref': 'main'}
+        doc['jobs']['kaname']['steps'][0]['with'] = {'ref': 'main'}
         with self.assertRaises(M.Unread):
-            M.definition(doc, 'integration')
+            M.definition(doc, 'kaname')
 
     def test_unknown_condition_negative(self):
         doc = M.load_workflow(self.workflow)
-        doc['jobs']['integration']['if'] = 'false'
+        doc['jobs']['kaname']['if'] = 'false'
         with self.assertRaises(M.Unread):
-            M.definition(doc, 'integration')
+            M.definition(doc, 'kaname')
 
     def test_path_filter_positive_and_nontrigger_negative(self):
         doc = {'on': {'push': {'branches': ['**'], 'paths': ['charts/**']}}}
@@ -201,13 +201,12 @@ class ProducerExperiments(unittest.TestCase):
     def test_api_error_negative(self):
         with patch.object(M, 'api', side_effect=M.Unread('HTTP403')):
             with self.assertRaises(M.Unread):
-                M.hosted(self.exp, 'integration.yml:integration')
+                M.hosted(self.exp, 'integration-kaname.yml:kaname')
 
 
 class ImageBuildExperiments(unittest.TestCase):
     def test_closed_build_steps(self):
         fixtures = [
-            ('kaname-iam-operator', 'docker-build.yml:docker-build-amd64', ['./Dockerfile']),
             ('vault-operator', 'docker-build.yml:docker-build-amd64', ['./Dockerfile', './Dockerfile.vaultsecret', './Dockerfile.bucket']),
             ('registry-operator', 'ci.yml:docker', ['Dockerfile', 'Dockerfile.iam-proxy']),
         ]
@@ -347,8 +346,8 @@ class TransportExperiments(unittest.TestCase):
             script = root / 'runner.sh'; script.write_bytes(b'printf original\n')
             argv = root / 'argv.json'; argv.write_text(json.dumps(M.canonical_argv(script.read_bytes())))
             pins = root / 'pins.json'; pins.write_text('{"helm":"v3.18.4"}')
-            exp = {'head': 'a'*40, 'tree': 'b'*40, 'repo': 'PRO-Robotech/kaname-iam-operator',
-                   'definitions': {'test.yml:test': {'executor':'cluster-job', 'definition_digest':'c'*64}}}
+            exp = {'head': 'a'*40, 'tree': 'b'*40, 'repo': 'PRO-Robotech/registry-operator',
+                   'definitions': {'ci.yml:test': {'executor':'cluster-job', 'definition_digest':'c'*64}}}
             definition = M.candidate_definition(exp, script, argv, pins)
             review = root / 'review.json'; review.write_text(json.dumps({'role':'check-verifier',
                 'verdict':'accept', 'blocking':[], 'definition_digest': M.digest(definition)}))
@@ -378,7 +377,7 @@ for field, value in [('head_sha', '0' * 40), ('event', 'pull_request'),
                      ('head_branch', 'unrelated'), ('path', '.github/workflows/unrelated.yml'),
                      ('status', 'in_progress'), ('conclusion', 'cancelled')]:
     negative('run_' + field, lambda s, k=field, v=value: s['runs'][0].__setitem__(k, v))
-for field, value in [('head_sha', '0' * 40), ('run_attempt', 1), ('run_id', 1),
+for field, value in [('head_sha', '0' * 40), ('run_attempt', 2), ('run_id', 1),
                      ('name', 'other job'), ('status', 'in_progress'), ('conclusion', 'skipped'),
                      ('runner_group_name', 'self-hosted'), ('check_run_url', '')]:
     negative('job_' + field, lambda s, k=field, v=value: s['jobs'][0].__setitem__(k, v))
@@ -391,7 +390,7 @@ negative('latest_pending_beats_old_green', lambda s: s['runs'].append(
 negative('latest_attempt_beats_old_job', lambda s: s['runs'][0].__setitem__('run_attempt', 3))
 negative('missing_source', lambda s: s.__setitem__('log', ProducerExperiments.native))
 negative('wrong_source_tree', lambda s: s.__setitem__('log', s['log'].replace(ProducerExperiments.tree, '0' * 40)))
-negative('other_attempt_source', lambda s: s.__setitem__('log', s['log'].replace('"run_attempt": 2', '"run_attempt": 1')))
+negative('other_attempt_source', lambda s: s.__setitem__('log', s['log'].replace('"run_attempt": 1', '"run_attempt": 2')))
 negative('truncated_census', lambda s: s.__setitem__('log', s['log'].replace(ProducerExperiments.native.splitlines()[1] + '\n', '')))
 
 

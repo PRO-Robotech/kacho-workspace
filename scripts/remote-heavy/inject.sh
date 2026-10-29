@@ -271,7 +271,7 @@
 #   RG13 обрыв внутри копии (нет end и total) → копии из полного лога контейнера
 #   RG6 красный код, красных групп ноль → строка с числом групп, каталога нет;
 #      RG6b итога нет нигде → «НЕ получены»
-#   OP1 клон внешнего оператора (ws#1303): --repo vault-operator, kaname-iam-operator,
+#   OP1 клон внешнего оператора (ws#1303): --repo vault-operator,
 #      registry-operator профилем go-race → 0, ns названо репозиторием, образ — golang версии
 #      go.mod ревизии; QR-op — их запрос по строке «*» профиля; --repo иной → 64 (QR-badrepo)
 #   WS1–WS6 профиль ws клона воркспейса (ws#1304): Job — образ продуктов, клоны продуктов, среда
@@ -2638,7 +2638,7 @@ fresh
 go_run qr-badrepo bash "$RUN" --available --profile ci-local --repo other
 expect_rc QR-badrepo 64
 # OP1, QR-op — клоны внешних операторов (ws#1303): run.sh их принимает, запрос — строка «*».
-OPS="vault-operator kaname-iam-operator registry-operator"
+OPS="vault-operator registry-operator"
 for r in $OPS; do
     read -r w_op s_op <<< "$(qr_want go-race "$r")"
     if [ "$s_op" = '*' ]; then ok; else bad QR-op-premise "у go-race $r своя строка PEAKS — случай «строка *» пуст"; fi
@@ -4358,10 +4358,10 @@ kd_lib() {  # kd_lib <каталог> <канонический>
 kd_lib "$KDLIB" "$BOX/canon.git"; kd_lib "$KDDOWN" "$BOX/no-such-canon.git"
 if grep -q "^KIND_OPERATORS='registry-operator|example.com/x|$kd_root|" "$KDLIB/kind.sh" && ! grep -q '39f27cd75c3c' "$KDLIB/kind.sh" \
    && [ "$(grep -c '^kind_identity()' "$KDLIB/kind.sh")" = 1 ]; then ok; else OUT="$KDLIB/kind.sh"; bad KD-premise "фикстура таблицы личности не собрана"; fi
-# Таблица дерева — три оператора KIND_REPOS, у каждого модуль github.com/PRO-Robotech/<имя>,
+# Таблица дерева — два оператора KIND_REPOS, у каждого модуль github.com/PRO-Robotech/<имя>,
 # корень — 40 знаков, канонический назван.
-kd_tab="$(sed -n '/^# kind-operators-begin$/,/^# kind-operators-end$/p' "$SELF_DIR/kind.sh" | grep -cE '^(KIND_OPERATORS=.)?(vault-operator|kaname-iam-operator|registry-operator)\|github\.com/PRO-Robotech/(vault-operator|kaname-iam-operator|registry-operator)\|[0-9a-f]{40}\|[^|]+$')"
-if [ "$kd_tab" = 3 ]; then ok; else bad KD-table "строк таблицы личности дерева годной формы $kd_tab, ждали 3"; fi
+kd_tab="$(sed -n '/^# kind-operators-begin$/,/^# kind-operators-end$/p' "$SELF_DIR/kind.sh" | grep -cE '^(KIND_OPERATORS=.)?(vault-operator|registry-operator)\|github\.com/PRO-Robotech/(vault-operator|registry-operator)\|[0-9a-f]{40}\|[^|]+$')"
+if [ "$kd_tab" = 2 ]; then ok; else bad KD-table "строк таблицы личности дерева годной формы $kd_tab, ждали 2"; fi
 export REMOTE_HEAVY_KIND_DIR="$KDLIB"
 # KD1 — пара профиля: kind лишь клонам внешних операторов; продукт — 64 с причиной (ПОВЕРХНОСТЬ)
 fresh; go_run kd1 bash "$RUN" --request --profile kind --repo kacho

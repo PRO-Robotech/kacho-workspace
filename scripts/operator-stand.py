@@ -22,14 +22,6 @@ import yaml
 
 
 INVENTORY = {
-    'PRO-Robotech/kaname-iam-operator': {
-        'test.yml:test': ('cluster-job', 'go-json-v1'),
-        'lint.yml:lint': ('cluster-job', 'completion'),
-        'inject.yml:inject': ('cluster-job', 'iam-injection-v1'),
-        'docker-build.yml:docker-build-amd64': ('github-hosted', 'completion'),
-        'integration.yml:integration': ('github-hosted', 'go-v1'),
-        'test-e2e.yml:test-e2e': ('github-hosted', 'go-v1'),
-    },
     'PRO-Robotech/registry-operator': {
         'ci.yml:generate': ('cluster-job', 'completion'),
         'ci.yml:test': ('cluster-job', 'go-v1'),
@@ -249,33 +241,6 @@ def census(text, parser):
         return None
     if parser == 'go-ginkgo-v1':
         return {'go_entries': census(text, 'go-v1'), 'ginkgo_specs': census(text, 'ginkgo-v2')}
-    if parser == 'go-json-v1':
-        runs, passed, packages, completed, empty = Counter(), Counter(), Counter(), Counter(), Counter()
-        no_tests = set()
-        for line in lines:
-            if not line.startswith('{'):
-                continue
-            event = json.loads(line)
-            require(isinstance(event, dict) and 'Action' in event and 'Package' in event,
-                    'unknown JSON test output')
-            action, package, test = event['Action'], event['Package'], event.get('Test')
-            require(action != 'fail' and not (action == 'skip' and test), 'Go JSON failed/skipped case')
-            if action == 'output' and not test and '[no test files]' in event.get('Output', ''):
-                no_tests.add(package)
-            if action == 'skip' and not test:
-                empty[package] += 1
-            if action == 'start' and not test:
-                packages[package] += 1
-            if action == 'pass' and not test:
-                completed[package] += 1
-            if action == 'run' and test:
-                runs[(package, test)] += 1
-            if action == 'pass' and test:
-                passed[(package, test)] += 1
-        require(runs and runs == passed and packages and packages == completed + empty and
-                set(empty) <= no_tests,
-                'Go JSON case/package census incomplete')
-        return sum(runs.values())
     if parser == 'go-v1':
         selected, passed, failed, skipped = Counter(), Counter(), Counter(), Counter()
         for line in lines:
@@ -310,13 +275,6 @@ def census(text, parser):
         selected, proven, failed = map(int, rows[0])
         require(selected > 0 and selected == proven and failed == 0, 'injections incomplete/failed')
         return selected
-    if parser == 'iam-injection-v1':
-        summaries = re.findall(r'^инъекций (\d+) · находок (\d+)$', '\n'.join(lines), re.M)
-        rows = re.findall(r'^[^\t]+\tGREEN\tRED\t[^\n]+$', '\n'.join(lines), re.M)
-        require(len(summaries) == 1 and int(summaries[0][0]) > 0 and
-                int(summaries[0][0]) == len(rows) and summaries[0][1] == '0',
-                'IAM injection census incomplete/failed')
-        return len(rows)
     if parser == 'charts-v1':
         total = 0
         for expression in (r'^charts: passed (\d+), failed (\d+)$',
@@ -342,7 +300,6 @@ def verify_image_builds(repo, name, target, job):
     image_files = {
         ('PRO-Robotech/vault-operator', 'docker-build.yml:docker-build-amd64'):
             {'./Dockerfile', './Dockerfile.vaultsecret', './Dockerfile.bucket'},
-        ('PRO-Robotech/kaname-iam-operator', 'docker-build.yml:docker-build-amd64'): {'./Dockerfile'},
         ('PRO-Robotech/registry-operator', 'ci.yml:docker'): {'Dockerfile', 'Dockerfile.iam-proxy'},
     }.get((repo, name))
     if image_files:

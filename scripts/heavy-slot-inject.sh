@@ -779,7 +779,7 @@ assert "0 none да" "$(route "$W" lint -- go version) $(has "$W/out" 'не кл
 RO="$W/rclone-other"; git init -q -b 984-o "$RO"; git -C "$RO" remote add origin https://github.com/PRO-Robotech/elsewhere.git
 assert "0 none да" "$(route "$RO" lint -- go version) $(has "$W/out" 'клон не kacho, kaname, corelib, kacho-workspace, vault-operator')" "близнец: клон чужого репозитория → none (ws#1301)"
 # Клоны внешних операторов (ws#1303): go-race, go-unit, integration, ci-local — Job; иное — none.
-for op in vault-operator kaname-iam-operator registry-operator; do
+for op in vault-operator registry-operator; do
     RV="$W/rclone-$op"; git init -q -b 1303-o "$RV"; git -C "$RV" remote add origin "https://github.com/PRO-Robotech/$op.git"
     assert "0 external да" "$(route "$RV" go-unit -- go vet ./...) $(has "$W/out" "профиль go-race, репозиторий $op")" "--route: go vet классом go-unit в клоне $op → external, профиль go-race"
     assert "0 external" "$(route "$RV" ci-local -- go test ./...)" "--route: go test классом ci-local в клоне $op → external"

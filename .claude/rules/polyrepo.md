@@ -64,7 +64,7 @@ poly-acyclicity-statement · объявляется вместе с доводо
 poly-owners-list-closed · пустое значение = «не объявлен» → 501, а не «все»; новая ручка называет, сужает она или разрешает · ЗАВЕСТИ · red: пустой перечень открывает поток всем доменам
 poly-two-dictionaries · называет словарь (proto-пакет или каталог чарта), сверенный с читаемым кодом · ЗАВЕСТИ · red: имя из чужого словаря → отказ старта края
 poly-cycles-forbidden · A зовёт B ⇒ B не зовёт A; новое ребро — перечнем · TestTargetModuleLayoutIsAcyclic · red: обратный вызов владельца к потребителю
-poly-external-operators · внешние операторы — потребители, наши стволы их не зовут: registry-operator → kaname `InternalIAMService` (gRPC, лист `kacho-registry`), его iam-proxy → REST kaname `POST /iam/v1/authorize:check` токеном клиента о нём же (публичный gRPC требует лист); kaname-iam-operator → REST `/iam/v1`; у vault-operator рёбер к kacho и kaname нет · вниманием; `git grep -lE '(registry|kaname-iam|vault)-operator' origin/main` в kacho, kaname, corelib = 0 · red: ствол зовёт оператора; прокси спрашивает о чужом субъекте
+poly-external-operators · внешние операторы — потребители, наши стволы их не зовут: registry-operator → kaname `InternalIAMService` (gRPC, лист `kacho-registry`), его iam-proxy → REST kaname `POST /iam/v1/authorize:check` токеном клиента о нём же (публичный gRPC требует лист); у vault-operator рёбер к kacho и kaname нет · вниманием; `git grep -lE '(registry|vault)-operator' origin/main` в kacho, kaname, corelib = 0 · red: ствол зовёт оператора; прокси спрашивает о чужом субъекте
 
 ## Порядок работы для кросс-доменной фичи (топосортировка графа)
 
