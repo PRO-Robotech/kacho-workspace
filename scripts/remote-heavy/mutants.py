@@ -127,14 +127,13 @@ MUTANTS = [
      '''команда не запускалась (не выполнилось)"; exit 75''',
      '''команда не запускалась (не выполнилось)"; exit 69'''),
     ("M12", "E7-badsum-node", "сумма архива node не проверяется",
-     r'''grep "  $f\$" "SHASUMS-$v.txt" | sha256sum -c --quiet -''',
-     r'''grep "  $f\$" "SHASUMS-$v.txt" >/dev/null'''),
-    ("node-unpublished", "E7-unpublished", "выпуск пина без архива (404) не откатывается к следующему",
-     r'''miss="$miss $c"; echo''',
-     r'''pf "node $c не поставлен"; echo'''),
-    ("node-sum-fallback", "E7-badsum-node", "несошедшаяся сумма откатывает к соседнему выпуску пина",
-     r'''"https://nodejs.org/dist/$c/SHASUMS256.txt" ); then''',
-     r'''"https://nodejs.org/dist/$c/SHASUMS256.txt" && grep "  $f\$" "SHASUMS-$c.txt" | sha256sum -c --quiet - ); then'''),
+     r'''&& echo "$s" | sha256sum -c --quiet -''',
+     r'''&& echo "$s" >/dev/null'''),
+    # ws#1498: выпуск в индексе, архива в dist нет — нет и строки архива в его SHASUMS256.txt;
+    # петля ws#1501 его пропускает, порча того же решения краснит СВОЮ пробу E7-unpublished.
+    ("node-unpublished", "E7-unpublished", "выпуск пина без архива не пропускается — node не ставится",
+     r'''[ -z "$s" ] || { v="$c"; break; }''',
+     r'''{ v="$c"; break; }'''),
     ("M8", "E7-minor", "префикс мажора node без точки: пин 26.1 берёт v26.11.x",
      r'''--arg m "v$HEAVY_NODE."''',
      r'''--arg m "v$HEAVY_NODE"'''),
@@ -145,8 +144,24 @@ MUTANTS = [
      r'''mkdir -p /work/dl /work/node''',
      r'''mkdir -p /work/node'''),
     ("node-oldest", "E7", "мажор разрешается в старейший выпуск, а не в последний",
-     r'''[0:3][]''',
-     r'''[-3:][]'''),
+     r'''for c in $vs; do''',
+     r'''for c in $(echo "$vs" | sort -V); do'''),
+    # ws#1501: индекс назвал выпуск раньше, чем выложен его SHASUMS256.txt.
+    ("node-sums-404-stops", "E7-sums-404", "сумма свежего 404 — отказ, а не предыдущий выпуск",
+     r'''404) skip="$skip $c (404)";;''',
+     r'''404) pf "node: сумма $c — 404";;'''),
+    ("node-sums-any-skips", "E7-sums-503", "иной ответ сервера сумм — молчаливый откат на старый выпуск",
+     r'''*) pf "node: SHASUMS256.txt выпуска $c — HTTP $hc";;''',
+     r'''*) skip="$skip $c (HTTP $hc)";;'''),
+    ("node-sums-norow-taken", "E7-sums-norow", "файл сумм без строки архива принят за опубликованную сумму",
+     r'''[ -z "$s" ] || { v="$c"; break; }''',
+     r'''{ v="$c"; break; }'''),
+    ("node-sums-none-silent", "E7-sums-none", "сумм нет ни у одного выпуска — отказ без причины",
+     r'''[ -n "$v" ] || pf "node: под пин $HEAVY_NODE нет выпуска с опубликованной суммой архива linux-$a — осмотрено:$skip"''',
+     r'''[ -n "$v" ] || :'''),
+    ("node-sums-skip-silent", "E7-sums-404", "пропуск выпуска без суммы не назван",
+     r'''[ -z "$skip" ] || echo "remote-heavy: node — сумма не опубликована:$skip; беру $v" >&2''',
+     r''':'''),
     ("node-exact", "E7-exact", "полный пин N.N.N не находит свой выпуск",
      r''' or . == (\$m | rtrimstr(\".\"))''',
      r''''''),
@@ -678,6 +693,31 @@ $FILEWAIT_SH"'''),
     ("file-elf", "F2x", "собранный file не судится исполнением на настоящем ELF",
      '''case "$fk" in ELF*) ;;''',
      '''case "$fk" in *) ;;'''),
+    # ws#1503: запросы на слияние для хука — снятое машиной в Job и gh pod из него.
+    ("ghpr-env", "GP1", "снятое машиной не доходит до окружения run",
+     r'''+ (if $ghprs != "" then [{name: "HEAVY_GH_PRS", value: $ghprs}] else [] end)''',
+     r'''+ []'''),
+    ("ghpr-unwired", "GP1", "шаг gh pod не включён в Job ci-local",
+     '[ "$PROFILE" = ci-local ] && PREP="$PREP\n$GHPR_SH"',
+     'false && PREP="$PREP\n$GHPR_SH"'),
+    ("ghpr-token", "GP1-env", "токен машины уходит в окружение pod",
+     r'''[{name: "HEAVY_GH_PRS", value: $ghprs}]''',
+     r'''[{name: "HEAVY_GH_PRS", value: $ghprs}, {name: "GH_TOKEN", value: (env.GH_TOKEN // "")}]'''),
+    ("ghpr-head-filter", "GP3-head", "gh pod не фильтрует по --head — ветке без запроса достаётся чужой",
+     r'''select(($h == "" or .headRefName == $h) and''',
+     r'''select((true) and'''),
+    ("ghpr-epics-dropped", "GP1", "снимается лишь запрос ветки, головы эпиков не снимаются",
+     r'''    all="$got"
+    for h in''',
+     r'''    all="[]"
+    for h in'''),
+    # ws#1503, ⛔ check-verifier: порчи, выжившие прежний набор.
+    ("cv-base-filter", "GP3-base", "gh pod не фильтрует по --base — «--base main» отдаёт запрос в ветку эпика",
+     r'''($b == "" or .baseRefName == $b)''',
+     r'''(true)'''),
+    ("cv-merge-minby", "GP4", "слияние снятого берёт меньший объект запроса — body из ответа «--head» теряется",
+     r'''group_by(.number)[] | max_by(length)''',
+     r'''group_by(.number)[] | min_by(length)'''),
 ]
 
 
@@ -723,7 +763,8 @@ def main():
         rc, fails, tail = run_inject(RUN, root)
         print(f"контроль: код {rc} · {tail}")
         if rc != 0:
-            print("mutants: ПРЕДПОСЫЛКА — набор красный без порчи")
+            print("mutants: ПРЕДПОСЫЛКА — " + ("набор не выполнился без порчи (код 2: сцена не исполнена)"
+                                               if rc == 2 else "набор красный без порчи"))
             return 1
         survived = 0
         with concurrent.futures.ThreadPoolExecutor(max_workers=a.j) as ex:

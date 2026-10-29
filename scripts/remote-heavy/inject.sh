@@ -178,7 +178,12 @@
 #      node, только helm → 0 и инструменты в bin; сумма helm не сошлась, сумма
 #      node не сошлась, чужая архитектура → 125 с названной причиной; мажор →
 #      последний выпуск мажора; пин 26.1 при v26.11.x в индексе → v26.1.x (не
-#      v26.11.x); полный пин 26.1.0 → ровно v26.1.0
+#      v26.11.x); полный пин 26.1.0 → ровно v26.1.0; E7-sums (ws#1501): сумма свежего
+#      404 либо без строки архива → предыдущий выпуск и пропуск назван; сумма есть →
+#      свежий; 404 у всех → 125 с перечнем осмотренного; сумма 503 → 125, не откат;
+#      полный пин без суммы → 125 (на другой выпуск не съезжает); без суммы node нет;
+#      E7-unpublished (ws#1498): выпуск в индексе без архива в dist → следующий выпуск
+#      пина, пропуск назван; точный пин на него → 125 и node в bin нет
 #   EY (ws#1296) yq: пин `go install …mikefarah/yq/v4@vX` ревизии → HEAVY_YQ в
 #      окружении run, строка «Job создан» его называет; сверка ИСПОЛНЕНИЕМ: yq нет,
 #      python-yq, чужой вендор той же версии, другая версия, версия-префикс → 125
@@ -231,6 +236,10 @@
 #      отправка → 0, Job без учётки, строка об этом
 #   GI3 шаг учётки ИСПОЛНЕНИЕМ: корневая pod = подпись коммита (предикат стража);
 #      GI3b инъекция «учётка не передана» → предикат не держится
+#   GP1–GP3 запросы на слияние для хука (ws#1503): снятие на машине чтением, токен до
+#      Job не доходит, gh pod отвечает «pr list» из снятого; GS — сцена настоящего хука
+#      kaname (эпик 1054, сборка 1057): база эпика, зелёное; чужой коммит — красное;
+#      без эпика — main; контроль без gh — красное «#1054» (раздел ниже)
 #   E3 два пина helm                        → 69 до кластера, причина названа
 #   E4 профиль lint на ревизии с пинами     → среду не ставит (близнец E1)
 #   E5 ревизия без пинов                    → строка называет, что сверять нечего
@@ -300,7 +309,8 @@
 #      узлы те же → 0, узлы переписаны заново
 #   W10 узлы с -infra- при остатках мёртвого владельца → 69, уборка ns не звалась
 #
-# Запуск: bash scripts/remote-heavy/inject.sh   (код 0 — все случаи сошлись)
+# Запуск: bash scripts/remote-heavy/inject.sh   (код 0 — все случаи сошлись и все сцены
+# исполнены; 1 — разошлось; 2 — не выполнилось: сцена GS без клона kaname, KACHO_GHPOD_KANAME)
 # Что набор краснеет на порче каждого решения среды и истории — mutants.py рядом
 # (REMOTE_HEAVY_RUN — путь испорченной копии run.sh).
 set -uo pipefail
@@ -551,6 +561,22 @@ case "$1 ${2:-}" in
 esac
 FAKE
 chmod +x "$BOX/bin/kubectl"
+
+# ── двойник gh машины (ws#1503) ──────────────────────────────────────────────
+# Драйвер ci-local отправки снимает `gh pr list` на машине; двойник пишет доводы в
+# $FAKE_STATE/gh-calls и отвечает файлами FAKE_GH_DIR: base-<база>.json, head-<ветка>.json,
+# иначе «[]». FAKE_GH_FAIL — отказ площадки. Иная команда — 64.
+cat > "$BOX/bin/gh" <<'FAKEGH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$FAKE_STATE/gh-calls"
+[ -z "${FAKE_GH_FAIL:-}" ] || { echo "HTTP 401: Bad credentials (https://api.github.com/graphql)" >&2; exit 1; }
+[ "${1:-} ${2:-}" = "pr list" ] || { echo "двойник gh: не «pr list»: $*" >&2; exit 64; }
+h=""; b=""
+while [ "$#" -gt 0 ]; do case "$1" in --head) h="$2"; shift 2 ;; --base) b="$2"; shift 2 ;; *) shift ;; esac; done
+if [ -n "$h" ]; then f="${FAKE_GH_DIR:-/nonexistent}/head-$h.json"; else f="${FAKE_GH_DIR:-/nonexistent}/base-$b.json"; fi
+if [ -f "$f" ]; then cat "$f"; else echo '[]'; fi
+FAKEGH
+chmod +x "$BOX/bin/gh"
 
 # ── клон пробы ───────────────────────────────────────────────────────────────
 SRC="$BOX/src"
@@ -2027,26 +2053,41 @@ printf '#!/bin/sh\necho v4.2.4+gprobe\n' > "$IA/linux-amd64/helm"; chmod +x "$IA
 tar -czf "$IA/helm-v4.2.4-linux-amd64.tar.gz" -C "$IA" linux-amd64
 # Архивы node — у каждого выпуска свой node, печатающий свою версию: какой
 # выпуск поставлен, судится по node --version из bin, а не по строке установки.
-for nv in v26.11.1 v26.1.2 v26.1.0; do
+for nv in v26.11.1 v26.10.0 v26.1.2 v26.1.0; do
     mkdir -p "$IA/node-$nv-linux-x64/bin"
     printf '#!/bin/sh\necho %s\n' "$nv" > "$IA/node-$nv-linux-x64/bin/node"; chmod +x "$IA/node-$nv-linux-x64/bin/node"
     tar -czf "$IA/node-$nv-linux-x64.tar.gz" -C "$IA" "node-$nv-linux-x64"
 done
 cat > "$IS/curl" <<'STUB'
 #!/bin/bash
-o=""; u=""
-while [ "$#" -gt 0 ]; do case "$1" in -o) o="$2"; shift 2 ;; --retry) shift 2 ;; -*) shift ;; *) u="$1"; shift ;; esac; done
+o=""; u=""; w=""; fl=""; code=200
+while [ "$#" -gt 0 ]; do case "$1" in -o) o="$2"; shift 2 ;; -w) w="$2"; shift 2 ;; --retry) shift 2 ;; --*) shift ;; -*f*) fl=1; shift ;; -*) shift ;; *) u="$1"; shift ;; esac; done
 out() { if [ -n "$o" ]; then cat > "$o"; else cat; fi; }
 Z=0000000000000000000000000000000000000000000000000000000000000000
+# in_list <выпуск> <список через пробел> — выпуск назван окружением случая
+in_list() { case " $2 " in *" $1 "*) return 0 ;; esac; return 1; }
 case "$u" in
-  # STUB_NODE_NEW — выпуск в индексе раньше архивов (2026-10-28, v26.13.0): архива нет, 404.
+  # STUB_NODE_NEW — выпуск в индексе раньше архивов (2026-10-28, v26.13.0): архива нет (404),
+  # и строки его архива в SHASUMS256.txt выпуска нет.
   */index.json) nv=""; [ -z "${STUB_NODE_NEW:-}" ] || nv='{"version":"v26.13.0"},'
     echo '[{"version":"v27.0.0"},'"$nv"'{"version":"v26.11.1"},{"version":"v26.10.0"},{"version":"v26.1.2"},{"version":"v26.1.0"}]' | out ;;
   *.sha256sum) a="${u##*/}"; ( cd "$STUB_ARCH" && sha256sum "${a%.sha256sum}" ) | if [ -n "${STUB_BADSUM:-}" ]; then sed 's/^[0-9a-f]*/'"$Z"'/'; else cat; fi | out ;;
-  # Как настоящий SHASUMS256.txt — строки всех архивов; при STUB_BADSUM_NODE сумма
-  # каждой строки не сходится, а имя файла на месте (grep строку находит).
-  */SHASUMS256.txt) ( cd "$STUB_ARCH" && sha256sum node-*.tar.gz ) | if [ -n "${STUB_BADSUM_NODE:-}" ]; then sed 's/^[0-9a-f]*/'"$Z"'/'; else cat; fi | out ;;
-  *.tar.gz) [ -f "$STUB_ARCH/${u##*/}" ] || { echo "curl: (22) The requested URL returned error: 404" >&2; exit 22; }; cat "$STUB_ARCH/${u##*/}" | out ;;
+  # Как настоящий SHASUMS256.txt выпуска — строки ЕГО архивов и строка чужой
+  # архитектуры (приманка той же формы); при STUB_BADSUM_NODE сумма каждой строки не
+  # сходится, а имя файла на месте (grep строку находит). ws#1501: выпуск из
+  # STUB_NOSUMS — 404 (индекс назвал его раньше, чем выложены суммы); из
+  # STUB_SUMS_NOROW — файл есть, строки архива linux нет; из STUB_SUMS_503 — 503.
+  */SHASUMS256.txt)
+    r="${u%/SHASUMS256.txt}"; r="${r##*/}"
+    if in_list "$r" "${STUB_NOSUMS:-}"; then code=404; echo "Not Found" | out
+    elif in_list "$r" "${STUB_SUMS_503:-}"; then code=503; echo "Service Unavailable" | out
+    else
+      { echo "$Z  node-$r-darwin-arm64.tar.gz"
+        in_list "$r" "${STUB_SUMS_NOROW:-}" || ( cd "$STUB_ARCH" && for x in node-"$r"-*.tar.gz; do [ ! -e "$x" ] || sha256sum "$x"; done ); } \
+        | if [ -n "${STUB_BADSUM_NODE:-}" ]; then sed 's/^[0-9a-f]*/'"$Z"'/'; else cat; fi | out
+    fi ;;
+  # Архива выпуска в dist нет (ws#1498, выпуск STUB_NODE_NEW) — 404, как настоящий.
+  *.tar.gz) if [ -f "$STUB_ARCH/${u##*/}" ]; then cat "$STUB_ARCH/${u##*/}" | out; else code=404; echo "Not Found" | out; fi ;;
   # Выпуск buf (ws#1110): sha256.txt — строки всех бинарей и архивов, как настоящий.
   */bufbuild/buf/releases/download/*/sha256.txt) ( cd "$STUB_ARCH/buf" && sha256sum buf-Linux-* ) | if [ -n "${STUB_BADSUM_BUF:-}" ]; then sed 's/^[0-9a-f]*/'"$Z"'/'; else cat; fi | out ;;
   */bufbuild/buf/releases/download/*/buf-Linux-*) cat "$STUB_ARCH/buf/${u##*/}" | out ;;
@@ -2057,6 +2098,9 @@ case "$u" in
   */mikefarah/yq/releases/download/*/yq_linux_*) cat "$STUB_ARCH/yq/${u##*/}" | out ;;
   *) echo "двойник curl: адрес не знаком" >&2; exit 22 ;;
 esac
+# Как настоящий curl: -w печатает код ответа после тела; -f при коде ≥ 400 — 22.
+case "$w" in "") ;; "%{http_code}") printf '%s' "$code" ;; *) echo "двойник curl: формат -w «$w» не знаком" >&2; exit 2 ;; esac
+[ -z "$fl" ] || [ "$code" -lt 400 ] || exit 22
 STUB
 # shellcheck disable=SC2016  # раскрывается в двойнике uname
 printf '#!/bin/sh\necho "${STUB_ARCH_M:-x86_64}"\n' > "$IS/uname"
@@ -2118,20 +2162,43 @@ if [ -e "$IW/bin/node" ] && "$IW/bin/node" --version >/dev/null 2>&1; then OUT="
 # node_installed <случай> <пин> <выпуск> — пин разрешён в <выпуск>: node из bin
 # печатает его (архив каждого выпуска несёт свой node).
 node_installed() {
-    install_case "$1" "" "$2" 0 "node" "${@:4}"
+    local name="$1" pin="$2" rel="$3"; shift 3
+    install_case "$name" "" "$pin" 0 "node" "$@"
     local got; got="$("$IW/bin/node" --version 2>/dev/null)"
-    if [ "$got" = "$3" ]; then ok; else bad "$1" "пин $2 разрешён в «$got», ждали $3"; fi
+    if [ "$got" = "$rel" ]; then ok; else bad "$name" "пин $pin разрешён в «$got», ждали $rel"; fi
 }
-# E7-unpublished (2026-10-28): новейший выпуск пина в индексе, архива нет (404) — ставится
-# следующий выпуск пина с названной причиной; близнецы — точный пин на неопубликованный
-# выпуск отказывает, несошедшаяся сумма отказывает без отката к соседнему выпуску.
+# E7-unpublished (ws#1498, 2026-10-28): новейший выпуск пина в индексе, архива в dist нет
+# (404) и строки его архива в SHASUMS256.txt нет — ставится следующий выпуск пина, пропуск
+# назван; близнецы — точный пин на неопубликованный выпуск отказывает и node в bin нет,
+# несошедшаяся сумма отказывает без отката к соседнему выпуску.
 node_installed E7-unpublished 26 v26.11.1 STUB_NODE_NEW=1
-if grep -q 'node v26.13.0 под пин 26 не скачан' "$BOX/E7-unpublished.out" && grep -q 'ставлю node v26.11.1' "$BOX/E7-unpublished.out"; then ok
+if grep -qF 'сумма не опубликована: v26.13.0 (строки архива нет); беру v26.11.1' "$BOX/E7-unpublished.out" && grep -q 'ставлю node v26.11.1' "$BOX/E7-unpublished.out"; then ok
 else OUT="$BOX/E7-unpublished.out"; bad E7-unpublished "откат к выпуску с архивом не назван"; fi
-install_case E7-unpublished-exact "" 26.13.0 125 "node v26.13.0 не скачан под пин 26.13.0" STUB_NODE_NEW=1
+install_case E7-unpublished-exact "" 26.13.0 125 "node: под пин 26.13.0 нет выпуска с опубликованной суммой архива linux-x64 — осмотрено: v26.13.0 (строки архива нет)" STUB_NODE_NEW=1
+if [ -e "$IW/bin/node" ] && "$IW/bin/node" --version >/dev/null 2>&1; then OUT="$BOX/E7-unpublished-exact.out"; bad E7-unpublished-exact "node неопубликованного выпуска исполним из bin"; else ok; fi
 if grep -q 'ставлю node v26.10.0\|ставлю node v26.1.2' "$BOX/E7-badsum-node.out"; then OUT="$BOX/E7-badsum-node.out"; bad E7-badsum-node "несошедшаяся сумма откатила к соседнему выпуску"; else ok; fi
 node_installed E7-minor 26.1 v26.1.2
 node_installed E7-exact 26.1.0 v26.1.0
+# E7-sums (ws#1501): индекс называет выпуск раньше, чем выложен его SHASUMS256.txt
+# (v26.13.0: архив 200, сумма 404). Свежий без суммы пропускается и называется, ставится
+# предыдущий; сумма есть — свежий; сумм нет ни у одного — отказ с перечнем; иной ответ
+# сервера сумм — отказ, а не откат на старый выпуск; без суммы в bin node нет.
+node_absent() { if [ -e "$IW/bin/node" ] && "$IW/bin/node" --version >/dev/null 2>&1; then OUT="$BOX/$1.out"; bad "$1" "node без опубликованной суммы исполним из bin"; else ok; fi; }
+node_installed E7-sums-fresh 26 v26.11.1
+node_installed E7-sums-404 26 v26.10.0 STUB_NOSUMS=v26.11.1
+if grep -qF 'remote-heavy: node — сумма не опубликована: v26.11.1 (404); беру v26.10.0' "$BOX/E7-sums-404.out"; then ok
+else OUT="$BOX/E7-sums-404.out"; bad E7-sums-404 "пропущенный выпуск без суммы не назван"; fi
+if grep -q 'сумма не опубликована' "$BOX/E7-sums-fresh.out"; then OUT="$BOX/E7-sums-fresh.out"; bad E7-sums-fresh "при опубликованной сумме назван пропуск"; else ok; fi
+node_installed E7-sums-norow 26 v26.10.0 STUB_SUMS_NOROW=v26.11.1
+if grep -qF 'v26.11.1 (строки архива нет); беру v26.10.0' "$BOX/E7-sums-norow.out"; then ok
+else OUT="$BOX/E7-sums-norow.out"; bad E7-sums-norow "выпуск без строки архива в сумме не назван"; fi
+install_case E7-sums-none "" 26 125 "node: под пин 26 нет выпуска с опубликованной суммой архива linux-x64 — осмотрено: v26.11.1 (404) v26.10.0 (404) v26.1.2 (404) v26.1.0 (строки архива нет)" \
+    STUB_NOSUMS="v26.11.1 v26.10.0 v26.1.2" STUB_SUMS_NOROW=v26.1.0
+node_absent E7-sums-none
+install_case E7-sums-503 "" 26 125 "node: SHASUMS256.txt выпуска v26.11.1 — HTTP 503" STUB_SUMS_503=v26.11.1
+node_absent E7-sums-503
+install_case E7-sums-exact "" 26.1.0 125 "node: под пин 26.1.0 нет выпуска с опубликованной суммой" STUB_NOSUMS=v26.1.0
+node_absent E7-sums-exact
 if [ "$(cat "$BOX/E7-both.out" 2>/dev/null | grep -c 'ставлю node v26.11.1')" -eq 1 ]; then ok
 else OUT="$BOX/E7-both.out"; bad E7 "мажор 26 разрешён не в последний выпуск 26 (v26.11.1)"; fi
 # E8 пины законными формами YAML (ключи шага до uses, поточный шаг) → те же пины
@@ -4117,6 +4184,220 @@ ws6_case WS6-scsum 125 "shellcheck 0.11.0 не поставлен" WSC_BAD=sc
 ws6_case WS6-batssum 125 "bats-core 1.10.0 не поставлен" WSC_BAD=bats
 ws6_case WS6-down 125 "yq v4.45.4 не поставлен" WSC_DOWN=1
 
+# ── ЗАПРОСЫ НА СЛИЯНИЕ ДЛЯ ХУКА (ws#1503) ────────────────────────────────────
+# Отправка 1057 в эпик 1054 (kaname, 2026-10-28): в pod gh нет, хук взял базой main, и
+# коммит открытия эпика «#1054» попал в диапазон ветки «1057» — красное, которого нет.
+# GP1 ci-local отправка ветки 1057, хуки ревизии спрашивают «pr list» → gh машины зван ровно
+#     двумя «pr list -R PRO-Robotech/kaname» (база main; ветка 1057), в env run — снятое
+#     (репозиторий, ветка, голова эпика 1054); шаг «# ghpr-begin» — до видимости; GH_TOKEN и
+#     GITHUB_TOKEN машины до Job и вывода не дошли; окружение Job — из разрешённого списка
+# GP1b хуки «pr list» не спрашивают, GP1c не отправка → gh машины не зван, снятого в Job нет
+# GP2 gh машины отказал → 69 до кластера, причина названа (хук молча взял бы main — п. 5
+#     предиката ws#1503); GP2b снятое больше предела env → 69 «больше предела»; GP2c ответ
+#     не массив запросов → 69
+# GP3 gh pod ИСПОЛНЕНИЕМ (текст шага из Job, /work — каталог пробы): формы хука → ответ из
+#     снятого; ветка не снята, чужой репозиторий, не open, поле не снято → 1; не «pr list» → 4;
+#     снятого нет → gh не ставится; снятое не той формы → 125
+# GP3-base снятое несёт запрос 1059 с базой 1054: «--base main» его не отдаёт, «--head 1057»
+#     отдаёт (близнец), «--head 1057 --base main» — пусто (порча cv-base-filter)
+# GP4 отправка ветки эпика 1054 ЧЕРЕЗ драйвер: её запрос 1058 в main приходит дважды — ответом
+#     «--base main» без body и ответом «--head 1054» с body; в снятом — один объект с body, и
+#     gh pod отвечает форме хука «--head 1054 --json …,body» (порча cv-merge-minby)
+# GS сцена НАСТОЯЩЕГО хука kaname (prepush-classes.py и pr-rule-check.sh ревизии клона kaname,
+#     где они есть) над origin пробы с main, эпиком 1054 и веткой сборки 1057 от него:
+#     GS0 контроль — gh отказывает (как без gh): база main, правило запроса красное (дефект
+#     воспроизведён); GS1 gh pod: база 1054, зелёное; GS2 чужой коммит без номера в диапазоне
+#     1057 — красное; GS3 ветка 1060 без запроса и без эпика — база main, зелёное; GS4 запрос
+#     ветки 1057 с базой 1054 — база запроса, заголовок судится, зелёное. Клона kaname с хуком
+#     нет — «НЕ ИСПОЛНЕНО GS» и код 2 набора («не выполнилось»), не 0: неисполненная сцена
+#     зелёной не считается. Конвейер даёт клон шагом «клон kaname для сцены хука» (ci.yaml).
+GPD="$BOX/gpd"; rm -rf "$GPD"; mkdir -p "$GPD"
+printf '[{"number":1058,"title":"#1054 эпик","baseRefName":"main","headRefName":"1054","isDraft":true}]\n' > "$GPD/base-main.json"
+# Ревизия prhook — HEAD клона и хук, спрашивающий «pr list»; собрана без рабочего дерева
+# (своим индексом), чтобы чужие правки клона в неё не попали.
+GP_IDX="$BOX/gp.index"
+GIT_INDEX_FILE="$GP_IDX" git -C "$SRC" read-tree HEAD
+gp_blob="$(printf 'data, why = gh_json(root, ["pr", "list", "-R", slug, "--base", "main"])\n' | git -C "$SRC" hash-object -w --stdin)"
+GIT_INDEX_FILE="$GP_IDX" git -C "$SRC" update-index --add --cacheinfo "100644,$gp_blob,scripts/hooks/prepush-classes.py"
+git -C "$SRC" update-ref refs/heads/prhook "$(sandbox_git -C "$SRC" commit-tree "$(GIT_INDEX_FILE="$GP_IDX" git -C "$SRC" write-tree)" -p HEAD -m prhook)"
+GP_PUSH="refs/heads/1057 $(git -C "$SRC" rev-parse prhook) refs/heads/1057 $ZS"
+GP_TOK="DECOY-ghtoken-1503"
+fresh
+go_run gp1 env FAKE_EXIT=0 FAKE_GH_DIR="$GPD" GH_TOKEN="$GP_TOK" GITHUB_TOKEN="$GP_TOK" GIT_CONFIG_GLOBAL="$BOX/gi.cfg" \
+    bash "$RUN" --task 1 --repo kaname --ref prhook --src "$SRC" --profile ci-local --short gp1 --push-input "$GP_PUSH" -- true
+expect_rc GP1 0
+GPJ="$BOX/gp1-job.json"; cp "$BOX/state/job.json" "$GPJ" 2>/dev/null
+GP_SNAP="$(envv "$GPJ" HEAVY_GH_PRS)"
+if jq -e '.repo == "PRO-Robotech/kaname" and .heads == ["1057"] and .error == null and ([.prs[].headRefName] == ["1054"])' <<< "$GP_SNAP" > /dev/null 2>&1; then ok
+else OUT="$GPJ"; bad GP1 "снятое в env run не то: «$GP_SNAP»"; fi
+if [ "$(grep -c . "$BOX/state/gh-calls" 2>/dev/null)" = 2 ] && [ "$(grep -cv '^pr list -R PRO-Robotech/kaname ' "$BOX/state/gh-calls")" = 0 ] \
+   && grep -q -- '--base main --state open ' "$BOX/state/gh-calls" && grep -q -- '--head 1057 --state open ' "$BOX/state/gh-calls"; then ok
+else OUT="$BOX/state/gh-calls"; bad GP1 "gh машины зван не двумя «pr list» (база main, ветка 1057)"; fi
+if grep -qF "$GP_TOK" "$GPJ" "$BOX/gp1.out" 2>/dev/null; then bad GP1-token "токен машины дошёл до Job либо вывода"; else ok; fi
+gp_extra="$(jq -r --arg a "$GI_ALLOW HEAVY_GH_PRS" '($a | split(" ")) as $al | [.spec.template.spec | (.containers[]?, .initContainers[]?) | (.env[]?.name), (if .envFrom then "envFrom" else empty end)] | unique | map(select(IN($al[]) | not)) | join(" ")' "$GPJ" 2>/dev/null)" || gp_extra="(spec не разобран)"
+if [ -z "$gp_extra" ]; then ok; else bad GP1-env "в окружении Job имена вне разрешённого списка: $gp_extra"; fi
+# Файлы pod: тома Job — лишь emptyDir (ни секрета, ни конфига gh с машины), hosts.yml gh не назван
+if jq -e '[.spec.template.spec.volumes[] | del(.name) | keys[]] | unique == ["emptyDir"]' "$GPJ" > /dev/null 2>&1 && ! grep -q 'hosts\.yml' "$GPJ"; then ok
+else OUT="$GPJ"; bad GP1-files "том Job не emptyDir либо назван hosts.yml gh"; fi
+kx cmd "$GPJ" run 2 > "$BOX/gp1.cmd" 2>/dev/null
+if [ "$(grep -c '^# ghpr-begin$' "$BOX/gp1.cmd")" = 1 ] && awk '/^# ghpr-end$/ { g = NR } /^# expose-begin$/ { x = NR } END { exit !(g && x && g < x) }' "$BOX/gp1.cmd"; then ok
+else OUT="$BOX/gp1.cmd"; bad GP1 "шага «# ghpr-begin» до видимости в Job ci-local нет"; fi
+if grep -q 'запросы на слияние для хука сняты чтением на машине: открытых в main 1, веток отправки 1' "$BOX/gp1.out"; then ok; else bad GP1 "строка о снятом не напечатана"; fi
+# GP1b, GP1c — близнецы: хуки «pr list» не спрашивают; не отправка
+for gc in "gp1b HEAD --push-input" "gp1c prhook"; do
+    read -r gn gref gpi <<< "$gc"; fresh
+    if [ -n "$gpi" ]; then
+        go_run "$gn" env FAKE_EXIT=0 FAKE_GH_DIR="$GPD" GIT_CONFIG_GLOBAL="$BOX/gi.cfg" bash "$RUN" --task 1 --repo kaname --ref "$gref" --src "$SRC" --profile ci-local --short "$gn" \
+            --push-input "refs/heads/1057 $(git -C "$SRC" rev-parse "$gref") refs/heads/1057 $ZS" -- true
+    else
+        go_run "$gn" env FAKE_EXIT=0 FAKE_GH_DIR="$GPD" GIT_CONFIG_GLOBAL="$BOX/gi.cfg" bash "$RUN" --task 1 --repo kaname --ref "$gref" --src "$SRC" --profile ci-local --short "$gn" -- true
+    fi
+    expect_rc "${gn^^}" 0
+    if [ ! -s "$BOX/state/gh-calls" ] && [ -z "$(envv "$BOX/state/job.json" HEAVY_GH_PRS)" ]; then ok
+    else bad "${gn^^}" "gh машины зван либо снятое в Job: $(head -n 1 "$BOX/state/gh-calls" 2>/dev/null)"; fi
+done
+if grep -q 'хуки ревизии «pr list» не спрашивают' "$BOX/gp1b.out"; then ok; else OUT="$BOX/gp1b.out"; bad GP1b "строка «не спрашивают» не напечатана"; fi
+# GP2 — отказ gh машины; GP2b — снятое больше предела env; GP2c — ответ не массив запросов
+mkdir -p "$BOX/gpd-big" "$BOX/gpd-odd"; cp "$GPD/base-main.json" "$BOX/gpd-big/"
+jq -n '[{number: 1059, title: "#1057 сборка", body: ("x" * 120000), baseRefName: "1054", headRefName: "1057", isDraft: true}]' > "$BOX/gpd-big/head-1057.json"
+printf '{"message": "Not Found"}\n' > "$BOX/gpd-odd/base-main.json"
+for gc in "GP2 FAKE_GH_FAIL=1 HTTP 401" "GP2b FAKE_GH_DIR=$BOX/gpd-big больше предела" "GP2c FAKE_GH_DIR=$BOX/gpd-odd не массив запросов"; do
+    read -r gn gv gw <<< "$gc"; fresh
+    go_run "${gn,,}" env FAKE_EXIT=0 "$gv" GIT_CONFIG_GLOBAL="$BOX/gi.cfg" bash "$RUN" --task 1 --repo kaname --ref prhook --src "$SRC" --profile ci-local --short "${gn,,}" --push-input "$GP_PUSH" -- true
+    expect_rc "$gn" 69; no_cluster_call "$gn"
+    if grep -q "запросы на слияние для хука НЕ сняты: .*$gw.*не выполнилось" "$OUT"; then ok; else bad "$gn" "причина «$gw» и «не выполнилось» не названы"; fi
+done
+# GP3 — gh pod исполнением
+GPT="$(sed -n '/^# ghpr-begin$/,/^# ghpr-end$/p' "$BOX/gp1.cmd")"
+if grep -q '^# ghpr-end$' <<< "$GPT"; then ok; else bad GP3 "текста шага gh pod в Job нет — исполнять нечего"; fi
+# gp_install <каталог> <снятое> — шаг из Job над каталогом пробы вместо /work; код — в RC
+gp_install() {
+    rm -rf "$1"; mkdir -p "$1/bin"
+    # shellcheck disable=SC2016  # текст функции раскрывает исполняемый шаг
+    { printf 'pf() { echo "remote-heavy-prep: $1" > "%s/tl"; exit 125; }\n' "$1"; printf "%s\n" "${GPT//\/work\//$1/}"; } > "$1/step.sh"
+    env HEAVY_GH_PRS="$2" PATH="$1/bin:$PATH" bash "$1/step.sh" > "$1/step.out" 2>&1; RC=$?
+}
+GW="$BOX/gpw"
+gp_install "$GW" "$GP_SNAP"; OUT="$GW/step.out"; expect_rc GP3-install 0
+gph() { GPR="$("$GW/bin/gh" "$@" 2>&1)"; GPC=$?; }
+gph pr list -R PRO-Robotech/kaname --base main --state open --json headRefName --limit 200
+if [ "$GPC" = 0 ] && [ "$(jq -c . <<< "$GPR" 2>/dev/null)" = '[{"headRefName":"1054"}]' ]; then ok; else bad GP3-epics "форма хука «--base main» → код $GPC, «$GPR»"; fi
+gph pr list -R PRO-Robotech/kaname --head 1057 --state open --json number,title,body,baseRefName,isDraft --limit 5
+if [ "$GPC" = 0 ] && [ "$(jq -c . <<< "$GPR" 2>/dev/null)" = '[]' ]; then ok; else bad GP3-head "форма хука «--head 1057» → код $GPC, «$GPR»"; fi
+# gp_refuse <случай> <код> <слово> <доводы gh…>
+gp_refuse() {
+    local c="$1" want="$2" word="$3"; shift 3
+    gph "$@"
+    if [ "$GPC" = "$want" ] && grep -q -- "$word" <<< "$GPR"; then ok; else bad "$c" "код $GPC (ждали $want), «$GPR» без «$word»"; fi
+}
+gp_refuse GP3-unsnapped 1 'ветки «999» не сняты' pr list -R PRO-Robotech/kaname --head 999 --state open --json number --limit 5
+gp_refuse GP3-repo 1 'спрошен «PRO-Robotech/kacho»' pr list -R PRO-Robotech/kacho --base main --state open --json headRefName --limit 5
+gp_refuse GP3-state 1 'лишь открытые' pr list -R PRO-Robotech/kaname --base main --state closed --json headRefName --limit 5
+gp_refuse GP3-field 1 'не снято машиной' pr list -R PRO-Robotech/kaname --base main --state open --json body --limit 5
+gp_refuse GP3-nobase 1 'лишь «--base main»' pr list -R PRO-Robotech/kaname --state open --json headRefName --limit 5
+gp_refuse GP3-api 4 'лишь «pr list»' api repos/PRO-Robotech/kaname/issues/1 --jq .state
+gp_install "$BOX/gpw-none" ""; OUT="$BOX/gpw-none/step.out"; expect_rc GP3-none 0
+if [ ! -e "$BOX/gpw-none/bin/gh" ] && grep -q 'gh в pod — нет' "$BOX/gpw-none/step.out"; then ok; else bad GP3-none "без снятого gh поставлен либо строки нет"; fi
+gp_install "$BOX/gpw-bad" '{}'; OUT="$BOX/gpw-bad/step.out"; expect_rc GP3-bad 125
+if grep -q '^remote-heavy-prep: gh pod' "$BOX/gpw-bad/tl" 2>/dev/null; then ok; else bad GP3-bad "отказ «gh pod» не записан в termination-log"; fi
+# GP3-base — снятое с запросом базы не main: фильтр «--base» обязан его отсечь
+gp_install "$BOX/gpw-pr" "$(jq -c '.prs += [{number: 1059, title: "#1057 сборка волны", body: "состав", baseRefName: "1054", headRefName: "1057", isDraft: true}]' <<< "$GP_SNAP")"
+OUT="$BOX/gpw-pr/step.out"; expect_rc GP3-base 0
+gpb() { GPR="$("$BOX/gpw-pr/bin/gh" "$@" 2>&1)"; GPC=$?; }
+gpb pr list -R PRO-Robotech/kaname --base main --state open --json number,headRefName --limit 200
+if [ "$GPC" = 0 ] && [ "$(jq -c . <<< "$GPR" 2>/dev/null)" = '[{"number":1058,"headRefName":"1054"}]' ]; then ok
+else bad GP3-base "«--base main» отдал не только запросы в main: код $GPC, «$GPR»"; fi
+gpb pr list -R PRO-Robotech/kaname --head 1057 --state open --json number,baseRefName --limit 5
+if [ "$GPC" = 0 ] && [ "$(jq -c . <<< "$GPR" 2>/dev/null)" = '[{"number":1059,"baseRefName":"1054"}]' ]; then ok
+else bad GP3-base "близнец «--head 1057» без базы: ждали запрос 1059, код $GPC, «$GPR»"; fi
+gpb pr list -R PRO-Robotech/kaname --head 1057 --base main --state open --json number --limit 5
+if [ "$GPC" = 0 ] && [ "$(jq -c . <<< "$GPR" 2>/dev/null)" = '[]' ]; then ok
+else bad GP3-base "«--head 1057 --base main»: запрос с базой 1054 не отсечён, код $GPC, «$GPR»"; fi
+# GP4 — отправка ветки эпика 1054 ЧЕРЕЗ драйвер: запрос 1058 в обоих ответах gh машины, слит с body
+GPE="$BOX/gpd-epic"; mkdir -p "$GPE"; cp "$GPD/base-main.json" "$GPE/"
+printf '[{"number":1058,"title":"#1054 эпик","body":"состав эпика","baseRefName":"main","headRefName":"1054","isDraft":true}]\n' > "$GPE/head-1054.json"
+fresh
+go_run gp4 env FAKE_EXIT=0 FAKE_GH_DIR="$GPE" GIT_CONFIG_GLOBAL="$BOX/gi.cfg" \
+    bash "$RUN" --task 1 --repo kaname --ref prhook --src "$SRC" --profile ci-local --short gp4 \
+    --push-input "refs/heads/1054 $(git -C "$SRC" rev-parse prhook) refs/heads/1054 $ZS" -- true
+expect_rc GP4 0
+GP4_SNAP="$(envv "$BOX/state/job.json" HEAVY_GH_PRS)"
+if jq -e '.heads == ["1054"] and (.prs | length) == 1 and .prs[0].number == 1058 and .prs[0].body == "состав эпика"' <<< "$GP4_SNAP" > /dev/null 2>&1; then ok
+else bad GP4 "запрос 1058 из двух ответов слит не полным объектом (body): «$GP4_SNAP»"; fi
+gp_install "$BOX/gpw-epic" "$GP4_SNAP"; OUT="$BOX/gpw-epic/step.out"; expect_rc GP4 0
+GPR="$("$BOX/gpw-epic/bin/gh" pr list -R PRO-Robotech/kaname --head 1054 --state open --json number,title,body,baseRefName,isDraft --limit 5 2>&1)"; GPC=$?
+if [ "$GPC" = 0 ] && [ "$(jq -c '[.[] | [.number, .baseRefName, .body]]' <<< "$GPR" 2>/dev/null)" = '[[1058,"main","состав эпика"]]' ]; then ok
+else bad GP4 "форма хука «--head 1054 --json …,body» на снятом драйвером: код $GPC, «$GPR»"; fi
+# GS — сцена настоящего хука kaname
+GS_NOTRUN=""
+KN="${KACHO_GHPOD_KANAME:-}"
+if [ -z "$KN" ]; then
+    for c_ in "$SELF_DIR/../../project/kaname" "$(dirname "$(git -C "$SELF_DIR" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)")/project/kaname"; do
+        if git -C "$c_" rev-parse --git-dir > /dev/null 2>&1; then KN="$c_"; break; fi
+    done
+fi
+GS_REV=""
+if [ -n "$KN" ]; then
+    for r_ in refs/remotes/origin/main $(git -C "$KN" for-each-ref --sort=-committerdate --format='%(refname)' refs/remotes/origin); do
+        if git -C "$KN" cat-file -e "$r_:scripts/hooks/prepush-classes.py" 2>/dev/null && git -C "$KN" cat-file -e "$r_:.github/scripts/pr-rule-check.sh" 2>/dev/null; then
+            GS_REV="$(git -C "$KN" rev-parse "$r_^{commit}")"; GS_REF="$r_"; break
+        fi
+    done
+fi
+if [ -z "$KN" ]; then GS_NOTRUN="клона kaname нет (KACHO_GHPOD_KANAME, project/kaname)"
+elif [ -z "$GS_REV" ]; then GS_NOTRUN="ни одна ветка origin клона kaname не несёт scripts/hooks/prepush-classes.py и .github/scripts/pr-rule-check.sh"
+fi
+if [ -z "$GS_NOTRUN" ]; then
+    echo "remote-heavy inject: сцена GS — хук kaname ревизии ${GS_REF#refs/remotes/} @${GS_REV:0:12}"
+    GS="$BOX/gs"; GSO="$GS/github.com/PRO-Robotech/kaname.git"; GSW="$GS/w"; rm -rf "$GS"; mkdir -p "$GS"
+    git init -q --bare "$GSO"
+    printf '%s/objects\n' "$(git -C "$KN" rev-parse --path-format=absolute --git-common-dir)" > "$GSO/objects/info/alternates"
+    git -C "$GSO" update-ref refs/heads/main "$GS_REV"
+    git -C "$GSO" symbolic-ref HEAD refs/heads/main
+    git clone -q --shared "$GSO" "$GSW"
+    git -C "$GSW" checkout -q -b 1054 origin/main
+    sandbox_git -C "$GSW" commit -q --allow-empty -m "#1054 эпик: ветка волны открыта от main"
+    git -C "$GSW" push -q origin 1054
+    git -C "$GSW" checkout -q -b 1057
+    printf 'сцена ws#1503\n' > "$GSW/gs-probe.txt"; git -C "$GSW" add gs-probe.txt
+    sandbox_git -C "$GSW" commit -q -m "#1057 правка сборки"
+    GS_T1="$(git -C "$GSW" rev-parse HEAD)"
+    printf 'вторая\n' >> "$GSW/gs-probe.txt"; sandbox_git -C "$GSW" commit -q -am "правка без номера"
+    GS_T2="$(git -C "$GSW" rev-parse HEAD)"
+    git -C "$GSW" checkout -q -b 1060 origin/main
+    printf 'сцена ws#1503\n' > "$GSW/gs-probe.txt"; git -C "$GSW" add gs-probe.txt
+    sandbox_git -C "$GSW" commit -q -m "#1060 правка без эпика"
+    GS_T3="$(git -C "$GSW" rev-parse HEAD)"
+    git -C "$GSW" fetch -q origin
+    # gs_hook <случай> <каталог gh> <вход pre-push> — plan и request хука в копии сцены
+    gs_hook() {
+        local d="$GS/$1"; rm -rf "$d"; mkdir -p "$d"
+        ( cd "$GSW" && printf '%s\n' "$3" | env PATH="$2:$PATH" python3 scripts/hooks/prepush-classes.py plan --out "$d" > "$d/plan.out" 2>&1 ); GSP=$?
+        ( cd "$GSW" && env PATH="$2:$PATH" python3 scripts/hooks/prepush-classes.py request "$d" > "$d/req.out" 2>&1 ); RC=$?
+        GSB="$(jq -r '.refs[0].base // ""' "$d/plan.json" 2>/dev/null)"; OUT="$d/req.out"
+        [ "$GSP" = 0 ] || GSB="(plan: код $GSP)"
+        cat "$d/plan.out" >> "$d/req.out"
+    }
+    # GS0 контроль: gh отказывает так же, как отсутствующий (хук: «запросы не спрошены»)
+    mkdir -p "$GS/nogh"; printf '#!/bin/sh\necho "gh: не найден" >&2\nexit 127\n' > "$GS/nogh/gh"; chmod +x "$GS/nogh/gh"
+    gs_hook gs0 "$GS/nogh" "refs/heads/1057 $GS_T1 refs/heads/1057 $ZS"
+    if [ "$GSB" = main ] && [ "$RC" = 1 ] && grep -q '#1054' "$OUT"; then ok; else bad GS0 "контроль: ждали базу main и красное «#1054», база «$GSB», код $RC"; fi
+    gs_hook gs1 "$GW/bin" "refs/heads/1057 $GS_T1 refs/heads/1057 $ZS"
+    if [ "$GSB" = 1054 ] && [ "$RC" = 0 ]; then ok; else bad GS1 "ждали базу 1054 и зелёное правило запроса, база «$GSB», код $RC"; fi
+    gs_hook gs2 "$GW/bin" "refs/heads/1057 $GS_T2 refs/heads/1057 $ZS"
+    if [ "$GSB" = 1054 ] && [ "$RC" = 1 ] && grep -qF "${GS_T2:0:10}" "$OUT"; then ok
+    else bad GS2 "чужой коммит без номера: ждали базу 1054 и красное ровно о нём, база «$GSB», код $RC"; fi
+    gp_install "$GS/gh1060" '{"repo":"PRO-Robotech/kaname","heads":["1060"],"prs":[],"error":null}'
+    gs_hook gs3 "$GS/gh1060/bin" "refs/heads/1060 $GS_T3 refs/heads/1060 $ZS"
+    if [ "$GSB" = main ] && [ "$RC" = 0 ]; then ok; else bad GS3 "без запроса и эпика: ждали базу main и зелёное, база «$GSB», код $RC"; fi
+    gp_install "$GS/ghpr" "$(jq -c '.prs += [{number: 1059, title: "#1057 сборка волны", body: "состав", baseRefName: "1054", headRefName: "1057", isDraft: true}]' <<< "$GP_SNAP")"
+    gs_hook gs4 "$GS/ghpr/bin" "refs/heads/1057 $GS_T1 refs/heads/1057 $ZS"
+    if [ "$GSB" = 1054 ] && [ "$RC" = 0 ] && grep -q 'база запроса #1059' "$GS/gs4/plan.out"; then ok
+    else bad GS4 "запрос ветки с базой 1054: ждали базу запроса #1059 и зелёное, база «$GSB», код $RC"; fi
+else
+    echo "remote-heavy inject: НЕ ИСПОЛНЕНО GS (сцена хука kaname) — $GS_NOTRUN"
+fi
+
 # ── KD: профиль kind (ws#1385, kind.sh) ──────────────────────────────────────
 # Личность оператора (Ф1, Ф2) у клона пробы своя: таблица KIND_OPERATORS kind.sh подменяется
 # фикстурой — модуль и корень клона пробы, канонический — голый репозиторий в каталоге пробы
@@ -4380,5 +4661,7 @@ done
 if [ -s "$ALL_OUT" ]; then ok; else bad L1 "вывод пуст — судить нечего"; fi
 
 if [ -s "$CNF" ]; then OUT="$CNF"; bad CNF "в наборе вызваны несуществующие команды: $(sort -u "$CNF" | tr '\n' ' ')— утверждения при них не исполнялись"; fi
-printf 'remote-heavy inject: утверждений %d · сошлось %d · разошлось %d\n' $((PASS + FAIL)) "$PASS" "$FAIL"
-[ "$FAIL" -eq 0 ]
+printf 'remote-heavy inject: утверждений %d · сошлось %d · разошлось %d%s\n' $((PASS + FAIL)) "$PASS" "$FAIL" "${GS_NOTRUN:+ · не исполнено: сцена GS — $GS_NOTRUN}"
+[ "$FAIL" -eq 0 ] || exit 1
+# Неисполненная сцена зелёной не считается (ws#1503): код 2 — «не выполнилось», не 0.
+[ -z "$GS_NOTRUN" ] || { echo "remote-heavy inject: НЕ ВЫПОЛНИЛОСЬ (код 2) — сцена GS не исполнена: $GS_NOTRUN; клон kaname — KACHO_GHPOD_KANAME"; exit 2; }
