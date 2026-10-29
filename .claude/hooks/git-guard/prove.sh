@@ -58,6 +58,13 @@ mkdir -p "$L/sub"
 printf '[core]\n\thooksPath = /dev/null\n' > "$WORK/hp.cfg"
 printf '[include]\n\tpath = hp.cfg\n' > "$WORK/inc.cfg"
 printf '[user]\n\tname = probe\n' > "$WORK/clean.cfg"
+# HOME и XDG_CONFIG_HOME: git читает <HOME>/.gitconfig, <HOME>/.config/git/config,
+# <XDG_CONFIG_HOME>/git/config; близнец — HOME с конфигом без core.hooksPath
+mkdir -p "$WORK/home" "$WORK/home2/.config/git" "$WORK/xdg/git" "$WORK/homeclean"
+cp "$WORK/hp.cfg" "$WORK/home/.gitconfig"
+cp "$WORK/hp.cfg" "$WORK/home2/.config/git/config"
+cp "$WORK/hp.cfg" "$WORK/xdg/git/config"
+cp "$WORK/clean.cfg" "$WORK/homeclean/.gitconfig"
 ROWS="$WORK/rows"; : > "$ROWS"   # ожидание, каталог, команда — через NUL: вход мутантов
 
 assert() {
@@ -268,6 +275,72 @@ denies no-verify    "git config --global alias.pp 'push --no-verify'"
 denies no-verify    "git -c alias.x='!git commit --no-verify' x"
 denies hookspath    "git -c alias.c='-c core.hooksPath=/dev/null commit' c -m x"
 denies no-verify    "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=alias.ci 'GIT_CONFIG_VALUE_0=commit -n' git ci -m x"
+denies no-verify    "GIT_CONFIG_PARAMETERS=\"'alias.x'='commit -n'\" git x -m x"
+denies no-verify    "V='commit -n' git --config-env=alias.x=V x -m x"
+
+# решение диспетчера 2026-10-29 (ws#974, круг 2), опыт check-verifier: обход на МЕСТЕ
+# ВЫЗОВА алиаса, заведённого той же строкой
+echo "── вызов алиаса той же строки: значение плюс слова вызова → отказ вида обхода"
+denies no-verify    'git -c alias.x=commit x -n -m x'
+denies no-verify    'git -c alias.x=commit x --no-verify -m x'
+denies no-verify    'git -c alias.p=push p --no-verify origin 974-x'
+denies no-verify    'git -c alias.x=am x -n p.mbox'
+denies no-verify    'git -c alias.X=commit x -n -m x'
+denies no-verify    'git -c alias.y=commit -c alias.x=y x -n -m x'
+denies no-verify    'GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=alias.x GIT_CONFIG_VALUE_0=commit git x -n -m x'
+denies no-verify    'export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=alias.x GIT_CONFIG_VALUE_0=commit; git x -n -m x'
+denies no-verify    'git config alias.x commit && git x -n -m x'
+denies no-verify    "git -c alias.x='!git commit' x -n -m x"
+denies no-verify    "GIT_CONFIG_PARAMETERS=\"'alias.x'='commit'\" git x -n -m x"
+denies no-verify    'V=commit git --config-env=alias.x=V x -n -m x'
+passes              'git -c alias.x=push x -n origin 974-x'
+passes              'git -c alias.x=commit x -m x'
+passes              'git -c alias.x=log x -n 1'
+passes              'git -c alias.push=commit push -n origin 974-x'
+passes              'git config alias.x commit && git x -m x'
+passes              'GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=alias.x GIT_CONFIG_VALUE_0=log git x -n 1'
+passes              "git -c alias.x='!git log' x -n 1"
+passes              "GIT_CONFIG_PARAMETERS=\"'alias.x'='log'\" git x -n 1"
+passes              'V=log git --config-env=alias.x=V x -n 1'
+
+echo "── продолжение строки (\\⏎) снимается до разбора, как в оболочке"
+denies no-verify    $'git commit -m x \\\n--no-verify'
+denies no-verify    $'git commit -m x \\\n-n'
+denies no-verify    $'git -c alias.x=commit \\\nx -n -m x'
+passes              $'git commit -m x \\\\\n--no-verify'
+passes              $'git commit -m x \\\n--verify'
+
+echo "── *_SKIP_PREPUSH через +=, printf -v, read → отказ [skip-prepush]"
+denies skip-prepush 'KACHO_SKIP_PREPUSH+=1 git push'
+denies skip-prepush 'export KANAME_SKIP_PREPUSH+=1; git push'
+denies skip-prepush 'printf -v KACHO_SKIP_PREPUSH 1; export KACHO_SKIP_PREPUSH; git push'
+denies skip-prepush 'printf -vCORELIB_SKIP_PREPUSH %s 1; export CORELIB_SKIP_PREPUSH; git push'
+denies skip-prepush 'read KACHO_SKIP_PREPUSH <<< 1; export KACHO_SKIP_PREPUSH; git push'
+denies skip-prepush 'IFS= read -r -p x KANAME_SKIP_PREPUSH <<< 1; export KANAME_SKIP_PREPUSH; git push'
+passes              'KACHO_SKIP_PREPUSH+=0 git push -u origin 974-x'
+passes              'printf -v KACHO_SKIP_PREPUSH 0; git push -u origin 974-x'
+passes              'printf -v KACHO_SKIP_PREPUSH %s 0; git push -u origin 974-x'
+passes              "printf '%s\\n' KACHO_SKIP_PREPUSH=1 > notes.txt"
+passes              'read -p KACHO_SKIP_PREPUSH ANSWER; git push -u origin 974-x'
+passes              'read -r BRANCH <<< 974-x; git push origin "$BRANCH"'
+
+echo "── HOME и XDG_CONFIG_HOME перед git — конфиг с core.hooksPath → отказ [hookspath]"
+denies hookspath    "HOME=$WORK/home git commit -m x"
+denies hookspath    "HOME=$WORK/home2 git commit -m x"
+denies hookspath    "XDG_CONFIG_HOME=$WORK/xdg git commit -m x"
+denies hookspath    "export HOME=$WORK/home; git push"
+passes              "HOME=$WORK/homeclean git commit -m x"
+passes              "HOME=$WORK/nonexistent git commit -m x"
+passes              "XDG_CONFIG_HOME=$WORK/homeclean git commit -m x"
+
+echo "── GIT_DIR и --git-dir вне репозитория: перечень опций — у git этого каталога"
+# каталог вызова — не репозиторий: без GIT_DIR перечень не получен, и порог «--n»
+# отказал бы префиксу, который git отвергает как ambiguous (`--no-v` у commit)
+assert "нет" "$(git -C "$WORK" rev-parse --git-dir > /dev/null 2>&1 && echo да || echo нет)" \
+    "каталог опыта — не репозиторий (предпосылка строк GIT_DIR: иначе мутант gitdir-off слеп)"
+passes             "GIT_DIR=$L/.git git commit --no-v -m x" "$WORK"
+passes              "git --git-dir=$L/.git commit --no-v -m x" "$WORK"
+denies no-verify    "GIT_DIR=$L/.git git commit --no-veri -m x" "$WORK"
 
 echo "── законные близнецы → пропуск без единого слова"
 passes 'git push -n origin 974-x'
@@ -324,7 +397,9 @@ passes 'ls -la'
 
 # git_says <sub> <слова…> — вердикт НАСТОЯЩЕГО git о разборе опций: refused | accepted.
 # Репозиторий предпосылки пуст, удалённого и файлов нет: принятая команда падает
-# после разбора опций, ничего не меняя.
+# после разбора опций, ничего не меняя. Опции обхода здесь подаются git намеренно:
+# у синтетического репозитория нет хуков и удалённого — обходить нечего
+# (оговорка `git-issues.md#gi-no-hook-bypass`, решение диспетчера 2026-10-29).
 git_says() {
     local sub="$1"; shift
     local err
@@ -379,6 +454,25 @@ include-off	    return out.returncode == 0 and out.stdout.strip() != ""	    retu
 env-off	            yield from self.env(env, cur, depth)	            pass
 prefix-plus-one	            return n  # порог: минимальный однозначный префикс	            return n + 1  # порог
 prefix-minus-one	            return n  # порог: минимальный однозначный префикс	            return n - 1  # порог
+gitdir-off	            found = val if val and "$" not in val and "__SUBST__" not in val else None	            found = None
+cd-off	            if base in ("cd", "pushd") and len(argv) > 1 and "$" not in argv[1] \	            if False and len(argv) > 1 and "$" not in argv[1] \
+continuation-off	        text = CONTINUATION.sub(r"\1", text)	        text = text
+plus-assign-off	            words = [PLUS_ASSIGN.sub(r"\1=", w) for w in hg.words(seg)]	            words = hg.words(seg)
+callsite-off	        if sub not in NOT_ALIASED and sub.lower() in known:	        if False:
+builtin-aliased	NOT_ALIASED = set(HOOK_BYPASS) | {"config"}	NOT_ALIASED = set()
+c-alias-off	                    known[alias_name(key)] = cval	                    pass
+config-env-alias-off	                    known[alias_name(key)] = values[var]	                    pass
+env-alias-off	                out[alias_name(val)] = values.get("GIT_CONFIG_VALUE_" + m.group(1), "")	                pass
+params-alias-off	                        out[alias_name(key)] = aval	                        pass
+config-alias-off	            self.aliases[alias_name(pos[0])] = pos[1]	            pass
+shell-alias-args	        inner = self.text(" ".join([value[1:]] + [shlex.quote(r) for r in rest]), where,	        inner = self.text(value[1:], where,
+printf-off	            yield from self.printf_v(args)	            pass
+printf-value	        val = rest[1] if len(rest) > 1 and "%" in rest[0] else (rest[0] if rest else "")	        val = rest[0] if rest else ""
+read-off	            yield from self.read_names(args)	            pass
+read-opt-value	                        if not val and k < len(args):	                        if False:
+home-off	            elif name == "HOME" and bare and any(	            elif False and any(
+home-xdg-default	                                                 for p in (".gitconfig", ".config/git/config")):	                                                 for p in (".gitconfig",)):
+xdg-off	            elif name == "XDG_CONFIG_HOME" and bare \	            elif False \
 EOF
 python3 -I - "$GUARD" "$PARSER" "$ROWS" "$MUTANTS" "$WORK" <<'PY' > "$WORK/mut.out"
 import importlib.util, os, shutil, sys

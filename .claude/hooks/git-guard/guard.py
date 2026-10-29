@@ -25,7 +25,8 @@ Monitor и отказывает (код 2, текст в stderr — его ви�
   · присваивание `<ИМЯ>_SKIP_PREPUSH` не нулём — класс по имени, а не перечень:
     KACHO_, KANAME_, CORELIB_ (их хуки отправки читают каждое; prove.sh выводит
     имена из хуков деревьев и судит каждое найденное). Перед командой, через
-    `env`, `export`/`declare` и отдельным присваиванием;
+    `env`, `export`/`declare`, отдельным присваиванием, `+=`, `printf -v` и `read`
+    (у `read` значение из строки не выводится — отказ при любом);
   · перенаправление хуков: `git -c core.hooksPath[=…]` (ключ без учёта регистра),
     `--config-env[=]core.hooksPath=…`, `GIT_CONFIG_KEY_<n>=core.hooksPath`,
     `GIT_CONFIG_PARAMETERS` с ним, запись `git config [--global|--local|-f …]
@@ -33,11 +34,24 @@ Monitor и отказывает (код 2, текст в stderr — его ви�
     конфигурации с `core.hooksPath` (сам или через свой include):
     `GIT_CONFIG_GLOBAL=`/`GIT_CONFIG_SYSTEM=<файл>`, `-c include.path=<файл>`,
     `-c includeIf.<усл>.path=<файл>`, `GIT_CONFIG_KEY_<n>=include.path` с
-    `GIT_CONFIG_VALUE_<n>=<файл>`, `git config include.path <файл>`. Файл читает
+    `GIT_CONFIG_VALUE_<n>=<файл>`, `git config include.path <файл>`, а также
+    `HOME=<каталог>` (git читает `<каталог>/.gitconfig` и `<каталог>/.config/git/config`)
+    и `XDG_CONFIG_HOME=<каталог>` (`<каталог>/git/config`) перед git. Файл читает
     сам git (`git config --file <файл> --includes --get-all core.hooksPath`);
-  · алиас с обходом, заведённый той же строкой: `git -c alias.<имя>=<значение>`,
-    `git config alias.<имя> <значение>`, `GIT_CONFIG_KEY_<n>=alias.<имя>` — значение
-    судится как команда git (с `!` — как строка оболочки).
+  · алиас, заведённый той же строкой (`git -c alias.<имя>=<значение>`, `git config
+    alias.<имя> <значение>` раньше в строке, `GIT_CONFIG_KEY_<n>=alias.<имя>`,
+    `GIT_CONFIG_PARAMETERS`, `--config-env=alias.<имя>=<переменная той же строки>`):
+    судится его значение как команда git (с `!` — как строка оболочки) — и ВЫЗОВ
+    алиаса той же строкой: значение плюс слова на месте вызова (`git -c alias.x=commit
+    x -n` — это `git commit -n`), как его раскрывает git, в том числе алиас в алиас.
+    Встроенная подкоманда алиасом не перекрывается (git берёт встроенную) — у
+    подкоманд с ветвью стража (commit, push, merge, pull, am, rebase, config) вызов
+    не раскрывается; у прочих встроенных раскрытие — лишний отказ, а не пропуск.
+
+ПРОДОЛЖЕНИЕ СТРОКИ. `\\⏎` вне кавычек оболочка снимает до разбора слов
+(`git commit -m x \\⏎--no-verify` — одно слово `--no-verify`); страж снимает его так
+же, до нарезки. Чётное число обратных косых перед переводом строки — литерал и
+разделитель команд, а не продолжение.
 
 СОКРАЩЕНИЕ ОПЦИИ — класс, а не экземпляры. Git (parse-options) принимает любой
 ОДНОЗНАЧНЫЙ префикс длинной опции, и однозначность считается по перечню опций
@@ -67,13 +81,15 @@ git отвергает как ambiguous (`--no-verbose`). Страж берёт 
 срабатывает и внутри сабагентов, и сломанный страж, отказывающий всему, остановил
 бы все полосы на любой команде; но молчать о поломке он не вправе.
 
-ГРАНИЦА — ИЗВЕСТНЫЕ классы того, чего страж НЕ ловит: BOUNDARY ниже. Перечень не
-исчерпывающий: строку оболочки можно собрать бесконечным числом способов. prove.sh
-исполняет каждый пример строкой [BOUND]; пойманный пример — [FAIL]: перечень
-устарел. Новый найденный обход — ветвь стража со строкой отказа в prove.sh либо
-строка BOUNDARY; третьего нет. Страж — напоминание против случайных форм, а не
-барьер против намеренного обхода: предел держат хук отправки на сервере сборки
-(CI гонит те же наборы) и защита ствола.
+НАЗНАЧЕНИЕ И ПРЕДЕЛ. Решение диспетчера 2026-10-29 (ws#974, круг 2), дословно:
+«страж — барьер против ПРИВЫЧНОГО обхода агентом, не против намеренного противника;
+предел держат хук отправки и CI».
+
+ГРАНИЦА — ИЗВЕСТНЫЕ классы того, чего страж НЕ ловит: BOUNDARY ниже, у каждой строки
+причина. Перечень не исчерпывающий: строку оболочки можно собрать бесконечным числом
+способов. prove.sh исполняет каждый пример строкой [BOUND]; пойманный пример —
+[FAIL]: перечень устарел. Новый найденный обход — ветвь стража со строкой отказа в
+prove.sh либо строка BOUNDARY; третьего нет.
 """
 
 import importlib.util
@@ -97,6 +113,14 @@ HOOK_BYPASS = {"commit": ("--no-verify", "--no-post-rewrite"), "push": ("--no-ve
 SHORT_NO_VERIFY = {"commit", "am"}
 # имя переменной обхода хука отправки — класс: KACHO_, KANAME_, CORELIB_ …
 SKIP_ENV = re.compile(r"^[A-Z][A-Z0-9_]*_SKIP_PREPUSH$")
+# `\⏎` вне кавычек — продолжение строки (нечётное число косых перед переводом строки)
+CONTINUATION = re.compile(r"(?<!\\)((?:\\\\)*)\\\n")
+# `ИМЯ+=значение` — присваивание с дописыванием; для суда — как `ИМЯ=значение`
+PLUS_ASSIGN = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)\+=")
+# подкоманды с ветвью стража: встроенная, алиасом не перекрывается — не раскрывается
+NOT_ALIASED = set(HOOK_BYPASS) | {"config"}
+# опции `read` со значением (слитно или следующим словом); у `-a` значение — имя переменной
+READ_VALUE = "adinNptu"
 # порог, когда перечень опций подкоманды не получен: любой префикс от `--n`
 MIN_PREFIX_FALLBACK = 3
 GIT_GLOBAL_VALUE = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--super-prefix",
@@ -135,6 +159,31 @@ BOUNDARY = (
      "printf '[core]\\n\\thooksPath = /dev/null\\n' > g.cfg && GIT_CONFIG_GLOBAL=g.cfg git commit -m x"),
     ("include.path, взятый из переменной через --config-env",
      "git --config-env=include.path=INC commit -m x"),
+    # решение диспетчера 2026-10-29 (ws#974, круг 2): эти классы — строками границы
+    ("другое написание слова git (экранирование): слова «git» в тексте нет, страж не "
+     "разбирает строку (relevant)", "g\\it commit -n -m x"),
+    ("другое написание слова git (пустые кавычки): слова «git» в тексте нет, страж не "
+     "разбирает строку (relevant)", 'g""it commit -n -m x'),
+    ("ANSI-C кавычки $'…': разборщик (shlex) их не знает, слово приходит как «$--no-verify»",
+     "git commit $'--no-verify' -m x"),
+    ("ANSI-C кавычки $'…' у подкоманды: слово приходит как «$commit»", "git $'commit' -n -m x"),
+    ("обёртка, исполняющая строку позже (trap): строка — аргумент, не команда",
+     "trap 'git commit -n -m x' EXIT"),
+    ("обёртка со своим разбором (watch): не в перечне обёрток общего разборщика",
+     "watch -n 60 git commit -n -m x"),
+    ("обёртка со своим разбором (parallel): не в перечне обёрток общего разборщика",
+     "parallel git commit -n -m ::: x"),
+    ("плумбинг без хука: send-pack не зовёт pre-push (опыт check-verifier: хук не вызван, "
+     "ветка на удалённом есть)", "git send-pack origin HEAD:refs/heads/974-x"),
+    ("плумбинг без хука: commit-tree и update-ref не зовут pre-commit (опыт "
+     "check-verifier)", 'git update-ref refs/heads/974-x "$(git commit-tree HEAD^{tree} -p HEAD -m x)"'),
+    ("правка хуков на диске (rm, chmod .git/hooks): судится строка git, а не файлы клона",
+     "chmod -x .git/hooks/pre-push && git push origin 974-x"),
+    ("правка хуков на диске (rm .git/hooks): судится строка git, а не файлы клона",
+     "rm .git/hooks/pre-push && git push origin 974-x"),
+    ("PREPUSH_GH — подмена gh хука отправки для проб (scripts/hooks/pre-push): подменяет "
+     "лишь ответ трекера о номере задачи новой ветки, наборы хука идут",
+     "PREPUSH_GH=true git push origin 974-x"),
 )
 
 DENY = {
@@ -180,6 +229,23 @@ def is_include(key):
 
 def is_alias(key):
     return key.strip().strip("'\"").lower().startswith("alias.")
+
+
+def alias_name(key):
+    """Имя алиаса из ключа `alias.<имя>`: имя переменной конфигурации — без учёта регистра."""
+    return key.strip().strip("'\"").lower()[len("alias."):]
+
+
+def split_words(value):
+    try:
+        return shlex.split(value)
+    except ValueError:
+        return value.split()
+
+
+def params_items(val):
+    """`GIT_CONFIG_PARAMETERS`: пары `'ключ'='значение'` и прежняя форма `'ключ=значение'`."""
+    return [item.partition("=")[::2] for item in split_words(val)]
 
 
 def file_sets_hookspath(path, cwd):
@@ -307,15 +373,19 @@ def env_gitdir(assignments):
 class Judge:
     def __init__(self, hg):
         self.hg = hg
+        # алиасы, записанные `git config alias.*` раньше в этой строке: живут в конфиге
+        self.aliases = {}
 
     def text(self, text, cwd, depth=0):
         hg = self.hg
         if depth > 6:
             return
+        text = CONTINUATION.sub(r"\1", text)
         stripped, bodies = hg.strip_heredocs(text)
         vis, cur = [], cwd
         for seg in hg.split_commands(stripped):
-            env, argv = hg.unwrap(hg.expand_words(hg.words(seg), vis))
+            words = [PLUS_ASSIGN.sub(r"\1=", w) for w in hg.words(seg)]
+            env, argv = hg.unwrap(hg.expand_words(words, vis))
             yield from self.env(env, cur, depth)
             if not argv:
                 vis.extend(env)
@@ -356,8 +426,84 @@ class Judge:
                 yield from self.alias(cval, e, cwd, depth)
             elif name == "GIT_CONFIG_PARAMETERS" and "core.hookspath" in val.lower():
                 yield "hookspath", e
+            elif name == "GIT_CONFIG_PARAMETERS":
+                for key, aval in params_items(val):
+                    if is_alias(key):
+                        yield from self.alias(aval, e, cwd, depth)
             elif name in ("GIT_CONFIG_GLOBAL", "GIT_CONFIG_SYSTEM") and file_sets_hookspath(val, cwd):
                 yield "hookspath", e
+            elif name == "HOME" and bare and any(file_sets_hookspath(os.path.join(bare, p), cwd)
+                                                 for p in (".gitconfig", ".config/git/config")):
+                yield "hookspath", e
+            elif name == "XDG_CONFIG_HOME" and bare \
+                    and file_sets_hookspath(os.path.join(bare, "git", "config"), cwd):
+                yield "hookspath", e
+
+    def env_aliases(self, assignments):
+        """Алиасы, которые окружение команды отдаёт git: `GIT_CONFIG_KEY_<n>=alias.<имя>`
+        с `GIT_CONFIG_VALUE_<n>` и пары `GIT_CONFIG_PARAMETERS`."""
+        values = dict(e.partition("=")[::2] for e in assignments)
+        out = dict(self.aliases)
+        for name, val in values.items():
+            m = re.match(r"^GIT_CONFIG_KEY_(\d+)$", name)
+            if m and is_alias(val):
+                out[alias_name(val)] = values.get("GIT_CONFIG_VALUE_" + m.group(1), "")
+            elif name == "GIT_CONFIG_PARAMETERS":
+                for key, aval in params_items(val):
+                    if is_alias(key):
+                        out[alias_name(key)] = aval
+        return out
+
+    def call_alias(self, name, known, rest, where, gitdir, depth, env):
+        """Вызов алиаса — команда, которую из него собирает git: значение плюс слова на
+        месте вызова; у `!` — строка оболочки с ними. Алиас в себя git отвергает петлёй —
+        раскрытый алиас из перечня вложенного раскрытия снят."""
+        value = known[name.lower()].strip()
+        shown = "алиас «%s» = «%s»: git %s" % (name, value, " ".join([name] + rest))
+        if value.startswith("!"):
+            inner = self.text(" ".join([value[1:]] + [shlex.quote(r) for r in rest]), where,
+                              depth + 1)
+        else:
+            rest_known = {k: v for k, v in known.items() if k != name.lower()}
+            inner = self.git(split_words(value) + rest, where, gitdir, depth + 1, env, rest_known)
+        for kind, _ in inner:
+            yield kind, shown
+            return
+
+    def printf_v(self, args):
+        """`printf -v ИМЯ формат [доводы]` — присваивание переменной оболочки."""
+        if not args or not args[0].startswith("-v"):
+            return
+        name, rest = (args[1] if len(args) > 1 else "", args[2:]) if args[0] == "-v" \
+            else (args[0][2:], args[1:])
+        rest = rest[1:] if rest[:1] == ["--"] else rest
+        val = rest[1] if len(rest) > 1 and "%" in rest[0] else (rest[0] if rest else "")
+        if SKIP_ENV.match(name) and val not in ("", "0"):
+            yield "skip-prepush", " ".join(["printf"] + args)
+
+    def read_names(self, args):
+        """`read [опции] ИМЯ…` — значение приходит из ввода, из строки не выводится:
+        имя переменной обхода — отказ при любом значении."""
+        names, k = [], 0
+        while k < len(args):
+            a = args[k]
+            k += 1
+            if a == "--":
+                names.extend(args[k:])
+                break
+            if a.startswith("-") and len(a) > 1:
+                for j, ch in enumerate(a[1:], 1):
+                    if ch in READ_VALUE:
+                        val = a[j + 1:]
+                        if not val and k < len(args):
+                            val, k = args[k], k + 1
+                        if ch == "a":
+                            names.append(val)
+                        break
+                continue
+            names.append(a)
+        if any(SKIP_ENV.match(n) for n in names):
+            yield "skip-prepush", " ".join(["read"] + args)
 
     def alias(self, value, shown, cwd, depth):
         """Значение алиаса, заведённого этой строкой, — команда git (с `!` — строка
@@ -381,7 +527,11 @@ class Judge:
         hg = self.hg
         base, args = os.path.basename(argv[0]), argv[1:]
         if base == "git":
-            yield from self.git(args, cur, env_gitdir(env), depth)
+            yield from self.git(args, cur, env_gitdir(env), depth, env)
+        elif base == "printf":
+            yield from self.printf_v(args)
+        elif base == "read":
+            yield from self.read_names(args)
         elif base in hg.SHELLS:
             cmd, _, params, _ = hg.shell_args(args)
             if cmd is not None:
@@ -401,8 +551,13 @@ class Judge:
                     if sub:
                         yield from self.argv(sub, cur, depth, list(env) + sub_env)
 
-    def git(self, args, cwd, gitdir, depth):
+    def git(self, args, cwd, gitdir, depth, env=(), aliases=None):
+        if depth > 6:
+            return
         k, where = 0, cwd
+        # алиасы, видимые этому вызову: вложенному раскрытию перечень отдаётся целиком
+        known = self.env_aliases(env) if aliases is None else dict(aliases)
+        values = dict(e.partition("=")[::2] for e in env)
         while k < len(args) and args[k].startswith("-"):
             a = args[k]
             head, eq, val = a.partition("=")
@@ -413,18 +568,25 @@ class Judge:
                 if is_hookspath(key) or (is_include(key) and file_sets_hookspath(cval, where)):
                     yield "hookspath", "git -c " + args[k + 1]
                 elif is_alias(key):
+                    known[alias_name(key)] = cval
                     yield from self.alias(cval, "git -c " + args[k + 1], where, depth)
             if head == "--git-dir":
                 gitdir = val if eq else (args[k + 1] if k + 1 < len(args) else gitdir)
             if head == "--config-env":
                 spec = val if eq else (args[k + 1] if k + 1 < len(args) else "")
-                if is_hookspath(spec.split("=", 1)[0]):
+                key, _, var = spec.partition("=")
+                if is_hookspath(key):
                     yield "hookspath", "git --config-env " + spec
+                elif is_alias(key) and var in values:
+                    known[alias_name(key)] = values[var]
+                    yield from self.alias(values[var], "git --config-env " + spec, where, depth)
             k += 2 if (a in GIT_GLOBAL_VALUE and not eq) else 1
         if k >= len(args):
             return
         sub, rest = args[k], args[k + 1:]
-        if sub in HOOK_BYPASS:
+        if sub not in NOT_ALIASED and sub.lower() in known:
+            yield from self.call_alias(sub, known, rest, where, gitdir, depth, env)
+        elif sub in HOOK_BYPASS:
             opts = Options(sub, where or os.getcwd(), gitdir)
             for a in split_flags(sub, rest):
                 if (a.startswith("--") and any(opts.names(a, t) for t in HOOK_BYPASS[sub])) \
@@ -462,6 +624,7 @@ class Judge:
         if is_hookspath(pos[0]) or (is_include(pos[0]) and file_sets_hookspath(pos[1], where)):
             yield "hookspath", shown
         elif is_alias(pos[0]):
+            self.aliases[alias_name(pos[0])] = pos[1]
             yield from self.alias(pos[1], shown, where, depth)
 
 

@@ -15,7 +15,7 @@ gi-identity-owner-only · author И committer — ТОЛЬКО корневой 
 gi-no-attribution-trailers · `Co-Authored-By` и attribution-трейлеры НЕ добавлять · хуки commit-msg, pre-push; tooling-gate check-15 · red: трейлер атрибуции в теле коммита
 gi-no-direct-push-main · в `main` напрямую не пушить без ДОСЛОВНОГО разрешения диспетчера (`00-kacho-core.md#ban18-decides-dispatcher`), работа — через PR; `--force` по опубликованному — решением владельца · `enforce_admins` и обязательные контексты `ci.yaml` (ws#886) · red: коммит в `main` без PR; `--force` агентом
 gi-merge-method · вливание — коммитом слияния, сквоша и rebase опубликованного нет (владелец 2026-09-22); способ сверяй с настройками (`[false,true,false]`, Д56); сообщения коммитов ветки входят в ствол — признак восстановимости по каждому · сервер; признак — ЗАВЕСТИ · red: способ из памяти; `--squash`
-gi-no-hook-bypass · хук не обходится никогда, разрешить некому: `--no-verify`, `-n` у commit и am, `core.hooksPath` в любой форме, `*_SKIP_PREPUSH`; временная копия — не исключение · `.claude/hooks/git-guard` · red: хук обойдён, чтобы «пройти»
+gi-no-hook-bypass · хук не обходится никогда, разрешить некому: `--no-verify`, `-n` у commit и am, `core.hooksPath` в любой форме, `*_SKIP_PREPUSH`; временная копия — не исключение, исключение одно: `git_says` в `git-guard/prove.sh` (синтетический репозиторий без хуков и удалённого — обходить нечего) · `.claude/hooks/git-guard` · red: хук обойдён, чтобы «пройти»
 
 ## Волна — единица запроса на слияние
 
