@@ -125,7 +125,7 @@ AI-оснастка — **одна**, в `.claude/` воркспейса: ни �
 
 `.claude/settings.json` — `agent`, `claudeMdExcludes` и хуки: `stall-signal` (`UserPromptSubmit`, `Stop`),
 `lessons-signal` (`Stop`), `class-guard`, `docfresh`, `change-graph-reminder` (`PostToolUse`, и в
-сабагентах), `heavy-guard` (`PreToolUse` Bash, Monitor), `no-wait-guard`, `gh-api-guard` (Bash),
+сабагентах), `heavy-guard`, `git-guard` (`PreToolUse` Bash, Monitor), `no-wait-guard`, `gh-api-guard` (Bash),
 `session-memcap` (`SessionStart`).
 Пути — `$CLAUDE_PROJECT_DIR`; в продукте файла нет. Хранилище ведётся лишь в `lessons/`, `runbooks/`.
 
