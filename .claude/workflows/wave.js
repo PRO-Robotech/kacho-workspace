@@ -337,9 +337,15 @@ for (const l of lanes) {
 
 // ── Полосы ──────────────────────────────────────────────────────────────
 phase('Полосы')
-const review = async (role, l, head, prevHead, label, stack) => agent(C + '\n\nРевью ' + role + ': полоса ' + l.key + ' ветка ' + l.branch + ' @' + head + (prevHead ? ' — только дельта `git diff ' + prevHead + '..' + head + '` (принятое не переоткрывается)' : (stack ? ' — своя дельта `git diff ' + stack.head + '..' + head + '` (сводка deps ' + stack.branch + ' — код принятых полос, не предмет ревью)' : '')) + '. Отчёт задания и исполнителя — ' + rep(l.key, 'implement') + '. Запись — ' + rep(l.key, label) + '. ' + due('review') + ' Верни verdict, sha (голова, которую смотрел), blocking (пусто при accept), report.', { agentType: role, label: label + ':' + l.key, phase: 'Полосы', schema: S_REV })
+const review = async (role, l, head, prevHead, label, stack) => agent(C + '\n\nРевью ' + role + ': полоса ' + l.key + ' ветка ' + (l.branch || '(план не задал)') + ' @' + head + (prevHead ? ' — только дельта `git diff ' + prevHead + '..' + head + '` (принятое не переоткрывается)' : (stack ? ' — своя дельта `git diff ' + stack.head + '..' + head + '` (сводка deps ' + stack.branch + ' — код принятых полос, не предмет ревью)' : '')) + '. Отчёт задания и исполнителя — ' + rep(l.key, 'implement') + '. Запись — ' + rep(l.key, label) + '. ' + due('review') + ' Верни verdict, sha (голова, которую смотрел), blocking (пусто при accept), report.', { agentType: role, label: label + ':' + l.key, phase: 'Полосы', schema: S_REV })
 const precheck = async (l, impl, stack) => agent(C + '\n\nРежим lane-precheck (LANE_PRECHECK_WS — корень воркспейса ' + ROOT + ', дом копий полос; KACHO_WS скрипт не читает; без неё корень выводится из места скрипта — WS-UNKNOWN или MAIN-COPY, ws#1016): `LANE_PRECHECK_WS=' + ROOT + ' bash ' + WS + '/scripts/lane-precheck.sh ' + impl.copy + ' ' + impl.branch + ' ' + (stack ? stack.head : (l.base || A.base)) + ' ' + (impl.issues || []).map(i => '--issue ' + i).join(' ') + ' --hook-log ' + impl.hookLog + ' > ' + rep(l.key, 'lane-precheck') + ' 2>&1`. Верни code, out (последние строки), reasons (коды из строк REASON), head (голова ветки в копии).', { ...MECH, label: 'mech:precheck:' + l.key, phase: 'Полосы', schema: S_MECH })
 const neighbours = l => lanes.filter(x => x.key !== l.key).map(x => x.key + ': ' + ((x.paths || []).join(', ') || 'перечень не задан')).join('; ')
+// Имя ветки следующим этапам — ТОЛЬКО из ВОЗВРАТА исполнителя (ws#1498): пробная сборка,
+// сборка и сводка deps берут его; план ветку может не задавать (имя — по правилу репозитория).
+// Возврат без имени ветки (пусто, нет поля, не имя git) либо с веткой не плана — стоп с обоими
+// именами, а не задание на ветку, которой нет.
+const brName = b => /^[A-Za-z0-9._\/-]+$/.test(String(b || ''))
+const brGap = (l, r) => !brName(r.branch) || (l.branch && String(r.branch) !== String(l.branch)) ? 'ветка: возврат исполнителя назвал «' + String(r.branch || '').slice(0, 80) + '», план — «' + (l.branch || 'не задана') + '»; ' + (brName(r.branch) ? 'имя следующим этапам берётся из возврата — расхождение' : 'имени ветки в возврате нет') + ', решает диспетчер (ws#1498)' : ''
 // Исполнитель с hookLog не путём — одна доводка тем же заданием; снова не путь —
 // полоса стоит (runLane), предпроверка вслепую не зовётся.
 const implement = async (l, tdd, extra, stack) => {
@@ -360,7 +366,7 @@ const sqlLane = l => ['sql', 'migration'].includes(l.class) || l.agent === 'migr
 const SQL_RULE = '\nSQL/МИГРАЦИЯ: пробу с новой фикстурой прогони на голове ДО правки и прочти текст отказа до записи «красное» (CHECK имени или разрешений фикстуры — красное фикстуры, не предмета). Перепись подъёма (TestIntegration_RoleComposition* и иные читатели схемы) — в том же прогоне, что пробы предмета, не отдельным шагом.'
 // Круг переделки — каждый вызов исполнителя полосы после первого (метрика волны).
 const impl1st = {}
-const implementOnce = async (l, tdd, extra, stack) => (M.implCalls++, impl1st[l.key] ? M.rework++ : (impl1st[l.key] = true), agent(C + '\n\nПолоса ' + l.key + ' (' + tierOf[l.key].tier + '), ветка ' + l.branch + ' от ' + (stack ? 'сводки deps ' + stack.branch + '@' + stack.head + ' (в ней код полос ' + (l.deps || []).join(', ') + (inLane(l) ? '; сводка уже в твоей ветке на origin — продолжай её от этой головы, не переписывая)' : '; ветка уже есть на origin — влей сводку в неё коммитом слияния, не переписывая)') : (l.base || A.base)) + ', копия — ' + D + '/' + l.key + '/copy. ' + (tdd ? 'Строгий TDD: красная проба до кода. ' : '') + 'Задание: ' + taskOf(l) + (l.ctx ? '\nКонтекст: ' + l.ctx : '') + mapText(l) + (sqlLane(l) ? SQL_RULE : '') + '\n' + FILES_RULE + ' Твой перечень: ' + ((l.paths || []).join(', ') || 'не задан') + '. Перечни соседей: ' + (neighbours(l) || 'соседей нет') + '.' + (extra ? '\nДоводка: ' + extra : '') + '\nСдача: коммит, DoD-proof в каждой задаче, отправка своей ветки через слот с журналом `{ echo "lane-push head=$(git rev-parse HEAD)"; git push origin HEAD:refs/heads/' + l.branch + ' 2>&1; echo "lane-push rc=$?"; } > ' + R + '/' + l.key + '/push.log`. Отчёт — ' + rep(l.key, 'implement') + '. ' + due('implement') + ' Верни status, branch, head, copy, hookLog (ПУТЬ к журналу отправки ' + R + '/' + l.key + '/push.log, а не слово об исходе), issues (владелец/репо#N), impact (по пункту карты строкой «<n> → правка <путь>» либо «<n> → не затронуто — потому что <довод>»), report (содержательный итог: что сделано, какие файлы, исход проверок числами, взятые файлы вне перечня), lesson (урок полосы — ошибка, переделка, лишний агент или круг, ложный отказ гейта, застой, обход — строкой «<класс> · <где предотвратить>», её же допиши `>> ' + LESSONS + '` с префиксом «' + l.key + ' · »; урока нет — «—», в файл не пиши).', { agentType: l.agent, label: 'impl:' + l.key, phase: 'Полосы', schema: S_IMPL }))
+const implementOnce = async (l, tdd, extra, stack) => (M.implCalls++, impl1st[l.key] ? M.rework++ : (impl1st[l.key] = true), agent(C + '\n\nПолоса ' + l.key + ' (' + tierOf[l.key].tier + '), ветка ' + (l.branch || '(план не задал — заведи по правилу имени ветки репозитория, верни полем branch)') + ' от ' + (stack ? 'сводки deps ' + stack.branch + '@' + stack.head + ' (в ней код полос ' + (l.deps || []).join(', ') + (inLane(l) ? '; сводка уже в твоей ветке на origin — продолжай её от этой головы, не переписывая)' : '; ветка уже есть на origin — влей сводку в неё коммитом слияния, не переписывая)') : (l.base || A.base)) + ', копия — ' + D + '/' + l.key + '/copy. ' + (tdd ? 'Строгий TDD: красная проба до кода. ' : '') + 'Задание: ' + taskOf(l) + (l.ctx ? '\nКонтекст: ' + l.ctx : '') + mapText(l) + (sqlLane(l) ? SQL_RULE : '') + '\n' + FILES_RULE + ' Твой перечень: ' + ((l.paths || []).join(', ') || 'не задан') + '. Перечни соседей: ' + (neighbours(l) || 'соседей нет') + '.' + (extra ? '\nДоводка: ' + extra : '') + '\nСдача: коммит, DoD-proof в каждой задаче, отправка своей ветки через слот с журналом `{ echo "lane-push head=$(git rev-parse HEAD)"; git push origin HEAD:refs/heads/' + (l.branch || '<твоя ветка>') + ' 2>&1; echo "lane-push rc=$?"; } > ' + R + '/' + l.key + '/push.log`' + (l.branch ? '' : ' — <твоя ветка> заведена тобой по правилу имени ветки репозитория, её имя верни полем branch') + '. Отчёт — ' + rep(l.key, 'implement') + '. ' + due('implement') + ' Верни status, branch, head, copy, hookLog (ПУТЬ к журналу отправки ' + R + '/' + l.key + '/push.log, а не слово об исходе), issues (владелец/репо#N), impact (по пункту карты строкой «<n> → правка <путь>» либо «<n> → не затронуто — потому что <довод>»), report (содержательный итог: что сделано, какие файлы, исход проверок числами, взятые файлы вне перечня), lesson (урок полосы — ошибка, переделка, лишний агент или круг, ложный отказ гейта, застой, обход — строкой «<класс> · <где предотвратить>», её же допиши `>> ' + LESSONS + '` с префиксом «' + l.key + ' · »; урока нет — «—», в файл не пиши).', { agentType: l.agent, label: 'impl:' + l.key, phase: 'Полосы', schema: S_IMPL }))
 // Сводка голов deps: временная ветка от свежей базы, головы — коммитами слияния
 // (--no-ff, без rebase/reset/force); уже есть на origin — дописывается. Факт
 // содержания — `git merge-base --is-ancestor` по каждой голове, а не слово.
@@ -408,6 +414,7 @@ const runLane = async (l, stack) => {
   const tdd = has('implementer-tdd')
   let impl = await implement(l, tdd, [has('surface-census') ? 'перепись поверхности — ' + rep(l.key, 'surface-census') : '', has('acceptance(<=2)') ? 'имитация клиента до кода — ' + rep(l.key, 'client-sim') : ''].filter(Boolean).join('; '), stack)
   if (!impl || ['blocked', 'failed'].includes(impl.status) || !sha40(impl.head)) return { ...out, stage: 'исполнитель', report: rep(l.key, 'implement') }
+  if (brGap(l, impl)) return { ...out, stage: brGap(l, impl), report: rep(l.key, 'implement') }
   if (!isPath(impl.hookLog)) return { ...out, stage: 'исполнитель: hookLog не путь и после доводки (' + JSON.stringify(impl.hookLog === undefined ? null : impl.hookLog).slice(0, 60) + ')', report: rep(l.key, 'implement') }
   const gap = unclosed(l, impl)
   if (gap.length) return { ...out, stage: 'карта влияния: пункты ' + gap.join(', ') + ' не закрыты и после доводки — полоса не сдаётся', report: rep(l.key, 'implement') }
@@ -419,29 +426,32 @@ const runLane = async (l, stack) => {
     const prev = impl.head
     impl = await implement(l, tdd, 'lane-precheck вернул ' + (pc.reasons || []).join(', ') + ' — ' + rep(l.key, 'lane-precheck'), stack)
     if (!impl || !sha40(impl.head)) return { ...out, stage: 'исполнитель (доводка предпроверки)' }
+    if (brGap(l, impl)) return { ...out, stage: brGap(l, impl), report: rep(l.key, 'implement') }
     if (impl.head === prev && impl.status !== 'already-done') return { ...out, stage: 'предпроверка: голова не сменилась — повтора нет', reasons: pc.reasons }
     pc = await precheck(l, impl, stack)
   }
   if (!pc || pc.code !== 0) return { ...out, stage: 'предпроверка', code: pc ? pc.code : null, reasons: pc ? pc.reasons : [] }
   out.head = impl.head
   out.copy = impl.copy
+  out.branch = impl.branch
   if (stack) out.stack = { branch: stack.branch, head: stack.head }
   if (has('roles')) {
     const roles = t.roles.length ? t.roles : ['go-style-reviewer']
-    let vs = await Promise.all(roles.map(r => review(r, l, impl.head, '', 'review-' + r, stack)))
+    let vs = await Promise.all(roles.map(r => review(r, { ...l, branch: impl.branch }, impl.head, '', 'review-' + r, stack)))
     const back = vs.map((v, i) => ({ v, r: roles[i] })).filter(x => !x.v || x.v.verdict !== 'accept')
     if (back.length) {
       M.roleReturns += back.length
       const prev = impl.head
       impl = await implement(l, tdd, 'возврат ролей: ' + back.map(x => x.r + ' — ' + rep(l.key, 'review-' + x.r)).join('; '), stack)
       if (!impl || !sha40(impl.head) || impl.head === prev) return { ...out, stage: 'ревью ролей: голова не сменилась — повтора нет' }
+      if (brGap(l, impl)) return { ...out, stage: brGap(l, impl), report: rep(l.key, 'implement') }
       pc = await precheck(l, impl, stack)
       if (!pc || pc.code !== 0) return { ...out, stage: 'предпроверка после ревью', reasons: pc ? pc.reasons : [] }
       // Второй круг — только вернувшим, по дельте (база диспетчера §8а п.8).
       // Вердикт принявшей роли остаётся на голове, которую она СМОТРЕЛА: sha
       // не переписывается (ws#933). Голову новее её вердикта никто из неё не
       // видел — полоса стоит здесь, до сборки, и решает диспетчер.
-      const again = await Promise.all(back.map(x => review(x.r, l, impl.head, prev, 'review-' + x.r + '-2')))
+      const again = await Promise.all(back.map(x => review(x.r, { ...l, branch: impl.branch }, impl.head, prev, 'review-' + x.r + '-2')))
       if (again.some(v => !v || v.verdict !== 'accept')) return { ...out, stage: 'ревью ролей: второй круг — тупик, решает диспетчер' }
       vs = vs.map((v, i) => { const j = back.findIndex(x => x.r === roles[i]); return j < 0 ? v : again[j] })
       const unseen = roles.filter((r, i) => !vs[i] || vs[i].sha !== impl.head)
@@ -464,7 +474,7 @@ const runLane = async (l, stack) => {
 // один писатель); красное — полоса в остаток, на origin ничего не меняется.
 let trialChain = Promise.resolve()
 const trialIn = (l, r) => (trialChain = trialChain.then(async () => {
-  const t = await agent(C + '\n\nРежим пробная сборка полосы ' + l.key + ': в копии ' + D + '/trial (нет — клон от свежего origin/' + (A.base || '?') + ', ветка trial) заведи `git switch -C cand-' + l.key + ' trial` и влей ' + l.branch + '@' + r.head + ' коммитом слияния pointpu --no-ff; конфликт — `git merge --abort`, code 1, пути в reasons.' + UI_DEPS + ' Суд СВЕДЁННОГО — хук отправки через слот: `git push --dry-run origin HEAD:refs/heads/' + l.branch + '` (кандидат — потомок головы полосы; ' + HOMES + '), журнал ' + R + '/' + l.key + '/trial.push.log. code: 0 — хук зелёный, затем `git switch trial && git merge --ff-only cand-' + l.key + '`; 1 — красное на сведённом (зависимый не поправлен), trial не двигать, в reasons — упавшие проверки; 2 — не выполнилось (слот 74/75/76). Верни code, out, reasons, head (голова cand).', { ...MECH, label: 'mech:trial:' + l.key, phase: 'Полосы', schema: S_MECH })
+  const t = await agent(C + '\n\nРежим пробная сборка полосы ' + l.key + ': в копии ' + D + '/trial (нет — клон от свежего origin/' + (A.base || '?') + ', ветка trial) заведи `git switch -C cand-' + l.key + ' trial` и влей ' + r.branch + '@' + r.head + ' коммитом слияния pointpu --no-ff; конфликт — `git merge --abort`, code 1, пути в reasons.' + UI_DEPS + ' Суд СВЕДЁННОГО — хук отправки через слот: `git push --dry-run origin HEAD:refs/heads/' + r.branch + '` (кандидат — потомок головы полосы; ' + HOMES + '), журнал ' + R + '/' + l.key + '/trial.push.log. code: 0 — хук зелёный, затем `git switch trial && git merge --ff-only cand-' + l.key + '`; 1 — красное на сведённом (зависимый не поправлен), trial не двигать, в reasons — упавшие проверки; 2 — не выполнилось (слот 74/75/76). Верни code, out, reasons, head (голова cand).', { ...MECH, label: 'mech:trial:' + l.key, phase: 'Полосы', schema: S_MECH })
   if (t && t.code === 1) { M.trialRed++; return { ...r, ok: false, stage: 'пробная сборка: красное на сведённом — ' + ((t.reasons || []).join(', ') || 'причина не названа') + ' (' + R + '/' + l.key + '/trial.push.log)' } }
   if (!t || t.code !== 0) log('пробная сборка ' + l.key + ': не выполнилась (код ' + (t ? t.code : 'нет ответа') + ') — суд сведённого за CI сборки')
   return r
@@ -483,7 +493,7 @@ const launch = k => started[k] || (started[k] = (async () => {
   if (notReady.length) r = { key: k, ok: false, stage: 'не начата: deps ' + notReady.map(d => d.key).join(', ') + ' не прошли' }
   else if (!deps.length) r = (await headGate(l, [], null)) || await runLane(l, null)
   else {
-    const ds = deps.map(d => ({ branch: lanes.find(x => x.key === d.key).branch, head: d.head, repo: lanes.find(x => x.key === d.key).repo }))
+    const ds = deps.map(d => ({ branch: d.branch, head: d.head, repo: lanes.find(x => x.key === d.key).repo }))
     const st = await stackOf(l, ds)
     const missing = st ? ds.filter(d => !(st.contains || []).includes(d.head)) : ds
     if (st && sha40(st.head) && !inLane(l)) stacks.push(st.branch || stackNames[k])
@@ -514,13 +524,13 @@ phase('Сборка')
 const steps = new Set(order.flatMap(k => tierOf[k].steps))
 const operatorStand = ['PRO-Robotech/kaname-iam-operator', 'PRO-Robotech/registry-operator', 'PRO-Robotech/vault-operator'].includes(A.repo)
 const kanameStand = A.repo === 'PRO-Robotech/kaname'
-const assembleLegacy = async round => agent(C + '\n\nРежим сборка ' + round + ': в копии ' + D + '/assemble от свежего origin/' + (A.base || '?') + ' сведи в ветку волны ' + N + ' полосы по порядку ' + order.map(k => lanes.find(l => l.key === k).branch + '@' + done[k].head).join(', ') + ' коммитами слияния pointpu --no-ff; конфликт по существу не решай — верни conflicts.' + UI_DEPS + ' Отправь ветку волны через слот (журнал ' + D + '/assemble-' + round + '.push.log); PR ' + N + ' → ' + (A.epic || A.base) + ' открой ЧЕРНОВИКОМ (`gh pr create --draft`), если его нет: на черновике конвейер исполняет только затронутое, полный прогон — один раз перед посадкой (ws#1013); доводки идут в черновике, затронутое до отправки судит хук отправки Job-ом слота, на машине не гоняется (ws#1301) (заголовок «#' + N + ' …»; тело — ТОЛЬКО вывод генератора (ws#1146), руками не пишется: `RITUAL_REPO_DIR=' + D + '/assemble bash ' + WS + '/scripts/pr-body.sh ' + (A.repo || '?') + ' origin/' + (A.epic || A.base || '?') + ' HEAD > ' + R + '/pr-body-' + round + '.md` — ' + PRB + ' (код не 0 — status failed, PR не трогать) в `gh pr create --draft --body-file`, PR есть — `gh pr edit --body-file`). Отчёт — ' + D + '/assemble-' + round + '.md. Верни status, head, copy, pr, conflicts, report.', { ...MECH, label: 'mech:assemble:' + round, phase: 'Сборка', schema: S_ASM })
+const assembleLegacy = async round => agent(C + '\n\nРежим сборка ' + round + ': в копии ' + D + '/assemble от свежего origin/' + (A.base || '?') + ' сведи в ветку волны ' + N + ' полосы по порядку ' + order.map(k => done[k].branch + '@' + done[k].head).join(', ') + ' коммитами слияния pointpu --no-ff; конфликт по существу не решай — верни conflicts.' + UI_DEPS + ' Отправь ветку волны через слот (журнал ' + D + '/assemble-' + round + '.push.log); PR ' + N + ' → ' + (A.epic || A.base) + ' открой ЧЕРНОВИКОМ (`gh pr create --draft`), если его нет: на черновике конвейер исполняет только затронутое, полный прогон — один раз перед посадкой (ws#1013); доводки идут в черновике, затронутое до отправки судит хук отправки Job-ом слота, на машине не гоняется (ws#1301) (заголовок «#' + N + ' …»; тело — ТОЛЬКО вывод генератора (ws#1146), руками не пишется: `RITUAL_REPO_DIR=' + D + '/assemble bash ' + WS + '/scripts/pr-body.sh ' + (A.repo || '?') + ' origin/' + (A.epic || A.base || '?') + ' HEAD > ' + R + '/pr-body-' + round + '.md` — ' + PRB + ' (код не 0 — status failed, PR не трогать) в `gh pr create --draft --body-file`, PR есть — `gh pr edit --body-file`). Отчёт — ' + D + '/assemble-' + round + '.md. Верни status, head, copy, pr, conflicts, report.', { ...MECH, label: 'mech:assemble:' + round, phase: 'Сборка', schema: S_ASM })
 // Operator publication follows complete cluster evidence; a pending local assembly
 // has no PR number and cannot reach the reviewer/landing code below.
 const assemble = async round => {
   if (kanameStand) {
     const localSchema = { ...S_ASM, properties: { ...S_ASM.properties, pr: { type: 'integer', minimum: 0 } } }
-    const local = await agent(C + '\n\nЛокальная сборка Kaname: в ' + D + '/assemble от свежей базы ' + (A.base || '?') + ' сведи принятые полосы ' + order.map(k => lanes.find(l => l.key === k).branch + '@' + done[k].head).join(', ') + ' обычными --no-ff merge. Без публикации и локальных тестов. Верни status,head,copy,pr=0,conflicts,report.', { ...MECH, label: 'mech:kaname-local:' + round, phase: 'Сборка', schema: localSchema })
+    const local = await agent(C + '\n\nЛокальная сборка Kaname: в ' + D + '/assemble от свежей базы ' + (A.base || '?') + ' сведи принятые полосы ' + order.map(k => done[k].branch + '@' + done[k].head).join(', ') + ' обычными --no-ff merge. Без публикации и локальных тестов. Верни status,head,copy,pr=0,conflicts,report.', { ...MECH, label: 'mech:kaname-local:' + round, phase: 'Сборка', schema: localSchema })
     if (!local || !['done', 'already-done'].includes(local.status) || !sha40(local.head)) return local
     const external = await agent(C + '\n\nДо публикации Kaname @' + local.head + ' выведи stand-report.sh expect на точную копию, base ' + (A.epic || A.base) + ', draft false. Ступени судьи — входом `bash ' + WS + '/scripts/stand-report.sh <ступень> … --expect <ожидаемое>` (python3 на машине страж отказывает, ws#1301): import-candidate/register-import только для реально существующих native external unit/integration фактов этой головы: source/tree, executed payload, runner, rc, cleanup и полный package/short-skip census независимо принимает check-verifier. Не сочинять receipts задним числом. Если фактов нет — один полный внешний прогон по штатному heavy-slot, не локальный. Сохрани external-only report и проверь `bash ' + WS + '/scripts/stand-report.sh check <report> --head ' + local.head + ' --expect <ожидаемое> --external-only`; это только external-ready, hosted stand/ceremony/chart/image BUILD остаются обязательны. Верни code,out,reasons,head.', { ...MECH, agentType: 'ci-watcher', label: 'mech:kaname-external:' + round, phase: 'Сборка', schema: S_MECH })
     if (!external || external.code !== 0 || external.head !== local.head) return { ...local, status: external && external.code === 3 ? 'running' : 'failed' }
@@ -529,7 +539,7 @@ const assemble = async round => {
   }
   if (!operatorStand) return assembleLegacy(round)
   const localSchema = { ...S_ASM, properties: { ...S_ASM.properties, pr: { type: 'integer', minimum: 0 } } }
-  const local = await agent(C + '\n\nРежим локальная сборка оператора ' + round + ': в ' + D + '/assemble от свежего origin/' + (A.base || '?') + ' сведи ' + order.map(k => lanes.find(l => l.key === k).branch + '@' + done[k].head).join(', ') + ' обычными --no-ff merge в ветку волны ' + N + '. Конфликт верни; ничего не публикуй и affected.py не вызывай: у оператора закрытая полная ведомость. Верни status, head, copy, pr=0, conflicts, report.', { ...MECH, label: 'mech:assemble-local:' + round, phase: 'Сборка', schema: localSchema })
+  const local = await agent(C + '\n\nРежим локальная сборка оператора ' + round + ': в ' + D + '/assemble от свежего origin/' + (A.base || '?') + ' сведи ' + order.map(k => done[k].branch + '@' + done[k].head).join(', ') + ' обычными --no-ff merge в ветку волны ' + N + '. Конфликт верни; ничего не публикуй и affected.py не вызывай: у оператора закрытая полная ведомость. Верни status, head, copy, pr=0, conflicts, report.', { ...MECH, label: 'mech:assemble-local:' + round, phase: 'Сборка', schema: localSchema })
   if (!local || !['done', 'already-done'].includes(local.status) || !sha40(local.head)) return local
   const expected = D + '/stand-expect.json'
   const report = D + '/stand-cluster.json'

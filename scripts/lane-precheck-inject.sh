@@ -299,6 +299,14 @@ prem 'pr o/r#9 OPEN'
 assert "1 да" "$(runp) $(has 'PREMISE-FALSE pr o/r#9 OPEN: PR нет')" "PR нет (404) → PREMISE-FALSE"
 prem 'branch o/r 2-gone'
 assert "1 да" "$(runp) $(has 'ветки на origin нет')" "ветки на origin нет → PREMISE-FALSE"
+# ws#1498: ветки задания нет, а ветка того же номера задачи на origin есть — причина называет её.
+printf '%s' '[{"ref":"refs/heads/2"},{"ref":"refs/heads/20-other"}]' > "$W/c/repos_o_r_git_matching-refs_heads_2.json"
+SIB='на origin есть ветка того же номера: 2; имя бери из возврата этапа «Ветка», а не из плана'
+assert "1 да нет" "$(runp) $(has "ветки на origin нет — $SIB") $(has '20-other')" "ws#1498: ветки 2-gone нет, есть 2 — PREMISE-FALSE с именем найденной; 20-other — не тот номер"
+prem 'branch o/r 5-gone'
+assert "1 да нет" "$(runp) $(has 'PREMISE-FALSE branch o/r 5-gone: ветки на origin нет') $(has 'того же номера')" "ws#1498 близнец: ветки нет и другой ветки номера нет — прежняя причина без имени"
+prem 'branch o/r 1-lane'
+assert "0 нет" "$(runp) $(has 'того же номера')" "ws#1498 близнец: ветка задания есть — 0, соседей номера не ищем"
 # Голова ветки на origin (ws#1191): полоса стенда и образов — на sha, которая уже на origin.
 HA=1111111111111111111111111111111111111111 HB=2222222222222222222222222222222222222222
 printf '%s' "{\"name\":\"3-stand\",\"commit\":{\"sha\":\"$HA\"}}" > "$W/c/repos_o_r_branches_3-stand.json"
@@ -315,7 +323,7 @@ assert "1 да" "$(runp) $(has "голова 3-stand на origin $HA, ожида
 prem "head o/r 3-st#and $HA" "branch o/r 1-la#ne"
 assert "2 да да" "$(runp) $(has 'VOID PREMISE-FORM head o/r 3-st#and') $(has 'VOID PREMISE-FORM branch o/r 1-la#ne')" "«#» в имени ветки обрезал бы путь GET → строка вне формы, код 2"
 prem "head o/r 2-gone $HA"
-assert "1 да" "$(runp) $(has "ветки 2-gone на origin нет — ожидалась голова $HA")" "ветки на origin нет → PREMISE-FALSE с веткой и sha"
+assert "1 да" "$(runp) $(has "ветки 2-gone на origin нет — ожидалась голова $HA — $SIB")" "ветки на origin нет → PREMISE-FALSE с веткой и sha; ws#1498 — и с веткой того же номера"
 prem "head o/r 4-flaky $HA"
 assert "2 да" "$(runp) $(has 'VOID GH-UNREADABLE head o/r 4-flaky')" "origin не ответил → не судимо (VOID), не зелёное"
 prem "head o/r 3-stand ${HA:0:12}"
@@ -376,7 +384,15 @@ runl() { LANE_PRECHECK_GIT_BASE="$W/gb" bash "$P" --premise "$W/premise.txt" > "
 prem 'head o/r 1-lane ls-remote'
 assert "0 да" "$(runl) $(has "HEAD o/r 1-lane $(git -C "$W/srv/kacho-workspace.git" rev-parse 1-lane)")" "head … ls-remote — текущая голова напечатана для задания, код 0 (урок 9d4363aa)"
 prem 'head o/r 2-gone ls-remote'
-assert "1 да" "$(runl) $(has 'PREMISE-FALSE head o/r 2-gone ls-remote: ветки 2-gone на origin нет')" "ls-remote: ветки нет → PREMISE-FALSE"
+assert "1 да нет" "$(runl) $(has 'PREMISE-FALSE head o/r 2-gone ls-remote: ветки 2-gone на origin нет') $(has 'того же номера')" "ls-remote: ветки нет → PREMISE-FALSE; ws#1498 близнец — ветки номера 2 на origin нет, имени нет"
+prem 'head o/r 1-gone ls-remote'
+assert "1 да" "$(runl) $(has 'ветки 1-gone на origin нет — на origin есть ветка того же номера: 1-lane; имя бери из возврата')" "ws#1498 ls-remote: ветки 1-gone нет, есть 1-lane — причина называет её"
+prem "pushed o/r 1-gone $HEAD_SHA"
+assert "1 да" "$(runl) $(has 'на origin есть ветка того же номера: 1-lane;')" "ws#1498 pushed: ветки 1-gone нет, есть 1-lane — причина называет её"
+# Перемер check-verifier: номер — с границей и на пути ls-remote; 10-other — не ветка номера 1.
+git -C "$W/srv/kacho-workspace.git" branch 10-other 1-lane
+prem 'head o/r 1-gone ls-remote'
+assert "1 да нет" "$(runl) $(has 'на origin есть ветка того же номера: 1-lane;') $(has '10-other')" "ws#1498 близнец ls-remote: 10-other не называется веткой номера 1 (граница номера)"
 prem 'head o/x 1-lane ls-remote'
 assert "2 да" "$(runl) $(has 'VOID GIT-UNREADABLE head o/x 1-lane ls-remote')" "ls-remote: origin не ответил → VOID"
 # ws#1242: шаг, зависящий от отправки, — только при голове на origin = ожидаемой (ls-remote).
@@ -770,6 +786,10 @@ assert "0" "$(mut home-brace '|\$HOME/|\$\{HOME\}/)' '|\$HOME/)' --task-text 'К
 assert "0" "$(mut verdict '|| reasons+=("TASK-VERDICT' '|| : || reasons+=("TASK-VERDICT' --task-text 'x' > /dev/null; printf '%s\n' 'Если вердикт check-verifier ниже — не ✅, стоп.' 'check-verifier: ; мо' > "$W/task.txt"; bash "$W/ms/lane-precheck.sh" --task-text "$W/task.txt" --agent git-operator > "$W/out" 2>&1; echo $?)" "мутант «вердикт не судится»: задание без поля проходит — проба выше его ловит"
 assert "1" "$(mut vfield '[^:]*:.*(✅|⛔|accept|return) ]]; then vfield=1' '[^:]*:.*(never) ]]; then vfield=1' --task-text 'x' > /dev/null; printf '%s\n' 'Если вердикт — не ✅, стоп.' '- вердикт check-verifier: ✅ принято' > "$W/task.txt"; bash "$W/ms/lane-precheck.sh" --task-text "$W/task.txt" --agent git-operator > "$W/out" 2>&1; echo $?)" "мутант «поле вердикта не узнаётся»: близнец с полем краснеет — проба выше его ловит"
 assert "0" "$(mut repo-merge 'elif [ "$got" != "squash=false merge=true rebase=false delete=true" ]; then' 'elif false; then' 'repo-merge o/new')" "мутант «настройки не сверяются»: умолчания GitHub проходят — проба выше его ловит"
+assert "1 нет" "$(mut sib-off 'sib_tail() { [ -z "$1" ] ||' 'sib_tail() { true ||' 'branch o/r 2-gone') $(has 'того же номера')" "мутант «ветка того же номера не называется» (ws#1498): причина без имени — проба выше его ловит"
+assert "1 да" "$(mut sib-prefix 'select(test(\"^$n(-|\$)\"))' 'select(test(\"^$n\"))' 'branch o/r 2-gone') $(has '20-other')" "мутант «номер — префиксом без границы» (ws#1498): 20-other назван веткой номера 2 — проба выше его ловит"
+assert "1 нет" "$(LANE_PRECHECK_GIT_BASE="$W/gb" mut sib-ls 'if (r != b && (r == n || index(r, n "-") == 1))' 'if (0)' 'head o/r 1-gone ls-remote') $(has 'того же номера')" "мутант «ls-remote соседа не ищет» (ws#1498): проба выше его ловит"
+assert "1 да" "$(LANE_PRECHECK_GIT_BASE="$W/gb" mut sib-ls-prefix 'index(r, n "-") == 1' 'index(r, n) == 1' 'head o/r 1-gone ls-remote') $(has '10-other')" "мутант «ls-remote: номер префиксом без границы» (ws#1498): 10-other назван веткой номера 1 — близнец выше его ловит"
 assert "0" "$(LANE_PRECHECK_GIT_BASE="$W/gb" mut pushed '[ "$kind" = pushed ] && [ "$got" != "$want" ]' 'false' "pushed o/r 1-lane $BASE_SHA")" "мутант «голова отправки не сверяется»: непредъявленная голова проходит — проба выше его ловит"
 
 [ -z "${CHERRY_GV:-}" ] || assert "1" "$(mut tags-cut 'if [ "${nf:-0}" -gt 0 ]; then keep=' 'if true; then keep=' "cherry-vet $CHERRY_GV 774")" "мутант «теги не отсекаются»: tools.go даёт ложь vet — проба выше его ловит"

@@ -29,6 +29,10 @@
 #                                                 подстрока заголовка без учёта регистра: «о предмете»;
 #   pr <владелец/репо>#<N> <MERGED|OPEN|CLOSED>   состояние PR (GET pulls/<N>);
 #   branch <владелец/репо> <ветка>                ветка на origin (GET branches/<ветка>);
+#                                                 у branch, head и pushed: ветки нет, а на origin есть
+#                                                 ветка того же номера (`<N>` либо `<N>-…`) — причина
+#                                                 называет её: имя задания взято из плана, а не из
+#                                                 возврата этапа «Ветка» (ws#1498, ветка 1052);
 #   head <владелец/репо> <ветка> <sha40>          голова ветки на origin равна sha целиком (GET branches/
 #                                                 <ветка> .commit.sha; ws#1191: полоса стенда ушла
 #                                                 раньше, чем голова ветки доехала до origin);
@@ -277,6 +281,21 @@ ghget() {
     if out="$($GH api "$1" --jq "$2" 2> "$err")"; then rm -f "$err"; printf '%s' "$out"; return 0; fi
     if grep -q 'HTTP 404' "$err"; then rm -f "$err"; return 3; fi
     rm -f "$err"; return 1
+}
+# Ветки origin с тем же номером задачи, кроме названной (ws#1498): задание взяло имя из плана,
+# а этап «Ветка» завёл другое по правилу репозитория. Печатает хвост причины либо ничего;
+# неотвеченный запрос причины не меняет (ветки названной нет и так).
+sib_tail() { [ -z "$1" ] || printf ' — на origin есть ветка того же номера: %s; имя бери из возврата этапа «Ветка», а не из плана (ws#1498)' "$1"; }
+sib_gh() {  # sib_gh <владелец/репо> <ветка>
+    local n="${2%%[!0-9]*}"
+    [ -n "$n" ] || return 0
+    sib_tail "$(ghget "repos/$1/git/matching-refs/heads/$n" "[.[].ref | ltrimstr(\"refs/heads/\") | select(test(\"^$n(-|\$)\"))] - [\"$2\"] | join(\" \")")"
+}
+sib_ls() {  # sib_ls <адрес origin> <ветка>
+    local n="${2%%[!0-9]*}"
+    [ -n "$n" ] || return 0
+    sib_tail "$(GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh -o BatchMode=yes}" timeout 20 git ls-remote --heads "$1" 2>/dev/null \
+        | awk -v n="$n" -v b="$2" '{ r = $2; sub("^refs/heads/", "", r); if (r != b && (r == n || index(r, n "-") == 1)) printf "%s%s", (c++ ? " " : ""), r }')"
 }
 # knorm <путь> — путь кубконфига с раскрытыми `~`, `$HOME`, `${HOME}` и без знака конца фразы.
 knorm() {
@@ -542,7 +561,7 @@ if [ -n "$premise" ]; then
             branch)
                 if [ -z "$a" ] || ! [[ "$b" =~ ^[A-Za-z0-9._/-]+$ ]]; then voids+=("PREMISE-FORM $line"); continue; fi
                 ghget "repos/$a/branches/$b" .name > /dev/null; rc=$?
-                if [ "$rc" = 3 ]; then reasons+=("PREMISE-FALSE $line: ветки на origin нет")
+                if [ "$rc" = 3 ]; then reasons+=("PREMISE-FALSE $line: ветки на origin нет$(sib_gh "$a" "$b")")
                 elif [ "$rc" != 0 ]; then voids+=("GH-UNREADABLE $line"); fi ;;
             head | pushed)
                 read -r _ _ _ want _ <<< "$line"
@@ -553,7 +572,7 @@ if [ -n "$premise" ]; then
                         git ls-remote "${LANE_PRECHECK_GIT_BASE:-https://github.com}/$a.git" "refs/heads/$b" 2>/dev/null)" \
                         || { voids+=("GIT-UNREADABLE $line: ls-remote origin не ответил"); continue; }
                     got="$(awk -v r="refs/heads/$b" '$2 == r { print $1 }' <<< "$out")"
-                    if [ -z "$got" ]; then reasons+=("PREMISE-FALSE $line: ветки $b на origin нет")
+                    if [ -z "$got" ]; then reasons+=("PREMISE-FALSE $line: ветки $b на origin нет$(sib_ls "${LANE_PRECHECK_GIT_BASE:-https://github.com}/$a.git" "$b")")
                     elif [ "$kind" = pushed ] && [ "$got" != "$want" ]; then reasons+=("PREMISE-FALSE $line: голова $b на origin $got, отправка $want не доехала — зависимый шаг не выдаётся")
                     else heads+=("HEAD $a $b $got"); fi
                     continue
@@ -561,7 +580,7 @@ if [ -n "$premise" ]; then
                 # Ветка — знаки пути GET (`#`, `?`, пробел обрезали бы путь до чужой ветки).
                 if [ -z "$a" ] || ! [[ "$b" =~ ^[A-Za-z0-9._/-]+$ ]] || ! [[ "${want:-}" =~ ^[0-9a-f]{40}$ ]]; then voids+=("PREMISE-FORM $line"); continue; fi
                 got="$(ghget "repos/$a/branches/$b" .commit.sha)"; rc=$?
-                if [ "$rc" = 3 ]; then reasons+=("PREMISE-FALSE $line: ветки $b на origin нет — ожидалась голова $want")
+                if [ "$rc" = 3 ]; then reasons+=("PREMISE-FALSE $line: ветки $b на origin нет — ожидалась голова $want$(sib_gh "$a" "$b")")
                 elif [ "$rc" != 0 ]; then voids+=("GH-UNREADABLE $line")
                 elif [ "$got" != "$want" ]; then reasons+=("PREMISE-FALSE $line: голова $b на origin ${got:-пуста}, ожидалась $want"); fi ;;
             repo-merge)

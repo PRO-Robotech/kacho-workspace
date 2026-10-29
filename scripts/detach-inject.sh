@@ -69,7 +69,7 @@ run_cases() {
     local rc R; R="$W/run.$RANDOM"; mkdir -p "$R"   # каждый прогон (контроль, мутант) — своё дерево
     echo "== исходы"
     st "$R/s" sh -c 'echo ok-line; exit 0'; rc=$SRC
-    assert "0 да" "$rc $(grep -qE '^идёт: pid [0-9]+; журнал .*; rc .*\.rc; срок 20' <<< "$OUT" && echo да || echo нет)" "start — код 0 сразу, строка «идёт: pid; журнал; rc; срок»"
+    assert "0 да" "$rc $(grep -qE '^идёт: pid [0-9]+; журнал .*; rc .*\.rc; срок застоя \(не предел\) 20' <<< "$OUT" && echo да || echo нет)" "start — код 0 сразу, строка «идёт: pid; журнал; rc; срок»"
     settle "$RCF"
     assert "0 да" "$(status "$RCF") $(grep -qF 'ok-line' "$W/st.out" && echo да || echo нет)" "команда вышла 0 — status 0, хвост журнала напечатан"
     st "$R/s" sh -c 'exit 7'; settle "$RCF"

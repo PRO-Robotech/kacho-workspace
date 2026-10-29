@@ -181,7 +181,9 @@
 #      v26.11.x); полный пин 26.1.0 → ровно v26.1.0; E7-sums (ws#1501): сумма свежего
 #      404 либо без строки архива → предыдущий выпуск и пропуск назван; сумма есть →
 #      свежий; 404 у всех → 125 с перечнем осмотренного; сумма 503 → 125, не откат;
-#      полный пин без суммы → 125 (на другой выпуск не съезжает); без суммы node нет
+#      полный пин без суммы → 125 (на другой выпуск не съезжает); без суммы node нет;
+#      E7-unpublished (ws#1498): выпуск в индексе без архива в dist → следующий выпуск
+#      пина, пропуск назван; точный пин на него → 125 и node в bin нет
 #   EY (ws#1296) yq: пин `go install …mikefarah/yq/v4@vX` ревизии → HEAVY_YQ в
 #      окружении run, строка «Job создан» его называет; сверка ИСПОЛНЕНИЕМ: yq нет,
 #      python-yq, чужой вендор той же версии, другая версия, версия-префикс → 125
@@ -2065,7 +2067,10 @@ Z=0000000000000000000000000000000000000000000000000000000000000000
 # in_list <выпуск> <список через пробел> — выпуск назван окружением случая
 in_list() { case " $2 " in *" $1 "*) return 0 ;; esac; return 1; }
 case "$u" in
-  */index.json) echo '[{"version":"v27.0.0"},{"version":"v26.11.1"},{"version":"v26.10.0"},{"version":"v26.1.2"},{"version":"v26.1.0"}]' | out ;;
+  # STUB_NODE_NEW — выпуск в индексе раньше архивов (2026-10-28, v26.13.0): архива нет (404),
+  # и строки его архива в SHASUMS256.txt выпуска нет.
+  */index.json) nv=""; [ -z "${STUB_NODE_NEW:-}" ] || nv='{"version":"v26.13.0"},'
+    echo '[{"version":"v27.0.0"},'"$nv"'{"version":"v26.11.1"},{"version":"v26.10.0"},{"version":"v26.1.2"},{"version":"v26.1.0"}]' | out ;;
   *.sha256sum) a="${u##*/}"; ( cd "$STUB_ARCH" && sha256sum "${a%.sha256sum}" ) | if [ -n "${STUB_BADSUM:-}" ]; then sed 's/^[0-9a-f]*/'"$Z"'/'; else cat; fi | out ;;
   # Как настоящий SHASUMS256.txt выпуска — строки ЕГО архивов и строка чужой
   # архитектуры (приманка той же формы); при STUB_BADSUM_NODE сумма каждой строки не
@@ -2081,7 +2086,8 @@ case "$u" in
         in_list "$r" "${STUB_SUMS_NOROW:-}" || ( cd "$STUB_ARCH" && for x in node-"$r"-*.tar.gz; do [ ! -e "$x" ] || sha256sum "$x"; done ); } \
         | if [ -n "${STUB_BADSUM_NODE:-}" ]; then sed 's/^[0-9a-f]*/'"$Z"'/'; else cat; fi | out
     fi ;;
-  *.tar.gz) cat "$STUB_ARCH/${u##*/}" | out ;;
+  # Архива выпуска в dist нет (ws#1498, выпуск STUB_NODE_NEW) — 404, как настоящий.
+  *.tar.gz) if [ -f "$STUB_ARCH/${u##*/}" ]; then cat "$STUB_ARCH/${u##*/}" | out; else code=404; echo "Not Found" | out; fi ;;
   # Выпуск buf (ws#1110): sha256.txt — строки всех бинарей и архивов, как настоящий.
   */bufbuild/buf/releases/download/*/sha256.txt) ( cd "$STUB_ARCH/buf" && sha256sum buf-Linux-* ) | if [ -n "${STUB_BADSUM_BUF:-}" ]; then sed 's/^[0-9a-f]*/'"$Z"'/'; else cat; fi | out ;;
   */bufbuild/buf/releases/download/*/buf-Linux-*) cat "$STUB_ARCH/buf/${u##*/}" | out ;;
@@ -2161,6 +2167,16 @@ node_installed() {
     local got; got="$("$IW/bin/node" --version 2>/dev/null)"
     if [ "$got" = "$rel" ]; then ok; else bad "$name" "пин $pin разрешён в «$got», ждали $rel"; fi
 }
+# E7-unpublished (ws#1498, 2026-10-28): новейший выпуск пина в индексе, архива в dist нет
+# (404) и строки его архива в SHASUMS256.txt нет — ставится следующий выпуск пина, пропуск
+# назван; близнецы — точный пин на неопубликованный выпуск отказывает и node в bin нет,
+# несошедшаяся сумма отказывает без отката к соседнему выпуску.
+node_installed E7-unpublished 26 v26.11.1 STUB_NODE_NEW=1
+if grep -qF 'сумма не опубликована: v26.13.0 (строки архива нет); беру v26.11.1' "$BOX/E7-unpublished.out" && grep -q 'ставлю node v26.11.1' "$BOX/E7-unpublished.out"; then ok
+else OUT="$BOX/E7-unpublished.out"; bad E7-unpublished "откат к выпуску с архивом не назван"; fi
+install_case E7-unpublished-exact "" 26.13.0 125 "node: под пин 26.13.0 нет выпуска с опубликованной суммой архива linux-x64 — осмотрено: v26.13.0 (строки архива нет)" STUB_NODE_NEW=1
+if [ -e "$IW/bin/node" ] && "$IW/bin/node" --version >/dev/null 2>&1; then OUT="$BOX/E7-unpublished-exact.out"; bad E7-unpublished-exact "node неопубликованного выпуска исполним из bin"; else ok; fi
+if grep -q 'ставлю node v26.10.0\|ставлю node v26.1.2' "$BOX/E7-badsum-node.out"; then OUT="$BOX/E7-badsum-node.out"; bad E7-badsum-node "несошедшаяся сумма откатила к соседнему выпуску"; else ok; fi
 node_installed E7-minor 26.1 v26.1.2
 node_installed E7-exact 26.1.0 v26.1.0
 # E7-sums (ws#1501): индекс называет выпуск раньше, чем выложен его SHASUMS256.txt

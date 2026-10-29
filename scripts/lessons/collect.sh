@@ -40,4 +40,13 @@ export LESSONS_DIR="${LESSONS_DIR:-$WS/tmp/reports}"
 export LESSONS_PROJECTS_DIR="${LESSONS_PROJECTS_DIR:-$HOME/.claude/projects/$(printf '%s' "$WS" | sed 's/[^A-Za-z0-9]/-/g')}"
 export LESSONS_WAVES_DIR="${LESSONS_WAVES_DIR:-$WS/tmp}"
 export LESSONS_ALIASES="${LESSONS_ALIASES:-$HERE/aliases.tsv}"
-exec python3 "${LESSONS_PY:-$HERE/lessons.py}" "$@"
+# Разрешённое исключение нормы «машина не для прогонов» (ws#1498; CLAUDE.md §«Локальная
+# разработка»): короткий разбор ЛОКАЛЬНОЙ ведомости, а не прогон. Основание: вход — журналы
+# Claude Code этой машины (LESSONS_PROJECTS_DIR), во внешний кластер они не едут —
+# remote-reader.sh `secret_path` не переносит ~/.claude/* (переписка сессий), — а хук
+# lessons-signal зовёт сборщик на каждом Stop с пределом в секунды: Job на ход не годится.
+# Граница: ядро — чтение файлов stdlib без сети и порождений, пишет лишь LESSONS_DIR; `-I` —
+# окружение PYTHON*, user site и каталог скрипта не подмешиваются; scan — под --budget.
+# Держит lessons/inject.sh (форма вызова и импорты ядра); heavy-guard судит строку команды —
+# прямой `python3 lessons.py` им отказан, как прежде.
+exec python3 -I "${LESSONS_PY:-$HERE/lessons.py}" "$@"

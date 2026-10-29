@@ -329,8 +329,8 @@ wf_edit() {
 import sys
 p, old, new = sys.argv[1:4]
 text = open(p, encoding="utf-8").read()
-if old not in text:
-    sys.exit("фикстура не нашла строки: " + old)
+if text.count(old) != 1:  # ровно одно место: неединственный образец уводит порчу с предмета (урок ws#1413)
+    sys.exit("фикстура не нашла строки ровно один раз: " + old)
 open(p, "w", encoding="utf-8").write(text.replace(old, new, 1))
 PYE
 }

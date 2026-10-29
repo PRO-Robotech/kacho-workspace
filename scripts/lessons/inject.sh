@@ -21,7 +21,12 @@
 #   B3 случай   — одна строка у двух РАЗНЫХ агентов — два случая (нужен механизм); близнецы:
 #                 итог workflow ↔ lessons.md той же волны и полосы — один, повтор одного агента
 #                 (два блока одной строкой) — один, пересказчик (задание называет журнал
-#                 автора) при том же тексте у автора — не случай;
+#                 автора) при том же тексте у автора — не случай; один итог одним классом
+#                 дважды (поле lesson и блок ВОЗВРАТ, ws#1498) — один, scan второй записи не
+#                 пишет, прежние записи сводятся по агенту и моменту; близнец — тот же агент в
+#                 другой момент — два; два урока БЕЗ ключа в одном итоге — два (сведение лишь
+#                 по ключу, перемер check-verifier);
+#   мутанты     — образец порчи — ровно одно место файла (урок ws#1413), иначе отказ пробы;
 #   ключ, идемпотентность, порог 2, статусы — как прежде; `status <ключ>` судит один класс
 #                 (ws#1250): с исходом — 0 при чужом остатке, открытый — 1, нет класса — 2,
 #                 ключ с « — » (edited с повтором, landed с поздним повтором) — 1, два ключа — 64;
@@ -87,6 +92,11 @@ def agent(aid, *texts, task='задание'):
 if kind == 'idle':
     agent('i1', ret('одиночный класс · место правки'))
     sys.exit(0)
+if kind == 'unkeyed':  # перемер check-verifier ws#1498: один итог — два урока без ключа (без «·»)
+    W1 = os.path.join(S, 'workflows', 'wf_1')
+    with open(os.path.join(W1, 'journal.jsonl'), 'w') as f:
+        f.write(json.dumps({'type': 'result', 'key': 'v2:u1', 'agentId': 'u1', 'result': {'status': 'done', 'lesson': 'первый урок без места', 'ret': ret('второй урок без места')}}, ensure_ascii=False) + '\n')
+    sys.exit(0)
 if kind == 'dash':  # ключ, сам несущий « — » (76 из 1446 ключей живой ведомости 2026-10-19), и близнец без него
     agent('d1', ret('аа — бб · место'))
     agent('d2', ret('аа — бб · место'))
@@ -132,6 +142,8 @@ with open(os.path.join(W1, 'journal.jsonl'), 'w') as f:
     f.write(res('w6', {'summary': 's', 'notes': ['n1', 'итог\n### ВОЗВРАТ\n- статус: готово\n- урок: поле-notes · глубина']}))
     f.write(res('w7', {'ideas': [{'mechanism': 'проза\n- затронуто в vault: —\n- урок: без-заголовка · поле контракта'}]}))
     f.write(res('w8', {'ideas': [{'mechanism': 'проза поля; урок: близнец-прозы · не урок'}], 'summary': '### ВОЗВРАТ\n- урок: —'}))
+    # ws#1498: один итог — поле lesson и блок ВОЗВРАТ того же класса другим текстом — один урок
+    f.write(res('w9', {'status': 'done', 'lesson': 'двойной-урок · поле lesson', 'ret': ret('двойной-урок · блок возврата иным текстом')}))
 with open(os.path.join(P, 'S1.jsonl'), 'w') as f:
     f.write(asst('ход\n\nурок диспетчера: конвейер не остановлен блокером · база §7\n', now - 3000) + '\n')
     f.write(asst('пишу строки «урок диспетчера: x · y» в ответах', now - 2900) + '\n')
@@ -187,11 +199,17 @@ for l in open(sys.argv[1]):
     out="$(LESSONS_PY=/nonexistent bash "$HERE/collect.sh" --helpx 2>&1)"; rc=$?
     hasnt 'collect.sh rekey ?<id> <ключ>' "близнец --helpx: не справка (довод ядру)"
 
+    # ws#1498: исключение «машина не для прогонов» — в границе: -I и ядро без сети и порождений.
+    printf 'import sys\nprint("ISOLATED", sys.flags.isolated)\n' > "$D/iso.py"
+    out="$(LESSONS_PY="$D/iso.py" bash "$HERE/collect.sh" status 2>&1)"
+    has 'ISOLATED 1' "исключение: collect.sh исполняет ядро в режиме -I (флаг прочитан исполнением)"
+    if grep -qE '^[[:space:]]*(import|from)[[:space:]]+(subprocess|socket|urllib|http|ssl|multiprocessing)([[:space:].,]|$)|os\.(system|popen|exec|spawn)' "$py"; then no "исключение: ядро тянет сеть или порождение — граница исключения нарушена"; else ok "исключение: ядро без сети и порождений"; fi
     mkfix "$D/w" work
     out="$(L "$D/w" scan)"; rc=$?
     chk 0 "$rc" "сбор: код 0"
-    has 'новых уроков 21' "сбор: 21 урок — агенты 11 (a3 «—», a6 без «урок:» — не уроки; a10 — два), workflow 6 (w3, w8 — не уроки), диспетчер 1, lessons.md 2, errors.md 1"
+    has 'новых уроков 22' "сбор: 22 урока — агенты 11 (a3 «—», a6 без «урок:» — не уроки; a10 — два), workflow 7 (w3, w8 — не уроки; w9 — два текста одного класса одним уроком), диспетчер 1, lessons.md 2, errors.md 1"
     out="$(L "$D/w" report)"
+    has '  1  open                      двойной-урок' "ws#1498: поле lesson и блок ВОЗВРАТ одного итога одним классом — один случай, scan второй записи не пишет"
     has '  2  open                      код-77' "ключ: синоним свёл «Код 77» и «код 77» в код-77"
     has '  2  open                      имя-ветки' "ключ: итог workflow и lessons.md волны — один класс имя-ветки"
     has '  1  open                      head-moved' "B3 близнец: итог workflow ↔ lessons.md той же волны и полосы — один случай"
@@ -307,9 +325,29 @@ for l in open(sys.argv[1]):
     mkfix "$D/b" work
     out="$(LESSONS_CHUNK=65536 L "$D/b" scan --budget 0)"
     if grep -qE 'отложено бюджетом [1-9]' <<< "$out"; then ok "бюджет 0: отложено > 0 (сбор ограничен бюджетом)"; else no "бюджет 0: ничего не отложено — бюджет не ограничивает сбор: $out"; fi
-    if grep -qE 'новых уроков ([1-9]|1[0-9]|20),' <<< "$out"; then ok "бюджет 0: кусок за вызов прочитан — догон не стоит, но и не всё"; else no "бюджет 0: прочитано ноль либо всё: $out"; fi
+    if grep -qE 'новых уроков ([1-9]|1[0-9]|2[01]),' <<< "$out"; then ok "бюджет 0: кусок за вызов прочитан — догон не стоит, но и не всё"; else no "бюджет 0: прочитано ноль либо всё: $out"; fi
     out="$(LESSONS_CHUNK=65536 L "$D/b" scan --budget 5)"
-    has 'в ведомости 21' "догон: те же 21 урок"
+    has 'в ведомости 22' "догон: те же 22 урока"
+
+    # Перемер check-verifier (ws#1498): сведение одного итога — лишь по КЛЮЧУ; два урока без
+    # ключа в одном итоге — два урока, а не один (ключ None не общий ключ).
+    mkfix "$D/u" unkeyed
+    out="$(L "$D/u" scan)"
+    has 'новых уроков 2,' "ws#1498: один итог, два урока без ключа — оба записаны (сведение лишь по ключу)"
+
+    # ws#1498: прежние сборки уже записали один итог дважды (поле lesson и блок ВОЗВРАТ) —
+    # счёт сводит их по агенту и моменту; близнец — тот же агент в другой момент — два случая.
+    mkfix "$D/h" idle
+    L "$D/h" scan > /dev/null
+    for x in 'h1 1000 исторический-дубль · первая форма' 'h2 1000 исторический-дубль · вторая форма' \
+        'h3 1000 исторический-момент · первый момент' 'h4 2000 исторический-момент · второй момент'; do
+        read -r xid xago xraw <<< "$x"
+        printf '{"t": "lesson", "id": "%s", "sid": "SX", "agent": "ax", "src": "workflow", "ts": %s, "key": "", "raw": "%s"}\n' \
+            "$xid" "$((now - xago))" "$xraw" >> "$D/h/led/lessons.jsonl"
+    done
+    out="$(L "$D/h" report)"
+    has '  1  open                      исторический-дубль' "ws#1498: две записи одного агента в один момент одним классом — один случай"
+    has '  2  open                      исторический-момент' "ws#1498 близнец: тот же агент в другой момент — два случая"
 
     # rekey (ws#1230): урок без «·» получает ключ событием ведомости; урок с «·» — нет.
     mkfix "$D/r" work
@@ -610,13 +648,13 @@ import sys
 p, pairs = sys.argv[1], sys.argv[2:]
 s = open(p, encoding='utf-8').read()
 for a, b in zip(pairs[::2], pairs[1::2]):
-    if a not in s:
+    if s.count(a) != 1:  # образец — ровно одно место (урок ws#1413: неединственный уводит порчу с предмета)
         sys.exit(1)
     s = s.replace(a, b, 1)
 open(p, 'w', encoding='utf-8').write(s)
 PY
     then
-        echo "  [FAIL] мутант $name: фрагмент не найден — порча не легла" >&2
+        echo "  [FAIL] мутант $name: фрагмент не найден ровно один раз — порча не легла либо легла не туда" >&2
         mfail=$((mfail + 1)); return
     fi
     "${MSUITE:-suite}" "$m/lessons.py" "$m/hook.sh" > "$m/out" 2>&1
@@ -626,8 +664,10 @@ PY
 }
 echo "== мутанты"
 mok=0 mfail=0
-mutant unkeyed-accepted py '        if not m:
-            return None' '        if not m:
+mutant unkeyed-accepted py '        m = PLACE_RE.search(raw)
+        if not m:
+            return None' '        m = PLACE_RE.search(raw)
+        if not m:
             return norm(raw)'
 mutant dedup-off py '        if lid in self.ids:
             return False' '        if False:
@@ -648,9 +688,20 @@ mutant b1-no-block-needed py '        m = FIELD_RE.search(text)
 # B2 — первый осмотр хвостом 256 КиБ
 mutant b2-tail-first py 'isinstance(st, int) and 0 <= st <= size else 0' 'isinstance(st, int) and 0 <= st <= size else max(0, size - (1 << 18))'
 # B3 — сведение по тексту между агентами; пара workflow ↔ lessons.md не сведена
-mutant b3-text-dedup py "            rh = r['id']" "            rh = (k, sha(re.sub(r'\\s+', ' ', r.get('raw', '')).strip()))"
+mutant b3-text-dedup py "            rh = (r.get('sid'), r.get('agent'), r.get('ts'), k) if r.get('src') == 'workflow' else r['id']" "            rh = (k, sha(re.sub(r'\\s+', ' ', r.get('raw', '')).strip()))"
 mutant b3-relay-counted py " or (r.get('relay') and flat(r) in authored):" ":"
 mutant b3-pair-off py "        if r.get('wave') and r.get('lane'):" "        if False:"
+# ws#1498 — повтор одного итога: счёт по id (две записи — два случая); scan пишет вторую запись
+mutant b3-moment-off py "            rh = (r.get('sid'), r.get('agent'), r.get('ts'), k)" "            rh = r['id']"
+mutant b3-moment-no-ts py "            rh = (r.get('sid'), r.get('agent'), r.get('ts'), k)" "            rh = (r.get('sid'), r.get('agent'), k)"
+MSUITE=suite_key mutant b3-moment-all-src py "if r.get('src') == 'workflow' else r['id']" "if True else r['id']"
+mutant b3-scan-dup py '                if k is not None and k in keys:' '                if False:'
+mutant b3-scan-unkeyed-merged py '                if k is not None and k in keys:' '                if k in keys:'
+# ws#1498 — граница исключения: ядро порождает процесс
+mutant core-spawns py 'import calendar
+' 'import calendar
+import subprocess
+'
 # rekey (ws#1230) — событие не учтено; событие перекрывает ключ из текста; отказ близнецу снят
 mutant rekey-ignored py '        if k is None and rekeys:' '        if False:'
 mutant rekey-overrides-text py '        if k is None and rekeys:
@@ -663,9 +714,9 @@ mutant rekey-canon-at-write-only py "            k = canon(rekeys.get(r['id']), 
     "        store.rekey(r['id'], key, now)" "        store.rekey(r['id'], canon(key, aliases), now)"
 mutant rekey-ambiguous-takes-first py '        if len(hit) != 1:' '        if len(hit) < 1:'
 mutant rekey-first-event-wins py "self.rekeys[r['id']] = r['key']  # последнее событие выигрывает" "self.rekeys.setdefault(r['id'], r['key'])"
-mutant rekey-key-unchecked py '        if why:
-            print' '        if not key:
-            print'
+mutant rekey-key-unchecked py "        if why:
+            print('lessons: ОТКАЗ — ключ" "        if not key:
+            print('lessons: ОТКАЗ — ключ"
 mutant rekey-keyed-accepted py "        if r.get('src') == 'wave-errors' or (tk is not None and not general(tk, aliases)):" "        if False:"
 # B4 — бюджет, догон, исключения сборщика, ветви хука
 mutant b4-budget-1e9 py "deadline = time.time() + float(opts['--budget'])" "deadline = time.time() + 1e9"

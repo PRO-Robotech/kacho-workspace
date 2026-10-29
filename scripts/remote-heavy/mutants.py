@@ -129,6 +129,11 @@ MUTANTS = [
     ("M12", "E7-badsum-node", "сумма архива node не проверяется",
      r'''&& echo "$s" | sha256sum -c --quiet -''',
      r'''&& echo "$s" >/dev/null'''),
+    # ws#1498: выпуск в индексе, архива в dist нет — нет и строки архива в его SHASUMS256.txt;
+    # петля ws#1501 его пропускает, порча того же решения краснит СВОЮ пробу E7-unpublished.
+    ("node-unpublished", "E7-unpublished", "выпуск пина без архива не пропускается — node не ставится",
+     r'''[ -z "$s" ] || { v="$c"; break; }''',
+     r'''{ v="$c"; break; }'''),
     ("M8", "E7-minor", "префикс мажора node без точки: пин 26.1 берёт v26.11.x",
      r'''--arg m "v$HEAVY_NODE."''',
      r'''--arg m "v$HEAVY_NODE"'''),

@@ -40,6 +40,12 @@
 #   предпроверка полосы красная, голова та же — повтора нет, строка счётчика
 #   ошибок (executor-mechanics); голова новая — повтор и зелёное;
 #   «уже сделано» исполнителя — не провал;
+#   имя ветки (ws#1498) — из возврата исполнителя: пробная сборка, сборка и сводка deps берут
+#   его; возврат назвал не ветку плана (первый ответ, доводка предпроверки, доводка ролей) —
+#   стоп с обоими именами до следующего шага; близнец — то же имя проходит; возврат без
+#   имени ветки (пусто, нет поля, не имя git) — стоп; план ветку не задал — исполнителю
+#   «по правилу», пробная сборка, все три формы сборки, сводка deps и ревью ролей — с именем
+#   возврата (перемер check-verifier: CV2–CV4);
 #   предусловия раздачи (ws#1272) — один механик до предполёта: база, задачи полосы, строки
 #   premise, у полосы с приёмкой — текст задания автору приёмки (ws#1271); не 0 — полоса и
 #   зависимые не раздаются и в предполёт не идут, нет ответа — не раздаётся ни одна;
@@ -239,7 +245,7 @@ async function run(sc) {
     // Предполёт (ws#1053): карта по каждому ключу из задания; сценарий перекрывает (null — нет ответа).
     if (label === 'preflight') { const keys = ((prompt.match(/КЛЮЧИ ПОЛОС: ([^.\n]*)/) || [])[1] || '').split(',').filter(Boolean); const r = take('pre', () => ({ lanes: keys.map(k => ({ key: k, impact: (sc.map || {})[k] || [], criteria: ['критерий ' + k] })), estimate: '6 ч, красных 0', report: 'r' })); return r }
     if (label.startsWith('mech:plan:')) { const o = take('plan', () => P('r0.json')); return { code: o.code, out: (sc.planOut !== undefined ? sc.planOut : (sc.planPrefix || '') + JSON.stringify(o)), reasons: (o.reasons || []).map(r => r.code), head: '' } }
-    if (label.startsWith('impl:')) { const r = take('impl:' + lane, () => ({ status: 'done', head: H(lane, cnt['impl:' + lane]) })); heads[lane] = r.head; return { branch: 'b-' + lane, copy: '/ws/tmp/c-' + lane, hookLog: '/ws/tmp/push.log', issues: ['o/r#1'], report: 'r', ...r } }
+    if (label.startsWith('impl:')) { const r = take('impl:' + lane, () => ({ status: 'done', head: H(lane, cnt['impl:' + lane]) })); heads[lane] = r.head; return { branch: (prompt.match(/\), ветка (\S+) от /) || [])[1] || 'b-' + lane, copy: '/ws/tmp/c-' + lane, hookLog: '/ws/tmp/push.log', issues: ['o/r#1'], report: 'r', ...r } }
     if (label.startsWith('mech:stack:')) { const r = take('stack:' + lane, () => ({ status: 'done', head: H('S' + lane, 0) })); if (r === null) return null; heads['stack:' + lane] = r.head; return { branch: (prompt.match(/заведи ветку (\S+)/) || [])[1] || '9-stack-' + lane.toLowerCase(), contains: Object.keys(heads).filter(k => !k.startsWith('stack:')).map(k => heads[k]), conflicts: [], report: 'r', ...r } }
     // Предусловия раздачи (ws#1272): команда — строкой «<n>) [<ключ> <вид>] `…`»; код — из
     // sc.dispatchCode по «<ключ> <вид>», затем по ключу, иначе 0; sc.dispatchNull — нет ответа.
@@ -368,8 +374,8 @@ ok(idx(r.calls, 'mech:stack:B') > lastPreA && idx(r.calls, 'impl:B') > idx(r.cal
 ok(prm(r.calls, 'mech:stack:B').includes('9-a@' + hA) && !prm(r.calls, 'mech:stack:B').includes(H('A', 1)), 'в сводку идёт ИТОГОВАЯ голова A, а не первая сдача', prm(r.calls, 'mech:stack:B').slice(-400))
 ok(prm(r.calls, 'mech:stack:B').includes('9-stack-b') && /--no-ff/.test(prm(r.calls, 'mech:stack:B')), 'сводка — ветка <N>-stack-<ключ>, коммиты слияния --no-ff')
 ok(prm(r.calls, 'impl:B').includes('@' + hS) && !/ветка 9-b от main/.test(prm(r.calls, 'impl:B')), 'исполнитель B заводит ветку от головы сводки, а не от базы волны', prm(r.calls, 'impl:B').slice(-500))
-ok(prm(r.calls, 'mech:precheck:B').includes(' b-B ' + hS + ' '), 'предпроверка B судит голову сводки как базу (BASE-NOT-ANCESTOR)', prm(r.calls, 'mech:precheck:B'))
-ok(/ветка 9-a от main/.test(prm(r.calls, 'impl:A')) && prm(r.calls, 'mech:precheck:A').includes(' b-A main '), 'близнец: полоса без deps — от базы волны, сводки нет')
+ok(prm(r.calls, 'mech:precheck:B').includes(' 9-b ' + hS + ' '), 'предпроверка B судит голову сводки как базу (BASE-NOT-ANCESTOR)', prm(r.calls, 'mech:precheck:B'))
+ok(/ветка 9-a от main/.test(prm(r.calls, 'impl:A')) && prm(r.calls, 'mech:precheck:A').includes(' 9-a main '), 'близнец: полоса без deps — от базы волны, сводки нет')
 ok(prm(r.calls, 'mech:cascade').includes('9-stack-b'), 'временная сводка снимается шагом каскада после вливания')
 r = await run({ args: argsDepC, plan: [P('r1c.json')] })
 ok(r.res.ok === true && idx(r.calls, 'impl:C') >= 0 && idx(r.calls, 'impl:C') < idx(r.calls, 'mech:precheck:A'), 'независимая C стартует сразу, не дожидаясь A', JSON.stringify(r.res).slice(0, 200))
@@ -410,7 +416,7 @@ ok(r.res.ok === true && prm(r.calls, 'impl:B').includes('@' + hS), 'близне
 const allFrom = (label, s) => { const xs = r.calls.filter(c => c.label === label); return xs.length && xs.every(c => c.prompt.includes(s)) ? xs.length : 0 }
 r = await run({ args: argsDep, plan: [P('r1.json')], 'pre:B': [{ code: 1, reasons: ['UNCOMMITTED'] }] })
 ok(r.res.ok === true && allFrom('impl:B', 'сводки deps 9-stack-b@' + hS) === 2 && !r.calls.some(c => c.label === 'impl:B' && /ветка 9-b от main/.test(c.prompt)), 'доводка B после красной предпроверки — от сводки, не от базы волны', JSON.stringify(r.calls.filter(c => c.label === 'impl:B').map(c => c.prompt.slice(0, 160))))
-ok(allFrom('mech:precheck:B', ' b-B ' + hS + ' ') === 2, 'вторая предпроверка B — база та же голова сводки (BASE-NOT-ANCESTOR не теряется)', JSON.stringify(r.calls.filter(c => c.label === 'mech:precheck:B').map(c => c.prompt.slice(-260))))
+ok(allFrom('mech:precheck:B', ' 9-b ' + hS + ' ') === 2, 'вторая предпроверка B — база та же голова сводки (BASE-NOT-ANCESTOR не теряется)', JSON.stringify(r.calls.filter(c => c.label === 'mech:precheck:B').map(c => c.prompt.slice(-260))))
 const hSM = H('SM', 0), roleM = P('r2dep.json').lanes.find(x => x.key === 'M').roles[0]
 const argsDepM = { ...args, lanes: [lanes2[0], { key: 'M', repo: 'kacho-workspace', agent: 'migration-writer', branch: '9-m', text: 't', deps: ['A'] }] }
 r = await run({ args: argsDepM, plan: [P('r2dep.json')] })
@@ -419,7 +425,7 @@ ok(r.res.ok === true && !!revM && revM.prompt.includes('git diff ' + hSM + '..' 
 r = await run({ args: { ...args, lanes: [{ key: 'M', repo: 'kacho-workspace', agent: 'migration-writer', branch: '9-m', text: 't' }] }, plan: [P('r2.json')] })
 ok(r.calls.some(c => c.label.startsWith('review-') && c.label.endsWith(':M') && c.agentType !== 'acceptance-reviewer') && !r.calls.some(c => /своя дельта|git diff/.test(c.prompt) && c.label.startsWith('review-') && c.label.endsWith(':M')), 'близнец: полоса без deps — ревью всей головы, дельты сводки нет')
 r = await run({ args: argsDepM, plan: [P('r2dep.json')], ret: roleM })
-ok(r.res.ok === true && allFrom('impl:M', 'сводки deps 9-stack-m@' + hSM) === 2 && allFrom('mech:precheck:M', ' b-M ' + hSM + ' ') === 2, 'возврат роли зависимой полосы — доводка и предпроверка от той же сводки', JSON.stringify(r.calls.filter(c => c.label === 'impl:M' || c.label === 'mech:precheck:M').map(c => c.label + ' ' + c.prompt.slice(0, 120))))
+ok(r.res.ok === true && allFrom('impl:M', 'сводки deps 9-stack-m@' + hSM) === 2 && allFrom('mech:precheck:M', ' 9-m ' + hSM + ' ') === 2, 'возврат роли зависимой полосы — доводка и предпроверка от той же сводки', JSON.stringify(r.calls.filter(c => c.label === 'impl:M' || c.label === 'mech:precheck:M').map(c => c.label + ' ' + c.prompt.slice(0, 120))))
 
 // База сводки — база ПОЛОСЫ (l.base), а не волны: у B своя база release-x.
 r = await run({ args: { ...argsDep, lanes: [lanes2[0], { ...lanes2[1], deps: ['A'], base: 'release-x' }] }, plan: [P('r1.json')] })
@@ -815,6 +821,52 @@ r = await run({ args, plan: [P('r0.json')], 'impl:A': [{ status: 'done', head: H
 ok(inRest(r.res, 'A') && /hookLog не путь/.test(((r.res.remainder || []).find(x => x.key === 'A') || {}).stage || '') && by(r.calls, c => c.label === 'mech:precheck:A') === 0 && asmHas(r.calls, '9-b'), 'hookLog не путь и после доводки — A стоит с причиной, предпроверки вслепую нет, B садится', JSON.stringify(r.res).slice(0, 300))
 r = await run({ args, plan: [P('r0.json')] })
 ok(r.res.ok === true && by(r.calls, c => c.label === 'impl:A') === 1, 'близнец: hookLog — путь, доводки нет')
+ok(/влей 9-a@/.test(prm(r.calls, 'mech:trial:A')) && /HEAD:refs\/heads\/9-a`/.test(prm(r.calls, 'mech:trial:A')) && asmHas(r.calls, '9-a'), 'ws#1498 близнец: возврат назвал ветку плана — пробная сборка и сборка идут с именем из возврата', prm(r.calls, 'mech:trial:A').slice(0, 300))
+
+console.log('== ws#1498: имя ветки — из возврата исполнителя, расхождение с планом — стоп')
+const brStage = (res, k) => ((res.remainder || []).find(x => x.key === k) || {}).stage || ''
+r = await run({ args, plan: [P('r0.json')], 'impl:A': [{ status: 'done', head: H('A', 1), branch: '9' }] })
+ok(inRest(r.res, 'A') && /ветка: возврат исполнителя назвал «9», план — «9-a»/.test(brStage(r.res, 'A')) && by(r.calls, c => c.label === 'mech:precheck:A' || c.label === 'mech:trial:A') === 0 && !asmHas(r.calls, '9-a') && !asmHas(r.calls, '9') && asmHas(r.calls, '9-b'), 'возврат назвал иную ветку — A стоит с обоими именами, ни предпроверки, ни пробной сборки, ни сборки; B садится', JSON.stringify(r.res).slice(0, 300))
+r = await run({ args, plan: [P('r0.json')], 'pre:A': [{ code: 1, reasons: ['UNCOMMITTED'] }], 'impl:A': [{ status: 'done', head: H('A', 1) }, { status: 'done', head: H('A', 2), branch: '1052-account-id-string' }] })
+ok(inRest(r.res, 'A') && /назвал «1052-account-id-string», план — «9-a»/.test(brStage(r.res, 'A')) && by(r.calls, c => c.label === 'mech:precheck:A') === 1, 'доводка после предпроверки назвала иную ветку — стоп до второй предпроверки', JSON.stringify(r.res).slice(0, 300))
+r = await run({ args: { ...args, lanes: [{ key: 'M', repo: 'kacho-workspace', agent: 'migration-writer', branch: '9-m', text: 't' }] }, plan: [P('r2.json')], ret: P('r2.json').lanes[0].roles[0], 'impl:M': [{ status: 'done', head: H('M', 1) }, { status: 'done', head: H('M', 2), branch: '9-x' }] })
+ok(r.res.ok === false && /назвал «9-x», план — «9-m»/.test(JSON.stringify(r.res)) && by(r.calls, c => c.label === 'mech:precheck:M') === 1, 'доводка после возврата роли назвала иную ветку — стоп до предпроверки после ревью', JSON.stringify(r.res).slice(0, 300))
+// Перемер check-verifier (CV2): возврат БЕЗ имени ветки при ветке плана — тоже стоп с обоими именами.
+for (const b of ['', undefined, '9 a']) {
+  r = await run({ args, plan: [P('r0.json')], 'impl:A': [{ status: 'done', head: H('A', 1), branch: b }] })
+  ok(inRest(r.res, 'A') && /назвал «[^»]*», план — «9-a»; имени ветки в возврате нет/.test(brStage(r.res, 'A')) && by(r.calls, c => c.label === 'mech:precheck:A' || c.label === 'mech:trial:A') === 0 && !asmHas(r.calls, '9-a') && asmHas(r.calls, '9-b'), 'CV2: возврат с веткой ' + JSON.stringify(b === undefined ? null : b) + ' при ветке плана 9-a — стоп с обоими именами, дальше полоса не идёт', JSON.stringify(r.res).slice(0, 300))
+}
+// CV3/CV4: план ветку не задал — имя называет только возврат; пробная сборка, сборка (все три
+// формы), сводка deps и ревью ролей берут ЕГО, а не поле плана; возврата без имени — стоп.
+const noBr = ({ branch, ...l }) => l
+const argsNoBr = { ...args, lanes: [noBr(lanes2[0]), lanes2[1]] }
+const zz = [{ status: 'done', head: H('A', 1), branch: '9-zz' }]
+r = await run({ args: argsNoBr, plan: [P('r0.json')], 'impl:A': zz })
+const asmAll = calls => calls.filter(c => /^mech:(assemble|assemble-local|kaname-local):/.test(c.label)).map(c => c.prompt).join('\n')
+ok(r.res.ok === true && prm(r.calls, 'impl:A').includes('план не задал') && prm(r.calls, 'mech:trial:A').includes('влей 9-zz@' + H('A', 1)) && prm(r.calls, 'mech:trial:A').includes('HEAD:refs/heads/9-zz`') && asmHas(r.calls, '9-zz') && !/undefined/.test(prm(r.calls, 'mech:trial:A') + asmAll(r.calls)), 'CV3/CV4: ветки в плане нет — исполнителю «по правилу», пробная сборка и сборка с именем из возврата 9-zz', prm(r.calls, 'mech:trial:A').slice(0, 300) + ' | ' + asmAll(r.calls).slice(0, 300))
+// CV3, строка сдачи (⛔ check-verifier круг 3, CVX-PUSH-NOBR): ветки в плане нет — отправка
+// не на refs/heads/undefined и не на пустое имя, а на СВОЮ ветку, названную в возврате.
+const pushOf = p => (p.match(/git push origin HEAD:refs\/heads\/[^`]*`[^.]*/) || [''])[0]
+const badRef = /refs\/heads\/(undefined|null|[\s`'"]|$)/
+ok(!/undefined/.test(prm(r.calls, 'impl:A')) && !badRef.test(prm(r.calls, 'impl:A')) && pushOf(prm(r.calls, 'impl:A')).includes('HEAD:refs/heads/<твоя ветка> 2>&1') && /её имя верни полем branch/.test(pushOf(prm(r.calls, 'impl:A'))), 'CVX-PUSH-NOBR: план без ветки — строка сдачи исполнителя не называет ветку (ни undefined, ни пусто), имя — полем branch', pushOf(prm(r.calls, 'impl:A')).slice(0, 300))
+{
+  const q = await run({ args, plan: [P('r0.json')] })
+  ok(pushOf(prm(q.calls, 'impl:A')).includes('HEAD:refs/heads/9-a 2>&1') && !/твоя ветка/.test(prm(q.calls, 'impl:A')) && !badRef.test(prm(q.calls, 'impl:A')), 'CVX-PUSH-BR близнец: ветка в плане 9-a — строка сдачи называет её, оговорки «твоя ветка» нет', pushOf(prm(q.calls, 'impl:A')).slice(0, 300))
+}
+r = await run({ args: argsNoBr, plan: [P('r0.json')], 'impl:A': [{ status: 'done', head: H('A', 1), branch: '' }] })
+ok(inRest(r.res, 'A') && /назвал «», план — «не задана»; имени ветки в возврате нет/.test(brStage(r.res, 'A')) && by(r.calls, c => c.label === 'mech:precheck:A' || c.label === 'mech:trial:A') === 0 && asmHas(r.calls, '9-b') && !/undefined@|@undefined/.test(asmAll(r.calls)), 'ветки нет ни в плане, ни в возврате — A стоит, в сборку не идёт; B садится', JSON.stringify(r.res).slice(0, 300))
+for (const repo of ['PRO-Robotech/kaname', 'PRO-Robotech/registry-operator']) {
+  r = await run({ args: { ...argsNoBr, repo }, plan: [P('r0.json')], 'impl:A': zz })
+  const lbl = repo === 'PRO-Robotech/kaname' ? 'mech:kaname-local:1' : 'mech:assemble-local:1'
+  ok(prm(r.calls, lbl).includes('9-zz@') && !prm(r.calls, lbl).includes('undefined'), 'CV4 ' + repo + ': локальная сборка — имя ветки из возврата', prm(r.calls, lbl).slice(0, 300))
+}
+r = await run({ args: { ...args, lanes: [noBr(lanes2[0]), { ...lanes2[1], deps: ['A'] }] }, plan: [P('r1.json')], 'impl:A': zz })
+ok(prm(r.calls, 'mech:stack:B').includes('9-zz@' + H('A', 1)) && !prm(r.calls, 'mech:stack:B').includes('undefined'), 'сводка deps B — ветка A из возврата (9-zz), а не из плана', prm(r.calls, 'mech:stack:B').slice(0, 400))
+const revOf = (calls, sfx) => calls.filter(c => c.label.startsWith('review-') && c.label.endsWith(sfx + ':M') && c.agentType !== 'acceptance-reviewer').map(c => c.prompt)
+r = await run({ args: { ...args, lanes: [{ key: 'M', repo: 'kacho-workspace', agent: 'migration-writer', text: 't' }] }, plan: [P('r2.json')], ret: P('r2.json').lanes[0].roles[0], 'impl:M': [{ status: 'done', head: H('M', 1), branch: '9-mm' }, { status: 'done', head: H('M', 2), branch: '9-mm' }] })
+ok(revOf(r.calls, '').length >= 2 && revOf(r.calls, '').every(p => p.includes('ветка 9-mm @')) && revOf(r.calls, '-2').length >= 1, 'ревью ролей и их второй круг — ветка из возврата (9-mm), не из плана', JSON.stringify(r.calls.filter(c => c.label.startsWith('review-')).map(c => c.label + ' ' + c.prompt.slice(0, 120))))
+// Тот же класс в ревью приёмки: она идёт ДО кода, возврата с веткой ещё нет — «ветка undefined» в задании.
+ok(prm(r.calls, 'acceptance-review-1:M').includes('ветка (план не задал) @') && !/undefined/.test(r.calls.filter(c => /^(impl|acceptance-review-[0-9]+|review-[a-z0-9-]+):M$/.test(c.label)).map(c => c.prompt).join('\n')), 'ревью приёмки при плане без ветки — «ветка (план не задал)», ни в одном задании полосы M нет undefined', prm(r.calls, 'acceptance-review-1:M').slice(0, 200))
 
 console.log('== модель не задаётся; уроки волны 7 (ws#1016)')
 {
@@ -1224,6 +1276,31 @@ mutant "npm ci сборки — во всех репозиториях" "const U
 mutant "npm ci без пакетов STANDALONE" "do npm ci --prefix" "do true --prefix"
 mutant "npm ci после отправки" "conflicts.' + UI_DEPS + ' Отправь ветку волны" "conflicts. Отправь ветку волны' + UI_DEPS + '"
 mutant "повтор на той же голове" "if (impl.head === prev && impl.status !== 'already-done')" "if (false)"
+mutant "ветка возврата не сверяется с планом (ws#1498)" "|| (l.branch && String(r.branch) !== String(l.branch)) ?" "|| false ?"
+mutant "CV2: пустая ветка возврата не сверяется (l.branch && r.branch && …)" "const brGap = (l, r) => !brName(r.branch) || (l.branch && String(r.branch) !== String(l.branch)) ?" "const brGap = (l, r) => l.branch && r.branch && String(r.branch) !== String(l.branch) ?"
+mutant "возврат без имени ветки проходит, когда план ветку не задал (ws#1498)" "const brGap = (l, r) => !brName(r.branch) ||" "const brGap = (l, r) => false ||"
+mutant "имя ветки — любой непустой текст (ws#1498)" "const brName = b => /^[A-Za-z0-9._\\/-]+\$/.test(String(b || ''))" "const brName = b => !!b"
+mutant "CV3: пробная сборка вливает ветку плана" "влей ' + r.branch + '@'" "влей ' + l.branch + '@'"
+mutant "CV3: пробная сборка судит отправку на ветку плана" "\`git push --dry-run origin HEAD:refs/heads/' + r.branch + '\`" "\`git push --dry-run origin HEAD:refs/heads/' + l.branch + '\`"
+mutant "CV4: итог полосы несёт ветку плана" "  out.branch = impl.branch" "  out.branch = l.branch"
+mutant "CV4: сборка сводит ветки плана" "полосы по порядку ' + order.map(k => done[k].branch" "полосы по порядку ' + order.map(k => lanes.find(l => l.key === k).branch"
+mutant "CV4: локальная сборка Kaname — ветки плана" "сведи принятые полосы ' + order.map(k => done[k].branch" "сведи принятые полосы ' + order.map(k => lanes.find(l => l.key === k).branch"
+mutant "CV4: локальная сборка оператора — ветки плана" "сведи ' + order.map(k => done[k].branch" "сведи ' + order.map(k => lanes.find(l => l.key === k).branch"
+mutant "сводка deps — ветка плана (ws#1498)" "const ds = deps.map(d => ({ branch: d.branch," "const ds = deps.map(d => ({ branch: lanes.find(x => x.key === d.key).branch,"
+mutant "ревью ролей — ветка плана (ws#1498)" "roles.map(r => review(r, { ...l, branch: impl.branch }," "roles.map(r => review(r, l,"
+mutant "второй круг ревью — ветка плана (ws#1498)" "back.map(x => review(x.r, { ...l, branch: impl.branch }," "back.map(x => review(x.r, l,"
+mutant "CVX-PUSH-NOBR: строка сдачи — снова ветка плана, refs/heads/undefined (ws#1498)" "HEAD:refs/heads/' + (l.branch || '<твоя ветка>') + ' 2>&1" "HEAD:refs/heads/' + l.branch + ' 2>&1"
+mutant "строка сдачи без ветки плана — пустое имя (ws#1498)" "HEAD:refs/heads/' + (l.branch || '<твоя ветка>') + ' 2>&1" "HEAD:refs/heads/' + (l.branch || '') + ' 2>&1"
+mutant "строка сдачи без оговорки «имя верни полем branch» (ws#1498)" "(l.branch ? '' : ' — <твоя ветка> заведена тобой по правилу имени ветки репозитория, её имя верни полем branch')" "''"
+mutant "оговорка «твоя ветка» и при ветке плана (ws#1498)" "(l.branch ? '' : ' — <твоя ветка> заведена" "(false ? '' : ' — <твоя ветка> заведена"
+mutant "ревью приёмки при плане без ветки — «ветка undefined» (ws#1498)" "' ветка ' + (l.branch || '(план не задал)') + ' @'" "' ветка ' + l.branch + ' @'"
+mutant "исполнителю без ветки плана — «ветка undefined» (ws#1498)" "(l.branch || '(план не задал — заведи по правилу имени ветки репозитория, верни полем branch)')" "l.branch"
+mutant "доводка предпроверки — ветка не сверяется (ws#1498)" "'исполнитель (доводка предпроверки)' }
+    if (brGap(l, impl))" "'исполнитель (доводка предпроверки)' }
+    if (false)"
+mutant "доводка ролей — ветка не сверяется (ws#1498)" "'ревью ролей: голова не сменилась — повтора нет' }
+      if (brGap(l, impl))" "'ревью ролей: голова не сменилась — повтора нет' }
+      if (false)"
 mutant "«идёт» — провал" "if (ciState(ci) !== 'running') break" "break"
 mutant "шаги не из плана" "const has = s => t.steps.includes(s)" "const has = s => true"
 mutant "неизвестный шаг пропускается" "if (unknown.length) return" "if (false) return"
@@ -1232,7 +1309,7 @@ mutant "sha вердикта подменяется" "const stale = (d.reviews |
 # переписан на новую голову — сверка непросмотренной головы слепнет.
 mutant "принявшим роль переписывается sha новой головы" "      vs = vs.map((v, i) => { const j = back.findIndex(x => x.r === roles[i]); return j < 0 ? v : again[j] })" "      vs = vs.map((v, i) => { const j = back.findIndex(x => x.r === roles[i]); return j < 0 ? { ...v, sha: impl.head } : again[j] })"
 mutant "непросмотренная голова не останавливает полосу" "      if (unseen.length) return" "      if (false) return"
-mutant "повтор — и принявшим" "const again = await Promise.all(back.map(x => review(x.r, l, impl.head, prev, 'review-' + x.r + '-2')))" "const again = await Promise.all(roles.map(r => review(r, l, impl.head, prev, 'review-' + r + '-2')))"
+mutant "повтор — и принявшим" "const again = await Promise.all(back.map(x => review(x.r, { ...l, branch: impl.branch }, impl.head, prev, 'review-' + x.r + '-2')))" "const again = await Promise.all(roles.map(r => review(r, { ...l, branch: impl.branch }, impl.head, prev, 'review-' + r + '-2')))"
 mutant "перепин не заводится" "onlySkew && round === 1)" "onlySkew && round === 0)"
 mutant "рецензент волны на каждую полосу" "if (steps.has('wave-reviewer')) {" "for (const _ of order) if (steps.has('wave-reviewer')) {"
 mutant "номер PR не судится" "if (!Number.isInteger(asm.pr) || asm.pr < 1) return" "if (false) return"
@@ -1249,7 +1326,7 @@ mutant "конфликт сводки не останавливает" "    if (
 mutant "голова dep вне сводки не судится" "|| !sha40(st.head) || missing.length) {" "|| !sha40(st.head)) {"
 mutant "сводка не снимается при вливании" "(stacks.length ? 'Сними временные сводки deps ' + stacks.join(', ') + ' коммитным предикатом (git-operator.md §«Вливание и снятие»). ' : '')" "''"
 # Мутанты check-verifier ws#939 (выжили на aeb93941) — те же образцы.
-mutant "сводка из всех прошедших, а не deps" "const ds = deps.map(d => ({ branch: lanes.find(x => x.key === d.key).branch, head: d.head, repo:" "const ds = Object.values(done).filter(d => d.ok).map(d => ({ branch: lanes.find(x => x.key === d.key).branch, head: d.head, repo:"
+mutant "сводка из всех прошедших, а не deps" "const ds = deps.map(d => ({ branch: d.branch, head: d.head, repo:" "const ds = Object.values(done).filter(d => d.ok).map(d => ({ branch: d.branch, head: d.head, repo:"
 mutant "статус failed принимается" "!['done', 'already-done'].includes(st.status) ||" ""
 mutant "ревью без дельты сводки" "(stack ? ' — своя дельта" "(false ? ' — своя дельта"
 mutant "доводка предпроверки — от базы" "rep(l.key, 'lane-precheck'), stack)" "rep(l.key, 'lane-precheck'), null)"
@@ -1476,8 +1553,8 @@ mutant "доводки по карте нет" "  if (gap.length) fix.push(" "  
 mutant "незакрытый после доводки — полоса идёт" "  if (gap.length) return { ...out, stage: 'карта влияния: пункты" "  if (false) return { ...out, stage: 'карта влияния: пункты"
 mutant "пробной сборки нет" "  if (r.ok) r = await trialIn(l, r)" ""
 mutant "красная пробная — полоса идёт" "  if (t && t.code === 1) {" "  if (false) {"
-mutant "пробная сборка — отправкой ветки" "\`git push --dry-run origin HEAD:refs/heads/' + l.branch + '\`" "\`git push origin HEAD:refs/heads/' + N + '-trial\`"
-mutant "пробная сборка — на имя волны (git отвергнет до хука)" "\`git push --dry-run origin HEAD:refs/heads/' + l.branch + '\`" "\`git push --dry-run origin HEAD:refs/heads/' + N + '\`"
+mutant "пробная сборка — отправкой ветки" "\`git push --dry-run origin HEAD:refs/heads/' + r.branch + '\`" "\`git push origin HEAD:refs/heads/' + N + '-trial\`"
+mutant "пробная сборка — на имя волны (git отвергнет до хука)" "\`git push --dry-run origin HEAD:refs/heads/' + r.branch + '\`" "\`git push --dry-run origin HEAD:refs/heads/' + N + '\`"
 mutant "имитация клиента не зовётся" "    const s1 = await textStep(C + '\\n\\nИмитация клиента ДО кода" "    const s1 = '### ВОЗВРАТ' || await textStep(C + '\\n\\nИмитация клиента ДО кода"
 mutant "метрики не пишутся" "await agent(C + '\\n\\nРежим метрики:" "false && await agent(C + '\\n\\nРежим метрики:"
 mutant "L4: дочитывание без rerun — кэш вечен (ws#1078)" "журнал своего прогона и верни блок ВОЗВРАТ с фактом. Попытка ' + (A.rerun || 0) + '.'" "журнал своего прогона и верни блок ВОЗВРАТ с фактом. Попытка 0.'"

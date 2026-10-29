@@ -45,8 +45,9 @@
 Статусы класса (закрытый словарь): open → edited (разовая правка) → mechanism (#N) →
 landed (PR) → verified (путь инъекции, которая краснеет); rejected — не урок.
 Случай — урок одного агента: одна строка у двух РАЗНЫХ агентов — два случая; сводятся лишь
-повторный сбор того же агента (id) и пара «итог workflow ↔ строка lessons.md той же волны и
-полосы»; урок пересказчика (задание называет журнал другого агента) при том же тексте у
+повторный сбор того же агента (id), один класс у того же агента в тот же момент (ws#1498:
+поле lesson и блок ВОЗВРАТ одного итога; scan второй такой записи и не пишет) и пара «итог
+workflow ↔ строка lessons.md той же волны и полосы»; урок пересказчика (задание называет журнал другого агента) при том же тексте у
 автора — не случай. Пороги: класс с ≥ THRESHOLD случаями при open|edited — «нужен механизм»; случай позже
 landed|verified — «механизм не держит»; open старше суток — «старше суток».
 
@@ -452,8 +453,15 @@ def scan(store, proj, waves, aliases, deadline, census):
             af = os.path.join(wdir, 'agent-%s.jsonl' % r['agentId'])
             ts = os.path.getmtime(af) if os.path.exists(af) else os.path.getmtime(p)
             wave, lane = lane_of(af)
+            # Один итог — один случай класса (ws#1498): поле lesson и блок ВОЗВРАТ того же
+            # итога с тем же ключом другим текстом — повтор записи, а не второй случай.
+            keys = set()
             for v in vs:
-                census['read'] += store.add(sid, r['agentId'], 'workflow', ts, v, key_of(v, aliases), wave, lane)
+                k = key_of(v, aliases)
+                if k is not None and k in keys:
+                    continue
+                keys.add(k)
+                census['read'] += store.add(sid, r['agentId'], 'workflow', ts, v, k, wave, lane)
         census['agents'] += 1
     for p in sorted(mains, key=fresh):
         sid = os.path.basename(p)[:-len('.jsonl')]
@@ -543,7 +551,10 @@ def analyse(store, now, aliases, since=0.0):
         if r.get('wave') and r.get('lane'):
             rh = (r['wave'], r['lane'], sha(flat(r)))
         else:
-            rh = r['id']
+            # Итог workflow — по агенту и моменту (ws#1498): прежние сборки писали один итог
+            # дважды — поле lesson и блок ВОЗВРАТ, — и класс получал второй «случай» от одного
+            # агента. Строки диспетчера одного хода — разные уроки (места склейки), не повтор.
+            rh = (r.get('sid'), r.get('agent'), r.get('ts'), k) if r.get('src') == 'workflow' else r['id']
         if rh in seen:
             continue
         seen.add(rh)

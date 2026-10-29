@@ -62,9 +62,11 @@ kubectl и tar раннера, короткие одиночные команд�
 отказ «лёгкая команда на машине владельца» с классом слота (LOCAL_FORMS; go — go-unit, прочее —
 suite) и маршрутом remote. JSON читает jq: исключения `-I` нет — замена на машине есть, а
 python3 этой формой исполняет любой код. Судится лишь СТРОКА КОМАНДЫ (уровень 0 — и за
-обёртками env, timeout, nice, xargs, find -exec, `bash -c`, heredoc оболочке): предпроверки,
-pr-body.sh, collect.sh зовут python3 и go vet своим текстом, и тот уровень страж не судит
-(BOUNDARY). Версия (`python3 -V`, `node --version`, `openssl version`) — пропуск; слова
+обёртками env, timeout, nice, xargs, find -exec, `bash -c`, heredoc оболочке): предпроверки
+зовут python3 и go vet своим текстом, и тот уровень страж не судит (BOUNDARY); pr-body.sh,
+ci-read.sh, landing-precheck.sh сами уходят Job-ом (remote-reader.sh). Разрешённое исключение
+с основанием — scripts/lessons/collect.sh (ws#1498): разбор локальной ведомости уроков, чей
+вход — журналы ~/.claude этой машины, в pod не переносимые; граница — шапка collect.sh. Версия (`python3 -V`, `node --version`, `openssl version`) — пропуск; слова
 `kubectl exec … --` исполняет pod, а не машина, — пропуск.
 
 Исходы: 0 без вывода — пропуск; 2 и текст в stderr — отказ (текст видит тот, кто
