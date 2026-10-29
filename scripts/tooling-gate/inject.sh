@@ -3882,34 +3882,34 @@ else
     premise_broken "check-28: корневой подписи нет — синтетический клон kacho не родится"
 fi
 
-echo "== check-30: ведомость ci-read о стволе воркспейса = числу заданий, шарды сведены (ws#1481) =="
-C30=check-30-ci-read-ledger-counts-workspace-jobs.sh
-L30=scripts/ci-read-expected.tsv
-W30=.github/workflows/ci.yaml
-led30() { perl -pi -e 's/^(PRO-Robotech\/kacho-workspace\tmain\t)\d+/${1}'"$2"'/' "$1/$L30"; }
-b="$(mksandbox)"; run 0 "$b" "чистое дерево — молчит" "$C30"
-b="$(mksandbox)"; led30 "$b" 15
-run_says 1 "$b" "инъекция: ведомость 15 при 17 заданиях (прежнее состояние) — краснеет с координатой" "$C30" "$L30:"
-b="$(mksandbox)"; led30 "$b" 18
-run_says 1 "$b" "инъекция: ведомость больше числа заданий — краснеет (точное число, не потолок)" "$C30" "производит 17 заданий"
-b="$(mksandbox)"; perl -ni -e 'print unless /^PRO-Robotech\/kacho-workspace\tmain\t/' "$b/$L30"
-run_says 1 "$b" "инъекция: строки ствола воркспейса нет — краснеет" "$C30" "строк «PRO-Robotech/kacho-workspace main» 0"
-b="$(mksandbox)"; perl -pi -e 's/^(    needs: \[bats-and-shellcheck-shard-1, bats-and-shellcheck-shard-2), bats-and-shellcheck-shard-3\]/$1]/' "$b/$W30"
-run_says 1 "$b" "инъекция: шард 3 снят из needs свода — краснеет с именем шарда" "$C30" "«bats-and-shellcheck-shard-3» не входит в needs"
-b="$(mksandbox)"; perl -pi -e 's/^(    needs: \[hook-proofs-shard-1), hook-proofs-shard-2\]/$1]/' "$b/$W30"
-run_says 1 "$b" "инъекция: шард чтения CI снят из needs свода hook-proofs — краснеет с именем шарда" "$C30" "«hook-proofs-shard-2» не входит в needs"
-b="$(mksandbox)"; perl -0pi -e 's/(\n  hook-proofs:\n(?:    .*\n)*?)    if: always\(\)\n/$1/' "$b/$W30"
-run_says 1 "$b" "инъекция: у свода hook-proofs снят if: always() — краснеет" "$C30" "у свода «hook-proofs» нет if: always()"
-b="$(mksandbox)"; perl -0pi -e 's/(\n  bats-and-shellcheck:\n(?:    .*\n)*?)    if: always\(\)\n/$1/' "$b/$W30"
-run_says 1 "$b" "инъекция: у свода снят if: always() — краснеет" "$C30" "нет if: always()"
-b="$(mksandbox)"; perl -pi -e 's/^    name: доказательства инструментов оснастки · шард 1 из 3$/    name: bats-and-shellcheck · шард 1 из 3/' "$b/$W30"
-run_says 1 "$b" "инъекция: имя шарда начинается с имени свода — краснеет" "$C30" "начинается с имени контекста «bats-and-shellcheck»"
-b="$(mksandbox)"; perl -pi -e 's/^    name: доказательства инструментов оснастки · шард 1 из 3$/    name: шард один доказательств инструментов/' "$b/$W30"
-run 0 "$b" "близнец: шард переименован без общего префикса, число заданий прежнее — молчит" "$C30"
-b="$(mksandbox)"; perl -0pi -e 's/\n  bats-and-shellcheck-shard-3:\n/\n  bats-and-shellcheck-shard-3:\n    strategy:\n      matrix:\n        x: [1, 2]\n/' "$b/$W30"
-run 2 "$b" "задание с матрицей — VOID (число имён статически не выводится), а не успех" "$C30"
-b="$(mksandbox)"; rm -f "$b/$W30"
-run 2 "$b" "ci.yaml нет — VOID" "$C30"
+echo "== check-29: ведомость ci-read о стволе воркспейса = числу заданий, шарды сведены (ws#1481) =="
+C29=check-29-ci-read-ledger-counts-workspace-jobs.sh
+L29=scripts/ci-read-expected.tsv
+W29=.github/workflows/ci.yaml
+led29() { perl -pi -e 's/^(PRO-Robotech\/kacho-workspace\tmain\t)\d+/${1}'"$2"'/' "$1/$L29"; }
+b="$(mksandbox)"; run 0 "$b" "чистое дерево — молчит" "$C29"
+b="$(mksandbox)"; led29 "$b" 15
+run_says 1 "$b" "инъекция: ведомость 15 при 17 заданиях (прежнее состояние) — краснеет с координатой" "$C29" "$L29:"
+b="$(mksandbox)"; led29 "$b" 18
+run_says 1 "$b" "инъекция: ведомость больше числа заданий — краснеет (точное число, не потолок)" "$C29" "производит 17 заданий"
+b="$(mksandbox)"; perl -ni -e 'print unless /^PRO-Robotech\/kacho-workspace\tmain\t/' "$b/$L29"
+run_says 1 "$b" "инъекция: строки ствола воркспейса нет — краснеет" "$C29" "строк «PRO-Robotech/kacho-workspace main» 0"
+b="$(mksandbox)"; perl -pi -e 's/^(    needs: \[bats-and-shellcheck-shard-1, bats-and-shellcheck-shard-2), bats-and-shellcheck-shard-3\]/$1]/' "$b/$W29"
+run_says 1 "$b" "инъекция: шард 3 снят из needs свода — краснеет с именем шарда" "$C29" "«bats-and-shellcheck-shard-3» не входит в needs"
+b="$(mksandbox)"; perl -pi -e 's/^(    needs: \[hook-proofs-shard-1), hook-proofs-shard-2\]/$1]/' "$b/$W29"
+run_says 1 "$b" "инъекция: шард чтения CI снят из needs свода hook-proofs — краснеет с именем шарда" "$C29" "«hook-proofs-shard-2» не входит в needs"
+b="$(mksandbox)"; perl -0pi -e 's/(\n  hook-proofs:\n(?:    .*\n)*?)    if: always\(\)\n/$1/' "$b/$W29"
+run_says 1 "$b" "инъекция: у свода hook-proofs снят if: always() — краснеет" "$C29" "у свода «hook-proofs» нет if: always()"
+b="$(mksandbox)"; perl -0pi -e 's/(\n  bats-and-shellcheck:\n(?:    .*\n)*?)    if: always\(\)\n/$1/' "$b/$W29"
+run_says 1 "$b" "инъекция: у свода снят if: always() — краснеет" "$C29" "нет if: always()"
+b="$(mksandbox)"; perl -pi -e 's/^    name: доказательства инструментов оснастки · шард 1 из 3$/    name: bats-and-shellcheck · шард 1 из 3/' "$b/$W29"
+run_says 1 "$b" "инъекция: имя шарда начинается с имени свода — краснеет" "$C29" "начинается с имени контекста «bats-and-shellcheck»"
+b="$(mksandbox)"; perl -pi -e 's/^    name: доказательства инструментов оснастки · шард 1 из 3$/    name: шард один доказательств инструментов/' "$b/$W29"
+run 0 "$b" "близнец: шард переименован без общего префикса, число заданий прежнее — молчит" "$C29"
+b="$(mksandbox)"; perl -0pi -e 's/\n  bats-and-shellcheck-shard-3:\n/\n  bats-and-shellcheck-shard-3:\n    strategy:\n      matrix:\n        x: [1, 2]\n/' "$b/$W29"
+run 2 "$b" "задание с матрицей — VOID (число имён статически не выводится), а не успех" "$C29"
+b="$(mksandbox)"; rm -f "$b/$W29"
+run 2 "$b" "ci.yaml нет — VOID" "$C29"
 
 echo
 # Мутация образца последней пробой вердиктов уже не меняет, но это запись вне
