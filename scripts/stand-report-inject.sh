@@ -604,6 +604,15 @@ ecommit; want 2 -; printf '.*new-job' > "$C/voidre"
 corelib_case "corelib: unknown job in another tracked workflow fails closed"
 printf 'name: extra\non: [pull_request]\njobs:\n  new-job:\n    runs-on: ubuntu-latest\n    steps:\n      - run: true\n' > "$C/co/.github/workflows/extra.yml"
 ecommit; want 2 -; printf '.*extra.yml:new-job' > "$C/voidre"
+corelib_case "corelib: unknown job in yaml workflow fails closed"
+printf 'jobs:\n  new-job: {}\n' > "$C/co/.github/workflows/extra.yaml"
+ecommit; want 2 -; printf '.*extra.yaml:new-job' > "$C/voidre"
+corelib_case "corelib: missing external unit is named"
+sed -i '/^  unit:/,/^  lint:/{ /^  lint:/!d; }' "$C/co/.github/workflows/ci.yml"
+ecommit; want 2 -; printf '.*ci.yml:unit' > "$C/voidre"
+corelib_case "corelib: missing CI_READ build is named"
+sed -i '/^  build:/,/^  unit:/{ /^  unit:/!d; }' "$C/co/.github/workflows/ci.yml"
+ecommit; want 2 -; printf '.*ci.yml:build' > "$C/voidre"
 corelib_case "corelib: missing CI_READ job fails closed"
 sed -i 's/^  provenance:/  renamed-provenance:/' "$C/co/.github/workflows/ci.yml"
 ecommit; want 2 -; printf '.*provenance' > "$C/voidre"
@@ -616,6 +625,15 @@ printf '#!/usr/bin/env bash\necho integration\n' > "$C/co/.github/scripts/run-in
 want 2 -
 corelib_case "corelib: exact head required"
 ecommit; echo "$H" > "$C/head"; want 2 -
+corelib_case "corelib: tracked dirty workflow refused before census"
+ecommit; printf '\n# dirty\n' >> "$C/co/.github/workflows/ci.yml"; want 2 -; printf '.*правки вне коммита' > "$C/voidre"
+corelib_case "corelib: untracked workflow refused before census"
+ecommit; printf 'jobs:\n  unknown: {}\n' > "$C/co/.github/workflows/new.yaml"; want 2 -; printf '.*правки вне коммита' > "$C/voidre"
+corelib_case "corelib: missing workflow is not an empty success"
+rm "$C/co/.github/workflows/ci.yml"; ecommit; want 2 -
+corelib_case "corelib: draft does not narrow full selection"
+ecommit; printf -- '--draft\ntrue\n' > "$C/args"; want 0 "$CORELIB_EXTERNAL"
+printf '.source == "full" and .full == true and .ci_read == %s' "$CORELIB_CI_READ" > "$C/jsoncheck"
 
 # Generic report is a ci-watcher summary, not a raw Go JSON judge.
 corelib_report() {
@@ -634,6 +652,10 @@ corelib_report "corelib: expected cannot omit integration"
 jq '.jobs |= .[:1]' "$C/exp.json" > "$C/j"; mv "$C/j" "$C/exp.json"; want 1 STAND-EXPECT-LEDGER
 corelib_report "corelib: expected cannot silently remove CI_READ"
 jq '.ci_read |= .[:6]' "$C/exp.json" > "$C/j"; mv "$C/j" "$C/exp.json"; want 1 STAND-EXPECT-LEDGER
+corelib_report "corelib: expected cannot reduce jobs and ledger together"
+jq '.jobs |= .[:1] | .ledger = .jobs' "$C/exp.json" > "$C/j"; mv "$C/j" "$C/exp.json"; want 1 STAND-EXPECT-LEDGER
+corelib_report "corelib: actual failure remains red"
+jq '.suites[1] |= (.outcome="red" | .quote="assertion failed" | .root="probe")' "$C/r.json" > "$C/j"; mv "$C/j" "$C/r.json"; want 1 STAND-REPORT-RED
 corelib_report "corelib: not-run is not green"
 jq '.suites[1] |= (.outcome="not-run" | .reason="Postgres unavailable")' "$C/r.json" > "$C/j"; mv "$C/j" "$C/r.json"; want 1 STAND-REPORT-NOT-RUN
 corelib_report "corelib: partial counters are not complete"
@@ -705,6 +727,9 @@ exit-zero	s/sys.exit(1 if reasons else 0)/sys.exit(0)/
 ledger-full-ignored	s/                and sorted(set(expected)) != sorted(ledger)):/                and False):/
 ledger-out-ignored	s/        if out:/        if False:/
 ledger-source-ignored	s/        if e.get('source') != src or e.get('ledger') != ledger:/        if False:/
+corelib-new-job-ignored	s/    if found != classified:/    if classified - found:/
+corelib-missing-job-ignored	s/    if found != classified:/    if found - classified:/
+corelib-ci-read-unchecked	s/        if ci_read is not None and e.get('ci_read') != ci_read:/        if False:/
 ledger-repo-ignored	s/    if erepo not in STAND:/    if erepo not in STAND and False:/
 expect-repo-ignored	s/    if prr and erepo != prr:/    if False:/
 carry-area-read-ok	s/        if hit:/        if False:/

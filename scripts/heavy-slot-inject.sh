@@ -771,6 +771,8 @@ cp "$R/.github/scripts/run-integration.sh" "$RC/.github/scripts/"
 git -C "$RC" add .github; sandbox_git -C "$RC" commit -q -m integration
 rm -f "$W/argv"
 assert "17 да" "$(RDIR="$RC" rslot bash "$SLOT" integration -- .github/scripts/run-integration.sh) $(has "$W/argv" '.github/scripts/run-integration.sh')" "corelib tracked integration runner → external executor"
+assert "17 да" "$(RDIR="$RC" rslot bash "$SLOT" integration -- ./.github/scripts/run-integration.sh) $(has "$W/argv" './.github/scripts/run-integration.sh')" "corelib relative ./ spelling preserves portable route"
+assert "17 да" "$(RDIR="$RC" rslot bash "$SLOT" integration -- bash .github/scripts/run-integration.sh) $(has "$W/argv" 'bash')" "corelib bash spelling preserves portable route"
 rm -f "$W/argv"
 assert "77 нет" "$(RDIR="$RC" rslot bash "$SLOT" lint -- .github/scripts/run-integration.sh) $([ -e "$W/argv" ] && echo да || echo нет)" "corelib same runner under wrong class is refused"
 assert "77 нет" "$(RDIR="$RC" rslot bash "$SLOT" integration -- "$RC/.github/scripts/run-integration.sh") $([ -e "$W/argv" ] && echo да || echo нет)" "corelib absolute machine path is refused"
