@@ -1695,6 +1695,16 @@ on_signal() { say "оборван сигналом $1 — снимаю ns"; clea
 trap cleanup EXIT
 trap 'on_signal INT 130' INT
 trap 'on_signal TERM 143' TERM
+# ws#1527: host-only readonly capture; data is streamed before bundle readiness.
+# Product declarations are parsed, never executed on the credential host.
+GH_TRACKER=0
+if [ "$PROFILE" = ci-local ] && [ "$REPO" = kaname ] && [ -n "$PUSH_INPUT" ] \
+    && git -C "$SRC" cat-file -e "$SHA:.github/scripts/review-event-silence.py" 2>/dev/null \
+    && git -C "$SRC" cat-file -e "$SHA:.github/scripts/newman-suite-debt.py" 2>/dev/null; then
+    python3 "$SELF_DIR/tracker.py" capture "$SRC" "$SHA" "$BOX/tracker.json" \
+        || { say "трекер для хука не снят полностью — не выполнилось, Job не создавался"; exit 69; }
+    GH_TRACKER=1
+fi
 
 LIFE_S=$(( TIMEOUT_S + WAIT_START_S + 600 ))
 # --keep — часы ПОСЛЕ наибольшей жизни прогона, а не от создания: иначе срок ns
@@ -2296,6 +2306,21 @@ GHPOD
   echo "remote-heavy: gh в pod — «pr list» из снятого машиной (запросов $(jq '.prs | length' /work/gh-prs.json), веток отправки $(jq -r '.heads | join(" ")' /work/gh-prs.json)), токена нет" >&2
 else
   echo "remote-heavy: gh в pod — нет: запросы на слияние не снимались (не отправка либо хук их не спрашивает)" >&2
+fi
+# ws#1527: only the captured API shapes extend the PR-only boundary.
+if [ -f /work/tracker.json ]; then
+  python3 /work/tracker.py validate /work/src "$HEAVY_SHA" /work/tracker.json \
+    || pf "gh tracker: incomplete or foreign source snapshot"
+  if [ -f /work/bin/gh ]; then mv /work/bin/gh /work/bin/gh-pr-list; fi
+  cat > /work/bin/gh <<'TRACKER_GH'
+#!/usr/bin/env bash
+if [ "${1:-}" = pr ] && [ "${2:-}" = list ] && [ -x /work/bin/gh-pr-list ]; then
+  exec /work/bin/gh-pr-list "$@"
+fi
+exec python3 /work/tracker.py replay /work/src "$HEAVY_SHA" /work/tracker.json "$@"
+TRACKER_GH
+  chmod 0755 /work/bin/gh || pf "gh tracker adapter not installed"
+  echo "remote-heavy: gh tracker — source-bound readonly comments/state snapshot, no credentials" >&2
 fi
 # ghpr-end
 GHPR
@@ -3251,7 +3276,7 @@ WSCW
 # либо `<предок корня>/project/<имя>` — по origin/main или названной ревизии. Без копии —
 # [VOID] на всех чужих координатах (отправка 983 2026-10-25: 164 из 164). Шаг кладёт клоны
 # kacho и corelib в /work/project/<имя> (предок /work/src), полной историей (координаты,
-# связанные ревизией, судятся на ней) и без рабочего дерева: проба читает refs, не файлы.
+# связанные ревизией, судятся на ней). Kacho также checkout origin/main: edge читает файлы.
 # Фоном рядом с прочей подготовкой, ждутся перед видимостью. Не склонировался — строка
 # с причиной, переменная не выставляется, и проба даёт свой VOID «условие не создано»
 # (не 69: дом — предпосылка одной пробы, а не прогона; её третья категория в проход не идёт).
@@ -3266,7 +3291,7 @@ for r in kacho corelib; do
       || echo "код $?" > "/work/home-$r.fail" ) &
   hmp="$hmp $!"
 done
-echo "remote-heavy: дома проб kaname (kacho, corelib) — клоны с GitHub фоном, полной историей, без рабочего дерева" >&2
+echo "remote-heavy: дома проб kaname (kacho, corelib) — клоны с GitHub фоном, полной историей; kacho затем checkout origin/main" >&2
 # homes-end
 HOMES
 )"
@@ -3282,6 +3307,21 @@ for r in kacho corelib; do
   fi
   h="$(git -C "$d" rev-parse -q --verify 'refs/remotes/origin/main^{commit}' 2>/dev/null)" || { hmv="$hmv $r (ствола origin/main в клоне нет)"; continue; }
   export "$v=$d"; hms="$hms $v=$d@${h:0:12}"
+  # Filesystem operand lives outside the Kaname Go module. Keep the source-home
+  # coordinate even if checkout fails; the edge operand must remain absent.
+  if [ "$r" = kacho ]; then
+    unset KACHO_MONOREPO
+    if [ "$(git -C "$d" config remote.origin.url)" = "https://github.com/PRO-Robotech/kacho.git" ] \
+        && git -C "$d" -c core.hooksPath=/dev/null checkout -q --detach "$h" > /work/platform-checkout.log 2>&1 \
+        && [ "$(git -C "$d" rev-parse HEAD)" = "$h" ] \
+        && [ -n "$(git -C "$d" ls-files)" ] && [ -z "$(git -C "$d" status --porcelain)" ]; then
+      chmod -R a-w "$d" || pf "platform operand could not be made read-only"
+      export KACHO_MONOREPO="$d"
+      echo "remote-heavy: platform operand PRO-Robotech/kacho origin/main=$h tree=$(git -C "$d" rev-parse 'HEAD^{tree}') path=$d (read-only)" >&2
+    else
+      echo "remote-heavy: platform operand checkout failed/missing — KACHO_MONOREPO absent (not executed)" >&2
+    fi
+  fi
 done
 echo "remote-heavy: дома проб kaname —${hms:- ни одного}, $(( $(date +%s) - hm0 )) с от начала клонирования" >&2
 [ -z "$hmv" ] || echo "remote-heavy: дома проб kaname НЕ поставлены:$hmv — координаты этих домов проба даст [VOID] «условие не создано», а не вердиктом" >&2
@@ -3694,6 +3734,12 @@ done
 verify_spec "pod $POD" "$(kc -n "$NSNAME" get pods -l job-name=run -o json 2>/dev/null \
                           | jq -c --arg p "$POD" '.items[] | select(.metadata.name == $p) | .spec' 2>/dev/null)"
 guard_write "доставка исходников" || guard_exit $?
+if [ "$GH_TRACKER" = 1 ]; then
+    kc -n "$NSNAME" exec -i "$POD" -c fetch -- sh -c 'cat > /work/tracker.json' < "$BOX/tracker.json" & wait_bg $! \
+        || { say "tracker snapshot не доставлен — не выполнилось"; exit 69; }
+    kc -n "$NSNAME" exec -i "$POD" -c fetch -- sh -c 'cat > /work/tracker.py' < "$SELF_DIR/tracker.py" & wait_bg $! \
+        || { say "tracker adapter не доставлен — не выполнилось"; exit 69; }
+fi
 kc -n "$NSNAME" exec -i "$POD" -c fetch -- sh -c 'cat > /work/in.bundle && touch /work/in.done' < "$BOX/src.bundle" & wait_bg $! \
     || { say "исходники не доставлены в pod (не выполнилось)"; exit 69; }
 say "исходники доставлены: $(( $(stat -c %s "$BOX/src.bundle") / 1048576 )) МиБ bundle за $(( $(now) - T0 )) с от создания Job"
