@@ -763,6 +763,20 @@ assert "77 да" "$(RDIR="$R4" rslot bash "$SLOT" integration -- .github/scripts
 sed 's|^        \[\[ "\$real" == "\$RS_TOP/"\$p \]\] \|\| continue$|        :|' "$SLOT" > "$W/slot-mut-port.sh"
 assert "1 17" "$(diff "$SLOT" "$W/slot-mut-port.sh" | grep -c '^<') $(rslot bash "$W/slot-mut-port.sh" integration -- .github/scripts/other.sh)" "мутант «путь скрипта не сверяется»: другой скрипт уходит Job-ом — близнец выше его ловит"
 
+echo "── corelib: собственный tracked integration runner (ws#1520)"
+RC="$W/rclone-corelib"; git init -q -b 1520-corelib "$RC"
+git -C "$RC" remote add origin https://github.com/PRO-Robotech/corelib.git
+mkdir -p "$RC/.github/scripts"
+cp "$R/.github/scripts/run-integration.sh" "$RC/.github/scripts/"
+git -C "$RC" add .github; sandbox_git -C "$RC" commit -q -m integration
+rm -f "$W/argv"
+assert "17 да" "$(RDIR="$RC" rslot bash "$SLOT" integration -- .github/scripts/run-integration.sh) $(has "$W/argv" '.github/scripts/run-integration.sh')" "corelib tracked integration runner → external executor"
+rm -f "$W/argv"
+assert "77 нет" "$(RDIR="$RC" rslot bash "$SLOT" lint -- .github/scripts/run-integration.sh) $([ -e "$W/argv" ] && echo да || echo нет)" "corelib same runner under wrong class is refused"
+assert "77 нет" "$(RDIR="$RC" rslot bash "$SLOT" integration -- "$RC/.github/scripts/run-integration.sh") $([ -e "$W/argv" ] && echo да || echo нет)" "corelib absolute machine path is refused"
+git -C "$RC" rm -q --cached .github/scripts/run-integration.sh; sandbox_git -C "$RC" commit -q -m untracked
+assert "77 нет" "$(RDIR="$RC" rslot bash "$SLOT" integration -- .github/scripts/run-integration.sh) $([ -e "$W/argv" ] && echo да || echo нет)" "corelib untracked runner is refused"
+
 echo "── маршрут без исполнения: --route — чистое суждение того же механизма (ws#1192 в)"
 # stand-report.sh expect спрашивает здесь маршрут каждого задания ведомости ДО прогона. Суждение
 # статическое: кластер не спрашивается, run.sh не зовётся, команда не исполняется, журнала нет.
