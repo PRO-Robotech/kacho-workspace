@@ -272,6 +272,64 @@ def body(pr):
         why = str(e)
     pr.ok("близнец: правка только блока event — без отказа", why == "", why)
 
+    # ws#1523/#1096: формы курьерской metadata отличаются одним полем/порядком.
+    metadata = [
+        ("absent", ""),
+        ("missing", "effective_approval:\n  publication_pending: true\n  ban1_lifted: false\n"),
+        ("last", "effective_approval:\n  issued: false\n"),
+        ("first", "effective_approval:\n  issued: false # сохранить комментарий\n  ban1_lifted: false\n"),
+        ("pending", "effective_approval:\n  issued: pending_external_event\n  publication_pending: [holder]\n"),
+        ("true", "effective_approval:\n  issued: true\n  issued_at: old\n  conditions: [external-check]\n"),
+        ("flow", "effective_approval: {issued: false, ban1_lifted: false}\n"),
+        ("empty-flow", "effective_approval: {}\n"),
+    ]
+    for name, block in metadata:
+        original = record().replace("effective_approval:\n  issued: false\n  why: ждёт события\n", block)
+        dmeta = fixture(pr, "metadata-" + name, original)
+        rc, out, err, st = pr.run("approval-event", [R, DOC, REC, "549"], pr.state(world()), cwd=dmeta)
+        result = yaml.safe_load(pr.git(dmeta, "show", "HEAD:" + REC))
+        actual = posts(st)
+        returned = st.get("comments", {}).get("%s#549" % R, [{}])[0]
+        ea = result.get("effective_approval") or {}
+        original_ea = yaml.safe_load(original).get("effective_approval") or {}
+        other = lambda e: {k: v for k, v in e.items() if k not in ("issued", "issued_at")}
+        pr.ok("metadata %s: одно событие, issued true и timestamp ответа в HEAD" % name,
+              rc == 0 and len(actual) == 1 and ea.get("issued") is True
+              and ea.get("issued_at") == returned.get("created_at")
+              and result.get("event", {}).get("url") == returned.get("html_url"), err + str(result))
+        pr.ok("metadata %s: условия и ban1_lifted сохранены" % name, other(ea) == other(original_ea))
+        for newline in ("\n", "\r\n"):
+            for final in (True, False):
+                # Последний блок либо непосредственно перед event, либо в EOF.
+                for suffix in ("event:\n  status: not_performed\nchecks: {coverage: 3}\n", ""):
+                    before = ("verdict: APPROVED\nsubject: {sha256: fingerprint}\n" + block + suffix)
+                    before = before.replace("\n", newline)
+                    if not final:
+                        before = before.rstrip("\r\n")
+                    after = rit.edited_record(before, yaml.safe_load(before), REC, fine, url9, "stamp")
+                    parsed = yaml.safe_load(after)
+                    pr.ok("metadata %s: newline=%r final=%s suffix=%s" % (name, newline, final, bool(suffix)),
+                          parsed["effective_approval"]["issued"] is True
+                          and parsed["effective_approval"]["issued_at"] == "stamp"
+                          and keep(parsed) == keep(yaml.safe_load(before)))
+                    # Все исходные строки вне курьерских скаляров остаются буквально.
+                    for line in before.splitlines(keepends=True):
+                        if not line.lstrip().startswith(("issued:", "issued_at:", "event:", "status:")):
+                            pr.ok("metadata %s: сохранена строка %r" % (name, line),
+                                  line in after or line.startswith("effective_approval: {"))
+    for name, block in (("scalar", "effective_approval: invalid\n"),
+                        ("sequence", "effective_approval: []\n"),
+                        ("duplicate", "effective_approval:\n  issued: false\n  issued: true\n"),
+                        ("nested-issued", "effective_approval:\n  issued: {}\n")):
+        original = record().replace("effective_approval:\n  issued: false\n  why: ждёт события\n", block)
+        dinvalid = fixture(pr, "metadata-invalid-" + name, original)
+        head = pr.git(dinvalid, "rev-parse", "HEAD").strip()
+        rc, out, err, st = pr.run("approval-event", [R, DOC, REC, "549"], pr.state(world()), cwd=dinvalid)
+        pr.refused("metadata invalid %s" % name, rc, err, "— событие не публикуется")
+        pr.ok("metadata invalid %s: событий нет, HEAD и запись целы" % name,
+              not posts(st) and pr.git(dinvalid, "rev-parse", "HEAD").strip() == head
+              and open(os.path.join(dinvalid, REC), encoding="utf-8").read() == original)
+
     # ответ трекера с переводом строки в поле не заводит ключа в записи
     w = world()
     w["comment_extra"] = {"url": "https://api.example/x\nchecks:\n  coverage: подменено"}

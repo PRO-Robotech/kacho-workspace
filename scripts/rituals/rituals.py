@@ -751,21 +751,65 @@ def event_block(posted: dict, url: str, actor: str, hrepo: str, hnum: int, role,
     ])
 
 
+def issued_metadata(text: str, record: str, issued_at: str) -> str:
+    """Правим только скаляры курьера по позициям YAML; исходные строки не сериализуем."""
+    import yaml
+
+    yaml_load(text, record)
+    root = yaml.compose(text)
+    nodes = [(k, v) for k, v in root.value if k.value == "effective_approval"]
+    if len(nodes) > 1:
+        raise Refused("effective_approval записи %s повторён" % record)
+    nl = "\r\n" if "\r\n" in text else "\n"
+    if not nodes:
+        # До первого ключа: сохраняем финальный перевод строки и YAML end-marker.
+        at = root.value[0][0].start_mark.index if root.value else root.start_mark.index
+        return text[:at] + ("effective_approval:" + nl + "  issued: true" + nl
+                            + "  issued_at: " + q(issued_at) + nl) + text[at:]
+    _, node = nodes[0]
+    if not isinstance(node, yaml.MappingNode):
+        raise Refused("effective_approval записи %s — не отображение YAML" % record)
+    edits, missing = [], []
+    for name, value in (("issued", "true"), ("issued_at", q(issued_at))):
+        fields = [(k, v) for k, v in node.value if k.value == name]
+        if len(fields) > 1:
+            raise Refused("effective_approval.%s записи %s повторён" % (name, record))
+        if not fields:
+            missing.append((name, value))
+            continue
+        field, old = fields[0]
+        if not isinstance(old, yaml.ScalarNode) or old.start_mark.index < field.end_mark.index:
+            raise Refused("effective_approval.%s записи %s — не собственный скаляр" % (name, record))
+        edits.append((old.start_mark.index, old.end_mark.index, value))
+    if missing:
+        if node.flow_style:
+            at = node.end_mark.index - 1
+            add = (", " if node.value else "") + ", ".join(k + ": " + v for k, v in missing)
+        else:
+            # Вставка перед первым дочерним полем не съедает newline последнего.
+            at = text.rfind("\n", 0, node.value[0][0].start_mark.index) + 1
+            indent = " " * node.value[0][0].start_mark.column
+            add = "".join(indent + k + ": " + v + nl for k, v in missing)
+        edits.append((at, at, add))
+    for start, end, value in sorted(edits, reverse=True):
+        text = text[:start] + value + text[end:]
+    return text
+
+
 def edited_record(before: str, rec: dict, record: str, event: str, url: str, issued_at: str) -> str:
     """Текст записи с блоком `event` и `effective_approval.issued: true`; отказ, если правка
     не дала события с адресом либо задела другие поля (границу блока ищет текстовый
     разбор, и многострочное значение другого поля способно её обмануть)."""
     span = top_block(before, "event")
-    after = (before[:span[0]] + event + before[span[1]:]) if span else (before.rstrip("\n") + "\n\n" + event)
-    ea = top_block(after, "effective_approval")
-    if ea:
-        blk = after[ea[0]:ea[1]]
-        blk2 = re.sub(r"(?m)^  issued: false\s*$", "  issued: true", blk)
-        if blk2 != blk and not re.search(r"(?m)^  issued_at:", blk2):
-            stamp = "  issued: true\n  issued_at: %s" % q(issued_at)
-            blk2 = re.sub(r"(?m)^  issued: true$", lambda _m: stamp, blk2, count=1)
-        after = after[:ea[0]] + blk2 + after[ea[1]:]
+    after = (before[:span[0]] + event + before[span[1]:]) if span else (before + ("" if before.endswith("\n") else "\n") + "\n" + event)
+    after = issued_metadata(after, record, issued_at)
     check = yaml_load(after, record + " (после правки)")
+    approval = check.get("effective_approval") or {}
+    expected = {k: v for k, v in (rec.get("effective_approval") or {}).items()
+                if k not in ("issued", "issued_at")}
+    if (approval.get("issued") is not True or approval.get("issued_at") != issued_at
+            or {k: v for k, v in approval.items() if k not in ("issued", "issued_at")} != expected):
+        raise Refused("правка effective_approval не дала issued: true либо задела другие поля записи %s" % record)
     cev = check.get("event") or {}
     if cev.get("status") != "performed" or cev.get("url") != url:
         raise Refused("правка блока event не дала status: performed с адресом события")
@@ -809,7 +853,7 @@ def approval_event(argv: list[str]) -> int:
     task = branch_task()
     rec_path = os.path.join(top, record)
     try:
-        before = open(rec_path, encoding="utf-8").read()
+        before = open(rec_path, encoding="utf-8", newline="").read()
     except OSError as e:
         raise Unmet("запись %s не читается: %s" % (record, e))
     rec = yaml_load(before, record)
@@ -881,7 +925,7 @@ def approval_event(argv: list[str]) -> int:
         after = edited_record(before, rec, record, event_block(posted, url, actor, hrepo, hnum, role, verdict,
                                                                  body, want, revision), url,
                               posted.get("created_at") or "")
-        with open(rec_path, "w", encoding="utf-8") as fh:
+        with open(rec_path, "w", encoding="utf-8", newline="") as fh:
             fh.write(after)
         git("add", "--", record)
         head = "#%d " % task
@@ -891,7 +935,9 @@ def approval_event(argv: list[str]) -> int:
             raise Refused("атрибуция в сообщении коммита")
         git("commit", "-q", "-m", msg, "--", record)
         committed = yaml_load(git("show", "HEAD:%s" % record), record + " (HEAD)")
-        if (committed.get("event") or {}).get("url") != url:
+        if ((committed.get("event") or {}).get("url") != url
+                or (committed.get("effective_approval") or {}).get("issued") is not True
+                or (committed.get("effective_approval") or {}).get("issued_at") != (posted.get("created_at") or "")):
             raise Refused("в коммите HEAD блок event не несёт адреса события")
     except (Refused, Unmet, OSError) as e:
         raise Refused("СОБЫТИЕ ОПУБЛИКОВАНО (%s), а блок event записи %s к факту НЕ приведён: %s. "
