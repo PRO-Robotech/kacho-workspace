@@ -60,7 +60,10 @@ if not commands:
     print(f"[VOID] {NAME} — в {S} ни одной команды хука: обходить нечего")
     sys.exit(2)
 
-VAR = r"\$\{?\(?[A-Za-z_][^\s;|&\"'/]*[\"')}\]]*"
+# A colon ends the variable prefix: "$SHA:path/to/file.py" is a Git
+# object operand, not "$DIR/path/to/file.py" in the working tree. Keep
+# scanning the rest of the line so adjacent real script calls are still judged.
+VAR = r"\$\{?\(?[A-Za-z_][^\s;|&:\"'/]*[\"')}\]]*"
 CMD_REF = re.compile(VAR + r"((?:/[A-Za-z0-9_.-]+)+)")
 REF = re.compile(VAR + r"((?:/[A-Za-z0-9_.-]+)+\.(?:sh|py))\b")
 

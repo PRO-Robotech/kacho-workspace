@@ -50,8 +50,11 @@ with tempfile.TemporaryDirectory() as tmp:
         'SCENARIO_DEBT = {}\nSCENARIO_DEBT.update({"y": ("reason", "PRO-Robotech/kaname#925 — held")})\n')
     (root / 'go.mod').write_text('module example.invalid/tracker-control\n\ngo 1.26.0\n')
     git('add', '.')
-    git('-c', 'core.hooksPath=/dev/null', '-c', 'user.name=Snapshot Control',
-        '-c', 'user.email=control@example.invalid', 'commit', '-qm', 'snapshot control')
+    subprocess.run(['bash', '-c',
+                    '. "$1"; sandbox_git_home "$2" || exit; '
+                    'sandbox_git -C "$3" -c core.hooksPath=/dev/null commit -qm "snapshot control"',
+                    'fixture', str(pathlib.Path(__file__).resolve().parent.parent / 'lib/sandbox-git-home.sh'),
+                    str(root / '.git/sandbox-home'), str(root)], check=True)
     sha = git('rev-parse', 'HEAD')
     inv = t.inventory(root, sha)
     assert inv == {'comments': ['PRO-Robotech/kacho#1271', 'PRO-Robotech/kaname#153', 'PRO-Robotech/kaname#456'],
