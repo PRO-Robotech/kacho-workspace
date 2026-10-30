@@ -1940,6 +1940,23 @@ if [ -f "$HM/work/project/kacho/x_test.go" ] \
     && grep -q 'platform operand PRO-Robotech/kacho origin/main=' "$OUT" \
     && [ ! -w "$HM/work/project/kacho/x_test.go" ]; then ok
 else bad HM2-checkout "platform operand missing, writable, unbound or not exposed"; fi
+# HM2-fetch: native non-root fetch must refresh origin/main while leaving the
+# pinned checkout unchanged and working-file writes denied, as the edge hook requires.
+hm_head="$(git -C "$HM/work/project/kacho" rev-parse HEAD)"
+hm_tree="$(git -C "$HM/work/project/kacho" rev-parse 'HEAD^{tree}')"
+printf 'next main\n' > "$HM/seed-kacho/fetch-control.txt"
+git -C "$HM/seed-kacho" add fetch-control.txt
+sandbox_git -C "$HM/seed-kacho" commit -q -m fetch-control
+git -C "$HM/seed-kacho" push -q "$HM/origins/kacho.git" HEAD:refs/heads/main
+hm_fresh="$(git -C "$HM/seed-kacho" rev-parse HEAD)"
+if [ "$(id -u)" -ne 0 ] \
+    && GIT_CONFIG_GLOBAL="$HM/gitcfg" git -C "$HM/work/project/kacho" fetch -q origin main \
+    && [ "$(git -C "$HM/work/project/kacho" rev-parse origin/main)" = "$hm_fresh" ] \
+    && [ "$(git -C "$HM/work/project/kacho" rev-parse HEAD)" = "$hm_head" ] \
+    && [ "$(git -C "$HM/work/project/kacho" rev-parse 'HEAD^{tree}')" = "$hm_tree" ] \
+    && [ -z "$(git -C "$HM/work/project/kacho" status --porcelain)" ] \
+    && ! (printf 'forbidden\n' > "$HM/work/project/kacho/x_test.go") 2>/dev/null; then ok
+else bad HM2-fetch "non-root fetch failed, source pin changed, or working-file write accepted"; fi
 # Checkout failure must not expose a platform operand (source-coordinate home survives).
 sed 's/checkout -q --detach/checkout --invalid-checkout-control -q --detach/' "$HM/step.sh" > "$HM/step-checkout-fail.sh"
 hm_run HM2-checkout-fail "$HM/step-checkout-fail.sh"; expect_rc HM2-checkout-fail 0

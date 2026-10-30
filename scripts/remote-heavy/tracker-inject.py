@@ -6,6 +6,7 @@ import copy
 import importlib.util
 import json
 import os
+import shutil
 import pathlib
 import subprocess
 import sys
@@ -47,6 +48,7 @@ with tempfile.TemporaryDirectory() as tmp:
         '_HOLDER = "PRO-Robotech/kaname#155 — held"\n'
         'PRODUCER_LEDGER = {"x": ("A", "reason", _HOLDER)}\n'
         'SCENARIO_DEBT = {}\nSCENARIO_DEBT.update({"y": ("reason", "PRO-Robotech/kaname#925 — held")})\n')
+    (root / 'go.mod').write_text('module example.invalid/tracker-control\n\ngo 1.26.0\n')
     git('add', '.')
     git('-c', 'core.hooksPath=/dev/null', '-c', 'user.name=Snapshot Control',
         '-c', 'user.email=control@example.invalid', 'commit', '-qm', 'snapshot control')
@@ -149,6 +151,70 @@ else:
     fake.chmod(0o755)
     os.environ['PATH'] = str(bindir) + ':' + os.environ['PATH']
     check('producer complete header pagination', lambda: t.capture(root, sha, path))
+    # Reuse the existing kubectl/source fixture bootstrap to generate an actual
+    # Job. No full-suite assertions run here. The extracted homes assertions are
+    # the same ones used by inject.sh, including missing clone/failed checkout.
+    here = pathlib.Path(__file__).parent.resolve()
+    fixture = (here / 'inject.sh').read_text()
+    bootstrap = fixture.split('# K1\nfresh', 1)[0]
+    bootstrap = bootstrap.replace('SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"',
+                                  'SELF_DIR="$CONTRACT_SELF"', 1)
+    homes = fixture[fixture.index('HM="$BOX/hm";'):fixture.index('# GI корневая учётка')]
+    output = root / 'job-contract'; output.mkdir()
+    shell = bootstrap + r'''
+fresh
+go_run tracker-contract env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref "$CONTRACT_SHA" --src "$CONTRACT_SRC" --profile ci-local --short tracker-contract -- true
+expect_rc JOB-CONTRACT 0
+cp "$BOX/state/job.json" "$CONTRACT_OUT/job.json"
+kx cmd "$BOX/state/job.json" run 2 > "$CONTRACT_OUT/run.cmd"
+cp "$CONTRACT_OUT/run.cmd" "$BOX/d1-ci-local.cmd"
+''' + homes + r'''
+chmod -R u+w "$HM/work" 2>/dev/null
+printf 'platform contract assertions %d passed %d failed %d\n' "$((PASS + FAIL))" "$PASS" "$FAIL"
+[ "$FAIL" -eq 0 ]
+'''
+    script = output / 'contracts.sh'; script.write_text(shell)
+    env = dict(os.environ, CONTRACT_SELF=str(here), CONTRACT_SRC=str(root),
+               CONTRACT_SHA=sha, CONTRACT_OUT=str(output))
+    # The fake API binary above is not used to produce this Job (not a push).
+    result = subprocess.run(['bash', str(script)], env=env, capture_output=True, text=True, timeout=180)
+    print(result.stdout)
+    if result.returncode:
+        print(result.stderr, file=sys.stderr)
+    check('generated Job and native platform fetch controls',
+          lambda: t.require(result.returncode == 0, 'Job/platform contract failure'))
+    job = json.loads((output / 'job.json').read_text())
+    run = next(c for c in job['spec']['template']['spec']['containers'] if c['name'] == 'run')
+    runenv = {e['name']: e['value'] for e in run['env']}
+    check('generated run source pin', lambda: t.require(runenv.get('HEAVY_SHA') == sha,
+                                                     'run container missing exact source pin'))
+    work = output / 'work'; work.mkdir(); (work / 'bin').mkdir()
+    (work / 'src').symlink_to(root, target_is_directory=True)
+    shutil.copyfile(path, work / 'tracker.json')
+    shutil.copyfile(here / 'tracker.py', work / 'tracker.py')
+    command = (output / 'run.cmd').read_text()
+    step = command[command.index('# ghpr-begin'):command.index('# ghpr-end')]
+    step = step.replace('/work/', str(work) + '/')
+    childenv = dict(os.environ); childenv.pop('HEAVY_SHA', None)
+    childenv.update(runenv)
+    # All pin values come from the actual generated run-container env, never
+    # from a hand-written export. Validate and replay use native child processes.
+    install = subprocess.run(['bash', '-c', 'set -u; pf() { exit 125; }; ' + step],
+                             env=childenv, capture_output=True, text=True)
+    check('actual generated tracker install environment',
+          lambda: t.require(install.returncode == 0, 'tracker install failed'))
+    replay = subprocess.run([str(work / 'bin/gh'), 'api',
+                             'repos/PRO-Robotech/kaname/issues/155', '--jq', '.state'],
+                            env=childenv, capture_output=True, text=True)
+    check('actual generated tracker shim native replay',
+          lambda: t.require(replay.returncode == 0 and replay.stdout.strip() == 'open',
+                            'native replay missing source pin'))
+    without_pin = dict(childenv); without_pin.pop('HEAVY_SHA')
+    replay = subprocess.run([str(work / 'bin/gh'), 'api',
+                             'repos/PRO-Robotech/kaname/issues/155', '--jq', '.state'],
+                            env=without_pin, capture_output=True, text=True)
+    check('native shim missing source pin rejects', lambda: t.require(replay.returncode != 0,
+                                                                    'missing pin accepted'))
     os.environ['TRUNCATED'] = '1'
     check('producer rejects failed next page', lambda: t.capture(root, sha, path), True)
 print('tracker inject: assertions %d, passed %d, failed 0' % (passed, passed))

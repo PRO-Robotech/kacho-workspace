@@ -3315,9 +3315,12 @@ for r in kacho corelib; do
         && git -C "$d" -c core.hooksPath=/dev/null checkout -q --detach "$h" > /work/platform-checkout.log 2>&1 \
         && [ "$(git -C "$d" rev-parse HEAD)" = "$h" ] \
         && [ -n "$(git -C "$d" ls-files)" ] && [ -z "$(git -C "$d" status --porcelain)" ]; then
-      chmod -R a-w "$d" || pf "platform operand could not be made read-only"
+      # The unchanged edge hook fetches origin/main. Protect working files while
+      # retaining Git metadata writes required by fetch (FETCH_HEAD, refs, objects).
+      find "$d" -path "$d/.git" -prune -o ! -type l -exec chmod a-w {} + \
+        || pf "platform working files could not be made read-only"
       export KACHO_MONOREPO="$d"
-      echo "remote-heavy: platform operand PRO-Robotech/kacho origin/main=$h tree=$(git -C "$d" rev-parse 'HEAD^{tree}') path=$d (read-only)" >&2
+      echo "remote-heavy: platform operand PRO-Robotech/kacho origin/main=$h tree=$(git -C "$d" rev-parse 'HEAD^{tree}') path=$d (working files read-only; Git metadata writable for fetch)" >&2
     else
       echo "remote-heavy: platform operand checkout failed/missing — KACHO_MONOREPO absent (not executed)" >&2
     fi
@@ -3623,7 +3626,7 @@ def kesc_c: (if .command then .command |= map(kesc) else (.) end)
         resources: {requests: {cpu: "100m", memory: "256Mi"}, limits: {cpu: "2", memory: "2Gi"}},
         volumeMounts: [{name: "work", mountPath: "/work"}]}]),
      containers: ([{name: "run", image: $goimg, command: (["bash", "-c", $prep, "run"] + $cmdv[0]),
-       env: ([{name: "HEAVY_WORKDIR", value: $wd}, {name: "HEAVY_PULL", value: $pull}, {name: "HEAVY_DENY_PROBE", value: $deny}, {name: "HEAVY_HELM", value: $helm}, {name: "HEAVY_NODE", value: $node}, {name: "HEAVY_BUF", value: $buf}, {name: "HEAVY_YQ", value: $yq}, {name: "HEAVY_PUSH_INPUT", value: $pushin}, {name: "HEAVY_GIT_NAME", value: $gname}, {name: "HEAVY_GIT_EMAIL", value: $gemail}, {name: "GOTOOLCHAIN", value: "local"},
+       env: ([{name: "HEAVY_SHA", value: $sha}, {name: "HEAVY_WORKDIR", value: $wd}, {name: "HEAVY_PULL", value: $pull}, {name: "HEAVY_DENY_PROBE", value: $deny}, {name: "HEAVY_HELM", value: $helm}, {name: "HEAVY_NODE", value: $node}, {name: "HEAVY_BUF", value: $buf}, {name: "HEAVY_YQ", value: $yq}, {name: "HEAVY_PUSH_INPUT", value: $pushin}, {name: "HEAVY_GIT_NAME", value: $gname}, {name: "HEAVY_GIT_EMAIL", value: $gemail}, {name: "GOTOOLCHAIN", value: "local"},
               {name: "GOMODCACHE", value: "/cache/mod"}, {name: "GOCACHE", value: "/cache/build"},
               {name: "GOLANGCI_LINT_CACHE", value: "/cache/lint"}, {name: "CI", value: "true"}]
              + (if $wssc != "" then [{name: "HEAVY_SHELLCHECK", value: $wssc},
