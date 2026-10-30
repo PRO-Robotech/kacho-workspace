@@ -28,8 +28,13 @@
 # черновик в ветку эпика — целевой по путям `<base>...HEAD` (условие задания CI —
 # `full == 'true' || contains(jobs, <ключ>)`). kaname и операторы — своим судьёй выше по тексту
 # (kaname-stand.py, operator-stand.py: закрытые ведомости заданий их CI); kacho-workspace:
-# заданий на кластере у CI нет — ВЫВЕДЕННЫЙ ноль. Копия не на голове, репозиторий вне
-# ведомости, задание ведомости не найдено в файле workflow головы (ведомость отстала
+# заданий на кластере у CI нет — ВЫВЕДЕННЫЙ ноль. У corelib unit и integration —
+# полный внешний набор; семь CI_READ — полный CI.
+# Их объединение expect сверяет со всеми отслеживаемыми workflow головы в обе стороны.
+# Generic check судит свод ci-watcher, не сырой Go JSON: код команды, завершённость
+# прогона и исход штатного go-test-verdict.py подтверждает производитель свода.
+# Копия не на голове, репозиторий вне ведомости, задание ведомости не найдено
+# в файле workflow головы (ведомость отстала
 # от CI), выбор не выполнился, нет --base либо --draft — VOID, не ноль. Полный прогон
 # судится лишь против ожидаемого `--draft false` (основание ready и вливания — выбор
 # ready, а не черновика: STAND-EXPECT-DRAFT); `--pr-base` — база запроса, с которой
@@ -174,7 +179,15 @@ operator_rc=$?
 export STAND_JSON='{
   "PRO-Robotech/kacho": ["affected", ["ci.yaml:unit-shard", "ci.yaml:integration", "e2e-newman.yml:shard",
                                        "console-e2e.yml:probes", "production-posture.yml:stand"]],
-  "PRO-Robotech/kacho-workspace": ["none", []]
+  "PRO-Robotech/kacho-workspace": ["none", []],
+  "PRO-Robotech/corelib": ["full", ["ci.yml:unit", "ci.yml:integration"]]
+}'
+# У библиотеки внешний полный набор — unit и integration. Прочие задания остаются
+# обязательным полным CI, как CI_READ у Kaname. expect сверяет ВСЕ workflow головы
+# с объединением двух групп; check не позволяет ожидаемому самому сузить ведомость.
+export STAND_CI_READ_JSON='{
+  "PRO-Robotech/corelib": ["ci.yml:build", "ci.yml:gosec", "ci.yml:govulncheck", "ci.yml:lint",
+    "ci.yml:oauthceremony-boundary", "ci.yml:provenance", "ci.yml:upstream-advisories"]
 }'
 # Ведомость ОБЛАСТЕЙ переноса (ws#1148): запись paths — [пути (** — любые каталоги, * —
 # внутри одного), читатели, почему]. Утверждение записи: из наборов стенда эти пути читают
@@ -200,6 +213,10 @@ export STAND_AREA_JSON='{
 # падениях); перепись — без остановки на красном (CLAUDE.md «Перепись — потом массово»). Форма
 # печатается словами оболочки (shlex.join) — копируется как есть.
 export STAND_ROUTE_JSON='{
+  "PRO-Robotech/corelib": {
+    "ci.yml:unit": ["go-race", ["go", "test", "./...", "-race", "-short", "-count=1", "-timeout", "25m", "-json"]],
+    "ci.yml:integration": ["integration", [".github/scripts/run-integration.sh"]]
+  },
   "PRO-Robotech/kacho": {
     "ci.yaml:unit-shard": ["go-race", ["make", "test-unit", "SHARD=<шард>"]],
     "ci.yaml:integration": ["integration", ["make", "test-integration"]],
@@ -247,6 +264,31 @@ try:
     import yaml
 except ImportError:
     void('нет python3-yaml — задания ведомости в workflow головы не сверить')
+ci_read = json.loads(os.environ['STAND_CI_READ_JSON']).get(repo)
+if ci_read is not None:
+    try:
+        paths = subprocess.run(['git', '-C', co, 'ls-files', '--', '.github/workflows'],
+                               capture_output=True, text=True, check=True).stdout.splitlines()
+        paths = [p for p in paths if p.endswith(('.yml', '.yaml'))]
+        if not paths:
+            void('corelib: отслеживаемых workflow нет — перепись CI пуста')
+        found = set()
+        for path in paths:
+            doc = yaml.safe_load(open(os.path.join(co, path), encoding='utf-8'))
+            if not (isinstance(doc, dict) and isinstance(doc.get('jobs'), dict) and doc['jobs']):
+                void('corelib: %s без непустого jobs — перепись CI не состоялась' % path)
+            for key in doc['jobs']:
+                if not isinstance(key, str):
+                    void('corelib: %s содержит нестроковый ключ задания' % path)
+                found.add(path.removeprefix('.github/workflows/') + ':' + key)
+    except (OSError, yaml.YAMLError, subprocess.CalledProcessError) as err:
+        void('corelib: перепись workflow не состоялась: %s' % err)
+    classified = set(jobs) | set(ci_read)
+    if found != classified:
+        void('corelib: перепись CI расходится с ведомостью; без классификации: %s; без задания: %s'
+             % (', '.join(sorted(found - classified)) or '—', ', '.join(sorted(classified - found)) or '—'))
+    print('CENSUS\tcorelib: workflow %d, заданий %d = external %d + CI_READ %d'
+          % (len(paths), len(found), len(jobs), len(ci_read)), file=sys.stderr)
 for j in jobs:
     wf, key = j.split(':', 1)
     try:
@@ -311,7 +353,8 @@ if bad:
     void('маршрута во внешний кластер нет у заданий, которые голова %s обязана пройти: %s — прогон был бы неполон либо LOCAL, ожидаемое не выводится'
          % (head[:12], '; '.join(bad)))
 print(json.dumps({'head': head, 'repo': repo, 'source': source, 'base': base, 'draft': draft or None,
-                  'full': full, 'reason': why, 'ledger': jobs, 'jobs': want, 'routes': routes}, ensure_ascii=False))
+                  'full': full, 'reason': why, 'ledger': jobs, 'jobs': want, 'routes': routes,
+                  **({'ci_read': ci_read} if ci_read is not None else {})}, ensure_ascii=False))
 print('CENSUS\tожидаемое %s @%s: источник %s, %s (%s), заданий стенда %d из ведомости %d%s'
       % (repo, head[:12], source, 'полный' if full else 'целевой', why, len(want), len(jobs), '' if want else ' — выведенный ноль'), file=sys.stderr)
 PY
@@ -391,6 +434,9 @@ if exp:
         reason('STAND-EXPECT-LEDGER', 'репозиторий ожидаемого «%s» вне ведомости STAND' % erepo)
     else:
         src, ledger = STAND[erepo]
+        ci_read = json.loads(os.environ['STAND_CI_READ_JSON']).get(erepo)
+        if ci_read is not None and e.get('ci_read') != ci_read:
+            reason('STAND-EXPECT-LEDGER', 'corelib: CI_READ ожидаемого не совпадает с полной ведомостью заданий CI')
         if e.get('source') != src or e.get('ledger') != ledger:
             reason('STAND-EXPECT-LEDGER', 'источник %s и ledger ожидаемого — не ведомости STAND для %s (%s, %d заданий)'
                    % (e.get('source'), erepo, src, len(ledger)))

@@ -1850,6 +1850,7 @@ ext_run() {
 # ls-files). Скрипт с python3 первым словом — слово после ключей интерпретатора. Сторона pod
 # читателей (scripts/remote-reader/pod.sh, ws#1365) — классом suite: её зовёт scripts/remote-reader.sh.
 PORTABLE='kaname|.github/scripts/run-integration.sh|integration
+corelib|.github/scripts/run-integration.sh|integration
 kacho-workspace|scripts/*/run-all.sh|ci-local,suite
 kacho-workspace|scripts/*/run-suites.sh|ci-local,suite
 kacho-workspace|scripts/hook-proofs.sh|ci-local,suite

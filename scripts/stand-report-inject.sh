@@ -185,6 +185,7 @@ judge() {  # judge <скрипт> <каталог случая> → 0 сошло
         # Форма задания — строкой ROUTE, словами оболочки (ws#1284): formre — образец всей строки.
         [ ! -f "$c/formre" ] || grep -qP "$(cat "$c/formre")" "$c/err" || return 1
         if [ "$code" = 0 ]; then
+            [ ! -f "$c/jsoncheck" ] || jq -e "$(cat "$c/jsoncheck")" <<< "$out" > /dev/null || return 1
             [ "$(jq -c .jobs <<< "$out" 2>/dev/null)" = "$(cat "$c/want")" ] || return 1
             # маршрут каждого задания ожидаемого — внешний и в самом JSON (его судит check)
             [ ! -f "$c/routes" ] || [ "$(jq -r '[.jobs[] as $j | .routes[$j].route] | unique | join(",")' <<< "$out" 2>/dev/null)" = "$(jq -r 'if length == 0 then "" else "external" end' <<< "$(cat "$c/want")")" ]
@@ -358,6 +359,310 @@ ckase "близнец: образы стенда = голова, перенос�
 ckase "перенос: репозиторий без ведомости областей — закрыто" -; printf -- '--expect\n%s\n--pr-repo\nPRO-Robotech/kaname\n' "$C/exp.json" > "$C/args"; want 1 STAND-CARRY-AREA
 ckase "перенос: площадка о разности не ответила — VOID" -; : > "$C/cmp-fail"; want 2 -
 
+
+# ws#1520: executable YAML captured from corelib@1fd08e06a1a1a86035de9219acd1544830752559.
+# Only comments and blank lines were removed; no job/step/env/condition was rewritten.
+corelib_case() {
+    ecase "$1" PRO-Robotech/corelib
+    rm -f "$C/co/.github/workflows/"*
+    cat > "$C/co/.github/workflows/ci.yml" <<'CORELIB_CI'
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+    branches: [main, '[0-9]+', '[0-9]+-[a-z0-9]*']
+  workflow_dispatch:
+  schedule:
+    - cron: '23 4 * * *'
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+defaults:
+  run:
+    shell: bash
+jobs:
+  build:
+    name: сборка · vet · gofmt
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: go mod download
+        run: go mod download
+      - name: сборка
+        run: go build ./...
+      - name: vet
+        run: go vet ./...
+      - name: gofmt
+        run: |
+          files=$(git ls-files '*.go')
+          if [ -z "$files" ]; then
+            echo "ОТКАЗ: обход пуст — ни одного файла Go не прочитано." >&2
+            echo "«Ноль неотформатированных» здесь означало бы «ноль прочитанного»." >&2
+            exit 1
+          fi
+          echo "прочитано файлов Go: $(printf '%s\n' "$files" | wc -l)"
+          unformatted=$(gofmt -l $files || true)
+          if [ -n "$unformatted" ]; then
+            echo "требуется gofmt:"; echo "$unformatted"; exit 1
+          fi
+          echo "ЗЕЛЁНЫЙ: неотформатированных нет."
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7
+        with:
+          python-version: '3.13'
+      - name: разборщик YAML (пин pyyaml 6.0.3)
+        run: python3 -m pip install --quiet --disable-pip-version-check 'pyyaml==6.0.3'
+      - name: гейт триггеров способен упасть (самопроба инъекцией)
+        run: python3 .github/scripts/pr-target-branches.py --self-test
+      - name: запрос в main, в ветку задачи и в ветку-номер гонит конвейер, в прочие — нет
+        run: python3 .github/scripts/pr-target-branches.py
+      - name: хук отправки и провязка (проба инъекцией)
+        run: bash scripts/hooks/inject.sh
+      - name: хук коммита — правило git (проба инъекцией)
+        run: bash scripts/hooks/git-rule-inject.sh
+      - name: страж новых blob'ов отправки (проба инъекцией)
+        run: bash scripts/hooks/prepush-added-files-inject.sh
+      - name: правило запроса (заголовок · голова · тело · коммиты · номера)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: bash .github/scripts/pr-rule-check.sh
+  unit:
+    name: пробы -race -short (числовой вердикт)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: go mod download
+      - name: прогонщик вердикта способен упасть (самопроба инъекцией)
+        run: python3 .github/scripts/go-test-verdict.py --self-test
+      - name: пробы (-race -short)
+        run: |
+          rc=0
+          go test ./... -race -short -count=1 -timeout 25m -json > test.json 2>&1 || rc=$?
+          echo "go test завершился с кодом $rc (вердикт выносит прогонщик ниже)"
+          python3 .github/scripts/go-test-verdict.py < test.json
+  lint:
+    name: golangci-lint (пин v2.12.2)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: установка golangci-lint нашим toolchain'ом
+        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
+      - name: golangci-lint
+        env:
+          GOLANGCI_LINT_CACHE: ${{ github.workspace }}/.cache/golangci-lint
+        run: golangci-lint run --timeout=10m --config=.github/golangci.yml
+  gosec:
+    name: gosec (пин v2.28.0)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: установка gosec
+        run: go install github.com/securego/gosec/v2/cmd/gosec@v2.28.0
+      - name: гейт gosec способен упасть (самопроба инъекцией)
+        run: .github/scripts/gosec-gate.sh --self-test
+      - name: прогон gosec
+        run: |
+          rc=0
+          gosec -exclude-dir=internal/oauth2 \
+            -stdout -verbose text -fmt sarif -out gosec.sarif ./... \
+            | tee gosec-summary.txt || rc=$?
+          echo "gosec завершился с кодом $rc (вердикт выносит гейт ниже)"
+      - name: гейт (level=error, с отличением несостоявшегося сканирования)
+        run: .github/scripts/gosec-gate.sh gosec.sarif gosec-summary.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        if: always()
+        with:
+          name: gosec-report
+          path: |
+            gosec.sarif
+            gosec-summary.txt
+          if-no-files-found: warn
+  integration:
+    name: интеграция (Postgres в контейнерах)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: go mod download
+      - name: классификатор исхода способен упасть (самопроба инъекцией)
+        run: .github/scripts/classify-integration-outcome.sh --self-test
+      - name: контейнерные пробы
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: "true"
+          INTEGRATION_TIMEOUT: 30m
+        run: |
+          rc=0
+          .github/scripts/run-integration.sh || rc=$?
+          if [ "$rc" -eq 75 ]; then
+            echo "::error title=УСЛОВИЕ НЕ СОЗДАНО::Postgres для контейнерных проб не поднялся — прогон недействителен, это не дефект кода. Повторить после устранения причины."
+            exit 1
+          fi
+          exit "$rc"
+  govulncheck:
+    name: govulncheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: установка govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+      - name: govulncheck
+        run: govulncheck ./...
+  provenance:
+    name: происхождение internal/oauth2
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: сверка с апстримом
+        run: .github/scripts/oauth2-provenance.sh
+  upstream-advisories:
+    name: уведомления об уязвимостях внесённых апстримов
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+      - name: гейт уведомлений способен упасть (самопроба инъекцией)
+        run: .github/scripts/oauth2-upstream-advisories.sh --self-test
+      - name: база OSV о версиях из записей происхождения
+        run: .github/scripts/oauth2-upstream-advisories.sh
+  oauthceremony-boundary:
+    name: граница oauthceremony
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: чужой тип наружу не виден
+        run: .github/scripts/oauthceremony-boundary.sh
+CORELIB_CI
+    printf '#!/usr/bin/env bash\necho integration\n' > "$C/co/.github/scripts/run-integration.sh"
+    chmod +x "$C/co/.github/scripts/run-integration.sh"
+}
+CORELIB_EXTERNAL='["ci.yml:unit","ci.yml:integration"]'
+CORELIB_CI_READ='["ci.yml:build","ci.yml:gosec","ci.yml:govulncheck","ci.yml:lint","ci.yml:oauthceremony-boundary","ci.yml:provenance","ci.yml:upstream-advisories"]'
+corelib_case "corelib: native workflow, both external groups and seven CI_READ"
+ecommit; want 0 "$CORELIB_EXTERNAL"
+printf 'ci.yml:integration\tвнешний кластер;ci.yml:unit\tвнешний кластер;' > "$C/routes"
+printf '.source == "full" and .full == true and .ci_read == %s' "$CORELIB_CI_READ" > "$C/jsoncheck"
+corelib_case "corelib: new CI job fails closed"
+printf '\n  new-job:\n    runs-on: ubuntu-latest\n    steps:\n      - run: true\n' >> "$C/co/.github/workflows/ci.yml"
+ecommit; want 2 -; printf '.*new-job' > "$C/voidre"
+corelib_case "corelib: unknown job in another tracked workflow fails closed"
+printf 'name: extra\non: [pull_request]\njobs:\n  new-job:\n    runs-on: ubuntu-latest\n    steps:\n      - run: true\n' > "$C/co/.github/workflows/extra.yml"
+ecommit; want 2 -; printf '.*extra.yml:new-job' > "$C/voidre"
+corelib_case "corelib: unknown job in yaml workflow fails closed"
+printf 'jobs:\n  new-job: {}\n' > "$C/co/.github/workflows/extra.yaml"
+ecommit; want 2 -; printf '.*extra.yaml:new-job' > "$C/voidre"
+corelib_case "corelib: missing external unit is named"
+sed -i '/^  unit:/,/^  lint:/{ /^  lint:/!d; }' "$C/co/.github/workflows/ci.yml"
+ecommit; want 2 -; printf '.*ci.yml:unit' > "$C/voidre"
+corelib_case "corelib: missing CI_READ build is named"
+sed -i '/^  build:/,/^  unit:/{ /^  unit:/!d; }' "$C/co/.github/workflows/ci.yml"
+ecommit; want 2 -; printf '.*ci.yml:build' > "$C/voidre"
+corelib_case "corelib: missing CI_READ job fails closed"
+sed -i 's/^  provenance:/  renamed-provenance:/' "$C/co/.github/workflows/ci.yml"
+ecommit; want 2 -; printf '.*provenance' > "$C/voidre"
+corelib_case "corelib: empty workflow cannot be green"
+printf 'jobs: {}\n' > "$C/co/.github/workflows/ci.yml"
+ecommit; want 2 -
+corelib_case "corelib: untracked integration script has no route"
+rm "$C/co/.github/scripts/run-integration.sh"; ecommit
+printf '#!/usr/bin/env bash\necho integration\n' > "$C/co/.github/scripts/run-integration.sh"
+want 2 -
+corelib_case "corelib: exact head required"
+ecommit; echo "$H" > "$C/head"; want 2 -
+corelib_case "corelib: tracked dirty workflow refused before census"
+ecommit; printf '\n# dirty\n' >> "$C/co/.github/workflows/ci.yml"; want 2 -; printf '.*правки вне коммита' > "$C/voidre"
+corelib_case "corelib: untracked workflow refused before census"
+ecommit; printf 'jobs:\n  unknown: {}\n' > "$C/co/.github/workflows/new.yaml"; want 2 -; printf '.*правки вне коммита' > "$C/voidre"
+corelib_case "corelib: missing workflow is not an empty success"
+rm "$C/co/.github/workflows/ci.yml"; ecommit; want 2 -
+corelib_case "corelib: draft does not narrow full selection"
+ecommit; printf -- '--draft\ntrue\n' > "$C/args"; want 0 "$CORELIB_EXTERNAL"
+printf '.source == "full" and .full == true and .ci_read == %s' "$CORELIB_CI_READ" > "$C/jsoncheck"
+
+# Generic report is a ci-watcher summary, not a raw Go JSON judge.
+corelib_report() {
+    kase "$1" -
+    jq -n --arg h "$H" --argjson jobs "$CORELIB_EXTERNAL" --argjson ci "$CORELIB_CI_READ" \
+      '{head:$h,repo:"PRO-Robotech/corelib",source:"full",full:true,ledger:$jobs,jobs:$jobs,ci_read:$ci,
+        routes:($jobs|map({key:.,value:{route:"external",why:"fixture"}})|from_entries)}' > "$C/exp.json"
+    jq -n --arg h "$H" '{head:$h,mode:"full",context:"probe-client",ns:"t1520-w1",residue:0,planned:2,
+      suites:[{name:"unit",job:"ci.yml:unit",outcome:"green",executed:3,total:3},
+              {name:"integration",job:"ci.yml:integration",outcome:"green",executed:2,total:2}]}' > "$C/r.json"
+}
+corelib_report "corelib: both groups complete"; want 0 -
+corelib_report "corelib: integration missing from report"
+jq '.suites |= .[:1] | .planned=1' "$C/r.json" > "$C/j"; mv "$C/j" "$C/r.json"; want 1 STAND-REPORT-UNCOVERED
+corelib_report "corelib: expected cannot omit integration"
+jq '.jobs |= .[:1]' "$C/exp.json" > "$C/j"; mv "$C/j" "$C/exp.json"; want 1 STAND-EXPECT-LEDGER
+corelib_report "corelib: expected cannot silently remove CI_READ"
+jq '.ci_read |= .[:6]' "$C/exp.json" > "$C/j"; mv "$C/j" "$C/exp.json"; want 1 STAND-EXPECT-LEDGER
+corelib_report "corelib: expected cannot reduce jobs and ledger together"
+jq '.jobs |= .[:1] | .ledger = .jobs' "$C/exp.json" > "$C/j"; mv "$C/j" "$C/exp.json"; want 1 STAND-EXPECT-LEDGER
+corelib_report "corelib: actual failure remains red"
+jq '.suites[1] |= (.outcome="red" | .quote="assertion failed" | .root="probe")' "$C/r.json" > "$C/j"; mv "$C/j" "$C/r.json"; want 1 STAND-REPORT-RED
+corelib_report "corelib: not-run is not green"
+jq '.suites[1] |= (.outcome="not-run" | .reason="Postgres unavailable")' "$C/r.json" > "$C/j"; mv "$C/j" "$C/r.json"; want 1 STAND-REPORT-NOT-RUN
+corelib_report "corelib: partial counters are not complete"
+jq '.suites[1].executed=1' "$C/r.json" > "$C/j"; mv "$C/j" "$C/r.json"; want 1 STAND-REPORT-TRUNCATED
+corelib_report "corelib: only-red cannot authorize CI"
+jq '.mode="only-red"' "$C/r.json" > "$C/j"; mv "$C/j" "$C/r.json"; want 1 STAND-REPORT-NOT-FULL
+
 echo "== случаи"
 for c in "$W"/c*; do
     if judge "$TOOL" "$c"; then pass=$((pass + 1)); echo "  [OK]   $(cat "$c/name")"
@@ -422,6 +727,9 @@ exit-zero	s/sys.exit(1 if reasons else 0)/sys.exit(0)/
 ledger-full-ignored	s/                and sorted(set(expected)) != sorted(ledger)):/                and False):/
 ledger-out-ignored	s/        if out:/        if False:/
 ledger-source-ignored	s/        if e.get('source') != src or e.get('ledger') != ledger:/        if False:/
+corelib-new-job-ignored	s/    if found != classified:/    if classified - found:/
+corelib-missing-job-ignored	s/    if found != classified:/    if found - classified:/
+corelib-ci-read-unchecked	s/        if ci_read is not None and e.get('ci_read') != ci_read:/        if False:/
 ledger-repo-ignored	s/    if erepo not in STAND:/    if erepo not in STAND and False:/
 expect-repo-ignored	s/    if prr and erepo != prr:/    if False:/
 carry-area-read-ok	s/        if hit:/        if False:/
