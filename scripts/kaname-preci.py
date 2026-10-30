@@ -383,10 +383,10 @@ def import_candidate(exp, packet, common, remote_log, go_json, integration_union
                        Path(run['runner']).read_bytes(), common.digest)
         bind_command_line(run['command_line'], argv)
         raw = Path(run['log']).read_text()
-        transport = remote_log(raw, exp, run['command_line'], parse_groups=False)
         artifacts[name]['command_line'] = run['command_line']
         definitions = definitions_for(workflows, manifest.get('jobs'), common.digest, n, selected_shard(manifest))
         parsed = parse_partition(raw, {'head': exp['head'], 'tree': exp['tree'], 'status': ''}, definitions)
+        transport = remote_log(raw, exp, run['command_line'], parse_groups=False, preci_source_bound=True)
         require(not set(parsed['groups']) & set(groups), 'group repeated across imported runs')
         for key, group in parsed['groups'].items():
             group['unit_json'] = verify_native(
