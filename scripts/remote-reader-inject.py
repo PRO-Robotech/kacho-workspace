@@ -12,6 +12,7 @@ workdir, KUBERNETES_SERVICE_HOST и настоящий PATH. gh машины —
 Исполнять во внешнем кластере (heavy-slot.sh suite), не на машине.
 """
 import base64
+import hashlib
 import importlib.util
 import json
 import os
@@ -646,6 +647,75 @@ class RemoteReader(unittest.TestCase):
 
     HEAD_TASK_GUARD = ('    git -C "$d" show-ref -q --verify "refs/heads/$b" 2>/dev/null || git -C "$d" show-ref -q --verify '
                        '"refs/remotes/origin/$b" 2>/dev/null || return 1')
+
+    def _real_numeric_commit(self, leading_zero):
+        """Настоящий объект заданного класса; подпись из песочницы, время и перебор фиксированы."""
+        self.box.git('add', '-A')
+        tree = self.box.git('write-tree')
+        parent = self.box.git('rev-parse', 'HEAD')
+        source = self.box.git('cat-file', 'commit', 'HEAD').split('\n\n', 1)[0].splitlines()
+        identities = []
+        for kind in ('author ', 'committer '):
+            row = next(line for line in source if line.startswith(kind))
+            identities.append(row.rsplit(' ', 2)[0] + ' 1700000000 +0000')
+        header = '\n'.join(['tree ' + tree, 'parent ' + parent, *identities]) + '\n\n'
+        for nonce in range(1000000):
+            raw = (header + '#1522 цифровой объект %d\n' % nonce).encode()
+            digest = hashlib.sha1(b'commit ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()
+            short = digest[:6]
+            if short.isdigit() and (short[0] == '0') == leading_zero:
+                path = self.box.root / 'numeric-commit'
+                path.write_bytes(raw)
+                actual = self.box.git('hash-object', '-t', 'commit', '-w', str(path))
+                self.assertEqual(actual, digest)
+                self.assertEqual(self.box.git('cat-file', '-t', actual), 'commit')
+                self.box.git('update-ref', 'HEAD', actual)
+                self.assertEqual(self.box.git('rev-parse', short + '^{commit}'), actual)
+                print('DIGIT_OBJECT leading_zero=%s nonce=%d sha=%s' % (leading_zero, nonce, actual), flush=True)
+                return actual
+        self.fail('настоящий цифровой объект заданного класса не построен за 1000000 nonce')
+
+    def test_digit_short_sha_constructor_rejects_real_leading_zero(self):
+        # Старому конструктору первым приходит настоящий 0xxxxx, затем настоящий Nxxxxx.
+        # Меняется производитель кандидата; production и его ограничения остаются прежними.
+        original = self.box.commit
+        calls = []
+
+        def controlled_commit(message):
+            digest = self._real_numeric_commit(leading_zero=not calls)
+            calls.append(digest)
+            return digest
+
+        self.box.commit = controlled_commit
+        try:
+            short = self._digit_short_sha()
+        finally:
+            self.box.commit = original
+        self.assertRegex(short, r'^[1-9][0-9]{5}$', 'конструктор не создал условие оставшегося regex head_task')
+        self.assertEqual(self.box.git('rev-parse', short + '^{commit}'), self.box.git('rev-parse', 'HEAD'))
+
+    def test_digit_short_sha_leading_zero_and_lawful_twin(self):
+        (self.box.gh / 'issue.json').write_text(json.dumps({'number': 5, 'state': 'open', 'title': 'задача песочницы'}))
+        self.box.git('checkout', '-q', '-b', 'sandbox-no-task')
+        prefixes = [self._real_numeric_commit(zero)[:6] for zero in (True, False)]
+        self.box.git('update-ref', 'refs/remotes/origin/5-lane', 'HEAD')
+        refusal = 'номер задачи для ns Job не установить'
+        for short in prefixes:
+            got = self.box.run('pr-body.sh', 'PRO-Robotech/kacho-workspace', 'origin/main', short,
+                               RITUAL_REPO_DIR=str(self.box.ws))
+            self.assertEqual(got.returncode, 64, got.stdout + got.stderr)
+            self.assertIn(refusal, got.stderr)
+            print('DIGIT_CONTROL short=%s rc=%d task_refused=True' % (short, got.returncode), flush=True)
+        self.box.mutate('remote-reader.sh', self.HEAD_TASK_GUARD, '    :')
+        for short in prefixes:
+            got = self.box.run('pr-body.sh', 'PRO-Robotech/kacho-workspace', 'origin/main', short,
+                               RITUAL_REPO_DIR=str(self.box.ws))
+            print('DIGIT_MUTANT short=%s rc=%d task_refused=%s' % (short, got.returncode, refusal in got.stderr), flush=True)
+            if short[0] == '0':
+                self.assertEqual(got.returncode, 64, got.stdout + got.stderr)
+                self.assertIn(refusal, got.stderr)
+            else:
+                self.assertNotIn(refusal, got.stderr, got.stdout + got.stderr)
 
     def _digit_short_sha(self):
         """Копия не на ветке задачи и голова — короткий sha из одних цифр (⛔ check-verifier на 77fa57cec)."""
