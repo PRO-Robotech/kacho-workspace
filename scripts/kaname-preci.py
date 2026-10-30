@@ -136,7 +136,7 @@ WORKFLOW_JOBS = {
 }
 
 
-def bind_transport(argv, bootstrap, manifest, producer, digest):
+def bind_transport(argv, bootstrap, manifest, producer, digest, integration_width):
     """Decode the fixed chunked make operand without evaluating shell/make code."""
     require(len(argv) >= 7 and argv[:4] == ['make', '-f', '/dev/null', '--eval'] and argv[5] == 'MAKEOVERRIDES=',
             'noncanonical PRECI argv prefix')
@@ -179,7 +179,7 @@ def bind_transport(argv, bootstrap, manifest, producer, digest):
     commands = bootstrap.decode().splitlines()
     require(commands.count('[ "$(git rev-parse HEAD)" = ' + manifest['source'] + ' ]') == 1,
             'bootstrap source binding differs')
-    shard = selected_shard(manifest)
+    shard = selected_shard(manifest, integration_width)
     suffix = '' if shard is None else ' --integration-shard ' + str(shard)
     transform = selected_unit_transform(manifest)
     if transform is not None:
@@ -205,11 +205,29 @@ def bind_command_line(command_line, argv):
             'captured executed argv differs from transported operand')
 
 
-def selected_shard(manifest):
+def integration_width(workflows, definitions):
+    """Trust the exact source matrix only when the expected legs agree with it."""
+    matrix = workflows['ci.yml']['jobs']['integrationshard'].get('strategy', {}).get('matrix', {})
+    require(isinstance(matrix, dict) and set(matrix) == {'shard'},
+            'unreviewed integration matrix axes')
+    values = matrix['shard']
+    require(isinstance(values, list) and values and all(type(v) is int for v in values)
+            and len(values) == len(set(values)), 'invalid shard matrix')
+    width = len(values)
+    legs = [d for d in definitions.values() if d.get('workflow_job') == 'ci.yml:integrationshard']
+    require(len(legs) == width and all(type(d.get('matrix_index')) is int
+            and type(d.get('matrix_total')) is int and d['matrix_total'] == width for d in legs)
+            and sorted(d['matrix_index'] for d in legs) == list(range(width))
+            and all(d.get('matrix_index') is None or d.get('workflow_job') == 'ci.yml:integrationshard'
+                    for d in definitions.values()), 'expected integration matrix differs from source')
+    return width
+
+
+def selected_shard(manifest, integration_width):
     if 'integrationShard' not in manifest:
         return None
     shard = manifest['integrationShard']
-    require(type(shard) is int and 0 <= shard < 3
+    require(type(shard) is int and 0 <= shard < integration_width
             and manifest.get('jobs') == 'integrationshard', 'invalid selected integration shard')
     return shard
 
@@ -352,8 +370,7 @@ def import_candidate(exp, packet, common, remote_log, go_json, integration_union
         require(bound == {common.digest(raw)}, 'workflow source bytes differ')
         workflows[filename] = common.load_workflow(raw)
         workflow_digests[filename] = common.digest(raw)
-    n = len([d for d in exp['definitions'].values() if d['matrix_index'] is not None])
-    require(n == 3, 'PRECI producer supports exactly three integration shards')
+    n = integration_width(workflows, exp['definitions'])
     # Шарды юнитов (kaname#873) производитель PRECI не воспроизводит: шардовую голову
     # принимает лишь импорт core/platform с группами шардов и свода (kaname-stand.py).
     require(not any('unit_shard' in d for d in exp['definitions'].values()),
@@ -380,11 +397,11 @@ def import_candidate(exp, packet, common, remote_log, go_json, integration_union
                 'actual argv artifact invalid')
         require(manifest.get('argvBytes') == sum(len(v.encode()) + 1 for v in argv), 'argv size differs')
         bind_transport(argv, Path(run['bootstrap']).read_bytes(), manifest,
-                       Path(run['runner']).read_bytes(), common.digest)
+                       Path(run['runner']).read_bytes(), common.digest, n)
         bind_command_line(run['command_line'], argv)
         raw = Path(run['log']).read_text()
         artifacts[name]['command_line'] = run['command_line']
-        definitions = definitions_for(workflows, manifest.get('jobs'), common.digest, n, selected_shard(manifest))
+        definitions = definitions_for(workflows, manifest.get('jobs'), common.digest, n, selected_shard(manifest, n))
         parsed = parse_partition(raw, {'head': exp['head'], 'tree': exp['tree'], 'status': ''}, definitions)
         transport = remote_log(raw, exp, run['command_line'], parse_groups=False, preci_source_bound=True)
         require(not set(parsed['groups']) & set(groups), 'group repeated across imported runs')
