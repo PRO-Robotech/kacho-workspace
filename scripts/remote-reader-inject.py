@@ -656,8 +656,8 @@ class RemoteReader(unittest.TestCase):
         parent = self.box.git('rev-parse', 'HEAD')
         source = self.box.git('cat-file', 'commit', 'HEAD').split('\n\n', 1)[0].splitlines()
         identities = []
-        for kind in ('author ', 'committer '):
-            row = next(line for line in source if line.startswith(kind))
+        for identity_kind in ('author ', 'committer '):
+            row = next(line for line in source if line.startswith(identity_kind))
             identities.append(row.rsplit(' ', 2)[0] + ' 1700000000 +0000')
         header = '\n'.join(['tree ' + tree, 'parent ' + parent, *identities]) + '\n\n'
         for nonce in range(1000000):
@@ -695,11 +695,14 @@ class RemoteReader(unittest.TestCase):
 
         short = self._digit_short_sha(commit_candidate=controlled_commit)
         self.assertEqual(len(calls), 3)
+        self.assertRegex(calls[0][:6], r'^0[0-9]{5}$')
+        self.assertRegex(calls[1][:6], r'[a-f]')
         self.assertRegex(short, r'^[1-9][0-9]{5}$', 'конструктор не создал условие оставшегося regex head_task')
         self.assertEqual(self.box.git('rev-parse', short + '^{commit}'), self.box.git('rev-parse', 'HEAD'))
 
     def test_digit_short_sha_constructor_exhaustion_is_explicit(self):
         rejected = self._real_short_sha_commit('hex')
+        self.assertRegex(rejected[:6], r'[a-f]')
         calls = []
 
         def exhausted_candidate(message):
@@ -714,6 +717,8 @@ class RemoteReader(unittest.TestCase):
         (self.box.gh / 'issue.json').write_text(json.dumps({'number': 5, 'state': 'open', 'title': 'задача песочницы'}))
         self.box.git('checkout', '-q', '-b', 'sandbox-no-task')
         prefixes = [self._real_short_sha_commit(kind)[:6] for kind in ('zero', 'nonzero')]
+        self.assertRegex(prefixes[0], r'^0[0-9]{5}$')
+        self.assertRegex(prefixes[1], r'^[1-9][0-9]{5}$')
         self.box.git('update-ref', 'refs/remotes/origin/5-lane', 'HEAD')
         refusal = 'номер задачи для ns Job не установить'
         for short in prefixes:
@@ -722,6 +727,7 @@ class RemoteReader(unittest.TestCase):
             self.assertEqual(got.returncode, 64, got.stdout + got.stderr)
             self.assertIn(refusal, got.stderr)
             print('DIGIT_CONTROL short=%s rc=%d task_refused=True' % (short, got.returncode), flush=True)
+        self.assertEqual(self.box.slots(), [])
         short = prefixes[1]
         ref = 'refs/remotes/origin/' + short
         self.box.git('update-ref', ref, short + '^{commit}')
@@ -734,18 +740,24 @@ class RemoteReader(unittest.TestCase):
                                 RITUAL_REPO_DIR=str(self.box.ws))
         self.assertEqual(restored.returncode, 64, restored.stdout + restored.stderr)
         self.assertIn(refusal, restored.stderr)
+        self.assertEqual(len(self.box.slots()), 1)
         print('DIGIT_REF_TWIN short=%s added_rc=%d removed_rc=%d' % (short, twin.returncode, restored.returncode), flush=True)
         self.box.mutate('remote-reader.sh', self.HEAD_TASK_GUARD, '    :')
         for short in prefixes:
+            before = len(self.box.slots())
             got = self.box.run('pr-body.sh', 'PRO-Robotech/kacho-workspace', 'origin/main', short,
                                RITUAL_REPO_DIR=str(self.box.ws))
-            print('DIGIT_MUTANT short=%s rc=%d task_refused=%s' % (short, got.returncode, refusal in got.stderr), flush=True)
+            after = len(self.box.slots())
+            print('DIGIT_MUTANT short=%s rc=%d task_refused=%s slots_before=%d slots_after=%d' %
+                  (short, got.returncode, refusal in got.stderr, before, after), flush=True)
             if short[0] == '0':
                 self.assertEqual(got.returncode, 64, got.stdout + got.stderr)
                 self.assertIn(refusal, got.stderr)
+                self.assertEqual(after, before)
             else:
                 self.assertNotIn(refusal, got.stderr, got.stdout + got.stderr)
                 self.assertEqual(got.returncode, 0, got.stdout + got.stderr)
+                self.assertEqual(after, before + 1)
                 self.assertJob(got, slots=2)
 
     def _digit_short_sha(self, commit_candidate=None):
