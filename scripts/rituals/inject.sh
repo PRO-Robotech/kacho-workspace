@@ -113,6 +113,10 @@
 #   M73 dod_proof.jq: привязка — по началу sha ГОЛОВЫ, а не диапазона     → check-05
 #   близнец T2: привязка записана иначе (срез вместо startswith) — check-05 и check-01 зелены
 #
+# ws#1523: courier metadata независимо от исходной формы записи.
+#   M74 approval-event: issued metadata не достраивается               → check-03
+#   M75 approval-event: ban1_lifted изменён вместе с courier metadata    → check-03
+#
 # Хранилище для check-04 берётся из HEAD настоящего воркспейса (`RITUALS_WS`):
 # копия несёт только код ритуалов и их общие зависимости.
 # Коды: 0 — все доказательства прошли; 1 — хоть одно нет; 2 — копию не завести.
@@ -261,10 +265,10 @@ inject "M17 approval-event: правка не проверена до публи
     '        raise Refused("%s — событие не публикуется" % e)' \
     '        pass'
 # ws#1523: регрессия редактора и сохранность условий отдельно от полей event.
-inject "M69 approval-event: issued metadata не достраивается" check-03-approval-event.py \
+inject "M74 approval-event: issued metadata не достраивается" check-03-approval-event.py \
     '    after = issued_metadata(after, record, issued_at)' \
     '    after = after'
-inject "M70 approval-event: ban1_lifted изменён вместе с courier metadata" check-03-approval-event.py \
+inject "M75 approval-event: ban1_lifted изменён вместе с courier metadata" check-03-approval-event.py \
     '    after = issued_metadata(after, record, issued_at)' \
     '    after = issued_metadata(after, record, issued_at).replace("ban1_lifted: false", "ban1_lifted: true")'
 inject "M18 dod_proof.jq: маркер посреди прозы засчитан" check-01-pr-body.py \
