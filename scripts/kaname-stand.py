@@ -504,7 +504,8 @@ def remote_log(text, exp, argv, parse_groups=True, preci_source_bound=False):
     sources = re.findall(r'^SOURCE ([0-9a-f]{40}) TREE ([0-9a-f]{40})$', text, re.M)
     require(sources == [(exp['head'], exp['tree'])], 'executed source differs')
     header = re.findall(r'^HEAD ([0-9a-f]{40}) class=(\S+) at=\S+ dir=.+$', text, re.M)
-    header_lines = re.findall(r'^HEAD .*$', text, re.M)
+    # Inventory the record token before validating its canonical spelling.
+    header_lines = [line for line in text.splitlines() if re.match(r'^\s*HEAD(?:\W|$)', line)]
     if header_lines:
         require(len(header_lines) == len(header) == 1 and header[0][0] == exp['head'],
                 'transport source differs')
@@ -542,6 +543,20 @@ def remote_log(text, exp, argv, parse_groups=True, preci_source_bound=False):
         ]
         events = [list(re.finditer(pattern, text, re.M)) for pattern in patterns]
         require(all(len(matches) == 1 for matches in events), 'direct canonical transport proof missing/ambiguous')
+        # Inventory record families independently of their successful values:
+        # a contradictory or malformed sibling must not disappear from census.
+        record_prefix = r'^remote-heavy:\s*\[[^]]+\]\s*'
+        families = [(record_prefix + r'ns(?:\W|$)', (0, 8)),
+                    (record_prefix + r'Job(?:\W|$)', (1, 2)),
+                    (record_prefix + r'pod(?:\W|$)', (3,)),
+                    (record_prefix + r'исходники(?:\W|$)', (4,)),
+                    (record_prefix + r'команда(?:\W|$)', (5, 7)),
+                    (r'^\s*SOURCE(?:\W|$)', (6,))]
+        lines = text.splitlines()
+        for family, indices in families:
+            observed = [line for line in lines if re.match(family, line)]
+            expected = [events[index][0].group(0) for index in indices]
+            require(observed == expected, 'contradictory/malformed direct transport record family')
         positions = [matches[0].start() for matches in events]
         require(positions == sorted(positions), 'direct transport event order differs')
         markers = list(re.finditer(r'^PRECI_.*$', text, re.M))

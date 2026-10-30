@@ -512,6 +512,12 @@ class TrustBoundaries(unittest.TestCase):
                     gate.remote_log(raw.replace(old, new), exp, command)
                 self.assertEqual(gate.remote_log(raw, exp, command), positive)
 
+    def test_review_transport_18_negative_twins(self):
+        # Exact independent review matrix: includes all five former false accepts.
+        import subprocess
+        subprocess.run([sys.executable, '-I', str(HERE / 'kaname-stand-fixtures/transport-review-negative.py')],
+                       cwd=HERE.parent, check=True)
+
     def test_direct_transport_requires_bound_preci_and_canonical_job(self):
         # Synthetic transport grammar twins; real packet acceptance is separate.
         exp = {'head': 'a' * 40, 'tree': 'b' * 40}
@@ -545,6 +551,19 @@ class TrustBoundaries(unittest.TestCase):
                       'HEAD ' + '0' * 40 + ' class=suite at=now dir=/src\n' + raw,
                       raw.replace(lines[7] + '\n', '') + lines[7] + '\n',
                       raw.replace(lines[2] + '\n', '').replace(lines[4], lines[4] + '\n' + lines[2])]
+        # Lexical HEAD records and every canonical transport record family are
+        # inventoried even when their values or whitespace are noncanonical.
+        mutations += [header + '\n' + raw for header in
+                      ('HEAD', 'HEAD\t' + '0' * 40 + ' class=suite at=now dir=/src',
+                       ' HEAD malformed', '\tHEAD malformed', 'HEAD:', 'HEAD\r', 'HEAD\v')]
+        for index in (0, 1, 2, 3, 4, 5, 6, 8, 9):
+            line = lines[index]
+            malformed = line.replace(prefix, prefix.replace('] ', ']\t')) + ' contradictory'
+            mutations += [raw.replace(line, line + '\n' + malformed),
+                          raw.replace(line, malformed)]
+        for index in (1, 3, 8):
+            wrong = lines[index].replace('hostUsers false', 'hostUsers true').replace('кодом 0', 'кодом 1')
+            mutations.append(raw.replace(lines[index], wrong + '\n' + lines[index]))
         for index, broken in enumerate(mutations):
             with self.subTest(mutation=index):
                 with self.assertRaises(gate.common.Unread): read(broken)
