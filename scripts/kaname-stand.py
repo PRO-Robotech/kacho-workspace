@@ -499,12 +499,19 @@ def unit_shard_union(shard_texts, aggregate_text, combined_json, total):
     return {**go_json(combined_json), 'shards': shards}
 
 
-def remote_log(text, exp, argv, parse_groups=True):
+def remote_log(text, exp, argv, parse_groups=True, preci_source_bound=False):
     """Imported evidence: исходный журнал, не задним числом произведённый receipt."""
     sources = re.findall(r'^SOURCE ([0-9a-f]{40}) TREE ([0-9a-f]{40})$', text, re.M)
     require(sources == [(exp['head'], exp['tree'])], 'executed source differs')
     header = re.findall(r'^HEAD ([0-9a-f]{40}) class=(\S+) at=\S+ dir=.+$', text, re.M)
-    require(len(header) == 1 and header[0][0] == exp['head'], 'transport source differs')
+    header_lines = re.findall(r'^HEAD .*$', text, re.M)
+    if header_lines:
+        require(len(header_lines) == len(header) == 1 and header[0][0] == exp['head'],
+                'transport source differs')
+    else:
+        # Direct backend is admitted only after the PRECI importer has bound the
+        # actual argv, producer, workflow and complete before/after partition.
+        require(preci_source_bound, 'direct transport lacks canonical PRECI proof')
     namespaces = re.findall(r'^remote-heavy: \[([^]]+)\] ns \1 создано:', text, re.M)
     require(len(namespaces) == 1, 'missing/duplicate namespace producer')
     ns = namespaces[0]
@@ -517,6 +524,29 @@ def remote_log(text, exp, argv, parse_groups=True):
     require(isinstance(argv, str) and argv and text.splitlines().count(argv) == 1,
             'exact executed command line is missing')
     require(argv.startswith(f'remote-heavy: [{ns}] команда начата через '), 'not a producer command line')
+    if not header_lines:
+        prefix = r'^remote-heavy: \[' + re.escape(ns) + r'\] '
+        require(set(re.findall(r'^remote-heavy: \[([^]]+)\]', text, re.M)) == {ns},
+                'ambiguous direct transport namespace')
+        patterns = [
+            prefix + r'ns ' + re.escape(ns) + r' создано: задача [0-9]+, kaname@'
+            + re.escape(exp['head'][:12]) + r', профиль \S+, срок \S+$',
+            prefix + r'Job: spec сверен с запрошенным — hostUsers false, securityContext как запрошен$',
+            prefix + r'Job создан: образ .+$',
+            prefix + r'pod \S+: spec сверен с запрошенным — hostUsers false, securityContext как запрошен$',
+            prefix + r'исходники доставлены: \d+ МиБ bundle за \d+ с от создания Job$',
+            prefix + r'команда начата через \d+ с после создания Job: .+$',
+            r'^SOURCE ' + re.escape(exp['head']) + r' TREE ' + re.escape(exp['tree']) + r'$',
+            prefix + r'команда завершилась кодом 0 за \d+ с \(всего \d+ с от создания Job\)$',
+            prefix + r'ns ' + re.escape(ns) + r' снято$',
+        ]
+        events = [list(re.finditer(pattern, text, re.M)) for pattern in patterns]
+        require(all(len(matches) == 1 for matches in events), 'direct canonical transport proof missing/ambiguous')
+        positions = [matches[0].start() for matches in events]
+        require(positions == sorted(positions), 'direct transport event order differs')
+        markers = list(re.finditer(r'^PRECI_.*$', text, re.M))
+        require(markers and all(positions[6] < marker.start() < positions[7] for marker in markers),
+                'PRECI evidence outside direct execution')
     return {'kind': 'imported-native-remote-heavy', 'namespace': ns,
             'source': sources[0], 'log_digest': common.digest(text.encode()),
             'command_line_digest': common.digest(argv.encode()),

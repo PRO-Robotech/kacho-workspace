@@ -512,6 +512,44 @@ class TrustBoundaries(unittest.TestCase):
                     gate.remote_log(raw.replace(old, new), exp, command)
                 self.assertEqual(gate.remote_log(raw, exp, command), positive)
 
+    def test_direct_transport_requires_bound_preci_and_canonical_job(self):
+        # Synthetic transport grammar twins; real packet acceptance is separate.
+        exp = {'head': 'a' * 40, 'tree': 'b' * 40}
+        prefix = 'remote-heavy: [fixture] '
+        command = prefix + 'команда начата через 2 с после создания Job: make check '
+        lines = [
+            prefix + 'ns fixture создано: задача 1524, kaname@' + 'a' * 12 + ', профиль ws, срок now',
+            prefix + 'Job: spec сверен с запрошенным — hostUsers false, securityContext как запрошен',
+            prefix + 'Job создан: образ fixture, cpu 1m/1, память 1/1 МиБ',
+            prefix + 'pod run-fixture: spec сверен с запрошенным — hostUsers false, securityContext как запрошен',
+            prefix + 'исходники доставлены: 1 МиБ bundle за 1 с от создания Job',
+            command,
+            'SOURCE ' + exp['head'] + ' TREE ' + exp['tree'],
+            'PRECI_CENSUS {}',
+            prefix + 'команда завершилась кодом 0 за 1 с (всего 3 с от создания Job)',
+            prefix + 'ns fixture снято']
+        raw = '\n'.join(lines) + '\n'
+        read = lambda value, bound=True: gate.remote_log(value, exp, command,
+                                                        parse_groups=False, preci_source_bound=bound)
+        positive = read(raw)
+        self.assertEqual(positive['source'], (exp['head'], exp['tree']))
+        with self.assertRaisesRegex(gate.common.Unread, 'canonical PRECI proof'):
+            read(raw, False)
+        mutations = [raw.replace(line + '\n', '') for line in lines]
+        mutations += [raw + line + '\n' for line in lines]
+        mutations += [raw.replace('kaname@' + 'a' * 12, 'kaname@' + '0' * 12),
+                      raw.replace('TREE ' + exp['tree'], 'TREE ' + '0' * 40),
+                      raw.replace('pod run-fixture:', 'pod run-other:').replace(
+                          prefix + 'pod run-other:', 'remote-heavy: [foreign] pod run-other:'),
+                      'HEAD malformed\n' + raw,
+                      'HEAD ' + '0' * 40 + ' class=suite at=now dir=/src\n' + raw,
+                      raw.replace(lines[7] + '\n', '') + lines[7] + '\n',
+                      raw.replace(lines[2] + '\n', '').replace(lines[4], lines[4] + '\n' + lines[2])]
+        for index, broken in enumerate(mutations):
+            with self.subTest(mutation=index):
+                with self.assertRaises(gate.common.Unread): read(broken)
+                self.assertEqual(read(raw), positive)
+
     def test_import_rejects_extra_shard_against_source_inventory(self):
         # Настоящие native captures внутри явно synthetic transport fixture.
         import json, re, tempfile
