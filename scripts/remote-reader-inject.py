@@ -648,8 +648,9 @@ class RemoteReader(unittest.TestCase):
     HEAD_TASK_GUARD = ('    git -C "$d" show-ref -q --verify "refs/heads/$b" 2>/dev/null || git -C "$d" show-ref -q --verify '
                        '"refs/remotes/origin/$b" 2>/dev/null || return 1')
 
-    def _real_numeric_commit(self, leading_zero):
+    def _real_short_sha_commit(self, kind):
         """Настоящий объект заданного класса; подпись из песочницы, время и перебор фиксированы."""
+        self.assertIn(kind, ('zero', 'nonzero', 'hex'))
         self.box.git('add', '-A')
         tree = self.box.git('write-tree')
         parent = self.box.git('rev-parse', 'HEAD')
@@ -663,7 +664,11 @@ class RemoteReader(unittest.TestCase):
             raw = (header + '#1522 цифровой объект %d\n' % nonce).encode()
             digest = hashlib.sha1(b'commit ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()
             short = digest[:6]
-            if short.isdigit() and (short[0] == '0') == leading_zero:
+            if kind == 'hex':
+                matches = any(c in 'abcdef' for c in short)
+            else:
+                matches = short.isdigit() and (short[0] == '0') == (kind == 'zero')
+            if matches:
                 path = self.box.root / 'numeric-commit'
                 path.write_bytes(raw)
                 actual = self.box.git('hash-object', '-t', 'commit', '-w', str(path))
@@ -671,33 +676,44 @@ class RemoteReader(unittest.TestCase):
                 self.assertEqual(self.box.git('cat-file', '-t', actual), 'commit')
                 self.box.git('update-ref', 'HEAD', actual)
                 self.assertEqual(self.box.git('rev-parse', short + '^{commit}'), actual)
-                print('DIGIT_OBJECT leading_zero=%s nonce=%d sha=%s' % (leading_zero, nonce, actual), flush=True)
+                self.assertEqual(self.box.git('rev-parse', '--disambiguate=' + short).splitlines(), [actual])
+                self.assertEqual(self.box.git('for-each-ref', '--format=%(refname)',
+                                             'refs/heads/' + short, 'refs/remotes/origin/' + short), '')
+                print('DIGIT_OBJECT kind=%s nonce=%d sha=%s' % (kind, nonce, actual), flush=True)
                 return actual
-        self.fail('настоящий цифровой объект заданного класса не построен за 1000000 nonce')
+        self.fail('настоящий объект класса %s не построен за 1000000 nonce' % kind)
 
     def test_digit_short_sha_constructor_rejects_real_leading_zero(self):
-        # Старому конструктору первым приходит настоящий 0xxxxx, затем настоящий Nxxxxx.
+        # Конструктору приходят настоящий 0xxxxx, hex с буквой, затем настоящий Nxxxxx.
         # Меняется производитель кандидата; production и его ограничения остаются прежними.
-        original = self.box.commit
         calls = []
 
         def controlled_commit(message):
-            digest = self._real_numeric_commit(leading_zero=not calls)
+            digest = self._real_short_sha_commit(('zero', 'hex', 'nonzero')[len(calls)])
             calls.append(digest)
             return digest
 
-        self.box.commit = controlled_commit
-        try:
-            short = self._digit_short_sha()
-        finally:
-            self.box.commit = original
+        short = self._digit_short_sha(commit_candidate=controlled_commit)
+        self.assertEqual(len(calls), 3)
         self.assertRegex(short, r'^[1-9][0-9]{5}$', 'конструктор не создал условие оставшегося regex head_task')
         self.assertEqual(self.box.git('rev-parse', short + '^{commit}'), self.box.git('rev-parse', 'HEAD'))
+
+    def test_digit_short_sha_constructor_exhaustion_is_explicit(self):
+        rejected = self._real_short_sha_commit('hex')
+        calls = []
+
+        def exhausted_candidate(message):
+            calls.append(message)
+            return rejected
+
+        with self.assertRaisesRegex(AssertionError, 'цифрового префикса sha без начального нуля'):
+            self._digit_short_sha(commit_candidate=exhausted_candidate)
+        self.assertEqual(len(calls), 400)
 
     def test_digit_short_sha_leading_zero_and_lawful_twin(self):
         (self.box.gh / 'issue.json').write_text(json.dumps({'number': 5, 'state': 'open', 'title': 'задача песочницы'}))
         self.box.git('checkout', '-q', '-b', 'sandbox-no-task')
-        prefixes = [self._real_numeric_commit(zero)[:6] for zero in (True, False)]
+        prefixes = [self._real_short_sha_commit(kind)[:6] for kind in ('zero', 'nonzero')]
         self.box.git('update-ref', 'refs/remotes/origin/5-lane', 'HEAD')
         refusal = 'номер задачи для ns Job не установить'
         for short in prefixes:
@@ -706,6 +722,19 @@ class RemoteReader(unittest.TestCase):
             self.assertEqual(got.returncode, 64, got.stdout + got.stderr)
             self.assertIn(refusal, got.stderr)
             print('DIGIT_CONTROL short=%s rc=%d task_refused=True' % (short, got.returncode), flush=True)
+        short = prefixes[1]
+        ref = 'refs/remotes/origin/' + short
+        self.box.git('update-ref', ref, short + '^{commit}')
+        twin = self.box.run('pr-body.sh', 'PRO-Robotech/kacho-workspace', 'origin/main', short,
+                            RITUAL_REPO_DIR=str(self.box.ws))
+        self.assertEqual(twin.returncode, 0, twin.stdout + twin.stderr)
+        self.assertJob(twin)
+        self.box.git('update-ref', '-d', ref)
+        restored = self.box.run('pr-body.sh', 'PRO-Robotech/kacho-workspace', 'origin/main', short,
+                                RITUAL_REPO_DIR=str(self.box.ws))
+        self.assertEqual(restored.returncode, 64, restored.stdout + restored.stderr)
+        self.assertIn(refusal, restored.stderr)
+        print('DIGIT_REF_TWIN short=%s added_rc=%d removed_rc=%d' % (short, twin.returncode, restored.returncode), flush=True)
         self.box.mutate('remote-reader.sh', self.HEAD_TASK_GUARD, '    :')
         for short in prefixes:
             got = self.box.run('pr-body.sh', 'PRO-Robotech/kacho-workspace', 'origin/main', short,
@@ -716,19 +745,25 @@ class RemoteReader(unittest.TestCase):
                 self.assertIn(refusal, got.stderr)
             else:
                 self.assertNotIn(refusal, got.stderr, got.stdout + got.stderr)
+                self.assertEqual(got.returncode, 0, got.stdout + got.stderr)
+                self.assertJob(got, slots=2)
 
-    def _digit_short_sha(self):
+    def _digit_short_sha(self, commit_candidate=None):
         """Копия не на ветке задачи и голова — короткий sha из одних цифр (⛔ check-verifier на 77fa57cec)."""
         g = self.box.gh
         (g / 'issue.json').write_text(json.dumps({'number': 5, 'state': 'open', 'title': 'задача песочницы'}))
         self.box.git('checkout', '-q', '-b', 'sandbox-no-task')
+        # Штатный кандидат строится ограниченным перебором с фиксированным временем.
+        # Подмена производителя позволяет доказать отбор, а не предположить его.
+        if commit_candidate is None:
+            commit_candidate = lambda message: self._real_short_sha_commit('nonzero')
         for i in range(400):
             (self.box.ws / 'lane.txt').write_text('правка %d\n' % i)
-            h = self.box.commit('#5 правка %d' % i)
-            if h[:6].isdigit():
+            h = commit_candidate('#5 правка %d' % i)
+            if h[:6].isdigit() and h[0] != '0':
                 self.box.git('update-ref', 'refs/remotes/origin/5-lane', 'HEAD')
                 return h[:6]
-        self.fail('цифрового префикса sha за 400 коммитов не нашлось')
+        self.fail('цифрового префикса sha без начального нуля за 400 кандидатов не нашлось')
 
     def test_pr_body_digit_short_sha_is_not_a_task(self):
         sha = self._digit_short_sha()
@@ -742,6 +777,8 @@ class RemoteReader(unittest.TestCase):
         self.box.mutate('remote-reader.sh', self.HEAD_TASK_GUARD, '    :')
         got = self.box.run('pr-body.sh', 'PRO-Robotech/kacho-workspace', 'origin/main', sha, RITUAL_REPO_DIR=str(self.box.ws))
         self.assertNotIn('номер задачи для ns Job не установить', got.stderr, got.stdout + got.stderr)
+        self.assertEqual(got.returncode, 0, got.stdout + got.stderr)
+        self.assertJob(got)
 
     def test_pod_named_calls_outside_the_read_list_are_refused(self):
         # Промах называет pod — значит, его текст пишет то, что исполнилось в Job. Машина исполняет
