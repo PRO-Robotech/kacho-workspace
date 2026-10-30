@@ -60,7 +60,11 @@ if not commands:
     print(f"[VOID] {NAME} — в {S} ни одной команды хука: обходить нечего")
     sys.exit(2)
 
-VAR = r"\$\{?\(?[A-Za-z_][^\s;|&\"'/]*[\"')}\]]*"
+# Parameter operators inside ${...} belong to the expansion (for example
+# ${DIR:-.}/script.sh). A colon AFTER an expansion is a Git REV:path separator,
+# not a working-file path. Keep scanning adjacent real calls on the same line.
+VAR = (r"(?:\$\{[A-Za-z_][^\s;|&\"'/}]*\}"
+       r"|\$\(?[A-Za-z_][^\s;|&:\"'/]*)[\"')}\]]*")
 CMD_REF = re.compile(VAR + r"((?:/[A-Za-z0-9_.-]+)+)")
 REF = re.compile(VAR + r"((?:/[A-Za-z0-9_.-]+)+\.(?:sh|py))\b")
 

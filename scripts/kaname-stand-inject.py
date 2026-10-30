@@ -1354,22 +1354,53 @@ class PreciCensus(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             for shard in range(3):
                 argv, bootstrap, manifest, producer = self.make_transport(Path(temporary), 'integrationshard', shard=shard)
-                self.preci.bind_transport(argv, bootstrap, manifest, producer, gate.common.digest)
+                self.preci.bind_transport(argv, bootstrap, manifest, producer, gate.common.digest, 3)
                 subset = self.preci.definitions_for(workflows, 'integrationshard', gate.common.digest, 3,
-                                                   self.preci.selected_shard(manifest))
+                                                   self.preci.selected_shard(manifest, 3))
                 self.assertEqual(set(subset), {f'ci.yml:integrationshard:{shard}'})
                 selected.update(subset)
                 for invalid in (None, False, True, '0', -1, 3, (shard + 1) % 3):
                     changed = dict(manifest, integrationShard=invalid)
                     with self.assertRaises(self.preci.EvidenceError):
-                        self.preci.bind_transport(argv, bootstrap, changed, producer, gate.common.digest)
-                    self.preci.bind_transport(argv, bootstrap, manifest, producer, gate.common.digest)
+                        self.preci.bind_transport(argv, bootstrap, changed, producer, gate.common.digest, 3)
+                    self.preci.bind_transport(argv, bootstrap, manifest, producer, gate.common.digest, 3)
                 changed = dict(manifest); del changed['integrationShard']
                 with self.assertRaises(self.preci.EvidenceError):
-                    self.preci.bind_transport(argv, bootstrap, changed, producer, gate.common.digest)
+                    self.preci.bind_transport(argv, bootstrap, changed, producer, gate.common.digest, 3)
                 with self.assertRaises(self.preci.EvidenceError):
-                    self.preci.selected_shard(dict(manifest, jobs='unit'))
+                    self.preci.selected_shard(dict(manifest, jobs='unit'), 3)
             self.assertEqual(selected, complete)
+
+    def test_preci_fourth_transport_uses_source_width(self):
+        import tempfile
+        workflows = {'ci.yml': gate.common.load_workflow((HERE /
+            'kaname-stand-fixtures/ci-workflow-native.yml').read_bytes())}
+        workflows['ci.yml']['jobs']['integrationshard']['strategy']['matrix']['shard'].append(4)
+        definitions = {str(i): {'workflow_job': 'ci.yml:integrationshard', 'matrix_index': i,
+                               'matrix_total': 4} for i in range(4)}
+        width = self.preci.integration_width(workflows, definitions)
+        matrix = workflows['ci.yml']['jobs']['integrationshard']['strategy']['matrix']
+        for invalid in ([1, 2, 3], [1, 2, 3, 4, 5], [1, 2, 3, 3], [True, 2, 3, 4]):
+            matrix['shard'] = invalid
+            with self.assertRaises(self.preci.EvidenceError): self.preci.integration_width(workflows, definitions)
+            matrix['shard'] = [1, 2, 3, 4]
+            self.assertEqual(self.preci.integration_width(workflows, definitions), width)
+        with tempfile.TemporaryDirectory() as temporary:
+            argv, bootstrap, manifest, producer = self.make_transport(Path(temporary), 'integrationshard', shard=3)
+            bind = lambda m, b=bootstrap, w=width: self.preci.bind_transport(
+                argv, b, m, producer, gate.common.digest, w)
+            positive = bind(manifest)
+            self.assertEqual(self.preci.selected_shard(manifest, width), 3)
+            for invalid in (None, False, True, '3', -1, 4, 0):
+                with self.assertRaises(self.preci.EvidenceError): bind(dict(manifest, integrationShard=invalid))
+                self.assertEqual(bind(manifest), positive)
+            with self.assertRaises(self.preci.EvidenceError): bind(manifest, w=3)
+            with self.assertRaises(self.preci.EvidenceError):
+                bind(manifest, bootstrap.replace(b'--integration-shard 3', b'--integration-shard 2'))
+            removed = dict(manifest); del removed['integrationShard']
+            with self.assertRaises(self.preci.EvidenceError): bind(removed)
+            with self.assertRaises(self.preci.EvidenceError): bind(dict(manifest, jobs='unit'))
+            self.assertEqual(bind(manifest), positive)
 
     def test_preci_sanitized_report_exact_metadata_and_bytes(self):
         import copy
@@ -1404,7 +1435,7 @@ class PreciCensus(unittest.TestCase):
                    'transform_sha256': self.preci.UNIT_REPORT_POLICY_SHA}
         with tempfile.TemporaryDirectory() as temporary:
             argv, bootstrap, manifest, producer = self.make_transport(Path(temporary), 'unit', unit_transform=profile)
-            bind = lambda value: self.preci.bind_transport(argv, bootstrap, value, producer, gate.common.digest)
+            bind = lambda value: self.preci.bind_transport(argv, bootstrap, value, producer, gate.common.digest, 3)
             positive = bind(manifest)
             invalids = [None, False, {}, dict(profile, transform='unknown'),
                         dict(profile, transform_sha256='0' * 64), dict(profile, extra=True)]
@@ -1430,7 +1461,7 @@ class PreciCensus(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             argv, bootstrap, manifest, producer = self.make_transport(
                 Path(temporary), 'build,unit,listfilter', unit_transform=profile)
-            bind = lambda value: self.preci.bind_transport(argv, bootstrap, value, producer, gate.common.digest)
+            bind = lambda value: self.preci.bind_transport(argv, bootstrap, value, producer, gate.common.digest, 3)
             positive = bind(manifest)
             self.assertEqual(self.preci.selected_unit_transform(manifest), profile)
             for jobs in ('build,listfilter', 'unit,unit', 'build,unit,build',
@@ -1447,7 +1478,7 @@ class PreciCensus(unittest.TestCase):
         import tempfile, copy
         with tempfile.TemporaryDirectory() as temporary:
             argv, bootstrap, manifest, producer = self.make_transport(Path(temporary), 'unit')
-            positive = self.preci.bind_transport(argv, bootstrap, manifest, producer, gate.common.digest)
+            positive = self.preci.bind_transport(argv, bootstrap, manifest, producer, gate.common.digest, 3)
             wrong = copy.deepcopy(manifest); wrong['files']['runner.py'] = '0' * 64
             wrong_bundle = copy.deepcopy(manifest); wrong_bundle['bundleSHA'] = '0' * 64
             cases = [(argv + ['extra-target'], bootstrap, manifest, producer),
@@ -1456,25 +1487,40 @@ class PreciCensus(unittest.TestCase):
                      (argv, bootstrap, wrong, producer), (argv, bootstrap, wrong_bundle, producer),
                      (argv[:4], bootstrap, manifest, producer)]
             for args in cases:
-                with self.assertRaises(self.preci.EvidenceError): self.preci.bind_transport(*args, gate.common.digest)
-                self.assertEqual(self.preci.bind_transport(argv, bootstrap, manifest, producer, gate.common.digest), positive)
+                with self.assertRaises(self.preci.EvidenceError): self.preci.bind_transport(*args, gate.common.digest, 3)
+                self.assertEqual(self.preci.bind_transport(argv, bootstrap, manifest, producer, gate.common.digest, 3), positive)
 
     def test_preci_whole_import_workflow_native_and_failed_transport(self):
+        self.whole_import(3)
+
+    def test_preci_four_piece_import_and_matrix_refusals(self):
+        self.whole_import(4)
+
+    def whole_import(self, width):
         import tempfile, copy
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
             workflow_paths = {name: HERE / ('kaname-stand-fixtures/' +
                 ('ci-workflow-native.yml' if name == 'ci.yml' else 'e2e-workflow-native.yml'))
                 for name in self.preci.WORKFLOW_JOBS}
+            if width == 4:
+                # Explicit recognizer fixture; never a relabelled native capture.
+                ci = directory / 'ci-four-fixture.yml'
+                ci.write_bytes(workflow_paths['ci.yml'].read_bytes().replace(b'shard: [1, 2, 3]', b'shard: [1, 2, 3, 4]'))
+                workflow_paths['ci.yml'] = ci
             workflows = {name: gate.common.load_workflow(path.read_bytes()) for name, path in workflow_paths.items()}
             jobs = 'unit,integrationshard'
-            definitions = self.preci.definitions_for(workflows, jobs, gate.common.digest, 3)
+            definitions = self.preci.definitions_for(workflows, jobs, gate.common.digest, width)
             argv, _, _, _ = self.make_transport(directory, jobs)
             selected = []
             captures = []
-            for i in range(3):
-                capture = (HERE / f'kaname-stand-fixtures/integration-{i}-native.log').read_text()
-                selected += gate.integration(capture, i, 3)['packages']; captures.append(capture)
+            for i in range(width):
+                capture = ((HERE / f'kaname-stand-fixtures/integration-{i}-native.log').read_text() if width == 3 else
+                           f'отобрано : {width}\n=== РАСКЛАДКА ПО ШАРДАМ ({width}) ===\n'
+                           f'в плане пакетов       : {width} из {width}, каждый ровно в одном шарде\n'
+                           f'исполняется в шарде {i}: 1\nok fixture/package{i} 1.000s\n'
+                           'интеграция: зелёный (код go test 0)\n')
+                selected += gate.integration(capture, i, width)['packages']; captures.append(capture)
             ns = 'fixture-ns'
             import subprocess
             quoted = subprocess.check_output(['bash', '--noprofile', '--norc', '-c', 'printf "%q " "$@"', 'argv-data', *argv], env={'PATH': '/usr/bin:/bin', 'LC_ALL': 'C'}, text=True)
@@ -1509,8 +1555,8 @@ class PreciCensus(unittest.TestCase):
             (directory / 'raw.log').write_text(raw)
             (directory / 'audit.txt').write_text('Synthetic import fixture, native short skip counts remain visible.\n')
             exp = {'repo': gate.REPO, **self.source, 'definitions': {}}
-            for i in range(3):
-                exp['definitions'][f'integration{i}'] = {'matrix_index': i,
+            for i in range(width):
+                exp['definitions'][f'integration{i}'] = {'matrix_index': i, 'matrix_total': width,
                     'workflow_job': 'ci.yml:integrationshard', 'workflow_digest': gate.common.digest(workflow_paths['ci.yml'].read_bytes())}
             exp['definitions']['hosted'] = {'matrix_index': None, 'workflow_job': 'e2e-newman.yml:stand',
                 'workflow_digest': gate.common.digest(workflow_paths['e2e-newman.yml'].read_bytes())}
@@ -1523,7 +1569,21 @@ class PreciCensus(unittest.TestCase):
             def imported(value):
                 return self.preci.import_candidate(exp, value, gate.common, gate.remote_log, gate.go_json, gate.integration_union)
             positive = imported(packet)
-            self.assertEqual(positive['integration']['passed'], 37)
+            baseline = copy.deepcopy(exp['definitions'])
+            broken_definitions = []
+            dropped = copy.deepcopy(baseline); del dropped['integration0']; broken_definitions.append(dropped)
+            extra = copy.deepcopy(baseline); extra['extra'] = copy.deepcopy(extra['integration0']); broken_definitions.append(extra)
+            for field, value in [('matrix_index', 0), ('matrix_index', True), ('matrix_index', '1'),
+                                 ('matrix_index', -1), ('matrix_index', width), ('matrix_total', width + 1),
+                                 ('matrix_total', True)]:
+                broken = copy.deepcopy(baseline); broken['integration1'][field] = value
+                broken_definitions.append(broken)
+            for broken in broken_definitions:
+                exp['definitions'] = broken
+                with self.assertRaises(self.preci.EvidenceError): imported(packet)
+                exp['definitions'] = baseline
+                self.assertEqual(imported(packet), positive)
+            self.assertEqual(positive['integration']['passed'], 37 if width == 3 else width)
             # A source-bound transformed unit report can share its complete
             # partition with other jobs; those jobs retain ordinary metadata.
             profile = {'transform': self.preci.UNIT_REPORT_TRANSFORM,
@@ -1573,7 +1633,7 @@ class PreciCensus(unittest.TestCase):
             wrong = copy.deepcopy(packet); wrong['runs']['duplicate'] = copy.deepcopy(wrong['runs']['synthetic'])
             with self.assertRaises(self.preci.EvidenceError): imported(wrong)
             self.assertEqual(imported(packet), positive)
-            # Three independent integration transports plus a separate unit
+            # Independent integration transports plus a separate unit
             # transport must retain the same closed native package census.
             parallel = copy.deepcopy(packet); parallel['runs'] = {}
             for key, steps in definitions.items():
@@ -1600,9 +1660,17 @@ class PreciCensus(unittest.TestCase):
                      ('argv', 'argv.json'), ('bootstrap', 'bootstrap.sh')]}
                 parallel['runs'][name].update(command_line=command, auxiliary={})
             parallel_positive = imported(parallel)
+            # Extra framed groups remain forbidden even in a valid transported partition.
+            part_log = Path(parallel['runs']['integration-0']['log'])
+            original = part_log.read_text()
+            part_log.write_text(original.replace('PRECI_CENSUS ',
+                'PRECI_GROUP_BEGIN ci.yml:integrationshard:extra\nPRECI_CENSUS '))
+            with self.assertRaises(self.preci.EvidenceError): imported(parallel)
+            part_log.write_text(original)
+            self.assertEqual(imported(parallel), parallel_positive)
             self.assertEqual(parallel_positive['integration'], positive['integration'])
             self.assertEqual(parallel_positive['unit'], positive['unit'])
-            for missing in ('integration-0', 'integration-1', 'integration-2'):
+            for missing in (f'integration-{i}' for i in range(width)):
                 broken = copy.deepcopy(parallel); del broken['runs'][missing]
                 with self.assertRaises(self.preci.EvidenceError): imported(broken)
                 self.assertEqual(imported(parallel), parallel_positive)

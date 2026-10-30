@@ -188,3 +188,60 @@ if [ -n "$victim_hook" ]; then
     capture "$d" "$C14"
     assert_code 0 "БЛИЗНЕЦ: хвостовой комментарий — не вызов, молчит"
 fi
+
+# Git-object operands use REV:path, whereas a working-file invocation uses
+# DIR/path. These are literal source records, never executed by this fixture.
+echo
+echo "== check-14 ось G: Git-object operand не является вызовом скрипта =="
+d="$(sandbox i14_g)"
+cat > "$d/.claude/hooks/inj14-git-object.sh" <<'GIT_OBJECT'
+#!/usr/bin/env bash
+git -C "$SRC" cat-file -e "$SHA:.github/scripts/review-event-silence.py"
+git -C "$SRC" cat-file -e "${SHA}:.github/scripts/newman-suite-debt.py"
+git -C "$SRC" cat-file -e "${SHA:-HEAD}:.github/scripts/review-event-silence.py"
+GIT_OBJECT
+i14_hook "$d" Stop ".claude/hooks/inj14-git-object.sh"
+capture "$d" "$C14"
+assert_code 0 "БЛИЗНЕЦ: обе формы REV:path — данные git cat-file, не вызовы локального скрипта"
+
+# Do not exempt an entire git-containing line: the real missing invocation
+# adjacent to an object operand must still fail, in either command order.
+for order in before after; do
+    d="$(sandbox "i14_g_$order")"
+    if [ "$order" = before ]; then
+        cat > "$d/.claude/hooks/inj14-git-object.sh" <<'GIT_BEFORE'
+#!/usr/bin/env bash
+bash "$HOOK_DIR/inj14-actually-missing.sh"; git -C "$SRC" cat-file -e "$SHA:.github/scripts/review-event-silence.py"
+GIT_BEFORE
+    else
+        cat > "$d/.claude/hooks/inj14-git-object.sh" <<'GIT_AFTER'
+#!/usr/bin/env bash
+git -C "$SRC" cat-file -e "${SHA}:.github/scripts/newman-suite-debt.py" && python3 "$HOOK_DIR/inj14-actually-missing.py"
+GIT_AFTER
+    fi
+    i14_hook "$d" Stop ".claude/hooks/inj14-git-object.sh"
+    capture "$d" "$C14"
+    assert_code 1 "ДЕФЕКТ: настоящий снятый скрипт $order Git-object operand по-прежнему краснеет"
+    assert_says "inj14-actually-missing" "  ...и названа настоящая отсутствующая цель"
+    assert_lacks "зовёт «scripts/review-event-silence.py»" "  ...и Git operand не объявлен локальным вызовом"
+    assert_lacks "зовёт «scripts/newman-suite-debt.py»" "  ...и второй Git operand не объявлен локальным вызовом"
+done
+
+# Parameter operators are INSIDE the completed expansion, unlike REV:path.
+echo
+echo "== check-14 ось P: операторы раскрытия параметра сохраняют проверку пути =="
+for operator in - = '?' +; do
+    d="$(sandbox "i14_parameter_${operator}")"
+    # shellcheck disable=SC2016  # literal shell source for the scanner, not evaluated here
+    printf '#!/usr/bin/env bash\nbash "${HOOK_DIR:%s.}/inj14-parameter-target.sh"\n' "$operator" \
+        > "$d/.claude/hooks/inj14-parameter-top.sh"
+    i14_hook "$d" Stop ".claude/hooks/inj14-parameter-top.sh"
+    capture "$d" "$C14"
+    assert_code 1 "ДЕФЕКТ: отсутствующий скрипт после оператора :$operator внутри раскрытия параметра"
+    assert_says "inj14-parameter-target.sh" "  ...и отсутствующая цель названа"
+    b="$(sandbox_digest "$d")"
+    printf '#!/usr/bin/env bash\nexit 0\n' > "$d/.claude/hooks/inj14-parameter-target.sh"
+    assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: добавлен настоящий вызываемый файл для :$operator"
+    capture "$d" "$C14"
+    assert_code 0 "БЛИЗНЕЦ: тот же путь после :$operator с существующим файлом — молчит"
+done

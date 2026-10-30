@@ -1917,10 +1917,10 @@ sed -n '/^# homes-begin$/,/^# homes-end$/p; /^# homeswait-begin$/,/^# homeswait-
 if grep -q '^# homeswait-end$' "$HM/step.sh"; then ok; else OUT="$BOX/d1-ci-local.cmd"; bad HM2 "текста шага домов проб в Job нет — исполнять нечего"; fi
 # hm_run <случай> <шаг> — исполнить шаг в чистом /work песочницы; печатает переменные домов
 hm_run() {
-    rm -rf "$HM/work"; mkdir -p "$HM/work/src"; OUT="$BOX/$1.out"
+    chmod -R u+w "$HM/work" 2>/dev/null; rm -rf "$HM/work"; mkdir -p "$HM/work/src"; OUT="$BOX/$1.out"
     # shellcheck disable=SC2016  # переменные раскрывает исполняемый шаг
-    { echo 'set -uo pipefail'; cat "$2"; echo 'echo "HM kacho=${KACHO_HOME_KACHO:-} corelib=${KACHO_HOME_CORELIB:-}"'; } > "$HM/run-step.sh"
-    ( cd "$HM/work/src" && env -u KACHO_HOME_KACHO -u KACHO_HOME_CORELIB GIT_CONFIG_GLOBAL="$HM/gitcfg" GIT_CONFIG_NOSYSTEM=1 \
+    { echo 'set -uo pipefail'; cat "$2"; echo 'echo "HM kacho=${KACHO_HOME_KACHO:-} corelib=${KACHO_HOME_CORELIB:-} platform=${KACHO_MONOREPO:-}"'; } > "$HM/run-step.sh"
+    ( cd "$HM/work/src" && env -u KACHO_HOME_KACHO -u KACHO_HOME_CORELIB -u KACHO_MONOREPO GIT_CONFIG_GLOBAL="$HM/gitcfg" GIT_CONFIG_NOSYSTEM=1 \
         bash "$HM/run-step.sh" ) > "$OUT" 2>&1; RC=$?
 }
 # hm_probe_runs <имя> — координата дома исполнима предикатом пробы
@@ -1935,11 +1935,36 @@ hm_run HM2 "$HM/step.sh"; expect_rc HM2 0
 for r in kacho corelib; do
     if hm_probe_runs "$r"; then ok; else bad "HM2-$r" "дом $r не исполним пробой: переменная, origin, ствол либо объявление пробы по origin/main"; fi
 done
-if [ -z "$(git -C "$HM/work/project/kacho" ls-files 2>/dev/null)" ] && [ ! -e "$HM/work/project/kacho/x_test.go" ]; then ok
-else bad HM2-nocheckout "клон дома несёт рабочее дерево — проба читает refs, файлы лишь занимают место pod"; fi
+if [ -f "$HM/work/project/kacho/x_test.go" ] \
+    && grep -q "platform=$HM/work/project/kacho" "$OUT" \
+    && grep -q 'platform operand PRO-Robotech/kacho origin/main=' "$OUT" \
+    && [ ! -w "$HM/work/project/kacho/x_test.go" ]; then ok
+else bad HM2-checkout "platform operand missing, writable, unbound or not exposed"; fi
+# HM2-fetch: native non-root fetch must refresh origin/main while leaving the
+# pinned checkout unchanged and working-file writes denied, as the edge hook requires.
+hm_head="$(git -C "$HM/work/project/kacho" rev-parse HEAD)"
+hm_tree="$(git -C "$HM/work/project/kacho" rev-parse 'HEAD^{tree}')"
+printf 'next main\n' > "$HM/seed-kacho/fetch-control.txt"
+git -C "$HM/seed-kacho" add fetch-control.txt
+sandbox_git -C "$HM/seed-kacho" commit -q -m fetch-control
+git -C "$HM/seed-kacho" push -q "$HM/origins/kacho.git" HEAD:refs/heads/main
+hm_fresh="$(git -C "$HM/seed-kacho" rev-parse HEAD)"
+if [ "$(id -u)" -ne 0 ] \
+    && GIT_CONFIG_GLOBAL="$HM/gitcfg" git -C "$HM/work/project/kacho" fetch -q origin main \
+    && [ "$(git -C "$HM/work/project/kacho" rev-parse origin/main)" = "$hm_fresh" ] \
+    && [ "$(git -C "$HM/work/project/kacho" rev-parse HEAD)" = "$hm_head" ] \
+    && [ "$(git -C "$HM/work/project/kacho" rev-parse 'HEAD^{tree}')" = "$hm_tree" ] \
+    && [ -z "$(git -C "$HM/work/project/kacho" status --porcelain)" ] \
+    && ! (printf 'forbidden\n' > "$HM/work/project/kacho/x_test.go") 2>/dev/null; then ok
+else bad HM2-fetch "non-root fetch failed, source pin changed, or working-file write accepted"; fi
+# Checkout failure must not expose a platform operand (source-coordinate home survives).
+sed 's/checkout -q --detach/checkout --invalid-checkout-control -q --detach/' "$HM/step.sh" > "$HM/step-checkout-fail.sh"
+hm_run HM2-checkout-fail "$HM/step-checkout-fail.sh"; expect_rc HM2-checkout-fail 0
+if grep -q 'platform=$' "$OUT" && grep -q 'platform operand checkout failed/missing' "$OUT"; then ok
+else bad HM2-checkout-fail "failed checkout exposed platform operand"; fi
 mv "$HM/origins/kacho.git" "$HM/origins/kacho.gone"
 hm_run HM2-void "$HM/step.sh"; expect_rc HM2-void 0
-if grep -qx "HM kacho= corelib=$HM/work/project/corelib" "$OUT" && [ ! -e "$HM/work/project/kacho" ] \
+if grep -qx "HM kacho= corelib=$HM/work/project/corelib platform=" "$OUT" && [ ! -e "$HM/work/project/kacho" ] \
     && grep -q 'НЕ поставлены: kacho (git clone не исполнился.*\[VOID\]' "$OUT"; then ok
 else bad HM2-void "без origin kacho: ждали код 0, KACHO_HOME_KACHO пустой, каталога нет, строку о [VOID]; corelib поставлен"; fi
 mv "$HM/origins/kacho.gone" "$HM/origins/kacho.git"
@@ -4627,6 +4652,13 @@ kd_case KD8-cgroup 125 'remote-heavy-kind: .*cgroup' cgroup
 kd_case KD8-silent 125 'remote-heavy-kind: ' silent
 kd_case KD9-pull 125 "remote-heavy-prep: образ пробы kind alpine:3 не скачан в dind: .*i/o timeout" pull
 export REMOTE_HEAVY_KIND_DIR="$SELF_DIR"
+
+# ws#1527 closed tracker capture/replay controls (external suite only).
+OUT="$BOX/tracker-inject.out"
+python3 "$SELF_DIR/tracker-inject.py" > "$OUT" 2>&1; RC=$?
+expect_rc TRACKER 0
+cat "$OUT"
+chmod -R u+w "$HM/work" 2>/dev/null
 
 # L0 — двойник печатает адрес и IPv4 (иначе L1 пуста)
 OUT="$BOX/l0.out"
