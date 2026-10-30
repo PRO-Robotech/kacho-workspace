@@ -41,6 +41,8 @@ with tempfile.TemporaryDirectory() as tmp:
     (root / 'docs/specs/reviews/subject/record.yaml').write_text(
         'subject:\n  task: PRO-Robotech/kaname#456\nevent:\n'
         '  url: https://github.com/PRO-Robotech/kacho/issues/1271#issuecomment-1\n')
+    (root / 'docs/specs/reviews/subject/pr.yaml').write_text(
+        'subject:\n  task: PRO-Robotech/kaname#153\n')
     (root / '.github/scripts/newman-suite-debt.py').write_text(
         '_HOLDER = "PRO-Robotech/kaname#155 — held"\n'
         'PRODUCER_LEDGER = {"x": ("A", "reason", _HOLDER)}\n'
@@ -50,7 +52,7 @@ with tempfile.TemporaryDirectory() as tmp:
         '-c', 'user.email=control@example.invalid', 'commit', '-qm', 'snapshot control')
     sha = git('rev-parse', 'HEAD')
     inv = t.inventory(root, sha)
-    assert inv == {'comments': ['PRO-Robotech/kacho#1271', 'PRO-Robotech/kaname#456'],
+    assert inv == {'comments': ['PRO-Robotech/kacho#1271', 'PRO-Robotech/kaname#153', 'PRO-Robotech/kaname#456'],
                    'states': ['PRO-Robotech/kaname#155', 'PRO-Robotech/kaname#925']}
     check('source declaration inventory', lambda: t.inventory(root, sha))
     snapshot = {'schema': 1, 'repo': 'PRO-Robotech/kaname', 'head': sha,
@@ -83,6 +85,30 @@ with tempfile.TemporaryDirectory() as tmp:
     changed('foreign comment record', lambda s: s['comments'][task][0]['records'][0].update(html_url='https://github.com/PRO-Robotech/kaname/issues/456#issuecomment-1'))
     changed('missing inventory task', lambda s: s['inventory']['comments'].pop())
     changed('foreign extra holder', lambda s: s['states'].update({'PRO-Robotech/kaname#986': {}}))
+    # Coordinates captured from the genuine GitHub issue-comments API for PR153
+    # (independent review actual-pr-comment-coordinates.json); other fields below
+    # remain explicit test data. Preserve the real URL rather than normalizing it.
+    pr_task = 'PRO-Robotech/kaname#153'
+    pr_record = dict(record, id=5710508705,
+                     html_url='https://github.com/PRO-Robotech/kaname/pull/153#issuecomment-5710508705')
+    snapshot['comments'][pr_task][0]['records'] = [pr_record]
+    check('lawful genuine PR comment coordinates', lambda: t.validate(snapshot, root, sha))
+    for name, url in (
+            ('PR foreign repository', 'https://github.com/foreign/kaname/pull/153#issuecomment-5710508705'),
+            ('PR wrong task number', 'https://github.com/PRO-Robotech/kaname/pull/154#issuecomment-5710508705'),
+            ('PR wrong comment ID', 'https://github.com/PRO-Robotech/kaname/pull/153#issuecomment-5710508706')):
+        changed(name, lambda s, url=url: s['comments'][pr_task][0]['records'][0].update(html_url=url))
+    holder = inv['states'][0]
+    pr_holder = copy.deepcopy(snapshot)
+    pr_holder['states'][holder]['html_url'] = 'https://github.com/' + holder.replace('#', '/pull/')
+    check('lawful PR holder REST state', lambda: t.validate(pr_holder, root, sha))
+    changed('holder float number', lambda s: s['states'][holder].update(number=155.0))
+    changed('holder bool number', lambda s: s['states'][holder].update(number=True))
+    changed('bool schema', lambda s: s.update(schema=True))
+    for name, url in (
+            ('PR holder foreign repository', 'https://github.com/foreign/kaname/pull/155'),
+            ('PR holder wrong task number', 'https://github.com/PRO-Robotech/kaname/pull/156')):
+        changed(name, lambda s, url=url: s['states'][holder].update(html_url=url))
     path = str(root / 'snapshot.json')
     pathlib.Path(path).write_text(json.dumps(snapshot))
     t.main(['validate', str(root), sha, path])

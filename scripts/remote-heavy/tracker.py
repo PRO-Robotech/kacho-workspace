@@ -176,8 +176,15 @@ def timestamp(value):
             'timestamp lacks timezone')
 
 
+def issue_urls(task, suffix=''):
+    """REST issue endpoints also return PRs; preserve their canonical html_url."""
+    repo, number = task.split('#')
+    return {f'https://github.com/{repo}/{kind}/{number}{suffix}'
+            for kind in ('issues', 'pull')}
+
+
 def validate(snap, root, sha):
-    require(snap.get('schema') == 1 and snap.get('repo') == 'PRO-Robotech/kaname', 'foreign schema/repo')
+    require(type(snap.get('schema')) is int and snap['schema'] == 1 and snap.get('repo') == 'PRO-Robotech/kaname', 'foreign schema/repo')
     require(snap.get('head') == sha and snap.get('tree') == git(root, 'rev-parse', sha + '^{tree}'),
             'source binding mismatch')
     timestamp(snap.get('started')); timestamp(snap.get('completed'))
@@ -200,15 +207,16 @@ def validate(snap, root, sha):
                 require(isinstance(row, dict) and type(row.get('id')) is int and row['id'] > 0,
                         'malformed comment id')
                 require(row['id'] not in ids, 'duplicate comment id'); ids.add(row['id'])
-                require(row.get('html_url') == 'https://github.com/' + task.replace('#', '/issues/') +
-                        '#issuecomment-' + str(row['id']), 'foreign comment')
+                require(row.get('html_url') in issue_urls(task, '#issuecomment-' + str(row['id'])),
+                        'foreign comment')
                 require(isinstance(row.get('body'), str) and isinstance(row.get('user'), dict)
                         and isinstance(row['user'].get('login'), str) and row['user']['login'],
                         'malformed comment body/user')
                 timestamp(row.get('created_at'))
     for task, row in snap['states'].items():
-        require(isinstance(row, dict) and row.get('number') == int(task.split('#')[1])
-                and row.get('html_url') == 'https://github.com/' + task.replace('#', '/issues/')
+        require(isinstance(row, dict) and type(row.get('number')) is int
+                and row['number'] == int(task.split('#')[1])
+                and row.get('html_url') in issue_urls(task)
                 and row.get('state') in ('open', 'closed'), 'missing/foreign/malformed holder state')
         timestamp(row.get('updated_at'))
 
