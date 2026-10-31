@@ -1,0 +1,194 @@
+{
+  "stand-ceremony": {
+    "id": 124415363580,
+    "name": "автономный стенд — волна церемонии и распорядители ...",
+    "run_id": 41160030538,
+    "run_attempt": 1,
+    "head_sha": "6ae7049c4a6ccc2af55ca2b4a55b81a3dd3c2f49",
+    "status": "completed",
+    "conclusion": "success",
+    "runner_group_name": "GitHub Actions",
+    "runner_name": "GitHub Actions 1000179670",
+    "steps": [
+      {
+        "name": "Set up job",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 1,
+        "started_at": "2026-10-31T02:27:55Z",
+        "completed_at": "2026-10-31T02:27:56Z"
+      },
+      {
+        "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 2,
+        "started_at": "2026-10-31T02:27:56Z",
+        "completed_at": "2026-10-31T02:28:03Z"
+      },
+      {
+        "name": "Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 3,
+        "started_at": "2026-10-31T02:28:03Z",
+        "completed_at": "2026-10-31T02:28:08Z"
+      },
+      {
+        "name": "Run go mod download",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 4,
+        "started_at": "2026-10-31T02:28:08Z",
+        "completed_at": "2026-10-31T02:28:08Z"
+      },
+      {
+        "name": "различение исходов подъёма способно упасть (самопроба инъекцией)",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 5,
+        "started_at": "2026-10-31T02:28:08Z",
+        "completed_at": "2026-10-31T02:28:20Z"
+      },
+      {
+        "name": "подъём стенда (своя база + свой УЦ, без платформы)",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 6,
+        "started_at": "2026-10-31T02:28:20Z",
+        "completed_at": "2026-10-31T02:29:15Z"
+      },
+      {
+        "name": "инструменты прогона (их отсутствие — НЕ находка о дереве)",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 7,
+        "started_at": "2026-10-31T02:29:15Z",
+        "completed_at": "2026-10-31T02:29:50Z"
+      },
+      {
+        "name": "машинный посев способен упасть (самопроба инъекцией)",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 8,
+        "started_at": "2026-10-31T02:29:50Z",
+        "completed_at": "2026-10-31T02:29:51Z"
+      },
+      {
+        "name": "посев церемонии способен упасть (самопроба инъекцией)",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 9,
+        "started_at": "2026-10-31T02:29:51Z",
+        "completed_at": "2026-10-31T02:29:51Z"
+      },
+      {
+        "name": "чистка отчёта способна упасть (самопроба по каждой форме)",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 10,
+        "started_at": "2026-10-31T02:29:51Z",
+        "completed_at": "2026-10-31T02:29:57Z"
+      },
+      {
+        "name": "предполёт посева способен упасть (самопроба инъекцией)",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 11,
+        "started_at": "2026-10-31T02:29:57Z",
+        "completed_at": "2026-10-31T02:29:57Z"
+      },
+      {
+        "name": "машинный посев удостоверений на автономном стенде",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 12,
+        "started_at": "2026-10-31T02:29:57Z",
+        "completed_at": "2026-10-31T02:30:58Z"
+      },
+      {
+        "name": "условие создано — люди и их предъявители своей церемонией службы",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 13,
+        "started_at": "2026-10-31T02:30:58Z",
+        "completed_at": "2026-10-31T02:32:32Z"
+      },
+      {
+        "name": "коллекции волны церемонии гоняются (числовой вердикт)",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 14,
+        "started_at": "2026-10-31T02:32:32Z",
+        "completed_at": "2026-10-31T02:38:32Z"
+      },
+      {
+        "name": "отчёт прогона вычищен от удостоверений",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 15,
+        "started_at": "2026-10-31T02:38:32Z",
+        "completed_at": "2026-10-31T02:38:46Z"
+      },
+      {
+        "name": "отчёт прогона волны церемонии (вычищенный)",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 16,
+        "started_at": "2026-10-31T02:38:46Z",
+        "completed_at": "2026-10-31T02:38:48Z"
+      },
+      {
+        "name": "журнал стенда вычищен от удостоверений",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 17,
+        "started_at": "2026-10-31T02:38:48Z",
+        "completed_at": "2026-10-31T02:38:49Z"
+      },
+      {
+        "name": "журнал стенда",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 18,
+        "started_at": "2026-10-31T02:38:49Z",
+        "completed_at": "2026-10-31T02:38:50Z"
+      },
+      {
+        "name": "снос стенда",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 19,
+        "started_at": "2026-10-31T02:38:50Z",
+        "completed_at": "2026-10-31T02:38:50Z"
+      },
+      {
+        "name": "Post Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 37,
+        "started_at": "2026-10-31T02:38:50Z",
+        "completed_at": "2026-10-31T02:38:51Z"
+      },
+      {
+        "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 38,
+        "started_at": "2026-10-31T02:38:51Z",
+        "completed_at": "2026-10-31T02:38:51Z"
+      },
+      {
+        "name": "Complete job",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 39,
+        "started_at": "2026-10-31T02:38:51Z",
+        "completed_at": "2026-10-31T02:38:51Z"
+      }
+    ],
+    "labels": [
+      "ubuntu-latest"
+    ]
+  }
+}
