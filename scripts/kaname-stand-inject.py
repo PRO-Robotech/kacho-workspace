@@ -218,6 +218,17 @@ class HostedDisplayNames(unittest.TestCase):
                     job = original; self.assertEqual(capture()['job']['id'], original['id'])
 
 
+class HostedCeremony6aeDisplayNames(HostedDisplayNames):
+    """Exact 6ae source and captured run 41160030538, job 124415363580 (ws#1533)."""
+    def setUp(self):
+        import json, copy
+        self.copy = copy.deepcopy
+        self.raw = (HERE / 'kaname-stand-fixtures/e2e-workflow-6ae-native.yml').read_bytes()
+        self.workflow = gate.common.load_workflow(self.raw)
+        self.digest = gate.common.digest(self.raw)
+        self.jobs = json.loads((HERE / 'kaname-stand-fixtures/hosted-ceremony-6ae-native.json').read_text())
+
+
 class HostedMatrixLegs(unittest.TestCase):
     """Ноги chart-own по канону производителя — снимок e2e-newman.yml 8225e939f (kaname#941, ws#1365)."""
     ENTRY = ['kaname-login-lane', 'kaname-recovery-lane', 'kaname-authorization-code',

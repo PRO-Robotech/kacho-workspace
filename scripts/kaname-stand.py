@@ -708,6 +708,10 @@ def checkout_source(log, head):
 # Observed REST names at the exact source below; this is not a general GitHub
 # truncation contract. A different source or spelling requires fresh evidence.
 OBSERVED_HOSTED_NAMES = {
+    # 6ae7049c4: run 41160030538, job 124415363580 (ws#1533).
+    ('5765f3ac05a98fd21651596beab70383d1647ffca43a4200bb10c0dd634d98d2', 'stand-ceremony'): (
+        'автономный стенд — волна церемонии и распорядители аккаунта (второй шард)',
+        'автономный стенд — волна церемонии и распорядители ...'),
     ('1fc23d6c126ec296eebb2b3aecceb5e8d84b12f487c4972813bcfa9ab2117261', 'stand-ceremony'): (
         'автономный стенд — волна церемонии и распорядители аккаунта (второй шард)',
         'автономный стенд — волна церемонии и распорядители ...'),
