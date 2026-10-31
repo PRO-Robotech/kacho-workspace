@@ -14,6 +14,8 @@
 # ФОРМА
 #   heavy-slot.sh [--wait N] [--resume <билет>] [--local "<причина>"] <класс> -- <команда> …   (занято — 74 сразу)
 #   heavy-slot.sh --enqueue <каталог> [--local "<причина>"] <класс> -- <команда> …   (поставить ОДИН раз, ниже)
+#   --external-only (либо KACHO_HEAVY_EXTERNAL_ONLY=1) — только внешний маршрут;
+#   недоступность кластера не разрешает локальный payload. С --local несовместим.
 #   heavy-slot.sh --classes     классы, бюджеты и основание каждого
 #   heavy-slot.sh --budget <класс>  бюджет класса в МиБ (читает session-memcap.sh)
 #   heavy-slot.sh --book <класс> -- <команда>  бронь, которую слот поставит этой команде из этого каталога
@@ -1208,8 +1210,11 @@ book_cmd() {
 # лидер своего сеанса), иначе 64.
 # --resume <билет> — повтор после 74/75 на месте отложенного билета (шапка, ws#1115).
 WAIT_ARG=""; LOCAL_WHY=""; LOCAL_SET=""; ENQ_DIR=""; QUEUED=""; RESUME=""; ROUTE_ONLY=""
+EXTERNAL_ONLY="${KACHO_HEAVY_EXTERNAL_ONLY:-0}"
+case "$EXTERNAL_ONLY" in 0|1) ;; *) say "KACHO_HEAVY_EXTERNAL_ONLY — только 0 либо 1"; exit 64 ;; esac
 while :; do
     case "${1:-}" in
+        --external-only) EXTERNAL_ONLY=1; shift ;;
         --route) ROUTE_ONLY=1; shift ;;
         --resume)
             RESUME="${2:-}"
@@ -1240,6 +1245,14 @@ while :; do
         *) break ;;
     esac
 done
+if [ "$EXTERNAL_ONLY" = 1 ] && [ -n "$LOCAL_SET" ]; then
+    say "--external-only несовместим с --local — payload не запускался"; exit 64
+fi
+export KACHO_HEAVY_EXTERNAL_ONLY="$EXTERNAL_ONLY"
+strict_external_refuse() {
+    say "external-only: $2 — локальный payload запрещён, команда не запускалась (код $1)"
+    exit "$1"
+}
 if [ -n "$ROUTE_ONLY" ] && { [ -n "$WAIT_ARG$LOCAL_SET$ENQ_DIR$QUEUED$RESUME" ] || [[ "${1:-}" == --* ]] || [ -z "${1:-}" ]; }; then
     say "--route — чистое суждение о маршруте: heavy-slot.sh --route <класс> -- <команда>, без --wait, --local, --enqueue, --resume"
     exit 64
@@ -1251,7 +1264,7 @@ case "${1:-}" in
     --cancel)  cancel_ticket "${2:-}"; exit $? ;;
     --waits)   waits_report "${2:-}" "${3:-24}"; exit $? ;;
     --book)    book_cmd "$@"; exit $? ;;
-    --console-deps) console_deps "${2:-}" "${3:-}"; exit $? ;;
+    --console-deps) [ "$EXTERNAL_ONLY" != 1 ] || strict_external_refuse 77 "локальная подготовка консоли"; console_deps "${2:-}" "${3:-}"; exit $? ;;
     --prune-tmp)
         { mkdir -p "$DIR/active" && touch "$DIR/lock"; } 2>/dev/null || { say "каталог слотов $DIR недоступен на запись"; exit 69; }
         exec {LK}>>"$DIR/lock"; flock -w 120 "$LK" || { say "замок $DIR/lock не взят за 120 с"; exit 69; }
@@ -1261,6 +1274,10 @@ case "${1:-}" in
 esac
 
 CLASS="$1"; shift
+if [ -n "$RESUME" ] && [ "$(field "$DIR/queue/$(printf '%012d' "$RESUME")" external_only)" = 1 ]; then
+    EXTERNAL_ONLY=1; export KACHO_HEAVY_EXTERNAL_ONLY=1
+    [ -z "$LOCAL_SET" ] || { say "--external-only билета несовместим с --local"; exit 64; }
+fi
 PCLASS="$CLASS"; [ "$CLASS" = go-unit ] && PCLASS=go-race   # профиль Job: go-unit идёт профилем go-race (ws#1301)
 if ! BUDGET="$(class_budget "$CLASS")"; then
     say "класса «$CLASS» нет. Классы: $(cut -d'|' -f1 <<< "$CLASSES" | tr '\n' ' ')— см. --classes"
@@ -1371,7 +1388,8 @@ if [ -n "$SUBJ_BOOK" ]; then
     say "бронь ci-local по предмету отправки «$(cut -d'|' -f2 <<< "$SUBJ_BOOK")»: $(mib "$BUDGET") вместо $(mib "$(class_budget ci-local)") класса — $(cut -d'|' -f3- <<< "$SUBJ_BOOK")"
 fi
 # Ключ повтора --enqueue: класс, владелец (ветка@каталог), причина --local и сама команда.
-ENQ_KEY="$(printf '%s\0' "$CLASS" "$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD" "$LOCAL_WHY" "$@" | sha256sum | cut -c1-16)"
+ENQ_MODE="$LOCAL_WHY"; [ "$EXTERNAL_ONLY" != 1 ] || ENQ_MODE="$LOCAL_WHY --external-only"
+ENQ_KEY="$(printf '%s\0' "$CLASS" "$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD" "$ENQ_MODE" "$@" | sha256sum | cut -c1-16)"
 CLAIM=""; [ -z "$QUEUED" ] || CLAIM="$DIR/enq-claims/$ENQ_KEY"
 # claim_drop — ребёнок --enqueue перестал ждать (идёт во внешний кластер либо вошёл в слот):
 # повтор той же команды после этого — новое задание, а не повтор.
@@ -1414,6 +1432,7 @@ if [ -n "$ENQ_DIR" ]; then
         eunlock
     fi
     fwd=(); [ -n "$LOCAL_SET" ] && fwd=(--local "$LOCAL_WHY")
+    [ "$EXTERNAL_ONLY" != 1 ] || fwd+=(--external-only)
     [ -n "$RESUME" ] && fwd+=(--resume "$RESUME")
     # shellcheck disable=SC2016  # строка дочерней оболочки, $1… раскрывает она
     # KACHO_DETACHED_UNTIL — срок билета для переписи застоя (ws#1154): предел ожидания
@@ -1530,6 +1549,7 @@ cluster_check() {
         sleep "$POLL_S"
     done
     case "$rc" in 69|124) ;; *) defect_exit "$rc" ;; esac
+    [ "$EXTERNAL_ONLY" != 1 ] || strict_external_refuse "$rc" "кластер недоступен: $CL_OUT"
     PROOF="rc=$rc $CL_OUT"
     WHY_LOCAL="кластер недоступен: ${CL_OUT#remote-heavy: }"
     return 1
@@ -1551,6 +1571,7 @@ busy_exit() {
     journal_early "busy-external class=$CLASS waited=$(( $(now) - $1 ))s proof=rc=75 $CL_OUT who=$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD cmd=$(printf '%q ' "${CMD_R[@]}")"
     say "кластер занят: ${CL_OUT#remote-heavy: } — команда НЕ запускалась ни там, ни локально (код $code, не выполнилось, не красное): занятость — не недоступность."
     say "повтори коротким шагом; ожидание места — --wait N (≤ $WAIT_MAX_S с) перед классом (testing-verdict.md#external-cluster-first)"
+    [ "$EXTERNAL_ONLY" != 1 ] || say "строгий повтор: сохрани --external-only (также с --resume) либо KACHO_HEAVY_EXTERNAL_ONLY=1"
     exit "$code"
 }
 tooling_gate() {
@@ -2320,6 +2341,7 @@ NR_MOOT=""
 # no_route_judge — внешнего пути у команды нет (WHY_LOCAL): один опрос кластера без профиля.
 no_route_judge() {
     local rc
+    [ "$EXTERNAL_ONLY" != 1 ] || strict_external_refuse 77 "внешнего маршрута нет ($WHY_LOCAL)"
     cluster_once; rc=$?
     case "$rc" in
         0|75) refuse_external "внешнего маршрута нет ($WHY_LOCAL) — до него команда не выполняется нигде: маршрут — задача $NO_ROUTE_TASK; «нет инструмента в образе», «слот занят», «быстрее локально» — не основания (ws#1301)" ;;
@@ -2401,6 +2423,7 @@ elif [ "$REMOTE_ON" = 1 ]; then
     fi
     ext_leave
     if [ -n "$NOHOOK_PUSH" ]; then
+        [ "$EXTERNAL_ONLY" != 1 ] || strict_external_refuse 77 "нет внешнего хука отправки"
         journal_early "nohook-push class=$CLASS repo=$NOHOOK_PUSH slot=нет why=у клона нет хука отправки (ни scripts/hooks/pre-push в голове, ни pre-push в каталоге хуков) who=$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD cmd=$(printf '%q ' "${CMD_R[@]}")"
         say "у клона $NOHOOK_PUSH хука отправки нет (ни scripts/hooks/pre-push в голове, ни pre-push в каталоге хуков git) — исполнять нечего: отправка идёт как есть, без слота; проверок не было — исход «хука нет», не «отказов 0» (маршрут хука — $NO_ROUTE_TASK)"
         exec "$@"
@@ -2418,6 +2441,7 @@ elif [ "$REMOTE_ON" = 1 ]; then
 else
     WHY_LOCAL="режим проб без двойника run.sh — маршрут не судился"
 fi
+[ "$EXTERNAL_ONLY" != 1 ] || strict_external_refuse 77 "внешний маршрут не завершён; локальная ветвь отклонена"
 local_push_untracked "$@"
 
 ID="$(now)-$$"
@@ -2491,6 +2515,7 @@ BPK="$(field "$TICKET" bypassed)"
 printf 'pid=%s\npid_start=%s\nclass=%s\nbudget=%s\nlimit=%s\nmeminfo=%s\nwho=%s\n%s' "$$" "$(pid_start $$)" "$CLASS" "$BUDGET" "$LIMIT_MIB" "$MEMINFO" "$WHO" "${QUEUED:+enq=$QUEUED
 }" > "$TICKET"
 [ -z "$BPK" ] || printf 'bypassed=%s\n' "$BPK" >> "$TICKET"
+[ "$EXTERNAL_ONLY" != 1 ] || printf 'external_only=1\n' >> "$TICKET"
 unlock
 KEEP_TICKET=""
 trap '[ -n "$KEEP_TICKET" ] || rm -f "$TICKET"' EXIT
@@ -2500,6 +2525,7 @@ defer_ticket() {
     BPK="$(field "$TICKET" bypassed)"
     printf 'class=%s\nbudget=%s\nlimit=%s\nmeminfo=%s\nwho=%s\nresume_until=%s\n%s' "$CLASS" "$BUDGET" "$LIMIT_MIB" "$MEMINFO" "$WHO" "$(( $(now) + RESUME_TTL_S ))" "${BPK:+bypassed=$BPK
 }" > "$TICKET.tmp" &&
+        { [ "$EXTERNAL_ONLY" != 1 ] || printf 'external_only=1\n' >> "$TICKET.tmp"; } &&
         mv -f "$TICKET.tmp" "$TICKET" && KEEP_TICKET=1
     unlock
 }

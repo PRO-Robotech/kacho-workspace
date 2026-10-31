@@ -4681,3 +4681,5 @@ printf 'remote-heavy inject: утверждений %d · сошлось %d · �
 [ "$FAIL" -eq 0 ] || exit 1
 # Неисполненная сцена зелёной не считается (ws#1503): код 2 — «не выполнилось», не 0.
 [ -z "$GS_NOTRUN" ] || { echo "remote-heavy inject: НЕ ВЫПОЛНИЛОСЬ (код 2) — сцена GS не исполнена: $GS_NOTRUN; клон kaname — KACHO_GHPOD_KANAME"; exit 2; }
+# Строгий маршрут проверяется отдельно на синтетической памяти внутри этого внешнего набора.
+python3 "$HERE/check-external-only.py"
