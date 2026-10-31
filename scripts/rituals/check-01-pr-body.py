@@ -233,6 +233,39 @@ def body(pr):
     pr.ok("законный вход: код 0", rc == 0, err)
     pr.ok("трекер не изменён", not P.writes(st), str(P.writes(st)))
 
+    # Явный выбор только понижает уже допустимое закрытие, не меняя старый путь.
+    legacy_out = out
+    rc1, chosen, err1, st1 = pr.run("pr-body", args + ["--refs-only", "41"],
+                                    pr.state(world(sha)), extra=extra)
+    pr.ok("refs-only: выбранная полная проба даёт Refs, соседняя остаётся Closes",
+          rc1 == 0 and "Refs #41" in tail_of(chosen)
+          and closes(chosen) == ["Closes %s#52" % R], err1 + chosen)
+    pr.ok("refs-only: причина явна в теле и трекер не изменён",
+          "консервативный `Refs` (`--refs-only 41`)" in chosen and not P.writes(st1), chosen)
+    rc1, chosen, err1, _ = pr.run("pr-body", args + ["--refs-only", "41", "--refs-only", "52"],
+                                  pr.state(world(sha)), extra=extra)
+    pr.ok("refs-only: повторяемая опция понижает обе задачи без новых закрытий",
+          rc1 == 0 and closes(chosen) == [] and "Refs #41" in tail_of(chosen)
+          and "Refs %s#52" % R in tail_of(chosen), err1 + chosen)
+    for suffix, reason, want in [
+        (["--refs-only"], "usage: pr-body.sh", 2),
+        (["--other", "41"], "usage: pr-body.sh", 2),
+        (["--refs-only", "0"], "положительным целым", 2),
+        (["--refs-only", "-1"], "положительным целым", 2),
+        (["--refs-only", "041"], "положительным целым", 2),
+        (["--refs-only", "41,52"], "положительным целым", 2),
+        (["--refs-only", "41", "--refs-only", "41"], "указан повторно", 2),
+        (["--refs-only", "999"], "не являются допустимыми Closes состава", 1),
+        (["--refs-only", "43"], "не являются допустимыми Closes состава", 1),
+        (["--refs-only", "51"], "не являются допустимыми Closes состава", 1),
+    ]:
+        rc1, rejected, err1, _ = pr.run("pr-body", args + suffix, pr.state(world(sha)), extra=extra)
+        pr.refused("refs-only: " + " ".join(suffix), rc1, err1, reason, want=want)
+        pr.ok("refs-only: отказ не выдаёт частичного тела", rejected == "", rejected)
+    rc1, unchanged, err1, _ = pr.run("pr-body", args, pr.state(world(sha)), extra=extra)
+    pr.ok("refs-only: прежние три аргумента побайтно сохраняют тело",
+          rc1 == 0 and unchanged == legacy_out, err1 + unchanged)
+
     # состав
     pr.ok("каждый коммит диапазона назван sha (%d)" % len(in_range),
           all(("`%s`" % s[:9]) in out for s in in_range), out)

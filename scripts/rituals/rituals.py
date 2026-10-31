@@ -458,8 +458,19 @@ def lane_lines(nodes: list, meta: dict, depth: int) -> tuple[list[str], int]:
 
 
 def pr_body(argv: list[str]) -> int:
-    if len(argv) != 3:
+    if len(argv) < 3:
         raise Unmet("usage: pr-body.sh <владелец/имя> <база> <голова>")
+    refs_only = set()
+    options = argv[3:]
+    if len(options) % 2 or any(options[i] != "--refs-only" for i in range(0, len(options), 2)):
+        raise Unmet("usage: pr-body.sh <владелец/имя> <база> <голова> [--refs-only <номер>]...")
+    for value in options[1::2]:
+        if not re.fullmatch(r"[1-9][0-9]*", value):
+            raise Unmet("refs-only: номер должен быть положительным целым без ведущих нулей")
+        n = int(value)
+        if n in refs_only:
+            raise Unmet("refs-only: номер %d указан повторно" % n)
+        refs_only.add(n)
     repo, base, head = need_repo(argv[0]), argv[1], argv[2]
     base_sha, head_sha = rev_commit(base), rev_commit(head)
     span = "%s..%s" % (base, head)
@@ -529,6 +540,7 @@ def pr_body(argv: list[str]) -> int:
     ledgers, census = read_ledgers(repo, head_sha)
     range_shas = list(meta)
     closes, refs, pulls, rows = [], [], [], []
+    downgraded = set()
     for n in sorted(first | qual):
         try:
             it = issue(repo, n)
@@ -578,8 +590,15 @@ def pr_body(argv: list[str]) -> int:
         inside = [(u, r) for u, r, bound in proofs if bound]
         if inside:
             url, rev = inside[-1]
-            closes.append(n)
-            rows.append("- %s «%s» — доказательство DoD: %s (`DoD-proof @%s`, коммит диапазона)" % (label(n), title, url, rev))
+            if n in refs_only:
+                refs.append(n)
+                downgraded.add(n)
+                rows.append("- %s «%s» — явно запрошен консервативный `Refs` (`--refs-only %d`): "
+                            "закрытие задачи не утверждается; доказательство %s (`DoD-proof @%s`) "
+                            "не используется для `Closes`" % (label(n), title, n, url, rev))
+            else:
+                closes.append(n)
+                rows.append("- %s «%s» — доказательство DoD: %s (`DoD-proof @%s`, коммит диапазона)" % (label(n), title, url, rev))
         elif proofs:
             refs.append(n)
             rows.append("- %s «%s» — `DoD-proof @%s` не коммит диапазона `%s`: `Refs`, не `Closes`"
@@ -592,6 +611,10 @@ def pr_body(argv: list[str]) -> int:
             refs.append(n)
             rows.append("- %s «%s» — доказательства DoD нет: `Refs`, не `Closes`" % (label(n), title))
 
+    unused = refs_only - downgraded
+    if unused:
+        raise Refused("refs-only: номера не являются допустимыми Closes состава: %s" %
+                      ", ".join(str(n) for n in sorted(unused)))
     lines += ["Задачи первых строк (%d):" % len(rows), ""]
     lines += rows or ["- в первых строках коммитов номеров задач нет"]
     if pulls:
